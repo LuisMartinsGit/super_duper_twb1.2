@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Sect_Stonehold
   displayName: Stonehold
-  role: "Fortitude sect building. Trains the Stone Warden."
+  role: "Fortitude sect building. Trains the Sallyguard, recruits the Warden."
   description: 
   hp: 1800
   armorType: structure_human
@@ -33,7 +33,8 @@ MonoBehaviour:
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
   trains:
-  - Sect_StoneWarden
+  - Sect_Sallyguard
+  - Sect_Warden
   research:
   - DeepFoundations
   minEra: 1
@@ -57,3 +58,4 @@ MonoBehaviour:
   presentationId: 0
   prefabPath: 
   canUpgradeTo: []
+  maxPerFaction: 1

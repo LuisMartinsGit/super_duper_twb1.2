@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: CaravanMaster
+  m_EditorClassIdentifier: 
+  id: Runai_CaravanMaster
+  displayName: Caravan Master
+  unitClass: human_melee
+  hp: 220
+  speed: 6.5
+  trainingTime: 30
+  damage: 8
+  damageType: melee
+  armorType: infantry_light
+  defense:
+    melee: 1
+    ranged: 1
+    siege: 0
+    magic: 0
+  attackCooldown: 1.5
+  attackRange: 1.5
+  minAttackRange: 0
+  lineOfSight: 22
+  aimTime: 0
+  radius: 0.5
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 120
+    Iron: 60
+    Veilstone: 40
+    Veilsteel: 0
+  populationCost: 1
+  minBuildingLevel: 2
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags:
+  - Infantry
+  - Light
+  bonusVsTags: []
+  preferTargets: []
+  abilities:
+  - Scatter
+  prefab: {fileID: 8418979553366102446, guid: cfe87d0b4a8c3c24884e8aa21f1fdfe8, type: 3}
+  presentationId: 440
+  animatorController: {fileID: 9100000, guid: 91ad141dedc69214182b2819565ab633, type: 2}

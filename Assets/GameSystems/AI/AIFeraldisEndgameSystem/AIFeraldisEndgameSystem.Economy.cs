@@ -1,4 +1,4 @@
-﻿// AIFeraldisEndgameSystem.Economy.cs
+// AIFeraldisEndgameSystem.Economy.cs
 // Mines, war totems (the Feraldis territory verb), conscription and Age-2 build-out.
 // Partial of AIFeraldisEndgameSystem.cs -- split 2026-08-12 for readability.
 
@@ -262,15 +262,42 @@ namespace TheWaningBorder.AI
             // has no trainer", i.e. the AI wanted ranged units for 30 minutes
             // and had nowhere to train them. The ring is widened well past
             // the hut belt for the same reason.
-            if (CountFactionWith<ArcheryRangeTag>(em, faction) < 1)
-                TryPlace(em, faction, "ArcheryRange", hallPos, 14f, 80f,
+            // 2026-10-12: the Feraldis ranged trainer is the Hall of Axes (the
+            // Archery Range is Alanthor-only), plus the Engine Works and the
+            // Great Forge (docs/Design/Age_1_Feraldis.md §4, §7).
+            // The Forge first: it is the loop the rest of the economy feeds.
+            // 2026-10-13 headless 1v1: the Forge was never built — the army
+            // goals spent every supply, so the bank never held its price while
+            // iron sat at 2,000+. Saving for it is a budget reservation (the
+            // Fortress claim's pattern), released the moment it is placed.
+            s_queuedThisThink = false;
+            if (CountFactionWith<GreatForgeTag>(em, faction) < 1)
+            {
+                var fc = TechCatalog.Building("Feraldis_GreatForge").cost;
+                var forgeCost = Cost.Of(fc.Supplies, fc.Iron, fc.Veilstone, fc.Veilsteel);
+                if (!FactionEconomy.CanAfford(em, faction, forgeCost))
+                    AIBudget.Reserve(faction, forgeCost, SimClock.Now, 60f, 1);
+                else
+                {
+                    AIBudget.ClearReservation(faction, 1);
+                    TryPlace(em, faction, "Feraldis_GreatForge", hallPos, 14f, 80f,
+                        AIBudgetCategory.EconomyExpansion, bankOnly: true);
+                }
+            }
+
+            if (!s_queuedThisThink && CountFactionWith<HallOfAxesTag>(em, faction) < 1)
+                TryPlace(em, faction, "Feraldis_HallOfAxes", hallPos, 14f, 80f,
                     AIBudgetCategory.Military);
 
-            if (CountFactionWith<PastureTag>(em, faction) < 1)
+            if (!s_queuedThisThink && CountFactionWith<PastureTag>(em, faction) < 1)
                 TryPlace(em, faction, "Feraldis_Pasture", hallPos, 14f, 80f,
                     AIBudgetCategory.Military);
 
-            if (CountFactionWith<TempleOfRidanTag>(em, faction) < 1)
+            if (!s_queuedThisThink && CountFactionWith<FerSiegeYardTag>(em, faction) < 1)
+                TryPlace(em, faction, "Feraldis_SiegeYard", hallPos, 14f, 80f,
+                    AIBudgetCategory.Military);
+
+            if (!s_queuedThisThink && CountFactionWith<TempleOfRidanTag>(em, faction) < 1)
                 TryPlace(em, faction, "TempleOfRidan", hallPos, 14f, 80f,
                     AIBudgetCategory.Advancement);
         }

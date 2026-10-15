@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: IdleBuilderButton
   m_EditorClassIdentifier: 
   anchoredPosition: {x: 24, y: 680}
-  size: {x: 420, y: 96}
-  fontSize: 34
+  size: {x: 280, y: 60}
+  fontSize: 26
   refreshSeconds: 0.5

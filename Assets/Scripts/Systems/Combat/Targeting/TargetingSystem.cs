@@ -120,6 +120,18 @@ namespace TheWaningBorder.Systems.Combat
         private const byte FlagWall = 2;
         private const byte FlagWorker = 4;   // WorkerTag or CanBuild (Border's guard rule)
         private const byte FlagHero = 8;     // HeroLevel (TargetPreference "Hero")
+        private const byte FlagCivilian = 16; // Runai caravan / escort / trader-warrior (Veiled Pilgrims)
+        private const byte FlagFlying = 32;   // FlyingTag: only ranged units and ballistas may pick it
+
+        /// <summary>A FLYING target (docs/Design/Age_1_Runai.md §6.4) can be hit
+        /// only by ranged units, ballistas and shooting buildings — never melee,
+        /// never a lobbing siege engine.</summary>
+        public static bool CanHitFlying(EntityManager em, Entity attacker)
+        {
+            if (em.HasComponent<BuildingTag>(attacker)) return true;
+            if (!em.HasComponent<ArcherTag>(attacker)) return false;
+            return !em.HasComponent<SiegeTag>(attacker) || em.HasComponent<BallistaShooterTag>(attacker);
+        }
 
         // ── Cross-frame cache of the enemy set's peer-stable order ────────
         // Rebuilding the order needs a NetworkedEntity lookup per enemy plus
@@ -389,6 +401,9 @@ namespace TheWaningBorder.Systems.Combat
                 if (em.HasComponent<WallTag>(e)) flags |= FlagWall;
                 if (em.HasComponent<WorkerTag>(e) || em.HasComponent<CanBuild>(e)) flags |= FlagWorker;
                 if (em.HasComponent<HeroLevel>(e)) flags |= FlagHero;
+                if (em.HasComponent<CaravanTag>(e) || em.HasComponent<RunaiTraderWarrior>(e)
+                    || em.HasComponent<RunaiEscort>(e)) flags |= FlagCivilian;
+                if (em.HasComponent<FlyingTag>(e)) flags |= FlagFlying;
                 _cacheFlags[i] = flags;
                 _cacheTags[i] = em.HasComponent<UnitTagsData>(e) ? em.GetComponentData<UnitTagsData>(e).Mask : 0u;
 
@@ -408,6 +423,8 @@ namespace TheWaningBorder.Systems.Combat
                         UnitClass.Melee   => 2,
                         _                 => 1,
                     };
+                    // A Runai caravan wagon is worth breaking off for (§9).
+                    if (em.HasComponent<CaravanTag>(e)) prio = 4;
                 }
                 _cachePrio[i] = prio;
             }

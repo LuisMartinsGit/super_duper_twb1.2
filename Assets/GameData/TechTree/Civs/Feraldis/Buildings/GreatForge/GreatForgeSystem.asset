@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d184299ff3b7a6409086b10189193a0, type: 3}
+  m_Name: GreatForgeSystem
+  m_EditorClassIdentifier: 
+  cycleSeconds: 1
+  maxBays: 4
+  startingBays: 1
+  baySupplies: 60
+  bayIron: 200
+  bayCostRamp:
+  - 1
+  - 1.5
+  - 2.25
+  - 3.5
+  bayUpgradeSupplies:
+  - 80
+  - 150
+  bayUpgradeIron:
+  - 250
+  - 450
+  bayUpgradeVeilstone:
+  - 0
+  - 60
+  bayLevelRate:
+  - 1
+  - 1.5
+  - 2
+  soulforgeSlavesPerMinute: 1
+  soulforgeVeilstonePerSlave: 90
+  veilsteelInVeilstone: 50
+  veilsteelInIron: 25
+  veilsteelOut: 10
+  exportInVeilsteel: 50
+  exportOutIron: 300
+  crewSpeedAtFull: 0.5
+  bellowsTechs:
+  - Feraldis_Bellows1
+  - Feraldis_Bellows2
+  - Feraldis_Bellows3
+  bellowsDiscountPercent:
+  - 20
+  - 45
+  - 75
+  draughtTech: Feraldis_DraughtFurnaces
+  draughtSpeedPercent: 30

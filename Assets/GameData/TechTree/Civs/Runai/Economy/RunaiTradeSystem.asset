@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 303a27e6a7fa1fa1fd2a4a1d38757a55, type: 3}
+  m_Name: RunaiTradeSystem
+  m_EditorClassIdentifier: 
+  tickSeconds: 0.25
+  caravanCapacity: 60
+  packAnimalsCapacityPct: 40
+  loadSeconds: 8
+  stockCapLoads: 4
+  caravanRespawnSeconds: 30
+  maxCaravansPerDepot: 5
+  swiftWheelsSpeedPct: 20
+  arriveSlack: 3
+  premiumPerMetre: 0.006
+  premiumCap: 1.0
+  longHaulPremiumPerMetre: 0.008
+  longHaulPremiumCap: 1.5
+  crossingMarketMultiplier: 1.25
+  waystationMarketMultiplier: 0.7
+  waystationRadius: 14
+  waystationSpeedPct: 30
+  routeCorridorWidth: 16
+  warriorRespawnSeconds: 40
+  escortOffset: 3
+  escortLeash: 18
+  caravanMasterRadius: 16
+  caravanMasterSpeedPct: 20
+  caravanMasterCapacityPct: 25
+  caravanOfSwordsDamage: 14
+  caravanOfSwordsDamageTaken: 0.5
+  taxVeilstone: 6
+  taxCooldownSeconds: 40
+  swiftWheels2SpeedPct: 15
+  wagonArcherDamage: 8
+  wagonArcherRange: 10
+  hunkerHpFraction: 0.5
+  hunkerSeconds: 15
+  hunkerArmorPct: 80
+  callSeconds: 60

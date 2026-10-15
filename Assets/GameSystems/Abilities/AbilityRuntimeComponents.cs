@@ -185,6 +185,15 @@ namespace TheWaningBorder.Abilities
     public static class UniqueUnitKind
     {
         public const int KingLexor = 1;
+        /// <summary>The Feraldis hero (docs/Design/Age_1_Feraldis.md §8).</summary>
+        public const int HarkonFiend = 2;
+        /// <summary>The Runai hero (docs/Design/Age_1_Runai.md §8).</summary>
+        public const int RunaiWayfinder = 3;
+        /// <summary>The Alanthor sect heroes (docs/Design/Sects.md §4).</summary>
+        public const int ArchivistOfHours = 10;
+        public const int Surgeon = 11;
+        public const int Warden = 12;
+        public const int Guildmaster = 13;
     }
 
     /// <summary>Marks the Ledger automaton so its auto-cast AI can find eligible

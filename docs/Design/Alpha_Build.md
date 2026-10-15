@@ -124,3 +124,73 @@ to send them, and the shipped `README - please read.txt` in the folder says so.
 - Logging: it is not alpha-specific and should stay. Per-match folders and
   console capture are worth having permanently; only the tester-facing README
   is alpha framing.
+
+---
+
+## 4. Editions (2026-10-12)
+
+The shipped build is a **demo** and must not carry the cultures that are not
+in it. One version, three builds from the same commit:
+
+| Edition | Ships | Version / release tag | Who can download it |
+|---|---|---|---|
+| **A** — demo | Age 0 + Alanthor | `0.0.41` / `v0.0.41` | every key |
+| **B** — developer | + Feraldis | `0.0.41B` / `v0.0.41B` | keys granted B |
+| **C** — developer | + Feraldis + Runai | `0.0.41C` / `v0.0.41C` | keys granted C |
+
+**Versioning.** Every release bumps the one version (`bundleVersion`); the
+letter only names the edition. `0.0.41B` always means "the 0.0.41 demo plus
+Feraldis". An edition whose content did not change need not be *published*
+(its launcher just stays put), but it is never numbered separately. The
+edition rides in the version string, so the multiplayer handshake already
+keeps editions out of each other's lobbies, and every log and replay names it.
+
+**What the build strips** (`Editor/EditionContent.cs`, for the length of one
+build, restored afterwards): every def of a stripped culture from
+`Resources/TechTreeCatalog.asset` — so its SOs, prefabs, models, materials
+and controllers are not referenced and Unity leaves them out — and the
+culture's model branch inside the shared building prefabs (the Barracks,
+Fortress, Hut… carry per-culture branches for `BuildingVariantVisual`). The
+**Fiendstone Keep** counts as Feraldis (it is the Feraldis landmark).
+`PlayerBuild` then checks the build report and **fails the build** if any
+asset from a stripped culture's folders was packed anyway.
+
+**What it does not strip:**
+- **the C#** — `Civs/<Culture>/` code compiles into the same assembly as the
+  factories that dispatch to it; it ships inert, with no data to act on;
+- **the sect code and data** — but which sects can be ADOPTED follows the
+  edition (2026-10-15, developer): **A offers only the House of Vaelith (the
+  four Alanthor sects), B adds the four Feraldis sects, C all twelve.**
+  `SectConfig.IsInEdition` (through `GameEdition.Allows`) gates adoption for
+  players and AI; the religion menu, picker and tree show only the edition's
+  clusters, and a set passive the edition cannot complete (Foreknown in B,
+  everything but Sovereign Hour in A, Concord below C) is not shown.
+
+**What a build offers** is decided in one place, `GameEdition.Allows`, which
+`CultureConfig.IsComingSoon` reads — the age-up menu, the landmark buttons,
+the AI's pick, the lobby's start age and the age-up command all go through
+it. A culture an edition does not ship shows as locked, exactly as both did
+in the demo before editions.
+
+**The Editor** plays as the edition picked under **Waning Border > Edition**
+(default A). Player builds ignore that pick.
+
+**Building and releasing.** Only `PlayerBuild` may build a player
+(`EditionBuildGate` refuses the Build Settings window, which would carry no
+edition and no strip):
+1. `tools/Launcher/publish.ps1 -Edition <X>` — each edition has its own
+   launcher (own install folder `…\Shardroot Entertainment\The Waning Border
+   [B|C]`, own settings file, own Start Menu entry), published to
+   `tools/Launcher/publish/<X>/`. A build carries the launcher of its own
+   edition.
+2. Build: bridge `build <dir>` (A) / `build-edition <X> <dir>`, or batch
+   `-executeMethod TheWaningBorder.EditorTools.PlayerBuild.Build -buildPath
+   <dir> -twbEdition <X>`. It writes `edition.txt` into the build.
+3. `tools/release.ps1 -BuildPath <dir> -Edition <X>` — refuses a build whose
+   `edition.txt` disagrees.
+
+**Downloads are key-gated** (`tools/UpdateWorker`): a key's KV value is a
+bare tester name (a demo key — every key issued before editions) or a JSON
+grant `{"name": "...", "editions": ["A","B","C"]}`. A key asking for an
+edition it is not granted gets a 403, which the launcher treats like a bad
+key and asks for another. Provisioning commands are in `wrangler.toml`.

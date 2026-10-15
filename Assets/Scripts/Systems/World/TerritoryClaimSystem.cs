@@ -488,6 +488,8 @@ namespace TheWaningBorder.Systems.World
         {
             if (cls == UnitClass.Economy || cls == UnitClass.Worker || cls == UnitClass.Scout) return false;
             if (em.HasComponent<CaravanTag>(e)) return false;
+            // Runai trader-warriors are free escorts: they never claim (Age_1_Runai.md §3.4).
+            if (em.HasComponent<RunaiTraderWarrior>(e) || em.HasComponent<RunaiEscort>(e)) return false;
             if (em.HasComponent<TemporarySummon>(e)) return false;
             if (em.HasComponent<ConscriptedTag>(e)) return false;
             if (em.HasComponent<DeathAnimationState>(e) && em.IsComponentEnabled<DeathAnimationState>(e))
@@ -567,6 +569,7 @@ namespace TheWaningBorder.Systems.World
             || em.HasComponent<MineTag>(e)
             || em.HasComponent<VeilstoneMineTag>(e)
             || em.HasComponent<TradingOutpostTag>(e)
+            || em.HasComponent<RunaiSanctuaryTag>(e)   // the Runai node building (Age_1_Runai.md §5.1)
             || em.HasComponent<SmallNodeTag>(e);
 
         // ── Tick-0 seeding ──────────────────────────────────────────────

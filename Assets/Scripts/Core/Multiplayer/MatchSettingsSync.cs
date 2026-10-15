@@ -45,7 +45,10 @@ namespace TheWaningBorder.Core.Multiplayer
         // same state), PING grew a 4th field (advertised input delay), and
         // Burst AOT is pinned to one CPU target — a mixed pair would pair an
         // SSE4-only sim against an AVX2 one, which is the very bug this fixes.
-        public const int ProtocolVersion = 4;
+        // 5 (2026-10-15): sect adoption is instant (SectAdopt carries no build
+        // time) and power unlocks are independent (ReligionPurchase kinds 3/4
+        // replace 1) -- the same command stream means something else.
+        public const int ProtocolVersion = 5;
 
         // ═══════════════════════════════════════════════════════════════
         // BUILD FINGERPRINT
@@ -134,6 +137,8 @@ namespace TheWaningBorder.Core.Multiplayer
             Put("border", GameSettings.BorderEnabled ? "1" : "0");
             Put("age", ((int)GameSettings.StartAge).ToString(c));
             Put("culture", GameSettings.StartCulture.ToString(c));
+            Put("pfc", GameSettings.PerFactionStartCulture ? "1" : "0");
+            Put("fcult", string.Join(".", GameSettings.FactionStartCulture));
             Put("maxres", GameSettings.MaxStartingResources ? "1" : "0");
 
             // ── Simulation shape ───────────────────────────────────────
@@ -213,6 +218,14 @@ namespace TheWaningBorder.Core.Multiplayer
             GameSettings.BorderEnabled = B("border", GameSettings.BorderEnabled);
             GameSettings.StartAge = (SkirmishStartAge)I("age", (int)GameSettings.StartAge);
             GameSettings.StartCulture = (byte)I("culture", GameSettings.StartCulture);
+            GameSettings.PerFactionStartCulture = B("pfc", false);
+            System.Array.Clear(GameSettings.FactionStartCulture, 0, GameSettings.FactionStartCulture.Length);
+            if (kv.TryGetValue("fcult", out string fc) && !string.IsNullOrEmpty(fc))
+            {
+                var bits = fc.Split('.');
+                for (int k = 0; k < bits.Length && k < GameSettings.FactionStartCulture.Length; k++)
+                    if (byte.TryParse(bits[k], out byte cb)) GameSettings.FactionStartCulture[k] = cb;
+            }
             GameSettings.MaxStartingResources = B("maxres", GameSettings.MaxStartingResources);
 
             GameSettings.PathfindingCellSize = F("cell", GameSettings.PathfindingCellSize);

@@ -37,6 +37,12 @@ MonoBehaviour:
   suppliesInterval: 15
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
@@ -49,6 +55,11 @@ MonoBehaviour:
   - Scout
   - Ledger
   - King Lexor
+  - Feraldis_Slave
+  - Feraldis_Overseer
+  - Feraldis_HarkonFiend
+  - Runai_CaravanMaster
+  - Runai_Wayfinder
   research: []
   minEra: 0
   cost:
@@ -68,7 +79,7 @@ MonoBehaviour:
     siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 4380024602605150918, guid: 2e5e1328e4b5e8f46bfce9c56e85f659, type: 3}
+  prefab: {fileID: 4380024602605150918, guid: 834f7cbc1d8513a47bc461b02e6908df, type: 3}
   presentationId: 105
   prefabPath: 
   canUpgradeTo: []

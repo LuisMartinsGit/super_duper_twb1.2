@@ -19,3 +19,4 @@ MonoBehaviour:
   povertyWeight: 0.8
   povertySuppliesFloor: 250
   seedJitter: 0.5
+  runaiBand: 0.9

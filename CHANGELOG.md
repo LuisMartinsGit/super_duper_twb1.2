@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to The Waning Border.
 
@@ -10,6 +10,100 @@ build always name the same number.
 ---
 
 ## [Unreleased]
+
+---
+
+## [0.0.42] — 2026-10-15
+
+Everyone in a multiplayer match needs 0.0.42. Saved games and replays from
+earlier versions do not load.
+
+The demo (0.0.42) offers Alanthor and its sects only. The developer
+editions add Feraldis and its sects (0.0.42B), and Runai and every sect
+(0.0.42C).
+
+### Added
+
+- **A new religion menu.** It sits on the right edge of the screen: press
+  **R** to show or hide it. It shows your religion points with the Tithe
+  button, your six sect slots, the set bonuses and one row for each sect you
+  adopted. Each row has its level, its three powers, its building and its
+  hero. Cast powers from the menu or with **F1-F6** (power A),
+  **Shift+F1-F6** (power B) and **Ctrl+F1-F6** (the third power). Press **T**
+  for the full religion tree. Every purchase asks you to confirm it first.
+- **The House of Vaelith**, the four Alanthor sects, rebuilt:
+  - **Antiquity:** Trespass, Embargo and Friendly Fire.
+  - **Renewal:** Heal, Lifeline and Revive.
+  - **Fortitude:** Ward Discharge, Emergency Repairs and Fortify.
+  - **Prosperity** (new, replacing Reclamation): Bounty, Overtime and
+    Plenty.
+- **Sect buildings, units and heroes.** Each sect has its own building,
+  which your workers build (one per sect). It trains the sect's unit (up to
+  20) and its unique hero.
+- **Set bonuses** for the sects you adopt:
+  - **Sovereign Hour:** all four Alanthor sects.
+  - **The Breaking Hour:** all four Feraldis sects.
+  - **Foreknown:** all four Runai sects.
+  - **Concord:** two sects from each culture.
+
+### Changed
+
+- **Adopting a sect is instant** and costs only religion points. The chapel
+  it adds to the Temple is decoration. All sect choices are final.
+- **The Temple matters.** Without a standing Temple you cannot cast sect
+  powers, Tithe, adopt sects or build sect buildings. Rebuild it to get them
+  back. Nothing you bought is lost.
+- **The Trade menu is smaller and opens in the middle of the screen.** The
+  Trade and idle builders buttons are smaller.
+- **Feraldis is rebuilt** (developer editions only — the demo does not
+  include Feraldis). Workers become **Slaves** that staff your Work Camps,
+  Mines and the new **Great Forge**; **Slave Pens** set how many you may own.
+  The Great Forge's bays turn slaves into veilstone, veilstone and iron into
+  veilsteel, and veilsteel into iron. Razing enemy buildings pays a quarter of
+  their cost, kills and raids on enemy economies pay supplies, and the curse
+  pays you in veilstone. Religion comes from **sacrifice at the Blood Altar**.
+  New units: the Overseer, the hero **Harkon Fiend** (Warcry, Leap, Raze,
+  Blood Oath), and the Engine Works rigs — the explosive **Ram Rig**, the
+  **Harpoon Rig** (barbed wire that hurts everyone crossing it), the **Corpse
+  Engine** and the **War Rig**. War Totems grow through three tiers and run
+  rites. The raider camps and free raiders are gone.
+- **Runai is rebuilt** (edition C only). Build **Thessara's Crossing** to age
+  up. Your trade income is stored at your posts, and **caravans** carry it
+  along the roads to a market, earning more the further they travel.
+  **Escort** squads guard them. **Waystations** are towers that speed up
+  caravans and collect veilstone as a road tax. **Sanctuaries** make religion
+  points. Also new: the flying **Sky Barge** and **Scaling Hooks**, which let
+  infantry climb walls.
+
+---
+
+## [0.0.41] — 2026-10-12
+
+Everyone in a multiplayer match needs 0.0.41.
+
+### Added
+
+- **Live scores** in the top-right corner: every player's score, highest
+  first, in their colour. AI players are named by their difficulty.
+
+### Changed
+
+- **Alanthor AI players use their Trading Outposts properly.** They used to
+  leave every post buying veilstone while running out of iron, sitting on
+  huge piles of supplies they could not spend. Now they split their posts
+  between buying, forging and selling according to what they are short of,
+  research the forging and export trades early, and build more posts when
+  supplies pile up. Expect Alanthor AIs with real armies late in the match.
+
+### Fixed
+
+- **Income on the resource bar jumped up and down** (new in 0.0.40). It
+  shows your steady income again, which does not wobble. The tooltip also
+  lists one-off income received in the last minute, such as Vault
+  withdrawals, naming only the sources that actually paid you.
+- **Error at match start** from the post-game Muster Rolls screen.
+- **Slowdown over long matches**: buildings no longer pile up internal
+  bookkeeping as they are hit, buffed or upgraded.
 
 ---
 

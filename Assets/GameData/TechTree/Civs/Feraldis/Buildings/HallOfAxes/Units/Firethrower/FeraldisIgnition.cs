@@ -59,12 +59,14 @@ namespace TheWaningBorder.Systems.Combat
             // The blood is SPENT — it becomes fire, not a lasting stain.
             BloodMap.Drain(at.x, at.z, spec.Radius);
 
+            // Pitch Pots (Hall of Axes): the fire burns longer and wider.
+            float pitch = attributed ? TheWaningBorder.Feraldis.FeraldisCombat.BurnMult(source) : 1f;
             var fire = ecb.CreateEntity();
             ecb.AddComponent(fire, new BurningGround
             {
                 DPS = spec.DamagePerSecond,
-                TimeRemaining = spec.Duration,
-                Radius = spec.Radius,
+                TimeRemaining = spec.Duration * pitch,
+                Radius = spec.Radius * pitch,
             });
             ecb.AddComponent(fire, LocalTransform.FromPositionRotationScale(
                 at, quaternion.identity, 1f));

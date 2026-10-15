@@ -43,7 +43,7 @@ SHAPE (every coordinate is a HALF-METRE integer: x2 = round(x * 2)):
 The db capability takes a document of at most 256 KiB; this stays under
 BUDGET (200 KB) by thinning units evenly, and says so in `cap`.
 """
-import io, json, os, re, sys, time
+import glob, io, json, os, re, sys, time
 
 BUDGET = 200 * 1000
 TAIL = 512 * 1024
@@ -251,7 +251,7 @@ def score_final(d):
 
 def header(d):
     label, ai, world = "", "", None
-    for cn in ("Console.log", "Console-1.log", "Console-2.log", "Console-3.log", "Console-4.log"):
+    for cn in sorted(os.path.basename(f) for f in glob.glob(os.path.join(d, "Console*.log"))):
         for line in read_lines(os.path.join(d, cn))[:400]:
             m = RUNINFO.match(line.strip())
             if m:

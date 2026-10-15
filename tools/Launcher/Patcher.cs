@@ -181,7 +181,7 @@ internal static class Patcher
         http.DefaultRequestHeaders.Add("User-Agent", "TWBLauncher/1.0");
 
         using var response = await http
-            .GetAsync($"{apiBase.TrimEnd('/')}/download", HttpCompletionOption.ResponseHeadersRead, ct)
+            .GetAsync($"{apiBase.TrimEnd('/')}/download?edition={Edition.Id}", HttpCompletionOption.ResponseHeadersRead, ct)
             .ConfigureAwait(false);
 
         if (response.StatusCode is HttpStatusCode.Found or HttpStatusCode.Redirect

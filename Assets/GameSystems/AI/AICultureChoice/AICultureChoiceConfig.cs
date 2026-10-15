@@ -40,5 +40,11 @@ namespace TheWaningBorder.AI
 
         /// <summary>Jitter amplitude, so identical situations still vary.</summary>
         public float seedJitter;
+
+        /// <summary>The Runai band (2026-10-13): a final score within ±this of
+        /// zero — no strong pull to raiding or to fortifying — picks the
+        /// economy culture, Runai, when the edition ships it. The economy
+        /// personalities sit inside it. docs/Design/Age_1_Runai.md §10.</summary>
+        public float runaiBand;
     }
 }

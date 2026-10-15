@@ -1,4 +1,4 @@
-﻿// CommandRouter.cs
+// CommandRouter.cs
 // Unified command routing system for local player, remote player, and AI
 
 using UnityEngine;
@@ -1048,6 +1048,19 @@ namespace TheWaningBorder.Core.Commands
             if (!em.Exists(hall)) return;
             if (em.HasComponent<AgeUpState>(hall)) return;
 
+            // A culture this edition does not ship has had its data stripped
+            // from the build, so ageing into it would field units with no
+            // defs. The UI and the AI never ask for one; this is the backstop
+            // for anything that does (a command off the wire, a stale save).
+            // Deterministic: every peer of a lobby runs the same edition (the
+            // edition rides in the version string the handshake compares).
+            if (CultureConfig.IsComingSoon(culture))
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"[AgeUp] REFUSED - culture {culture} is not in edition {GameEdition.Id}.");
+                return;
+            }
+
             if (em.HasComponent<FactionTag>(hall))
             {
                 var faction = em.GetComponentData<FactionTag>(hall).Value;
@@ -1079,71 +1092,35 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>
-        /// Stamp a chapel build slot for an adopted sect. RP + material spend
-        /// happen in SectAdoptionCommandDirect on EVERY peer — the issuer
-        /// only VALIDATES (SectAdoption.ValidateAdoption) so the click can be
-        /// rejected with feedback. Spending at the issue site debited one
-        /// peer's bank and RP pool only (docs/Multiplayer_LAN_Readiness.md).
+        /// Adopt a sect (docs/Design/Religion.md §3, 2026-10-15): instant and
+        /// final. The issuer only validates (SectAdoption.ValidateAdoption);
+        /// the RP spend and the adoption stamp happen in
+        /// SectAdoptionCommandDirect on EVERY peer
+        /// (docs/Multiplayer_LAN_Readiness.md). <paramref name="temple"/>
+        /// carries the faction; its chapel decoration follows from the bank
+        /// state (TempleChapelBuildSystem).
         /// </summary>
         public static void IssueSectAdoption(EntityManager em, Entity temple, string sectId,
-            int preferredSlot, float buildTime, CommandSource source = CommandSource.LocalPlayer)
+            CommandSource source = CommandSource.LocalPlayer)
         {
             if (ShouldDropCommand(source)) return;
             if (temple == Entity.Null || !em.Exists(temple)) return;
             if (string.IsNullOrEmpty(sectId)) return;
 
             if (ShouldQueueForLockstep(source))
-                QueueSectAdoptionForLockstep(em, temple, sectId, preferredSlot, buildTime);
+                QueueSectAdoptionForLockstep(em, temple, sectId);
             else
-                SectAdoptionCommandDirect(em, temple, sectId, preferredSlot, buildTime);
+                SectAdoptionCommandDirect(em, temple, sectId);
         }
 
-        /// <summary>Apply the chapel-slot stamp on this peer. Prefers the
-        /// targeted slot, falls back to the first free one; no-ops when the
-        /// sect is already building or complete (replay safety). Validates
-        /// and SPENDS the RP + chapel material cost here — both live in
-        /// replicated ECS state on the bank entity, so charging in the
-        /// executor keeps every peer's bank (and the desync checksum)
-        /// aligned. A failed spend rejects the whole command identically on
-        /// every peer: no slot stamp, no partial effects.</summary>
-        public static void SectAdoptionCommandDirect(EntityManager em, Entity temple,
-            string sectId, int preferredSlot, float buildTime)
+        /// <summary>Apply an adoption on this peer: re-validates (free slot,
+        /// standing Temple, RP), spends the RP and stamps the sect adopted.
+        /// A refused adoption changes nothing on any peer.</summary>
+        public static void SectAdoptionCommandDirect(EntityManager em, Entity temple, string sectId)
         {
-            if (!em.Exists(temple) || !em.HasBuffer<TempleChapelSlot>(temple)) return;
-            if (!em.HasComponent<FactionTag>(temple)) return;
-
-            var slots = em.GetBuffer<TempleChapelSlot>(temple);
-            for (int i = 0; i < slots.Length; i++)
-            {
-                if (slots[i].State != 0 && slots[i].SectId == sectId) return;
-            }
-
-            int idx = preferredSlot;
-            if (idx < 0 || idx >= slots.Length || slots[idx].State != 0)
-            {
-                idx = -1;
-                for (int i = 0; i < slots.Length; i++)
-                {
-                    if (slots[i].State == 0) { idx = i; break; }
-                }
-            }
-            if (idx < 0) return;
-
+            if (!em.Exists(temple) || !em.HasComponent<FactionTag>(temple)) return;
             var faction = em.GetComponentData<FactionTag>(temple).Value;
-            if (!TheWaningBorder.Economy.SectAdoption.TrySpendAdoptionCosts(em, faction, sectId))
-                return;
-
-            // Re-fetch the buffer: the spend wrote other components on the
-            // bank entity and a stale buffer handle would throw.
-            slots = em.GetBuffer<TempleChapelSlot>(temple);
-            slots[idx] = new TempleChapelSlot
-            {
-                Chapel        = Entity.Null,
-                SectId        = new Unity.Collections.FixedString64Bytes(sectId),
-                State         = 1,
-                BuildProgress = 0f,
-                BuildTime     = buildTime,
-            };
+            TheWaningBorder.Economy.SectAdoption.TryAdopt(em, faction, sectId);
         }
 
         /// <summary>Append to the research queue on this peer. Used by the
@@ -1571,6 +1548,7 @@ namespace TheWaningBorder.Core.Commands
             if (em.HasComponent<LonghouseTag>(e))       return "Feraldis_Longhouse";
             if (em.HasComponent<FerSiegeYardTag>(e))    return "Feraldis_SiegeYard";
             if (em.HasComponent<PastureTag>(e))         return "Feraldis_Pasture";
+            if (em.HasComponent<HallOfAxesTag>(e))      return "Feraldis_HallOfAxes";
             if (em.HasComponent<BazaarTag>(e))          return "ThessarasBazaar";
             if (em.HasComponent<SiegeWorkshopTag>(e))   return "Runai_SiegeWorkshop";
             if (em.HasComponent<TempleOfRidanTag>(e))   return "TempleOfRidan";
@@ -1637,6 +1615,12 @@ namespace TheWaningBorder.Core.Commands
                 return;
             }
 
+            // A superseded unit trains as the culture's own variant (Feraldis:
+            // Worker → Slave, Spearman → Feraldis_Spearman). Runs on every peer.
+            if (em.HasComponent<FactionTag>(building))
+                unitId = TheWaningBorder.Data.CultureGate.CultureVariant(unitId,
+                    CultureConfig.GetCompletedCulture(em, em.GetComponentData<FactionTag>(building).Value));
+
             // Notifications are presentation-only, so gate them on the local
             // player's faction — this method now also replays REMOTE
             // players' commands via lockstep, and their rejections are not
@@ -1658,6 +1642,29 @@ namespace TheWaningBorder.Core.Commands
                     SimSignals.Notify(Loc.T("King Lexor already serves your realm"));
                 return;
             }
+            // FERALDIS (docs/Design/Age_1_Feraldis.md §3.2, §3.3, §8): the
+            // slave cap (Slave Pens), and one Overseer / one Harkon Fiend.
+            if (em.HasComponent<FactionTag>(building))
+            {
+                var trainer = em.GetComponentData<FactionTag>(building).Value;
+                string refusal = TheWaningBorder.Feraldis.FeraldisEconomy.TrainRefusal(em, trainer, unitId);
+                if (refusal != null)
+                {
+                    if (notifyLocal) SimSignals.Notify(Loc.T(refusal));
+                    return;
+                }
+            }
+            // RUNAI (docs/Design/Age_1_Runai.md §6.1): one Caravan Master, one Wayfinder.
+            if (em.HasComponent<FactionTag>(building))
+            {
+                string runaiRefusal = TheWaningBorder.Runai.RunaiRules.TrainRefusal(
+                    em, em.GetComponentData<FactionTag>(building).Value, unitId);
+                if (runaiRefusal != null)
+                {
+                    if (notifyLocal) SimSignals.Notify(Loc.T(runaiRefusal));
+                    return;
+                }
+            }
             // Same gate for the Ledger: one automaton per player.
             if (TheWaningBorder.Abilities.HeroTrainLimit.IsLedgerId(unitId) &&
                 em.HasComponent<FactionTag>(building) &&
@@ -1667,13 +1674,41 @@ namespace TheWaningBorder.Core.Commands
                     SimSignals.Notify(Loc.T("Your court already employs a Ledger"));
                 return;
             }
-            // SECT HEROES (docs/Design/Religion.md §4): one per sect, and the
-            // first recruit costs Religion Points on top of its resources.
+            // SECT UNITS (docs/Design/Religion.md §4): only for an adopted
+            // sect, at most SectConfig.SectUnitLimit live and queued.
+            string limitedSect = TheWaningBorder.Systems.Sect.SectHeroes.SectIdForLimitedUnit(unitId);
+            if (limitedSect != null && em.HasComponent<FactionTag>(building))
+            {
+                var unitFaction = em.GetComponentData<FactionTag>(building).Value;
+                if (!TheWaningBorder.Economy.SectQuery.IsAdopted(em, unitFaction, limitedSect))
+                {
+                    if (notifyLocal) SimSignals.NotifyError(Loc.T("Adopt this sect first"));
+                    return;
+                }
+                if (TheWaningBorder.Systems.Sect.SectHeroes.CountLiveOrQueued(em, unitFaction, unitId,
+                        TheWaningBorder.Economy.SectConfig.SectUnitLimit)
+                    >= TheWaningBorder.Economy.SectConfig.SectUnitLimit)
+                {
+                    if (notifyLocal)
+                        SimSignals.Notify(string.Format(Loc.T("At most {0} of this unit"),
+                            TheWaningBorder.Economy.SectConfig.SectUnitLimit));
+                    return;
+                }
+            }
+
+            // SECT HEROES (docs/Design/Religion.md §4): one per sect, only
+            // for an adopted sect, and the first recruit costs Religion Points
+            // on top of its resources.
             int heroRp = 0;
             string heroSect = TheWaningBorder.Systems.Sect.SectHeroes.SectIdForUnit(unitId);
             if (heroSect != null && em.HasComponent<FactionTag>(building))
             {
                 var heroFaction = em.GetComponentData<FactionTag>(building).Value;
+                if (!TheWaningBorder.Economy.SectQuery.IsAdopted(em, heroFaction, heroSect))
+                {
+                    if (notifyLocal) SimSignals.NotifyError(Loc.T("Adopt this sect first"));
+                    return;
+                }
                 if (TheWaningBorder.Systems.Sect.SectHeroes.HasLiveOrQueued(em, heroFaction, unitId))
                 {
                     if (notifyLocal)
@@ -1780,15 +1815,25 @@ namespace TheWaningBorder.Core.Commands
         /// spending — IssuePlaceBuilding also rejects, but by then the
         /// resources are already gone.
         /// </summary>
+        /// <summary>
+        /// True when <paramref name="faction"/>'s culture may not place
+        /// <paramref name="buildingId"/> (CultureGate.CanFactionBuild): another
+        /// culture's building, or a retired id. Replicated state only — the
+        /// completed culture — so every lockstep peer answers the same.
+        /// </summary>
+        public static bool CultureRefusesBuilding(EntityManager em, string buildingId, Faction faction)
+            => !TheWaningBorder.Data.CultureGate.CanFactionBuild(
+                   buildingId, CultureConfig.GetCompletedCulture(em, faction));
+
         public static bool CanPlaceBuilding(EntityManager em, string buildingId, Faction faction)
         {
             return !SectBuildingCapReached(em, buildingId, faction);
         }
 
         /// <summary>
-        /// True when this faction is already at its cap for a SECT building.
-        /// Every sect building is capped at SectBuilding.CapPerFaction (5) —
-        /// docs/Design/Sects.md section 1. Non-sect ids answer false.
+        /// True when this faction is already at its cap for a SECT building:
+        /// one per sect (SectBuilding.CapPerFaction, Religion.md §3.2),
+        /// counting planned sites. Non-sect ids answer false.
         /// </summary>
         private static bool SectBuildingCapReached(EntityManager em, string buildingId, Faction faction)
         {
@@ -1800,7 +1845,7 @@ namespace TheWaningBorder.Core.Commands
                 case "Sect_MendingHall": return CountFactionBuildings<MendingHallTag>(em, faction) >= cap;
                 case "Sect_Stonehold":   return CountFactionBuildings<StoneholdTag>(em, faction)   >= cap;
                 case "Sect_MusterYard":  return CountFactionBuildings<MusterYardTag>(em, faction)  >= cap;
-                case "Sect_Veilworks":   return CountFactionBuildings<VeilworksTag>(em, faction)   >= cap;
+                case "Sect_Treasury":   return CountFactionBuildings<TreasuryTag>(em, faction)   >= cap;
                 default: return false;
             }
         }
@@ -1851,9 +1896,25 @@ namespace TheWaningBorder.Core.Commands
             if (IsWallMountOnlyBuilding(buildingId))
                 return TheWaningBorder.World.Regions.PlacementRefusal.UnknownBuilding;
 
-            // Sect buildings, 5 per faction. Rejected here so callers with a
-            // spend-then-place flow (AI TryBuildOnce) see created == Null and
-            // refund cleanly; the UI normally hides the button first.
+            // ANOTHER CULTURE'S BUILDING (2026-10-13): no Archery Range for a
+            // Feraldis slave, no Great Forge for Alanthor. CultureGate is the
+            // one rule; the palette hides the button, this refuses the order.
+            if (CultureRefusesBuilding(em, buildingId, faction))
+                return TheWaningBorder.World.Regions.PlacementRefusal.NotYourCulture;
+
+            // Sect buildings (Religion.md §3.2): one per sect, only for an
+            // adopted sect, and only while a Temple stands. Rejected here so
+            // callers with a spend-then-place flow (AI TryBuildOnce) see
+            // created == Null and refund cleanly; the UI normally hides the
+            // button first.
+            string sectOfBuilding = TheWaningBorder.Economy.SectConfig.SectIdForBuilding(buildingId);
+            if (sectOfBuilding != null)
+            {
+                if (!TheWaningBorder.Economy.SectQuery.IsAdopted(em, faction, sectOfBuilding))
+                    return TheWaningBorder.World.Regions.PlacementRefusal.SectNotAdopted;
+                if (!TheWaningBorder.Economy.SectQuery.HasStandingTemple(em, faction))
+                    return TheWaningBorder.World.Regions.PlacementRefusal.NeedsTemple;
+            }
             if (!CanPlaceBuilding(em, buildingId, faction))
                 return TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
 
@@ -1870,6 +1931,15 @@ namespace TheWaningBorder.Core.Commands
             var territory = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoryRefusal(
                 em, faction, buildingId, position.x, position.z);
             if (territory != Ok) return territory;
+
+            // A War Totem stands only on blood — checked HERE for every command
+            // source (it used to be the UI ghost alone, so the AI and the
+            // lockstep executor never enforced it). docs/Design/Age_1_Feraldis.md §6.2.
+            if (buildingId == "Feraldis_WarTotem"
+                && TheWaningBorder.Influence.BloodMap.Ready
+                && TheWaningBorder.Influence.BloodMap.SampleWorld(position.x, position.z)
+                   < TheWaningBorder.Core.Config.FeraldisConstants.TotemPlacementBloodThreshold)
+                return TheWaningBorder.World.Regions.PlacementRefusal.NotOnBlood;
 
             // EVERY EXTRACTOR STANDS ON ITS OWN NODE, one per node
             // (docs/Design/Regions.md §4): Gatherer's Hut on a supply site,
@@ -1899,6 +1969,15 @@ namespace TheWaningBorder.Core.Commands
             // not only in the ghost, so the AI and the lockstep replay obey it.
             if (!TheWaningBorder.World.Regions.TerritoryOwnership.MayBuildMine(em, faction, buildingId))
                 return TheWaningBorder.World.Regions.PlacementRefusal.WrongCulture;
+            // The Runai Sanctuary: Inactive, never a spent outcrop, and a Cursed
+            // one only with Consecrated Ground (docs/Design/Age_1_Runai.md §5.1).
+            if (buildingId == "Runai_Sanctuary"
+                && TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.TryGetOutcropAt(
+                       em, position.x, position.z, 4f, out _, out var sanctKind)
+                && (sanctKind == VeilstoneNodeKind.Depleted
+                    || (sanctKind == VeilstoneNodeKind.Cursed
+                        && !(TheWaningBorder.Economy.FactionResearchState.Instance?.HasResearched(faction, "Runai_ConsecratedGround") ?? false))))
+                return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
             if (buildingId == "VeilstoneMine")
             {
                 if (TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.TryGetOutcropAt(
@@ -2124,6 +2203,16 @@ namespace TheWaningBorder.Core.Commands
             // Wall-mount-only ids never place, on any peer — refused before
             // the spend, like the collision check below.
             if (IsWallMountOnlyBuilding(buildingId)) return Entity.Null;
+
+            // Another culture's building never places, on any peer, before
+            // the spend (CultureGate.CanFactionBuild, 2026-10-13).
+            if (CultureRefusesBuilding(em, buildingId, faction))
+            {
+                LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.NotYourCulture;
+                UnityEngine.Debug.LogWarning(
+                    $"[CommandRouter] Refused {buildingId} for {faction} — not a building of its culture.");
+                return Entity.Null;
+            }
 
             // A CLAIM is re-checked against the world as it is NOW, before the
             // spend, identically on every peer (see CheckClaimAtExecution).

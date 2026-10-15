@@ -128,6 +128,10 @@ namespace TheWaningBorder.Systems.Border
                 if ((byte)f >= (byte)Faction.Border) continue;
                 if (!Alliances.AreHostile(Faction.Border, f)) continue;
                 if (em.HasComponent<Health>(ents[i]) && em.GetComponentData<Health>(ents[i]).Value <= 0) continue;
+                // A territory holding a Runai Sanctuary is never a wave's target
+                // (docs/Design/Age_1_Runai.md §5.1).
+                var bp = xfs[i].Position;
+                if (global::TheWaningBorder.Runai.RunaiSanctuarySystem.Shelters(RegionMap.NearestRegion(bp.x, bp.z))) continue;
                 _playerBuildings.Add(new PlayerBuilding
                 {
                     E = ents[i], F = f, P = xfs[i].Position,
@@ -655,6 +659,8 @@ namespace TheWaningBorder.Systems.Border
         {
             int i = (int)f;
             if (i < 0 || i >= PlayerSlots || now < _waveCooldownUntil[i]) return false;
+            // Hushed Veil (docs/Design/Age_1_Runai.md §5.2): no wave is sent against the faction.
+            if (RunaiVeil.TierOf(f) >= RunaiVeil.HushedVeil) return false;
             foreach (var kv in _attackWaves)
                 if (kv.Value.Target == f) return false;
             return true;

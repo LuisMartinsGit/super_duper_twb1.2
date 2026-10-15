@@ -89,6 +89,7 @@ namespace TheWaningBorder.Core.Multiplayer
         ReligionPurchase = 52,  // CommandRouter.IssueReligionPurchase (faction in EntityNetworkId, ReligionPurchaseKind in TargetEntityId, sect id in BuildingId — "Tithe" for the Tithe) — docs/Design/Religion.md §1.1, §3.1: every RP purchase is spent on every peer at the same tick
         SetOutpostMode = 53,
         DeleteEntity = 54,      // CommandRouter.IssueDelete (the entity in EntityNetworkId) — cancels a plan or a construction site with a full refund, demolishes a finished building, kills a unit; docs/Design/Planned_Buildings.md §4    // CommandRouter.IssueSetOutpostMode (Trading Outpost in EntityNetworkId; the TradeRecipe byte in TargetEntityId) — it changes what the faction spends and earns every cycle, so every peer must flip it on the same tick; docs/Design/Veilstone_Economy.md §3.1
+        FeraldisOrder = 55,     // CommandRouter.IssueFeraldisOrder (actor unit/building in EntityNetworkId, target entity in TargetEntityId, FeraldisOp | arg<<8 in SecondaryTargetId, point in TargetPosition) — every Feraldis-only order (staff, melt, sacrifice, forge bays, totem rites, War Rig load); docs/Design/Age_1_Feraldis.md
         BuildingAttack = 50,    // CommandRouter.IssueBuildingAttack (shooting building in EntityNetworkId, forced target in TargetEntityId; 0 = clear the order, i.e. Stop) — docs/Design/Combat_Pacing.md § Directed building fire
     }
 

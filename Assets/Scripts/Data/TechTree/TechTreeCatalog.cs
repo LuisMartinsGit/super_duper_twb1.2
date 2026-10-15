@@ -28,6 +28,17 @@ namespace TheWaningBorder.Data
         /// assets live in the culture's building folders.</summary>
         public List<BuildingLevelDefSO> buildingLevels = new List<BuildingLevelDefSO>();
 
+        /// <summary>
+        /// Ids the player build's EDITION strip removed from the lists above
+        /// (Editor/EditionContent: the demo drops every Feraldis and Runai def).
+        /// Always empty in the project: the strip fills it only for the length
+        /// of a build and restores the asset afterwards. TechCatalog prunes
+        /// these ids out of every trains[] / research[] / prerequisite at load,
+        /// so an Age 0 building that lists a Feraldis unit shows no dead button
+        /// and the validator does not report a hole the strip made on purpose.
+        /// </summary>
+        public List<string> editionStripped = new List<string>();
+
         /// <summary>True if this catalog actually carries data (used to decide SO-vs-JSON mode).</summary>
         public bool HasEntries => (units != null && units.Count > 0) ||
                                   (buildings != null && buildings.Count > 0);

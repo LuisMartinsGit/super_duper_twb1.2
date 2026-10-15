@@ -11,16 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Bloodletter
-  m_EditorClassIdentifier:
-  id: 'Feraldis_Bloodletter'
-  displayName: 'Bloodletter'
-  unitClass: 'human_melee'
+  m_EditorClassIdentifier: 
+  id: Feraldis_Bloodletter
+  displayName: Bloodletter
+  unitClass: human_melee
   hp: 90
   speed: 6.8
   trainingTime: 6.3
   damage: 6
-  damageType: 'melee'
-  armorType: 'infantry_light'
+  damageType: melee
+  armorType: infantry_light
   defense:
     melee: 0
     ranged: 1
@@ -30,20 +30,30 @@ MonoBehaviour:
   attackRange: 1.6
   minAttackRange: 0
   lineOfSight: 16
+  aimTime: 0
   radius: 0.5
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 0
     Iron: 11
-    Crystal: 47
+    Veilstone: 47
     Veilsteel: 0
   populationCost: 1
   minBuildingLevel: 2
   buildSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Infantry'
-  - 'Light'
+  - Infantry
+  - Light
   bonusVsTags: []
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 6009937744705055930, guid: 6b6f0577402e83b49a43639638f19466, type: 3}
   presentationId: 342
+  animatorController: {fileID: 9100000, guid: 6812b6b622f80214aba14624a89f2668, type: 2}

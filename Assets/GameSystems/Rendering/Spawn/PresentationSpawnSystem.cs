@@ -47,24 +47,15 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         { 206, "Prefabs/Units/Scout" },                  // Scout.PresentationID = 206
         { 207, "Prefabs/Units/Litharch" },               // Litharch.PresentationID = 207
         { 250, "Prefabs/Units/Ledger" },                 // Ledger.PresentationID = 250 — floating automaton (built by WireLedgerVisuals)
-        { 387, "Prefabs/Units/Litharch" },               // Lorekeeper (Antiquity) — reuses the robed Litharch visual
-        // Feraldis fire-and-blood roster (design 2026-08-05). Placeholder
-        // art: the Bloodletter and Suicidal reuse the Swordsman visual until
-        // Feraldis models land. (Feraldis_Spearman shares the Spearman's
-        // pid 330 outright, so it needs no entry.)
-        { 342, "Prefabs/Units/Swordsman" },              // Bloodletter.PresentationID = 342
-        { 343, "Prefabs/Units/Swordsman" },              // Suicidal.PresentationID = 343
-        { 344, "Prefabs/Units/Archer" },                 // Firethrower.PresentationID = 344 (placeholder art)
+        // Feraldis fire-and-blood roster: every unit now carries its own prefab
+        // on its SO (2026-10-12); only the Eagle (no SO) is still listed here.
         { 345, "Prefabs/Units/Scout" },                  // Eagle.PresentationID = 345 (placeholder art)
-        // New sect units live at 405-407 — 388-403 are all taken (chapels
-        // 390-399 plus the 400-403 Forest/Rock/deposit block; chapel
-        // overflow sits at 412/413). A
+        // Sect units carry their prefabs on their SOs (2026-10-12). 388-403
+        // are all taken (chapels 390-399 plus the 400-403 Forest/Rock/deposit
+        // block; chapel overflow sits at 412/413); new unit pids start at 420. A
         // duplicate key throws in the static initializer and kills ALL
         // presentation (invisible units). If you add IDs here, run a
         // duplicate-key scan over this file first.
-        { 405, "Prefabs/Units/SK_Character_Human_Peasant" }, // Tinker (Renewal) — reuses the Worker visual
-        { 406, "Prefabs/Units/Litharch" },               // Inquisitor (Justice) — reuses the robed Litharch visual
-        { 407, "Prefabs/Units/Swordsman" },              // Warbreaker (War) — reuses the Swordsman visual
 
         // Creatures & Resources
         { 300, "Prefabs/Creatures/Creature" },            // Creature.PresentationID = 300
@@ -98,25 +89,13 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         { 321, "Prefabs/Border/Units/Veilstingers" },            // Veilstinger unit prefab
         { 322, "Prefabs/Border/Units/Godsplinters" },            // Godsplinter unit prefab
 
-        // Runai culture buildings (procedurally generated)
-        { 350, "Procedural/RunaiOutpost" },                       // Runai_Outpost
-        { 351, "Procedural/RunaiTradeHub" },                      // Runai_TradeHub
-        { 352, "Procedural/RunaiBazaar" },                        // ThessarasBazaar
-        { 353, "Procedural/RunaiSiegeWorkshop" },                 // Runai_SiegeWorkshop
-        { 355, "Procedural/RunaiTradingPost_or_AlanthorPracticeRange" }, // Shared ID
-
-        // Alanthor culture buildings (procedurally generated)
+        // Runai and Feraldis culture buildings carry their prefabs on their SOs
+        // (2026-10-12); the "Procedural/*" rows that pointed at files that never
+        // existed are gone. Alanthor's 354/356/357 render through the authored
+        // switch above.
         { 354, "Procedural/AlanthorTower" },                      // Alanthor_Tower
         { 356, "Procedural/AlanthorRoyalStable" },                // Alanthor_RoyalStable
         { 357, "Procedural/AlanthorSiegeYard" },                  // Alanthor_SiegeYard
-
-        // Feraldis culture buildings (procedurally generated)
-        { 358, "Procedural/FeraldisHuntingLodge" },               // Feraldis_HuntingLodge
-        { 359, "Procedural/FeraldisLoggingStation" },             // Feraldis_LoggingStation
-        { 360, "Procedural/FeraldisLonghouse" },                  // Feraldis_Longhouse
-        { 361, "Procedural/FeraldisTotemTower" },                 // Feraldis_Tower
-        { 362, "Procedural/FeraldisSiegeYard" },                  // Feraldis_SiegeYard
-        { 363, "Procedural/FeraldisLonghouse" },                  // Feraldis_Pasture (reuses the longhouse shell)
 
         // Chapels — pid 390 + sect index (see BuildingFactory.ChapelPidForSect;
         // Ruin/Wrath sit at 412/413: 400-403 are Forest/Rock/deposits and
@@ -779,14 +758,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // at borrowed Synty/Litharch stand-ins; this switch runs first,
                 // so the authored rigs win without touching that dictionary.
                 case 370: authored = TheWaningBorder.Rendering.ScarGuardVisual.Build(entity.Index + 370); break;
-                case 371: authored = TheWaningBorder.Rendering.GolemAutarkVisual.Build(entity.Index + 371); break;
-                case 372: authored = TheWaningBorder.Rendering.StoneWardenVisual.Build(entity.Index + 372); break;
-                case 387: authored = TheWaningBorder.Rendering.LorekeeperVisual.Build(entity.Index + 387); break;
+                case 371: authored = TheWaningBorder.Rendering.CollectorVisual.Build(entity.Index + 371); break;
+                case 372: authored = TheWaningBorder.Rendering.SallyguardVisual.Build(entity.Index + 372); break;
+                case 387: authored = TheWaningBorder.Rendering.ArtificerVisual.Build(entity.Index + 387); break;
 
                 case 561: authored = TheWaningBorder.Rendering.ReliquaryVisual.Build(entity.Index + 561); authoredIsBuilding = true; break;
                 case 562: authored = TheWaningBorder.Rendering.MendingHallVisual.Build(entity.Index + 562); authoredIsBuilding = true; break;
                 case 563: authored = TheWaningBorder.Rendering.StoneholdVisual.Build(entity.Index + 563); authoredIsBuilding = true; break;
-                case 564: authored = TheWaningBorder.Rendering.VeilworksVisual.Build(entity.Index + 564); authoredIsBuilding = true; break;
+                case 564: authored = TheWaningBorder.Rendering.TreasuryVisual.Build(entity.Index + 564); authoredIsBuilding = true; break;
                 case 565: authored = TheWaningBorder.Rendering.MusterYardVisual.Build(entity.Index + 565); authoredIsBuilding = true; break;
             }
 
@@ -1535,6 +1514,31 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (!_em.HasComponent<BuildingTag>(entity)) continue;
 
             int pid = presentations[i].Id;
+
+            // A multi-variant building with NO level ladder (the Temple of
+            // Ridan, which becomes the Blood Altar) is never visited by
+            // BuildingPrefabSwapSystem, so its culture branch is switched
+            // here, in place, with the same dissolve a level-up uses. One
+            // still under construction keeps its Lv0 rise; the completion
+            // hook in the sync pass reveals the branch then.
+            if (culture != Cultures.None
+                && !_em.HasComponent<BuildingUpgradeState>(entity)
+                && !_em.HasComponent<UnderConstruction>(entity)
+                && EntityViewManager.Instance.TryGetView(entity, out var ladderlessGo) && ladderlessGo != null)
+            {
+                var ladderless = ladderlessGo.GetComponent<TheWaningBorder.Rendering.BuildingVariantVisual>();
+                if (ladderless != null)
+                {
+                    Color vAccent = FactionColors.Get(faction);
+                    if (ladderless.ShowVariantWithTransition(culture, 1, vAccent))
+                    {
+                        ladderless.SyncTechVisuals(faction, vAccent, withTransition: false);
+                        RefitVariantView(ladderlessGo, entity, _em);
+                    }
+                    else ApplyFactionColor(ladderlessGo, entity);
+                    continue;
+                }
+            }
 
             // Procedural generation has been removed — there are no procedural variants.
             // A culture-aware rebuild is only needed for a culture-specific prefab override.

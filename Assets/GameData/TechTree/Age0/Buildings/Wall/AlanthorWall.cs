@@ -1171,10 +1171,16 @@ namespace TheWaningBorder.Entities
             return run;
         }
 
-        /// <summary>A tower needs masonry under it and a clear run around it.</summary>
+        /// <summary>A tower needs masonry under it — or a Feraldis Wooden Wall,
+        /// the one palisade that carries towers (2026-10-13,
+        /// docs/Design/Age_1_Feraldis.md § Walls) — and a clear run around it.</summary>
         public static bool CanConvertToTower(EntityManager em, Entity cell)
-            => WallTiers.AllowsTowers(WallTiers.Of(em, cell)) && !IsPalisade(em, cell)
-               && FreeRunAround(em, cell) >= FreeRunForTower;
+        {
+            if (FreeRunAround(em, cell) < FreeRunForTower) return false;
+            if (!IsPalisade(em, cell)) return WallTiers.AllowsTowers(WallTiers.Of(em, cell));
+            return em.HasComponent<FactionTag>(cell)
+                && WallTiers.PalisadeAllowsTowers(em, em.GetComponentData<FactionTag>(cell).Value);
+        }
 
         /// <summary>An emplacement needs the wall level its engine asks for —
         /// Battlemented for a Ballista, Shielded for a Trebuchet

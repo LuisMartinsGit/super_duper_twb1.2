@@ -28,7 +28,9 @@ namespace TheWaningBorder.Core.Save
 {
     public sealed class SaveGameFile
     {
-        public const int CurrentFormat = 2;
+        // 3 (2026-10-15): PerSectState.UnlockedActives became UnlockMask
+        // (the ECS world layout changed), so format-2 saves are refused.
+        public const int CurrentFormat = 3;
 
         public int Format = CurrentFormat;
         public int Tick;

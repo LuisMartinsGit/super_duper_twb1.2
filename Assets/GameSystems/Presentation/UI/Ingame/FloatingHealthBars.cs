@@ -387,7 +387,7 @@ namespace TheWaningBorder.UI.Ingame
             if (isBuilding)
             {
                 float progress = -1f;
-                if (_em.HasComponent<BuildingUpgrading>(e))
+                if (TransientState.Active<BuildingUpgrading>(_em, e))
                 {
                     var up = _em.GetComponentData<BuildingUpgrading>(e);
                     if (up.Total > 0f)

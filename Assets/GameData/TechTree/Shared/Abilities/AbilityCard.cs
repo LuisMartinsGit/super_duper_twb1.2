@@ -1,4 +1,4 @@
-﻿// AbilityCard.cs
+// AbilityCard.cs
 // Data-driven ability system — authoring/runtime data model.
 //
 // Mirrors the "ability cards" authored in the tech-tree calculator
@@ -82,6 +82,36 @@ namespace TheWaningBorder.Abilities
         SummonPledgeArmy = 16,  // spawn a temporary army around the caster, scaled by hero level (Honour thy Pledge)
         FireRatePct = 17,       // +Value% fire rate for allied RANGED units in radius (Choreographed Volleys: 100 = double)
         ShardboundFury = 18,    // the Shardbound King hurls every enemy in radius skyward, damages buildings (ShardboundFury.Cast)
+        // Harkon Fiend (docs/Design/Age_1_Feraldis.md §8) — HarkonAbilities.
+        FeraldisWarcry = 19,    // allied Feraldis units in Radius frenzy for the duration
+        FeraldisLeap = 20,      // jump to the aimed point, slow enemies where he lands
+        FeraldisRaze = 21,      // destroy the hostile building at the aimed point (capitals lose a share)
+        FeraldisBloodOath = 22, // allied units in Radius cannot drop below 1 HP for the duration
+        FeraldisFieldSacrifice = 23, // the Slave dies where it stands and leaves a blood pool (FeraldisSacrifice)
+        FeraldisRigUnload = 24, // the War Rig lets its passengers out (WarRig.Unload)
+        FeraldisOvercharge = 25, // the War Rig's cannon burst, paid in HP (FeraldisCombatSystems.Overcharge)
+        // The Runai Wayfinder and Caravan Master (docs/Design/Age_1_Runai.md §6.1, §8) — RunaiAbilities.
+        RunaiWayfinding = 26,      // allies in Radius move Value% faster for the duration
+        RunaiMirage = 27,          // Value decoy riders appear around the caster for the duration
+        RunaiCaravanOfSwords = 28, // every caravan of the faction is armed and toughened for the duration
+        RunaiExodus = 29,          // after the cast, allies in Radius are carried to the nearest market
+        RunaiScatter = 30,         // caravans in Radius run to the nearest market
+        RunaiTheCall = 31,         // escorts of the caster's and bordering territories come to the caster (§8.1)
+        RunaiReturnToWagons = 32,  // the faction's called escorts walk back to their caravans
+        // The Alanthor sect heroes (docs/Design/Sects.md §4, 2026-10-15) —
+        // SectHeroAbilities. Auras (Passive) run in SectHeroAuraSystem.
+        SectCatalogued = 33,       // aura: slowed enemies in Radius take +Value% damage (Archivist L1)
+        SectStampOfRecord = 34,    // the aimed enemy's abilities all go on cooldown (Archivist L3)
+        SectRecall = 35,           // caster and allies in Radius jump back to where they stood 5 s ago (Archivist L6)
+        SectCauterize = 36,        // aura: allies in Radius are immune to damage over time (Surgeon L1)
+        SectBloodletting = 37,     // allies in Radius drop to 35% HP and attack Value% faster (Surgeon L3)
+        SectLancet = 38,           // the aimed enemy bleeds and cannot be healed (Surgeon L6)
+        SectDrillmaster = 39,      // aura: Sallyguards in Radius charge twice as fast (Warden L1)
+        SectSallyForth = 40,       // allies in Radius gain speed; Sallyguards fully charged (Warden L3)
+        SectChallenge = 41,        // enemies in Radius must attack the caster (Warden L6)
+        SectCalledIn = 42,         // aura: wounded enemies in Radius are slowed Value% (Guildmaster L1)
+        SectStake = 43,            // channel: the extractor under the caster pays double (Guildmaster L3)
+        SectLiquidate = 44,        // demolish the aimed own building for Value% of its worth (Guildmaster L6)
     }
 
     /// <summary>

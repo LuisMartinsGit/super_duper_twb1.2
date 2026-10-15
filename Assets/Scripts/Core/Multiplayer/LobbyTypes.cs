@@ -76,6 +76,10 @@ namespace TheWaningBorder.Core.Config
         /// <summary>StartIndex value meaning "unassigned / let the layout pick".</summary>
         public const int AutoStart = -1;
 
+        /// <summary>START WITH CULTURE (lobby option): the culture this slot
+        /// starts aged into; Cultures.None = OPEN, an ordinary Age 0 start.</summary>
+        public byte StartCulture;
+
         public PlayerSlot(int index, Faction faction)
         {
             SlotIndex = index;

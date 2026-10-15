@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cd60ba2194bc6a49b51fab66dfb5074, type: 3}
+  m_Name: FeraldisCombat
+  m_EditorClassIdentifier: 
+  berserkHpFraction: 0.25
+  berserkDamageMultiplier: 1.5
+  berserkSpeedMultiplier: 1.2
+  aspInvulnerableSeconds: 10
+  aspSurviveHpFraction: 0.1
+  bloodritesDamageBonus:
+  - 0.05
+  - 0.1
+  - 0.15
+  bloodritesLingerSeconds:
+  - 0.5
+  - 1
+  - 1.5
+  hamstringSlow: 0.25
+  hamstringSeconds: 2
+  warpathSprintSpeed: 1.2
+  warpathSprintOutOfCombatSeconds: 3
+  barbedHeadsBleedMultiplier: 1.5
+  pitchPotsBurnMultiplier: 1.4
+  trampleDamage: 8
+  trampleRadius: 1.8
+  trampleInterval: 0.5
+  trampleMinSpeed: 3
+  spikedWheelsMultiplier: 1.75
+  bloodBoilersSpeedMultiplier: 1.2
+  ramBlastRadius: 5
+  ramBlastDamage: 260
+  ramTriggerDistance: 1.2
+  wireSeconds: 3
+  wireHalfWidth: 0.8
+  wireDamagePerSecond: 12
+  wireBleedDps: 4
+  wireBleedSeconds: 5
+  barbedCoilsMultiplier: 1.6
+  corpseBlood: 0.7
+  corpseBloodRing: 2.5
+  warRigCapacity: 8
+  overchargeDamageMultiplier: 2
+  overchargeSeconds: 6
+  overchargeHpCost: 0.1
+  overchargeCooldown: 45
+  razeCapitalShare: 0.3
+  razePickRadius: 4
+  leapSlow: 0.4
+  leapSlowRadius: 4
+  leapSlowSeconds: 3
+  leapMaxDistance: 16

@@ -221,6 +221,8 @@ namespace TheWaningBorder.Input
                     break;
 
                 case SelectionOrders.TargetType.FriendlyUnit:
+                    // Feraldis: infantry right-clicking a War Rig board it.
+                    if (_orders.TryFeraldisOrder(target)) break;
                     if (capabilities.CanHeal)
                         _orders.IssueHealCommands(target);
                     else
@@ -234,6 +236,10 @@ namespace TheWaningBorder.Input
                     // first, because a level-3 wall is also a WallTag and would
                     // otherwise take the wall-top order below.
                     if (_orders.TryGarrisonWall(target)) break;
+
+                    // Feraldis: staff an extractor / the Forge, Melt Down at the
+                    // Forge, sacrifice at the Blood Altar (Age_1_Feraldis.md).
+                    if (_orders.TryFeraldisOrder(target)) break;
 
                     // AoE4: right-click your own wall -> foot units garrison it
                     // (route to stairs, climb, spread along the top). Segments

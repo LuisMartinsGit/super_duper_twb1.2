@@ -1,19 +1,19 @@
+// ScarGuard.cs -- Sect of Renewal unit (limit 20): heavy melee shock (Sects.md 4, Borrowed Breath).
+// Body from the SO through SectUnitSpine; this file adds only the trait.
+// Trait tuning lives here as named constants until the sect units get a
+// config asset (docs/Design/Sects.md 4).
+
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Transforms;
-using TheWaningBorder.Economy;
 
 namespace TheWaningBorder.Entities
 {
-    /// <summary>
-    /// ScarGuard unit - Renewal sect melee infantry.
-    /// Tough frontline fighter with high HP and solid damage.
-    ///
-    /// Fix #219: the two Create overloads share one generic CreateInternal via IEntityCreator.
-    /// </summary>
     public static class ScarGuard
     {
-        private const int PresentationID = 370;
+        public const int PresentationID = 370;
+        public const string UnitId = "Sect_ScarGuard";
+        /// <summary>Borrowed Breath: damage bonus at the edge of death.</summary>
+        public const float BorrowedBreathMax = 0.6f;
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
             => CreateInternal(new EmCreator(em), position, faction);
@@ -24,36 +24,9 @@ namespace TheWaningBorder.Entities
         private static Entity CreateInternal<TCreator>(TCreator creator, float3 position, Faction faction)
             where TCreator : struct, IEntityCreator
         {
-            var def = TechCatalog.Unit("Sect_ScarGuard");
-            float hp = def.hp;
-            float speed = def.speed;
-            float damage = def.damage;
-            float los = def.lineOfSight;
-            float cooldown = def.attackCooldown;
-            float radius = def.radius;
-
-            var entity = creator.CreateEntity();
-
-            creator.AddComponent(entity, new PresentationId { Id = PresentationID });
-            creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
-            creator.AddComponent(entity, new FactionTag { Value = faction });
-            creator.AddComponent(entity, new UnitTag { Class = UnitClass.Melee });
-            creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
-            creator.AddComponent(entity, new MoveSpeed { Value = speed });
-            creator.AddComponent(entity, new Damage { Value = (int)damage });
-            creator.AddComponent(entity, new AttackCooldown { Cooldown = cooldown, Timer = 0f });
-            creator.AddComponent(entity, new LineOfSight { Radius = los });
-            creator.AddComponent(entity, new Target { Value = Entity.Null });
-            creator.AddComponent(entity, new Radius { Value = radius });
-            creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });
-
-            creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
-            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
-            creator.AddComponent(entity, new Defense { Melee = 2, Ranged = 1, Siege = 0, Magic = 0 });
-            creator.AddComponent<SectUniqueUnitTag>(entity);
-            creator.AddComponent(entity, new UnitAbility { Id = AbilityId.RapidMend, CooldownDuration = 15f, CooldownRemaining = 0f, Range = 0f });
-
-            return entity;
+            var e = SectUnitSpine.Create(creator, UnitId, PresentationID, position, faction);
+            creator.AddComponent(e, new BorrowedBreathTrait { MaxBonus = BorrowedBreathMax });
+            return e;
         }
     }
 }

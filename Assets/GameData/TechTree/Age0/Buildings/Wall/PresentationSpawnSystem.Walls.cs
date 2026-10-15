@@ -45,9 +45,9 @@ public partial class PresentationSpawnSystem
     /// piece shares one world scale. Null when there is no curtain art, which
     /// leaves each piece to fit its own footprint as before.
     /// </summary>
-    private static float? WallArtScale(byte tier)
+    private static float? WallArtScale(byte tier, byte culture = Cultures.None)
     {
-        var curtain = WallModuleArt.For(tier);
+        var curtain = WallModuleArt.For(tier, culture);
         return curtain != null ? curtain.Scale : (float?)null;
     }
 
@@ -74,9 +74,9 @@ public partial class PresentationSpawnSystem
     private bool TryAuthoredWallPiece(GameObject root, Entity entity, WallModuleArt.WallPart part,
         float fitLength, string name, float? deckY)
     {
-        byte tier = WallTierOf(entity);
+        byte tier = WallArtTierOf(entity, out byte culture);
         var art = WallModuleArt.ForTier(part, tier, 0, fitLength, orientAlongZ: true,
-                                        explicitScale: WallArtScale(tier));
+                                        explicitScale: WallArtScale(tier, culture), culture: culture);
         var go = WallModuleArt.Instantiate(art, root.transform, name);
         if (go == null) return false;
 
@@ -110,6 +110,22 @@ public partial class PresentationSpawnSystem
     /// levels.</summary>
     private byte WallTierOf(Entity entity)
         => TheWaningBorder.Entities.WallTiers.Of(_em, entity);
+
+    /// <summary>
+    /// The level and owner culture a piece's AUTHORED ART is picked by
+    /// (WallModuleArt.asset: the level ladder, or the culture's own set from
+    /// level 1). Differs from <see cref="WallTierOf"/> for a palisade raised
+    /// to its faction's cultured level — the Feraldis Wooden Wall keeps sim
+    /// level 0 and draws its culture set at level 1
+    /// (WallTiers.ArtLevelOf). The procedural fallbacks keep branching on
+    /// <see cref="WallTierOf"/>, so a missing culture set never turns a
+    /// palisade to stone.
+    /// </summary>
+    private byte WallArtTierOf(Entity entity, out byte culture)
+    {
+        culture = TheWaningBorder.Entities.WallTiers.ArtCultureOf(_em, entity);
+        return TheWaningBorder.Entities.WallTiers.ArtLevelOf(_em, entity);
+    }
 
     /// <summary>How thick a piece's pick box is: the wall's own depth — a
     /// 1 m palisade, a 4 m stone wall (docs/Design/Age_1_Alanthor.md § The
@@ -353,7 +369,8 @@ public partial class PresentationSpawnSystem
         // (a curved one bakes them all into its own mesh — WallArtMesh), so
         // here the module is instantiated and normalised into the sim's frame
         // rather than baked. docs/Design/Age_1_Alanthor.md § The wall's art.
-        var art = WallModuleArt.For(tier);
+        byte artTier = WallArtTierOf(entity, out byte artCulture);
+        var art = WallModuleArt.For(artTier, artCulture);
         var module = WallModuleArt.Instantiate(art, root.transform, "Module");
         if (module != null)
         {
@@ -639,10 +656,11 @@ public partial class PresentationSpawnSystem
         // 3 m module, so hubs came out visibly bigger than the wall they
         // anchor. A hub is round, so it is not turned to face along the wall.
         // docs/Design/Age_1_Alanthor.md § The wall's art.
-        var hubArt = WallModuleArt.ForTier(WallModuleArt.WallPart.Hub, WallTierOf(entity),
+        byte hubArtTier = WallArtTierOf(entity, out byte hubCulture);
+        var hubArt = WallModuleArt.ForTier(WallModuleArt.WallPart.Hub, hubArtTier,
             TheWaningBorder.Entities.AlanthorWall.HubPresentationID,
             TheWaningBorder.Entities.AlanthorWall.HubWidth, orientAlongZ: false,
-            explicitScale: WallArtScale(WallTierOf(entity)));
+            explicitScale: WallArtScale(hubArtTier, hubCulture), culture: hubCulture);
         var hubGo = WallModuleArt.Instantiate(hubArt, root.transform, "Hub");
         if (hubGo != null)
         {
@@ -916,9 +934,10 @@ public partial class PresentationSpawnSystem
         // so a gatehouse drawn at any other length showed a sliver of
         // missing wall at each side. The timber gate used to keep the
         // curtain's scale, and was the one that did.
-        byte gateTier = WallTierOf(entity);
+        byte gateTier = WallArtTierOf(entity, out byte gateCulture);
         var gateArt = WallModuleArt.ForTier(WallModuleArt.WallPart.Gate, gateTier,
-            TheWaningBorder.Entities.AlanthorWall.GatePresentationID, span, orientAlongZ: true);
+            TheWaningBorder.Entities.AlanthorWall.GatePresentationID, span, orientAlongZ: true,
+            culture: gateCulture);
         if (WallModuleArt.Instantiate(gateArt, root.transform, "Gatehouse") != null)
         {
             // The doors are part of the authored model: any child whose name

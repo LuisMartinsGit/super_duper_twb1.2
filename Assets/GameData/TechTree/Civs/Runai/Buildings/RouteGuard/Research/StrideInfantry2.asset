@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: StrideInfantry2
+  m_EditorClassIdentifier: 
+  id: Runai_StrideInfantry2
+  displayName: Stride II
+  role: Military
+  effect: 
+  desc: "Route Guard units move faster."
+  researchAt: Barracks
+  minBuildingLevel: 2
+  researchTime: 50
+  prerequisites:
+  - Runai_StrideInfantry1
+  culture: Runai
+  cost:
+    Supplies: 160
+    Iron: 80
+    Veilstone: 30
+    Veilsteel: 0
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList:
+  - Target: "unit:Spearman"
+    Stat: Speed
+    Op: Pct
+    Value: 4
+  - Target: "unit:Runai_DuneGuard"
+    Stat: Speed
+    Op: Pct
+    Value: 4
+  - Target: "unit:Runai_RoadWarden"
+    Stat: Speed
+    Op: Pct
+    Value: 4
+  - Target: "unit:Runai_Sandstrider"
+    Stat: Speed
+    Op: Pct
+    Value: 4

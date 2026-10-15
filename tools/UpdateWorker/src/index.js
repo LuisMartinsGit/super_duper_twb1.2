@@ -33,18 +33,30 @@ export default {
     if (url.pathname.startsWith("/logs/") && request.method === "GET") return fetchLog(request, env, url);
 
     const key = request.headers.get("x-twb-key") ?? url.searchParams.get("key");
-    const tester = key ? await env.KEYS.get(`key:${key}`) : null;
-    if (!tester) {
+    const grant = parseGrant(key ? await env.KEYS.get(`key:${key}`) : null);
+    if (!grant) {
       return json({ error: "Unknown or revoked key. Ask Luis for a new one." }, 401);
     }
+    const tester = grant.name;
 
+    // Every valid key may post logs, whatever edition it plays.
     if (url.pathname === "/logs" && request.method === "POST") {
       return uploadLog(request, env, tester);
     }
 
+    // A launcher from before editions sends none, and every one of those is
+    // a demo launcher — so absent means A, and old installs keep updating.
+    const edition = (url.searchParams.get("edition") ?? "A").toUpperCase();
+    if (!EDITIONS.includes(edition)) {
+      return json({ error: `Unknown edition "${edition}".` }, 400);
+    }
+    if (!grant.editions.includes(edition)) {
+      return json({ error: `This key is not authorised for edition ${edition}. Ask Luis for a developer key.` }, 403);
+    }
+
     let release;
     try {
-      release = await latestRelease(env);
+      release = await latestRelease(env, edition);
     } catch (err) {
       return json({ error: err.message }, err.status ?? 502);
     }
@@ -54,6 +66,46 @@ export default {
     return json({ error: "Not found" }, 404);
   },
 };
+
+/* -------------------------------------------------------------- editions */
+
+/**
+ * A = the demo (Age 0 + Alanthor), B = + Feraldis, C = + Feraldis + Runai.
+ * Every edition of a version is built from the same commit; the release tag
+ * names it: v0.0.41 (A), v0.0.41B, v0.0.41C.
+ */
+const EDITIONS = ["A", "B", "C"];
+
+/**
+ * A KV value is either a bare tester name — every key handed out before
+ * editions, which is a DEMO key — or a JSON grant:
+ *   {"name": "luis", "editions": ["A", "B", "C"]}
+ * so existing keys need no migration and a developer key is one `kv key put`.
+ * A malformed grant is refused rather than read as a demo key: it can only be
+ * a typo in a developer key, and failing loudly is how that gets noticed.
+ */
+function parseGrant(value) {
+  if (!value) return null;
+  const text = value.trim();
+  if (!text.startsWith("{")) return { name: text, editions: ["A"] };
+
+  try {
+    const grant = JSON.parse(text);
+    const editions = Array.isArray(grant.editions)
+      ? grant.editions.map((e) => String(e).toUpperCase()).filter((e) => EDITIONS.includes(e))
+      : [];
+    if (!grant.name || editions.length === 0) return null;
+    return { name: String(grant.name), editions };
+  } catch {
+    return null;
+  }
+}
+
+/** The edition a release tag belongs to, or null for a tag of no edition. */
+function editionOfTag(tag) {
+  const m = /^v\d+\.\d+\.\d+([BC]?)$/.exec(tag ?? "");
+  return m ? (m[1] || "A") : null;
+}
 
 /* ------------------------------------------------------------------ logs */
 
@@ -228,12 +280,25 @@ function ghHeaders(env) {
   };
 }
 
-async function latestRelease(env) {
-  const res = await fetch(`${GH_API}/repos/${env.RELEASE_REPO}/releases/latest`, {
+/**
+ * The newest published release OF THIS EDITION. GitHub's /releases/latest
+ * cannot be used any more: it is one release for the whole repo, so the
+ * moment v0.0.41B was published every demo launcher would have been handed
+ * the Feraldis build. The list is newest-first; drafts and prereleases are
+ * skipped exactly as /releases/latest skips them.
+ */
+async function latestRelease(env, edition) {
+  const res = await fetch(`${GH_API}/repos/${env.RELEASE_REPO}/releases?per_page=100`, {
     headers: ghHeaders(env),
   });
 
-  if (res.ok) return res.json();
+  if (res.ok) {
+    const releases = await res.json();
+    const match = releases.find(
+      (r) => !r.draft && !r.prerelease && editionOfTag(r.tag_name) === edition);
+    if (match) return match;
+    throw fail(`No published release for edition ${edition} yet.`, 503);
+  }
 
   // These are split apart because a silently expired fine-grained PAT is
   // otherwise indistinguishable from a network fault, and it WILL expire.

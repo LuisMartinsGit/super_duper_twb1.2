@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Overseer
+  m_EditorClassIdentifier: 
+  id: Feraldis_Overseer
+  displayName: Overseer
+  unitClass: human_melee
+  hp: 220
+  speed: 5.5
+  trainingTime: 30
+  damage: 8
+  damageType: melee
+  armorType: infantry_heavy
+  defense:
+    melee: 2
+    ranged: 1
+    siege: 0
+    magic: 0
+  attackCooldown: 1.4
+  attackRange: 1.5
+  minAttackRange: 0
+  lineOfSight: 18
+  aimTime: 0
+  radius: 0.5
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 0
+    Iron: 40
+    Veilstone: 80
+    Veilsteel: 0
+  populationCost: 1
+  minBuildingLevel: 2
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags:
+  - Infantry
+  - Heavy
+  bonusVsTags: []
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 815084743774789094, guid: 99f6a331802f71249ae5334fa3fba115, type: 3}
+  presentationId: 427
+  animatorController: {fileID: 9100000, guid: bb82ffba78b9ab349bcc6d3bcdb856ca, type: 2}

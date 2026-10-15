@@ -80,9 +80,60 @@ namespace TheWaningBorder.Economy
 
             if (sect.LevelOf(lever) < minLevel) return false;
 
-            // Passives sleep while the Temple is down (see HasStandingTemple).
-            // Checked LAST: it walks every Temple, the rest is one read.
-            return lever != SectLeverKind.Passive || HasStandingTemple(em, faction);
+            // A passive is its sect building's standing effect (Religion.md
+            // §3.2). Checked LAST: it walks buildings, the rest is one read.
+            return lever != SectLeverKind.Passive || PassiveLive(em, faction, sectId);
+        }
+
+        /// <summary>
+        /// Is <paramref name="sectId"/>'s passive live for this faction? A
+        /// sect with a sect building: while one stands (finished, HP > 0) —
+        /// the passive is that building's standing effect (Religion.md §3.2,
+        /// 2026-10-15). A sect with none yet (Runai / most Feraldis until
+        /// their pass): while a Temple stands, the older rule.
+        /// </summary>
+        public static bool PassiveLive(EntityManager em, Faction faction, string sectId)
+        {
+            string building = SectConfig.BuildingIdFor(sectId);
+            if (building == null) return HasStandingTemple(em, faction);
+            return HasStandingSectBuilding(em, faction, building);
+        }
+
+        /// <summary>Does this faction have a finished, living
+        /// <paramref name="buildingId"/> sect building?</summary>
+        public static bool HasStandingSectBuilding(EntityManager em, Faction faction, string buildingId)
+            => buildingId switch
+            {
+                "Sect_Reliquary"   => Standing<ReliquaryTag>.Any(em, faction),
+                "Sect_MendingHall" => Standing<MendingHallTag>.Any(em, faction),
+                "Sect_Stonehold"   => Standing<StoneholdTag>.Any(em, faction),
+                "Sect_Treasury"    => Standing<TreasuryTag>.Any(em, faction),
+                "Sect_MusterYard"  => Standing<MusterYardTag>.Any(em, faction),
+                _ => false,
+            };
+
+        /// <summary>One cached query per sect-building tag (statics in a
+        /// generic class are per constructed type — see AIQueryCache).</summary>
+        private static class Standing<T> where T : unmanaged, IComponentData
+        {
+            static readonly ComponentType[] QT =
+            {
+                ComponentType.ReadOnly<T>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<Health>(),
+                ComponentType.Exclude<UnderConstruction>(),
+            };
+            static CachedEntityQuery QC;
+
+            public static bool Any(EntityManager em, Faction faction)
+            {
+                var q = QC.Get(em, QT);
+                using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
+                for (int i = 0; i < facs.Length; i++)
+                    if (facs[i].Value == faction && hps[i].Value > 0) return true;
+                return false;
+            }
         }
 
         /// <summary>
@@ -101,9 +152,10 @@ namespace TheWaningBorder.Economy
             byte level = state.Get(idx).LevelOf(lever);
             if (level == 0) return 0;
 
-            // Temple gate LAST (2026-09-25): it walks every Temple in the
-            // world, and was paid even for a sect the faction never adopted.
-            if (lever == SectLeverKind.Passive && !HasStandingTemple(em, faction)) return 0;
+            // Passive gate LAST: it walks buildings, and was paid even for a
+            // sect the faction never adopted. A passive is its sect
+            // building's standing effect (Religion.md §3.2).
+            if (lever == SectLeverKind.Passive && !PassiveLive(em, faction, sectId)) return 0;
             return level;
         }
 

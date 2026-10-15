@@ -83,14 +83,32 @@ namespace TheWaningBorder.Entities
 
             // Runai culture units
             r["Runai_Spearman"]   = new UnitRecipe(Spearman.Create, Spearman.Create, UnitClass.Melee, 330);
-            r["Runai_Skirmisher"] = new UnitRecipe(Skirmisher.Create, Skirmisher.Create, UnitClass.Ranged, 331);
-            r["Runai_Raider"]     = new UnitRecipe(Raider.Create, Raider.Create, UnitClass.Melee, 332);
-            r["Runai_Catapult"]   = new UnitRecipe(Catapult.Create, Catapult.Create, UnitClass.Siege, 333);
+            // The 2026-10-13 redesign (docs/Design/Age_1_Runai.md §6) — RunaiUnits.cs.
+            r["Runai_Skirmisher"]    = new UnitRecipe(RunaiSkirmisher.Create, RunaiSkirmisher.Create, UnitClass.Ranged, RunaiSkirmisher.PresentationID);
+            r["Runai_Raider"]        = new UnitRecipe(RunaiRaider.Create, RunaiRaider.Create, UnitClass.Melee, RunaiRaider.PresentationID);
+            r["Runai_Catapult"]      = new UnitRecipe(RunaiCatapult.Create, RunaiCatapult.Create, UnitClass.Siege, RunaiCatapult.PresentationID);
+            r["Runai_CaravanMaster"] = new UnitRecipe(RunaiCaravanMaster.Create, RunaiCaravanMaster.Create, UnitClass.Melee, RunaiCaravanMaster.PresentationID);
+            r["Runai_Wayfinder"]     = new UnitRecipe(RunaiWayfinder.Create, RunaiWayfinder.Create, UnitClass.Melee, RunaiWayfinder.PresentationID);
+            r["Runai_RoadWarden"]    = new UnitRecipe(RunaiRoadWarden.Create, RunaiRoadWarden.Create, UnitClass.Melee, RunaiRoadWarden.PresentationID);
+            r["Runai_Sandstrider"]   = new UnitRecipe(RunaiSandstrider.Create, RunaiSandstrider.Create, UnitClass.Melee, RunaiSandstrider.PresentationID);
+            r["Runai_HorseArcher"]   = new UnitRecipe(RunaiHorseArcher.Create, RunaiHorseArcher.Create, UnitClass.Ranged, RunaiHorseArcher.PresentationID);
+            r["Runai_CamelLancer"]   = new UnitRecipe(RunaiCamelLancer.Create, RunaiCamelLancer.Create, UnitClass.Melee, RunaiCamelLancer.PresentationID);
+            r["Runai_WarWagon"]      = new UnitRecipe(RunaiWarWagon.Create, RunaiWarWagon.Create, UnitClass.Siege, RunaiWarWagon.PresentationID);
+            r["Runai_SiegeCaravan"]  = new UnitRecipe(RunaiSiegeCaravan.Create, RunaiSiegeCaravan.Create, UnitClass.Siege, RunaiSiegeCaravan.PresentationID);
+            r["Runai_TraderWarrior"] = new UnitRecipe(RunaiTraderWarriorUnit.Create, RunaiTraderWarriorUnit.Create, UnitClass.Melee, RunaiTraderWarriorUnit.PresentationID);
+            r["Runai_DuneGuard"]     = new UnitRecipe(RunaiDuneGuard.Create, RunaiDuneGuard.Create, UnitClass.Melee, RunaiDuneGuard.PresentationID);
+            r["Runai_Slinger"]       = new UnitRecipe(RunaiSlinger.Create, RunaiSlinger.Create, UnitClass.Ranged, RunaiSlinger.PresentationID);
+            r["Runai_SunArcher"]     = new UnitRecipe(RunaiSunArcher.Create, RunaiSunArcher.Create, UnitClass.Ranged, RunaiSunArcher.PresentationID);
+            r["Runai_SkyBarge"]      = new UnitRecipe(RunaiSkyBarge.Create, RunaiSkyBarge.Create, UnitClass.Siege, RunaiSkyBarge.PresentationID);
+            r["Runai_EscortGuard"]   = new UnitRecipe(RunaiEscortUnits.CreateGuard, RunaiEscortUnits.CreateGuard, UnitClass.Melee, RunaiEscortUnits.GuardPID);
+            r["Runai_EscortArcher"]  = new UnitRecipe(RunaiEscortUnits.CreateArcher, RunaiEscortUnits.CreateArcher, UnitClass.Ranged, RunaiEscortUnits.ArcherPID);
+            r["Runai_EscortRider"]   = new UnitRecipe(RunaiEscortUnits.CreateRider, RunaiEscortUnits.CreateRider, UnitClass.Melee, RunaiEscortUnits.RiderPID);
+            r["Runai_MirageRider"]   = new UnitRecipe(RunaiMirageRider.Create, RunaiMirageRider.Create, UnitClass.Melee, RunaiMirageRider.PresentationID);
             r["Runai_Acolyte"]    = new UnitRecipe(Acolyte.Create, Acolyte.Create, UnitClass.Magic, 384);
-            // Trade-lane caravan: spawned by TradingPostSystem, never trained.
+            // The caravan: spawned by RunaiTradeSystem at its depot, never trained.
             // Registered so the spawn routes through the factory (UnitTypeId /
             // DisplayName / counter stamps) and the validator stays quiet.
-            r["Runai_Caravan"]    = new UnitRecipe(Caravan.Create, Caravan.Create, UnitClass.Economy, Caravan.PresentationID);
+            r["Runai_Caravan"]    = new UnitRecipe(RunaiCaravanUnit.Create, RunaiCaravanUnit.Create, UnitClass.Economy, RunaiCaravanUnit.PresentationID);
             // Packed Bazaar: spawned by BazaarPackSystem, never trained — same
             // arrangement as the Caravan above, registered so the validator
             // stays quiet and any non-pack spawn path still works.
@@ -113,13 +131,13 @@ namespace TheWaningBorder.Entities
             // NOTE the class is AlanthorCatapult: plain `Catapult` is the RUNAI
             // catapult. Same player-facing word, different entity, stats and prefab.
             r["Alanthor_Ballista"] = ballista;
-            r["Alanthor_Catapult"] = new UnitRecipe(AlanthorCatapult.Create, AlanthorCatapult.Create, UnitClass.Siege, 350);
+            r["Alanthor_Catapult"] = new UnitRecipe(AlanthorCatapult.Create, AlanthorCatapult.Create, UnitClass.Siege, 420);
             // Garrison Lv 2 elite duelist infantry (calculator 2026-08).
             r["Alanthor_Nobleman"]    = new UnitRecipe(Nobleman.Create, Nobleman.Create, UnitClass.Melee, 346);
             // Siege Yard Lv 2/3 additions (calculator 2026-08): anti-building
             // ram + long-range trebuchet round out the Alanthor siege line.
             r["Alanthor_BatteringRam"] = new UnitRecipe(BatteringRam.Create, BatteringRam.Create, UnitClass.Siege, 347);
-            r["Alanthor_Trebuchet"]   = new UnitRecipe(Trebuchet.Create, Trebuchet.Create, UnitClass.Siege, 348);
+            r["Alanthor_Trebuchet"]   = new UnitRecipe(Trebuchet.Create, Trebuchet.Create, UnitClass.Siege, Trebuchet.PresentationID);
             // Alanthor capital units, trained at the Fortress (data-driven
             // abilities; placeholder art).
             r["Ledger"]               = new UnitRecipe(Ledger.Create, Ledger.Create, UnitClass.Economy, Ledger.PresentationID);
@@ -151,11 +169,24 @@ namespace TheWaningBorder.Entities
             r["Feraldis_WarboarRider"] = new UnitRecipe(WarboarRider.Create, WarboarRider.Create, UnitClass.Melee, 339);
             r["Feraldis_SiegeRam"]     = new UnitRecipe(SiegeRam.Create, SiegeRam.Create, UnitClass.Siege, 340);
             r["Feraldis_Iconoclast"]   = new UnitRecipe(Iconoclast.Create, Iconoclast.Create, UnitClass.Melee, 386);
+            // The 2026-10-12 redesign (docs/Design/Age_1_Feraldis.md §3, §7-8).
+            r["Feraldis_Slave"]        = new UnitRecipe(FeraldisSlave.Create, FeraldisSlave.Create, UnitClass.Economy, FeraldisSlave.PresentationID);
+            r["Feraldis_Overseer"]     = new UnitRecipe(FeraldisOverseer.Create, FeraldisOverseer.Create, UnitClass.Melee, FeraldisOverseer.PresentationID);
+            r["Feraldis_HarkonFiend"]  = new UnitRecipe(HarkonFiend.Create, HarkonFiend.Create, UnitClass.Melee, HarkonFiend.PresentationID);
+            r["Feraldis_RamRig"]       = new UnitRecipe(FeraldisRamRig.Create, FeraldisRamRig.Create, UnitClass.Siege, FeraldisRamRig.PresentationID);
+            r["Feraldis_HarpoonRig"]   = new UnitRecipe(FeraldisHarpoonRig.Create, FeraldisHarpoonRig.Create, UnitClass.Siege, FeraldisHarpoonRig.PresentationID);
+            r["Feraldis_CorpseEngine"] = new UnitRecipe(FeraldisCorpseEngine.Create, FeraldisCorpseEngine.Create, UnitClass.Siege, FeraldisCorpseEngine.PresentationID);
+            r["Feraldis_WarRig"]       = new UnitRecipe(FeraldisWarRig.Create, FeraldisWarRig.Create, UnitClass.Siege, FeraldisWarRig.PresentationID);
 
             // Sect unique units
-            r["Sect_ScarGuard"]         = new UnitRecipe(ScarGuard.Create, ScarGuard.Create, UnitClass.Melee, 370);
-            r["Sect_GolemAutark"]       = new UnitRecipe(GolemAutark.Create, GolemAutark.Create, UnitClass.Magic, 371);
-            r["Sect_StoneWarden"]       = new UnitRecipe(StoneWarden.Create, StoneWarden.Create, UnitClass.Melee, 372);
+            // Alanthor sect units (limit 20) and heroes (unique) — Sects.md §4.
+            r["Sect_ScarGuard"]         = new UnitRecipe(ScarGuard.Create, ScarGuard.Create, UnitClass.Melee, ScarGuard.PresentationID);
+            r["Sect_Collector"]         = new UnitRecipe(Collector.Create, Collector.Create, UnitClass.Melee, Collector.PresentationID);
+            r["Sect_Sallyguard"]        = new UnitRecipe(Sallyguard.Create, Sallyguard.Create, UnitClass.Melee, Sallyguard.PresentationID);
+            r["Sect_ArchivistOfHours"]  = new UnitRecipe(ArchivistOfHours.Create, ArchivistOfHours.Create, UnitClass.Ranged, ArchivistOfHours.PresentationID);
+            r["Sect_Surgeon"]           = new UnitRecipe(Surgeon.Create, Surgeon.Create, UnitClass.Melee, Surgeon.PresentationID);
+            r["Sect_Warden"]            = new UnitRecipe(Warden.Create, Warden.Create, UnitClass.Melee, Warden.PresentationID);
+            r["Sect_Guildmaster"]       = new UnitRecipe(Guildmaster.Create, Guildmaster.Create, UnitClass.Melee, Guildmaster.PresentationID);
             r["Sect_ArchivistAdept"]    = new UnitRecipe(ArchivistAdept.Create, ArchivistAdept.Create, UnitClass.Magic, 373);
             r["Sect_FlameWarden"]       = new UnitRecipe(FlameWarden.Create, FlameWarden.Create, UnitClass.Melee, 374);
             r["Sect_VaultKeeper"]       = new UnitRecipe(VaultKeeper.Create, VaultKeeper.Create, UnitClass.Melee, 375);
@@ -166,11 +197,10 @@ namespace TheWaningBorder.Entities
             r["Sect_Chaincaster"]       = new UnitRecipe(Chaincaster.Create, Chaincaster.Create, UnitClass.Magic, 380);
             r["Sect_Nullblade"]         = new UnitRecipe(Nullblade.Create, Nullblade.Create, UnitClass.Melee, 381);
             // Antiquity unit lever (task-063, implemented 2026-07-05).
-            r["Sect_Lorekeeper"]        = new UnitRecipe(Lorekeeper.Create, Lorekeeper.Create, UnitClass.Support, Lorekeeper.PresentationID);
+            r["Sect_Artificer"]         = new UnitRecipe(Artificer.Create, Artificer.Create, UnitClass.Ranged, Artificer.PresentationID);
             // New-roster sect unit levers (playable-sect rollout 2026-07-05):
             // Renewal's Tinker, Justice's Inquisitor, War's Warbreaker —
             // trained at the Temple of Ridan once the sect is adopted.
-            r["Sect_Tinker"]            = new UnitRecipe(Tinker.Create, Tinker.Create, UnitClass.Economy, Tinker.PresentationID);
             r["Sect_Inquisitor"]        = new UnitRecipe(Inquisitor.Create, Inquisitor.Create, UnitClass.Support, Inquisitor.PresentationID);
             r["Sect_Warbreaker"]        = new UnitRecipe(Warbreaker.Create, Warbreaker.Create, UnitClass.Melee, Warbreaker.PresentationID);
 

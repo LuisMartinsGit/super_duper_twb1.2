@@ -420,6 +420,10 @@ attackers whose damage type is **Siege**.
   Ballista / Trebuchet emplacement shots are siege and may still be aimed at
   a wall — when no other target is in range, the siege shots take the
   nearest enemy wall piece.
+- **One non-siege exception (2026-10-12): Harkon Fiend's Raze** destroys a
+  wall piece outright — the Feraldis hero is "the tip of the spear"
+  ([Age_1_Feraldis.md §8](Age_1_Feraldis.md)). It is an ability, not an
+  attack, and opens one segment per (very long) cooldown.
 - **The player is told.** Right-clicking an enemy wall piece with a
   selection that holds no siege shows *"Only siege can damage walls"* and
   issues no order — a doomed attack order used to be silently dropped by the

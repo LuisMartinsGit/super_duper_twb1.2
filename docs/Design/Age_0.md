@@ -147,7 +147,7 @@ There is **no age-up research** — the age-up is the landmark (see
 ### Barracks — level 0 (pre-culture)
 
 Trains melee units. At age-up the Barracks is **renamed and reskinned** to its
-cultured form (`Garrison` / `Route Guard` / `War Hall` — see
+cultured form (`Garrison` / `Route Guard` / `Longhouse` — see
 [§ Age-up transitions](#age-up-transitions)); the cultured form starts at
 level 1 (free) and has its own upgrade ladder. In Age 0 only the pre-culture
 level 0 form exists. Its stats are on `Age0/Buildings/Barracks/Barracks.asset`.
@@ -254,8 +254,11 @@ At age-up the per-culture behaviour splits three ways (see
 
 - **Alanthor** — renamed and reskinned to House (Alanthor) with its level
   ladder.
-- **Runai** — **no House exists post-age-up**. Runai population is set to
-  the game cap instantly at age-up; standing Age 0 Houses are removed.
+- **Runai** — standing Age 0 Houses **collapse** at age-up; a Hut built after
+  it is the **Waystation** (no population; a watch tower that shoots, speeds
+  caravans and taxes them veilstone — placed anywhere, at most 20 —
+  [Age_1_Runai.md §4.3](Age_1_Runai.md), 2026-10-14). Runai population is set
+  to the game cap instantly at age-up.
 - **Feraldis** — Houses remain but provide **no population** after age-up
   (Feraldis also gets the full cap instantly). Houses convert into pure
   **raider-spawn buildings**.
@@ -277,16 +280,28 @@ Hub on a palisade section). What they built **stays timber**: it keeps its HP,
 it can still be turned into a gate, and it can be deleted. **Feraldis keep
 building palisades for the whole game** — they never leave timber.
 
+**Feraldis: the Wooden Wall (2026-10-13).** At a Feraldis age-up every
+palisade the faction owns is raised **automatically** to the Feraldis
+**Wooden Wall** — its ONE cultured level, sturdier than the Age 0 fence. No
+research, no button, no cost; every palisade raised afterwards stands at it
+from the start. **It has no further levels and no upgrades.** Its name and HP
+multiplier are on the level SO
+`Civs/Feraldis/Buildings/Palisade/Palisade_Lvl1.asset` (the hub takes it
+through the ordinary age-up level-1 bump; curtain modules, gates and towers
+through `FeraldisPalisadeSystem`). The Wooden Wall's fittings are the **wall
+tower and the gate** — the one palisade that carries a tower; never a mounted
+engine ([Age_1_Feraldis.md § Walls](Age_1_Feraldis.md)).
+
 | Property | Rule |
 |------|-------|
 | Id | `Palisade` (hub, `Age0/Buildings/Palisade/Palisade.asset`). Its curtain sections, gates and seals are the shared wall pieces, carrying `PalisadeTag` |
 | Who | **every culture in Age 0; Feraldis only after age-up** |
 | Cost | a price **per hub plus a price per curtain module** (`PalisadeSegment.asset`), charged for the whole length when the fence is laid — supplies only. The gate conversion costs the same as the stone wall's gate (decision 36) |
-| HP | hub and module HP on their SOs, never scaled — a palisade has no levels |
+| HP | hub and module HP on their SOs; never scaled for Alanthor / Runai (their palisade has no levels). **Feraldis**: scaled once by the Wooden Wall level SO at age-up (above) |
 | Footprint | the hub's footprint is its SO's, **not grid-snapped** (the wall hubs are the buildings exempt from the build grid, [Build_Grid.md § 5](Build_Grid.md)). The curtain is freeform and **thin** |
 | Walkable | **no.** A fence has no wall-walk; only the stone wall has a deck |
 | Look | authored timber art — `Wall_segment.fbx` / `Wall_hub.fbx` in `Age0/Buildings/Wall/`, the palisade slot (0) of `WallModuleArt.asset` |
-| Conversions | **Gate and Hub only.** No tower and no mounted engine. No placeholder cards |
+| Conversions | **Gate and Hub only.** No tower and no mounted engine. No placeholder cards. **Feraldis Wooden Wall: Gate, wall Tower and Hub** — still no mounted engine |
 | Joins | **palisade to palisade only.** A palisade never snaps to, auto-connects with, or is branched from a stone wall, and the reverse — they are different buildings |
 | Placement | drawn, exactly as [Age_1_Alanthor.md § Drawing walls](Age_1_Alanthor.md) describes |
 
@@ -320,7 +335,7 @@ and no culture-choice dialog: the landmark you build decides the culture.
 |---|---|---|
 | **Vault of Almiérra** | Alanthor | available |
 | **Fiendstone Keep** | Feraldis | shown, disabled ("Unavailable in the demo") |
-| **Thessara's Crossing** *(new building, design TBD)* | Runai | shown, disabled ("Unavailable in the demo") |
+| **Thessara's Crossing** ([Age_1_Runai.md §2](Age_1_Runai.md)) | Runai | edition C only; shown, disabled in A and B |
 
 **The demo is 100 % Alanthor** — every player, AI included.
 
@@ -502,12 +517,12 @@ only the rename map so the Age 0 build order can be planned forward.
 | Age 0 building | Alanthor (lvl 1) | Runai (lvl 1) | Feraldis (lvl 1) |
 |----------------|------------------|---------------|------------------|
 | Shelter | Fortress | Fortress | Fortress |
-| Barracks | Garrison | Route Guard | War Hall |
-| House | House (Alanthor) — level ladder | *(no House — Runai get the full population cap at age-up; standing Age 0 Houses are removed)* | **House (Feraldis)** — a **raider-spawn building only** (no population). Every build / upgrade spawns autonomous Raider units that attack the closest enemy. |
-| Gatherer's Hut | **Guild** (levels + the Guild research lines) | **transforms into a mobile caravan-wagon** the player drives outward to plant their first trade post | persists — can be upgraded to **Hunting Lodge** or **Logging Station** |
+| Barracks | Garrison | Route Guard | **Longhouse** (2026-10-13; was War Hall) |
+| House | House (Alanthor) — level ladder | **Waystation** — no population (Runai get the full cap at age-up); a shooting tower that speeds caravans and taxes them veilstone | **House (Feraldis)** — a **raider-spawn building only** (no population). Every build / upgrade spawns autonomous Raider units that attack the closest enemy. |
+| Gatherer's Hut | **Guild** (levels + the Guild research lines) | **Trading Post** — a supply depot; its output is hauled by caravan ([Age_1_Runai.md §3](Age_1_Runai.md)) | persists — can be upgraded to **Hunting Lodge** or **Logging Station** |
 | Mine | Mine (Alanthor levels) | Mine | Mine |
-| Veilstone Mine | **Trading Outpost** (Alanthor never mine veilstone) | Veilstone Mine | Veilstone Mine |
-| Palisade | stays timber; no new palisade | stays timber; no new palisade | keeps building palisades |
+| Veilstone Mine | **Trading Outpost** (Alanthor never mine veilstone) | **Sanctuary**, in place (the Runai never mine it either) | Veilstone Mine |
+| Palisade | stays timber; no new palisade | stays timber; no new palisade | **Wooden Wall** — raised automatically to its one cultured level; keeps building it |
 
 > **The capital (2026-10-03).** The Shelter becomes the **Fortress** for every
 > culture, automatically at age-up; there are no per-culture capital names.
@@ -562,4 +577,4 @@ its name.
 ## Remaining open questions
 
 - **Ward** (planned) — design and price.
-- **Thessara's Crossing** (the Runai landmark) — design TBD.
+- ~~Thessara's Crossing design~~ — done 2026-10-13, [Age_1_Runai.md §2](Age_1_Runai.md).

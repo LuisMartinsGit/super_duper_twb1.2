@@ -75,8 +75,14 @@ namespace TheWaningBorder.AI
         /// single-player branch), or the AI silently leaks its bank into
         /// foundations nobody will ever finish.
         /// </summary>
+        /// <summary>Set when TryPlace queues a plan. A plan issued this tick
+        /// lands NEXT tick, so TryFindSpot cannot see it: the 2026-10-13 1v1s
+        /// queued the Great Forge and the Hall of Axes a metre apart in one
+        /// think and the Forge never stood. TryBuildAge2 places one per think.</summary>
+        private static bool s_queuedThisThink;
+
         private static void TryPlace(EntityManager em, Faction faction, string buildingId,
-            float3 anchor, float rmin, float rmax, AIBudgetCategory cat)
+            float3 anchor, float rmin, float rmax, AIBudgetCategory cat, bool bankOnly = false)
         {
             if (!BuildCosts.Exists(buildingId)) return;
             // The Temple costs a Religion Point (docs/Design/Religion.md §2);
@@ -86,7 +92,10 @@ namespace TheWaningBorder.AI
                        TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg.templeRp))
                 return;
             var cost = BuildCosts.For(em, faction, buildingId);
-            if (!AIBudget.CanSpend(faction, cat, cost)) return;
+            // bankOnly: a keystone saved for by reservation (the Great Forge)
+            // — the category wallet only gets a share of income and never
+            // held its whole price (2026-10-13 headless 1v1s).
+            if (!bankOnly && !AIBudget.CanSpend(faction, cat, cost)) return;
             if (!FactionEconomy.CanAfford(em, faction, cost)) return;
 
             var size = BuildingSizeConfig.GetSize(buildingId);
@@ -108,6 +117,7 @@ namespace TheWaningBorder.AI
                 // Lockstep will build it; send workers at the position.
                 DispatchWorkers(em, faction, Entity.Null, buildingId, pos);
                 AILogger.Log(faction, "BUILDING", $"{buildingId} queued at ({pos.x:0},{pos.z:0})");
+                s_queuedThisThink = true;
                 return;
             }
 

@@ -162,6 +162,12 @@ two of your hubs may not cut across a neighbour's corner. A drawn wall that
 leaves your ground anywhere is refused whole, before anything is paid. Checked
 where the order executes, for players and AI alike.
 
+**The one exception: the Feraldis War Totem (2026-10-12).** A totem is placed
+on blood, and it may be placed on blood in a territory **no other faction
+owns** (unowned, or the Feraldis player's own) — so blood spilt beyond the
+border opens new ground ([Age_1_Feraldis.md §6.2](Age_1_Feraldis.md)). Never
+in a territory another faction holds.
+
 The placement ghost and the command executor both check ownership at the tick
 the order runs (the same two-place enforcement Regions.md §2 established), and
 a refusal names the rule.

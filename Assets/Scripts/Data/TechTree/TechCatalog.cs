@@ -117,6 +117,7 @@ public static class TechCatalog
                 }
             }
             LoadFromCatalog(catalog);
+            PruneEditionStripped(catalog.editionStripped);
         }
 
         // 3. Ensure required buildings exist + Temple fixup (only adds/repairs missing).
@@ -165,6 +166,39 @@ public static class TechCatalog
     {
         EnsureLoaded();
         return _techSOsById.TryGetValue(id ?? "", out so);
+    }
+
+    /// <summary>
+    /// Drops the ids this build's edition stripped (TechTreeCatalog.editionStripped)
+    /// from every list that names them. The defs are runtime copies (ToDef), so
+    /// the SOs are untouched. In the project the list is empty and this is a no-op.
+    /// </summary>
+    private static void PruneEditionStripped(List<string> stripped)
+    {
+        if (stripped == null || stripped.Count == 0) return;
+        var gone = new HashSet<string>(stripped);
+
+        string[] Keep(string[] ids)
+        {
+            if (ids == null || ids.Length == 0) return ids;
+            int kept = 0;
+            for (int i = 0; i < ids.Length; i++) if (!gone.Contains(ids[i] ?? "")) kept++;
+            if (kept == ids.Length) return ids;
+            var result = new string[kept];
+            for (int i = 0, k = 0; i < ids.Length; i++) if (!gone.Contains(ids[i] ?? "")) result[k++] = ids[i];
+            return result;
+        }
+
+        foreach (var b in _buildingsById.Values)
+        {
+            if (b == null) continue;
+            b.trains = Keep(b.trains);
+            b.research = Keep(b.research);
+        }
+        foreach (var t in _technologiesById.Values)
+            if (t != null) t.prerequisites = Keep(t.prerequisites);
+
+        Debug.Log($"[TechCatalog] Edition {GameEdition.Id}: {gone.Count} stripped id(s) pruned from the tree.");
     }
 
     private static void RebuildResearchLists()
@@ -690,14 +724,14 @@ public static class TechCatalog
         // SO loaded above wins; this only fills the gap.
         //
         // Alanthor cluster only so far. The other eight land with their pass.
-        SeedSectBuilding("Sect_Reliquary",   "Reliquary",    "Antiquity sect building. Trains the Lorekeeper.",
-                         900f,  16f, "Sect_Lorekeeper",  "RoyalIndex");
+        SeedSectBuilding("Sect_Reliquary",   "Reliquary",    "Antiquity sect building. Trains the Artificer.",
+                         900f,  16f, "Sect_Artificer",  "Cartography");
         SeedSectBuilding("Sect_MendingHall", "Mending Hall", "Renewal sect building. Trains the Scar Guard.",
                          750f,  14f, "Sect_ScarGuard",   "FieldHospital");
-        SeedSectBuilding("Sect_Stonehold",   "Stonehold",    "Fortitude sect building. Trains the Stone Warden.",
-                         1800f, 12f, "Sect_StoneWarden", "DeepFoundations");
-        SeedSectBuilding("Sect_Veilworks",   "Veilworks",    "Reclamation sect building. Trains the Golem Autark.",
-                         850f,  15f, "Sect_GolemAutark", "WardensLedger");
+        SeedSectBuilding("Sect_Stonehold",   "Stonehold",    "Fortitude sect building. Trains the Sallyguard.",
+                         1800f, 12f, "Sect_Sallyguard", "DeepFoundations");
+        SeedSectBuilding("Sect_Treasury",    "Treasury",     "Prosperity sect building. Trains the Collector.",
+                         850f,  15f, "Sect_Collector", "CharterOfWorks");
         SeedSectBuilding("Sect_MusterYard",  "Muster Yard",  "War sect building. Trains the Warbreaker.",
                          1100f, 14f, "Sect_Warbreaker",  "EndlessMuster");
     }
@@ -786,9 +820,9 @@ public static class TechCatalog
         // Full 12-sect roster (2026-08-11, docs/Design/Sect_Units.md): the
         // remaining chapel units, seeded so adoption + chapel training works
         // for every sect. Stats mirror each entity factory's defaults.
-        SeedSectUnit("Sect_Lorekeeper",       "Lorekeeper",         "support",  90, 3.4f,  0, 120, 40,  0);
-        SeedSectUnit("Sect_StoneWarden",      "Stone Warden",       "melee",   200, 2.8f, 10, 150, 60, 20);
-        SeedSectUnit("Sect_GolemAutark",      "Golem Autark",       "magic",   320, 2.0f, 22, 200, 80, 40);
+        SeedSectUnit("Sect_Artificer",       "Lorekeeper",         "support",  90, 3.4f,  0, 120, 40,  0);
+        SeedSectUnit("Sect_Sallyguard",      "Stone Warden",       "melee",   200, 2.8f, 10, 150, 60, 20);
+        SeedSectUnit("Sect_Collector",      "Golem Autark",       "magic",   320, 2.0f, 22, 200, 80, 40);
         SeedSectUnit("Sect_ArchivistAdept",   "Archivist Adept",    "magic",   110, 3.5f, 14, 130, 40, 25);
         SeedSectUnit("Sect_VaultKeeper",      "Vault Keeper",       "melee",   140, 3.5f, 12, 140, 50, 20);
         SeedSectUnit("Sect_GlassmarkArcanist","Glassmark Arcanist", "magic",   100, 3.5f, 18, 150, 40, 30);

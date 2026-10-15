@@ -49,6 +49,10 @@ MonoBehaviour:
   - Feraldis_Spearman
   - Feraldis_Bloodletter
   - Feraldis_Suicidal
+  - Feraldis_Berserker
+  - Runai_DuneGuard
+  - Runai_RoadWarden
+  - Runai_Sandstrider
   research:
   - Conscription
   - StoneWeapons

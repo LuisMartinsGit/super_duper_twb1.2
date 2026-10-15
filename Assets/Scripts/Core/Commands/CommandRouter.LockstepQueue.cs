@@ -163,15 +163,14 @@ namespace TheWaningBorder.Core.Commands
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
 
-        private static void QueueSectAdoptionForLockstep(EntityManager em, Entity temple,
-            string sectId, int preferredSlot, float buildTime)
+        private static void QueueSectAdoptionForLockstep(EntityManager em, Entity temple, string sectId)
         {
             int networkId = GetNetworkId(em, temple);
             if (networkId <= 0)
             {
                 if (RefuseUnnetworkedInLockstep("SectAdoption")) return;
                 if (!MayExecuteLocally(em, temple, "SectAdoption")) return;
-                SectAdoptionCommandDirect(em, temple, sectId, preferredSlot, buildTime);
+                SectAdoptionCommandDirect(em, temple, sectId);
                 return;
             }
 
@@ -179,10 +178,7 @@ namespace TheWaningBorder.Core.Commands
             {
                 Type = LockstepCommandType.SectAdopt,
                 EntityNetworkId = networkId,
-                TargetEntityId = preferredSlot,
                 BuildingId = sectId,
-                // Build time rides the spare position field.
-                TargetPosition = new float3(buildTime, 0f, 0f)
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }

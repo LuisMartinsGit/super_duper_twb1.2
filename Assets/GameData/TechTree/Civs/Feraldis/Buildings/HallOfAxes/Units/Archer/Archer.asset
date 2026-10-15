@@ -11,16 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Archer
-  m_EditorClassIdentifier:
-  id: 'Feraldis_Archer'
-  displayName: 'Archer'
-  unitClass: 'human_ranged'
+  m_EditorClassIdentifier: 
+  id: Feraldis_Archer
+  displayName: Archer
+  unitClass: human_ranged
   hp: 90
   speed: 5.2
   trainingTime: 14
-  damage: 17
-  damageType: 'ranged'
-  armorType: 'ranged'
+  damage: 7
+  damageType: ranged
+  armorType: ranged
   defense:
     melee: 0
     ranged: 1
@@ -30,17 +30,29 @@ MonoBehaviour:
   attackRange: 13
   minAttackRange: 0
   lineOfSight: 20
-  radius: 0.5
   aimTime: 0.4
+  radius: 0.5
   trajectory: low
+  projectileSpeed: 0
   cost:
-    Supplies: 28
-    Iron: 14
-    Crystal: 0
+    Supplies: 0
+    Iron: 15
+    Veilstone: 25
     Veilsteel: 0
   populationCost: 1
   minBuildingLevel: 1
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Ranged'
+  - Ranged
   bonusVsTags: []
-  presentationId: 202
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 2282626089009741454, guid: 810dbcd7785f9c140bcfccbc085f74c6, type: 3}
+  presentationId: 428
+  animatorController: {fileID: 9100000, guid: ecdf94d9d70ef2041beba909f756ede5, type: 2}

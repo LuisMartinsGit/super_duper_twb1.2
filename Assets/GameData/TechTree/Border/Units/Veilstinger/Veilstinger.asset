@@ -30,6 +30,7 @@ MonoBehaviour:
   attackRange: 15
   minAttackRange: 0
   lineOfSight: 20
+  aimTime: 0
   radius: 0.5
   trajectory: 
   projectileSpeed: 0
@@ -42,14 +43,16 @@ MonoBehaviour:
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
   tags:
   - ranged
   bonusVsTags: []
-  prefab: {fileID: 120070216760098, guid: fab91a3a40f9181ba342da31dc320422, type: 3}
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 2341322965248673975, guid: c7914fddcc96a3e4184f60413085de9e, type: 3}
   presentationId: 321
   animatorController: {fileID: 0}

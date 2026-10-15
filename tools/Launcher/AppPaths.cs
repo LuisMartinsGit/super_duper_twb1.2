@@ -33,9 +33,17 @@ internal static class AppPaths
     public const string Product = "The Waning Border";
     public const string LauncherFileName = "TWBLauncher.exe";
 
+    /// <summary>
+    /// The install's folder and shortcut name: the product for the demo,
+    /// "The Waning Border B" / "C" for the developer editions, so all three
+    /// install side by side (Edition.cs). <see cref="Product"/> stays the bare
+    /// name because it is also the GAME EXE's name, which no edition changes.
+    /// </summary>
+    public static string InstallName => Product + Edition.Suffix;
+
     public static string Root { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Programs", Company, Product);
+        "Programs", Company, InstallName);
 
     public static string Game => Path.Combine(Root, "game");
     public static string Staging => Path.Combine(Root, "game.new");
@@ -59,16 +67,19 @@ internal static class AppPaths
 
     /// <summary>Start Menu > Programs > Shardroot Entertainment > The Waning Border.</summary>
     public static string StartMenuShortcut => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.Programs), Company, Product + ".lnk");
+        Environment.GetFolderPath(Environment.SpecialFolder.Programs), Company, InstallName + ".lnk");
 
     /// <summary>
     /// Settings live in %APPDATA%, not the install root, so wiping and
     /// re-copying the folder does not make a tester re-enter their key.
+    /// One file per edition: the demo keeps the original name, so existing
+    /// testers keep their key; a developer edition must not inherit a demo
+    /// key it would only be refused with.
     /// </summary>
     public static string SettingsFile { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "TheWaningBorder",
-        "launcher.json");
+        Edition.IsDemo ? "launcher.json" : $"launcher-{Edition.Id}.json");
 
     public static string DownloadCache => Path.Combine(Path.GetTempPath(), "TheWaningBorder");
 

@@ -44,7 +44,9 @@ namespace TheWaningBorder.AI
                 culture = AICultureChoice.Pick(em, faction, brainEntity,
                     brain.Personality, brain.Difficulty, NextRandUint());
             }
-            id = culture == Cultures.Feraldis ? "FiendstoneKeep" : "VaultOfAlmierra";
+            id = culture == Cultures.Feraldis ? "FiendstoneKeep"
+               : culture == Cultures.Runai ? "ThessarasCrossing"
+               : "VaultOfAlmierra";
             _landmarkPick[faction] = id;
             AILogger.Log(faction, "CULTURE",
                 $"age-up landmark = {id} ({CultureConfig.GetName(culture)})");

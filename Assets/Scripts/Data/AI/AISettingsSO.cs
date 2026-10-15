@@ -21,6 +21,7 @@ namespace TheWaningBorder.Data.AI
         public float weightHall;
         public float weightBorderNode;
         public float weightMilitaryUnit;
+        public float weightCaravan;
 
         public float riskPerDefenseStrength;
         public float defenseProbeRadius;
@@ -257,6 +258,7 @@ namespace TheWaningBorder.Data.AI
             IntelCategory.MilitaryBuilding => weightMilitaryBuilding,
             IntelCategory.Hall             => weightHall,
             IntelCategory.BorderNode        => weightBorderNode,
+            IntelCategory.Caravan           => weightCaravan,
             _                              => weightMilitaryUnit,
         };
     }

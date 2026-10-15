@@ -1,4 +1,4 @@
-﻿// AICultureChoice.cs
+// AICultureChoice.cs
 // Decides which culture an AI adopts at age-up, from its PERSONALITY, its
 // DIFFICULTY, and the intel it has actually scouted by that moment.
 //
@@ -65,9 +65,20 @@ namespace TheWaningBorder.AI
         /// Pick the culture this AI should adopt. Safe to call with a null
         /// brain entity — it degrades to the personality prior.
         /// </summary>
+        /// <summary>
+        /// A culture forced per faction from outside (the headless runner's
+        /// -twbFactionCulture). Still run through CultureConfig.Playable, so a
+        /// build never ages into a culture its edition does not ship. The AI
+        /// never PICKS Runai on its own (docs/Design/Age_1_Runai.md §10).
+        /// </summary>
+        public static readonly System.Collections.Generic.Dictionary<Faction, byte> Forced =
+            new System.Collections.Generic.Dictionary<Faction, byte>();
+
         public static byte Pick(EntityManager em, Faction faction, Entity brainEntity,
             AIPersonality strategy, AIDifficulty difficulty, uint randomSeed)
         {
+            if (Forced.TryGetValue(faction, out byte forced)) return CultureConfig.Playable(forced);
+
             // Layer 1 — personality.
             float score = AIBuildOrder.CultureLeanFor(strategy);
 
@@ -82,6 +93,10 @@ namespace TheWaningBorder.AI
 
             // Ship gate: a culture the build does not ship is never adopted,
             // however the score came out. See CultureConfig.Playable.
+            // Three cultures (2026-10-13): no strong pull either way picks the
+            // economy culture, Runai, where the edition ships it.
+            if (!CultureConfig.IsComingSoon(Cultures.Runai) && (score < 0f ? -score : score) <= Cfg.runaiBand)
+                return Cultures.Runai;
             return CultureConfig.Playable(
                 score > 0f ? Cultures.Feraldis : Cultures.Alanthor);
         }

@@ -69,7 +69,9 @@ namespace TheWaningBorder.UI.Ingame
             view._labelRoot = GameUIKit.Rect(view._content, "regionNames");
             GameUIKit.Stretch(view._labelRoot);
 
-            var ov = new GameObject("overlay", typeof(RectTransform));
+            // CanvasRenderer up front: the custom graphic's RequireComponent was not
+            // honoured here, and SetActive(false) then threw MissingComponentException.
+            var ov = new GameObject("overlay", typeof(RectTransform), typeof(CanvasRenderer));
             ov.transform.SetParent(view._content, false);
             GameUIKit.Stretch((RectTransform)ov.transform);
             view._overlay = ov.AddComponent<MusterMapOverlay>();

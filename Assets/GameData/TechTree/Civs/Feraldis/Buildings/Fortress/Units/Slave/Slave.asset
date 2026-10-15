@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Slave
+  m_EditorClassIdentifier: 
+  id: Feraldis_Slave
+  displayName: Slave
+  unitClass: human_support
+  hp: 80
+  speed: 6
+  trainingTime: 20
+  damage: 2
+  damageType: melee
+  armorType: infantry_light
+  defense:
+    melee: 0
+    ranged: 0
+    siege: 0
+    magic: 0
+  attackCooldown: 1.5
+  attackRange: 1
+  minAttackRange: 0
+  lineOfSight: 14
+  aimTime: 0
+  radius: 0.5
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 50
+    Iron: 0
+    Veilstone: 0
+    Veilsteel: 0
+  populationCost: 0
+  minBuildingLevel: 0
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags:
+  - Worker
+  - Light
+  bonusVsTags: []
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 4774944501067321997, guid: 29d5e7ceb4bed664c813abad2835b7bd, type: 3}
+  presentationId: 426
+  animatorController: {fileID: 9100000, guid: a17c0de1000000000000000000000100, type: 2}

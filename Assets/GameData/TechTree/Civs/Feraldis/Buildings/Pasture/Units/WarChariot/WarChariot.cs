@@ -19,7 +19,7 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class WarChariot
     {
-        public const int PresentationID = 339;   // shares the retired Warboar visual
+        public const int PresentationID = 430;   // WarChariot.prefab on its SO
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
             => CreateInternal(new EmCreator(em), position, faction);

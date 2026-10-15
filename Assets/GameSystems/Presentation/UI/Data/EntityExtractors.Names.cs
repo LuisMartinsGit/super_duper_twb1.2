@@ -126,10 +126,13 @@ namespace TheWaningBorder.UI.Data
         ///     there is nothing to rename — it is the Archery Range in both
         ///     ages. Runai and Feraldis DO rename it, because Arrowyard and
         ///     Thrower Camp are their own buildings, not carryovers.
-        ///   * Barracks / Feraldis is "War Hall", NOT "Longhouse" —
-        ///     Age_1_Feraldis.md l.271 says outright that War Hall "replaces
-        ///     'Longhouse' as the cultured Barracks, 2026-08-05 pass" and that
-        ///     the Feraldis_Longhouse building id is retired from that role.
+        ///   * Barracks / Feraldis is the "Longhouse" (2026-10-13,
+        ///     Age_1_Feraldis.md §2 / §7.2 — it was "War Hall" from the
+        ///     2026-08-05 pass until then). It is the SAME Barracks entity;
+        ///     the stand-alone Feraldis_Longhouse building id stays retired
+        ///     (CultureGate.IsRetiredBuilding), so there is one Longhouse.
+        ///     The level SOs (Civs/Feraldis/Buildings/WarHall/WarHall_Lvl1..3)
+        ///     carry the name and win over this table.
         ///   * The capital is the Fortress for every culture once it ages up
         ///     (2026-10-03; the Town Hall / Trader's Hall / Warrior's Hall
         ///     names are retired).
@@ -141,7 +144,9 @@ namespace TheWaningBorder.UI.Data
             bool isHall     = em.HasComponent<HallTag>(entity);
             bool isBarracks = em.HasComponent<BarracksTag>(entity);
             bool isHut      = em.HasComponent<GathererHutTag>(entity);
-            if (!isHall && !isBarracks && !isHut) return null;
+            bool isHouse    = em.HasComponent<HutTag>(entity);
+            bool isTemple   = em.HasComponent<TempleOfRidanTag>(entity);
+            if (!isHall && !isBarracks && !isHut && !isHouse && !isTemple) return null;
 
             var faction = em.GetComponentData<FactionTag>(entity).Value;
             byte culture = CultureConfig.GetCompletedCulture(em, faction);
@@ -163,9 +168,16 @@ namespace TheWaningBorder.UI.Data
             // was already broken (the Archery Range is minEra 2 and never stands
             // in Age 0) and is superseded here.
 
-            // Gatherer's Hut: Feraldis huts ARE Raider Camps (they stop
-            // gathering entirely), so the name has to say so.
-            return em.HasComponent<RaiderCampTag>(entity) ? "Raider Camp" : null;
+            // FERALDIS (docs/Design/Age_1_Feraldis.md §2, 2026-10-12): the
+            // Gatherer's Hut is the Work Camp, the House the Slave Pens and the
+            // Temple of Ridan the Blood Altar. (The Raider Camp is retired.)
+            if (culture == Cultures.Feraldis)
+            {
+                if (isTemple) return "Blood Altar";
+                if (isHouse)  return "Slave Pens";
+                if (isHut)    return "Work Camp";
+            }
+            return null;
         }
 
         /// <summary>The Barracks' cultured name; null with no culture.</summary>
@@ -173,7 +185,7 @@ namespace TheWaningBorder.UI.Data
         {
             Cultures.Alanthor => "Garrison",
             Cultures.Runai    => "Route Guard",
-            Cultures.Feraldis => "War Hall",
+            Cultures.Feraldis => "Longhouse",
             _ => null,
         };
 
@@ -197,7 +209,9 @@ namespace TheWaningBorder.UI.Data
             {
                 case "Fortress":     return TheWaningBorder.Entities.Fortress.AgedName;
                 case "Barracks":     return CulturedBarracksName(culture);
-                case "GatherersHut": return culture == Cultures.Feraldis ? "Raider Camp" : null;
+                case "GatherersHut": return culture == Cultures.Feraldis ? "Work Camp" : null;
+                case "Hut":          return culture == Cultures.Feraldis ? "Slave Pens" : null;
+                case "TempleOfRidan": return culture == Cultures.Feraldis ? "Blood Altar" : null;
                 default:             return null;
             }
         }
@@ -274,6 +288,10 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<TempleOfRidanTag>(entity)) return "Temple of Ridan";
             if (em.HasComponent<VaultTag>(entity)) return "Vault of Almiérra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "Fiendstone Keep";
+            if (em.HasComponent<ThessarasCrossingTag>(entity)) return "Thessara's Crossing";
+            if (em.HasComponent<GrazingGroundsTag>(entity)) return "Grazing Grounds";
+            if (em.HasComponent<ArrowyardTag>(entity)) return "Arrowyard";
+            if (em.HasComponent<RunaiSanctuaryTag>(entity)) return "Sanctuary";
             if (em.HasComponent<ReliquaryTag>(entity)) return "The Reliquary";
             // Wall pieces are named for their LEVEL: a palisade is a
             // "Palisade", a stone wall its level's name
@@ -282,6 +300,12 @@ namespace TheWaningBorder.UI.Data
             {
                 string wallName = TheWaningBorder.Entities.WallTiers.DisplayName(
                     TheWaningBorder.Entities.WallTiers.Of(em, entity));
+                // A Feraldis palisade is their Wooden Wall: its level SO's name.
+                if (em.HasComponent<PalisadeTag>(entity) && em.HasComponent<FactionTag>(entity)
+                    && TheWaningBorder.Entities.WallTiers.HasPalisadeLevel(em,
+                           em.GetComponentData<FactionTag>(entity).Value, out var palLevel)
+                    && !string.IsNullOrEmpty(palLevel.displayName))
+                    wallName = palLevel.displayName;
                 // A module carrying an engine is named for the engine: that
                 // is what the player built and what they are looking at.
                 if (em.HasComponent<EmplacementTag>(entity))
@@ -310,7 +334,7 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<TradingPostTag>(entity)) return "Trading Post";
             if (em.HasComponent<BazaarTag>(entity)) return "Thessara's Bazaar";
             if (em.HasComponent<BazaarWagonTag>(entity)) return "Bazaar Wagon";
-            if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Siege Workshop";
+            if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Wagonworks";
             // Alanthor culture buildings
             if (em.HasComponent<WatchTowerTag>(entity)) return "Watch Tower";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Siege Yard";

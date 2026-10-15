@@ -1,4 +1,4 @@
-﻿// EntityExtractors.Buildings.cs
+// EntityExtractors.Buildings.cs
 // Building-placement actions (worker palette, icons, culture/era/cap gating)
 // plus hut age-up and wall-segment conversion action cells.
 
@@ -154,7 +154,8 @@ namespace TheWaningBorder.UI.Data
             bool palisade = AlanthorWall.IsPalisade(em, entity);
             // A palisade is a fence: it converts to a GATE (you have to be
             // able to walk through your own wall) and to a HUB (so a fence can
-            // still branch), and to nothing else. On the stone wall the level
+            // still branch), and to nothing else — except the Feraldis Wooden
+            // Wall, which also takes a wall TOWER (timberTower below). On the stone wall the level
             // decides the fittings: towers from Stone, a Ballista from
             // Battlemented, a Trebuchet from Shielded
             // (docs/Design/Age_1_Alanthor.md § The stone wall).
@@ -196,7 +197,12 @@ namespace TheWaningBorder.UI.Data
             // Tower cell — per-instance conversion. A timber palisade cannot
             // carry a tower, and neither can a module boxed in by other
             // fittings.
-            if (masonry && roomForFitting
+            // The Feraldis Wooden Wall is the one palisade that carries a tower
+            // (docs/Design/Age_1_Feraldis.md § Walls): tower and gate, nothing
+            // else. CanConvertToTower is the executor's same test.
+            bool timberTower = palisade && !em.Equals(default(EntityManager))
+                && WallTiers.PalisadeAllowsTowers(em, faction);
+            if ((masonry || timberTower) && roomForFitting
                 && TheWaningBorder.Data.BuildCosts.TryGet("Alanthor_WallTower", out var towerCost))
             {
                 bool canAffordTower = !em.Equals(default(EntityManager))
@@ -378,7 +384,11 @@ namespace TheWaningBorder.UI.Data
             "Palisade",
             "Alanthor_Wall",
             // Runai culture buildings
-            "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar", "Runai_SiegeWorkshop",
+            // The 2026-10-13 redesign (docs/Design/Age_1_Runai.md §4): the
+            // Grazing Grounds, the Wagonworks (Runai_SiegeWorkshop) and the
+            // Sanctuary. The Outpost, Trade Hub, chain Trading Post and
+            // Thessara's Bazaar are retired (CultureGate.IsRetiredBuilding).
+            "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop", "Runai_Sanctuary",
             // Alanthor culture buildings. Alanthor_PracticeRange retired (it is
             // the LEVELED Archery Range).
             "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_RoyalStable",
@@ -387,16 +397,18 @@ namespace TheWaningBorder.UI.Data
             // WALL-MOUNT ONLY — Mount Ballista / Mount Trebuchet on a masonry
             // curtain module's panel. The free-standing platforms are
             // guarded out by the static-ctor asserts below.
-            // Feraldis culture buildings. Hunting Lodge / Logging Station
-            // were CUT (2026-08-05 rev.4) — Feraldis huts became Raider
-            // Camps, so the gathering-upgrade pair had nothing left to do.
-            "Feraldis_Longhouse",
-            "Feraldis_Tower", "Feraldis_SiegeYard", "Feraldis_WarTotem", "Feraldis_Pasture",
+            // Feraldis culture buildings (2026-10-12, docs/Design/Age_1_Feraldis.md):
+            // the Hall of Axes (it was never offered), the Rig Yard (Pasture),
+            // the Engine Works (Feraldis_SiegeYard), the War Totem and the Great
+            // Forge. The Longhouse and the Totem Tower are retired — the
+            // Berserker trains at the War Hall again.
+            "Feraldis_HallOfAxes", "Feraldis_Pasture", "Feraldis_SiegeYard",
+            "Feraldis_WarTotem", "Feraldis_GreatForge",
             // Sect buildings — one per sect, each capped at 5 per faction and
             // only offered once that sect is adopted. Both gates are enforced
             // in GetBuildingActions; CommandRouter.IssuePlaceBuilding is the
             // authoritative cap. docs/Design/Sects.md section 1.
-            "Sect_Reliquary", "Sect_MendingHall", "Sect_Stonehold", "Sect_Veilworks",
+            "Sect_Reliquary", "Sect_MendingHall", "Sect_Stonehold", "Sect_Treasury",
             "Sect_MusterYard"
         };
 
@@ -410,7 +422,7 @@ namespace TheWaningBorder.UI.Data
             { "Sect_Reliquary",   SectConfig.Antiquity },
             { "Sect_MendingHall", SectConfig.Renewal },
             { "Sect_Stonehold",   SectConfig.Fortitude },
-            { "Sect_Veilworks",   SectConfig.Reclamation },
+            { "Sect_Treasury",   SectConfig.Prosperity },
             { "Sect_MusterYard",  SectConfig.War },
         };
 
@@ -423,7 +435,7 @@ namespace TheWaningBorder.UI.Data
                 case "Sect_Reliquary":   return BuildingFactory.GetFactionBuildingCount<ReliquaryTag>(em, faction);
                 case "Sect_MendingHall": return BuildingFactory.GetFactionBuildingCount<MendingHallTag>(em, faction);
                 case "Sect_Stonehold":   return BuildingFactory.GetFactionBuildingCount<StoneholdTag>(em, faction);
-                case "Sect_Veilworks":   return BuildingFactory.GetFactionBuildingCount<VeilworksTag>(em, faction);
+                case "Sect_Treasury":   return BuildingFactory.GetFactionBuildingCount<TreasuryTag>(em, faction);
                 case "Sect_MusterYard":  return BuildingFactory.GetFactionBuildingCount<MusterYardTag>(em, faction);
                 default: return 0;
             }
@@ -512,6 +524,8 @@ namespace TheWaningBorder.UI.Data
                     // "Mine" button, which raises whichever the node under the
                     // cursor needs (TerritoryOwnership.ResolveExtractorAt).
                     if (building.id == "VeilstoneMine") continue;
+                    // ...and so does the Runai Sanctuary (Age_1_Runai.md §5.1).
+                    if (building.id == "Runai_Sanctuary") continue;
 
                     // Choice building exclusion: if one is built, hide the other two
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
@@ -520,11 +534,13 @@ namespace TheWaningBorder.UI.Data
                     // Temple of Ridan: one per faction.
                     if (building.id == "TempleOfRidan" && templeCount >= TempleCap) continue;
 
-                    // Sect buildings: adopt the sect to unlock it, then 5 max.
+                    // Sect buildings (Religion.md §3.2): adopt the sect to
+                    // unlock it, a standing Temple to raise it, one per sect.
                     if (SectBuildingOwner.TryGetValue(building.id, out var owningSect))
                     {
                         if (em.Equals(default(EntityManager))) continue;
                         if (!SectQuery.IsAdopted(em, faction, owningSect)) continue;
+                        if (!SectQuery.HasStandingTemple(em, faction)) continue;
                         if (SectBuildingCount(em, building.id, faction)
                             >= TheWaningBorder.Entities.SectBuilding.CapPerFaction) continue;
                     }
@@ -537,18 +553,18 @@ namespace TheWaningBorder.UI.Data
                         && (em.Equals(default(EntityManager)) || !WallTiers.CanBuild(em, faction, palisade: true)))
                         continue;
 
-                    // Data-driven culture gating: buildings with culture prefix require that culture
-                    byte requiredCulture = GetRequiredCulture(building.id);
-                    if (requiredCulture != Cultures.None && requiredCulture != factionCulture)
+                    // Culture gating: the runtime rule CommandRouter also
+                    // enforces (CultureGate.CanFactionBuild) — no Archery Range
+                    // for a Feraldis slave, no Feraldis building for Alanthor,
+                    // and no retired id (the stand-alone Longhouse).
+                    if (!TheWaningBorder.Data.CultureGate.CanFactionBuild(building.id, factionCulture))
                         continue;
 
                     // Gatherer's Huts stay buildable for every culture, all game
                     // (directive 2026-07-04: Alanthor huts don't despawn in Age 1
                     // and remain buildable throughout).
 
-                    // Runai cannot build Huts (population is set to 200 on age-up)
-                    if (building.id == "Hut" && factionCulture == Cultures.Runai)
-                        continue;
+                    // The Runai Hut is the Waystation (Age_1_Runai.md §4.3): buildable anywhere.
 
                     var cost = building.cost != null ? new Cost
                     {
@@ -579,7 +595,9 @@ namespace TheWaningBorder.UI.Data
                         int rpCost = FactionReligionPointsHelper.Cfg.templeRp;
                         bool rpOk = FactionReligionPointsHelper.CanAfford(em, faction, rpCost);
                         canAfford &= rpOk;
-                        requirement = string.Format(Loc.T("Costs {0} Religion Point — earned by killing curse units"), rpCost)
+                        requirement = string.Format(factionCulture == Cultures.Feraldis
+                                ? Loc.T("Costs {0} Religion Point — earned by drawing blood: kills and sacrifices")
+                                : Loc.T("Costs {0} Religion Point — earned by killing curse units"), rpCost)
                             + (requirement != null ? "\n" + requirement : "");
                     }
 
@@ -666,43 +684,6 @@ namespace TheWaningBorder.UI.Data
                 line += " " + string.Format(Loc.T("Each further post beside the same outcrop costs {0} (build and level-ups); a new outcrop starts at base price."),
                     sb.ToString());
             return line;
-        }
-
-        /// <summary>
-        /// Determine the required culture for a building based on its ID prefix.
-        /// Buildings with "Alanthor_" prefix require Alanthor culture, etc.
-        /// Returns Cultures.None for universal buildings (available to all cultures).
-        /// </summary>
-        private static byte GetRequiredCulture(string buildingId)
-        {
-            // The Stone Wall (Alanthor_Wall) is Alanthor's again since
-            // 2026-10-02: the timber fence every culture raises in Age 0 is
-            // its own building, the Palisade (docs/Design/Age_0.md
-            // § Palisade), which carries its own gate above.
-            if (buildingId.StartsWith("Alanthor_")) return Cultures.Alanthor;
-            if (buildingId.StartsWith("Feraldis_")) return Cultures.Feraldis;
-            if (buildingId.StartsWith("Runai_")) return Cultures.Runai;
-            // FiendstoneKeep is a choice building (like Temple/Vault) — available to all cultures
-            if (buildingId == "FiendstoneKeep") return Cultures.None;
-            // ThessarasBazaar is a Runai building (doesn't use Runai_ prefix)
-            if (buildingId == "ThessarasBazaar") return Cultures.Runai;
-            // The Mine is Feraldis-only and Age 1 (2026-08-13; it was briefly
-            // specced universal + Age 0). The id has no culture prefix and is
-            // NOT going to get one — renaming it would ripple through the
-            // factory recipe table, BuildingSizeConfig, BuildCosts,
-            // CommandRouter build times, BuildCommandPannel's BuildType map,
-            // the name resolver and the Feraldis AI. The era half of the gate
-            // is data: Mine.asset minEra = 1.
-            // Canon: docs/Design/Age_1_Feraldis.md § Mine.
-            // The Mine is UNIVERSAL as of the territory economy
-            // (docs/Design/Regions.md §4): "territories containing Iron or
-            // Veilstone produce a trickle -- a mine built on the deposit
-            // harvests more" is the rule for every culture, not a Feraldis
-            // perk. It stays in the Feraldis folder and keeps its unprefixed
-            // id for the reasons CLAUDE.md gives (renaming ripples through the
-            // recipe table, sizes, costs, build times and the name resolver).
-            if (buildingId == "Mine") return Cultures.None;
-            return Cultures.None; // universal
         }
     }
 }

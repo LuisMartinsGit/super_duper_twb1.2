@@ -36,19 +36,19 @@ namespace TheWaningBorder.Systems.Combat
         {
             if (em.HasComponent<SuicidalTag>(e) && !em.HasComponent<SuicideSpent>(e))
                 return true;
-            // Berserkers and Plunderers both hold at 1 HP before dying —
-            // the Berserker for 5 s, the 1-HP Plunderer for 2 s.
-            if (!em.HasComponent<BerserkerTag>(e) && !em.HasComponent<PlundererTag>(e))
-                return false;
-            // Sustaining an open window, or opening one for the first time.
-            return em.HasComponent<DeathFrenzyState>(e)
-                || !em.HasComponent<DeathFrenzySpent>(e);
+            // The Ram Rig blows wherever it dies (docs/Design/Age_1_Feraldis.md §7.5).
+            if (em.HasComponent<RamRigTag>(e) && !em.HasComponent<RamRigSpent>(e))
+                return true;
+            // The Berserker's Altered Self-Perception (2026-10-12, replaces the
+            // Death Frenzy): an open window, or one about to open.
+            return em.HasComponent<BerserkerTag>(e)
+                && TheWaningBorder.Feraldis.FeraldisCombatSystems.WantsInterceptBerserker(em, e);
         }
 
         /// <summary>
         /// Apply the rule. Returns TRUE when the entity must NOT die this
-        /// frame (the Berserker's last stand is holding it at 1 HP); FALSE
-        /// when it should proceed to die normally.
+        /// frame (Altered Self-Perception is holding the Berserker at 1 HP);
+        /// FALSE when it should proceed to die normally.
         ///
         /// Call only from DeathSystem's post-loop pass — this makes
         /// structural changes.
@@ -56,51 +56,20 @@ namespace TheWaningBorder.Systems.Combat
         public static bool Apply(EntityManager em, Entity e)
         {
             // --- Suicidal: detonate, then die normally. ---
-            // Reaching here means it was brought down instead of arriving,
-            // which is still a win for Feraldis: the blast and its blood
-            // pool land either way.
             if (em.HasComponent<SuicidalTag>(e) && !em.HasComponent<SuicideSpent>(e))
             {
                 SuicidalDetonationSystem.Detonate(em, e);
                 return false;
             }
-
-            bool isBerserker = em.HasComponent<BerserkerTag>(e);
-            bool isPlunderer = em.HasComponent<PlundererTag>(e);
-            if (!isBerserker && !isPlunderer) return false;
-
-            // --- Hold at 1 HP for the frenzy window. ---
-            if (em.HasComponent<DeathFrenzyState>(e))
+            // --- Ram Rig: the blast, then die. ---
+            if (em.HasComponent<RamRigTag>(e) && !em.HasComponent<RamRigSpent>(e))
             {
-                ClampToOne(em, e);
-                return true;
+                TheWaningBorder.Feraldis.RamRigSystem.Detonate(em, e);
+                return false;
             }
-
-            if (em.HasComponent<DeathFrenzySpent>(e)) return false;
-
-            ClampToOne(em, e);
-            em.AddComponentData(e, new DeathFrenzyState
-            {
-                // A Plunderer is a 1-HP tax collector, not a champion — it
-                // thrashes for a moment, where a Berserker gets a real last
-                // stand.
-                Remaining = isPlunderer
-                    ? TheWaningBorder.Core.Config.FeraldisConstants.PlundererFrenzySeconds
-                    : TheWaningBorder.Core.Config.FeraldisConstants.DeathFrenzySeconds
-            });
-            em.AddComponent<DeathFrenzySpent>(e);
-
-            // Faster on the way out. The damage half is read straight off
-            // DeathFrenzyState by CombatDamageHelper.GetFrenzyDamageMult, so
-            // only speed needs a write. Never restored — every exit from the
-            // window force-kills the unit (see BerserkerDeathFrenzySystem).
-            if (em.HasComponent<MoveSpeed>(e))
-            {
-                var ms = em.GetComponentData<MoveSpeed>(e);
-                ms.Value *= TheWaningBorder.Core.Config.FeraldisConstants.DeathFrenzySpeedMult;
-                em.SetComponentData(e, ms);
-            }
-            return true;
+            if (em.HasComponent<BerserkerTag>(e))
+                return TheWaningBorder.Feraldis.FeraldisCombatSystems.InterceptBerserker(em, e);
+            return false;
         }
 
         private static void ClampToOne(EntityManager em, Entity e)

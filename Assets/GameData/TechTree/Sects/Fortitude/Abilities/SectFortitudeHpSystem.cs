@@ -54,6 +54,14 @@ namespace TheWaningBorder.Systems.Sect
 
         public void OnUpdate(ref SystemState state)
         {
+            // RETIRED 2026-10-15: Fortitude's standing effect is now the
+            // Stonehold's Arrow Slits (range and damage, BuildingCombatSystem
+            // via AlanthorSectEconomy.ArrowSlits) — Veiled Stone's wall HP is
+            // gone (Sects.md §4). Disabled rather than deleted so worlds that
+            // already stamped FortitudeHpApplied keep their numbers.
+            state.Enabled = false;
+            return;
+#pragma warning disable CS0162
             var em = state.EntityManager;
 
             // This update's level per faction, resolved lazily (at most one

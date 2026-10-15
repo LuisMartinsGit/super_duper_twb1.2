@@ -30,6 +30,9 @@ MonoBehaviour:
   lineOfSight: 14
   footprintCells: {x: 4, y: 4}
   buildTime: 90
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0.05
   interestPrincipalCap: 3000
@@ -37,9 +40,14 @@ MonoBehaviour:
   coffersRate: 0.08
   merchantChartersRate: 0.11
   sovereignBondsRate: 0.15
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research:
   - Coffers
@@ -52,7 +60,7 @@ MonoBehaviour:
   cost:
     Supplies: 600
     Iron: 300
-    Crystal: 200
+    Veilstone: 200
     Veilsteel: 0
   tags:
   - Building
@@ -63,8 +71,10 @@ MonoBehaviour:
     range: 22
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
+  prefab: {fileID: 6367449681878056110, guid: ac6be26a310d68046901279517eac29a, type: 3}
+  presentationId: 530
   prefabPath: 
   canUpgradeTo: []
-  presentationId: 530

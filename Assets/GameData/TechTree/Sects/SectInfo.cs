@@ -32,10 +32,10 @@ namespace TheWaningBorder.Economy
         // ─────────────────────────────────────────────────────────────────
         public static string Lore(string sectId) => Loc.T(sectId switch
         {
-            SectConfig.Antiquity   => "Keepers of every name that fell to the Border; the dead tally the living's enemies.",
-            SectConfig.Renewal     => "Healers in stone — they teach walls to forget the blows they took.",
-            SectConfig.Fortitude   => "Their hymns weigh more than mortar. Where they pray, the keep does not break.",
-            SectConfig.Reclamation => "They wrest tools, mines, and dying soldiers back from the Veilstone's grasp.",
+            SectConfig.Antiquity   => "The Registry: surveyors, engineers and keepers of the Old Empire's seals, lenses and glow-engines.",
+            SectConfig.Renewal     => "The Hospices: healers of the poor, whose mending returns a body to the moment before the wound.",
+            SectConfig.Fortitude   => "The Wardens: keepers of walls and watch-fires, whose veilsteel stores glow and lets it loose.",
+            SectConfig.Prosperity  => "The Guild: workshops and counting rooms where glow-fed engines make time run faster.",
             SectConfig.Silence     => "A doctrine of stillness — to stand is to be unkillable.",
             SectConfig.Justice     => "Every wound your soldiers take is debt; their gods collect at sword-point.",
             SectConfig.Veneration  => "Each kill is a hymn. Each hymn makes the next blow strike truer.",
@@ -52,10 +52,10 @@ namespace TheWaningBorder.Economy
         // ─────────────────────────────────────────────────────────────────
         public static string PassiveDescription(string sectId) => Loc.T(sectId switch
         {
-            SectConfig.Antiquity   => "Tally of the Lost — your units gain +dmg for each unit-type they have killed in this match.",
-            SectConfig.Renewal     => "Hands That Mend — your buildings auto-repair when out of combat.",
-            SectConfig.Fortitude   => "Veiled Stone — your walls and towers gain bonus HP.",
-            SectConfig.Reclamation => "Border-Hardened — your units take less damage from Border sources.",
+            SectConfig.Antiquity   => "While a Reliquary stands, your sect powers recharge faster.",
+            SectConfig.Renewal     => "While a Mending Hall stands, your buildings slowly repair themselves out of combat.",
+            SectConfig.Fortitude   => "While a Stonehold stands, your walls and towers shoot further and harder (Arrow Slits).",
+            SectConfig.Prosperity  => "While a Treasury stands, your extractors earn more.",
             SectConfig.Silence     => "Steadfast Vigil — your units gain armor while holding position.",
             SectConfig.Justice     => "Marked for Sentence — any unit that kills one of yours takes bonus damage from your army.",
             SectConfig.Veneration  => "Fervor — your unit kills grant a stacking damage and attack-rate buff.",
@@ -99,7 +99,7 @@ namespace TheWaningBorder.Economy
                 SectConfig.Antiquity   => string.Format(Loc.T("Recall the Codex — enemy attack & ability cooldowns in a {0}m circle stop recovering for {1}s (Lv III also inflates their current cooldowns +50%)."), radius, magnitude),
                 SectConfig.Renewal     => string.Format(Loc.T("Heal Circle — restores {0} HP to all allied units within {1}m."), magnitude, radius),
                 SectConfig.Fortitude   => string.Format(Loc.T("Bulwark — allied units in {0}m gain +{1} armor for {2}s."), radius, magnitude, duration),
-                SectConfig.Reclamation => string.Format(Loc.T("Reclaim Vigour — heals allied units in a {0}m radius for {1} HP."), radius, magnitude),
+                SectConfig.Prosperity => string.Format(Loc.T("Reclaim Vigour — heals allied units in a {0}m radius for {1} HP."), radius, magnitude),
                 SectConfig.Silence     => string.Format(Loc.T("Whisper-Wind — allied units in {0}m gain x{1} move-speed for {2}s."), radius, magX, duration),
                 SectConfig.Justice     => string.Format(Loc.T("Eye of the Law — reveals fog of war in a {0}m circle for {1}s."), radius, duration),
                 SectConfig.Veneration  => string.Format(Loc.T("Litany — allied units in {0}m gain x{1} damage for {2}s."), radius, magX, duration),
@@ -173,9 +173,9 @@ namespace TheWaningBorder.Economy
             (SectConfig.Fortitude, 1)   => "Bulwark",
             (SectConfig.Fortitude, 2)   => "Stoneveil",
             (SectConfig.Fortitude, 3)   => "Unbroken Oath",
-            (SectConfig.Reclamation, 1) => "Reclaim Vigour",
-            (SectConfig.Reclamation, 2) => "Harvest the Veil",
-            (SectConfig.Reclamation, 3) => "Greater Harvest",
+            (SectConfig.Prosperity, 1) => "Reclaim Vigour",
+            (SectConfig.Prosperity, 2) => "Harvest the Veil",
+            (SectConfig.Prosperity, 3) => "Greater Harvest",
             (SectConfig.Silence, 1)     => "Whisper-Wind",
             (SectConfig.Silence, 2)     => "Hush",
             (SectConfig.Silence, 3)     => "Entomb",
@@ -255,21 +255,21 @@ namespace TheWaningBorder.Economy
             switch (sectId)
             {
                 case SectConfig.Antiquity:
-                    return Loc.T("Reliquary — a vaulted archive. Every one standing shortens your " +
-                           "sect-power cooldowns a little. Limit 5. Trains the Lorekeeper, " +
-                           "researches Royal Index.");
+                    return Loc.T("Reliquary — a study vault for recovered glow artifacts. While it " +
+                           "stands your sect powers recharge faster. One per faction. Trains the " +
+                           "Artificer, recruits the Archivist of Hours, researches Cartography.");
                 case SectConfig.Renewal:
-                    return Loc.T("Mending Hall — an open-sided infirmary. Damaged units that walk " +
-                           "inside heal over time. Limit 5. Trains the Scar Guard, researches " +
-                           "Field Hospital.");
+                    return Loc.T("Mending Hall — an open-sided infirmary. Damaged units inside heal; " +
+                           "while it stands your buildings repair themselves out of combat. One per " +
+                           "faction. Trains the Scar Guard, recruits the Surgeon, researches Field Hospital.");
                 case SectConfig.Fortitude:
-                    return Loc.T("Stonehold — a squat windowless blockhouse with the highest HP of " +
-                           "any non-Hall structure; it blocks pathing like a wall. Limit 5. " +
-                           "Trains the Stone Warden, researches Deep Foundations.");
-                case SectConfig.Reclamation:
-                    return Loc.T("Veilworks — a smelter for cursed matter, and the only building " +
-                           "that may be raised ON cursed ground. Limit 5. Trains the Golem " +
-                           "Autark, researches Warden's Ledger.");
+                    return Loc.T("Stonehold — a windowless blockhouse that blocks paths. While it " +
+                           "stands your garrisoned walls and towers gain range and damage. One per " +
+                           "faction. Trains the Sallyguard, recruits the Warden, researches Deep Foundations.");
+                case SectConfig.Prosperity:
+                    return Loc.T("Treasury — while it stands your extractors earn more. One per " +
+                           "faction. Trains the Collector, recruits the Guildmaster, researches " +
+                           "Charter of Works.");
                 case SectConfig.War:
                     return Loc.T("Muster Yard — a stockade of training posts and armourers' " +
                            "racks. Every per-battalion upgrade you apply anywhere in the " +
@@ -352,7 +352,7 @@ namespace TheWaningBorder.Economy
                 SectConfig.Antiquity   => "More names in the tally — stronger relics, sharper memory.",
                 SectConfig.Renewal     => "Deeper communion — walls knit faster, men return from death.",
                 SectConfig.Fortitude   => "Heavier hymns — stone grows thicker, melee endure longer.",
-                SectConfig.Reclamation => "Wider claim — your workers and tools shrug off Border-rot.",
+                SectConfig.Prosperity => "Wider claim — your workers and tools shrug off Border-rot.",
                 SectConfig.Silence     => "Longer vigil — archers strike harder while still.",
                 SectConfig.Justice     => "Harsher verdict — sentence falls heavier, faster.",
                 SectConfig.Veneration  => "Higher fervor — kills bless your army with deeper rage.",
@@ -365,6 +365,37 @@ namespace TheWaningBorder.Economy
             });
             return string.Format(Loc.T("At the chapel you can spend RP + resources to upgrade Passive (P), Building (B), Unit bonus (U), and Active power (A) — each I → II → III, scaling effects to 1.5× and 2.0× of the listed Lv I numbers.  {0}"), flavour);
         }
+
+        // ─────────────────────────────────────────────────────────────────
+        // THE SECT UNIT, HERO AND RESEARCH (Sects.md §4, 2026-10-15) — for the
+        // religion menu's chips and tree. Sects without an entry answer null.
+        // ─────────────────────────────────────────────────────────────────
+        public static string SectUnitText(string sectId) => sectId switch
+        {
+            SectConfig.Antiquity  => Loc.T("Artificer — long-range anti-armour glow-lance. Stasis Bolt: its target is slowed (move and attack) for a few seconds. Weak to cavalry and fast melee."),
+            SectConfig.Renewal    => Loc.T("Scar Guard — heavy melee shock. Borrowed Breath: more damage the lower its HP. Weak to ranged focus fire."),
+            SectConfig.Fortitude  => Loc.T("Sallyguard — anti-siege striker. Stored Strike: charges out of combat; the first blow after deals double. Bonus vs siege. Weak to archers."),
+            SectConfig.Prosperity => Loc.T("Collector — fast melee finisher. Run Down: bonus damage against slowed enemies and enemies under half HP. Weak to heavy infantry."),
+            _ => null,
+        };
+
+        public static string HeroText(string sectId) => sectId switch
+        {
+            SectConfig.Antiquity  => Loc.T("Archivist of Hours — L1 Catalogued: slowed enemies near it take +20% damage. L3 Stamp of Record: one enemy's abilities go on cooldown. L6 Recall: it and nearby allies jump back to where they stood 5s ago."),
+            SectConfig.Renewal    => Loc.T("Surgeon — L1 Cauterize: allies nearby are immune to damage over time. L3 Bloodletting: allies drop to 35% HP and attack 25% faster for 10s. L6 Lancet: one enemy bleeds and cannot be healed for 10s."),
+            SectConfig.Fortitude  => Loc.T("Warden — L1 Drillmaster: Sallyguards nearby charge twice as fast. L3 Sally Forth: allies gain speed and Sallyguards are fully charged. L6 Challenge: enemies nearby, siege included, must attack the Warden for 6s."),
+            SectConfig.Prosperity => Loc.T("Guildmaster — L1 Called In: wounded enemies nearby are slowed 20%. L3 Stake: the extractor under it pays double while it stays. L6 Liquidate: demolish one of your buildings for half of everything put into it."),
+            _ => null,
+        };
+
+        public static string ResearchText(string sectId) => sectId switch
+        {
+            SectConfig.Antiquity  => Loc.T("Cartography — capturing a territory explores all of it."),
+            SectConfig.Renewal    => Loc.T("Field Hospital — your Litharchs can raise a temporary infirmary in the field."),
+            SectConfig.Fortitude  => Loc.T("Deep Foundations — walls, towers and gates cost less and build faster."),
+            SectConfig.Prosperity => Loc.T("Charter of Works — extractors cost less to build and to level up."),
+            _ => null,
+        };
 
         // ─────────────────────────────────────────────────────────────────
         // SHORT NAME — strip the "Sect_" prefix for display.

@@ -240,21 +240,15 @@ namespace TheWaningBorder.AI
             {
                 string sectId = priority[i];
                 if (SectQuery.IsAdopted(em, faction, sectId)) continue;
-                if (!BuildCosts.TryGet(SectConfig.ChapelIdFor(sectId), out var chapelCost)) continue;
 
-                if (!FactionEconomy.TryGetResources(em, faction, out var res)) return;
-                if (res.Supplies  < chapelCost.Supplies  + Cfg.chapelReserveSupplies)  return;
-                if (res.Veilstone < chapelCost.Veilstone + Cfg.chapelReserveVeilstone) return;
-
-                // Validate only — the RP + material SPEND happens inside
-                // SectAdoptionCommandDirect on every peer, alongside the
-                // slot stamp (docs/Multiplayer_LAN_Readiness.md).
-                var result = SectAdoption.ValidateAdoption(em, faction, sectId, chapelCost, temple);
+                // Validate only - the RP spend happens inside
+                // SectAdoptionCommandDirect on every peer
+                // (docs/Multiplayer_LAN_Readiness.md). Adoption is instant and
+                // costs RP only (Religion.md 3, 2026-10-15).
+                var result = SectAdoption.ValidateAdoption(em, faction, sectId);
                 if (result == SectAdoptionResult.Ok)
                 {
-                    // Replicated slot stamp (audit F7) — host-only writes left
-                    // clients without the chapel or the sect bonuses.
-                    CommandRouter.IssueSectAdoption(em, temple, sectId, -1, 30f, CommandSource.AI);
+                    CommandRouter.IssueSectAdoption(em, temple, sectId, CommandSource.AI);
                     AILogger.Log(faction, "STRATEGY", $"adopting sect {sectId}");
                     return;
                 }
@@ -271,18 +265,21 @@ namespace TheWaningBorder.AI
             }
 
             // Everything it wants is adopted: spend what RP is left on the
-            // sects it has (Religion.md §3.1) — the next active first (a new
-            // power beats a stronger one), then the chapel's level.
-            for (int i = 0; i < priority.Length; i++)
+            // sects it has (Religion.md 3.1) - new powers first (power B, then
+            // the wildcard; they are independent purchases), then levels.
+            for (int slot = 2; slot <= 3; slot++)
             {
-                string sectId = priority[i];
-                if (!SectQuery.IsAdopted(em, faction, sectId)) continue;
-                if (ReligionPurchases.CanBuy(em, faction, ReligionPurchaseKind.UnlockActive, sectId, out _))
+                var kind = ReligionPurchases.UnlockKindFor(slot);
+                for (int i = 0; i < priority.Length; i++)
                 {
-                    CommandRouter.IssueReligionPurchase(em, faction, ReligionPurchaseKind.UnlockActive,
-                        sectId, CommandSource.AI);
-                    AILogger.Log(faction, "STRATEGY", $"unlocking the next power of {sectId}");
-                    return;
+                    string sectId = priority[i];
+                    if (!SectQuery.IsAdopted(em, faction, sectId)) continue;
+                    if (ReligionPurchases.CanBuy(em, faction, kind, sectId, out _))
+                    {
+                        CommandRouter.IssueReligionPurchase(em, faction, kind, sectId, CommandSource.AI);
+                        AILogger.Log(faction, "STRATEGY", $"unlocking power {slot} of {sectId}");
+                        return;
+                    }
                 }
             }
             for (int i = 0; i < priority.Length; i++)

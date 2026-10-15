@@ -369,6 +369,7 @@ namespace TheWaningBorder.Bootstrap
             // ground for every faction (StartAgePromoter) and drops the AI
             // straight into its maintenance loop.
             GameSettings.StartAge = _startAge;
+            GameSettings.PerFactionStartCulture = false;
             // RICH START (2026-09-12). Combat is the biggest amplifier of
             // nondeterminism there is -- targeting order, death order, ID
             // allocation -- and both forks this harness has on record were

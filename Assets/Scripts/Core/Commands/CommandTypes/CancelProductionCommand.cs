@@ -99,9 +99,8 @@ namespace TheWaningBorder.Core.Commands.Types
                 }
                 // The gate goes with the item that raised it, so the building
                 // can shoot again immediately.
-                if (item.Kind == ProductionKind.BuildingUpgrade
-                    && em.HasComponent<BuildingUpgrading>(building))
-                    em.RemoveComponent<BuildingUpgrading>(building);
+                if (item.Kind == ProductionKind.BuildingUpgrade)
+                    TransientState.Clear<BuildingUpgrading>(em, building);
             }
 
             return true;

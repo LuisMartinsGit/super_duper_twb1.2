@@ -1,4 +1,4 @@
-﻿// AIBuildingUpgradeSystem.cs
+// AIBuildingUpgradeSystem.cs
 // Culture-agnostic AI driver for the building upgrade system.
 //
 // Each AI brain that's Era >= 2 with a non-None culture picks ONE
@@ -83,6 +83,38 @@ namespace TheWaningBorder.AI
             ComponentType.ReadOnly<FactionTag>(),
         };
         static CachedEntityQuery QC_RoyalStableTagBuildingUpgradeableFactionTag;
+
+        // Runai ladders (2026-10-13, docs/Design/Age_1_Runai.md §4): without
+        // them in the rotation no Runai AI ever reached a level-2 or level-3
+        // unit or tech (Veilmarch 8p batch: 0 of 20 Runai factions).
+        static readonly ComponentType[] QT_GrazingGroundsUpgradeable =
+        {
+            ComponentType.ReadOnly<GrazingGroundsTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_GrazingGroundsUpgradeable;
+        static readonly ComponentType[] QT_ArrowyardUpgradeable =
+        {
+            ComponentType.ReadOnly<ArrowyardTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_ArrowyardUpgradeable;
+        static readonly ComponentType[] QT_WagonworksUpgradeable =
+        {
+            ComponentType.ReadOnly<SiegeWorkshopTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_WagonworksUpgradeable;
+        static readonly ComponentType[] QT_SanctuaryUpgradeable =
+        {
+            ComponentType.ReadOnly<RunaiSanctuaryTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_SanctuaryUpgradeable;
 
         static readonly ComponentType[] QT_SiegeYardTagBuildingUpgradeableFactionTag =
         {
@@ -184,7 +216,8 @@ namespace TheWaningBorder.AI
         private static readonly string[] PriorityOrder =
             { "GatherersHut", "Fortress", "Barracks", "Hut", "ArcheryRange",
               "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Tower",
-              "VaultOfAlmierra", "Alanthor_Wall" };
+              "VaultOfAlmierra", "Alanthor_Wall",
+              "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop", "Runai_Sanctuary" };
 
 
         public void OnCreate(ref SystemState state)
@@ -675,6 +708,18 @@ namespace TheWaningBorder.AI
                     break;
                 case "VaultOfAlmierra":
                     query = QC_VaultTagBuildingUpgradeableFactionTag.Get(em, QT_VaultTagBuildingUpgradeableFactionTag);
+                    break;
+                case "Runai_GrazingGrounds":
+                    query = QC_GrazingGroundsUpgradeable.Get(em, QT_GrazingGroundsUpgradeable);
+                    break;
+                case "Runai_Arrowyard":
+                    query = QC_ArrowyardUpgradeable.Get(em, QT_ArrowyardUpgradeable);
+                    break;
+                case "Runai_SiegeWorkshop":
+                    query = QC_WagonworksUpgradeable.Get(em, QT_WagonworksUpgradeable);
+                    break;
+                case "Runai_Sanctuary":
+                    query = QC_SanctuaryUpgradeable.Get(em, QT_SanctuaryUpgradeable);
                     break;
                 case "Alanthor_Wall":
                     // Wall hubs: many instances, lowest-level-first (default

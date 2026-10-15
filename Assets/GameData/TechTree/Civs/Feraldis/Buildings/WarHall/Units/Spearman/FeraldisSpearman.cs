@@ -16,7 +16,7 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class FeraldisSpearman
     {
-        public const int PresentationID = 330;
+        public const int PresentationID = 431;   // own Spearman.prefab on its SO (330 is the Runai Spearman)
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
             => CreateInternal(new EmCreator(em), position, faction);

@@ -35,19 +35,50 @@ namespace TheWaningBorder.Systems.Sect
         };
         static CachedEntityQuery QC_Queues;
 
-        /// <summary>The sect whose hero this unit id is, or null.</summary>
+        /// <summary>
+        /// The sect whose HERO this unit id is, or null. A sect with an
+        /// authored hero (SectConfig.HeroIdFor, the Alanthor cluster since
+        /// 2026-10-15) has a separate trainable unit; a sect without one
+        /// still treats its single sect unit as its hero (the Runai and
+        /// Feraldis clusters, until their pass).
+        /// </summary>
         public static string SectIdForUnit(string unitId)
         {
             if (string.IsNullOrEmpty(unitId)) return null;
             for (int i = 0; i < SectConfig.AllSectIds.Length; i++)
-                if (SectConfig.UnitIdFor(SectConfig.AllSectIds[i]) == unitId)
-                    return SectConfig.AllSectIds[i];
+            {
+                string sect = SectConfig.AllSectIds[i];
+                string hero = SectConfig.HeroIdFor(sect);
+                if (hero != null ? hero == unitId : SectConfig.UnitIdFor(sect) == unitId)
+                    return sect;
+            }
+            return null;
+        }
+
+        /// <summary>The sect whose LIMITED unit (Religion.md §4: 20 per
+        /// faction) this unit id is, or null. Only sects with an authored
+        /// hero have a separate limited unit.</summary>
+        public static string SectIdForLimitedUnit(string unitId)
+        {
+            if (string.IsNullOrEmpty(unitId)) return null;
+            for (int i = 0; i < SectConfig.AllSectIds.Length; i++)
+            {
+                string sect = SectConfig.AllSectIds[i];
+                if (SectConfig.HeroIdFor(sect) != null && SectConfig.UnitIdFor(sect) == unitId)
+                    return sect;
+            }
             return null;
         }
 
         /// <summary>One per sect: a live one, or one already in a queue.</summary>
         public static bool HasLiveOrQueued(EntityManager em, Faction faction, string unitId)
+            => CountLiveOrQueued(em, faction, unitId, 1) > 0;
+
+        /// <summary>Live plus queued units of <paramref name="unitId"/>, counting
+        /// no further than <paramref name="stopAt"/>.</summary>
+        public static int CountLiveOrQueued(EntityManager em, Faction faction, string unitId, int stopAt)
         {
+            int n = 0;
             var q = QC_Units.Get(em, QT_Units);
             using (var ids = q.ToComponentDataArray<UnitTypeId>(Allocator.Temp))
             using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
@@ -55,7 +86,8 @@ namespace TheWaningBorder.Systems.Sect
             {
                 var id = new FixedString64Bytes(unitId);
                 for (int i = 0; i < ids.Length; i++)
-                    if (facs[i].Value == faction && hps[i].Value > 0 && ids[i].Value == id) return true;
+                    if (facs[i].Value == faction && hps[i].Value > 0 && ids[i].Value == id
+                        && ++n >= stopAt) return n;
             }
 
             var bq = QC_Queues.Get(em, QT_Queues);
@@ -67,11 +99,12 @@ namespace TheWaningBorder.Systems.Sect
                     if (bfacs[i].Value != faction) continue;
                     var buf = em.GetBuffer<ProductionQueueItem>(bents[i]);
                     for (int j = 0; j < buf.Length; j++)
-                        if (buf[j].Kind == ProductionKind.Train && buf[j].Id.ToString() == unitId)
-                            return true;
+                        if (buf[j].Kind == ProductionKind.Train && buf[j].Id.ToString() == unitId
+                            && ++n >= stopAt)
+                            return n;
                 }
             }
-            return false;
+            return n;
         }
 
         /// <summary>RP this recruit costs: the hero price until the sect's

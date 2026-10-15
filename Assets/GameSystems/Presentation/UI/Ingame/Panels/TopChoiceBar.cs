@@ -366,6 +366,9 @@ namespace TheWaningBorder.UI.Ingame
         {
             var entry = new AuthoredSpecialButton { Id = id, Button = button, Name = id };
             if (id == ThessarasCrossingId) entry.Name = "Thessara's Crossing";
+            // The demo edition strips the Keep's def (Editor/EditionContent),
+            // so its locked button would otherwise read the bare id.
+            if (id == "FiendstoneKeep") entry.Name = "Fiendstone Keep";
             if (TechCatalog.IsReady && TechCatalog.TryGetBuilding(id, out var def))
             {
                 entry.Name = def.name ?? id;

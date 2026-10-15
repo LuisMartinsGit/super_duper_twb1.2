@@ -15,6 +15,9 @@
     <Company>Luis Martins</Company>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- A (demo) / B / C — see Edition.cs. publish.ps1 -Edition sets it. -->
+    <TwbEdition Condition="'$(TwbEdition)' == ''">A</TwbEdition>
+    <DefineConstants>$(DefineConstants);TWB_EDITION_$(TwbEdition)</DefineConstants>
   </PropertyGroup>
 
 </Project>

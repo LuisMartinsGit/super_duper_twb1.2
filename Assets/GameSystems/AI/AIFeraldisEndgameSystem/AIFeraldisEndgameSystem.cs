@@ -137,7 +137,15 @@ namespace TheWaningBorder.AI
                 if (!em.HasComponent<FactionEra>(bank)) continue;
                 if (em.GetComponentData<FactionEra>(bank).Value < 2) continue;
 
-                ConscriptSurplusWorkers(em, faction, hallPos);
+                // 2026-10-12 redesign (docs/Design/Age_1_Feraldis.md): slaves
+                // staff the extractors and the Forge instead of being
+                // conscripted; the Corruptor verb is retired (no wells).
+                StaffSlaves(em, faction);
+                TrainSlavesAndUniques(em, faction, hallPos);
+                ManageForge(em, faction);
+                UseHarkon(em, faction);
+                UseTotemRites(em, faction);
+                SacrificeForReligion(em, faction);
                 // Mines and Raider Camps (Gatherer's Huts) are NOT built here
                 // (2026-10-03): this system searched a ring beside the ore and
                 // around the Hall, and an extractor must stand ON its node, so
@@ -146,7 +154,6 @@ namespace TheWaningBorder.AI
                 TryPlantTotem(em, faction, hallPos);
                 TryBuildAge2(em, faction, hallPos);
                 TryAdoptSect(em, faction);
-                TryRunTheVerb(em, brainEntity, faction, hallPos, now);
             }
 
             sw.Stop();

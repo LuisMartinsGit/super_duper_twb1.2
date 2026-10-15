@@ -26,6 +26,8 @@ MonoBehaviour:
   outpostTradeBelowVeilstone: 120
   outpostVeilsteelTarget: 200
   outpostSellAboveVeilsteel: 300
+  outpostIronFloor: 400
+  tradeGuildCompensation: 1
   unaffordableUnitCooldownSeconds: 60
   claimVeilstoneNodeBonus: 400
   claimCurseSquadMax: 24

@@ -85,6 +85,36 @@ namespace TheWaningBorder.Entities
                 ? def.hpMultiplier : 1f;
         }
 
+        /// <summary>
+        /// THE FERALDIS WOODEN WALL (2026-10-13, docs/Design/Age_1_Feraldis.md
+        /// § Walls): a Feraldis faction's palisade is raised at age-up to its
+        /// one cultured level, the level SO
+        /// Civs/Feraldis/Buildings/Palisade/Palisade_Lvl1 (buildingId
+        /// `Palisade`). True when <paramref name="faction"/> has that level —
+        /// a completed Feraldis culture and the SO in this build.
+        /// </summary>
+        public static bool HasPalisadeLevel(EntityManager em, Faction faction, out TheWaningBorder.Data.BuildingLevelDefSO level)
+        {
+            level = null;
+            return CultureConfig.GetCompletedCulture(em, faction) == Cultures.Feraldis
+                && TechCatalog.TryGetBuildingLevel(Cultures.Feraldis, PalisadeLevelId, 1, out level);
+        }
+
+        /// <summary>The building id the palisade's level SO is filed under.</summary>
+        public const string PalisadeLevelId = "Palisade";
+
+        /// <summary>HP multiplier the palisade of <paramref name="faction"/>
+        /// stands at: the Wooden Wall level SO's for Feraldis, x1 for everyone
+        /// else (their palisade has no levels).</summary>
+        public static float PalisadeHpMultiplier(EntityManager em, Faction faction)
+            => HasPalisadeLevel(em, faction, out var level) && level.hpMultiplier > 0f
+                ? level.hpMultiplier : 1f;
+
+        /// <summary>A Feraldis Wooden Wall carries wall towers (its two
+        /// fittings are the tower and the gate); no other palisade does.</summary>
+        public static bool PalisadeAllowsTowers(EntityManager em, Faction faction)
+            => HasPalisadeLevel(em, faction, out _);
+
         /// <summary>Garrison slots a curtain module of this level offers —
         /// none, at any level (retired 2026-10-02).</summary>
         public static int GarrisonSlots(byte level) => 0;
@@ -175,6 +205,34 @@ namespace TheWaningBorder.Entities
             if (!em.HasComponent<WallTier>(wallPiece)) return Palisade;
             byte lvl = em.GetComponentData<WallTier>(wallPiece).Level;
             return lvl > MaxLevel ? Palisade : lvl;
+        }
+
+        /// <summary>
+        /// The level a piece's ART is picked at (WallModuleArt.asset): its
+        /// <see cref="Of"/> level, except a palisade whose faction holds the
+        /// palisade's cultured level (the Feraldis Wooden Wall,
+        /// <see cref="HasPalisadeLevel"/>), which draws at that level SO's
+        /// `level` from its culture's wall set — the palisade's sim level stays
+        /// 0, only its cladding changes. Read with <see cref="ArtCultureOf"/>.
+        /// </summary>
+        public static byte ArtLevelOf(EntityManager em, Entity wallPiece)
+        {
+            if (wallPiece == Entity.Null || !em.Exists(wallPiece)) return Palisade;
+            if (em.HasComponent<PalisadeTag>(wallPiece) && em.HasComponent<FactionTag>(wallPiece)
+                && HasPalisadeLevel(em, em.GetComponentData<FactionTag>(wallPiece).Value, out var level)
+                && level != null && level.level > 0)
+                return (byte)Mathf.Min(level.level, MaxLevel);
+            return Of(em, wallPiece);
+        }
+
+        /// <summary>The owner culture whose wall SET (WallModuleArt.asset
+        /// `cultureSets`) a piece's art may come from: the faction's completed
+        /// culture, Cultures.None before age-up or for an ownerless piece.</summary>
+        public static byte ArtCultureOf(EntityManager em, Entity wallPiece)
+        {
+            if (wallPiece == Entity.Null || !em.Exists(wallPiece) || !em.HasComponent<FactionTag>(wallPiece))
+                return Cultures.None;
+            return CultureConfig.GetCompletedCulture(em, em.GetComponentData<FactionTag>(wallPiece).Value);
         }
 
         /// <summary>True for the two BOUGHT wall levels.</summary>

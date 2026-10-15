@@ -11,14 +11,14 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: Pasture
-  m_EditorClassIdentifier:
-  id: 'Feraldis_Pasture'
-  displayName: 'Pasture'
-  role: 'Feraldis cavalry - Raider at L1, War Chariot at L2'
+  m_EditorClassIdentifier: 
+  id: Feraldis_Pasture
+  displayName: Rig Yard
+  role: Feraldis cavalry - Raider at L1, War Chariot at L2
   description: Feraldis cavalry house. There is no Royal Stable analogue for Feraldis;
     all cavalry trains here.
   hp: 900
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 1
     ranged: 1
@@ -28,11 +28,24 @@ MonoBehaviour:
   lineOfSight: 16
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
   - Feraldis_Raider
   - Feraldis_WarChariot
@@ -41,8 +54,21 @@ MonoBehaviour:
   cost:
     Supplies: 180
     Iron: 60
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 7566993693651302827, guid: 52a120f814e000748bf9cb55a9bc7971, type: 3}
   presentationId: 363
+  prefabPath: 
+  canUpgradeTo: []

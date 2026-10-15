@@ -69,9 +69,11 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (SystemAPI.HasComponent<BloodFrenzy>(entity))
                 {
+                    // Blood ladder (Bloodrites): frenzy lingers longer.
                     SystemAPI.SetComponent(entity, new BloodFrenzy
                     {
                         Remaining = FrenzyLingerSeconds
+                                    + TheWaningBorder.Feraldis.FeraldisCombat.FrenzyLingerBonus(EntityManager, entity)
                     });
                 }
                 else
@@ -85,6 +87,7 @@ namespace TheWaningBorder.Systems.Combat
                 EntityManager.AddComponentData(gained[i], new BloodFrenzy
                 {
                     Remaining = FrenzyLingerSeconds
+                                + TheWaningBorder.Feraldis.FeraldisCombat.FrenzyLingerBonus(EntityManager, gained[i])
                 });
             }
             gained.Dispose();

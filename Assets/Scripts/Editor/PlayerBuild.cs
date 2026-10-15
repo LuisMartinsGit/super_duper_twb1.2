@@ -11,6 +11,7 @@
 //     -projectPath "<project>" ^
 //     -executeMethod TheWaningBorder.EditorTools.PlayerBuild.Build ^
 //     -buildPath "C:\Users\...\TWB_LATEST" ^
+//     -twbEdition A ^
 //     -logFile "<project>\logs\build.log"
 //
 // The editor must be CLOSED: Unity takes an exclusive lock on a project, and
@@ -44,6 +45,16 @@ namespace TheWaningBorder.EditorTools
     public static class PlayerBuild
     {
         private const string PathArg = "-buildPath";
+        private const string EditionArg = "-twbEdition";
+
+        /// <summary>
+        /// The edition of the build in progress, or null when no build was
+        /// started through here. EditionBuildGate reads it to refuse a build
+        /// from the Build Settings window (which would carry no edition define
+        /// and so ship every culture), and AlphaBuildPostProcess reads it to
+        /// carry the launcher of the same edition.
+        /// </summary>
+        public static string ActiveEdition { get; private set; }
 
         public static void Build()
         {
@@ -54,7 +65,8 @@ namespace TheWaningBorder.EditorTools
                 return;
             }
 
-            string error = BuildTo(outDir);
+            string edition = (ArgValue(EditionArg) ?? "A").Trim().ToUpperInvariant();
+            string error = BuildTo(outDir, edition);
             if (error != null) { Fail(error); return; }
             EditorApplication.Exit(0);
         }
@@ -66,8 +78,15 @@ namespace TheWaningBorder.EditorTools
         /// output layout as the batch path — it IS the batch path minus the
         /// process exit.
         /// </summary>
-        public static string BuildTo(string outDir)
+        public static string BuildTo(string outDir, string edition = "A")
         {
+            // A = the demo (Age 0 + Alanthor), B = + Feraldis, C = + Runai.
+            // The define is what GameEdition reads at runtime; the catalog
+            // strip (EditionContent) is what keeps the other cultures' assets
+            // out of the build. docs/Design/Alpha_Build.md § Editions.
+            if (edition != "A" && edition != "B" && edition != "C")
+                return $"Unknown edition '{edition}'. Pass {EditionArg} A, B or C.";
+
             try
             {
                 Directory.CreateDirectory(outDir);
@@ -95,23 +114,49 @@ namespace TheWaningBorder.EditorTools
                 locationPathName = exe,
                 target = BuildTarget.StandaloneWindows64,
                 targetGroup = BuildTargetGroup.Standalone,
+                extraScriptingDefines = new[] { "TWB_EDITION_" + edition },
                 // -twbDevelopment: a profiling player (ENABLE_PROFILER on, so
                 // EcsSystemProfiler can time every system). Never shipped.
                 options = Array.IndexOf(Environment.GetCommandLineArgs(), "-twbDevelopment") >= 0
                     ? BuildOptions.Development : BuildOptions.None,
             };
 
-            Debug.Log($"[PlayerBuild] Building {PlayerSettings.productName} " +
-                      $"{PlayerSettings.bundleVersion} -> {exe}");
+            // The edition rides in the version string ("0.0.41B"), so the
+            // lobby handshake, replays and every match log tell editions apart
+            // without a field of their own, and a demo player can never join a
+            // developer lobby. Restored afterwards: ProjectSettings keeps the
+            // bare version, which is what release.ps1 reads.
+            string baseVersion = PlayerSettings.bundleVersion;
+            string builtVersion = edition == "A" ? baseVersion : baseVersion + edition;
 
             BuildReport report;
-            try
+            using (var strip = EditionContent.Strip(edition))
             {
-                report = BuildPipeline.BuildPlayer(options);
-            }
-            catch (Exception e)
-            {
-                return $"BuildPipeline threw: {e}";
+                if (strip.Error != null) return strip.Error;
+
+                ActiveEdition = edition;
+                PlayerSettings.bundleVersion = builtVersion;
+                Debug.Log($"[PlayerBuild] Building {PlayerSettings.productName} " +
+                          $"{builtVersion} (edition {edition}) -> {exe}");
+                try
+                {
+                    report = BuildPipeline.BuildPlayer(options);
+                }
+                catch (Exception e)
+                {
+                    return $"BuildPipeline threw: {e}";
+                }
+                finally
+                {
+                    // Restoring in memory is NOT enough: the build saves project
+                    // settings to disk while the suffixed version is set (seen
+                    // 2026-10-12 — ProjectSettings.asset read "0.0.41B" after a
+                    // B build, and the next DEMO release went out tagged
+                    // v0.0.41B). Save the restored value back over it.
+                    PlayerSettings.bundleVersion = baseVersion;
+                    AssetDatabase.SaveAssets();
+                    ActiveEdition = null;
+                }
             }
 
             var summary = report.summary;
@@ -128,6 +173,21 @@ namespace TheWaningBorder.EditorTools
                 return $"Build {summary.result}. {summary.totalErrors} error(s)." +
                        (first == null ? "" : $" First: {first}");
             }
+
+            // Proof, not trust: anything from a stripped culture that still
+            // reached the build (a new reference path the strip does not know)
+            // fails it, and with no edition.txt release.ps1 will not ship it.
+            var leaks = EditionContent.FindLeaks(report, edition);
+            if (leaks.Count > 0)
+            {
+                foreach (var leak in leaks) Debug.LogError("[PlayerBuild] Edition leak: " + leak);
+                return $"Edition {edition} build carries {leaks.Count} asset(s) from a culture it must not ship " +
+                       $"(first: {leaks[0]}). Find what references it and extend EditionContent.";
+            }
+
+            // release.ps1 refuses to publish a build whose stamp does not match
+            // its -Edition: the last line of defence against shipping B as A.
+            File.WriteAllText(Path.Combine(outDir, "edition.txt"), edition);
 
             Debug.Log($"[PlayerBuild] SUCCESS — {summary.outputPath}, " +
                       $"{summary.totalSize / 1048576} MB, " +

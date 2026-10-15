@@ -671,6 +671,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<TheWaningBorder.Rendering.ChapelSiteDecals>();
 
             managersGO.AddComponent<FloatingIncomeDisplay>();   // BFME2-style floating income text
+            managersGO.AddComponent<ResourceGainPopups>();      // "+N [icon]" where resources are gained
             managersGO.AddComponent<ProjectileVisualSystem>();   // Arrow projectile visuals
             managersGO.AddComponent<BuildingEffectSystem>();    // Construction dust + collapse effects
             managersGO.AddComponent<RitualBeamSystem>();         // Ritual broadcast beams (spec §5.1)

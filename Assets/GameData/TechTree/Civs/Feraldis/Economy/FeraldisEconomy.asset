@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a363b6dd890aae3429d1c58c18c74f81, type: 3}
+  m_Name: FeraldisEconomy
+  m_EditorClassIdentifier: 
+  crewSlotsWorkCamp: 3
+  crewSlotsMine: 3
+  crewSlotsVeilstoneMine: 4
+  crewSlotsForge: 4
+  crewRadius: 7
+  crewIncomeAtZero: 0.4
+  crewIncomeAtFull: 1.25
+  overseerRadius: 16
+  overseerWorkMultiplier: 1.25
+  chainsWorkMultipliers:
+  - 1.1
+  - 1.1
+  - 1.15
+  errandReach: 3
+  slaveCapFortress: 6
+  penExpansionBonus: 2
+  razeBountyShare: 0.25
+  pillageShare: 0.15
+  siphonPerSecond: 3
+  siphonWindowSeconds: 4
+  curseKillVeilstoneCrystalling: 4
+  curseKillVeilstoneVeilstinger: 10
+  curseKillVeilstoneGodsplinter: 25
+  curseNodeVeilstone: 120
+  curseNodeVeilsteel: 40
+  meltRefundShare: 0.12
+  sacrificePtsPerCost: 0.1
+  altarSacrificeMultiplier: 3
+  altarSacrificeRadius: 14
+  killPtsPerCost: 0.1
+  killPtsMin: 1
+  altarBloodRadius: 6
+  altarBloodAmount: 0.6
+  altarBloodInterval: 5
+  fieldSacrificeBlood: 0.8
+  fieldSacrificeRing: 6

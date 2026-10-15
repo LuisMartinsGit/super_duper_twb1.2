@@ -18,7 +18,7 @@ namespace TheWaningBorder.Entities
         /// <summary>Shares the mobile Trebuchet's art (pid 348) — an emplaced
         /// engine is the same machine, bolted down. Its own model can take
         /// this pid's place without touching anything here.</summary>
-        public const int PresentationID = 348;
+        public const int PresentationID = 433;   // shares the mobile Trebuchet's prefab
         public const string Id = "Alanthor_EmplacedTrebuchet";
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)

@@ -80,7 +80,7 @@ internal sealed class UpdateClient : IDisposable
     {
         // Cache-bust: the reply is tiny, and staleness here means telling a
         // tester they are up to date when they are not.
-        var url = $"{_apiBase}/version?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        var url = $"{_apiBase}/version?edition={Edition.Id}&t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
         using var response = await SendAsync(url, ct).ConfigureAwait(false);
 
@@ -100,7 +100,7 @@ internal sealed class UpdateClient : IDisposable
         CancellationToken ct)
     {
         using var response = await SendAsync(
-            $"{_apiBase}/download", ct, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+            $"{_apiBase}/download?edition={Edition.Id}", ct, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
 
         var total = response.Content.Headers.ContentLength ?? manifest.SizeBytes;
 
@@ -166,6 +166,11 @@ internal sealed class UpdateClient : IDisposable
         {
             HttpStatusCode.Unauthorized => new UpdateException(
                 reported ?? "Your access key was rejected.", isAuthFailure: true),
+
+            // A valid key that is not cleared for THIS edition (a demo key in
+            // a developer launcher). Same remedy as a bad key: enter another.
+            HttpStatusCode.Forbidden => new UpdateException(
+                reported ?? "Your access key is not authorised for this edition.", isAuthFailure: true),
 
             // The Worker returns 503 for its own misconfiguration (expired
             // credential, no release published) with a message worth showing.

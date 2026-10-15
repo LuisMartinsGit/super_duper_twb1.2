@@ -1,5 +1,12 @@
 # Religion
 
+> **2026-10-15:** adoption is instant and final, the chapel is decoration, each
+> sect has a separate **sect building** (built by Workers, needs a standing
+> Temple), B and ★ unlock independently, a sect has a trainable **unit
+> (limit 20)** and a unique **hero**, and complete sets of sects earn **set
+> passives** (§2, §3, §4). The religion menu that drives all of it:
+> [Religion_Menu.md](Religion_Menu.md).
+
 > **2026-10-09:** every religion point any player earns also counts down
 > the global "religion points until the Shardroot descends" counter
 > ([Curse_And_Shardroot.md §3.1c](Curse_And_Shardroot.md)).
@@ -44,7 +51,8 @@ RP you have already earned from kills, then level off:
 rule: a cheap first RP, a linear climb, then a flat cap.
 
 Points accrue from the first tick, **before any Temple exists**: the first RP
-is what pays for the Temple.
+is what pays for the Temple. (Feraldis, from age-up: every kill and every
+sacrifice pays points too — §7.)
 
 ### 1.1 Buying RP
 
@@ -85,53 +93,109 @@ curse kills pay, converted at the same escalating rate. At the ladder's cap it
 is a floor for a player far from the curse, never a substitute for fighting
 it.
 
-The Temple is the religion layer's root: no Temple, no chapels, no sect
-powers, no sect heroes. If it falls, chapels stand but their passives go dark
-(Sects.md §1, "live only while the Temple stands").
+The Temple is the religion layer's root (2026-10-15). **While a faction has
+no standing Temple** — none built yet, or destroyed:
+
+- no sect can be adopted;
+- **no sect building can be built or rebuilt** (§3.2);
+- **no sect power can be cast**.
+
+Nothing already bought is lost: adoptions, power unlocks and chapel levels
+survive the Temple's fall and work again the moment it is rebuilt. Set
+passives (§3.3) and sect-building effects are untouched by it.
 
 ## 3. Chapels
 
-**A chapel is how a sect is adopted.** It docks to a free Temple face; the sect
-building slot of Sects.md §1 is this chapel — there is no separate sect
-building any more.
+> **Rewritten 2026-10-15** (developer decisions, final): adoption is instant,
+> the chapel is decoration, and the sect building is a separate building.
+> Supersedes the 2026-09-29 "the chapel docks to a Temple face and IS the
+> sect building".
+
+**Adopting a sect is instant.** The player pays the adoption RP and the sect
+fills one of six slots at once; a chapel appears on the Temple as
+**decoration only** — it has no HP, no build time and no role in play.
 
 | | |
 |---|---|
-| Adoption (build the chapel) | an RP price that is **cheaper if the sect's cluster matches your culture** (affinity) than otherwise. **Before age-up there is no culture, so every chapel is at the non-affinity price.** Values: `SectConfig.AdoptCostSameCulture` / `AdoptCostCrossCulture`; the chapel's resource cost is on its SO. |
-| Limit | six chapels, one per sect (double chapels are retired) |
-| On completion | the sect's **Passive**, its **Research** (bought at the chapel with resources) and its **first active power** |
+| Adoption | an RP price that is **cheaper if the sect's cluster matches your culture** (affinity) than otherwise. **Before age-up there is no culture, so every sect is at the non-affinity price.** Values: `SectConfig.AdoptCostSameCulture` / `AdoptCostCrossCulture`. No resource cost. |
+| Requires | a standing Temple (§2) and a free slot |
+| Limit | **six sects**, one slot each |
+| On adoption | the sect's **first active power** (A) at chapel level I, and the right to build its **sect building** (§3.2) |
+| Final | **every choice is final.** A sect cannot be abandoned; nothing is ever refunded; nothing bought is lost to any destruction |
 
 ### 3.1 Powers and levels
 
-Each of these is bought with RP (prices in §5):
+Each of these is bought with RP (prices in §5), from the religion menu:
 
 | Purchase | Config value |
 |---|---|
-| Unlock the second active (the other counterpart) | `unlockSecondRp` |
-| Unlock the wildcard | `unlockWildcardRp` |
+| Unlock power B | `unlockSecondRp` |
+| Unlock the wildcard ★ | `unlockWildcardRp` |
 | Chapel level II | `chapelLevel2Rp` |
-| Chapel level III | `chapelLevel3Rp` |
+| Chapel level III (after II) | `chapelLevel3Rp` |
+
+**B and ★ are independent purchases** (2026-10-15): either can be bought as
+soon as the sect is adopted, in either order. The old sequential tiers
+(power 2 before power 3) are gone.
 
 **A chapel's level is the level of every power it has unlocked** (I / II /
 III). A power unlocked later arrives at the chapel's current level. This
 replaces Sects.md §3: the level is bought, not a reward for early adoption.
+
+### 3.2 Sect buildings
+
+Every sect has **one sect building** (Sects.md names it), separate from the
+Temple:
+
+- **Built by Workers anywhere on legal build ground**, from the Worker's build
+  palette (Religion category), once its sect is adopted. Resource cost and
+  build time are on its SO. **Limit one per sect.**
+- **Requires a standing Temple to be built or rebuilt** (§2). A standing sect
+  building keeps working while the Temple is down.
+- It **trains the sect unit** (§4), **sells the sect research** and
+  **recruits the sect hero** (§4).
+- While it stands it gives the sect's **standing effect** (the sect's
+  passive, Sects.md).
+- If destroyed, the player must rebuild it. The sect, its powers and levels
+  are unaffected; only what the building itself provides pauses.
+
+### 3.3 Set passives
+
+A faction that holds a **complete set** of sects earns that set's passive,
+for as long as it holds them (adoption is permanent, so in practice for the
+rest of the match). With six slots there are exactly two kinds of set, and
+the cap makes them exclusive:
+
+| Set | Requires | Passive |
+|---|---|---|
+| Alanthor | all four Alanthor-cluster sects | **Sovereign Hour** |
+| Feraldis | all four Feraldis-cluster sects | **The Breaking Hour** |
+| Runai | all four Runai-cluster sects | **Foreknown** |
+| Concord | two sects from each cluster | **Concord** |
+
+A set counts the sects, not the adopter's culture. What each passive does is
+in Sects.md §6b. Destruction never switches a set passive off.
 
 **A fully developed sect is expensive on purpose** (adoption + both unlocks +
 both levels + its hero): six full sects cost far more RP than a match pays, so
 a real match develops two or three deeply, or spreads thin. That is the choice
 this layer asks for.
 
-## 4. Sect heroes
+## 4. Sect units and sect heroes
 
-**Every sect's unit is now a hero.** It replaces the capped sect unit of
-Sects.md §1.
+> **Rewritten 2026-10-15:** a sect has BOTH a trainable unit and a unique
+> hero. Supersedes 2026-09-29's "every sect's unit is a hero".
 
-| | |
-|---|---|
-| Recruit | at its chapel, for an RP price (`heroRp`) + the unit's resource price (its SO) |
-| Limit | **one per sect** |
-| Levels | 1-10 from kills, exactly as [Heroes.md](Heroes.md) |
-| Death | Recruited again at its chapel for its resources only — revival never costs RP. **As implemented (2026-09-29):** it returns at level 1; the Heroes.md §4 Rally-the-Oath / Full-Honours choice is still King Lexor's alone (`HeroRevival` is keyed one hero per faction) |
+| | Sect unit | Sect hero |
+|---|---|---|
+| Trained / recruited at | the sect building | the sect building |
+| Price | the unit's resource price (its SO) | an RP price (`heroRp`) + the hero's resource price (its SO) |
+| Limit | **20 per faction**, live and queued | **one** (unique) |
+| Levels | — | 1-10 from kills, exactly as [Heroes.md](Heroes.md); abilities unlock at levels 1, 3 and 6 |
+| Death | train another | recruited again at the sect building for its resources only — revival never costs RP. It returns at level 1 (the Rally-the-Oath / Full-Honours choice is King Lexor's alone) |
+
+Sect units are offensive by design. Their kits, and the heroes', are in
+Sects.md.
 
 ## 5. Knobs
 
@@ -147,7 +211,8 @@ All but two live in the religion config,
 The two that are not: the chapel adoption RP prices are code constants,
 `SectConfig.AdoptCostSameCulture` / `AdoptCostCrossCulture`
 (`Assets/GameData/TechTree/Sects/SectConfig.cs`). Resource prices (Temple,
-chapels, sect heroes, Temple research) are on their SOs.
+sect buildings, sect units, sect heroes, Temple research) are on their SOs.
+Adoption has no resource price.
 
 ## 6. Watch in playtest
 
@@ -157,3 +222,37 @@ chapels, sect heroes, Temple research) are on their SOs.
   dominates, cut `ptsCap` returns or rotate the per-unit pts, not the model.
 - **Distance to the curse decides early religion.** Random and intended; Tithe
   is the safety valve.
+
+## 7. Feraldis — drawing blood (2026-10-13, supersedes 2026-10-12)
+
+From age-up a Feraldis faction's religion runs on **drawing blood**
+([Age_1_Feraldis.md §5](Age_1_Feraldis.md)). Every source below banks
+points, converted to RP through the **same escalating ladder as §1**
+(`ptsBase`, `ptsStep`, `ptsCap`), and **none of them needs an Altar or a
+Temple** — a Feraldis faction with 0 RP and no Altar can kill and sacrifice
+its way to the Altar's `templeRp`.
+
+> **Why (developer, 2026-10-13):** the 2026-10-12 rule paid Feraldis curse
+> kills in veilstone only and made Altar sacrifice the one point source, and
+> the Altar costs RP — a Feraldis player with no RP at age-up was soft-locked
+> out of the whole religion layer. Blood in any form now pays.
+
+- **Every enemy unit a Feraldis faction kills pays points** — the last hit
+  is paid, as in §1, whatever dealt it. Points scale with the victim's whole
+  cost (`killPtsPerCost`, at least `killPtsMin`, `FeraldisEconomy.asset`).
+  Only hostile units count (`Alliances.AreHostile`): an ally or a teammate
+  pays nothing, nor does a unit its own side sacrificed or melted.
+- **Curse kills pay both**: the §1 per-unit points (`ptsCrystalling` …, with
+  the standing-Temple bonus — the Altar is the Temple) **and** the Feraldis
+  veilstone (Age_1_Feraldis.md §3.6). Destroying a curse node still pays its
+  full Religion Point (§2) and the Feraldis node bounty.
+- **Every sacrifice pays points** scaled by the unit's cost
+  (`sacrificePtsPerCost`) — the Altar sacrifice **and** the slave's field
+  sacrifice, which can be made anywhere and still leaves its blood pool.
+- **A sacrifice made at the Blood Altar counts `altarSacrificeMultiplier`
+  times**: an Altar sacrifice always, a field sacrifice when the
+  slave stands within `altarSacrificeRadius` of one of the faction's finished
+  Altars. Heroes cannot be sacrificed.
+- The Temple's slow point trickle (§2) and the Tithe (§1.1) stand.
+- Every point a Feraldis faction earns counts down the Shardroot counter like
+  anyone's.

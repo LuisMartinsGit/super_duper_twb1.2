@@ -319,18 +319,13 @@ namespace TheWaningBorder.Core.Commands.Types
         // AI's site picker and the router's validator from drifting apart.
         // ─────────────────────────────────────────────────────────────────
 
-        /// <summary>Crust rule: false on veil crust, except for the one
-        /// building raised on cursed ground (Sect_Veilworks).</summary>
+        /// <summary>Crust rule: false on veil crust. (The Veilworks, the one
+        /// exception, was retired with the Sect of Reclamation 2026-10-15.)</summary>
         internal static bool PassesCrustRule(EntityManager em, float3 position, string buildingId)
         {
             var veilQuery = _veilQuery.Get(em, VeilTypes);
             if (veilQuery.IsEmptyIgnoreFilter) return true;
 
-            // Veilworks (Sect of Reclamation) is the ONE exception: a
-            // smelter for cursed matter, explicitly raised on cursed ground
-            // (docs/Design/Sects.md section 4). Everything else obeys the
-            // crust rule.
-            if (buildingId == "Sect_Veilworks") return true;
             var veil = veilQuery.GetSingleton<VeilField>();
             return !(veil.Initialised != 0
                      && veil.SaturationAt(position) >= VeilField.CrustThreshold);

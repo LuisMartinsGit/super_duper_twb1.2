@@ -127,6 +127,9 @@ namespace TheWaningBorder.Systems.Navigation
                 if (em.HasComponent<LayerTraversalState>(entity))
                 {
                     var ts = em.GetComponentData<LayerTraversalState>(entity);
+                    // PortalId -1 is a Scaling Hooks climb (Age_1_Runai.md
+                    // §6.5): no portal, ScalingHooksSystem animates it.
+                    if (ts.PortalId < 0) continue;
 
                     // Backstop eligibility re-check (R4 -- gate may have
                     // closed mid-transition; abort + drop the unit at the

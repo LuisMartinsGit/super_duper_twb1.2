@@ -49,6 +49,9 @@ namespace TheWaningBorder.Systems.Combat
         public static int Accrue(EntityManager em, Entity victim, bool isFire,
             float amount, ref float accumulator)
         {
+            // Cauterize (the Surgeon's aura, Sects.md §4): immune to every
+            // damage-over-time tick.
+            if (TransientState.Active<Cauterized>(em, victim)) return 0;
             float s = IncomingScale(em, victim, isFire);
             if (s <= 0f || amount <= 0f) return 0;
             accumulator += amount * s;

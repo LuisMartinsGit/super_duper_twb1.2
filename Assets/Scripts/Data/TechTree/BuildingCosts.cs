@@ -1,4 +1,4 @@
-﻿// BuildingCosts.cs -- holds the BuildCosts table. The file name does not
+// BuildingCosts.cs -- holds the BuildCosts table. The file name does not
 // match the type on purpose: 30+ design-doc and task links point at this
 // path, same reasoning as BuildCommandPannel.cs.
 // Static lookup table for building costs
@@ -82,6 +82,9 @@ namespace TheWaningBorder.Data
             { "Feraldis_WarTotem",       Cost.Of(supplies: 60, iron: 20) },
             { "Feraldis_Pasture",        Cost.Of(supplies: 200, iron: 60) },
             { "Feraldis_HallOfAxes",     Cost.Of(supplies: 180, iron: 50) },
+            // The Great Forge (2026-10-12). Placeholder row only: SyncFromTechTree
+            // overwrites it from the SO, and an id with no row here prices free.
+            { "Feraldis_GreatForge",     Cost.Of(supplies: 400, iron: 150) },
             // SUPPLIES ONLY, deliberately. The Mine is the bootstrap for
             // ore income, so charging ore for it is circular — and for
             // Feraldis (whose Workers cannot gather at all) it was a hard
@@ -126,7 +129,7 @@ namespace TheWaningBorder.Data
             // Stonehold is the tankiest non-Hall structure in the game, so it
             // pays for that in iron rather than being the cheapest wall available.
             { "Sect_Stonehold",          Cost.Of(supplies: 280, iron: 160, veilstone: 30) },
-            { "Sect_Veilworks",          Cost.Of(supplies: 300, iron: 110, veilstone: 60) },
+            { "Sect_Treasury",          Cost.Of(supplies: 300, iron: 110, veilstone: 60) },
             // Muster Yard is a working yard rather than a hall: cheapest of
             // the sect buildings in supplies, heaviest in iron, because what
             // it sells is gear.
@@ -317,6 +320,7 @@ namespace TheWaningBorder.Data
                 || em.HasComponent<TempleTag>(entity)) return "TempleOfRidan";
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
+            if (em.HasComponent<ThessarasCrossingTag>(entity)) return "ThessarasCrossing";
 
             // Runai
             if (em.HasComponent<OutpostTag>(entity)) return "Runai_Outpost";
@@ -330,7 +334,7 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<ReliquaryTag>(entity)) return "Sect_Reliquary";
             if (em.HasComponent<MendingHallTag>(entity)) return "Sect_MendingHall";
             if (em.HasComponent<StoneholdTag>(entity)) return "Sect_Stonehold";
-            if (em.HasComponent<VeilworksTag>(entity)) return "Sect_Veilworks";
+            if (em.HasComponent<TreasuryTag>(entity)) return "Sect_Treasury";
             if (em.HasComponent<MusterYardTag>(entity)) return "Sect_MusterYard";
             if (em.HasComponent<EmplacementTag>(entity))
                 return em.HasComponent<EmplacementCrew>(entity)

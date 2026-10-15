@@ -11,16 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: WarChariot
-  m_EditorClassIdentifier:
-  id: 'Feraldis_WarChariot'
-  displayName: 'War Chariot'
-  unitClass: 'human_cavalry'
+  m_EditorClassIdentifier: 
+  id: Feraldis_WarChariot
+  displayName: War Chariot
+  unitClass: human_cavalry
   hp: 180
   speed: 7
   trainingTime: 14
   damage: 16
-  damageType: 'melee'
-  armorType: 'cavalry'
+  damageType: melee
+  armorType: cavalry
   defense:
     melee: 1
     ranged: 0
@@ -30,15 +30,29 @@ MonoBehaviour:
   attackRange: 1.5
   minAttackRange: 0
   lineOfSight: 20
+  aimTime: 0
   radius: 0.6
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 0
     Iron: 44
-    Crystal: 134
+    Veilstone: 134
     Veilsteel: 0
   populationCost: 2
   minBuildingLevel: 2
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Cavalry'
+  - Cavalry
   bonusVsTags: []
-  presentationId: 339
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 5031897921387754285, guid: 75dbe3b8ae59fd14e9e94809062ed429, type: 3}
+  presentationId: 430
+  animatorController: {fileID: 0}

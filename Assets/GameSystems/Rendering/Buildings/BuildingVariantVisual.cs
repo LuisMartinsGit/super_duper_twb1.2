@@ -252,6 +252,10 @@ namespace TheWaningBorder.Rendering
         {
             Transform target = _lv0;
 
+            // No cross-culture borrowing: a culture branch that is missing
+            // shows Lv0, never another culture's art. Feraldis has its own
+            // authored branches since 2026-10-13 (tools/blender/feraldis/);
+            // a culture with none is a content gap to author, not to mask.
             if (culture != Cultures.None && level >= 1
                 && _cultureRoots.ContainsKey(culture)
                 && _levels.TryGetValue(culture, out var byLevel) && byLevel.Count > 0)

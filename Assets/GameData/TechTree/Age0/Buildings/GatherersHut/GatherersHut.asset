@@ -41,12 +41,6 @@ MonoBehaviour:
   buildTime: 20
   trains: []
   research:
-  - Raiding1
-  - Raiding2
-  - Raiding3
-  - IronPlunder
-  - VeilstonePlunder
-  - VeilsteelPlunder
   - IronSurveying1
   - IronSurveying2
   - IronSurveying3

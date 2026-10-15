@@ -196,7 +196,12 @@ namespace TheWaningBorder.AI
         public static bool IsCommittedWorker(EntityManager em, Entity worker)
             => em.HasComponent<BuildCommand>(worker)
             || em.HasComponent<BuildOrder>(worker)
-            || em.HasComponent<RepairOrder>(worker);
+            || em.HasComponent<RepairOrder>(worker)
+            // A Feraldis slave crewing an extractor or the Forge, or walking to
+            // one (or to the Altar), is working — pulling it off to build
+            // drops the crew (docs/Design/Age_1_Feraldis.md §3.1).
+            || em.HasComponent<StaffAssignment>(worker)
+            || em.HasComponent<FeraldisErrand>(worker);
 
         /// <summary>THE HOUSE QUARTER (2026-10-02): the centre of the faction's Houses (finished or rising);
         /// false — anchor left as <paramref name="fallback"/> — while it has

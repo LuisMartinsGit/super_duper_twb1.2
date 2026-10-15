@@ -1,4 +1,4 @@
-﻿// BuildingIds.cs
+// BuildingIds.cs
 // Entity -> building id, the inverse of BuildingFactory's recipe table.
 //
 // This tag switch used to be a private helper inside
@@ -36,8 +36,12 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<MendingHallTag>(entity)) return "Sect_MendingHall";
             if (em.HasComponent<StoneholdTag>(entity)) return "Sect_Stonehold";
             if (em.HasComponent<MusterYardTag>(entity)) return "Sect_MusterYard";
-            if (em.HasComponent<VeilworksTag>(entity)) return "Sect_Veilworks";
+            if (em.HasComponent<TreasuryTag>(entity)) return "Sect_Treasury";
             // Runai culture buildings
+            if (em.HasComponent<ThessarasCrossingTag>(entity)) return TheWaningBorder.Entities.ThessarasCrossing.BuildingId;
+            if (em.HasComponent<GrazingGroundsTag>(entity)) return TheWaningBorder.Entities.GrazingGrounds.BuildingId;
+            if (em.HasComponent<ArrowyardTag>(entity)) return TheWaningBorder.Entities.Arrowyard.BuildingId;
+            if (em.HasComponent<RunaiSanctuaryTag>(entity)) return TheWaningBorder.Entities.Sanctuary.BuildingId;
             if (em.HasComponent<OutpostTag>(entity)) return "Runai_Outpost";
             if (em.HasComponent<TradeHubTag>(entity)) return "Runai_TradeHub";
             if (em.HasComponent<TradingPostTag>(entity)) return "Runai_TradingPost";
@@ -61,6 +65,10 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<TotemTowerTag>(entity)) return "Feraldis_Tower";
             if (em.HasComponent<FerSiegeYardTag>(entity)) return "Feraldis_SiegeYard";
             if (em.HasComponent<WarTotemTag>(entity)) return "Feraldis_WarTotem";
+            // 2026-10-12: the Hall of Axes was missing (its training panel showed
+            // no units) and the Great Forge is new (docs/Design/Age_1_Feraldis.md).
+            if (em.HasComponent<HallOfAxesTag>(entity)) return "Feraldis_HallOfAxes";
+            if (em.HasComponent<GreatForgeTag>(entity)) return TheWaningBorder.Entities.GreatForge.BuildingId;
             if (em.HasComponent<PastureTag>(entity)) return "Feraldis_Pasture";
             if (em.HasComponent<MineTag>(entity)) return "Mine";
             if (em.HasComponent<VeilstoneMineTag>(entity)) return "VeilstoneMine";

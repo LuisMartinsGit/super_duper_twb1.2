@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Packages a Unity build and publishes it as a GitHub release the launcher
     can serve.
@@ -11,12 +11,24 @@
     read-only fine-grained PAT; this script needs Contents: Read and write.
     Keep it in .env as GH_RELEASE_TOKEN (.env is already gitignored).
 
+    EDITIONS (2026-10-12). One version, three builds from the same commit:
+    A is the demo (Age 0 + Alanthor) and releases as v0.0.41; B (+ Feraldis)
+    and C (+ Feraldis + Runai) release as v0.0.41B / v0.0.41C, and only keys
+    granted that edition can download them (tools/UpdateWorker). -Edition
+    must match the build: PlayerBuild stamps edition.txt into the build
+    folder and this script refuses a mismatch, because publishing a B build
+    under the demo's tag would hand Feraldis to every demo tester.
+
 .EXAMPLE
     .\tools\release.ps1 -BuildPath 'D:\Builds\TWB' -Version 0.0.9 -Notes 'Multiplayer desync fixes'
+.EXAMPLE
+    .\tools\release.ps1 -BuildPath 'D:\Builds\TWB-B' -Edition B
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string] $BuildPath,
+    [ValidateSet('A', 'B', 'C')]
+    [string] $Edition = 'A',
     [string] $Version,
     [string] $Notes = '',
     [string] $Repo = 'Ahridan/TWB-Releases',
@@ -51,6 +63,34 @@ elseif ($bundleVersion -and $Version -ne $bundleVersion) {
     throw ("-Version is $Version but Unity says $bundleVersion. " +
            'Bump bundleVersion in Player Settings and rebuild, or drop -Version to use Unity.')
 }
+
+# ---------------------------------------------------------------- edition
+
+# The base version (bundleVersion) names the commit; the suffix names the
+# edition. Every release-facing string below uses $ReleaseVersion.
+#
+# The base must be BARE. PlayerBuild suffixes it only for the length of a B/C
+# build; if that ever reaches ProjectSettings.asset (it did once, 2026-10-12),
+# a demo release would be tagged v0.0.41B - which the Worker serves to the
+# B launchers, not the demo ones. Refuse rather than guess the base.
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    throw ("Version '$Version' is not a bare x.y.z - an edition letter leaked into bundleVersion. " +
+           'Set Player Settings > Version back to the bare number (and save the project) before releasing.')
+}
+$suffix = if ($Edition -eq 'A') { '' } else { $Edition }
+$ReleaseVersion = "$Version$suffix"
+
+if (-not (Test-Path $BuildPath)) { throw "Build folder not found: $BuildPath" }
+
+$editionStamp = Join-Path $BuildPath 'edition.txt'
+if (-not (Test-Path $editionStamp)) {
+    throw "No edition.txt in $BuildPath - this build predates editions or was not made by PlayerBuild. Rebuild it."
+}
+$builtEdition = (Get-Content $editionStamp -Raw).Trim()
+if ($builtEdition -ne $Edition) {
+    throw "The build in $BuildPath is edition $builtEdition, but -Edition is $Edition. Pass -Edition $builtEdition or rebuild."
+}
+Write-Host "Edition $Edition - releasing as v$ReleaseVersion" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------- notes
 
@@ -107,8 +147,6 @@ if (-not $token) {
     throw 'No GH_RELEASE_TOKEN. Set the environment variable or add it to .env.'
 }
 
-if (-not (Test-Path $BuildPath)) { throw "Build folder not found: $BuildPath" }
-
 # ---------------------------------------------------------------- preflight
 
 # Everything that can be checked cheaply is checked BEFORE packaging, because
@@ -144,8 +182,8 @@ if ($repoInfo.size -eq 0) {
 }
 
 $existing = Invoke-RestMethod -Headers $preflightHeaders -Uri "https://api.github.com/repos/$Repo/releases?per_page=100"
-if ($existing | Where-Object { $_.tag_name -eq "v$Version" }) {
-    throw "v$Version is already released. Delete that release and its tag first, or bump bundleVersion."
+if ($existing | Where-Object { $_.tag_name -eq "v$ReleaseVersion" }) {
+    throw "v$ReleaseVersion is already released. Delete that release and its tag first, or bump bundleVersion."
 }
 
 # ---------------------------------------------------------------- package
@@ -153,7 +191,7 @@ if ($existing | Where-Object { $_.tag_name -eq "v$Version" }) {
 if (Test-Path $StagingDir) { Remove-Item $StagingDir -Recurse -Force }
 New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 
-$zipName = "TheWaningBorder-$Version.zip"
+$zipName = "TheWaningBorder-$ReleaseVersion.zip"
 $zipPath = Join-Path $StagingDir $zipName
 
 Write-Host "Packaging $BuildPath ..." -ForegroundColor Cyan
@@ -246,7 +284,7 @@ $manifestPath = Join-Path $StagingDir 'manifest.json'
 # ConvertTo-Json defaults to depth 2 and would serialise every entry as the
 # literal string "System.Collections.Specialized.OrderedDictionary".
 $json = [ordered]@{
-    version   = $Version
+    version   = $ReleaseVersion
     sha256    = $sha
     sizeBytes = $sizeBytes
     notes     = $Notes
@@ -266,11 +304,11 @@ $headers = @{
     'User-Agent'           = 'twb-release-script'
 }
 
-Write-Host "Creating release v$Version in $Repo ..." -ForegroundColor Cyan
+Write-Host "Creating release v$ReleaseVersion in $Repo ..." -ForegroundColor Cyan
 
 $body = @{
-    tag_name = "v$Version"
-    name     = "v$Version"
+    tag_name = "v$ReleaseVersion"
+    name     = "v$ReleaseVersion"
     body     = $Notes
     draft    = $false
 } | ConvertTo-Json
@@ -306,7 +344,7 @@ foreach ($asset in @($zipPath, $manifestPath)) {
 }
 
 Write-Host ""
-Write-Host "Released v$Version." -ForegroundColor Green
+Write-Host "Released v$ReleaseVersion." -ForegroundColor Green
 Write-Host "Launchers will pick it up on their next start."
 
 # ---------------------------------------------------------------- tag the source
@@ -330,7 +368,12 @@ $srcTag = "v$Version"
 # for this block only; the release is already out, nothing here may throw.
 $ErrorActionPreference = 'Continue'
 $existingTag = git -C $srcRepo tag -l $srcTag
-if ($existingTag) {
+if ($existingTag -and $Edition -ne 'A') {
+    # Expected: every edition of a version is built from the same commit, so
+    # B and C share the tag the demo release made. Not a warning.
+    Write-Host "Source tag $srcTag already exists - edition $Edition shares it." -ForegroundColor Cyan
+}
+elseif ($existingTag) {
     Write-Warning "Source tag $srcTag already exists - not moved. Delete it first if the release was rebuilt."
 }
 else {

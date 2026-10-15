@@ -398,6 +398,9 @@ namespace TheWaningBorder.Systems.Navigation
                 if (em.HasComponent<NavLayerIndex>(entity))
                     unitLayer = em.GetComponentData<NavLayerIndex>(entity).Layer;
                 bool onRampart = unitLayer == NavLayerIndex.LayerRampart;
+                // A FLYING unit (docs/Design/Age_1_Runai.md §6.4) ignores
+                // pathfinding: straight at the goal, over walls and cliffs.
+                bool flying = em.HasComponent<FlyingTag>(entity);
 
                 // === PATHFINDING DIRECTION (M4 preference chain) ===
                 // task-112 M4: NavMesh corridor is gone. Preference chain is:
@@ -409,13 +412,13 @@ namespace TheWaningBorder.Systems.Navigation
                 // a wall-top unit off the wall. They walk straight toward
                 // their (garrison-slot) goal; the layer-aware passability
                 // check below keeps them on walkable rampart cells.
-                if (!onRampart && em.HasComponent<SteeringDesiredDir>(entity))
+                if (!onRampart && !flying && em.HasComponent<SteeringDesiredDir>(entity))
                 {
                     var sdd = em.GetComponentData<SteeringDesiredDir>(entity);
                     if (sdd.HasValue != 0 && math.lengthsq(sdd.Value) > 1e-8f)
                         dir = math.normalize(new float3(sdd.Value.x, 0f, sdd.Value.z));
                 }
-                else if (!onRampart && em.HasComponent<FlowDesiredDir>(entity))
+                else if (!onRampart && !flying && em.HasComponent<FlowDesiredDir>(entity))
                 {
                     var fdd = em.GetComponentData<FlowDesiredDir>(entity);
                     if (fdd.HasValue != 0 && math.lengthsq(fdd.Value) > 1e-8f)
@@ -467,7 +470,7 @@ namespace TheWaningBorder.Systems.Navigation
                     ? (byte)em.GetComponentData<FactionTag>(entity).Value
                     : (byte)0xFF; // no faction -> never matches an owner
                 int2 nextCell = NavGridQuery.WorldToCellInt2(nextPos);
-                if (nextCell.x != int.MinValue
+                if (!flying && nextCell.x != int.MinValue
                     && !NavGridQuery.IsCellPassableFor(nextCell, unitLayer, navFaction))
                 {
                     // Only enforce the cost-field block if the unit's current
@@ -489,7 +492,7 @@ namespace TheWaningBorder.Systems.Navigation
                 // that spiked over the budget on surface noise the grid
                 // considered walkable, and units stuttered on legitimate
                 // inclines (blocked step -> sidestep -> retry).
-                if (!blocked && !onRampart)
+                if (!blocked && !onRampart && !flying)
                 {
                     var pg = TheWaningBorder.World.Terrain.PassabilityGrid.Instance;
                     // IsMaskReady, not just non-null: an unbuilt mask is all

@@ -347,6 +347,24 @@ public static class GameSettings
     /// </summary>
     public static byte StartCulture = Cultures.Alanthor;
 
+    /// <summary>
+    /// START WITH CULTURE (lobby, 2026-10-14): when true, StartAgePromoter
+    /// promotes each faction into <see cref="FactionStartCulture"/>[faction]
+    /// instead of <see cref="StartCulture"/>, and leaves a faction whose entry
+    /// is Cultures.None (OPEN) in Age 0.
+    /// </summary>
+    public static bool PerFactionStartCulture;
+    public static byte[] FactionStartCulture = new byte[8];
+
+    /// <summary>Does this faction start the match already promoted?</summary>
+    public static bool StartsPromoted(Faction f)
+    {
+        if (StartAge == SkirmishStartAge.Age0) return false;
+        if (!PerFactionStartCulture) return true;
+        int i = (int)f;
+        return i >= 0 && i < FactionStartCulture.Length && FactionStartCulture[i] != Cultures.None;
+    }
+
     // ==================== HUD ====================
     // The CEF-backed web HUD (HudWebController + HudBridge + UseWebHud flag)
     // was REMOVED entirely 2026-07-16 (user request). The UI Toolkit stack

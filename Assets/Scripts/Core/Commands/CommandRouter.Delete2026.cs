@@ -80,6 +80,11 @@ namespace TheWaningBorder.Core.Commands
                     TheWaningBorder.Economy.FactionEconomy.Add(em, faction, paid);
             }
 
+            // The owner deleted it: no enemy gets kill credit for it — no raze
+            // bounty, no pillage, no hero XP (docs/Design/Age_1_Feraldis.md §3.4).
+            if (em.HasComponent<LastDamagedByFaction>(target))
+                em.SetComponentEnabled<LastDamagedByFaction>(target, false);
+
             var hp = em.GetComponentData<Health>(target);
             hp.Value = 0;
             em.SetComponentData(target, hp);

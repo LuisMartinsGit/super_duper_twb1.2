@@ -25,6 +25,9 @@ namespace TheWaningBorder.AI
         Hall             = 3,
         BorderNode        = 4,
         Worker            = 5,
+        /// <summary>A Runai caravan wagon (docs/Design/Age_1_Runai.md §9): the
+        /// whole Runai economy rides on them, so they are a prime raid target.</summary>
+        Caravan           = 6,
     }
 
     /// <summary>

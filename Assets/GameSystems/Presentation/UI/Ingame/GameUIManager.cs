@@ -218,6 +218,8 @@ namespace TheWaningBorder.UI.Ingame
             // (docs/Design/Veilstone_Economy.md § 3.1). Shown only while the
             // player has a finished Outpost.
             SpawnCodeBuilt<TradeMenu>("GameUI_TradeMenu");
+            // Every player's Score, top-right (docs/Design/Score.md).
+            SpawnCodeBuilt<ScoreBoardHUD>("GameUI_ScoreBoard");
 
             // Replay playback bar — only while a replay is being watched
             // (docs/Design/Replays_And_Saves.md). Before the pause menu so the
@@ -789,56 +791,74 @@ namespace TheWaningBorder.UI.Ingame
         private bool _incomeKnown;
         private readonly System.Text.StringBuilder _incomeSb = new System.Text.StringBuilder(256);
 
-        // ── The FULL rate: what the faction really earned last minute ──
-        // The computed income knows only the steady sources it was taught
-        // (territory, flat building income, Trading Outposts); Mines, Keep
-        // wings, held wells, sect harvests, trader deliveries, Vault
-        // withdrawals and loot all pay the bank without appearing in it. The
-        // bar therefore shows the MEASURED rate: every credit the
-        // EconomyLedger booked for the faction over the last minute of game
-        // time (refunds and scripted grants are not income), less what its
-        // Trading Outposts spend. A shorter window is scaled up; under
-        // IncomeMinWindowSeconds it falls back to the computed rate.
-        // Presentation only — the ledger is observation-only.
+        // ── The rate on the bar: STEADY income, computed (2026-10-11) ──
+        // 0.0.40 put the MEASURED rate on the bar (every credit of the last
+        // minute). Steady sources pay in chunks (the Shelter's 200/min arrives
+        // as whole payments), so a sliding window caught five or six of them
+        // depending on when it was sampled and the number bounced; the
+        // tooltip's "other" line (measured minus computed) went negative.
+        // The bar now shows the exact computed rate again. Only income that
+        // genuinely arrives in LUMPS is measured, and only for the tooltip:
+        // Vault withdrawals, loot and curse-kill rewards over the last minute
+        // of game time. Those sources only ever add, so it never reads
+        // negative. Presentation only — the ledger is observation-only.
         private const float IncomeWindowSeconds = 60f;
         private const float IncomeMinWindowSeconds = 10f;
-        private struct IncomeSample { public double T; public float S, I, Vs, Vt; }
+        /// <summary>Lifetime totals per lumpy source x resource
+        /// ([source * 4 + resource]) at one moment.</summary>
+        private struct IncomeSample { public double T; public float[] Totals; }
         private readonly System.Collections.Generic.List<IncomeSample> _incomeSamples =
             new System.Collections.Generic.List<IncomeSample>();
         private int _incomeSampleFaction = -1;
-        private TheWaningBorder.Systems.World.TerritoryYield _measuredGross;
-        private bool _measured;
+        /// <summary>Received over the window, [source * 4 + resource].</summary>
+        private readonly float[] _lumpy = new float[3 * 4];
+        private bool _lumpyKnown;
 
-        private static float LedgerTotal(int f, int r)
+        /// <summary>Income that arrives in lumps, and the name the tooltip
+        /// gives it. Each is named only when it actually paid in the window:
+        /// loot and curse-kill payouts are Feraldis income, so an Age 0 or
+        /// Alanthor faction only ever sees the Vault.</summary>
+        private static readonly TheWaningBorder.Economy.IncomeSource[] LumpySources =
         {
-            float sum = 0f;
-            for (int s = 0; s < (int)TheWaningBorder.Economy.IncomeSource.Count; s++)
-            {
-                var src = (TheWaningBorder.Economy.IncomeSource)s;
-                if (src == TheWaningBorder.Economy.IncomeSource.Refund
-                    || src == TheWaningBorder.Economy.IncomeSource.Grant) continue;
-                sum += TheWaningBorder.Economy.EconomyLedger.LifetimeIncomeOf(f, src, r);
-            }
-            return sum;
+            TheWaningBorder.Economy.IncomeSource.Vault,
+            TheWaningBorder.Economy.IncomeSource.Loot,
+            TheWaningBorder.Economy.IncomeSource.CurseKill,
+        };
+        private static readonly string[] LumpyNames = { "Vault withdrawals", "Loot", "Curse kills" };
+
+        private static float[] LumpyTotals(int f)
+        {
+            var t = new float[LumpySources.Length * 4];
+            for (int s = 0; s < LumpySources.Length; s++)
+                for (int r = 0; r < 4; r++)
+                    t[s * 4 + r] = TheWaningBorder.Economy.EconomyLedger.LifetimeIncomeOf(f, LumpySources[s], r);
+            return t;
         }
 
+        /// <summary>The bar's rate (steady, computed), after sampling the
+        /// lumpy income for the tooltip.</summary>
         private TheWaningBorder.Systems.World.TerritoryYield FullNetRate(EntityManager em, Faction faction)
         {
+            SampleLumpy(em, faction);
+            return _income.Net;
+        }
+
+        private void SampleLumpy(EntityManager em, Faction faction)
+        {
             int f = (int)faction;
-            _measured = false;
-            if (f < 0 || f >= TheWaningBorder.Economy.EconomyLedger.Factions) return _income.Net;
+            _lumpyKnown = false;
+            if (f < 0 || f >= TheWaningBorder.Economy.EconomyLedger.Factions) return;
 
             double now = em.World.Time.ElapsedTime;
-            var cur = new IncomeSample
-            {
-                T = now, S = LedgerTotal(f, 0), I = LedgerTotal(f, 1),
-                Vs = LedgerTotal(f, 2), Vt = LedgerTotal(f, 3),
-            };
-            // A new viewed faction or a new match (time or the lifetime
-            // totals went backwards): start the window over.
+            var cur = new IncomeSample { T = now, Totals = LumpyTotals(f) };
+            // A new viewed faction or a new match (time or a lifetime total
+            // went backwards): start the window over.
             int n = _incomeSamples.Count;
-            if (_incomeSampleFaction != f
-                || (n > 0 && (now < _incomeSamples[n - 1].T || cur.S < _incomeSamples[n - 1].S)))
+            bool reset = _incomeSampleFaction != f || (n > 0 && now < _incomeSamples[n - 1].T);
+            if (!reset && n > 0)
+                for (int i = 0; i < cur.Totals.Length; i++)
+                    if (cur.Totals[i] < _incomeSamples[n - 1].Totals[i]) { reset = true; break; }
+            if (reset)
             {
                 _incomeSamples.Clear();
                 _incomeSampleFaction = f;
@@ -849,26 +869,12 @@ namespace TheWaningBorder.UI.Ingame
                 _incomeSamples.RemoveAt(0);
 
             var first = _incomeSamples[0];
-            double span = now - first.T;
-            if (span < IncomeMinWindowSeconds) return _income.Net;
-
-            float k = (float)(60.0 / span);
-            _measuredGross = new TheWaningBorder.Systems.World.TerritoryYield
-            {
-                Supplies  = (cur.S  - first.S)  * k,
-                Iron      = (cur.I  - first.I)  * k,
-                Veilstone = (cur.Vs - first.Vs) * k,
-                Veilsteel = (cur.Vt - first.Vt) * k,
-            };
-            _measured = true;
-            var sold = _income.Sold;
-            return new TheWaningBorder.Systems.World.TerritoryYield
-            {
-                Supplies  = _measuredGross.Supplies  - sold.Supplies,
-                Iron      = _measuredGross.Iron      - sold.Iron,
-                Veilstone = _measuredGross.Veilstone - sold.Veilstone,
-                Veilsteel = _measuredGross.Veilsteel - sold.Veilsteel,
-            };
+            if (now - first.T < IncomeMinWindowSeconds) return;
+            // What arrived in the window, NOT scaled to a per-minute rate: a
+            // single Vault withdrawal is an amount, not a pace.
+            for (int i = 0; i < _lumpy.Length; i++)
+                _lumpy[i] = UnityEngine.Mathf.Max(0f, cur.Totals[i] - first.Totals[i]);
+            _lumpyKnown = true;
         }
 
         /// <summary>"1250 +100/min" — the bank, then the net rate small.</summary>
@@ -905,29 +911,79 @@ namespace TheWaningBorder.UI.Ingame
         private string IncomeTooltip(string resource, int r)
         {
             if (!_incomeKnown || GameSettings.ViewFaction == null) return null;
-            int sold = Mathf.RoundToInt(Pick(_income.Sold, r));
-            int steady = Mathf.RoundToInt(Pick(_income.Produced, r));
-            int produced = _measured ? Mathf.RoundToInt(Pick(_measuredGross, r)) : steady;
-            int net = produced - sold;
-            int territory = Mathf.RoundToInt(Pick(_income.Territory, r));
-            int buildings = Mathf.RoundToInt(Pick(_income.Buildings, r));
-            int bought = Mathf.RoundToInt(Pick(_income.Bought, r));
+            float net = Pick(_income.Net, r);
+
+            // EVERY source on its own line (2026-10-11): "Guilds - 100",
+            // named the way the viewed faction's culture names them.
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            byte culture = world != null && world.IsCreated
+                ? CultureConfig.GetCompletedCulture(
+                    world.EntityManager, GameSettings.ViewFaction.Value)
+                : Cultures.None;
+            var split = _income.TerritorySplit;
+            float Part(int part) => split != null ? split[part * 4 + r] : 0f;
+            const int PE = TheWaningBorder.Systems.World.TerritoryIncomeSystem.PartEmpty;
+            const int PX = TheWaningBorder.Systems.World.TerritoryIncomeSystem.PartExtractor;
+            const int PS = TheWaningBorder.Systems.World.TerritoryIncomeSystem.PartSurvey;
+            const int PC = TheWaningBorder.Systems.World.TerritoryIncomeSystem.PartClaim;
+            const int PF = TheWaningBorder.Systems.World.TerritoryIncomeSystem.PartFortress;
+
+            // The extractor that works this resource's nodes.
+            string extractorId = r == 0 ? "GatherersHut" : r == 1 ? "Mine" : r == 2 ? "VeilstoneMine" : null;
+            // The capital: its own income plus its level's share, one line.
+            float capital = (r == 0 ? _income.CapitalSupplies : 0f) + Part(PF);
+            float otherBuildings = Pick(_income.Buildings, r) - (r == 0 ? _income.CapitalSupplies : 0f);
 
             var sb = _incomeSb;
             sb.Clear();
-            sb.Append("<b>").Append(Loc.T(resource)).Append("</b>: ")
-              .Append(net > 0 ? "+" : "").Append(net).Append(Loc.T("/min")).Append('\n');
-            sb.Append(string.Format(Loc.T("Earning {0}/min"), produced));
-            if (territory != 0) sb.Append("\n   ").Append(string.Format(Loc.T("Territory: {0}"), territory));
-            if (buildings != 0) sb.Append("\n   ").Append(string.Format(Loc.T("Buildings: {0}"), buildings));
-            if (bought != 0)    sb.Append("\n   ").Append(string.Format(Loc.T("Trading Outposts: {0}"), bought));
-            if (_measured && produced != steady)
-                sb.Append("\n   ").Append(string.Format(Loc.T("Mines, trade, loot and other: {0}"), produced - steady));
-            sb.Append('\n').Append(string.Format(Loc.T("Selling {0}/min"), sold));
-            sb.Append("\n<i>").Append(_measured
-                ? Loc.T("Everything earned over the last minute of play.")
-                : Loc.T("Steady income only, until the first minute is measured.")).Append("</i>");
+            sb.Append("<b>").Append(Loc.T(resource)).Append(": ")
+              .Append(net > 0.5f ? "+" : "").Append(Mathf.RoundToInt(net)).Append(Loc.T("/min")).Append("</b>");
+            Line(sb, Plural(CulturedName(culture, "Fortress")), capital);
+            if (extractorId != null) Line(sb, Plural(CulturedName(culture, extractorId)), Part(PX));
+            Line(sb, Loc.T("Guild surveys"), Part(PS));
+            Line(sb, Loc.T("Territory"), Part(PC));
+            Line(sb, Loc.T("Unworked nodes"), Part(PE));
+            Line(sb, Loc.T("Other buildings"), otherBuildings);
+            Line(sb, Loc.T("Trading Outposts"), Pick(_income.Bought, r));
+            Line(sb, Loc.T("Trade inputs"), -Pick(_income.Sold, r));
+            // One-off income of the last minute, by source — only the sources
+            // that actually paid, so a faction never sees one it cannot have.
+            if (_lumpyKnown)
+                for (int s = 0; s < LumpySources.Length; s++)
+                {
+                    int got = Mathf.RoundToInt(_lumpy[s * 4 + r]);
+                    if (got <= 0) continue;
+                    sb.Append('\n').Append(Loc.T(LumpyNames[s])).Append(' ')
+                      .Append(Loc.T("(last minute)")).Append(" - ").Append(got);
+                }
             return sb.ToString();
+        }
+
+        /// <summary>"Guilds - 100" / "Trade inputs - -60"; nothing for a
+        /// source that rounds to zero.</summary>
+        private static void Line(System.Text.StringBuilder sb, string name, float perMinute)
+        {
+            int v = Mathf.RoundToInt(perMinute);
+            if (v == 0) return;
+            sb.Append('\n').Append(name).Append(" - ").Append(v);
+        }
+
+        /// <summary>A building as this culture calls it: its level-1 level
+        /// asset's name (the Alanthor Gatherer's Hut is the Guild, the
+        /// capital the Fortress), else the catalog name (the Age 0 Shelter).</summary>
+        private static string CulturedName(byte culture, string buildingId)
+        {
+            var lvl = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.LevelDef(culture, buildingId, 1);
+            if (lvl != null && !string.IsNullOrEmpty(lvl.displayName)) return Loc.T(lvl.displayName);
+            return Loc.T(TheWaningBorder.Core.DisplayNames.ForBuilding(buildingId));
+        }
+
+        /// <summary>"Guild" -> "Guilds"; a single capital stays singular.</summary>
+        private static string Plural(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+            if (name == Loc.T("Fortress") || name == Loc.T("Shelter")) return name;
+            return name.EndsWith("s") ? name : name + "s";
         }
 
         private static readonly Color DrainingRed = new Color(1f, 0.35f, 0.3f);
@@ -954,8 +1010,13 @@ namespace TheWaningBorder.UI.Ingame
             var (have, need) = TheWaningBorder.Economy.FactionReligionPointsHelper.PtsProgress(em, faction);
             if (_religion != null) _religion.text = rp.ToString();
             if (_religionRing != null) _religionRing.fillAmount = need > 0 ? Mathf.Clamp01((float)have / need) : 0f;
+            // Feraldis earn points by drawing blood: every kill and every
+            // sacrifice, Altar or not (Religion.md §7).
+            bool blood = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Feraldis;
             _religionTip = "<b>" + Loc.T("Religion Points") + "</b>: " + rp + "\n"
-                + string.Format(Loc.T("Killing curse units pays points — {0}/{1} toward the next Religion Point."),
+                + string.Format(blood
+                    ? Loc.T("Drawing blood pays points: every kill and every sacrifice, more at the Blood Altar. {0}/{1} toward the next Religion Point.")
+                    : Loc.T("Killing curse units pays points — {0}/{1} toward the next Religion Point."),
                     have, need)
                 + "\n<i>" + Loc.T("Spent on the Temple, chapels, sect powers and sect heroes.") + "</i>";
         }

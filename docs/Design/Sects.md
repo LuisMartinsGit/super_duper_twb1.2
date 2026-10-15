@@ -1,5 +1,10 @@
 # Sects
 
+> **2026-10-15:** §1's slots are now three powers, a **sect building** (its
+> standing effect is the passive), a research, a trainable **unit (limit
+> 20)** and a unique **hero** (Religion.md §3-§4). The Alanthor cluster (§4)
+> is rewritten and Reclamation is replaced by Prosperity; set passives are §6b.
+
 Canonical design for the 12-sect religion layer. Supersedes the sect sections of
 `.deft/tasks/task-sect-system-redesign-063/task.md` where they disagree, and
 supersedes the shipped `SectLeverEffects` numbers (the code is being aligned to
@@ -121,195 +126,160 @@ all. Alanthor is the defensive culture; defensive is not the same as passive,
 and a sect that can only make its own units slightly better cannot punish an
 attack that has already begun. The Alanthor kits below are meant to BITE BACK.
 
-## 4. Alanthor cluster
+## 4. Alanthor cluster — the House of Vaelith
 
-### Sect of Antiquity — *the holy librarians*
-Identity: intel and enemy shutdown.
+> **Named 2026-10-15:** in game text the four Alanthor sects are the
+> **House of Vaelith** (`SectConfig.ClusterDisplayName`).
 
-**[ACTIVE · A] Writ of Attainder** — *the record settles its accounts*
-- **I** — Enemies in a **small** area take **30 damage for every one of your
-  units they have killed** this match, at most **120** (four kills).
-- **II** — **Medium** area, same bill.
-- **III** — **Large** area; a unit that has killed nothing still takes
-  **30**, so the power never whiffs on fresh reinforcements.
-
-> The cap is the ladder's conditional-damage rule (2x the band): uncapped, a
-> veteran with twenty kills took 1600 from one cast.
-
-> Reads off the same per-type tally the Passive keeps, so the sect's two halves
-> are one idea: Antiquity remembers what you did, then bills you for it. It is
-> also the sect's only direct damage, and it exists because a sect of intel and
-> shutdown had NO way to punish an attack that was already landing.
-
-**[ACTIVE · B] Heavy Bureaucracy**
-- **I** — **Single target** building stops training, research and resource output for 20 s.
-- **II** — Buildings in a **small** area stop for 20 s.
-- **III** — Buildings in a **large** area stop for 20 s.
-
-**[ACTIVE · ★ WILDCARD] Sew Disorder**
-- **I** — Units in a **small** area turn hostile to all other units for 8 s.
-- **II** — Units in a **medium** area turn hostile for 20 s.
-- **III** — Units in a **large** area turn hostile **until killed**.
-
-> The pivot, and deliberately kept. Turning a defending army into an attacking
-> mob is a match turning over in one cast, which is exactly what the third slot
-> is for. It was briefly considered for replacement by a research-theft power;
-> that was rejected because stealing technology does nothing to an opponent who
-> has already researched everything — it punishes a player for being behind and
-> pays nothing against the player it is aimed at.
-
-> **Scour the Registry is cut.** Reveal is the Sect of Witness's identity, and
-> two intel sects competing for it left Antiquity with three powers that never
-> touched the enemy directly. Antiquity keeps the archive; Witness keeps the
-> eye.
-
-**[PASSIVE] Tally of the Lost** — units gain +damage per unit-type they have
-killed this match, tracked **per unit type**. Alanthor Cataphracts that have
-killed 12 Archers deal +12 % damage to Archers; caps at **+15 %**. The tally
-belongs to the unit *type*, not the individual — replacements inherit it.
-
-**[BUILDING] Reliquary** — a vaulted archive. Every Reliquary standing shortens your
-sect-power cooldowns a little, so spreading them out is the Antiquity tempo play. **Limit 5.**
-
-**[UNIT] Lore Keeper** — acts as a Ledger, and additionally empowers military
-buildings for faster training and more damage. **Up to 5.**
-
-**[RESEARCH] Royal Index** — all technologies and building upgrades take 30 %
-less time and 10 % fewer resources.
-
-### Sect of Renewal — *the menders*
-Identity: repair and sustain.
-
-**[ACTIVE · A] Hands of Plenty**
-- **I** — Restore 45 % HP to units and buildings in a **small** area.
-- **II** — Restore 45 % in a **medium** area.
-- **III** — Restore 60 % in a **medium** area, and healing continues for 10 s.
-
-**[ACTIVE · ★ WILDCARD] Raise Anew**
-Conjures a **permanent** fortification outright — it does not touch construction
-queues, and what it raises never crumbles. Each level raises a different, larger
-structure at a **single target** point:
-
-- **I** — **Renewal Tower**, a watch post.
-- **II** — **Renewal Fortification**, a walled strongpoint.
-- **III** — **Renewal Fortress**, a keep that anchors a position outright.
-
-> **These are three separate buildings, not one tower upgraded.** The old power
-> raised a Watch Tower on the ordinary Lv 1-3 ladder and let it crumble after
-> 30-60 s, which meant the sect's most dramatic slot produced something that
-> did very little and then disappeared. A structure that vanishes cannot change
-> where a battle is fought.
+> **Rewritten 2026-10-15** (developer-agreed; mockup and lore in the
+> "Alanthor Sect Codex"). **Reclamation is retired and replaced by
+> Prosperity**; the Lorekeeper, Stone Warden, Golem Autark and Tinker are
+> retired.
 >
-> Permanence is the whole point. Ground you did not hold a moment ago becomes
-> ground you now hold, and it stays held — that is the pivot, and it is
-> Alanthor's most direct answer to being pushed. The escalation is the
-> STRUCTURE, not reach and not a timer.
+> **The magic is time.** Glow is condensed time, veilsteel stores it,
+> veilstone is time frozen. Alanthor's sects work in the *past*: the record,
+> rewind, stored charge, accelerated work. Player-facing text names what is on
+> the map — no trade jargon, no places beyond the map.
+>
+> Each sect: three powers (A damage-or-heal / B buff-or-debuff / ★ wildcard,
+> §3b), a sect building whose **standing effect** is the sect's passive, one
+> research bought there, one **offensive unit (limit 20)** trained there, and
+> one **unique hero** recruited there with abilities at hero levels 1 / 3 / 6.
+> Power numbers follow the Spells.md §8 ladder; cooldowns are flat across
+> levels except where stated.
+>
+> Every piece was checked against King Lexor's kit (King's Call, Liquid
+> Courage, Life Cling, Honour thy Pledge) and against the rest of the cluster:
+> each has a partner ("pairs with") and no two do the same job.
 
-**[ACTIVE · B] Second Wind**
-- **I** — Units in a **small** area cannot drop below 1 HP for 6 s.
-- **II** — **Small** area, 12 s.
-- **III** — **Medium** area, 12 s; survivors heal 25 % when it ends.
+### Sect of Antiquity — *the Registry*
+Surveyors, engineers and bureaucrats who license every process and study the
+Old Empire's artifacts. Their magic is recovered Vyrelin seals, lenses and
+glow-engines.
 
-**[PASSIVE] Hands That Mend** — your buildings auto-repair at 2 % max HP/s
-while out of combat.
+**[A] Trespass** — enemies in the area take the damage band if they stand
+inside your territory, half of it outside. Both players can see which applies.
+**S / M / L**, damage cooldown, 3 s wind-up.
 
-**[BUILDING] Mending Hall** — an open-sided infirmary. Damaged units that walk inside
-heal over time; it is the only place a Scar Guard is trained and the only place
-Field Hospital is researched. **Limit 5.**
+**[B] Embargo** — one enemy building stops training, research and income;
+queue progress is kept. **Always single target**; lasts **20 / 30 / 40 s**.
 
-**[UNIT] Scar Guard** — heavy frontline infantry that deals **more damage the
-closer it is to dying**. Pairs deliberately with Second Wind, which pins it at
-1 HP: a full-strength Scar Guard line that cannot die is the sect's payoff
-combo. **Up to 5.**
+**[★] Friendly Fire** — units in the area turn hostile to everyone around
+them for **8 s / 20 s / until killed**. **S / M / L**.
 
-**[RESEARCH] Field Hospital** — your **Litharchs** unlock **Deploy Field
-Hospital**: a 3 s cast that raises a temporary infirmary at the caster's feet,
-healing allied units around it and then destroying itself after 2 minutes.
-300 s cooldown.
+**[BUILDING] Reliquary** — while it stands, your sect powers recharge faster.
+(Its old Scry / Lockout / Vision building actives are retired.)
 
-> The Litharch is an Age 0 unit every culture trains, so this is the one sect
-> research that reaches back and re-arms a pre-culture unit. That is the point:
-> Renewal's identity is sustain, and the mobile hospital is the field half of
-> what the Mending Hall does at home. Only a faction that has adopted Renewal
-> and raised a Mending Hall can buy it.
+**[RESEARCH] Cartography** — capturing a territory explores all of it.
 
-### Sect of Fortitude — *the wall-keepers*
-Identity: static defense.
+**[UNIT] Artificer** — long-range anti-armour; a slow glow-lance. **Stasis
+Bolt:** a target it hits is slowed (move and attack speed) for a few seconds.
+Weak to cavalry and fast melee. Pairs with the Archivist and the Collector.
 
-**[ACTIVE] Stoneveil**
-Veiled units keep moving — faster, in fact — but are removed from the fight:
-they are **invisible, cannot be targeted, and cannot interact with anything**
-(no attacking, gathering, building or capturing). They gain a move-speed bonus
-while veiled. **Sect powers still reach them**, friendly and hostile alike.
-- **I** — **Small** area, 8 s.
-- **II** — **Small** area, 15 s.
-- **III** — **Medium** area, 15 s; on expiry they gain +25 % damage for 10 s.
+**[HERO] Archivist of Hours**
+- **L1 Catalogued** — aura (M): slowed enemies near the Archivist take +20 %
+  damage from every source.
+- **L3 Stamp of Record** — one enemy unit or hero has every ability put on
+  cooldown.
+- **L6 Recall** — the Archivist and allies within S jump back to where they
+  stood 5 s ago; position only, HP unchanged.
 
-**[ACTIVE] Bulwark**
-- **I** — **Single target** building gains +100 % HP for 15 s.
-- **II** — Buildings in a **small** area gain +100 % HP for 15 s.
-- **III** — Buildings in a **medium** area gain +100 % HP for 15 s and reflect 20 % of melee damage.
+### Sect of Renewal — *the Hospices*
+Healers of the poor; their magic is rewind — a mended wound is a body
+returned to an earlier moment.
 
-**[ACTIVE] Immovable**
-(Replaces the earlier crowd-control version — the game has no pushback or
-knockback system for it to negate.)
-- **I** — Units in a **small** area gain **+5 armor** for 10 s.
-- **II** — **Medium** area, **+8 armor**, 15 s.
-- **III** — **Large** area, **invulnerable**, 20 s.
+**[A] Heal** — restore **30 % / 40 % / 60 %** of max HP. **S / M / M**,
+allied units and buildings.
 
-> Balance flag: III is a 25 m army-wide invulnerability for 20 s — the single
-> strongest defensive effect in the game. On-theme for the wall-keepers, but it
-> is the first number to revisit if Fortitude dominates. Its 120 s cooldown
-> (twice levels I-II) holds it to 17 % uptime.
+**[B] Lifeline** — allies cannot drop below 1 HP for **6 / 12 / 12 s**; at
+III survivors heal 25 % when it ends. **S / S / M**.
 
-**[PASSIVE] Veiled Stone** — your walls and towers gain +25 % HP; towers gain
-+1 range.
+**[★] Revive** — your units that died in the area in the last
+**10 / 15 / 20 s** return at **30 % / 40 % / 50 %** HP, at most
+**5 / 10 / 15**. Heroes are excluded. **S / M / L**.
 
-**[BUILDING] Stonehold** — a squat blockhouse with no windows. It is built to be shot
-at: it has the highest HP of any non-Hall structure and blocks pathing like a wall. **Limit 5.**
+**[BUILDING] Mending Hall** — damaged units inside heal over time; while it
+stands, your buildings slowly repair themselves out of combat.
 
-**[UNIT] Stone Warden** — slow heavy infantry projecting a damage-reduction
-dome. It **can never attack**, at all — it is a walking wall, not a fighter.
-**Up to 5.**
+**[RESEARCH] Field Hospital** — Litharchs gain Deploy Field Hospital.
 
-**[RESEARCH] Deep Foundations** — defensive structures cost 20 % less and build
-30 % faster.
+**[UNIT] Scar Guard** — heavy melee shock. **Borrowed Breath:** more damage
+the lower its HP. Weak to ranged focus fire. Pairs with the Surgeon and
+Lifeline.
 
-### Sect of Reclamation — *the curse-harvesters*
-Identity: curse exploitation.
+**[HERO] Surgeon**
+- **L1 Cauterize** — aura (M): allies are immune to damage over time
+  (burning, bleeding, cursed ground).
+- **L3 Bloodletting** — allies within S above 35 % HP drop to 35 % (cannot
+  kill) and gain +25 % attack speed for 10 s.
+- **L6 Lancet** — one enemy bleeds for 10 s and cannot be healed or repaired
+  while it bleeds.
 
-**[ACTIVE] Harvest the Veil**
-Target a **resource node**; it over-yields on a 5 s tick for 30 s. Every level
-targets a single node — the escalation is entirely in what comes out of it.
-- **I** — 50 Supplies per tick. *(300 Supplies over the 30 s.)*
-- **II** — 75 Supplies + 20 Iron per tick. *(450 S + 120 I.)*
-- **III** — 150 Supplies + 60 Iron + 35 Veilstone + 5 Veilsteel per tick.
-  *(900 S + 360 I + 210 V + 30 Vs.)*
+### Sect of Fortitude — *the Wardens*
+Keepers of walls, gates and watch-fires. Their walls are laced with
+veilsteel that stores glow and releases it.
 
-**[ACTIVE] Cleanse**
-Pumps aggressive bursts of **player influence** into the area for the duration —
-it drives the existing influence map rather than inventing a suppression system,
-so it pushes the curse back and claims ground in one motion.
-- **I** — **Small** area, 20 s of heavy influence deposit.
-- **II** — **Medium** area, 40 s.
-- **III** — **Large** area, 40 s, and allies inside regenerate.
+**[A] Ward Discharge** — arm **one of your structures**. When an enemy enters
+range (**S / M / L**) it fires **1 / 4 / 8** pulses, one every **3 / 2 / 1 s**,
+each the damage band to every enemy in range. Unspent pulses stay armed; the
+charge fades after **5 min**. Cooldown **300 s**. The armed structure glows
+(visible to the enemy).
 
-**[ACTIVE] Veil-Touched**
-- **I** — Units in a **small** area take no curse damage for 15 s.
-- **II** — **Medium** area, 30 s.
-- **III** — **Large** area, 30 s, and they move 20 % faster on cursed ground.
+**[B] Emergency Repairs** — buildings gain **+100 % max HP** (current HP rises
+by the same amount) for 15 s; at III they reflect 20 % of melee damage.
+**Single / S / M**.
 
-**[PASSIVE] Border-Hardened** — your units take 50 % less damage from Border
-sources, and your workers can harvest cursed nodes.
+**[★] Fortify** — raise a permanent, complete **Tower / Fortification /
+Fortress** at a point on legal build ground. Cooldown **120 / 300 / 600 s**
+(climbs with level to stop Fortress spam).
 
-**[BUILDING] Veilworks** — a smelter for cursed matter. It can be raised **on cursed
-ground**, which no other building may do, and takes no curse damage. **Limit 5.**
+**[BUILDING] Stonehold** — a windowless blockhouse that blocks paths; while it
+stands, garrisoned walls and towers gain range and damage (**Arrow Slits**).
 
-**[UNIT] Golem Autark** — curse-immune construct that fights and harvests on
-cursed ground. **Up to 5.**
+**[RESEARCH] Deep Foundations** — walls, towers and gates cost less and build
+faster.
 
-**[RESEARCH] Warden's Ledger** — veilstone yields +25 %, and every cursed node
-is harvestable regardless of tier.
+**[UNIT] Sallyguard** — anti-siege striker with a veilsteel halberd.
+**Stored Strike:** charges while out of combat; the first blow afterwards
+deals double. Bonus damage against siege. Weak to archers. Pairs with the
+Warden.
+
+**[HERO] Warden**
+- **L1 Drillmaster** — aura (M): Sallyguards charge Stored Strike twice as
+  fast.
+- **L3 Sally Forth** — allies within M gain move speed for 8 s; nearby
+  Sallyguards are fully charged at once.
+- **L6 Challenge** — enemies within S, siege included, must attack the Warden
+  for 6 s (a taunt; no invulnerability).
+
+### Sect of Prosperity — *the Guild*
+Alanthor's workshops and counting rooms. Vyrelin engines fed glow make time
+run faster inside a workshop.
+
+**[A] Bounty** — one enemy unit takes the single-target damage band; if it
+dies within 10 s you are paid its cost.
+
+**[B] Overtime** — one of your buildings trains, researches and produces
+**50 % / 75 % / 100 %** faster for 20 s.
+
+**[★] Plenty** — instantly gain **60 / 90 / 120 s** of your current income.
+Cooldown **300 s**.
+
+**[BUILDING] Treasury** — while it stands, your extractors earn more.
+
+**[RESEARCH] Charter of Works** — extractors cost less to build and to level.
+
+**[UNIT] Collector** — fast melee finisher, the fastest Alanthor infantry.
+**Run Down:** bonus damage against slowed enemies and enemies under half HP.
+Weak to heavy infantry. Pairs with the Artificer and the Guildmaster.
+
+**[HERO] Guildmaster**
+- **L1 Called In** — aura (M): enemies under half HP are slowed 20 %.
+- **L3 Stake** — channel on a node: its extractor pays double while the
+  Guildmaster stays; any damage breaks it. Up to 30 s.
+- **L6 Liquidate** — demolish one of your buildings at once for 50 % of
+  everything invested in it, levels included; the enemy gets no raze bounty
+  or kill credit.
 
 ---
 
@@ -647,6 +617,20 @@ line falls, the more the rest of it recovers. Healing never exceeds a unit's
 maximum HP and never revives the dead.
 
 ---
+
+## 6b. Set passives (2026-10-15)
+
+Religion.md §3.3 says when a set is complete. What each does:
+
+| Set | Passive | Effect |
+|---|---|---|
+| All 4 Alanthor sects | **Sovereign Hour** | Inside your territory your units attack 15 % faster and enemy units move 10 % slower |
+| All 4 Feraldis sects | **The Breaking Hour** | When an enemy building or a curse node falls to you, your units within L of it attack and move 20 % faster for 15 s |
+| All 4 Runai sects | **Foreknown** | Hostile sect powers aimed at your units or buildings take twice as long to wind up |
+| Two of each cluster | **Concord** | Every power of your six sects is cast one level higher, up to III |
+
+The Feraldis and Runai passives were drafted against those clusters' old
+kits and may move when they get their pass.
 
 ## 7. Implementation delta
 

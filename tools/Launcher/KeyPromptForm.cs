@@ -11,7 +11,7 @@ internal sealed class KeyPromptForm : Form
 
     public KeyPromptForm(string? problem = null)
     {
-        Text = "The Waning Border";
+        Text = Edition.DisplayName;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;

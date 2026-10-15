@@ -1,4 +1,4 @@
-﻿// SimpleAISystem.Economy.cs
+// SimpleAISystem.Economy.cs
 // Always-on economy layer: worker floor, hut pipeline, research ladders, budget wrappers.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -441,18 +441,29 @@ namespace TheWaningBorder.AI
         /// </summary>
         private static readonly string[] FeraldisEconomyResearchLadder =
         {
-            "StoneTools",                        // Fortress — gather speed (cheap opener)
-            "Raiding1",                          // Raider Camp — bigger take
-            "IronPlunder",                       // Raider Camp — steal iron too
-            "DeepShafts",                        // Mine — +50% iron from worked slots
+            // 2026-10-12 redesign (docs/Design/Age_1_Feraldis.md): the Raider
+            // Camp and its Raiding line are retired. Slaves, the Forge and the
+            // War Hall carry the economy and the army.
+            "StoneTools",                        // Fortress — build speed (cheap opener)
+            "Feraldis_IronChains",               // Fortress — crews earn more
             "ArmedScouts",                       // Fortress — arms scouts (attack gate)
-            "Conscription", "StoneWeapons",      // Barracks — train speed / T1
-            "Fletching", "StoneTippedArrows",    // Thrower Camp — range / T1
-            "Raiding2",                          // Raider Camp — bigger take II
-            "RichSeams",                         // Mine — +100% iron from worked slots
-            "VeilstonePlunder",                  // Raider Camp — steal veilstone
-            "Raiding3",                          // Raider Camp — bigger take III
-            "VeilsteelPlunder",                  // Raider Camp — steal veilsteel
+            "StoneWeapons",                      // War Hall — weapon T1
+            "Feraldis_Berserk",                  // War Hall — the Berserker's low-HP rage
+            "Feraldis_PenExpansion",             // Fortress — more slaves
+            "Feraldis_Bellows1",                 // Great Forge — cheaper bays
+            "Feraldis_IronWeapons",              // War Hall — weapon T2
+            "Feraldis_DraughtFurnaces",          // Great Forge — faster bays
+            "Feraldis_VeilstoneChains",          // Fortress — crews earn more II
+            "Feraldis_WarSmithing1",             // Great Forge — unlock veilstone tier
+            "Feraldis_Hamstring",                // War Hall — melee slows
+            "Feraldis_Bellows2",                 // Great Forge
+            "Feraldis_VeilstoneWeapons",         // War Hall — weapon T3
+            "Feraldis_FireOnTheMove",            // Engine Works
+            "Feraldis_VeilsteelChains",          // Fortress — crews earn more III
+            "Feraldis_WarSmithing2",             // Great Forge — unlock veilsteel tier
+            "Feraldis_AlteredSelfPerception",    // War Hall
+            "Feraldis_Overcharge",               // Engine Works
+            "Feraldis_Bellows3",
             // No Fortress tool ladder (IronTools, ScoutingCelestarii,
             // VeilstoneTools): those techs are Alanthor-gated on their SOs, so
             // a Feraldis faction can never research them (audit 2026-10-03).
@@ -460,9 +471,31 @@ namespace TheWaningBorder.AI
 
         /// <summary>Ladder for this faction's culture (see above).</summary>
         private static string[] EconomyLadderFor(EntityManager em, Faction faction)
-            => CultureConfig.GetCompletedCulture(em, faction) == Cultures.Feraldis
-                ? FeraldisEconomyResearchLadder
-                : EconomyResearchLadder;
+        {
+            byte c = CultureConfig.GetCompletedCulture(em, faction);
+            return c == Cultures.Feraldis ? FeraldisEconomyResearchLadder
+                 : c == Cultures.Runai ? RunaiEconomyResearchLadder
+                 : EconomyResearchLadder;
+        }
+
+        /// <summary>
+        /// Runai (docs/Design/Age_1_Runai.md §7.2, §9): the whole economy is the
+        /// haul, so the trade paths come first — more and faster wagons, then
+        /// their escorts and durability — with the curse ladder threaded in at
+        /// the Sanctuary and Scaling Hooks for the siege.
+        /// </summary>
+        private static readonly string[] RunaiEconomyResearchLadder =
+        {
+            "StoneTools", "ArmedScouts", "Conscription", "StoneWeapons",
+            "Runai_SwiftWheels", "Runai_Caravan2", "Runai_Escort1", "Runai_VeiledPilgrims",
+            "Runai_PackAnimals", "Runai_StrongAxles", "Runai_Caravan3", "Runai_MarketRights",
+            "Runai_HunkerDown", "Runai_Escort2", "Runai_SwiftWheels2", "Runai_IronTools",
+            "Runai_LongHaulTariffs", "Runai_ConsecratedGround", "Runai_HushedVeil",
+            "Runai_WagonArchers", "Runai_Caravan4", "Runai_HardenedEscorts", "Runai_ScalingHooks",
+            "Runai_Escort3", "Runai_Caravan5", "Runai_StrongAxles2", "Runai_HardenedEscorts2",
+            "Runai_Communion", "Runai_RoadMarch", "Runai_EscortDuty", "Runai_VeilstoneTools",
+            "Runai_Veilbound", "Runai_VoiceOfTheVeil", "Runai_VeilsteelTools",
+        };
 
         private void TickEconomy(EntityManager em, Faction faction,
             ref SimpleAIState aiState, AISettingsSO.PersonalityBlock personality,
@@ -483,11 +516,6 @@ namespace TheWaningBorder.AI
                 // whose profile says 5 ended a match with FIFTEEN huts.
                 // Honouring it is also what makes the tiers differ
                 // economically rather than only in reaction speed.
-                //
-                // FERALDIS is capped tighter still: its huts are Raider Camps,
-                // so each one is a permanent free-raider stream rather than a
-                // gather bonus.
-                bool feraldis = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Feraldis;
 
                 // The cap GROWS through the match for gathering cultures.
                 // A hut economy is supposed to keep spreading — the target is
@@ -496,17 +524,17 @@ namespace TheWaningBorder.AI
                 // ten while it had map and money to keep expanding. Doubles
                 // over ~20 minutes.
                 int hutCap;
-                if (feraldis)
+                // Feraldis huts are Work Camps again since 2026-10-12 (supply
+                // extractors staffed by slaves), so the cap grows for every
+                // culture alike — the old Raider Camp hard cap is retired.
                 {
-                    // Feraldis huts are Raider Camps, not gatherers — more of
-                    // them is more free raiders, so this stays hard-capped.
-                    hutCap = math.min(Cfg.feraldisRaiderCampCap, personality.gathererHutTarget);
-                }
-                else
-                {
-                    float growth = 1f + math.min(now / Cfg.hutCapDoublingSeconds, 1f);
-                    hutCap = (int)math.round(personality.gathererHutTarget * growth);
-                }
+                float growth = 1f + math.min(now / Cfg.hutCapDoublingSeconds, 1f);
+                hutCap = (int)math.round(personality.gathererHutTarget * growth);
+                // THE TRADE IS PAID IN SUPPLIES (2026-10-12, Game_AI.md §
+                // 5a): the Outposts make every other resource, so the
+                // Guilds that pay for them are on top of the cap.
+                hutCap += TradeGuildCompensation(em, faction);
+            }
 
                 // AGE-UP PUSH: once it is time to advance, STOP FOUNDING HUTS
                 // and let the supplies pile up (2026-08-18, log-proven).
@@ -670,6 +698,12 @@ namespace TheWaningBorder.AI
                 // carries no culture gate, so the AI keeps to the design here.
                 if (techId.Contains("Survey")
                     && CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor)
+                    continue;
+                // Another culture's tech is never ours to buy: skip it, so the
+                // log's "blocked at" names a step this faction could take.
+                if (TechCatalog.TryGetTechnology(techId, out var tdef) && tdef != null
+                    && !string.IsNullOrEmpty(tdef.culture)
+                    && tdef.culture != CultureConfig.GetName(CultureConfig.GetCompletedCulture(em, faction)))
                     continue;
                 // Hut/camp resource techs are economy spends; the rest advance.
                 var cat = techId.Contains("Survey")

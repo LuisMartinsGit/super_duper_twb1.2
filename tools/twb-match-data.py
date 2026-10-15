@@ -37,6 +37,19 @@ minutes, the same rule mp-diff.ps1 uses.
 import base64, csv, io, json, os, re, sys, glob, time
 from collections import defaultdict
 
+
+def console_names(folder):
+    """Every console log in a match folder. A running match writes
+    Console-<slot>.log, where the slot is its parallel instance number, and
+    it becomes Console.log only when the match ends. So a hard-coded list
+    (it stopped at -4) misses workers 5+ for the whole run: no world extent,
+    no footprints, no roster. Console.log first, then by slot."""
+    names = [os.path.basename(f) for f in glob.glob(os.path.join(folder, "Console*.log"))]
+    def slot(n):
+        m = re.match(r"Console-(\d+)\.log$", n)
+        return int(m.group(1)) if m else 0
+    return sorted(names, key=slot) or ["Console.log"]
+
 # -- args ------------------------------------------------------------------
 args = list(sys.argv[1:])
 OUT = "twb-match-data.json"
@@ -170,8 +183,7 @@ def scan(root):
         # ever written is its own console line, so that is the test -- read
         # only when the folder has no metrics, which is already rare.
         if role == "solo" and not os.path.exists(os.path.join(full, "Metrics_Faction.csv")):
-            for cn in ("Console.log", "Console-1.log", "Console-2.log",
-                       "Console-3.log", "Console-4.log"):
+            for cn in console_names(full):
                 cp = os.path.join(full, cn)
                 if not os.path.exists(cp):
                     continue
@@ -313,7 +325,7 @@ def desync_of(match):
              compared=0, ticks=0, dumps=[], peers=len(match["peers"]))
     for p in match["peers"]:
         lines = []
-        for cn in ("Console.log", "Console-2.log", "Console-3.log", "Console-4.log"):
+        for cn in console_names(p["dir"]):
             lines += read_lines(os.path.join(p["dir"], cn))
         for line in lines:
             if "DESYNC at tick" in line:
@@ -536,7 +548,7 @@ def config_of(peers):
     runs recorded before that line existed still place on the matrix."""
     cfg = {}
     for p in peers:
-        for cn in ("Console.log", "Console-2.log", "Console-3.log", "Console-4.log"):
+        for cn in console_names(p["dir"]):
             for line in read_lines(os.path.join(p["dir"], cn)):
                 m = CONFIG.search(line)
                 if m:
@@ -566,7 +578,7 @@ def map_audit(host_dir):
     check before blaming a brain.
     """
     out = []
-    for cn in ("Console.log", "Console-2.log", "Console-3.log", "Console-4.log"):
+    for cn in console_names(host_dir):
         for line in read_lines(os.path.join(host_dir, cn)):
             m = AUDIT.search(line)
             if not m:
@@ -698,7 +710,7 @@ def world_and_footprints(host_dir):
     only place a footprint is written down outside the SOs."""
     world = None
     foot = {}
-    for cn in ("Console.log", "Console-2.log", "Console-3.log", "Console-4.log"):
+    for cn in console_names(host_dir):
         for line in read_lines(os.path.join(host_dir, cn)):
             if world is None and "covering world" in line:
                 m = WORLD.search(line)
@@ -1105,7 +1117,7 @@ CURSE_LINE = re.compile(r"^\[([\d.,]+)s\]\s+LOG:\s+\[CurseTerritory\]\s+(.*)$")
 
 def curse_story(host_dir, deaths):
     events = []
-    for cn in ("Console.log", "Console-1.log", "Console-2.log", "Console-3.log", "Console-4.log"):
+    for cn in console_names(host_dir):
         for line in read_lines(os.path.join(host_dir, cn)):
             m = CURSE_LINE.match(line)
             if not m:
@@ -1138,8 +1150,7 @@ def summary_of(d):
     # the ledger useless for the only question an unlimited run asks: when
     # does a match solve itself. The runner says so plainly in the console;
     # believe that instead, and carry the simulated second it happened at.
-    for cn in ("Console.log", "Console-2.log", "Console-3.log", "Console-4.log",
-               "Console-5.log", "Console-6.log", "Console-7.log", "Console-8.log"):
+    for cn in console_names(d):
         for line in read_lines(os.path.join(d, cn)):
             m = re.search(r"match decided at (\d+)s\s*[^\w]*\s*(\w+) wins", line)
             if m:
@@ -1161,8 +1172,7 @@ def run_info(d, summ):
     ("", {}) for a match recorded before the flags existed."""
     label, ai = summ.get("Label", ""), summ.get("AI", "")
     if not label and not ai:
-        for cn in ("Console.log", "Console-2.log", "Console-3.log", "Console-4.log",
-                   "Console-5.log", "Console-6.log", "Console-7.log", "Console-8.log"):
+        for cn in console_names(d):
             for line in read_lines(os.path.join(d, cn)):
                 m = RUNINFO_LINE.match(line.strip())
                 if m:
@@ -1757,7 +1767,7 @@ def main():
     for m in older:
         v = dict(flagged=False, flagTick=None, forkCols=[], dumps=[])
         for pr in m["peers"]:
-            for cn in ("Console.log", "Console-2.log", "Console-3.log", "Console-4.log"):
+            for cn in console_names(pr["dir"]):
                 for line in read_lines(os.path.join(pr["dir"], cn)):
                     if "DESYNC at tick" in line:
                         v["flagged"] = True

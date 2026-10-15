@@ -58,11 +58,11 @@ namespace TheWaningBorder.Bootstrap
             "FiendstoneKeep",
         };
 
-        /// <summary>The landmark that ages a faction into this culture;
-        /// null for Runai until Thessara's Crossing exists.</summary>
+        /// <summary>The landmark that ages a faction into this culture.</summary>
         private static string LandmarkFor(byte culture) =>
             culture == Cultures.Alanthor ? "VaultOfAlmierra"
             : culture == Cultures.Feraldis ? "FiendstoneKeep"
+            : culture == Cultures.Runai ? "ThessarasCrossing"
             : null;
 
         // Fixed offsets from the Hall's centre for the auto-placed buildings.
@@ -121,6 +121,7 @@ namespace TheWaningBorder.Bootstrap
                 float3 hallPos = hallTransforms[i].Position;
 
                 if (faction == Faction.Border) continue; // border has no Hall but defensive
+                if (!GameSettings.StartsPromoted(faction)) continue;   // OPEN: an Age 0 start
 
                 PromoteFaction(em, faction, hall, hallPos, targetLevel, ref rng);
             }
@@ -137,9 +138,10 @@ namespace TheWaningBorder.Bootstrap
             // Cultures.None would leave the faction at a raised era with none
             // of the buildings or units that era implies, so fall back to the
             // pre-configurable default.
-            byte culture = GameSettings.StartCulture == Cultures.None
-                ? Cultures.Alanthor
+            byte culture = GameSettings.PerFactionStartCulture
+                ? GameSettings.FactionStartCulture[(int)faction]
                 : GameSettings.StartCulture;
+            if (culture == Cultures.None) culture = Cultures.Alanthor;
 
             // Short-circuit if already promoted (defensive — calling twice
             // would double-stock resources and place duplicate Temples).
@@ -192,6 +194,7 @@ namespace TheWaningBorder.Bootstrap
             TheWaningBorder.Systems.Work.AgeUpSystem
                 .TransformHutsForCulture(em, faction, culture);
             TheWaningBorder.Entities.TradingOutpost.ConvertMinesForCulture(em, faction, culture);
+            TheWaningBorder.Entities.Sanctuary.ConvertMinesForCulture(em, faction, culture);
             // The Shelter is the Age 0 form of the capital; a faction that
             // starts in Age 1 has already passed the moment it becomes the
             // Fortress, so it is renamed here too.

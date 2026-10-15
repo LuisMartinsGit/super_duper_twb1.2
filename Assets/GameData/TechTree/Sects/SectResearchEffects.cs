@@ -9,8 +9,9 @@
 // number it gets from here. Concentrating the numbers in one file is what keeps
 // them greppable when the design doc moves.
 //
-// Shipped so far: the four Alanthor researches and War's. The remaining seven
-// land with their clusters' passes.
+// Shipped so far: the four Alanthor researches (Cartography, Field Hospital,
+// Deep Foundations, Charter of Works — Sects.md §4, 2026-10-15) and War's.
+// The remaining seven land with their clusters' passes.
 //
 // IMPORTANT: before this file existed the four Alanthor techs parsed, appeared
 // on their sect buildings and charged full price for NOTHING - they had no
@@ -22,10 +23,10 @@ namespace TheWaningBorder.Economy
     public static class SectResearchEffects
     {
         // ── Tech ids. Must match the TechDefSO ids in TechTreeCatalog ──
-        public const string RoyalIndex       = "RoyalIndex";       // Antiquity
+        public const string Cartography      = "Cartography";      // Antiquity
         public const string FieldHospital    = "FieldHospital";    // Renewal
         public const string DeepFoundations  = "DeepFoundations";  // Fortitude
-        public const string WardensLedger    = "WardensLedger";    // Reclamation
+        public const string CharterOfWorks   = "CharterOfWorks";   // Prosperity
         public const string EndlessMuster    = "EndlessMuster";    // War
 
         private static bool Has(Faction faction, string techId)
@@ -34,17 +35,20 @@ namespace TheWaningBorder.Economy
             return research != null && research.HasResearched(faction, techId);
         }
 
-        // ── Antiquity: Royal Index ────────────────────────────────────────────
-        // "All technologies and building upgrades take 30% less time and 10%
-        // fewer resources."
+        // ── Antiquity: Cartography (Sects.md §4, 2026-10-15) ─────────────────
+        // "Capturing a territory explores all of it." Consumed by
+        // CartographySystem, which reveals a newly held territory's ground.
 
-        /// <summary>Multiplier on research and building-upgrade TIME.</summary>
-        public static float ResearchTimeMultiplier(Faction faction)
-            => Has(faction, RoyalIndex) ? 0.70f : 1f;
+        /// <summary>Does this faction explore every territory it captures?</summary>
+        public static bool ExploresCapturedTerritory(Faction faction) => Has(faction, Cartography);
 
-        /// <summary>Multiplier on research and building-upgrade COST.</summary>
-        public static float ResearchCostMultiplier(Faction faction)
-            => Has(faction, RoyalIndex) ? 0.90f : 1f;
+        /// <summary>Research and building-upgrade TIME multiplier. Royal Index
+        /// (Antiquity's old research) was replaced by Cartography 2026-10-15;
+        /// no sect research speeds research any more.</summary>
+        public static float ResearchTimeMultiplier(Faction faction) => 1f;
+
+        /// <summary>Research COST multiplier (the retired Royal Index; neutral).</summary>
+        public static float ResearchCostMultiplier(Faction faction) => 1f;
 
         // ── Renewal: Field Hospital ───────────────────────────────────────────
         // "Your Litharchs unlock Deploy Field Hospital."
@@ -64,7 +68,8 @@ namespace TheWaningBorder.Economy
         /// applies only to defensive structures, so the caller passes the id and
         /// <see cref="IsDefensiveStructure"/> decides.</summary>
         public static float BuildingCostMultiplier(Faction faction, string buildingId)
-            => Has(faction, DeepFoundations) && IsDefensiveStructure(buildingId) ? 0.80f : 1f;
+            => (Has(faction, DeepFoundations) && IsDefensiveStructure(buildingId) ? 0.80f : 1f)
+             * (Has(faction, CharterOfWorks) && IsExtractor(buildingId) ? 0.80f : 1f);
 
         /// <summary>
         /// Multiplier on construction SPEED (higher is faster). Deep Foundations
@@ -93,20 +98,22 @@ namespace TheWaningBorder.Economy
             return buildingId.Contains("Wall") || buildingId.Contains("Tower");
         }
 
-        // ── Reclamation: Warden's Ledger ──────────────────────────────────────
-        // "Veilstone yields +25%, and every cursed node is harvestable
-        // regardless of tier."
+        // ── Prosperity: Charter of Works (Sects.md §4, 2026-10-15) ───────────
+        // "Extractors cost less to build and to level up." The build half is
+        // BuildingCostMultiplier above (read by BuildCosts.For); the level
+        // half is LevelCostMultiplier (read by UpgradeBuildingCommandHelper).
 
-        /// <summary>Multiplier on every veilstone gather tick.</summary>
-        public static float VeilstoneYieldMultiplier(Faction faction)
-            => Has(faction, WardensLedger) ? 1.25f : 1f;
+        /// <summary>An extractor for Charter of Works: anything that stands on
+        /// a node and pays its slot ladder.</summary>
+        public static bool IsExtractor(string buildingId) => buildingId switch
+        {
+            "GatherersHut" or "Mine" or "VeilstoneMine" or "Alanthor_TradingOutpost" => true,
+            _ => false,
+        };
 
-        // The design's second Warden's Ledger clause - "every cursed node is
-        // harvestable regardless of tier" - has NO consumer here on purpose:
-        // there is no node tier gate anywhere in the codebase for it to
-        // override. Shipping an IgnoresNodeTierGate() that nothing calls would
-        // read as implemented while doing nothing, which is exactly the state
-        // this file exists to end. The clause lands when node tiers do.
+        /// <summary>Multiplier on a building LEVEL's price.</summary>
+        public static float LevelCostMultiplier(Faction faction, string buildingId)
+            => Has(faction, CharterOfWorks) && IsExtractor(buildingId) ? 0.80f : 1f;
 
         // ── War: Endless Muster ───────────────────────────────────────────────
         // "Military buildings train two units at once. Queue depth is

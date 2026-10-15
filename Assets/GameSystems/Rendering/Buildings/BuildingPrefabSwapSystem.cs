@@ -455,6 +455,12 @@ namespace TheWaningBorder.Rendering
             // Hall/Barracks/Hut", so it never advanced past the level it spawned
             // at and never got the post-upgrade faction recolor either.
             if (_em.HasComponent<ArcheryRangeTag>(e)) return "Barracks";
+            // The Mine has a level ladder of its own (Civs/<Culture>/Buildings/
+            // Mine/Mine_Lvl1..3). Only a culture whose level SO carries a prefab
+            // actually swaps — Feraldis (2026-10-13, tools/blender/feraldis/
+            // mine.py); the others keep the procedural pithead, because
+            // ResolvePrefab finds no prefab and BuildCandidatePaths lists none.
+            if (_em.HasComponent<MineTag>(e))      return "Mine";
             return string.Empty;
         }
 

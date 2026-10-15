@@ -49,7 +49,7 @@ namespace TheWaningBorder.Economy
         public const string Antiquity   = "Sect_Antiquity";
         public const string Renewal     = "Sect_Renewal";
         public const string Fortitude   = "Sect_Fortitude";
-        public const string Reclamation = "Sect_Reclamation";
+        public const string Prosperity = "Sect_Prosperity";
 
         // Runaii — Doctrine / Secrecy / Veilstone veneration
         public const string Silence     = "Sect_Silence";
@@ -84,18 +84,17 @@ namespace TheWaningBorder.Economy
 
         public static string ChapelIdFor(string sectId) => "Chapel_" + sectId;
 
-        /// <summary>The sect's unique chapel-trained unit id
-        /// (docs/Design/Sect_Units.md — full 12-sect roster since
-        /// 2026-08-11). Chapels are the ONLY trainer for these — the chapel
-        /// action panel and the AI both resolve through this mapping.
-        /// FlameWarden and Brandbreaker remain reserve kits (unmapped).</summary>
+        /// <summary>The sect's trainable UNIT id (build limit 20, Religion.md
+        /// §4). Trained at the sect's building; for a sect that has no sect
+        /// building yet (the Runai and Feraldis clusters, until their pass),
+        /// at its chapel. The file tree follows this mapping.</summary>
         public static string UnitIdFor(string sectId) => sectId switch
         {
             // Alanthor cluster
-            Antiquity   => "Sect_Lorekeeper",
+            Antiquity   => "Sect_Artificer",
             Renewal     => "Sect_ScarGuard",
-            Fortitude   => "Sect_StoneWarden",
-            Reclamation => "Sect_GolemAutark",
+            Fortitude   => "Sect_Sallyguard",
+            Prosperity => "Sect_Collector",
             // Runaii cluster
             Silence     => "Sect_ArchivistAdept",
             Justice     => "Sect_Judicator",
@@ -108,6 +107,42 @@ namespace TheWaningBorder.Economy
             Wrath       => "Sect_Chaincaster",
             _ => null,
         };
+
+        /// <summary>The sect's unique HERO id (Religion.md §4), or null for a
+        /// sect whose hero is not authored yet. Recruited at the sect
+        /// building for RP + resources, one at a time.</summary>
+        public static string HeroIdFor(string sectId) => sectId switch
+        {
+            Antiquity  => "Sect_ArchivistOfHours",
+            Renewal    => "Sect_Surgeon",
+            Fortitude  => "Sect_Warden",
+            Prosperity => "Sect_Guildmaster",
+            _ => null,
+        };
+
+        /// <summary>The sect's own building id (Religion.md §3.2), or null
+        /// for a sect that has none yet.</summary>
+        public static string BuildingIdFor(string sectId) => sectId switch
+        {
+            Antiquity  => "Sect_Reliquary",
+            Renewal    => "Sect_MendingHall",
+            Fortitude  => "Sect_Stonehold",
+            Prosperity => "Sect_Treasury",
+            War        => "Sect_MusterYard",
+            _ => null,
+        };
+
+        /// <summary>The sect a sect building belongs to, or null.</summary>
+        public static string SectIdForBuilding(string buildingId)
+        {
+            if (string.IsNullOrEmpty(buildingId)) return null;
+            for (int i = 0; i < AllSectIds.Length; i++)
+                if (BuildingIdFor(AllSectIds[i]) == buildingId) return AllSectIds[i];
+            return null;
+        }
+
+        /// <summary>Build limit of every sect unit (Religion.md §4).</summary>
+        public const int SectUnitLimit = 20;
 
         /// <summary>True if the building id is one of the 12 sect chapels.</summary>
         public static bool IsChapelId(string buildingId)
@@ -131,7 +166,7 @@ namespace TheWaningBorder.Economy
         /// </summary>
         public static readonly string[] AllSectIds =
         {
-            Antiquity, Renewal, Fortitude, Reclamation,   // 0..3   Alanthor
+            Antiquity, Renewal, Fortitude, Prosperity,   // 0..3   Alanthor
             Silence,   Justice, Veneration, Witness,      // 4..7   Runaii
             War,       Ash,     Ruin,       Wrath,        // 8..11  Feraldis
         };
@@ -198,6 +233,32 @@ namespace TheWaningBorder.Economy
         }
 
         /// <summary>Returns the cluster of a sect, or Alanthor if unknown.</summary>
+        /// <summary>The cluster's name in game text. The four Alanthor
+        /// sects are the House of Vaelith (2026-10-15).</summary>
+        public static string ClusterDisplayName(SectCluster cluster) => cluster switch
+        {
+            SectCluster.Alanthor => "House of Vaelith",
+            SectCluster.Runaii   => "Runai",
+            _                    => "Feraldis",
+        };
+
+        /// <summary>The culture whose sects make up <paramref name="cluster"/>.</summary>
+        public static byte CultureOfCluster(SectCluster cluster) => cluster switch
+        {
+            SectCluster.Runaii   => Cultures.Runai,
+            SectCluster.Feraldis => Cultures.Feraldis,
+            _                    => Cultures.Alanthor,
+        };
+
+        /// <summary>True when this build's edition offers the cluster's
+        /// sects (Alpha_Build.md §4: A = the House of Vaelith only, B adds
+        /// Feraldis, C everything). GameEdition.Allows is the only gate.</summary>
+        public static bool ClusterInEdition(SectCluster cluster)
+            => GameEdition.Allows(CultureOfCluster(cluster));
+
+        public static bool IsInEdition(string sectId)
+            => IsKnownSect(sectId) && ClusterInEdition(ClusterOf(sectId));
+
         public static SectCluster ClusterOf(string sectId)
         {
             int idx = IndexOf(sectId);

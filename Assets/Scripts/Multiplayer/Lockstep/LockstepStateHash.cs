@@ -325,6 +325,8 @@ namespace TheWaningBorder.Multiplayer
                             var ps = sects.Get(si);
                             Mix(ref hTech, ps.AdoptedAtAge);
                             Mix(ref hTech, ps.PowerLevel);
+                            Mix(ref hTech, ps.UnlockMask);
+                            Mix(ref hTech, ps.HeroRecruited);
                             Mix(ref hTech, ps.PassiveLevel);
                             Mix(ref hTech, ps.BuildingLevel);
                             Mix(ref hTech, ps.UnitLevel);

@@ -207,6 +207,53 @@ namespace TheWaningBorder.Core.Commands.Issuing
         /// is not a garrisonable wall or nobody in the selection can take a
         /// slot — the caller then falls through to its usual handling.
         /// </summary>
+        /// <summary>
+        /// FERALDIS right-click orders on your own building or War Rig
+        /// (docs/Design/Age_1_Feraldis.md §3-5, §7.5):
+        ///   slaves  → an extractor or the Great Forge: staff it (a damaged or
+        ///             unfinished one is repaired / built as usual instead)
+        ///   soldiers → the Great Forge: Melt Down
+        ///   any unit → the Blood Altar: sacrifice
+        ///   infantry → a War Rig: board it
+        /// Returns false when nothing in the selection takes a Feraldis order,
+        /// so the caller falls through to its usual handling.
+        /// </summary>
+        public bool TryFeraldisOrder(Entity target)
+        {
+            if (!_em.Exists(target) || !_em.HasComponent<FactionTag>(target)) return false;
+            if (_em.GetComponentData<FactionTag>(target).Value != GameSettings.LocalPlayerFaction) return false;
+            // A Runai War Wagon takes a squad on board like the Feraldis War Rig.
+            bool wagon = _em.HasComponent<WarWagonTag>(target);
+            if (!wagon && !TheWaningBorder.Feraldis.FeraldisEconomy.IsFeraldis(_em, GameSettings.LocalPlayerFaction)) return false;
+            if (_em.HasComponent<UnderConstruction>(target)) return false;
+
+            bool damaged = _em.HasComponent<Health>(target)
+                && _em.GetComponentData<Health>(target).Value < _em.GetComponentData<Health>(target).Max;
+            bool forge = _em.HasComponent<GreatForgeTag>(target);
+            bool altar = _em.HasComponent<TempleOfRidanTag>(target);
+            bool rig = _em.HasComponent<WarRigTag>(target);
+            bool staffable = TheWaningBorder.Feraldis.FeraldisEconomy.CrewSlots(_em, target) > 0;
+
+            bool any = false;
+            foreach (var e in CurrentSelection)
+            {
+                if (!_em.Exists(e) || !IsOwnedByLocalPlayer(e)) continue;
+                FeraldisOp op = FeraldisOp.None;
+                if (_em.HasComponent<SlaveTag>(e))
+                {
+                    if (staffable && !damaged) op = FeraldisOp.Staff;
+                    else if (altar) op = FeraldisOp.Sacrifice;
+                }
+                else if (forge && TheWaningBorder.Feraldis.FeraldisOrders.CanMelt(_em, e)) op = FeraldisOp.MeltDown;
+                else if (altar && TheWaningBorder.Feraldis.FeraldisOrders.CanSacrifice(_em, e)) op = FeraldisOp.Sacrifice;
+                else if (rig && TheWaningBorder.Feraldis.WarRig.CanLoad(_em, e, target)) op = FeraldisOp.RigLoad;
+                if (op == FeraldisOp.None) continue;
+                CommandRouter.IssueFeraldisOrder(_em, e, target, op, 0, default, CommandSource.LocalPlayer);
+                any = true;
+            }
+            return any;
+        }
+
         public bool TryGarrisonWall(Entity target)
         {
             if (!_em.Exists(target)) return false;

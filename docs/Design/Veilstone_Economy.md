@@ -65,8 +65,8 @@ is Inactive.
 
 | | Inactive node | Cursed node | Depleted node |
 |---|---|---|---|
-| **Feraldis** | **Mine** on it: fast veilstone, drains the node | Destroy the curse node → **veilsteel bounty** | nothing |
-| **Runai** | **Mine** on it: veilstone | **Sanctuary** on it: keeps the curse's units away, produces veilsteel, must be fed by a caravan from a Runai mine; produces religion | nothing |
+| **Feraldis** | **Mine** on it (slave-staffed): fast veilstone, drains the node | Destroy the curse node → **veilstone + veilsteel bounty** | nothing |
+| **Runai** | **Sanctuary** on it: religion points, never drains it | **Sanctuary** on it with Consecrated Ground (even in curse-held ground): the node sleeps, more religion points | nothing |
 | **Age 0 (no culture)** | **Veilstone Mine** on it | Destroy the curse node → pacified | nothing |
 | **Alanthor** | Up to four **Trading Outposts** beside it | Destroy the curse node → pacified (back to Inactive) | Up to four **Trading Outposts** beside it |
 
@@ -115,23 +115,38 @@ cheaper per veilstone as well as faster.
 
 ### 3.2 Feraldis
 
-- **Veilstone Mine** on an Inactive outcrop: veilstone per mine level, ×1.5
-  for Feraldis, and every unit paid is drawn from the outcrop's reserve. A
-  spent outcrop is Depleted and pays nothing (no yield floor for veilstone).
-- **Veilsteel**: destroying a curse node pays its last-hitter a veilsteel
-  bounty if that faction is Feraldis (`feraldisNodeVeilsteel`).
-- **Can raid Sanctuaries and Trading Outposts** *(target behaviour: not yet
-  implemented).*
-- **Religion points from war**: any kill pays points, curse kills pay more
-  *(not yet implemented; today every culture uses Religion.md §1)*.
+**Superseded in detail by [Age_1_Feraldis.md](Age_1_Feraldis.md) §3-4 (2026-10-12).** In short:
+
+- **Veilstone Mine** on an Inactive outcrop, **staffed by slaves**: veilstone
+  per mine level and crew, Feraldis scaled up, and every unit paid is drawn
+  from the outcrop's reserve — each slave drains it faster. A spent outcrop is
+  Depleted and pays nothing.
+- **The curse pays veilstone**: a curse unit Feraldis kills pays veilstone
+  (not religion points); a destroyed curse node pays **veilstone and
+  veilsteel** (`curseNodeVeilstone`, `curseNodeVeilsteel` in
+  `FeraldisEconomy.asset`; the old `feraldisNodeVeilsteel` is folded into it).
+- **Veilsteel is forged** at the Great Forge (veilstone + iron); its bays
+  also turn slaves into veilstone and export veilsteel for iron — the
+  Feraldis counterpart of the Trading Outpost loop.
+- **Raiding**, not trade, is the late-game supply: the raze bounty, pillage
+  on kills and the siphon while attacking an enemy extractor, Outpost or
+  Fortress.
 
 ### 3.3 Runai
 
-- **Veilstone Mine** on an Inactive outcrop: veilstone per mine level.
-- **Sanctuary** on a Cursed outcrop *(not yet implemented)*: curse units are
-  not spawned at or sent to it; produces veilsteel while a caravan from a
-  Runai Veilstone Mine keeps it fed; Runai religion points come from
-  Sanctuaries.
+(2026-10-13 — rules in [Age_1_Runai.md §5](Age_1_Runai.md).)
+
+- **The Runai never mine veilstone.** Their Age 0 Veilstone Mines become
+  **Sanctuaries** in place at age-up, and they can build no new Veilstone Mine.
+- **Sanctuary** atop an Inactive outcrop, or — with **Consecrated Ground** —
+  a **Cursed** one (allowed even in ground the curse holds; the curse node
+  under it sleeps and raises no garrison). It never drains the outcrop and
+  **produces only religion points** (more on a cursed outcrop).
+- **Veilsteel is bought at the Sanctuary with religion points** (the trade
+  action, `RunaiSanctuarySystem.asset`); **veilstone** comes only from the
+  **Waystation road tax** paid by passing caravans (Age_1_Runai.md §3.2).
+  A territory's veilstone / veilsteel income is not hauled.
+- The Sanctuary hosts the curse ladder (Veiled Pilgrims → Voice of the Veil).
 
 ### 3.4 The curse
 
@@ -169,7 +184,7 @@ Who pays, and where the number lives — the doc does not restate the rates
 |---|---|---|
 | **The capital** (Shelter / Fortress) | its **own SO income** — supplies on a fixed interval. There is **no separate territory supply for the capital** any more: `TerritoryIncomeSystem`'s extra flat capital line was dropped (decision 10) | `Fortress.asset` (`suppliesPerTick` / `suppliesInterval`) |
 | **The Fortress level** (2026-10-08) | multiplies **that Fortress's own supplies income** and nothing else — it no longer scales the territory's slots (that was the mid-game iron spike). The share above L1 is paid by the territory tick while the ground is held | `TerritoryIncomeSystem.asset` (`fortressLevelIncomeMultipliers`) |
-| **Territory claim** (2026-10-08) | every held territory pays its holder a flat amount of supplies, iron and veilstone, nodes or not, **once the holder has aged up** (claims open at age-up, so the Age 0 opening is unchanged). It never runs dry: after minute 30 it is what ground is worth | `TerritoryIncomeSystem.asset` (`claim*PerMinute`) |
+| **Territory claim** (2026-10-08) | every held territory pays its holder a flat amount of supplies, iron and veilstone, nodes or not, **once the holder has aged up** — **Feraldis claims pay no supplies** (2026-10-12, Age_1_Feraldis.md §3.5) (claims open at age-up, so the Age 0 opening is unchanged). It never runs dry: after minute 30 it is what ground is worth | `TerritoryIncomeSystem.asset` (`claim*PerMinute`) |
 | **Empty slot** (supply / iron / uncursed veilstone node in held ground) | a small trickle of its resource | `TerritoryIncomeSystem` |
 | **Gatherer's Hut** on a supply slot | its **slot-income ladder**, one rate per level — and nothing else: the construction safety-net income is gone (decision 9) | `GatherersHut.asset` `slotIncomePerMinute` |
 | **Mine** on an iron slot | its slot-income ladder, raised by the Mine research (§6) — not by the surveys or the Fortress level | `Mine.asset` `slotIncomePerMinute` |

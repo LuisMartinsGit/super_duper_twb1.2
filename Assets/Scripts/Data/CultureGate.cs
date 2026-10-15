@@ -73,6 +73,79 @@ namespace TheWaningBorder.Data
         /// docs/Design/Age_1_Feraldis.md), which supersedes the Age 0 one.
         /// </summary>
         public static bool IsSupersededByCulture(string unitId, byte factionCulture)
-            => factionCulture == Cultures.Feraldis && unitId == "Spearman";
+            => factionCulture == Cultures.Feraldis && (unitId == "Spearman" || unitId == "Worker");
+
+        /// <summary>
+        /// The unit a faction of <paramref name="factionCulture"/> actually
+        /// trains when <paramref name="unitId"/> is asked for: the culture's
+        /// own variant of a superseded unit (Feraldis: Worker → Slave, Spearman
+        /// → Feraldis_Spearman), else the id unchanged. Applied in
+        /// TrainCommandDirect, so the AI's floors and any stale order still
+        /// produce the right unit.
+        /// </summary>
+        public static string CultureVariant(string unitId, byte factionCulture)
+        {
+            if (!IsSupersededByCulture(unitId, factionCulture)) return unitId;
+            return unitId == "Worker" ? "Feraldis_Slave" : "Feraldis_" + unitId;
+        }
+
+        // ── buildings ────────────────────────────────────────────────────
+        //
+        // The same rule for what a faction may PLACE (2026-10-13). It lived
+        // only in the build palette (EntityExtractors.GetRequiredCulture), and
+        // that copy missed the Archery Range — an Alanthor building with no
+        // culture prefix — so a Feraldis slave was offered it, and nothing in
+        // CommandRouter refused the placement for the AI or a lockstep order.
+        // The palette and the router both ask THIS now.
+
+        /// <summary>
+        /// The culture a building id requires, or <see cref="Cultures.None"/>
+        /// when any faction may place it (the Age 0 buildings, both landmarks,
+        /// the sect buildings).
+        /// </summary>
+        public static byte RequiredCultureForBuilding(string buildingId)
+        {
+            if (string.IsNullOrEmpty(buildingId)) return Cultures.None;
+            // The gate is shared wall content (Age0/Buildings/Wall/Gate): a
+            // palisade takes gates too, so its Alanthor_ id names no culture.
+            if (buildingId == "Alanthor_WallGate") return Cultures.None;
+            if (buildingId.StartsWith("Alanthor_")) return Cultures.Alanthor;
+            if (buildingId.StartsWith("Feraldis_")) return Cultures.Feraldis;
+            if (buildingId.StartsWith("Runai_")) return Cultures.Runai;
+            // Unprefixed culture buildings. The Archery Range is Alanthor's
+            // Age 1 ranged building (Civs/Alanthor/Buildings/ArcheryRange);
+            // Thessara's Bazaar is Runai's.
+            if (buildingId == "ArcheryRange") return Cultures.Alanthor;
+            if (buildingId == "ThessarasBazaar") return Cultures.Runai;
+            // Thessara's Crossing is the Runai LANDMARK: placed in Age 0 by a
+            // faction with no culture yet, so it gates on no culture (the
+            // edition gate, CultureConfig.IsComingSoon, keeps it out of A / B).
+            return Cultures.None;
+        }
+
+        /// <summary>
+        /// Building ids that still have a factory row but are placeable by no
+        /// one. The stand-alone Feraldis Longhouse is the cultured Barracks
+        /// now (docs/Design/Age_1_Feraldis.md §7.2, 2026-10-13), and the Totem
+        /// Tower is retired (§7.7).
+        /// </summary>
+        public static bool IsRetiredBuilding(string buildingId)
+            => buildingId == "Feraldis_Longhouse" || buildingId == "Feraldis_Tower"
+               // The Runai redesign (docs/Design/Age_1_Runai.md §4.7, 2026-10-13).
+               || buildingId == "Runai_Outpost" || buildingId == "Runai_TradeHub"
+               || buildingId == "Runai_TradingPost" || buildingId == "ThessarasBazaar"
+               || buildingId == "Runai_Vault" || buildingId == "Runai_VeilsteelFoundry";
+
+        /// <summary>
+        /// True when a faction of <paramref name="factionCulture"/> may place
+        /// <paramref name="buildingId"/>. A faction with no culture yet may
+        /// place only the universal buildings.
+        /// </summary>
+        public static bool CanFactionBuild(string buildingId, byte factionCulture)
+        {
+            if (IsRetiredBuilding(buildingId)) return false;
+            byte need = RequiredCultureForBuilding(buildingId);
+            return need == Cultures.None || need == factionCulture;
+        }
     }
 }

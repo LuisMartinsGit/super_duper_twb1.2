@@ -280,10 +280,12 @@ public static class CultureConfig
     /// AI's pick read this test, so dropping it here opens the culture on both
     /// sides at once. Runai stays locked — its trade-lane core is still stubbed.
     ///
-    /// Drop a culture from this test to ship it.
+    /// EDITIONS (2026-10-12): what ships is no longer edited here. The demo
+    /// (edition A) ships Alanthor only, edition B adds Feraldis, edition C adds
+    /// Runai — <see cref="GameEdition"/> decides, from the build's define (or
+    /// the Editor's Waning Border > Edition pick).
     /// </summary>
-    public static bool IsComingSoon(byte culture)
-        => culture == Cultures.Runai || culture == Cultures.Feraldis;
+    public static bool IsComingSoon(byte culture) => !GameEdition.Allows(culture);
 
     /// <summary>
     /// Coerces a desired culture to one this build actually ships.

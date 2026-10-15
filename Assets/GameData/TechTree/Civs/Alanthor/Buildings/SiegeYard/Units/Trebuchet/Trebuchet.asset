@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Trebuchet
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   id: Alanthor_Trebuchet
   displayName: Trebuchet
   unitClass: machinery_siege
@@ -30,8 +30,8 @@ MonoBehaviour:
   attackRange: 38
   minAttackRange: 12
   lineOfSight: 30
-  radius: 1
   aimTime: 1
+  radius: 1
   trajectory: high
   projectileSpeed: 14
   cost:
@@ -44,6 +44,7 @@ MonoBehaviour:
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 6
@@ -54,7 +55,8 @@ MonoBehaviour:
   bonusVsTags:
   - vsTag: Building
     amount: 80
+  preferTargets: []
   abilities: []
   prefab: {fileID: 132866903991625, guid: 516d3df3946cc39f2f363f18aa224f48, type: 3}
-  presentationId: 348
+  presentationId: 433
   animatorController: {fileID: 0}

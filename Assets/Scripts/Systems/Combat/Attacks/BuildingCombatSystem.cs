@@ -122,6 +122,10 @@ namespace TheWaningBorder.Systems.Combat
                 var myPos = em.GetComponentData<LocalTransform>(entity).Position;
                 var myFaction = em.GetComponentData<FactionTag>(entity).Value;
                 float range = attackData.Range;
+                // Arrow Slits (the Stonehold, Sects.md §4): walls and towers
+                // of a faction holding one reach further and hit harder.
+                bool slits = TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ArrowSlits(em, entity, myFaction);
+                if (slits) range *= TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ArrowSlitsRange;
                 // Cheap squared reject before the exact distance: the bound is
                 // padded, so every candidate the exact test would accept
                 // still reaches it and the accepted set is unchanged.
@@ -326,7 +330,8 @@ namespace TheWaningBorder.Systems.Combat
                             borderMod *= 1f + debuff.AttPenalty;
                         }
 
-                        int modifiedDamage = math.max(1, (int)(attackData.Damage * borderMod));
+                        int modifiedDamage = math.max(1, (int)(attackData.Damage * borderMod
+                            * (slits ? TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ArrowSlitsDamage : 1f)));
                         CreateProjectile(ref ecb, myPos, targets[t].Position,
                             targets[t].Distance, entity, myFaction,
                             modifiedDamage, time, targets[t].Entity, isBorder, dmgType, spawnYOffset);

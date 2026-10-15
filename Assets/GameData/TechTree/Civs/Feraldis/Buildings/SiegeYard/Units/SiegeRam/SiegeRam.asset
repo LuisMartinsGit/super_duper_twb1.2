@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: SiegeRam
   m_EditorClassIdentifier: 
-  id: 'Feraldis_SiegeRam'
-  displayName: 'Feraldis_SiegeRam'
-  unitClass: 'machinery_siege'
+  id: Feraldis_SiegeRam
+  displayName: Feraldis_SiegeRam
+  unitClass: machinery_siege
   hp: 300
   speed: 3
   trainingTime: 37.8
   damage: 34
-  damageType: 'siege'
-  armorType: 'ranged'
+  damageType: siege
+  armorType: ranged
   defense:
     melee: 0
     ranged: 1
@@ -30,22 +30,32 @@ MonoBehaviour:
   attackRange: 1
   minAttackRange: 0
   lineOfSight: 20
+  aimTime: 0
   radius: 1
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 0
     Iron: 77
-    Crystal: 174
+    Veilstone: 174
     Veilsteel: 0
   populationCost: 2
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Ranged'
-  - 'Siege'
+  - Ranged
+  - Siege
   bonusVsTags:
-  - vsTag: 'Building'
+  - vsTag: Building
     amount: 30
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 7339081087134374998, guid: 014d023d258f1c247b1f8384797bd14c, type: 3}
   presentationId: 340
+  animatorController: {fileID: 0}

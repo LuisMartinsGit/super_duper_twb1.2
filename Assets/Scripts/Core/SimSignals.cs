@@ -77,6 +77,23 @@ namespace TheWaningBorder.Core
         }
     }
 
+    /// <summary>Resources a faction just gained at a spot on the map — a
+    /// Waystation's road tax, a market sale, loot from a kill. Shown as a
+    /// floating "+N [icon]" there.</summary>
+    public readonly struct SimGain
+    {
+        public readonly float3 Position;
+        public readonly Faction Faction;
+        public readonly Cost Amount;
+
+        public SimGain(float3 position, Faction faction, Cost amount)
+        {
+            Position = position;
+            Faction = faction;
+            Amount = amount;
+        }
+    }
+
     /// <summary>How a match ended, for the end-of-match screen.</summary>
     public readonly struct SimMatchEnd
     {
@@ -109,6 +126,23 @@ namespace TheWaningBorder.Core
         private static readonly Queue<SimNotice> _notices = new Queue<SimNotice>();
         private static readonly Queue<SimPing> _pings = new Queue<SimPing>();
         private static readonly Queue<SimMatchEnd> _matchEnd = new Queue<SimMatchEnd>();
+        private static readonly Queue<SimGain> _gains = new Queue<SimGain>();
+
+        /// <summary>A faction gained <paramref name="amount"/> at <paramref name="position"/>.</summary>
+        public static void Gain(float3 position, Faction faction, Cost amount)
+        {
+            if (amount.Supplies <= 0 && amount.Iron <= 0 && amount.Veilstone <= 0 && amount.Veilsteel <= 0) return;
+            if (_gains.Count >= MaxQueued) _gains.Dequeue();
+            _gains.Enqueue(new SimGain(position, faction, amount));
+        }
+
+        /// <summary>Presentation only: see TryDrainNotice.</summary>
+        public static bool TryDrainGain(out SimGain gain)
+        {
+            if (_gains.Count == 0) { gain = default; return false; }
+            gain = _gains.Dequeue();
+            return true;
+        }
 
         /// <summary>Tell the player something. Text is already localised.</summary>
         public static void Notify(string text) => Post(text, isError: false);
@@ -181,6 +215,7 @@ namespace TheWaningBorder.Core
             _notices.Clear();
             _pings.Clear();
             _matchEnd.Clear();
+            _gains.Clear();
         }
     }
 }

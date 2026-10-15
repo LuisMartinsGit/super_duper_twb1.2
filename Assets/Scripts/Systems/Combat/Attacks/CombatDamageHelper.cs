@@ -82,9 +82,10 @@ namespace TheWaningBorder.Systems.Combat
         /// </summary>
         public static float GetFrenzyDamageMult(EntityManager em, Entity attacker)
         {
-            float mult = 1f;
-            if (em.HasComponent<BloodFrenzy>(attacker))
-                mult *= TheWaningBorder.Core.Config.FeraldisConstants.FrenzyDamageMult;
+            // Frenzy (scaled by the Blood ladder), Berserk and Overcharge —
+            // docs/Design/Age_1_Feraldis.md §6-7 (2026-10-12).
+            float mult = TheWaningBorder.Feraldis.FeraldisCombat.DamageMult(
+                em, attacker, TheWaningBorder.Core.Config.FeraldisConstants.FrenzyDamageMult);
             if (em.HasComponent<DeathFrenzyState>(attacker))
                 mult *= TheWaningBorder.Core.Config.FeraldisConstants.DeathFrenzyDamageMult;
             return mult;
@@ -277,6 +278,11 @@ namespace TheWaningBorder.Systems.Combat
             }
             // (Liquid Courage's incoming-damage reduction is applied uniformly at
             // every HP-application site via AbilityDamageHooks.ScaleIncoming, not here.)
+
+            // Alanthor sect unit traits and the Catalogued mark
+            // (docs/Design/Sects.md §4): Stasis Bolt, Borrowed Breath, Stored
+            // Strike, Run Down.
+            final = TheWaningBorder.Systems.Sect.AlanthorSectUnitTraits.OnHit(em, ecb, attacker, target, final);
 
             // Condemned mark: target takes bonus damage
             if (TransientState.Active<Condemned>(em, target))
@@ -500,29 +506,6 @@ namespace TheWaningBorder.Systems.Combat
             }
             if (final < 1) final = 1;
 
-            // Reclamation "Border-Hardened" (combat half): defender takes -25/35/50%
-            // damage from Veilstone-faction PvE attackers. Applied last so the
-            // reduction comes off the final post-bonus number — same intent as
-            // a flat resistance. The border-ground DoT half is in
-            // BorderGroundDamageSystem. (task-063 phase 2d / phase 4 scaling)
-            if (em.HasComponent<BorderTag>(attacker)
-                && em.HasComponent<FactionTag>(target))
-            {
-                byte reclLevel = SectQuery.LevelOf(em,
-                    em.GetComponentData<FactionTag>(target).Value,
-                    SectConfig.Reclamation, SectLeverKind.Passive);
-                if (reclLevel > 0)
-                {
-                    float reclMult = reclLevel switch
-                    {
-                        2 => 0.65f,
-                        3 => 0.50f,
-                        _ => 0.75f,
-                    };
-                    final = (int)(final * reclMult);
-                    if (final < 1) final = 1;
-                }
-            }
 
             return final;
         }

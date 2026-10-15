@@ -38,6 +38,7 @@ namespace TheWaningBorder.Core.Localization
             t["That building cannot be placed"] = "Esse edifício não pode ser colocado";
             t["The ground here is unsuitable"] = "O terreno aqui não é adequado";
             t["Cannot build on a resource node — only its own extractor may stand there"] = "Não é possível construir sobre um recurso — só o seu próprio extrator pode lá estar";
+            t["Your culture cannot build that"] = "A tua cultura não pode construir isso";
             t["Alanthor do not mine veilstone — raise a Trading Outpost beside it"] = "Os Alanthor não mineram veilstone — ergue um Entreposto Comercial ao lado dele";
             t["Nothing — build on it"] = "Nada — constrói aqui";
             t["/min"] = "/min";

@@ -30,6 +30,7 @@ MonoBehaviour:
   attackRange: 1.5
   minAttackRange: 0
   lineOfSight: 10
+  aimTime: 0
   radius: 0.4
   trajectory: 
   projectileSpeed: 0
@@ -42,8 +43,8 @@ MonoBehaviour:
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
@@ -51,6 +52,8 @@ MonoBehaviour:
   - Infantry
   - Light
   bonusVsTags: []
-  prefab: {fileID: 103670402920498, guid: d2c2926a2c81e59d0d8d0bebb9c6872d, type: 3}
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 2978161759476928202, guid: 855ce4916bb3df44c87f2d75699aa999, type: 3}
   presentationId: 320
   animatorController: {fileID: 0}

@@ -11,14 +11,14 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: Mine
-  m_EditorClassIdentifier:
-  id: 'Mine'
-  displayName: 'Mine'
-  role: 'Workerless ore extraction - build next to an iron or veilstone patch'
+  m_EditorClassIdentifier: 
+  id: Mine
+  displayName: Mine
+  role: Workerless ore extraction - build next to an iron or veilstone patch
   description: Works every iron and veilstone node in range with no workers at all.
     Slower than mining by hand, but it never depletes the ore.
   hp: 700
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 1
     ranged: 1
@@ -28,14 +28,27 @@ MonoBehaviour:
   lineOfSight: 12
   footprintCells: {x: 2, y: 2}
   buildTime: 25
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute:
   - 100
   - 150
   - 250
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research: []
   minEra: 1
@@ -45,5 +58,18 @@ MonoBehaviour:
     Veilstone: 10
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 4949595034700326232, guid: 5c74b3fb00bc7204ca01998dfaff7a57, type: 3}
   presentationId: 364
+  prefabPath: 
+  canUpgradeTo: []

@@ -61,7 +61,7 @@ namespace TheWaningBorder.Rendering
                 TheWaningBorder.Economy.SectConfig.Antiquity   => "Prefabs/Effects/Sect/NovaArcane",
                 TheWaningBorder.Economy.SectConfig.Renewal     => "Prefabs/Effects/Sect/AuraCastLife",
                 TheWaningBorder.Economy.SectConfig.Fortitude   => "Prefabs/Effects/Sect/NovaEarth",
-                TheWaningBorder.Economy.SectConfig.Reclamation => "Prefabs/Effects/Sect/NovaLife",
+                TheWaningBorder.Economy.SectConfig.Prosperity => "Prefabs/Effects/Sect/NovaLife",
                 TheWaningBorder.Economy.SectConfig.Silence     => "Prefabs/Effects/Sect/NovaStorm",
                 TheWaningBorder.Economy.SectConfig.Justice     => "Prefabs/Effects/Sect/LightPillarBlast",
                 TheWaningBorder.Economy.SectConfig.Veneration  => "Prefabs/Effects/Sect/AuraCastLight",

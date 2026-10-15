@@ -85,8 +85,8 @@ namespace TheWaningBorder.AI
             SectConfig.Renewal,      // heal circle + hp lever — defense core
             SectConfig.Fortitude,    // armor circle + melee armor — the wall behind the wall
             SectConfig.Justice,      // reveal + global damage lever
-            SectConfig.Antiquity,    // Lorekeeper + Reliquary intel hub
-            SectConfig.Reclamation,  // worker armor + heal — the economy insurance
+            SectConfig.Antiquity,    // Trespass on home ground + Artificer slows
+            SectConfig.Prosperity,   // Treasury income + Plenty — the economy insurance
             SectConfig.Veneration,   // damage circle on the garrison
             SectConfig.War,          // speed surge + Warbreaker shock elite
             SectConfig.Witness,      // wide reveal — scout redundancy
@@ -102,7 +102,7 @@ namespace TheWaningBorder.AI
         private static readonly string[] AllSects =
         {
             SectConfig.Antiquity, SectConfig.Renewal,    SectConfig.Fortitude,
-            SectConfig.Reclamation, SectConfig.Silence,  SectConfig.Justice,
+            SectConfig.Prosperity, SectConfig.Silence,  SectConfig.Justice,
             SectConfig.Veneration, SectConfig.Witness,   SectConfig.War,
             SectConfig.Ash,        SectConfig.Ruin,      SectConfig.Wrath,
         };
@@ -155,7 +155,8 @@ namespace TheWaningBorder.AI
                 {
                     if (!SectActivePowerHelper.CanFire(em, faction, sectId, slot)) continue;
 
-                    var spec = SectLeverEffects.ActiveOf(sectId, slot, level);
+                    var spec = SectLeverEffects.ActiveOf(sectId, slot,
+                        SetPassives.EffectivePowerLevel(em, faction, sectId));
                     if (spec.Kind == SectActivePowerKind.None) continue;
                     if (!TryPickTargetFor(em, faction, hallPos, spec, in skill, baseThreat,
                             out float3 target, out string why, out int caught))
@@ -257,6 +258,10 @@ namespace TheWaningBorder.AI
                 case SectActivePowerKind.AttainderStrike:
                 case SectActivePowerKind.SpyNetwork:
                 case SectActivePowerKind.Blind:
+                // Trespass (Antiquity) and Bounty (Prosperity) are damage on
+                // the fighting enemy, same as the others here.
+                case SectActivePowerKind.TrespassStrike:
+                case SectActivePowerKind.Bounty:
                     if (_powerSites.Count == 0) { target = default; why = "no fight in progress"; return false; }
                     if (TryPickEnemyClusterAtSites(em, faction, spec.Radius, aoeMin, out target, out caught))
                         return true;
@@ -297,9 +302,11 @@ namespace TheWaningBorder.AI
                     return TryPickFriendlyAtSites(em, faction, spec.Radius, FriendlyNeed.Buff, in skill,
                         out target, out why, out caught);
 
-                // Ultimates: only when the fight is pivotal.
+                // Ultimates: only when the fight is pivotal. Revive returns
+                // the fallen where a fight is going badly.
                 case SectActivePowerKind.DeathWard:
                 case SectActivePowerKind.Invulnerable:
+                case SectActivePowerKind.Revive:
                     return TryPickFriendlyAtSites(em, faction, spec.Radius, FriendlyNeed.Pivotal, in skill,
                         out target, out why, out caught);
 
@@ -312,6 +319,8 @@ namespace TheWaningBorder.AI
                 // actually under attack. Cleanse is base-defensive too.
                 case SectActivePowerKind.BuildingHpBuff:
                 case SectActivePowerKind.InfluenceBurst:
+                // Ward Discharge arms the keep itself while the base is threatened.
+                case SectActivePowerKind.WardCharge:
                     target = hallPos;
                     if (baseThreat)
                     {
@@ -331,6 +340,13 @@ namespace TheWaningBorder.AI
                 // Aim at a resource node.
                 case SectActivePowerKind.NodeOverYield:
                     return TryPickResourceNode(em, hallPos, out target);
+
+                // Economy (Prosperity): Overtime on the keep's queue, Plenty
+                // whenever it is ready — both are worth casting at any time.
+                case SectActivePowerKind.Overtime:
+                case SectActivePowerKind.Plenty:
+                    target = hallPos;
+                    return true;
 
                 default:
                     target = default;
@@ -683,6 +699,9 @@ namespace TheWaningBorder.AI
                 if (CommandRouter.GetTrainQueueLength(em, chapel) >= Cfg.maxTrainQueue) continue;
 
                 string sectId = em.GetComponentData<ChapelTag>(chapel).SectId.ToString();
+                // A sect with its own building trains there, never at the
+                // chapel (Religion.md §3.2) — TryTrainSectUnitsAtSectBuildings.
+                if (SectConfig.BuildingIdFor(sectId) != null) continue;
                 string unitId = SectConfig.UnitIdFor(sectId);
                 if (unitId == null) continue;
                 if (CountAliveAndQueued(em, faction, unitId) >= Cfg.sectUnitCap) continue;
@@ -745,7 +764,7 @@ namespace TheWaningBorder.AI
             SectConfig.Antiquity   => "Sect_Reliquary",
             SectConfig.Renewal     => "Sect_MendingHall",
             SectConfig.Fortitude   => "Sect_Stonehold",
-            SectConfig.Reclamation => "Sect_Veilworks",
+            SectConfig.Prosperity => "Sect_Treasury",
             SectConfig.War         => "Sect_MusterYard",
             _                      => null,
         };
@@ -756,7 +775,7 @@ namespace TheWaningBorder.AI
                 "Sect_Reliquary"   => CountFactionBuildingsByTag<ReliquaryTag>(em, faction),
                 "Sect_MendingHall" => CountFactionBuildingsByTag<MendingHallTag>(em, faction),
                 "Sect_Stonehold"   => CountFactionBuildingsByTag<StoneholdTag>(em, faction),
-                "Sect_Veilworks"   => CountFactionBuildingsByTag<VeilworksTag>(em, faction),
+                "Sect_Treasury"   => CountFactionBuildingsByTag<TreasuryTag>(em, faction),
                 "Sect_MusterYard"  => CountFactionBuildingsByTag<MusterYardTag>(em, faction),
                 _                  => 0,
             };
@@ -767,7 +786,7 @@ namespace TheWaningBorder.AI
                 "Sect_Reliquary"   => AnyFactionBuildingUnderConstruction<ReliquaryTag>(em, faction),
                 "Sect_MendingHall" => AnyFactionBuildingUnderConstruction<MendingHallTag>(em, faction),
                 "Sect_Stonehold"   => AnyFactionBuildingUnderConstruction<StoneholdTag>(em, faction),
-                "Sect_Veilworks"   => AnyFactionBuildingUnderConstruction<VeilworksTag>(em, faction),
+                "Sect_Treasury"   => AnyFactionBuildingUnderConstruction<TreasuryTag>(em, faction),
                 "Sect_MusterYard"  => AnyFactionBuildingUnderConstruction<MusterYardTag>(em, faction),
                 _                  => false,
             };
@@ -850,7 +869,7 @@ namespace TheWaningBorder.AI
                 case "Sect_Reliquary":   return FirstCompleted<ReliquaryTag>(em, faction);
                 case "Sect_MendingHall": return FirstCompleted<MendingHallTag>(em, faction);
                 case "Sect_Stonehold":   return FirstCompleted<StoneholdTag>(em, faction);
-                case "Sect_Veilworks":   return FirstCompleted<VeilworksTag>(em, faction);
+                case "Sect_Treasury":   return FirstCompleted<TreasuryTag>(em, faction);
                 case "Sect_MusterYard":  return FirstCompleted<MusterYardTag>(em, faction);
                 default: return Entity.Null;
             }
@@ -892,6 +911,23 @@ namespace TheWaningBorder.AI
                 if (host == Entity.Null) continue;
                 if (!em.HasBuffer<ProductionQueueItem>(host)) continue;
                 if (CommandRouter.GetTrainQueueLength(em, host) >= Cfg.maxTrainQueue) continue;
+
+                // The sect HERO first (Religion.md §4): unique, and its first
+                // recruit costs RP on top of resources.
+                string heroId = SectConfig.HeroIdFor(sectId);
+                if (heroId != null && !SectHeroes.HasLiveOrQueued(em, faction, heroId)
+                    && TechCatalog.TryGetUnit(heroId, out var heroDef) && heroDef != null
+                    && FactionReligionPointsHelper.CanAfford(em, faction, SectHeroes.RpDue(em, faction, sectId)))
+                {
+                    var heroCost = AICommon.ToCost(heroDef.cost);
+                    if (FactionEconomy.CanAfford(em, faction, heroCost) && !AIPivotalReserve.ShouldHold(em, faction, heroCost))
+                    {
+                        CommandRouter.IssueTrain(em, host, heroId, CommandSource.AI);
+                        AILogger.Log(faction, "MILITARY",
+                            $"Alanthor: recruiting the {sectId.Substring(5)} hero {heroId}");
+                        return; // one per tick
+                    }
+                }
 
                 string unitId = SectConfig.UnitIdFor(sectId);
                 if (unitId == null) continue;

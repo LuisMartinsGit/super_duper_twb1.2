@@ -1,4 +1,4 @@
-﻿// TrainingSystem.cs
+// TrainingSystem.cs
 // The unit-training half of the production queue: how long a unit takes at
 // THIS building, how many come out, whether the faction has room for them,
 // and the spawn itself. Called by ProductionQueueSystem when a Train item
@@ -74,7 +74,7 @@ namespace TheWaningBorder.Systems.Training
             // Feraldis culture: 1.75x training time, compensated by the 2x
             // spawn. The Longhouse is compensated by its BATCH instead, so the
             // culture factor does not stack onto it.
-            if (!batch && FactionColors.GetFactionCulture(faction) == Cultures.Feraldis)
+            if (!batch && FactionColors.GetFactionCulture(faction) == Cultures.Feraldis && !IsSingleFeraldis(unitId))
                 trainingTime *= 1.75f;
 
             // Sect of War: military units train -15/-25/-35% faster
@@ -153,8 +153,18 @@ namespace TheWaningBorder.Systems.Training
         {
             if (em.HasComponent<BatchTrainingTag>(building)) return LonghouseBatchSize;
             bool isSectUnit = unitId.StartsWith("Sect_");
-            return FactionColors.GetFactionCulture(faction) == Cultures.Feraldis && !isSectUnit ? 2 : 1;
+            return FactionColors.GetFactionCulture(faction) == Cultures.Feraldis && !isSectUnit
+                   && !IsSingleFeraldis(unitId) ? 2 : 1;
         }
+
+        /// <summary>
+        /// Feraldis units that are NOT doubled (nor slowed): slaves (the slave
+        /// cap counts them one by one), the Overseer and Harkon Fiend (one per
+        /// faction). docs/Design/Age_1_Feraldis.md §3.2, §8.
+        /// </summary>
+        private static bool IsSingleFeraldis(string unitId)
+            => unitId == "Feraldis_Slave" || unitId == "Feraldis_Overseer" || unitId == "Feraldis_HarkonFiend"
+               || unitId == "Worker";
 
         // ── Population ─────────────────────────────────────────────────────
 

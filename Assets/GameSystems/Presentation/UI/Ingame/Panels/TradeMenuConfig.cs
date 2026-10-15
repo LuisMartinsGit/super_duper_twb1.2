@@ -23,8 +23,9 @@ namespace TheWaningBorder.UI.Ingame
 
         public Vector2 buttonSize;
 
-        /// <summary>The menu's bottom-left corner, from the button's
-        /// top-left corner.</summary>
+        public float buttonFontSize;
+
+        /// <summary>The menu's centre, from the screen's centre.</summary>
         public Vector2 menuOffset;
 
         /// <summary>Menu width; its height follows the rows shown.</summary>

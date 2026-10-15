@@ -112,12 +112,25 @@ namespace TheWaningBorder.EditorTools
                 // synchronously; the reply lands when the build ends, which
                 // for this project is several minutes. Builds from DISK: an
                 // unsaved scene in the editor does not reach the player.
+                // `build <outDir>` is the demo (edition A); `build-edition
+                // <A|B|C> <outDir>` builds a developer edition.
                 case "build":
                 {
                     if (EditorApplication.isPlaying) return "ERROR in play mode; stop first";
                     if (string.IsNullOrEmpty(arg)) return "ERROR build needs an output folder";
                     string error = TheWaningBorder.EditorTools.PlayerBuild.BuildTo(arg);
                     return error == null ? "OK built to " + arg : "ERROR " + error;
+                }
+
+                case "build-edition":
+                {
+                    if (EditorApplication.isPlaying) return "ERROR in play mode; stop first";
+                    int space = arg == null ? -1 : arg.IndexOf(' ');
+                    if (space <= 0) return "ERROR build-edition needs <A|B|C> <outDir>";
+                    string edition = arg.Substring(0, space).Trim().ToUpperInvariant();
+                    string outDir = arg.Substring(space + 1).Trim();
+                    string error = TheWaningBorder.EditorTools.PlayerBuild.BuildTo(outDir, edition);
+                    return error == null ? $"OK built edition {edition} to {outDir}" : "ERROR " + error;
                 }
 
                 case "play":
@@ -129,6 +142,16 @@ namespace TheWaningBorder.EditorTools
                     if (!EditorApplication.isPlaying) return "OK not playing";
                     EditorApplication.ExitPlaymode();
                     return "OK exiting play mode";
+
+                // `set-version 0.0.42`: the bare release version, set in
+                // memory AND saved, so release.ps1 (which reads the file) and
+                // PlayerBuild (which reads memory) agree.
+                case "set-version":
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(arg, @"^\d+\.\d+\.\d+$"))
+                        return "ERROR set-version needs a bare x.y.z";
+                    PlayerSettings.bundleVersion = arg;
+                    AssetDatabase.SaveAssets();
+                    return "OK version " + PlayerSettings.bundleVersion;
 
                 case "menu":
                     return EditorApplication.ExecuteMenuItem(arg)

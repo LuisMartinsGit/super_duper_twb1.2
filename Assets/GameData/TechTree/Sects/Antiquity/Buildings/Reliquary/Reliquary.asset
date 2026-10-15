@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Sect_Reliquary
   displayName: Reliquary
-  role: "Antiquity sect building. Trains the Lorekeeper."
+  role: "Antiquity sect building. Trains the Artificer, recruits the Archivist of Hours."
   description: 
   hp: 900
   armorType: structure_human
@@ -33,9 +33,10 @@ MonoBehaviour:
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
   trains:
-  - Sect_Lorekeeper
+  - Sect_Artificer
+  - Sect_ArchivistOfHours
   research:
-  - RoyalIndex
+  - Cartography
   minEra: 1
   cost:
     Supplies: 327
@@ -57,3 +58,4 @@ MonoBehaviour:
   presentationId: 0
   prefabPath: 
   canUpgradeTo: []
+  maxPerFaction: 1

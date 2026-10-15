@@ -1,720 +1,403 @@
 # Age 1 — Runai
 
-> Economy culture. Tents / desert aesthetic. Runai **embodies movement** —
-> their economy, army, and territory are all fused into the **trade lane**.
-> Build a lane → it earns supplies → it auto-spawns patrolling
-> trader-warriors → it claims that corridor of the map. One decision, three
-> rewards. Runai has **no walls** and **no Houses**; lanes are their
-> defense and caravan-driven mechanics are their pop curve.
+> **Nomad traders who hold the curse sacred.** The Runai do not dig the
+> curse's crystal and they do not fight it: they build Sanctuaries over it,
+> pray, and in the end command it. Their wealth is never where it is made —
+> supplies and iron reach the bank only when a **caravan** carries them to a
+> market along the roads, and the roads themselves are taxed for veilstone at
+> the Runai Waystations. Their army fires on the move, climbs walls and flies
+> its siege over them.
 >
-> **See also:** [Overview.md § Movement axis](Overview.md#north-star-the-movement-axis)
-> (the three-way faction triangle), [Age_0.md](Age_0.md) (pre-culture
-> starting buildings), [Age_1_Alanthor.md](Age_1_Alanthor.md) for the doc
-> template, and the cross-age [Petriarchy doc TBD] for sects.
+> **Doc version: 2026-10-14 — second design pass (developer direction, chat
+> 2026-10-14).** Supersedes the 2026-10-13 version where they disagree:
+> Sanctuaries no longer produce veilstone or veilsteel (religion points only,
+> traded for veilsteel); Waystations are watch towers that tax veilstone;
+> trader-warriors are replaced by per-caravan **escort squads**; the trade
+> research is seven upgrade paths; caravans travel the **road graph**
+> ([Roads.md §0](Roads.md)); four trainers in Alanthor's shape; flying siege;
+> wall scaling; **The Call**. Earlier text is in git history.
 >
-> Doc version: 2026-05-19 — Runai mechanics formalized from the **trade-lane
-> design pass** (see [Overview.md § Age-up](Overview.md#age-up-transform-dont-replace)).
-> Numbers below come from [TechTree.json](../../Assets/Resources/TechTree.json)
-> era 2 / Runai + [BuildCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs).
-> Items marked **(new — not yet in code)** come from the user's design notes;
-> items marked **(spec gap)** are open questions the design has not yet
-> answered.
+> **Data lives on the SOs** ([Unification decisions](Unification_Decisions_2026-10-03.md)):
+> this doc keeps rules and reasons. Every cost, HP, damage, range, time,
+> rate and multiplier is on the Runai SOs under
+> `Assets/GameData/TechTree/Civs/Runai/` (and `Age0/Buildings/ThessarasCrossing/`)
+> or on the named config asset (`RunaiTradeSystem.asset`,
+> `RunaiSanctuarySystem.asset`, `RunaiCombat.asset`); on a conflict the SO
+> wins. **Every Runai number is a placeholder** until the first balance pass.
+>
+> **Edition:** Runai ships in edition **C only** ([Alpha_Build.md §4](Alpha_Build.md)).
+>
+> **See also:** [Overview.md § Movement axis](Overview.md), [Age_0.md](Age_0.md),
+> [Age_1_Alanthor.md](Age_1_Alanthor.md), [Age_1_Feraldis.md](Age_1_Feraldis.md),
+> [Veilstone_Economy.md](Veilstone_Economy.md) §3.3, [Territory_Claims.md](Territory_Claims.md),
+> [Roads.md](Roads.md), [Combat_Pacing.md](Combat_Pacing.md).
 
 ---
 
-## Culture identity
+## 1. Identity
 
 | Aspect | Runai |
-|--------|-------|
-| Focus | **Economy / movement** — lanes are economy + army + territory fused |
-| Style | Tents / Desert / nomadic traders |
-| Economy | **Mixed: Iron is still mined, Supplies + Veilstone come from trade routes.** Workers mine iron normally. Supplies and Veilstone are earned exclusively through **trade lanes** — plant a Trade Post → a lane forms between it and any other Trade Post or the Trader's Hall → caravans travel the lane and earn the trade-only resources (yield scales with route length). On top of that, lanes **auto-spawn trader-warriors** that patrol the lane generating Veilstone + Supplies passively ([§ Trader-warriors](#trader-warriors-uncontrollable-lane-patrols)). Veilsteel produced at the Veilsteel Foundry (Iron + Veilstone, same rate as Alanthor's Crucible). |
-| **No walls** | **Identity-defining absence** ([Overview.md § Movement](Overview.md#north-star-the-movement-axis)) — Runai cannot build any static defensive wall. The lane network *is* their defense; trader-warriors patrolling lanes are what holds territory. Don't ever hand out "just a small palisade." |
-| **No Houses** | **Identity-defining absence.** No House building exists for Runai. Instead, **full population is unlocked at age-up** (one big swing, no gradual ramp). Possibly tech-gated trench upgrades expand pop further. *(spec gap — exact pop ceiling at age-up + any tech-gated bumps.)* |
-| Border relationship | Runai **grow increasingly neutral to the The Border over time.** Likely **earned through exposure**: the more trader-traffic walks through border land, the more resistant the civ becomes. This makes their lore consequential and gives Runai a positive reason to deliberately route through danger. *(spec gap — exact trigger model: tile-hours of traffic? caravan-passes? tech-gated?)* |
-| Vault yield modifier | **−30 %** (worst of the three cultures — Runai is supposed to win by *flowing* supplies, not banking them) |
-| Shrine heal modifier | **+30 %** (best of the three) |
-| Fiendstone Keep HP/arrows | neutral (0 %) |
-| Main upgrade hooks | `ThessarasBazaar` `TariffBoostAura` (numeric value TBD); pack-and-move mobility |
+|---|---|
+| Relationship to movement | **Embodies it** — supplies and iron pay only when hauled; the roads pay veilstone |
+| Relationship to the curse | **Sacred.** Sanctuaries on veilstone outcrops make religion points; the curse never targets a territory that holds one; the Sanctuary ladder ends in command of the curse (§5) |
+| Economy signature | **Haul and tax** (§3) |
+| Combat signature | Fires on the move, scales walls (§6.5), flies its siege (§6.4) |
+| Identity-defining absences | **No walls** (palisades stop at age-up, as for Alanthor) and **no Houses** (full population at age-up; the Hut becomes the Waystation, §4.3) |
 
-### Age-up power spike: the wagon burst
+### 1.1 Look (art direction)
 
-At age-up, **each Gatherer's Hut the player built in Age 0 transforms into a
-mobile caravan-wagon**. These wagons are Runai's **one and only free
-trade-post deployment burst** — every Trade Post built after age-up costs
-workers + resources at the normal rate. *(Possible future expansion: allow
-infantry to build Trade Posts as well, so Runai can fight their way into
-contested zones late-game.)*
+**Monumental sandstone** — Arabian / Egyptian temples: domes, open
+colonnades, colourful **silk awnings flowing in the wind**; at the higher
+levels part of the architecture is **suspended from air balloons**.
+**Palette: sandstone, silver, teal (drapery), purple (decoration).**
 
-**Wagons output their full income while in transit.** This makes the age-up
-moment Runai's **peak income spike** of the entire match. Every wagon is
-briefly maxed out simultaneously; as wagons reach destinations and "settle"
-into Trade Posts, income drops to whatever the placement's lane network
-justifies. The mechanic naturally creates Runai-specific decisions:
+**Buildings (2026-10-14)** are composed from the Synty Fantasy Kingdom kit by
+`Scripts/Editor/PrefabAuthoring/RunaiKitAuthor.cs` (`Waning Border > Art >
+Author Runai Kit Art`; check with `Render Runai Level Comparisons` →
+`Temp/runai-kit-previews/`, and in play with `Waning Border > Debug > Launch
+Runai Probe`). A dome is the kit's round cap stretched on a stone drum, a
+balloon a silk sphere on rope tethers with a lantern basket. Every building
+grows inside the same paved yard, and **from L3 each carries a
+balloon-suspended part** (a hanging pavilion, a lookout, a Sky Barge on its
+envelope, lantern balloons):
 
-- **Drive far** to extend the transit-spike window (high skill ceiling).
-- **Plant quickly** to lock in a known income floor (safe play).
-- **Re-route mid-transit** if the map situation changes (adaptive play).
+| Building | Form | Path |
+|---|---|---|
+| Fortress | domed palace, pointed iwan, minarets (2 → 4) | `Runai/Lv1..3` in the Fortress prefab |
+| Route Guard | pylon-gated drill court, colonnaded hall, teal-domed towers | `Runai/Lv1..3` in the Barracks prefab |
+| Trading Post | silk market stall, domed kiosk | `Runai/Lv1..3` in the Gatherer's Hut prefab |
+| Arrowyard | colonnade gallery over a target range, loggia, archers' tower | own variant prefab |
+| Grazing Grounds | arcaded stable, paddock, silk pavilion | own variant prefab |
+| Wagonworks | silk canopy over the slip, balloon envelope, crane | own variant prefab |
+| Sanctuary | teal-domed shrine, colonnade ring, lantern balloons | own variant prefab |
+| Thessara's Crossing | great silver dome, four iwans, four minarets, balloons | one form |
+| Waystation | road tower with lantern dome and balcony | per-level prefabs on the level SOs |
+| Mine | pithead under silk, headframe, balloon hoist | `Runai/Lv1..3` in the Mine prefab |
 
-It's also a *recurring* mechanic, not a one-shot trick: any time the
-player builds a future wagon (or repositions an existing trade post), the
-transit period is a mini-spike. Runai players who micro their network well
-get rewarded with sustained higher income through clever re-routing — the
-"nomadic master traders" fantasy.
-
-**Wagon-death cost** = (a) one Gatherer's Hut worth of material, plus (b)
-the **tempo cost** of having to send a worker out the slow way to
-re-establish that trade post manually. The trade post can still be built —
-the player just lost the free shortcut. This is harsh enough to make
-**escorting wagons matter** but soft enough to keep the game going if a
-wagon dies.
-
-> **Playtest heuristic** (from [Overview.md](Overview.md#age-up-transform-dont-replace)):
-> in a 1v1 Feraldis-vs-Runai match, Runai should land roughly **70–80 %**
-> of age-up wagons at destination with reasonable escort. Lower = Feraldis
-> is too punishing on the transition; near 100 % = escorting is decorative.
-
-**Transit-spike model (Q#9 resolved):** wagon output **decays linearly over
-4 minutes** from full to zero. A wagon driving for the full 4 minutes
-contributes an integral equivalent to one well-placed Gatherer's Hut over
-that period. **If the player placed their Age 0 Gatherer's Huts well, the
-spike is invisible** — the 4-minute decay matches the natural settlement
-rate. If the player drives wagons aggressively far, they extend the
-spike's *useful* duration at the cost of placement quality.
-
-**Wagon count (Q#10 resolved):** **no hard cap on age-up wagons** — the
-count equals the number of Gatherer's Huts built in Age 0. The
-self-balancing pressure is the **Age 0 opportunity cost**: each hut costs
-supplies + worker time that the player can't spend on military or research
-in Age 0. Over-investing in huts means a smaller standing army at age-up
-and fewer resources gathered, so the system caps itself naturally.
+Runai **units** still borrow existing models.
 
 ---
 
-## Conventions
+## 2. Age-up — Thessara's Crossing
 
-Same as [Age_1_Alanthor § Conventions](Age_1_Alanthor.md#conventions) — L1
-through L3 building ladder, multipliers from [BuildingUpgradeConfig.cs](../../Assets/Scripts/Core/Settings/BuildingUpgradeConfig.cs),
-upgrade durations 30 s / 45 s for L2 / L3.
+**Thessara's Crossing is the Runai landmark** ([Age_0.md § Age-up by landmark](Age_0.md)):
+building it in Age 0 is the age-up into Runai. It is filed in
+`Age0/Buildings/ThessarasCrossing/` beside the Vault and the Keep; its
+research is post-age-up Runai content and files in
+`Civs/Runai/Buildings/ThessarasCrossing/Research/`. One per faction. It is
+the **grand market** (§3.3) and the home of the trade research (§7.2). The AI
+sites it like the Fiendstone Keep — at the base's chokepoint — and ignores
+the wall-ring reservation (the Runai never wall it).
 
----
+| Age 0 entity | Becomes | Notes |
+|---|---|---|
+| Shelter (`Fortress`) | **Fortress** | a market (§3.3); levels `Civs/Runai/Buildings/Fortress/Fortress_Lvl1..3` |
+| Worker | Worker | builds and repairs; can cast **The Call** (§8.1) |
+| Barracks | **Route Guard** | the infantry trainer |
+| Hut | **Waystation** | standing Houses **collapse** at age-up; a Hut built after it is a watch tower that taxes caravans (§4.3); provides no population |
+| Gatherer's Hut | **Trading Post** | supply depot (§3.1) |
+| Mine | Mine | iron depot (§3.1) |
+| Veilstone Mine | **Sanctuary** | converted in place (§5) |
+| Temple of Ridan | Temple of Ridan | unchanged |
+| Palisade | stays timber; no new palisade | as for Alanthor |
 
-## Cultured carryover buildings
-
-### Trader's Hall — cultured Hall
-
-**Doc id:** Trader's Hall.
-**Code mapping:** the Age 0 Hall, renamed at age-up — same entity, same
-base HP (parallel to Alanthor's Town Hall / Feraldis's War Hall). `ThessarasBazaar` in [TechTree.json:528](../../Assets/Resources/TechTree.json#L528) is no longer Trader's Hall — it has been **repurposed as a separate Age 1 unique building** ([§ Thessara's Bazaar](#thessaras-bazaar--trade-lane-upgrade-house)) for trade-lane upgrades only.
-
-**Trader's Hall trains only economy units** (Worker, Scout). All Runai
-military training is split out to the cultured carryover buildings (Route
-Guard / Arrowyard) and the new Grazing Grounds cavalry building.
-
-| Stat | L1 | L2 | L3 |
-|------|----|----|----|
-| HP (vs Age 0 base 2 400) | 2 640 | 2 760 | 2 880 |
-| LoS | 26 | 26 | 26 |
-| Auto-fire max targets | 1 | 2 | 4 |
-| Provides population | 20 | 20 | 20 |
-| Train-time multiplier | ×0.870 | ×0.800 | ×0.714 |
-| Build / upgrade cost | (at age-up — already standing) | 200 S + 50 I + 15 C | 400 S + 100 I + 40 C + 5 Vs |
-| Upgrade duration | — | 30 s | 45 s |
-
-> The TechTree.json override of 2 700 HP / +40 pop / `PackAndMove` /
-> `TariffBoostAura` on `ThessarasBazaar` no longer applies to Trader's Hall.
-> Those mechanics either move to Thessara's Bazaar (the repurposed building)
-> or get retired entirely per the Q-block resolutions below.
-
-#### Trainable units
-
-| Unit | Train time | Cost | Pop |
-|------|-----------|------|-----|
-| **Worker** | 5 s | 50 Supplies | 1 |
-| **Scout** | 4 s | 55 Supplies | 1 |
-
-> Runai military units (Spearman, Skirmisher, Raider, cavalry archer) train
-> at Route Guard / Arrowyard / Grazing Grounds — see those sections below.
-
-#### Researchable techs
-
-Runai gets a Tools ladder analogous to Alanthor's (Q#4 / Q#5 review:
-"similar tech, different names; some may be universal at Age 0"), plus the
-two Border-neutrality techs (Q#16).
-
-| Tech | Building lvl req. | Effect (unlock) | Status |
-|------|-------------------|------------------|--------|
-| **Stone tools** (T1) → **Iron tools** (T2) → **Veilstone tools** (T3) → **Veilsteel tools** (T4) | L1 / L2 / L3 / L3 | **Unlocks** per-Worker upgrade tier ([Overview.md § Per-battalion](Overview.md#per-battalion-military-upgrades-cross-faction-rule)) | *(new — same shape as Alanthor; names may end up Runai-flavoured)* |
-| **Wheel cart** / **Cranes** equivalents | L1 / L2 | Faction-wide worker buffs — names TBD; possibly identical to Alanthor's if universal | *(new, TBD)* |
-| **Veilstride** *(placeholder name — Q#16)* | L2 | −20 % chance of aggroing border waves when Runai units traverse border tiles. Border defences stay in place (the border doesn't want to be *converted*, only *cleansed* / *destroyed*). | *(new — Q#16 resolved)* |
-| **Lane Caravan tech** | various | Runai-only — see [§ Thessara's Bazaar](#thessaras-bazaar--trade-lane-upgrade-house) | — |
+**Population:** the full game cap from age-up (`RunaiPopOverride`). **Every
+standing House collapses at age-up** (2026-10-14) — the Runai need no housing,
+and a Hut built from then on is a Waystation.
 
 ---
 
-### Route Guard — cultured Barracks
+## 3. The economy — haul and tax
 
-**Doc id:** Route Guard.
-**Code mapping:** the Age 0 Barracks, renamed at age-up — same entity,
-multiplier-path HP. Hosts Runai's infantry roster (per Q#1). Cavalry
-trains at the new [Grazing Grounds](#grazing-grounds--cavalry-trainer-new),
-not here.
+### 3.1 Depots and caravans
 
-| Stat | L1 | L2 | L3 |
-|------|----|----|----|
-| HP (vs base 800) | 880 | 920 | 960 |
-| LoS | 18 | 18 | 18 |
-| Train-time multiplier | ×0.870 | ×0.800 | ×0.714 |
-| Upgrade cost | (at age-up — already standing) | 160 S + 40 I + 10 C | 320 S + 80 I + 30 C |
+- **Supply nodes** (Trading Post) and **iron nodes** (Mine) are **depots**.
+  Their output — and the territory's claim income — is **stock**, not bank
+  money: it reaches the bank only when a caravan sells it at a market.
+- A territory's yield goes to its depots of the matching resource; a resource
+  with no matching depot is split over the territory's other depots; a
+  territory with **no depot pays nothing**. Depots hold a few loads at most
+  (`stockCapLoads`).
+- **The start territory hauls nothing** (2026-10-14): its huts and mines are
+  not depots and spawn **no wagons**, and its income reaches the bank directly,
+  as in Age 0. Every other territory follows the rules above.
+- **Every depot keeps caravans** (`Runai_Caravan`) — one, more with the
+  Crossing research (§7.2), from the moment the faction ages up. A dead caravan is replaced
+  after `caravanRespawnSeconds`, free.
+- A caravan **loads**, **drives the road graph** to the market that pays the
+  most per second of round trip ([Roads.md §0](Roads.md)), **sells** — cargo ×
+  (1 + the **distance premium**, by road length, capped) × the market's
+  multiplier — and returns. It has no orders, does not claim ground and costs
+  no population.
+- A caravan has **arrived** when it is near the building — within
+  `arriveSlack` of the footprint edge — never inside it.
+- **A caravan killed by an enemy gives its cargo to the faction that killed it**
+  (2026-10-14, `CaravanLootSystem`); Feraldis pillage pays on top, as on any unit.
+- **Every resource gain on the map shows as a floating "+N [icon]"** where it
+  happens — a Waystation's tax as the wagon passes, a market sale, a wagon's
+  looted cargo, Feraldis plunder (`ResourceGainPopups`, fed by `SimSignals.Gain`).
 
-#### Trainable units
+### 3.2 Waystations tax veilstone
 
-Runai gets a **3-tier infantry ladder** parallel to Alanthor's Garrison
-(per Q#5 "similar tech ladder as Alanthor"). Code defines Runai Spearman;
-the L2 / L3 tiers are new and culture-flavoured (placeholder names below).
+- **Each time a caravan passes a Waystation of its own faction** (within
+  `waystationRadius`) it pays a little **veilstone** to the bank — the road
+  tax. Runai veilstone comes only from this tax: a territory's veilstone and
+  veilsteel income is never stocked or hauled.
+- **Spacing is enforced on the wagon:** a caravan that has paid a tax cannot
+  pay another for `taxCooldownSeconds`, so Waystations built close together
+  earn nothing extra — they must be far apart to tax.
+- **At most 20 Waystations** per faction — the Hut SO's `maxPerFaction`.
 
-| Doc name | Role / window | Building lvl unlock | Mapped to code id | Stats (from code, where available) |
-|----------|---------------|---------------------|-------------------|--------------------------------|
-| **Runai Spearman** | early-mid game line infantry | L1 | `Runai_Spearman` | HP 130 / spd 5.6 / dmg 12 melee / def 1/0/0/0 / range 1.5 / cost 110 S + 30 I + 25 C / pop 1 |
-| **L2 infantry tier** *(name TBD — "Veil Lancer"? "Tariff-bearer"?)* | mid-late game | L2 | **(new)** | TBD |
-| **L3 infantry apex** *(name TBD)* | late game | L3 | **(new)** | TBD |
+### 3.3 Markets
 
-> **Battalion units** ([Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions)).
+| Market | Rule |
+|---|---|
+| **Fortress** (any of the faction's) | pays the base sale |
+| **Thessara's Crossing** | pays × `crossingMarketMultiplier` |
+| **Waystation** | after **Market Rights**; pays × `waystationMarketMultiplier` (below 1) |
 
-#### Researchable techs
+### 3.4 Escort squads
 
-Same 4-tier per-battalion weapon ladder as Alanthor's Garrison (per Q#5).
+Every caravan travels with its **escort squad** — free, no population, no
+claim weight, no orders: they ride with their caravan, fight what threatens
+it, and wait at the depot when it is dead. The squad grows with the **Escort**
+research (§7.2):
 
-| Tech | Building lvl req. | Effect (unlock) |
-|------|-------------------|------------------|
-| **Conscription** equivalent | L1 | +20 % training speed at the Route Guard *(faction-wide passive — name TBD)* |
-| **Stone weapons** (T1) → **Iron weapons** (T2) → **Veilstone weapons** (T3) → **Glow-infused weapons** (T4) | L1 / L2 / L3 / L3 | **Unlocks** per-battalion weapon upgrade tier |
+| Escort level | Squad per caravan |
+|---|---|
+| 1 | 1 melee |
+| 2 | 1 melee + 2 ranged |
+| 3 | 3 melee + 3 ranged + 2 cavalry |
 
----
+The escort units are `Runai_EscortGuard` (melee), `Runai_EscortArcher`
+(ranged) and `Runai_EscortRider` (cavalry). They replace the 2026-10-13
+trader-warriors.
 
-### Arrowyard — Runai's ranged building
+### 3.5 Why
 
-> **Superseded 2026-08-27 — this is a SEPARATE building, not a rename.** The
-> Archery Range is an **Alanthor-only, era-2** building; no other culture ever
-> owns one, so there is nothing for Runai to rename. Arrowyard needs its own building id,
-> SO and prefab. The "Age 0 Archery Range renamed at age-up" premise below was
-> already broken regardless: the Archery Range is `minEra: 2` and never stands in
-> Age 0. Until Arrowyard is authored, Runai's ranged units have no trainer and live in
-> `Civs/Runai/Units/`.
-
-**Doc id:** Arrowyard.
-**Code mapping:** the Age 0 Archery Range, renamed at age-up — same
-entity, multiplier-path HP. Hosts Runai's foot-ranged roster. Cavalry
-archers train at the new [Grazing Grounds](#grazing-grounds--cavalry-trainer-new).
-
-| Stat | L1 | L2 | L3 |
-|------|----|----|----|
-| HP (vs base 600) | 660 | 690 | 720 |
-| LoS | 18 | 18 | 18 |
-| Train-time multiplier | ×0.870 | ×0.800 | ×0.714 |
-| Upgrade cost | (at age-up — already standing) | 160 S + 40 I + 10 C | 320 S + 80 I + 30 C |
-
-#### Trainable units
-
-3-tier foot-ranged ladder parallel to Alanthor's Practice Range.
-
-| Doc name | Role / window | Building lvl unlock | Mapped to code id | Stats |
-|----------|---------------|---------------------|-------------------|-------|
-| **Runai Skirmisher** | early-mid game ranged | L1 | `Runai_Skirmisher` | HP 95 / spd 6.0 / dmg 15 ranged / def 0/1/0/0 / range 11 / min 3.5 / cost 95 S + 50 I + 25 C / pop 1 |
-| **L2 ranged tier** *(name TBD)* | mid-late game | L2 | **(new)** | TBD |
-| **L3 ranged apex** *(name TBD)* | late game | L3 | **(new)** | TBD |
-
-#### Researchable techs
-
-Same as Alanthor's Practice Range — three faction-wide / passive techs
-plus the 4-tier arrow ladder.
-
-| Tech | Building lvl req. | Effect (unlock) |
-|------|-------------------|------------------|
-| **Choreographed volleys** | L1 | Active skill: 2× fire rate for 5 s on Skirmisher battalions, 40 s cd *(faction-wide active)* |
-| **Fletching** | L2 | +15 % attack range for all Skirmisher-class units *(faction-wide passive)* |
-| **Stone-tipped arrows** (T1) → **Iron-tipped** (T2) → **Veilstone-tipped** (T3) → **Glow-tipped** (T4) | L1 / L2 / L3 / L3 | **Unlocks** per-battalion arrow upgrade tier |
+Alanthor holds ground and Feraldis raids it; the Runai **haul across it and
+tax the roads**. Their supply and iron are only as good as their roads are
+safe, their veilstone only as good as their Waystation spacing. Feraldis
+hunts the caravans; the AI of every culture targets them (§9).
 
 ---
 
-### Grazing Grounds — cavalry trainer *(new)*
+## 4. Buildings
 
-**Doc id:** Grazing Grounds.
-**Code mapping:** **(new — no code entry yet)** — added per Q#1 to host
-Runai's cavalry roster (light cavalry + cavalry archers). Same level
-ladder as the other Age 1 military buildings.
+| Building | Role |
+|---|---|
+| **Route Guard** (cultured Barracks) | infantry: 3 melee tiers (§6.1) |
+| **Arrowyard** (`Runai_Arrowyard`) | ranged: 3 tiers, stronger than Alanthor's (§6.2) |
+| **Grazing Grounds** (`Runai_GrazingGrounds`) | cavalry: 2 melee + 1 ranged cavalry (§6.3) |
+| **Wagonworks** (`Runai_SiegeWorkshop`) | siege, flying (§6.4) |
+| **Trading Post** (cultured Gatherer's Hut) | supply depot |
+| Mine | iron depot |
+| **Waystation** (cultured Hut) | §4.3 |
+| **Sanctuary** (`Runai_Sanctuary`) | §5 |
+| **Thessara's Crossing** | landmark, grand market, trade research |
 
-| Stat | L1 | L2 | L3 |
-|------|----|----|----|
-| HP | TBD (suggest ≈ 900 base) | base × 1.10 | base × 1.20 |
-| LoS | TBD (suggest 18) | 18 | 18 |
-| Defense (M/R/S/Mg) | TBD | | |
-| Train-time multiplier | ×0.870 | ×0.800 | ×0.714 |
-| Build cost (L1, at age-up or later) | TBD (suggest 220 S + 80 I) | 160 S + 40 I + 10 C | 320 S + 80 I + 30 C |
+All trainers level L1-L3 (level SOs in their folders). The **Waystation
+levels** too (`Waystation_Lvl1..3`).
 
-#### Trainable units
+### 4.3 Waystation — the Runai watch tower
 
-| Doc name | Role / window | Building lvl unlock | Mapped to code id | Stats |
-|----------|---------------|---------------------|-------------------|-------|
-| **Runai Raider** | light cavalry | L1 | `Runai_Raider` | HP 150 / spd 7.2 / dmg 18 melee / def 1/0/0/0 / range 1.5 / cost 220 S + 100 I + 50 C / pop 1 |
-| **Cavalry Archer** | mounted ranged | L2 | **(new — no code entry)** | TBD (suggest mid HP / high speed / moderate range) |
-| **L3 cavalry apex** *(name TBD)* | late game | L3 | **(new)** | TBD |
+- The cultured Hut. **Free placement** — anywhere on owned ground, no route
+  rule. **No garrison.** **At most 20.**
+- It **shoots arrows** like a watch tower; its levels (L1-L3) raise the
+  attack (the authored `attack` on its level SOs).
+- **Caravans within `waystationRadius` move faster** (`waystationSpeedPct`);
+  Road March (§7.3) extends that to every Runai unit.
+- It **taxes passing caravans for veilstone** (§3.2).
+- After Market Rights it is a minor market (§3.3).
+- No population.
 
-#### Researchable techs
+### 4.7 Retired
 
-Same 4-tier per-battalion barding / cavalry-weapons ladder as the
-Alanthor Royal Stable (names TBD).
-
-| Tech | Building lvl req. | Effect (unlock) |
-|------|-------------------|------------------|
-| **Barding T1 → T2 → T3 → T4** | L1 / L2 / L3 / L3 | **Unlocks** per-battalion cavalry-armor upgrade tier *(name and effect numbers TBD)* |
-
----
-
-### House — does NOT exist for Runai
-
-Per Q#1 review and [Overview.md § Movement axis](Overview.md#north-star-the-movement-axis):
-**Runai has no House at all.** Population is unlocked at age-up (full
-pop available immediately, similar to Feraldis's instant-pop model).
-Age 0 Houses standing on the map at age-up are removed.
-
-> *(spec gap — exact pop ceiling at age-up. Cross-faction reference:
-> Feraldis gets 200 pop instantly per [Age_0.md § Decisions](Age_0.md);
-> Runai's value should be the same or similar.)*
+`Runai_Outpost`, `Runai_TradeHub`, the old chain `Runai_TradingPost`,
+`ThessarasBazaar`, `Runai_Vault`, `Runai_VeilsteelFoundry`, the
+trader-warriors (`Runai_TraderWarrior`) and the Runai Catapult.
 
 ---
 
-### Gatherer's Hut (Age 0 carryover) — transforms into a caravan-wagon
+## 5. The Sanctuary and the curse
 
-Per [Overview.md § Age-up](Overview.md#age-up-transform-dont-replace) and
-[§ Age-up power spike](#age-up-power-spike-the-wagon-burst) above. Each
-Age 0 Gatherer's Hut transforms 1:1 into a deployable caravan-wagon at
-age-up. The huts the player invested in during Age 0 become the wagons of
-Age 1 — placement matters in both ages.
+### 5.1 The building
 
-The wagon-burst is the **only** free Trade Post deployment the player ever
-gets in the match. Every Trade Post after age-up costs workers + supplies
-+ iron at the normal rate.
+- **Built atop a veilstone outcrop.** By default on an **Inactive** outcrop
+  only; **Consecrated Ground** (Sanctuary research) lets it be built on a
+  **Cursed** one — in ground the curse holds too (the Runai exception to the
+  build gate, [Territory_Claims.md §5](Territory_Claims.md)) — where the curse
+  node **sleeps** (raises no garrison).
+- It **never drains the outcrop**, and it **produces only religion points**
+  (`rpPerMinute`, more on a cursed outcrop).
+- **Trade RP for veilsteel** at the Sanctuary: an action that spends
+  `rpPerTrade` religion points for `veilsteelPerTrade` veilsteel. It is the
+  Runai's only veilsteel.
+- **The curse never targets a territory that holds a Runai Sanctuary** — no
+  curse wave, raid or conquest is sent at it.
+- Levels L1-L3 (`Sanctuary_Lvl1..3`); the ladder below is gated on them.
 
----
+### 5.2 The curse ladder (Sanctuary research)
 
-## Special / choice buildings (carried from Age 0)
+| Tech | Gate | Effect |
+|---|---|---|
+| **Veiled Pilgrims** | L1 | curse units never auto-target Runai caravans, escorts or workers |
+| **Consecrated Ground** | L1 | Sanctuaries may be built on Cursed outcrops (§5.1) |
+| **Hushed Veil** | L2, after Veiled Pilgrims | curse units notice Runai units only up close; no curse wave is sent against the faction |
+| **Communion** | L2, after Hushed Veil | Runai units regenerate on curse-held ground |
+| **Veilbound** | L3, after Communion | curse units near a Sanctuary join the faction, one at a time |
+| **Voice of the Veil** | L3, after Veilbound | **peace with the curse** (`Alliances`) and Veilbound reaches far — the Runai control the curse |
 
-| Building | Runai modifier | Source |
-|----------|----------------|--------|
-| Vault of Almiérra | **−30 %** yield on interest | [Age_0.md § Vault](Age_0.md) |
-| Shrine of Ridan | **+30 %** heal rate | [Age_0.md § Shrine](Age_0.md) |
-| Fiendstone Keep | **neutral** (0 %) | [Age_0.md § Fiendstone Keep](Age_0.md) |
-
-L1 → L3 stats, tech tables and trainables are in [Age_0.md](Age_0.md) — only
-the per-culture numeric modifier changes.
-
----
-
-## Runai-unique buildings (new in Age 1)
-
-### Thessara's Bazaar — trade-lane upgrade house
-
-**Code id:** `ThessarasBazaar` (existing code id, **repurposed** — no
-longer the cultured Hall, and no longer trains units).
-**Doc id:** Thessara's Bazaar.
-
-Per Q#1 review: Thessara's Bazaar is now an Age-1-only unique building
-that hosts **trade-lane upgrade research**. It is the home of the
-caravan-economy tech tree (LongHaulTariffs and the other route-yield techs).
-Does not train any units.
-
-| Stat | Value |
-|------|-------|
-| HP | 1 400 (suggest — TBD) |
-| LoS | 22 |
-| Defense (M/R/S/Mg) | 1 / 1 / 0 / 0 |
-| Build cost | TBD (suggest 350 S + 80 I + 40 C) |
-| Role | Trade-lane upgrade hub. Does not train units. |
-
-#### Researchable techs
-
-| Tech | Effect | Cost | Status |
-|------|--------|------|--------|
-| `Runai_LongHaulTariffs` | +15 % supplies from trade routes; +25 % bonus if route length > 60 u | 220 S + 20 I | code-exists |
-| `Runai_EscortedCaravans` | Trade Hubs spawn 2 uncontrollable escorts per caravan | 160 S + 40 C | code-exists |
-
-> `Runai_PackBazaar` is **retired** per Q#8 review — PackAndMove
-> mechanic is removed from the design.
-
-### Runai Outpost — `Runai_Outpost`
-
-| Stat | Value |
-|------|-------|
-| HP | 900 |
-| LoS | 22 |
-| Defense (M/R/S/Mg) | 1 / 1 / 0 / 0 |
-| Vision aura radius | 18 |
-| Build cost | 140 S + 20 I |
-| Role | Trade-route anchor / vision pylon. Caravans path between Outposts and the Trader's Hall. |
-
-### Runai Trade Hub — `Runai_TradeHub`
-
-| Stat | Value |
-|------|-------|
-| HP | 1 200 |
-| LoS | 24 |
-| Defense | 1 / 1 / 0 / 0 |
-| Build cost | 240 S + 40 I |
-| Caravan spawn interval | 22 s |
-| Max active caravans per route | 3 |
-| Yield model | Base 20 + 0.8 per tile; route ≥ 60 tiles → ×1.25 bonus |
-| **TariffBoostAura** *(Q#7 resolved)* | **Per-drop-off timer** — every time a caravan deposits resources at the Trade Hub, the player gets a short bonus-yield window on the next deposit at the same building. **No stacking across multiple buildings.** *(spec gap — exact window duration + bonus %)* |
-| Role | Caravan spawner. Requires a valid route to an Outpost or Trader's Hall. **Also auto-spawns trader-warriors that patrol the lane** — see [§ Trader-warriors](#trader-warriors-uncontrollable-lane-patrols). |
-
-> **Runai Vault (`Runai_Vault`) is RETIRED per Q#6.** The Age 0 Vault of
-> Almiérra (with its −30 % Runai modifier) is Runai's only bank. The
-> separate Runai-specific Vault entry in
-> [TechTree.json:638](../../Assets/Resources/TechTree.json#L638) and
-> [BuildCosts.cs:49](../../Assets/Scripts/Data/TechTree/BuildCosts.cs#L49)
-> needs to be deleted.
-
-### Runai Veilsteel Foundry — `Runai_VeilsteelFoundry`
-
-| Stat | Value |
-|------|-------|
-| HP | 1 500 |
-| LoS | 20 |
-| Defense | 1 / 1 / 0 / 0 |
-| Build cost | 450 S + 120 I + 100 C |
-| Craft inputs | Iron + Veilstone |
-| Loss factor | 20 % |
-| Role | Produce Veilsteel. |
-
-### Runai Siege Workshop — `Runai_SiegeWorkshop`
-
-| Stat | Value |
-|------|-------|
-| HP | 1 100 |
-| LoS | 20 |
-| Defense | 1 / 1 / 0 / 0 |
-| Build cost | 320 S + 140 I + 60 C |
-| Trains | Runai_Catapult |
-| Role | Train siege engines. |
+The Shardroot rule stands above it: a Runai holder of the Shardroot loses the
+peace while holding it.
 
 ---
 
-## Trader-warriors (uncontrollable lane patrols)
+## 6. The army
 
-Every Trade Hub auto-spawns a small population of **trader-warriors** that
-patrol the lanes radiating from it. They are the **defensive backbone of
-the Runai map presence** — Runai cannot wall, so the trader-warrior
-network covering the lane network *is* the territory claim.
+Same tiers as Alanthor: **three melee, three ranged (stronger), two cavalry
+plus one ranged cavalry, and siege.** Every combat unit carries a class tag
+and a weight tag ([Combat_Pacing.md](Combat_Pacing.md)).
 
-Behavior rules (per user design pass):
+### 6.1 Route Guard — infantry
 
-- **Uncontrollable by default.** The player cannot order them around;
-  they patrol their assigned lane autonomously.
-- **Engagement zone around lanes + outposts** (Q#15 resolved): a visible
-  area surrounds each trade lane and Trade Post / Outpost. When an enemy
-  enters this zone, the player receives an **audible cue + minimap ping**
-  and the trader-warriors patrolling that zone become **controllable**
-  for the duration of the engagement. They auto-revert to autonomous
-  patrolling **5 seconds after the zone is clear of enemies**.
-- **Generate Veilstone + Supplies passively while patrolling.** This is
-  additional income *on top of* caravan trade revenue, so a Runai player
-  is rewarded for keeping lanes long and active.
-- **Do not consume population.** Outside the standard pop cap entirely.
-- **Globally capped, scales with player population** (Q#13 resolved):
-  the trader-warrior cap is a **single global number** that grows by **+1
-  per soldier trained**. Every Spearman / Skirmisher / Raider / cavalry
-  archer the player trains raises the trader-warrior ceiling by 1. This
-  prevents Runai from snowballing into a free-army state — a Runai with
-  zero army has zero patrols.
-- **Network-pooled (not post-pinned)** (Q#14 resolved): trader-warriors
-  are **not assigned to specific Trade Posts**. They belong to the lane
-  network as a whole. If a Trade Post / Trade Hub dies, the warriors
-  redistribute across the remaining nodes.
-- **Decent in a fight, not elite.** Comparable to Runai Spearman / light
-  infantry. Not designed to win pitched battles — they're the equivalent
-  of Alanthor's walls: passive deterrents that buy time and force the
-  opponent to commit force.
+| Unit | Gate | Tags | Bonus vs | Role |
+|---|---|---|---|---|
+| Spearman | — | Infantry, Light | Cavalry | the Age 0 line unit |
+| **Dune Guard** (`Runai_DuneGuard`) | L1 | Infantry, Light | Siege | line infantry |
+| **Road Warden** (`Runai_RoadWarden`) | L2 | Infantry, Heavy | Cavalry | the escort; Escort Duty |
+| **Sandstrider** (`Runai_Sandstrider`) | L3 | Infantry, Light | — | elite, fastest foot |
 
-### How the player keeps agency despite "uncontrollable"
+### 6.2 Arrowyard — ranged
 
-Most RTS players expect total unit control, so this will feel alien at
-first. To prevent "watching helplessly" frustration, Runai retains
-**agency-adjacent levers**:
+| Unit | Gate | Tags | Bonus vs | Role |
+|---|---|---|---|---|
+| **Skirmisher** (`Runai_Skirmisher`) | L1 | Ranged, Light | Infantry | javelins |
+| **Slinger** (`Runai_Slinger`) | L2 | Ranged, Light | Cavalry | long reach, fast |
+| **Sun Archer** (`Runai_SunArcher`) | L3 | Ranged, Light | — | top of the ladder; out-hits the Longbowman |
 
-- **Lane placement is the strategic layer.** The player designs the
-  defense network when they plant Trade Posts and route caravans, not
-  when they order units.
-- **Reinforce a threatened lane** by dropping a controllable unit (e.g.
-  a Spearman or Raider) into the area; the trader-warrior pack will
-  fight alongside it.
-- **Plant more Trade Posts near a contested zone** to boost the local
-  trader-warrior count.
+### 6.3 Grazing Grounds — cavalry
 
-> **(spec gap)** When a Trade Post / Trade Hub dies, what happens to its
-> trader-warriors? Options on the table: (a) wander to the nearest
-> friendly post, (b) die with the post, (c) become temporarily
-> controllable as a "return home" event. Each choice changes the
-> punishment severity of losing a node — needs prototype testing.
+| Unit | Gate | Tags | Bonus vs | Role |
+|---|---|---|---|---|
+| **Raider** (`Runai_Raider`) | L1 | Cavalry, Light | Ranged | fastest cavalry |
+| **Horse Archer** (`Runai_HorseArcher`) | L2 | Cavalry, Ranged, Light | Infantry | ranged cavalry; fires on the move after Parthian Shot; **can hit flying machines** |
+| **Camel Lancer** (`Runai_CamelLancer`) | L3 | Cavalry, Heavy | Cavalry | heavy cavalry |
 
-### Wagon escorts vs trader-warriors
+### 6.4 Wagonworks — flying siege
 
-Trader-warriors **patrol existing lanes** — they don't protect wagons in
-transit. Wagons need separate **escort** units the player attaches
-manually (Spearman, Raider, or whatever controllable infantry the player
-has). This split is intentional:
+| Unit | Gate | Tags | Bonus vs | Role |
+|---|---|---|---|---|
+| **Sky Barge** (`Runai_SkyBarge`) | L1 | Siege, Flying | Building | a balloon bomber; **replaces the Catapult** |
+| War Wagon (`Runai_WarWagon`) | L2 | Siege, Heavy | — | carries a squad, fires on the move |
+| Siege Caravan (`Runai_SiegeCaravan`) | L3 | Siege, Heavy | Building | long-range building killer |
 
-- Trader-warriors hold *steady-state* network territory.
-- The player has to *actively engage* in escorting wagons during the
-  high-stakes age-up burst (and every subsequent wagon move) — Feraldis
-  will absolutely target wagons once they learn the mechanic.
+**Flying units** (`FlyingTag`) **ignore pathfinding** — they move in a straight
+line over walls, cliffs, water and forests — and **can be targeted only by
+ranged units** (damage type Ranged: archers, skirmishers, the Horse Archer…)
+**and ballistas** (the Alanthor Ballista, the emplaced ballista, a tower's
+ballista bolt). Melee units, splash siege and building arrows cannot touch
+them.
+
+### 6.5 Wall scaling
+
+**Scaling Hooks** (Route Guard research): Runai **infantry** may climb onto the
+**rampart** of an enemy stone wall anywhere along it — not only through a
+hub, tower or gate — and fight on the deck or drop down inside. Cavalry,
+siege and workers cannot.
+
+### 6.6 Autonomous
+
+`Runai_Caravan` and the escort units (§3.4).
 
 ---
 
-## Runai units (full stat blocks from code)
+## 7. Research
 
-### Runai Spearman — melee anchor
+Every Runai tech is **faction-wide** (decision 31). Each trainer carries a
+weapon ladder, a veterancy ladder and — in place of an armour ladder — a
+**Stride ladder**; siege keeps an armour ladder.
 
-Trains at Trader's Hall (today), possibly Route Guard (per design).
+### 7.1 Fortress
 
-| Field | Value |
-|------|-------|
-| Class | `human_melee` |
-| HP | 130 |
-| Speed | 5.6 |
-| Training time | *(spec gap — no value in TechTree.json)* |
-| Armor type | infantry_heavy |
-| Damage | 12 (melee) |
-| Defense (M/R/S/Mg) | 1 / 0 / 0 / 0 |
-| Attack range | 1.5 |
-| LoS | 18 |
-| Cost | 110 Supplies + 30 Iron + 25 Veilstone |
-| Pop | 1 |
+Iron / Veilstone / Veilsteel Tools · **Pack Animals** (caravans carry more) ·
+**Dune Riders** (faster, farther-seeing Scouts).
 
-### Runai Skirmisher — light ranged
+### 7.2 Thessara's Crossing — the seven trade paths
 
-Trains at Trader's Hall (today), possibly Arrowyard (per design).
+| Path | Techs | Effect |
+|---|---|---|
+| **Speed** | Swift Wheels I-II | caravans move faster |
+| **Retaliating Fire** | Wagon Archers | a caravan shoots back at what attacks it |
+| **Escort** | Escort I / II / III | the escort squad (§3.4) |
+| **Caravan Durability** | Strong Axles I-II | caravans are tougher |
+| **Escort Durability** | Hardened Escorts I-II | escorts are tougher and hit harder |
+| **Caravans per Building** | Second … Fifth Caravan | +1 caravan per depot each, to five |
+| **Hunker Down** | Hunker Down | automatic: a caravan that falls to **half health stops** and gains **+80 % armour for 15 s** |
 
-| Field | Value |
-|------|-------|
-| Class | `human_ranged` |
-| HP | 95 |
-| Speed | 6.0 |
-| Training time | *(spec gap)* |
-| Armor type | ranged |
-| Damage | 15 (ranged) |
-| Defense | 0 / 1 / 0 / 0 |
-| Attack range | 11 |
-| Min attack range | 3.5 |
-| LoS | 22 |
-| Cost | 95 Supplies + 50 Iron + 25 Veilstone |
-| Pop | 1 |
+Plus **Long-Haul Tariffs** (distance premium) and **Market Rights** (§3.3).
 
-### Runai Raider — fast cavalry
+### 7.3 Route Guard
 
-Trains at Trader's Hall.
+Weapons, Stride, veterancy; **Road March** · **Escort Duty** · **Desert Cloaks**
+· **Scaling Hooks** (§6.5).
 
-| Field | Value |
-|------|-------|
-| Class | `human_cavalry` |
-| HP | 150 |
-| Speed | 7.2 (fastest cav in the game) |
-| Training time | *(spec gap)* |
-| Armor type | cavalry |
-| Damage | 18 (melee) |
-| Defense | 1 / 0 / 0 / 0 |
-| Attack range | 1.5 |
-| LoS | 20 |
-| Cost | 220 Supplies + 100 Iron + 50 Veilstone |
-| Pop | 1 |
+### 7.4 Arrowyard
 
-### Runai Acolyte — religious / magic
+Arrow tiers, Stride, veterancy; **Fletching** (range).
 
-Trains at **Temple of Ridan, L3** (per Q#17 — Temple has 3 levels, not 4;
-old "L4" referenced a spec-refinement stage that has been retired).
+### 7.5 Grazing Grounds
 
-| Field | Value |
-|------|-------|
-| Class | `human_magic` |
-| HP | 90 |
-| Speed | 3.0 |
-| Training time | 35 s |
-| Min building lvl | **3** *(Temple of Ridan L3)* |
-| Armor type | ranged |
-| Damage | 0 |
-| Damage type | magic |
-| Defense | 0 / 0 / 0 / 1 |
-| LoS | 14 |
-| Cost | **~300 Supplies + 150 Iron + 100 Veilstone + 30 Veilsteel** *(rebalanced to the cross-faction game-ender religious tier — see [Overview.md § Religious units](Overview.md#religious-units--cross-faction-game-ender-tier))* |
-| Pop | 1 |
-| Single unit / battalion | **Single** ([Overview.md § Unit granularity](Overview.md#unit-granularity--single-units-vs-battalions)) |
-| Role | Channels **Conversion** rituals on Active veilstone nodes — Runai's Glow-generator. "The node fights enslavement harder than destruction, so escort is doubly required" ([TechTree.json:812](../../Assets/Resources/TechTree.json#L812)). |
+Lances, Stride, veterancy; **Remounts** · **Parthian Shot** · **Feigned Retreat**.
 
-### Runai Catapult — siege
+### 7.6 Wagonworks
 
-Trains at Runai Siege Workshop. Replaces the retired SandBallista:
-lower direct damage than other siege, but its shots hit every enemy in
-a radius on impact (AOE siege).
+Munitions, plating, crews; **Wagon Laager**.
 
-| Field | Value |
-|------|-------|
-| Class | `machinery_siege` |
-| HP | 200 |
-| Speed | 3.4 |
-| Armor type | ranged |
-| Damage | 36 (siege) |
-| Defense | 0 / 1 / 2 / 0 |
-| Attack range | 20 |
-| Min attack range | 5.5 |
-| LoS | 26 |
-| Cost | 260 Supplies + 120 Iron + 80 Veilstone |
-| Pop | 1 |
+### 7.7 Sanctuary
 
-### Runai Caravan — civilian trade *(uncontrollable)*
-
-Auto-spawned by Trade Hubs; cannot be issued orders by the player.
-
-| Field | Value |
-|------|-------|
-| Class | `civilian_trade` |
-| HP | 120 |
-| Speed | 5.6 |
-| Armor type | ranged |
-| Damage | 0 |
-| Damage type | true *(takes / does flat damage)* |
-| Defense | 0 / 1 / 0 / 0 |
-| LoS | 18 |
-| Cargo capacity | 120 |
-| Cargo on death | **Reverts to the killer** *(Q#18 resolved)* — if the caravan dies to a Feraldis attacker, Feraldis gains 50 % of the cargo as supplies. Caravans killed by Alanthor or Runai units (e.g. in skirmishes, friendly-fire, or PvE) yield **nothing** — the cargo is destroyed. This synergizes intentionally with Feraldis's damage-as-income identity. |
-| AI | `FollowTradeRoute`, leash 20, avoid enemies in radius 8.0 |
-| Flags | civilian, uncontrollable, flees on damage |
-| Pop | 0 (housing-provider, not consumer) |
-
-### Runai Escort — caravan guard *(uncontrollable)*
-
-Spawned alongside Caravans when `Runai_EscortedCaravans` is researched.
-Despawns when its caravan dies.
-
-| Field | Value |
-|------|-------|
-| Class | `human_melee` |
-| HP | 110 |
-| Speed | 6.2 |
-| Armor type | infantry_light |
-| Damage | 10 (melee) |
-| Defense | 0 / 0 / 0 / 0 |
-| Attack range | 1.3 |
-| LoS | 18 |
-| AI | Guard the assigned caravan; leash 12 |
-| Flags | uncontrollable, despawnOnCaravanDeath |
+§5.2.
 
 ---
 
-## Decisions (resolved 2026-05-19)
+## 8. Heroes and abilities
 
-All 19 open questions answered in this review pass. Each decision is
-folded into the doc body above; this block is the **decision record**.
-Cross-faction items are flagged.
+### 8.1 The Call
 
-1. **Building list** — **resolved.** The Runai Age 1 roster is:
-   - **Trader's Hall** (cultured Hall) — Worker + Scout only, plus
-     Tools + border-neutrality techs.
-   - **Route Guard** (cultured Barracks) — 3-tier infantry ladder.
-   - **Arrowyard** (Runai's own ranged building — NOT a cultured Archery Range, 2026-08-27) — 3-tier foot-ranged ladder.
-   - **Grazing Grounds** *(new)* — light cavalry + cavalry archers.
-   - **Thessara's Bazaar** *(repurposed)* — trade-lane upgrade research
-     only, **does not train units**.
-   - **Runai Outpost** — trade-route anchor / vision pylon.
-   - **Runai Trade Hub** — caravan spawner + trader-warrior spawner.
-   - **Runai Veilsteel Foundry** — produces Veilsteel (Iron + Veilstone,
-     same rate as Alanthor).
-   - **Runai Siege Workshop** — trains the Catapult.
-   - **Temple of Ridan** (Age 0 choice carryover) — Litharch + Acolyte.
-   - **No House.** **No Walls.** Identity-defining absences.
-2. **`ThessarasBazaar` → `TradersHall` rename** — covered by Q#1. The
-   `ThessarasBazaar` code id is **kept** but rebound to the new
-   trade-lane-upgrade-house role; the cultured Hall is the Age 0 Hall
-   reskinned (id remains `Hall`).
-3. **Runai economy** — **resolved.** Runai workers **mine iron normally**.
-   Supplies + Veilstone come from trade routes only. Veilsteel produced at
-   the Veilsteel Foundry from Iron + Veilstone (same rate as Alanthor).
-4. **Worker tech ladder** — **resolved directionally.** Runai has a Tools
-   ladder analogous to Alanthor's (Stone → Iron → Veilstone → Veilsteel
-   tools). Some techs may be **universal at Age 0** (TBD which).
-5. **Military tech ladder** — **resolved directionally.** Runai inherits
-   the same 4-tier per-battalion weapon ladder pattern as Alanthor for
-   Route Guard, Arrowyard, and Grazing Grounds. Specific tier names TBD.
-6. **Two Vaults** — **resolved: cut `Runai_Vault`.** Vault of Almiérra
-   (Age 0 choice building, −30 % Runai modifier) is Runai's only bank.
-7. **TariffBoostAura** — **resolved.** Per-drop-off timer (not radius
-   aura): when a caravan deposits at a Trade Hub, the next deposit at
-   that same building gets a short bonus-yield window. **No stacking.**
-8. **PackAndMove** — **resolved: REMOVED.** The mechanic is retired.
-   The `Runai_PackBazaar` tech is also retired.
-9. **Wagon transit-spike** — **resolved.** Linear decay over **4 minutes**
-   from full to zero. Well-placed Age 0 huts make the spike invisible.
-10. **Wagon count cap** — **resolved.** No hard cap — count = number of
-    Age 0 Gatherer's Huts. Self-balancing via worker count and Age 0
-    opportunity cost.
-11. **Faction choice timing** — **resolved.** Age 0 is faction-agnostic.
-    Players may know their pick (and place huts to synergize), or change
-    their mind, or choose at random. Synergy is the player's
-    responsibility.
-12. **Recoverability floor** — **resolved directionally.** Runai can
-    recover from wagon-loss; not a softlock condition.
-13. **Trader-warrior cap scope** — **resolved.** **Global cap that scales
-    with player population** (+1 trader-warrior slot per soldier trained).
-    Prevents snowballing.
-14. **Trader-warrior post-death fate** — **resolved.** Warriors belong
-    to the lane network, not specific posts. On node death, they
-    redistribute across remaining nodes.
-15. **"Watching helplessly" UX** — **resolved.** Lane / outpost zones
-    trigger audible cue + minimap ping when an enemy enters; warriors
-    become controllable while the zone is hot; auto-revert 5 s after
-    clear.
-16. **Border neutrality** — **resolved.** Tech-based, researched
-    at the Trader's Hall. Effect: −20 % chance of aggroing border waves
-    when Runai units traverse border tiles. Border defences themselves
-    remain in place (the border resists *conversion* — Runai's interaction
-    type — harder than the other two).
-17. **Acolyte training level** — **resolved.** Trains at **Temple of
-    Ridan L3** (Temple caps at 3 levels — the old "L4" reference is a
-    retired spec stage). **Cross-faction impact:** Alanthor Scholar and
-    Feraldis Iconoclast also drop from L4 → L3.
-18. **Caravan cargo on death** — **resolved.** Cargo **reverts to the
-    killer** if the killer is Feraldis (gives Feraldis 50 % of cargo as
-    supplies). For Alanthor / Runai killers, cargo is destroyed.
-19. **MP determinism for trader-warrior AI** — **deferred.** Not in
-    scope for now.
+Castable by **Litharchs, Workers and heroes** of a Runai faction. Every
+**escort** of the faction's caravans in the caster's territory **and the
+territories bordering it** is **teleported to the caster** and becomes a
+**controllable army for one minute** (`callSeconds`). The caster may dismiss
+it early. When it ends, the escorts **do not teleport back** — they walk to
+their wagons. **Their caravans travel unescorted for the whole Call and the
+walk back** — that is the price of an extra army. Long cooldown (at least
+3 minutes, on the ability SO).
 
-## Remaining open questions
+### 8.2 The Wayfinder
 
-- **L2 / L3 infantry tier names** at Route Guard.
-- **L2 / L3 ranged tier names** at Arrowyard.
-- **L2 / L3 cavalry / cavalry-archer tier names** at Grazing Grounds.
-- **Grazing Grounds numeric stats** (HP, LoS, defense, build cost).
-- **Cavalry Archer stat block** (HP, range, damage, etc.).
-- **Thessara's Bazaar numeric stats** (HP, exact build cost).
-- **Specific tier names** for the Runai Tools / weapons / arrows /
-  barding ladders (Q#4, Q#5 — design directionally resolved, names TBD).
-- **Tools that may be Age-0 universal** vs Age-1 culture-specific
-  (Q#4 implementation detail).
-- **TariffBoostAura window duration + bonus %** (Q#7 mechanic resolved,
-  numbers TBD).
-- **Runai-specific pop ceiling at age-up** — probably mirrors
-  Feraldis's instant-200; confirm.
-- **Border-neutrality tech naming and per-tier numbers** (Q#16 — only
-  one example tech shape given).
+`Runai_Wayfinder`, Fortress L3, one per faction, levels 1-10 from kills:
+Wayfinding (1), Mirage (3), Caravan of Swords (5), Exodus (10). Also casts
+The Call.
 
-## Cross-faction follow-ups triggered by this review
+### 8.3 The Caravan Master
 
-- **Religious unit training level: L4 → L3** across all three culture
-  docs (Q#17). Affects Scholar in [Age_1_Alanthor.md](Age_1_Alanthor.md)
-  and Iconoclast in [Age_1_Feraldis.md](Age_1_Feraldis.md).
-- **Caravan death cargo → Feraldis-only benefit** is a new Feraldis
-  income stream; flag in [Age_1_Feraldis.md § Pillage / damage-income](Age_1_Feraldis.md#culture-identity) as a passive synergy with the
-  damage-as-income mechanic.
-- **`Runai_Vault` removed** — cleanup needed in [BuildCosts.cs](../../Assets/Scripts/Data/TechTree/BuildingCosts.cs#L49) and
-  [TechTree.json:638](../../Assets/Resources/TechTree.json#L638).
-- **`Runai_PackBazaar` retired** — cleanup needed in the same files.
-- **`ThessarasBazaar` repurposed** — code rebind from "main hall" to
-  "trade-lane upgrade house"; drop the `PackAndMove` and `TariffBoostAura`
-  per-building abilities since they're either retired or rebound.
+`Runai_CaravanMaster`, Fortress L2, one per faction: caravans near him are
+faster and carry more; **Scatter**.
+
+---
+
+## 9. AI
+
+- **Every AI targets caravans**: caravan wagons are preferred targets of AI
+  armies and raids.
+- The Runai AI: chooses Thessara's Crossing, builds the four trainers, levels
+  them, trains every tier, builds Sanctuaries and Waystations, researches
+  the trade paths and the curse ladder, casts The Call when its caravans are
+  attacked.
+
+---
+
+## 10. Open items
+
+- The art pass (§1.1).
+- Every number (all placeholders).

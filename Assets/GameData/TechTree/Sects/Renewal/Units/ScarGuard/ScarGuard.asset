@@ -17,15 +17,15 @@ MonoBehaviour:
   unitClass: melee
   hp: 170
   speed: 3.2
-  trainingTime: 21
+  trainingTime: 22
   damage: 16
   damageType: melee
   armorType: infantry_heavy
   defense:
-    melee: 0
-    ranged: 0
+    melee: 4
+    ranged: 3
     siege: 0
-    magic: 0
+    magic: 1
   attackCooldown: 1.2
   attackRange: 0
   minAttackRange: 0
@@ -34,8 +34,8 @@ MonoBehaviour:
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 0
-    Iron: 0
+    Supplies: 80
+    Iron: 45
     Veilstone: 0
     Veilsteel: 0
   populationCost: 1
@@ -54,3 +54,4 @@ MonoBehaviour:
   prefab: {fileID: 32314801045755, guid: 05f7000860a9b9893ac91fd3aeb3f944, type: 3}
   presentationId: 370
   animatorController: {fileID: 0}
+  aimTime: 0

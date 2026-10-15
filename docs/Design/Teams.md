@@ -57,7 +57,12 @@ Allied units and buildings **cannot** damage each other, by any route:
 There is no friendly-fire toggle. Allied damage is not reduced — it does not
 happen.
 
-**The one exception is fire.** Burning ground is an ownerless hazard, not an
+**The Feraldis area weapons are the second exception (2026-10-12).** The
+**Ram Rig's explosion** and the **Harpoon Rig's barbed wire** hit everything
+in them — enemies, allies and their own side — by design: the rig is a bomb
+and the wire a hazard ([Age_1_Feraldis.md §7.5](Age_1_Feraldis.md)).
+
+**The other exception is fire.** Burning ground is an ownerless hazard, not an
 attack: it burns everyone standing in it, the faction that lit it and its
 allies included, unless the entity carries a fire immunity granted by a spell,
 trait or tech. "Allies cannot damage each other" is about attacks and effects

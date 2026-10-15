@@ -1,4 +1,4 @@
-﻿// ActionsPanelBinder.cs
+// ActionsPanelBinder.cs
 // Selection-driven ACTIONS panel for the final game UI. Code-built (no
 // authored prefab yet — see GameUIKit) and spawned by GameUIManager in the
 // bottom-right, left of the minimap.
@@ -526,6 +526,9 @@ namespace TheWaningBorder.UI.Ingame
         {
             var em = EM(out bool ok);
             if (!ok || !em.Exists(entity)) return;
+
+            // Feraldis Forge bays and totem rites (docs/Design/Age_1_Feraldis.md).
+            if (TheWaningBorder.UI.Data.FeraldisActions.TryExecute(em, entity, b.Id)) return;
 
             switch (b.Id)
             {

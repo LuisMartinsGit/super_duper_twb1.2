@@ -29,7 +29,7 @@ namespace TheWaningBorder.Entities
         // Nominal lob speed; in practice the catapult hang-time formula in
         // RangedCombatSystem overrides high-arc CatapultTag shots to a slow
         // 2-3 s flight scaled by range.
-        public const int PresentationID = 348;
+        public const int PresentationID = 433;   // Trebuchet.prefab (Synty) on its SO; 348 was the procedural TrebuchetVisual
 
         /// <summary>Create Trebuchet using EntityManager.</summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)

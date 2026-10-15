@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: RamRig
+  m_EditorClassIdentifier: 
+  id: Feraldis_RamRig
+  displayName: Ram Rig
+  unitClass: siege
+  hp: 150
+  speed: 5.2
+  trainingTime: 22
+  damage: 5
+  damageType: siege
+  armorType: infantry_heavy
+  defense:
+    melee: 1
+    ranged: 1
+    siege: 0
+    magic: 0
+  attackCooldown: 2
+  attackRange: 1
+  minAttackRange: 0
+  lineOfSight: 18
+  aimTime: 0
+  radius: 0.9
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 0
+    Iron: 60
+    Veilstone: 100
+    Veilsteel: 0
+  populationCost: 2
+  minBuildingLevel: 1
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags:
+  - Siege
+  - Heavy
+  bonusVsTags:
+  - vsTag: Building
+    amount: 20
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 5952459101033159155, guid: 9c1bf98b2839ac14da91eb11b8ce21ce, type: 3}
+  presentationId: 422
+  animatorController: {fileID: 0}

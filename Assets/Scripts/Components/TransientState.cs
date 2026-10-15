@@ -23,6 +23,11 @@
 //   * The helpers tolerate entities that never got the pre-add (buildings,
 //     projectiles, scenario husks): Set adds on demand (a one-time structural
 //     change that converges), Clear/Active treat absence as inactive.
+//   * BUILDINGS too (2026-10-11): BuildingTransientSeedSystem pre-adds the
+//     building-side transients (damage ledgers, SectShutdown, SectRegenTail,
+//     SpellBuff, VenerationFervor, AutoYieldBoost, UnderAutomation,
+//     BuildingUpgrading) disabled on every building's first tick. A NEW
+//     transient that can land on a building belongs in its list.
 
 using Unity.Entities;
 
@@ -200,6 +205,12 @@ public static class TransientState
         ComponentType.ReadWrite<QueuedMoveStep>(),
         ComponentType.ReadWrite<AntiquityKills>(),
         ComponentType.ReadWrite<AttainderLedger>(),
+        // Alanthor sect heroes and powers (2026-10-15) — enableable.
+        ComponentType.ReadWrite<CatalogedMark>(),
+        ComponentType.ReadWrite<Lanced>(),
+        ComponentType.ReadWrite<Cauterized>(),
+        ComponentType.ReadWrite<Taunted>(),
+        ComponentType.ReadWrite<BountyMarked>(),
     };
 
     /// <summary>Pre-add the full transient set, disabled, on a freshly
@@ -261,6 +272,11 @@ public static class TransientState
         em.SetComponentEnabled<FormationSpeedOverride>(e, false);
         em.SetComponentEnabled<CommandQueueActive>(e, false);
         em.SetComponentEnabled<QueuedMoveStep>(e, false);
+        em.SetComponentEnabled<CatalogedMark>(e, false);
+        em.SetComponentEnabled<Lanced>(e, false);
+        em.SetComponentEnabled<Cauterized>(e, false);
+        em.SetComponentEnabled<Taunted>(e, false);
+        em.SetComponentEnabled<BountyMarked>(e, false);
     }
 
     /// <summary>ECB twin of <see cref="PreAddUnitSet(EntityManager,Entity)"/>
@@ -321,5 +337,10 @@ public static class TransientState
         ecb.SetComponentEnabled<FormationSpeedOverride>(e, false);
         ecb.SetComponentEnabled<CommandQueueActive>(e, false);
         ecb.SetComponentEnabled<QueuedMoveStep>(e, false);
+        ecb.SetComponentEnabled<CatalogedMark>(e, false);
+        ecb.SetComponentEnabled<Lanced>(e, false);
+        ecb.SetComponentEnabled<Cauterized>(e, false);
+        ecb.SetComponentEnabled<Taunted>(e, false);
+        ecb.SetComponentEnabled<BountyMarked>(e, false);
     }
 }

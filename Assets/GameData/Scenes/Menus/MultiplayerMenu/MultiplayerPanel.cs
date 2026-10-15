@@ -70,6 +70,9 @@ namespace TheWaningBorder.UI.Menus.Panels
         private const string MSG_ACCEPT = "TWB_ACCEPT|";
         private const string MSG_COLOR = "TWB_COLOR|";
         private const string MSG_LEAVE = "TWB_LEAVE|";
+        /// <summary>Client -> Host: TWB_CULT|SlotIndex|Culture — the client's
+        /// own START WITH CULTURE pick (StartCultureOption).</summary>
+        private const string MSG_CULT = "TWB_CULT|";
         /// <summary>Host -> Client: this join cannot work, here is why.</summary>
         private const string MSG_REJECT = "TWB_REJECT|";
 
@@ -207,7 +210,11 @@ namespace TheWaningBorder.UI.Menus.Panels
         private int _mapHalfSize;                // protocol compat, no UI
         private bool _borderEnabled;
         private bool _maxResources;
-        private SkirmishStartAge _startAge;
+        // START WITH CULTURE (StartCultureOption) — replaced the STARTING AGE
+        // dropdown. Host-owned; rides TWB_LOBBY in the old StartAge field.
+        private bool _startWithCulture;
+        private Button _cultureToggle;
+        private TMP_Text _cultureState;
 
         // ── Network state ───────────────────────────────────────────────
 
@@ -278,7 +285,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             _mapHalfSize = GameSettings.MapHalfSize;
             _borderEnabled = GameSettings.BorderEnabled;
             _maxResources = GameSettings.MaxStartingResources;
-            _startAge = GameSettings.StartAge;
+            _startWithCulture = GameSettings.PerFactionStartCulture;
             _playerName = PlayerProfile.PlayerName;
             _error = null;
             _renderedState = (LobbyState)(-1);
@@ -397,16 +404,16 @@ namespace TheWaningBorder.UI.Menus.Panels
                     SyncLobbyState();
                 });
             }
-            if (AgeDropdown != null)
-            {
-                SetOptions(AgeDropdown, LobbyOptions.AgeNames);
-                AgeDropdown.onValueChanged.AddListener(v =>
+            StartCultureOption.BuildToggle(AgeDropdown, FogToggle, FogState, out _cultureToggle, out _cultureState);
+            if (_cultureToggle != null)
+                _cultureToggle.onClick.AddListener(() =>
                 {
                     if (!_isHost) return;
-                    _startAge = (SkirmishStartAge)v;
+                    _startWithCulture = !_startWithCulture;
+                    SyncPills();
+                    RebuildSlots(true);
                     SyncLobbyState();
                 });
-            }
             if (PortField != null)
             {
                 PortField.text = _port.ToString();
@@ -868,12 +875,11 @@ namespace TheWaningBorder.UI.Menus.Panels
             // host's. Same reason the skirmish lobby restores with it.
             if (ResourcesDropdown != null)
                 ResourcesDropdown.SetValueWithoutNotify(_maxResources ? 1 : 0);
-            if (AgeDropdown != null)
-                AgeDropdown.SetValueWithoutNotify((int)_startAge);
+            SyncPill(_cultureToggle, _cultureState, _startWithCulture);
 
             // Only the host owns the match settings; a client reads them.
             if (ResourcesDropdown != null) ResourcesDropdown.interactable = _isHost;
-            if (AgeDropdown != null) AgeDropdown.interactable = _isHost;
+            if (_cultureToggle != null) _cultureToggle.interactable = _isHost;
 
             // Same for the name. SetTextWithoutNotify, or echoing the host's
             // name into a client's field would fire the listener and the
@@ -905,7 +911,11 @@ namespace TheWaningBorder.UI.Menus.Panels
         private static void SyncPill(Button toggle, TMP_Text state, bool on)
         {
             if (state != null) state.text = Loc.T(on ? "ON" : "OFF");
-            if (toggle != null && toggle.targetGraphic is Image img)
+            if (toggle == null) return;
+            // A Synty-dressed switch slides; a plain one swaps colour.
+            var sw = toggle.GetComponent<MenuToggleSwitch>();
+            if (sw != null) { sw.SetOn(on); return; }
+            if (toggle.targetGraphic is Image img)
                 img.color = on ? PillOn : PillOff;
         }
 
@@ -914,6 +924,11 @@ namespace TheWaningBorder.UI.Menus.Panels
         private void RebuildSlots(bool isHost)
         {
             if (SlotsContent == null || SlotRowTemplate == null) return;
+
+            // The template is a stencil, never a row: left active in the scene
+            // it rendered as a permanent extra player line. Same fix as the
+            // skirmish roster.
+            if (SlotRowTemplate.activeSelf) SlotRowTemplate.SetActive(false);
 
             for (int i = SlotsContent.childCount - 1; i >= 0; i--)
             {
@@ -1001,7 +1016,7 @@ namespace TheWaningBorder.UI.Menus.Panels
 
             foreach (var node in new[] { "TeamChip", "HostBadge", "AiButton",
                                          "DifficultyButton", "StrategyDropdown",
-                                         "RemoveButton" })
+                                         StartCultureOption.RowDropdownName, "RemoveButton" })
                 t.Find(node)?.gameObject.SetActive(false);
 
             var name = t.Find("NameLabel")?.GetComponent<TMP_Text>();
@@ -1235,6 +1250,25 @@ namespace TheWaningBorder.UI.Menus.Panels
                 }
             }
 
+            // START WITH CULTURE: the host picks for every slot, a client for
+            // its own (TWB_CULT); everyone sees every pick.
+            var cultureDd = StartCultureOption.RowDropdown(t, stratDd);
+            if (cultureDd != null)
+            {
+                bool show = _startWithCulture && slot.Type != SlotType.Empty;
+                cultureDd.gameObject.SetActive(show);
+                if (show)
+                {
+                    bool mine = isHost || index == _mySlotIndex;
+                    cultureDd.interactable = mine;
+                    StartCultureOption.Fill(cultureDd, LobbyConfig.Slots[idx].StartCulture, c =>
+                    {
+                        if (_isHost) { LobbyConfig.Slots[idx].StartCulture = c; SyncLobbyState(); }
+                        else SendCultureSet(idx, c);
+                    });
+                }
+            }
+
             // Shrink handle. Only the bottom rung carries it, and only when
             // that rung is the host's to close — see RemoveLastSlot for why
             // this is not an X on every row like the skirmish roster.
@@ -1304,6 +1338,7 @@ namespace TheWaningBorder.UI.Menus.Panels
         private void RebuildGames()
         {
             if (GamesContent == null || GameRowTemplate == null) return;
+            if (GameRowTemplate.activeSelf) GameRowTemplate.SetActive(false);
 
             for (int i = GamesContent.childCount - 1; i >= 0; i--)
             {
@@ -1872,6 +1907,17 @@ namespace TheWaningBorder.UI.Menus.Panels
                     }
                 }
             }
+            else if (msg.StartsWith(MSG_CULT))
+            {
+                var parts = msg.Substring(MSG_CULT.Length).Split('|');
+                if (parts.Length >= 2 && int.TryParse(parts[0], out int slotIndex)
+                    && byte.TryParse(parts[1], out byte cult)
+                    && slotIndex > 0 && slotIndex < LobbyConfig.ActiveSlotCount)
+                {
+                    LobbyConfig.Slots[slotIndex].StartCulture = StartCultureOption.Gated(cult);
+                    SyncLobbyState();
+                }
+            }
             else if (msg.StartsWith(MSG_COLOR))
             {
                 var parts = msg.Substring(MSG_COLOR.Length).Split('|');
@@ -2084,7 +2130,8 @@ namespace TheWaningBorder.UI.Menus.Panels
             // name. Slot tuples therefore start at LobbySlotOffset, not 7 —
             // both ends move together, and a build with a different field list
             // is refused at the door by MatchSettingsSync.Fingerprint on JOIN.
-            sb.Append($"|{(_maxResources ? 1 : 0)}|{(int)_startAge}|{Field(_gameName)}");
+            // The old StartAge field now carries START WITH CULTURE (0 / 1).
+            sb.Append($"|{(_maxResources ? 1 : 0)}|{(_startWithCulture ? 1 : 0)}|{Field(_gameName)}");
 
             for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
             {
@@ -2094,7 +2141,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                 // Without it clients would disagree about who is allied, and
                 // lockstep would desync on the first friendly-fire test.
                 // docs/Design/Teams.md
-                sb.Append($"|{(int)slot.Type},{Field(slot.PlayerName)},{(int)slot.AIDifficulty},{LobbyConfig.Slots[i].ColorIndex},{LobbyConfig.Slots[i].TeamIndex},{LobbyConfig.Slots[i].StartIndex},{(int)LobbyConfig.Slots[i].AIStrategy}");
+                sb.Append($"|{(int)slot.Type},{Field(slot.PlayerName)},{(int)slot.AIDifficulty},{LobbyConfig.Slots[i].ColorIndex},{LobbyConfig.Slots[i].TeamIndex},{LobbyConfig.Slots[i].StartIndex},{(int)LobbyConfig.Slots[i].AIStrategy},{LobbyConfig.Slots[i].StartCulture}");
             }
 
             byte[] data = Encoding.UTF8.GetBytes(sb.ToString());
@@ -2122,8 +2169,8 @@ namespace TheWaningBorder.UI.Menus.Panels
             if (parts.Length > 6)
                 _selectedMapIndex = MapRegistry.IndexOf(parts[6]);
             if (parts.Length > 7) _maxResources = int.Parse(parts[7]) != 0;
-            if (parts.Length > 8 && int.TryParse(parts[8], out int age))
-                _startAge = (SkirmishStartAge)age;
+            if (parts.Length > 8 && int.TryParse(parts[8], out int cultureOn))
+                _startWithCulture = cultureOn != 0;
             if (parts.Length > 9) _gameName = parts[9];
 
             for (int i = 0; i < slotCount && i + LobbySlotOffset < parts.Length; i++)
@@ -2142,6 +2189,8 @@ namespace TheWaningBorder.UI.Menus.Panels
                         LobbyConfig.Slots[i].StartIndex = start;
                     if (slotParts.Length >= 7 && int.TryParse(slotParts[6], out int strat))
                         LobbyConfig.Slots[i].AIStrategy = (LobbyAIStrategy)strat;
+                    if (slotParts.Length >= 8 && byte.TryParse(slotParts[7], out byte cult))
+                        LobbyConfig.Slots[i].StartCulture = cult;
                 }
             }
         }
@@ -2199,6 +2248,15 @@ namespace TheWaningBorder.UI.Menus.Panels
         /// could disagree whenever another player's change arrived in between.
         /// The picker names the colour it wants. docs/Design/Lobby_Setup.md
         /// </summary>
+        /// <summary>Ask the host to set our slot's START WITH CULTURE pick.</summary>
+        private void SendCultureSet(int slotIndex, byte culture)
+        {
+            LobbyConfig.Slots[slotIndex].StartCulture = culture;   // optimistic echo
+            byte[] data = Encoding.UTF8.GetBytes($"{MSG_CULT}{slotIndex}|{culture}");
+            if (_clientPrivateSocket != null && _hostEndpoint != null)
+                _clientPrivateSocket.Send(data, data.Length, _hostEndpoint);
+        }
+
         private void SendColorSet(int slotIndex, int colorIndex)
         {
             // Optimistic local echo so the swatch responds immediately; the
@@ -2227,8 +2285,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             // is DERIVED from the age, never stored, for the reason spelled
             // out on LobbyOptions.CultureForAge.
             GameSettings.MaxStartingResources = _maxResources;
-            GameSettings.StartAge = _startAge;
-            GameSettings.StartCulture = LobbyOptions.CultureForAge(_startAge);
+            StartCultureOption.Apply(_startWithCulture);
             GameSettings.IsMultiplayer = true;
             GameSettings.NetworkRole = NetworkRole.Server;
             GameSettings.LocalPlayerFaction = Faction.Blue;

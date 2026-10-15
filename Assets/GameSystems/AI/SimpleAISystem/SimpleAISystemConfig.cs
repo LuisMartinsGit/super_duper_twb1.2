@@ -96,8 +96,18 @@ namespace TheWaningBorder.AI
         /// <summary>Veilsteel banked at or above which no Outpost forges.</summary>
         public int outpostVeilsteelTarget;
         /// <summary>Veilsteel banked at or above which one Outpost sells it
-        /// for iron and supplies (once Veilsteel Export is researched).</summary>
+        /// for iron (once Veilsteel Export is researched), and the chains sell
+        /// from the bank rather than forge more.</summary>
         public int outpostSellAboveVeilsteel;
+        /// <summary>Iron banked below which the Outposts run an iron chain
+        /// (Buy -> Forge -> Sell) even before the army is refused for iron
+        /// (Game_AI.md § 5a, 2026-10-12).</summary>
+        public int outpostIronFloor;
+        /// <summary>Guilds added to the Gatherer's Hut cap per Guild-income's
+        /// worth of supplies the Trading Outposts spend a minute: 1 = enough
+        /// Guilds (at their first level's slot income) to pay for the trade.
+        /// 0 = off. Supplies are the one thing the posts cannot make.</summary>
+        public float tradeGuildCompensation;
 
         // ── Veilstone as the army's bottleneck (2026-10-03) ──────────────
 

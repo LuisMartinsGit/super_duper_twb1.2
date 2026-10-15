@@ -196,6 +196,8 @@ namespace TheWaningBorder.Systems.Border
                 // climbing so the ward is a real reprieve rather than a pause
                 // before the same death. docs/Design/Sects.md section 4.
                 if (TransientState.Active<SectCurseWard>(em, ents[i])) continue;
+                // Cauterize: cursed ground is damage over time, and it is immune.
+                if (TransientState.Active<Cauterized>(em, ents[i])) continue;
 
                 byte sat = field.SaturationAt(xfs[i].Position);
                 bool onCrust = sat >= VeilField.CrustThreshold;
@@ -310,12 +312,6 @@ namespace TheWaningBorder.Systems.Border
                 // by mid-game (2026-08-03 playtest). Only PLAYER buildings
                 // engulfed by later growth crumble.
                 if (em.HasComponent<BorderTag>(ents[i])) continue;
-                // Veilworks takes no curse damage - it is a smelter FOR cursed
-                // matter and is meant to stand in the crust it feeds on
-                // (docs/Design/Sects.md section 4). Without this it would be
-                // the only building allowed onto cursed ground and the only one
-                // guaranteed to crumble there.
-                if (em.HasComponent<VeilworksTag>(ents[i])) continue;
                 if (field.SaturationAt(xfs[i].Position) < VeilField.DeepThreshold) continue;
 
                 // Same DOT contract as unit exposure (Invulnerable, scaling).

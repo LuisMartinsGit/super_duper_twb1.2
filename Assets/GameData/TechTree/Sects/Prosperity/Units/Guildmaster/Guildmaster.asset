@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Guildmaster
+  m_EditorClassIdentifier: 
+  id: Sect_Guildmaster
+  displayName: Guildmaster
+  unitClass: melee
+  hp: 460
+  speed: 3.6
+  trainingTime: 40
+  damage: 22
+  damageType: melee
+  armorType: infantry_light
+  defense:
+    melee: 3
+    ranged: 3
+    siege: 0
+    magic: 2
+  attackCooldown: 1.1
+  attackRange: 0
+  minAttackRange: 0
+  lineOfSight: 16
+  radius: 0.55
+  aimTime: 0
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 180
+    Iron: 60
+    Veilstone: 40
+    Veilsteel: 0
+  populationCost: 2
+  minBuildingLevel: 0
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags:
+  - 'Infantry'
+  - 'Hero'
+  bonusVsTags: []
+  abilities:
+  - Called In
+  - Stake
+  - Liquidate
+  prefab: {fileID: 122908383832175, guid: 07dc6767e48d386dd2d2cdde551e3f20, type: 3}
+  presentationId: 453
+  animatorController: {fileID: 0}

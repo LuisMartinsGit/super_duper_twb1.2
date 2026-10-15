@@ -2367,7 +2367,8 @@ namespace TheWaningBorder.AI
                             bool finisher = chainCloseout
                                 && sg.OwnerFaction == chainVictim
                                 && (sg.Category == IntelCategory.EcoBuilding
-                                    || sg.Category == IntelCategory.Worker);
+                                    || sg.Category == IntelCategory.Worker
+                                    || sg.Category == IntelCategory.Caravan);
                             if (!lifeline && !finisher) continue;
                             float sdx = sg.Position.x - mission.TargetPos.x;
                             float sdz = sg.Position.z - mission.TargetPos.z;

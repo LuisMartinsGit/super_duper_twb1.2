@@ -16,7 +16,7 @@ internal sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "The Waning Border";
+        Text = Edition.DisplayName;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         StartPosition = FormStartPosition.CenterScreen;
         MaximizeBox = false;

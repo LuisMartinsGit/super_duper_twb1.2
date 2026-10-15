@@ -427,7 +427,9 @@ namespace TheWaningBorder.Systems.Border
             {
                 var d = due[slots[i].d];
                 int k = slots[i].k;
-                int want = math.max(0, d.Size - d.Have[k]);
+                // A Runai Sanctuary on the node's outcrop sleeps it: no garrison
+                // rises there (docs/Design/Age_1_Runai.md §5.1).
+                int want = RunaiVeilNodes.SleepsAt(d.Nodes[k]) ? 0 : math.max(0, d.Size - d.Have[k]);
                 int toSpawn = math.min(want, headroom);
                 headroom -= toSpawn;
                 d.Capped += want - toSpawn;

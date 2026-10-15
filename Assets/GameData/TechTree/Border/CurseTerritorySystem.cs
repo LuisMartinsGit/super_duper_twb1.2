@@ -345,7 +345,10 @@ namespace TheWaningBorder.Systems.Border
         private static bool TryLastDamager(EntityManager em, Entity target, out Faction faction)
         {
             faction = Faction.Blue;
-            if (!em.HasComponent<LastDamagedByFaction>(target)) return false;
+            // Active, not merely present: the ledger is pre-added DISABLED on
+            // units and buildings, and a disabled one holds a default faction
+            // (Blue) nobody earned.
+            if (!TransientState.Active<LastDamagedByFaction>(em, target)) return false;
             faction = em.GetComponentData<LastDamagedByFaction>(target).Value;
             return (byte)faction < CurseWrath.PlayerFactions;
         }

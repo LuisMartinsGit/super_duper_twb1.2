@@ -1,4 +1,4 @@
-﻿// Timer-based age-up system — ticks AgeUpState.Remaining and runs
+// Timer-based age-up system — ticks AgeUpState.Remaining and runs
 // completion logic (era set, hall scale, culture effects, RP grant)
 // when the timer expires.
 
@@ -27,14 +27,6 @@ namespace TheWaningBorder.Systems.Work
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct AgeUpSystem : ISystem
     {
-        static readonly ComponentType[] QT_HutTagFactionTagLocalTransform =
-        {
-            ComponentType.ReadOnly<HutTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-        };
-        static CachedEntityQuery QC_HutTagFactionTagLocalTransform;
-
         #region Cached queries
 
         // CreateEntityQuery registers a NEW query with the world on every
@@ -131,8 +123,12 @@ namespace TheWaningBorder.Systems.Work
                 // Alanthor do not mine veilstone: every Veilstone Mine becomes a Trading Outpost
                 // (docs/Design/Veilstone_Economy.md §3.1).
                 OutpostSites.ConvertMinesForCulture(em, faction, culture);
+                // The Runai do not mine it either: their Veilstone Mines become
+                // Sanctuaries in place (docs/Design/Age_1_Runai.md §5.1).
+                TheWaningBorder.Entities.Sanctuary.ConvertMinesForCulture(em, faction, culture);
 
-                // 4b. Runai: instant 200-pop override (Houses don't apply; wagon-burst is task-066 Phase 2).
+                // 4b. Runai: the full population cap at age-up (no Houses — the Hut
+                //     is the Waystation, docs/Design/Age_1_Runai.md §2).
                 if (culture == Cultures.Runai)
                 {
                     if (FactionEconomy.TryGetBank(em, faction, out var runaiBank))
@@ -214,31 +210,9 @@ namespace TheWaningBorder.Systems.Work
                     em.AddComponent<GathererHutAgeUpChoice>(e);
                 }
             }
-            else if (culture == Cultures.Feraldis)
-            {
-                // Every Gatherer's Hut becomes a RAIDER CAMP. Same building
-                // entity — the tag switches it from gathering to producing
-                // Plunderers. It KEEPS GathererHutTag, so TerritoryIncomeSystem
-                // excludes RaiderCampTag by hand when counting a territory's
-                // huts; without that a Feraldis player would draw the hut boost
-                // as well. Feraldis income is what its raiders steal.
-                // (docs/Design/Age_1_Feraldis.md § Raider Camp)
-                var query = QC_GathererHutTagFactionTag.Get(em, QT_GathererHutTagFactionTag);
-                using var entities = query.ToEntityArray(Allocator.Temp);
-                using var tags = query.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-                for (int i = 0; i < entities.Length; i++)
-                {
-                    if (tags[i].Value != faction) continue;
-                    var e = entities[i];
-                    if (em.HasComponent<RaiderCampTag>(e)) continue;
-                    // First raider arrives one interval after the age-up.
-                    em.AddComponentData(e, new RaiderCampTag
-                    {
-                        SpawnTimer = TheWaningBorder.Core.Config.FeraldisConstants.CampSpawnInterval
-                    });
-                }
-            }
+            // Feraldis: the Gatherer's Hut stays a supply extractor (the Work
+            // Camp), staffed by slaves — the Raider Camp is retired
+            // (docs/Design/Age_1_Feraldis.md §2-3, 2026-10-12). Nothing to do.
             // Runai branch is still a stub (task-066 phase 2).
         }
 
@@ -278,37 +252,38 @@ namespace TheWaningBorder.Systems.Work
         /// script compiled into one assembly.</summary>
         public static void TransformHutsForCulture(EntityManager em, Faction faction, byte culture)
         {
-            // FERALDIS: every House standing at age-up pays out its L1 raider
-            // wave now (docs/Design/Age_1_Feraldis.md).
-            //
-            // Only the two LATER paths were ever wired — a House built after
-            // age-up (BuildingConstructionSystem) and a House upgraded to L2/L3
-            // (BuildingUpgradeSystem). The houses a player actually owns at the
-            // moment of age-up — i.e. the entire Age 0 build — fell through
-            // this stub and spawned nothing, ever. Fires once per faction,
-            // because age-up completes once.
-            if (culture != Cultures.Feraldis) return;
+            // FERALDIS: the House becomes the Slave Pens (it sets the slave
+            // cap — Feraldis slaves). It spawns nothing: the House raider
+            // waves are retired (docs/Design/Age_1_Feraldis.md §2, 2026-10-12).
+            // Workers become Slaves in FeraldisCultureRetrofitSystem.
 
-            var q = QC_HutTagFactionTagLocalTransform.Get(em, QT_HutTagFactionTagLocalTransform);
-            using var huts = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-
-            int spawned = 0;
-            for (int i = 0; i < huts.Length; i++)
+            // RUNAI: every standing House collapses (docs/Design/Age_1_Runai.md
+            // §2) — the Runai need no housing (full cap at age-up), and the
+            // Hut they build from now on is the Waystation tower. Destroyed as
+            // the Delete order does it: health to 0, no one gets kill credit.
+            if (culture == Cultures.Runai)
             {
-                var hut = huts[i];
-                if (em.GetComponentData<FactionTag>(hut).Value != faction) continue;
-                // A half-built house has not paid for its wave yet — the
-                // construction path will hand it over when it completes.
-                if (em.HasComponent<UnderConstruction>(hut)) continue;
-
-                var housePos = em.GetComponentData<LocalTransform>(hut).Position;
-                TheWaningBorder.Entities.FeraldisRaider.CreateUncontrolled(
-                    em, housePos + new Unity.Mathematics.float3(1.5f, 0f, 0f), faction);
-                spawned++;
+                var q = QC_HutTagFactionTag.Get(em, QT_HutTagFactionTag);
+                using var ents = q.ToEntityArray(Allocator.Temp);
+                using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    var e = ents[i];
+                    if (facs[i].Value != faction || em.HasComponent<GathererHutTag>(e)) continue;
+                    if (!em.HasComponent<Health>(e)) continue;
+                    if (em.HasComponent<LastDamagedByFaction>(e))
+                        em.SetComponentEnabled<LastDamagedByFaction>(e, false);
+                    var hp = em.GetComponentData<Health>(e);
+                    hp.Value = 0;
+                    em.SetComponentData(e, hp);
+                }
             }
-
-            if (spawned > 0)
-                TWBLog.Log($"[AgeUp] {faction} Feraldis age-up: {spawned} House(s) paid out their L1 raider.");
         }
+
+        static readonly ComponentType[] QT_HutTagFactionTag =
+        {
+            ComponentType.ReadOnly<HutTag>(), ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_HutTagFactionTag;
     }
 }

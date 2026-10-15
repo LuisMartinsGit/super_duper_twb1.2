@@ -30,6 +30,7 @@ MonoBehaviour:
   attackRange: 0
   minAttackRange: 0
   lineOfSight: 10
+  aimTime: 0
   radius: 0.5
   trajectory: 
   projectileSpeed: 0
@@ -43,14 +44,16 @@ MonoBehaviour:
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
   tags:
-  - 'Infantry'
-  - 'Heavy'
+  - Infantry
+  - Heavy
   bonusVsTags: []
+  preferTargets: []
   abilities: []
-  prefab: {fileID: 66040526569141, guid: 307724e440b64e27e053cc766b4067b1, type: 3}
+  prefab: {fileID: 3694670328104659496, guid: 307724e440b64e27e053cc766b4067b1, type: 3}
   presentationId: 377
-  animatorController: {fileID: 0}
+  animatorController: {fileID: 9100000, guid: d0877c408c8144042a6c9aa14d03c790, type: 2}

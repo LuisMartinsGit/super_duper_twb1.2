@@ -95,6 +95,7 @@ namespace TheWaningBorder.UI.Menus
             GameSettings.BorderEnabled = true;
             GameSettings.MaxStartingResources = false;
             GameSettings.StartAge = SkirmishStartAge.Age0;
+            GameSettings.PerFactionStartCulture = false;
             GameSettings.StartCulture = Cultures.None;
             GameSettings.TotalPlayers = 2;
             GameSettings.TutorialActive = true;

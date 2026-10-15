@@ -34,8 +34,9 @@ namespace TheWaningBorder.Systems.World
             if (!BloodMap.Ready) return;
             float dt = SystemAPI.Time.DeltaTime;
 
-            foreach (var (fervor, transform) in SystemAPI
-                .Query<RefRW<TotemFervor>, RefRO<LocalTransform>>()
+            float storedCap = TheWaningBorder.Feraldis.WarTotemRites.Cfg.storedCap;
+            foreach (var (fervor, transform, life) in SystemAPI
+                .Query<RefRW<TotemFervor>, RefRO<LocalTransform>, RefRW<TotemLifetime>>()
                 .WithAll<WarTotemTag>()
                 .WithNone<UnderConstruction>())
             {
@@ -43,8 +44,6 @@ namespace TheWaningBorder.Systems.World
                 f.DrinkTimer -= dt;
                 if (f.DrinkTimer > 0f) continue;
                 f.DrinkTimer = TotemDrinkInterval;
-
-                if (f.Value >= TotemFervorMax) continue;
 
                 var p = transform.ValueRO.Position;
 
@@ -54,8 +53,12 @@ namespace TheWaningBorder.Systems.World
                 float mean = BloodMap.Consume(p.x, p.z, TotemDrinkRadius, TotemDrinkFraction);
                 if (mean <= 0f) continue;
 
-                f.Value = UnityEngine.Mathf.Min(TotemFervorMax,
-                    f.Value + mean * TotemFervorPerPulse);
+                // Two counters (docs/Design/Age_1_Feraldis.md §6.2): LIFETIME
+                // evolves the totem and never goes down; STORED (Fervor) is
+                // spent on rites, capped.
+                float drunk = mean * TotemFervorPerPulse;
+                life.ValueRW.Lifetime += drunk;
+                f.Value = UnityEngine.Mathf.Min(storedCap, f.Value + drunk);
             }
         }
     }

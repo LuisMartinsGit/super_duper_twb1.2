@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 381dad10643578f4383c7f91151df753, type: 3}
+  m_Name: WarTotemRites
+  m_EditorClassIdentifier: 
+  tier2Lifetime: 120
+  tier3Lifetime: 360
+  storedCap: 100
+  radius: 18
+  lingerByTier:
+  - 2
+  - 3.5
+  - 5
+  killHeal: 25
+  riteCost:
+  - 30
+  - 35
+  - 50
+  - 80
+  riteSeconds:
+  - 10
+  - 10
+  - 6
+  - 15
+  riteCooldown: 30
+  bloodlustHaste:
+  - 1.2
+  - 1.3
+  - 1.4
+  hungerHealPerSecond:
+  - 4
+  - 6
+  - 9

@@ -108,6 +108,12 @@ namespace TheWaningBorder.Entities
                 ["Runai_SiegeWorkshop"] = new BuildingRecipe(RunaiSiegeWorkshop.Create, RunaiSiegeWorkshop.Create, 353),
                 ["Runai_Vault"]        = new BuildingRecipe(RunaiVault.Create, RunaiVault.Create, 365),
                 ["Runai_VeilsteelFoundry"] = new BuildingRecipe(VeilsteelFoundry.Create, VeilsteelFoundry.Create, 366),
+                // The 2026-10-13 redesign (docs/Design/Age_1_Runai.md): the
+                // landmark, the mounted trainer and the Sanctuary.
+                ["ThessarasCrossing"]    = new BuildingRecipe(ThessarasCrossing.Create, ThessarasCrossing.Create, ThessarasCrossing.PresentationID),
+                ["Runai_GrazingGrounds"] = new BuildingRecipe(GrazingGrounds.Create, GrazingGrounds.Create, GrazingGrounds.PresentationID),
+                ["Runai_Arrowyard"]      = new BuildingRecipe(Arrowyard.Create, Arrowyard.Create, Arrowyard.PresentationID),
+                ["Runai_Sanctuary"]      = new BuildingRecipe(Sanctuary.Create, Sanctuary.Create, Sanctuary.PresentationID),
 
                 // Alanthor culture buildings. The Practice Range is the LEVELED
                 // Archery Range (not a placeable building).
@@ -121,7 +127,7 @@ namespace TheWaningBorder.Entities
                 ["Alanthor_RoyalStable"]   = new BuildingRecipe(RoyalStable.Create, RoyalStable.Create, RoyalStable.PresentationID),
 
                 // Feraldis culture buildings
-                ["Feraldis_HuntingLodge"]   = new BuildingRecipe(HuntingLodge.Create, HuntingLodge.Create, 358),
+                ["Feraldis_HuntingLodge"]   = new BuildingRecipe(HuntingLodge.Create, HuntingLodge.Create, 580), // 358 is the Field Hospital
                 ["Feraldis_LoggingStation"] = new BuildingRecipe(LoggingStation.Create, LoggingStation.Create, 359),
                 ["Feraldis_Longhouse"]      = new BuildingRecipe(Longhouse.Create, Longhouse.Create, 360),
                 ["Feraldis_Tower"]          = new BuildingRecipe(TotemTower.Create, TotemTower.Create, 361),
@@ -130,6 +136,8 @@ namespace TheWaningBorder.Entities
                 ["Feraldis_WarTotem"]       = new BuildingRecipe(WarTotem.Create, WarTotem.Create, WarTotem.PresentationID),
                 ["Feraldis_Pasture"]        = new BuildingRecipe(Pasture.Create, Pasture.Create, Pasture.PresentationID),
                 ["Feraldis_HallOfAxes"]     = new BuildingRecipe(HallOfAxes.Create, HallOfAxes.Create, HallOfAxes.PresentationID),
+                // The Great Forge — one per faction (docs/Design/Age_1_Feraldis.md §4).
+                ["Feraldis_GreatForge"]     = new BuildingRecipe(GreatForge.Create, GreatForge.Create, GreatForge.PresentationID),
                 ["Mine"]                    = new BuildingRecipe(Mine.Create, Mine.Create, Mine.PresentationID),
                 // The veilstone half of the extraction pair (iron has the
                 // Mine); without this, veilstone was the one territory
@@ -146,7 +154,7 @@ namespace TheWaningBorder.Entities
                 ["Sect_Reliquary"]          = new BuildingRecipe(Reliquary.Create, Reliquary.Create, Reliquary.PresentationID),
                 ["Sect_MendingHall"]        = new BuildingRecipe(MendingHall.Create, MendingHall.Create, MendingHall.PresentationID),
                 ["Sect_Stonehold"]          = new BuildingRecipe(Stonehold.Create, Stonehold.Create, Stonehold.PresentationID),
-                ["Sect_Veilworks"]          = new BuildingRecipe(Veilworks.Create, Veilworks.Create, Veilworks.PresentationID),
+                ["Sect_Treasury"]          = new BuildingRecipe(Treasury.Create, Treasury.Create, Treasury.PresentationID),
                 ["Sect_MusterYard"]         = new BuildingRecipe(MusterYard.Create, MusterYard.Create, MusterYard.PresentationID),
 
                 // Raise Anew (Sect of Renewal active power) — three PERMANENT
@@ -288,7 +296,7 @@ namespace TheWaningBorder.Entities
         /// </summary>
         private static readonly HashSet<string> ChoiceBuildingIds = new()
         {
-            "VaultOfAlmierra", "FiendstoneKeep",
+            "VaultOfAlmierra", "FiendstoneKeep", "ThessarasCrossing",
         };
 
         /// <summary>
@@ -397,6 +405,7 @@ namespace TheWaningBorder.Entities
             {
                 case "Hut": built = GetFactionBuildingCount<HutTag>(em, faction); break;
                 case "TempleOfRidan": built = GetFactionBuildingCount<TempleOfRidanTag>(em, faction); break;
+                case "ThessarasCrossing": built = GetFactionBuildingCount<ThessarasCrossingTag>(em, faction); break;
                 default:
                     if (_uncountedCapWarned.Add(buildingId))
                         UnityEngine.Debug.LogError(
@@ -413,6 +422,7 @@ namespace TheWaningBorder.Entities
         {
             if (em.HasComponent<VaultTag>(entity)) return "VaultOfAlmierra";
             if (em.HasComponent<FiendstoneKeepTag>(entity)) return "FiendstoneKeep";
+            if (em.HasComponent<ThessarasCrossingTag>(entity)) return ThessarasCrossing.BuildingId;
             return null;
         }
 

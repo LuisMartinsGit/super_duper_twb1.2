@@ -267,12 +267,16 @@ namespace TheWaningBorder.Systems.Combat
 
                     // Plant and face the target. Facing used to be siege-only, so
                     // plain archers loosed arrows over their own shoulder.
-                    TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
+                    // Feraldis rigs that fire on the move (the War Rig; the Corpse
+                    // Engine and Harpoon Rig with Fire on the Move) keep driving.
+                    bool firesOnMove = em.HasComponent<FiresOnMove>(entity);
+                    if (!firesOnMove)
+                        TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
 
                     // Still mid-step this frame — the stop write above lands at
                     // ECB playback; aim starts accumulating from the NEXT frame
                     // once the unit actually stands. Never fire on the move.
-                    if (isMoving) continue;
+                    if (isMoving && !firesOnMove) continue;
 
                     // Full Gallop: a sprinting unit cannot shoot either (mounted
                     // archers keep the same rule as melee cavalry).
@@ -437,7 +441,9 @@ namespace TheWaningBorder.Systems.Combat
                                 faction.ValueRO.Value, finalDamage, (float)time + shot * 0.001f, tgt.Value, dmgType,
                                 isAOE, aoeRadius, spawnYOffset,
                                 archer.Trajectory, archer.ProjectileSpeed, isCatapult,
-                                shotBleed, shotIgnites ? ignite : default, shotIgnites, shooterKind);
+                                shotBleed, shotIgnites ? ignite : default, shotIgnites, shooterKind,
+                                em.HasComponent<CorpseEngineTag>(entity) ? (byte)1
+                                : em.HasComponent<HarpoonRigTag>(entity) ? (byte)2 : (byte)0);
                         }
 
                         // Reset state — use unit's configured cooldown.
@@ -533,7 +539,7 @@ namespace TheWaningBorder.Systems.Combat
             float spawnYOffset = 1.5f, byte trajectory = ShotTrajectory.Low, float projectileSpeed = 0f,
             bool catapultShot = false,
             InflictsBleed shotBleed = default, IgnitesBlood ignite = default, bool ignitesBlood = false,
-            byte shooterKind = 0)
+            byte shooterKind = 0, byte feraldisShot = 0)
         {
             // Calculate initial velocity towards target
             var direction = math.normalize(targetPos - start);
@@ -650,6 +656,10 @@ namespace TheWaningBorder.Systems.Combat
             // Feraldis riders carried by the shot itself (see call site).
             if (shotBleed.DamagePerSecond > 0f && shotBleed.Duration > 0f)
                 ecb.AddComponent(arrow, shotBleed);
+            // Corpse Engine (blood on impact) and Harpoon Rig (barbed wire) —
+            // docs/Design/Age_1_Feraldis.md §7.5.
+            if (feraldisShot == 1) ecb.AddComponent(arrow, new CorpseShot());
+            else if (feraldisShot == 2) ecb.AddComponent(arrow, new HarpoonShot { From = start, Shooter = shooter });
             if (ignitesBlood)
             {
                 ecb.AddComponent(arrow, ignite);

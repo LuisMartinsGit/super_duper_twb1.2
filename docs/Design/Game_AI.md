@@ -495,6 +495,55 @@ the composition line.
 
 Numbers: `SimpleAISystem.asset`, `AIBudget.asset`.
 
+**The Outposts make every resource but supplies (2026-10-12, the
+developer's ruling).** Buy turns supplies + iron into veilstone, Forge
+veilstone into veilsteel, Sell veilsteel into iron (Veilstone_Economy.md
+§3.1), so a chain of the three is an iron mine paid in supplies. The 0.0.40
+Mirror Marches batch showed the AI did not know it: three Alanthor AIs sat
+on 30-57 thousand supplies with 0-30 iron for an hour, every purchase
+"wallet short", their one to five Outposts all on Buy (spending the iron
+they lacked), while the one AI that built 32 posts and ran the chain led
+its match on 9-14 thousand iron. So the posts are assigned by NEED, not by
+veilstone alone:
+- each short resource asks for its own chain — veilstone: Buy; veilsteel:
+  Forge fed by Buy; iron: Sell fed by Forge fed by Buy — and the posts are
+  split between the chains by how short each is (the army refused for it
+  counts 2, below its bank floor 1: `outpostIronFloor`,
+  `outpostVeilsteelTarget`, the veilstone need above);
+- a chain's links are in the ratio the faction's real rates need
+  (`TradingOutpostSystem.PerMinute`, so the Trade Agreements discounts and
+  Swift Caravans change the mix), and a chain worth at least one whole post
+  keeps its head link even when that link's share rounds to nothing (a chain
+  worth less does not — on one post it would steal the urgent trade);
+- a link the bank already covers is skipped: banked veilsteel past
+  `outpostSellAboveVeilsteel` is sold without forging, banked veilstone past
+  the need (the glut rule) is forged without buying, and nothing Buys while
+  the army is short of supplies and not of veilstone. Nothing short: the
+  posts Hold, except that surplus veilsteel is still sold — while iron is
+  under `glutIronAbove`;
+- the Outpost researches Veilsteel Forging then Veilsteel Export as soon as
+  the first post stands — waiting until iron ran low was too late, because
+  Forging is paid in iron and a faction at 0 iron could never buy it; the
+  next chain tech's price is a savings goal (AIPivotalReserve
+  `TradeChainTech`) until it is seen in a queue, because an order the bank
+  could pay at the think was refused a tick later when the same think's new
+  Outpost had spent the iron — and
+  the trade surplus spender
+  (`IsTradeSurplus`: supplies past `surplusSupplies` while the army is short
+  of iron, veilstone or veilsteel — iron need not be piling up) builds a post
+  beside every free outcrop side, researches the chain techs first when iron
+  or veilsteel is short (then the discounts), and levels posts. An unaffordable
+  free outcrop is a savings goal for any of the three shortages, not
+  veilstone alone;
+- **supplies are the one thing the posts cannot make**, so the Guilds pay
+  for them: the Gatherer's Hut cap rises by the supplies the posts spend a
+  minute over one Guild's first-level slot income (`Guild_Lvl1`), times
+  `tradeGuildCompensation`. Guild levels already lead the economy upgrades
+  and the capital's levels its savings (§ 5h).
+
+Logged as `TRADE: outposts: s sell / f forge / b buy / h hold (short: ...)`
+and `SURPLUS: trade-held (short: ...)`.
+
 **Supplies outrank a veilstone purchase (2026-10-05).** Buying veilstone
 trades supplies for it. While the army's refused purchases are short of
 SUPPLIES and not of veilstone, the Outposts hold or forge rather than buy —
@@ -2676,6 +2725,34 @@ Gate numbers (both cultures, `AIEndgameCommon.asset`): defenders counted
 within `wellDefenceRadius` **25 m** (was 45 — the garrison area, not the
 region), retry after this faction's Backlash `riteRetrySeconds` **240 s**
 (was 600). Ranking numbers: `AIAlanthorEndgameSystem.asset`.
+
+## 7d. The Feraldis AI (2026-10-12)
+
+The Feraldis redesign ([Age_1_Feraldis.md](Age_1_Feraldis.md)) replaced the
+raider economy, so the Feraldis AI (`AIFeraldisEndgameSystem`, partial
+`.Redesign.cs`) now plays the slave / Forge / raiding loop:
+
+- **Slaves staff** the Great Forge first, then every extractor short of crew,
+  keeping two free to build. It **keeps the slave cap full** at the Fortress
+  and builds another **Slave Pen** when the cap is reached.
+- **Buildings:** Hall of Axes, Rig Yard, Great Forge, Engine Works and the
+  Temple (Blood Altar). The Raider Camp hut cap is gone — Work Camps grow like
+  any culture's huts.
+- **The Great Forge** runs a fixed bay plan — Veilsteel, Soulforge, Arms Export
+  (only with veilsteel to spare), Veilsteel — buys bays while the bank is rich
+  and then levels them.
+- **Uniques:** one Overseer and Harkon Fiend once the Fortress level allows;
+  both are kept out of the composition spreader. **Harkon** razes the hostile
+  building nearest him (curse nodes included), casts Warcry in a fight and
+  Blood Oath when badly hurt.
+- **Totems** start a rite (Blood Moon, Red Mist, Bloodlust, Hunger — the best
+  the tier allows) when an enemy is in range.
+- **Religion:** with the slave cap full and fewer than 3 RP banked, one spare
+  slave at a time is sacrificed at the Blood Altar.
+- **Research** follows the Feraldis ladder in `SimpleAISystem.Economy.cs`
+  (Chains, Berserk, Bellows, War Smithing, weapons…); the AI research-host
+  switch knows the Hall of Axes, Rig Yard, Engine Works and Great Forge.
+- The Corruptor verb is retired (wells are gone).
 
 ## 8. Tech / age / culture
 

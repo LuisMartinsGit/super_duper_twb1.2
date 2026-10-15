@@ -29,11 +29,24 @@ MonoBehaviour:
   lineOfSight: 18
   footprintCells: {x: 6, y: 6}
   buildTime: 90
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
   - Spearman
   research:
@@ -45,7 +58,7 @@ MonoBehaviour:
   cost:
     Supplies: 600
     Iron: 300
-    Crystal: 200
+    Veilstone: 200
     Veilsteel: 0
   tags:
   - Building
@@ -56,8 +69,10 @@ MonoBehaviour:
     range: 22
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
+  prefab: {fileID: 7610244242602248565, guid: aef53c45d46719b4f9e68691902cc380, type: 3}
+  presentationId: 540
   prefabPath: 
   canUpgradeTo: []
-  presentationId: 540

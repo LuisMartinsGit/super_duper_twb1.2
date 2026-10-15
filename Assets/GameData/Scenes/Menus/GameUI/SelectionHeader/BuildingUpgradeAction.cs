@@ -63,7 +63,7 @@ namespace TheWaningBorder.UI.Ingame
             var faction = em.GetComponentData<FactionTag>(building).Value;
             if (faction != GameSettings.LocalPlayerFaction) return info;
 
-            if (em.HasComponent<BuildingUpgrading>(building))
+            if (TransientState.Active<BuildingUpgrading>(em, building))
             {
                 var up = em.GetComponentData<BuildingUpgrading>(building);
                 float pct = up.Total > 0f ? Mathf.Clamp01(up.Progress / up.Total) : 0f;

@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: Blooded
+  m_EditorClassIdentifier: 
+  id: Feraldis_Blooded
+  displayName: Blooded
+  role: Military
+  effect: 
+  desc: "Veterancy tier 1: Longhouse infantry +10% HP."
+  researchAt: Barracks
+  minBuildingLevel: 1
+  researchTime: 40
+  prerequisites: []
+  culture: Feraldis
+  cost:
+    Supplies: 0
+    Iron: 60
+    Veilstone: 90
+    Veilsteel: 0
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList:
+  - Target: "unit:Feraldis_Spearman"
+    Stat: Hp
+    Op: Pct
+    Value: 10
+  - Target: "unit:Feraldis_Bloodletter"
+    Stat: Hp
+    Op: Pct
+    Value: 10
+  - Target: "unit:Feraldis_Suicidal"
+    Stat: Hp
+    Op: Pct
+    Value: 10
+  - Target: "unit:Feraldis_Berserker"
+    Stat: Hp
+    Op: Pct
+    Value: 10

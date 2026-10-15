@@ -132,6 +132,16 @@ namespace TheWaningBorder.Systems.Combat
                     continue;
                 }
 
+                // Melee cannot reach a FLYING target (Age_1_Runai.md §6.4).
+                if (em.HasComponent<FlyingTag>(tgt.Value)
+                    && !TheWaningBorder.Systems.Combat.TargetingSystem.CanHitFlying(em, entity))
+                {
+                    tgt.Value = Entity.Null;
+                    if (TransientState.Active<AttackCommand>(em, entity))
+                        TransientState.Clear<AttackCommand>(em, ecb, entity);
+                    continue;
+                }
+
                 // Validate target is alive
                 var targetHealth = em.GetComponentData<Health>(tgt.Value);
                 if (targetHealth.Value <= 0)
@@ -238,7 +248,10 @@ namespace TheWaningBorder.Systems.Combat
                     // Plant and turn to face the target. Stopping alone left the
                     // unit swinging at whatever heading it arrived on — usually
                     // tangential, because the approach ends in a sidestep.
-                    TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
+                    // Ride-By (Feraldis Rig Yard tech): Raiders strike without
+                    // stopping — FiresOnMove is stamped on them by FeraldisTechStampSystem.
+                    if (!em.HasComponent<FiresOnMove>(entity))
+                        TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
 
                     // Attack if cooldown is ready
                     if (cd.Timer <= 0)
@@ -388,6 +401,8 @@ namespace TheWaningBorder.Systems.Combat
                             // Raider: leaves enemy BUILDINGS burning.
                             FeraldisBuildingBurn.ApplyFrom(em, ecb, entity, tgt.Value, atkFaction);
                         }
+                        // Hamstring (Feraldis War Hall tech): melee hits slow.
+                        TheWaningBorder.Feraldis.FeraldisCombat.OnMeleeHit(em, ecb, entity, tgt.Value);
 
                         // Reset cooldown. Glow Ability (Lv 5 active window)
                         // shortens the cooldown by 30% per the design spec.

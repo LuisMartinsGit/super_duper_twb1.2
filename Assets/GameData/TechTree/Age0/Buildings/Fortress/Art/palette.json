@@ -1,0 +1,148 @@
+{
+ "materials": [
+  {
+   "name": "Age0_Wood",
+   "base": [
+    0.56,
+    0.42,
+    0.27
+   ],
+   "metallic": 0.0,
+   "roughness": 0.9,
+   "emission": [
+    0,
+    0,
+    0
+   ],
+   "strength": 0
+  },
+  {
+   "name": "Age0_WoodDark",
+   "base": [
+    0.36,
+    0.26,
+    0.17
+   ],
+   "metallic": 0.0,
+   "roughness": 0.9,
+   "emission": [
+    0,
+    0,
+    0
+   ],
+   "strength": 0
+  },
+  {
+   "name": "Age0_Thatch",
+   "base": [
+    0.84,
+    0.7,
+    0.38
+   ],
+   "metallic": 0.0,
+   "roughness": 0.95,
+   "emission": [
+    0,
+    0,
+    0
+   ],
+   "strength": 0
+  },
+  {
+   "name": "Age0_Canvas",
+   "base": [
+    0.72,
+    0.66,
+    0.54
+   ],
+   "metallic": 0.0,
+   "roughness": 0.9,
+   "emission": [
+    0,
+    0,
+    0
+   ],
+   "strength": 0
+  },
+  {
+   "name": "Age0_Stone",
+   "base": [
+    0.5,
+    0.48,
+    0.45
+   ],
+   "metallic": 0.0,
+   "roughness": 0.9,
+   "emission": [
+    0,
+    0,
+    0
+   ],
+   "strength": 0
+  },
+  {
+   "name": "Age0_Earth",
+   "base": [
+    0.38,
+    0.32,
+    0.25
+   ],
+   "metallic": 0.0,
+   "roughness": 0.95,
+   "emission": [
+    0,
+    0,
+    0
+   ],
+   "strength": 0
+  },
+  {
+   "name": "Age0_Rope",
+   "base": [
+    0.62,
+    0.52,
+    0.36
+   ],
+   "metallic": 0.0,
+   "roughness": 0.95,
+   "emission": [
+    0,
+    0,
+    0
+   ],
+   "strength": 0
+  },
+  {
+   "name": "Age0_Fire",
+   "base": [
+    1.0,
+    0.55,
+    0.2
+   ],
+   "metallic": 0.0,
+   "roughness": 0.6,
+   "emission": [
+    1.0,
+    0.55,
+    0.2
+   ],
+   "strength": 2.5
+  },
+  {
+   "name": "Age0_PlayerColor_Cloth",
+   "base": [
+    0.23,
+    0.48,
+    0.74
+   ],
+   "metallic": 0.0,
+   "roughness": 0.8,
+   "emission": [
+    0,
+    0,
+    0
+   ],
+   "strength": 0
+  }
+ ]
+}

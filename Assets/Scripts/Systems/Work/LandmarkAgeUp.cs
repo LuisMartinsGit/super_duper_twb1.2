@@ -6,7 +6,7 @@
 //
 //   Vault of Almierra   -> Alanthor
 //   Fiendstone Keep     -> Feraldis
-//   (Thessara's Crossing -> Runai, once the building exists)
+//   Thessara's Crossing -> Runai
 //
 // Called from BOTH construction-completion paths (a worker's finishing tick
 // in BuildingConstructionSystem, the self-build tick in AutoConstructionSystem).
@@ -41,6 +41,7 @@ namespace TheWaningBorder.Systems.Work
         {
             if (em.HasComponent<VaultTag>(building)) return Cultures.Alanthor;
             if (em.HasComponent<FiendstoneKeepTag>(building)) return Cultures.Feraldis;
+            if (em.HasComponent<ThessarasCrossingTag>(building)) return Cultures.Runai;
             return Cultures.None;
         }
 
@@ -49,6 +50,7 @@ namespace TheWaningBorder.Systems.Work
         {
             "VaultOfAlmierra" => Cultures.Alanthor,
             "FiendstoneKeep"  => Cultures.Feraldis,
+            "ThessarasCrossing" => Cultures.Runai,
             _                 => Cultures.None,
         };
 

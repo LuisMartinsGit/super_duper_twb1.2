@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Collector
+  m_EditorClassIdentifier: 
+  id: Sect_Collector
+  displayName: Collector
+  unitClass: melee
+  hp: 95
+  speed: 3.8
+  trainingTime: 18
+  damage: 11
+  damageType: melee
+  armorType: infantry_light
+  defense:
+    melee: 1
+    ranged: 1
+    siege: 0
+    magic: 0
+  attackCooldown: 1.0
+  attackRange: 0
+  minAttackRange: 0
+  lineOfSight: 12
+  radius: 0.45
+  aimTime: 0
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 60
+    Iron: 25
+    Veilstone: 0
+    Veilsteel: 0
+  populationCost: 1
+  minBuildingLevel: 0
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags:
+  - 'Infantry'
+  - 'Light'
+  bonusVsTags: []
+  abilities: []
+  prefab: {fileID: 122908383832175, guid: 07dc6767e48d386dd2d2cdde551e3f20, type: 3}
+  presentationId: 371
+  animatorController: {fileID: 0}

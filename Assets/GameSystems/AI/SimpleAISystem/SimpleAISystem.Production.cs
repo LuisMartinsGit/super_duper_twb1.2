@@ -1,4 +1,4 @@
-﻿// SimpleAISystem.Production.cs
+// SimpleAISystem.Production.cs
 // Training, research, age-up and unit-replacement decisions.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -379,6 +379,12 @@ namespace TheWaningBorder.AI
             // Stable, catapults at the Siege Yard.
             if (TrainsUnit(em, "Alanthor_RoyalStable", unitId)) return FindLeastBusyTrainer<RoyalStableTag>(em, faction);
             if (TrainsUnit(em, "Alanthor_SiegeYard", unitId)) return FindLeastBusyTrainer<SiegeYardTag>(em, faction);
+            // Runai trainers (docs/Design/Age_1_Runai.md §6): without these the
+            // Runai AI built Grazing Grounds and Wagonworks and trained nothing
+            // from either (2026-10-13 Veilmarch runs).
+            if (TrainsUnit(em, "Runai_GrazingGrounds", unitId)) return FindLeastBusyTrainer<GrazingGroundsTag>(em, faction);
+            if (TrainsUnit(em, "Runai_Arrowyard", unitId)) return FindLeastBusyTrainer<ArrowyardTag>(em, faction);
+            if (TrainsUnit(em, "Runai_SiegeWorkshop", unitId)) return FindLeastBusyTrainer<SiegeWorkshopTag>(em, faction);
             return Entity.Null;
         }
         /// <summary>
@@ -430,6 +436,9 @@ namespace TheWaningBorder.AI
             if (TrainsUnit(em, "TempleOfRidan", unitId)) return "TempleOfRidan";
             if (TrainsUnit(em, "Alanthor_RoyalStable", unitId)) return "Alanthor_RoyalStable";
             if (TrainsUnit(em, "Alanthor_SiegeYard", unitId)) return "Alanthor_SiegeYard";
+            if (TrainsUnit(em, "Runai_GrazingGrounds", unitId)) return "Runai_GrazingGrounds";
+            if (TrainsUnit(em, "Runai_Arrowyard", unitId)) return "Runai_Arrowyard";
+            if (TrainsUnit(em, "Runai_SiegeWorkshop", unitId)) return "Runai_SiegeWorkshop";
             return null;
         }
 
@@ -506,6 +515,17 @@ namespace TheWaningBorder.AI
                 // Alanthor Age-1 research hosts (Wave 2 military tree).
                 "Alanthor_RoyalStable" => FindResearchHost<RoyalStableTag>(em, faction),
                 "Alanthor_SiegeYard"   => FindResearchHost<SiegeYardTag>(em, faction),
+                // Feraldis research hosts (docs/Design/Age_1_Feraldis.md §4, §7.6).
+                "Feraldis_HallOfAxes"  => FindResearchHost<HallOfAxesTag>(em, faction),
+                "Feraldis_Pasture"     => FindResearchHost<PastureTag>(em, faction),
+                "Feraldis_SiegeYard"   => FindResearchHost<FerSiegeYardTag>(em, faction),
+                "Feraldis_GreatForge"  => FindResearchHost<GreatForgeTag>(em, faction),
+                // Runai research hosts (docs/Design/Age_1_Runai.md §7).
+                "ThessarasCrossing"    => FindResearchHost<ThessarasCrossingTag>(em, faction),
+                "Runai_GrazingGrounds" => FindResearchHost<GrazingGroundsTag>(em, faction),
+                "Runai_Arrowyard" => FindResearchHost<ArrowyardTag>(em, faction),
+                "Runai_SiegeWorkshop"  => FindResearchHost<SiegeWorkshopTag>(em, faction),
+                "Runai_Sanctuary"      => FindResearchHost<RunaiSanctuaryTag>(em, faction),
                 // The Trading Outpost hosts its own trade research
                 // (Veilstone_Economy.md §3.1). With no case here the AI
                 // could never buy a single Outpost tech.
@@ -517,7 +537,7 @@ namespace TheWaningBorder.AI
                 "Sect_Reliquary"       => FindResearchHost<ReliquaryTag>(em, faction),
                 "Sect_MendingHall"     => FindResearchHost<MendingHallTag>(em, faction),
                 "Sect_Stonehold"       => FindResearchHost<StoneholdTag>(em, faction),
-                "Sect_Veilworks"       => FindResearchHost<VeilworksTag>(em, faction),
+                "Sect_Treasury"       => FindResearchHost<TreasuryTag>(em, faction),
                 "Sect_MusterYard"      => FindResearchHost<MusterYardTag>(em, faction),
                 // The wall's own levels (Battlements, Shielded Ramparts) are
                 // bought AT A WALL HUB (docs/Design/Age_1_Alanthor.md § The
@@ -1116,7 +1136,25 @@ namespace TheWaningBorder.AI
             // every stat was a stub (Sundered Crown 2026-09-09, the match's only
             // error). Same culture-prefix trap as the roster matchers.
             string ranged = "Alanthor_Archer";
-            if (FactionCultureOf(em, faction) == Cultures.Alanthor)
+            if (FactionCultureOf(em, faction) == Cultures.Feraldis)
+            {
+                // Feraldis (docs/Design/Age_1_Feraldis.md §7): close-quarters
+                // first; the War Hall ladder for melee, the Hall of Axes for ranged.
+                ranged = FirstTrainable(em, faction, "Feraldis_Firethrower", "Feraldis_Hunter", "Feraldis_Archer");
+                melee = cavHeavy
+                    ? FirstTrainable(em, faction, "Feraldis_Spearman")
+                    : FirstTrainable(em, faction, "Feraldis_Berserker", "Feraldis_Bloodletter", "Feraldis_Spearman");
+            }
+            else if (FactionCultureOf(em, faction) == Cultures.Runai)
+            {
+                // Runai (docs/Design/Age_1_Runai.md §6.2): the Route Guard
+                // melee ladder and the Arrowyard ranged ladder, best tier first.
+                ranged = FirstTrainable(em, faction, "Runai_SunArcher", "Runai_Slinger", "Runai_Skirmisher");
+                melee = cavHeavy
+                    ? FirstTrainable(em, faction, "Runai_RoadWarden", "Runai_DuneGuard", "Spearman")
+                    : FirstTrainable(em, faction, "Runai_Sandstrider", "Runai_RoadWarden", "Runai_DuneGuard", "Spearman");
+            }
+            else if (FactionCultureOf(em, faction) == Cultures.Alanthor)
             {
                 ranged = FirstTrainable(em, faction,
                     "Alanthor_Longbowman", "Alanthor_Crossbowman", "Alanthor_Archer");
@@ -1162,6 +1200,15 @@ namespace TheWaningBorder.AI
                     "Alanthor_Cataphract", "Alanthor_Outrider");
                 siege = FirstTrainableOrNull(em, faction,
                     "Alanthor_Trebuchet", "Alanthor_Catapult", "Alanthor_Ballista");
+            }
+            else if (FactionCultureOf(em, faction) == Cultures.Runai)
+            {
+                // Runai cavalry and siege (docs/Design/Age_1_Runai.md §6.3-6.4),
+                // best tier first.
+                cavalry = FirstTrainableOrNull(em, faction,
+                    "Runai_CamelLancer", "Runai_HorseArcher", "Runai_Raider");
+                siege = FirstTrainableOrNull(em, faction,
+                    "Runai_SiegeCaravan", "Runai_SkyBarge", "Runai_WarWagon");
             }
 
             return new CompositionMemo
@@ -1455,7 +1502,9 @@ namespace TheWaningBorder.AI
                 if (!IsCombatClass(UnitFactory.GetUnitClass(def.id))) continue;
                 // Uniques are rationed by HeroTrainLimit, not by composition.
                 if (TheWaningBorder.Abilities.HeroTrainLimit.IsKingLexorId(def.id)
-                    || TheWaningBorder.Abilities.HeroTrainLimit.IsLedgerId(def.id)) continue;
+                    || TheWaningBorder.Abilities.HeroTrainLimit.IsLedgerId(def.id)
+                    || def.id == TheWaningBorder.Feraldis.FeraldisEconomy.HarkonId
+                    || def.id == TheWaningBorder.Feraldis.FeraldisEconomy.OverseerId) continue;
 
                 var trainer = FindTrainerForUnit(em, faction, def.id);
                 if (trainer == Entity.Null) continue;

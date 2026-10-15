@@ -12,11 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: Longhouse
   m_EditorClassIdentifier: 
-  id: 'Feraldis_Longhouse'
-  displayName: 'Longhouse'
-  role: 'Batch-trains melee (5 or 10) with small discount'
+  id: Feraldis_Longhouse
+  displayName: Longhouse
+  role: Batch-trains melee (5 or 10) with small discount
+  description: 
   hp: 50
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 2
     ranged: 1
@@ -26,20 +27,46 @@ MonoBehaviour:
   lineOfSight: 20
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
-  - 'Feraldis_Berserker'
+  - Feraldis_Berserker
   research: []
   minEra: 0
   cost:
     Supplies: 260
     Iron: 100
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 3480665793878350445, guid: 5375f2aa567b76a4f8ddebb86055bde4, type: 3}
   presentationId: 360
+  prefabPath: 
+  canUpgradeTo: []

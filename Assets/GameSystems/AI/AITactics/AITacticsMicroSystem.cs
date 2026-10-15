@@ -461,6 +461,21 @@ namespace TheWaningBorder.AI
                 return Verdict.Hold;
             }
 
+            // THE CALL (docs/Design/Age_1_Runai.md §8.1, §9): pull the escorts
+            // in when a fight here is pivotal — never a convenience cast, the
+            // caravans ride unescorted meanwhile. Returning them is left to
+            // the Call running out.
+            if (card.HasEffect(AbilityEffectKind.RunaiReturnToWagons)) return Verdict.Ignore;
+            if (card.HasEffect(AbilityEffectKind.RunaiTheCall))
+            {
+                int callable = TheWaningBorder.Runai.RunaiTradeSystem.CallableEscorts(em, em.GetComponentData<FactionTag>(e).Value);
+                if (callable < 3) { why = $"only {callable} escorts to call"; return Verdict.Hold; }
+                if (ctx.InCombat && (ctx.Ratio >= skill.pivotalRatio || ctx.EnemiesInScan >= aoeMin * 2))
+                    return Verdict.Cast;
+                why = ctx.InCombat ? $"fight not pivotal (power {ctx.EnemyPower} vs {ctx.AllyPower})" : "not in combat";
+                return Verdict.Hold;
+            }
+
             if (card.HasEffect(AbilityEffectKind.DeployFieldHospital))
             {
                 int n = AlliesWithin(em, ctx.Pos, radius, 0, false, out int miss, out int max, out int wounded);

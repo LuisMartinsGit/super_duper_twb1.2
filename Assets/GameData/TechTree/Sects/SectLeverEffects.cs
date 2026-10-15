@@ -97,6 +97,23 @@ namespace TheWaningBorder.Economy
                             // (Magnitude >= 1 also locks their abilities)
         RevealedStrike,     // Witness "Nowhere to Hide": damage every enemy you can
                             // currently SEE, anywhere on the map — reach is not a radius
+
+        // ── Alanthor 2026-10-15 kinds (Sects.md §4). APPEND ONLY: the byte
+        // value is serialized (PendingSectStrike.Kind, SectPowerVfx.asset).
+        TrespassStrike,     // Antiquity "Trespass": full damage inside the caster's
+                            // territory, half outside (Magnitude = full damage)
+        Revive,             // Renewal "Revive": recently fallen units return
+                            // (Magnitude = HP fraction, Duration = window s,
+                            //  Secondary = most units)
+        WardCharge,         // Fortitude "Ward Discharge": arm one own structure
+                            // (Magnitude = damage per pulse, Secondary = pulses,
+                            //  Duration = seconds between pulses; Radius = trigger)
+        Bounty,             // Prosperity "Bounty": strike one unit; paid its cost
+                            // if it dies inside the window (Duration)
+        Overtime,           // Prosperity "Overtime": one own building works faster
+                            // (Magnitude = multiplier, Duration = seconds)
+        Plenty,             // Prosperity "Plenty": instantly gain Duration seconds
+                            // of the faction's income (no target)
     }
 
     public struct SectActivePowerSpec
@@ -264,10 +281,9 @@ namespace TheWaningBorder.Economy
             // Class indices match the UnitClass enum (Melee 0..Scout 7).
             switch (sectId)
             {
-                case SectConfig.Antiquity:   return new SectUnitLeverSpec { AppliesToClass = -1, DamageMultiplier = 1.04f };
-                case SectConfig.Renewal:     return new SectUnitLeverSpec { AppliesToClass = -1, HpMultiplier = 1.05f };
-                case SectConfig.Fortitude:   return new SectUnitLeverSpec { AppliesToClass = 0,  ArmorBonus = 3 };  // melee +armor
-                case SectConfig.Reclamation: return new SectUnitLeverSpec { AppliesToClass = 6,  ArmorBonus = 5 };  // workers +armor
+                // The Alanthor sects (2026-10-15 redesign, Sects.md §4) have no
+                // blanket stat bump: their effects are the sect building's
+                // standing effect, the unit, the hero and the powers.
                 case SectConfig.Silence:     return new SectUnitLeverSpec { AppliesToClass = 1,  DamageMultiplier = 1.06f }; // ranged
                 case SectConfig.Justice:     return new SectUnitLeverSpec { AppliesToClass = -1, DamageMultiplier = 1.04f };
                 case SectConfig.Veneration:  return new SectUnitLeverSpec { AppliesToClass = 0,  DamageMultiplier = 1.05f };

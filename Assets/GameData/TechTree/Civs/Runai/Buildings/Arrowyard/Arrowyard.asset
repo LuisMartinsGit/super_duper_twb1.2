@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: Arrowyard
+  m_EditorClassIdentifier: 
+  id: Runai_Arrowyard
+  displayName: Arrowyard
+  role: Runai ranged trainer
+  description: Skirmisher at L1, Slinger at L2, Sun Archer at L3.
+  hp: 800
+  armorType: structure_human
+  defense:
+    melee: 1
+    ranged: 1
+    siege: 0
+    magic: 0
+  radius: 1.6
+  lineOfSight: 18
+  footprintCells: {x: 4, y: 4}
+  buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
+  slotIncomePerMinute: []
+  interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
+  minWallLevel: 0
+  garrisonSlots: 0
+  garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
+  trains:
+  - Runai_Skirmisher
+  - Runai_Slinger
+  - Runai_SunArcher
+  research: []
+  minEra: 2
+  cost:
+    Supplies: 180
+    Iron: 60
+    Veilstone: 0
+    Veilsteel: 0
+  tags:
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 8328197914098584354, guid: 5fe026a1a35645a459f9418a47e01027, type: 3}
+  presentationId: 593
+  prefabPath: 
+  canUpgradeTo: []

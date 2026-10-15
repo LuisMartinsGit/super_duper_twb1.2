@@ -1,4 +1,4 @@
-﻿// SimpleAISystem.Queries.cs
+// SimpleAISystem.Queries.cs
 // Shared entity-query helpers: counts, lookups, classification predicates.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -268,6 +268,9 @@ namespace TheWaningBorder.AI
                 case "Barracks":               return LineSaturated<BarracksTag>(em, faction);
                 case "ArcheryRange":           return LineSaturated<ArcheryRangeTag>(em, faction);
                 case "Alanthor_RoyalStable":   return LineSaturated<RoyalStableTag>(em, faction);
+                case "Feraldis_HallOfAxes":    return LineSaturated<HallOfAxesTag>(em, faction);
+                case "Feraldis_Pasture":       return LineSaturated<PastureTag>(em, faction);
+                case "Feraldis_SiegeYard":     return LineSaturated<FerSiegeYardTag>(em, faction);
                 case "Alanthor_SiegeYard":     return LineSaturated<SiegeYardTag>(em, faction);
                 default:                       return false;
             }

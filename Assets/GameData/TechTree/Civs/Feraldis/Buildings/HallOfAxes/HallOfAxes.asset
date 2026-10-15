@@ -11,16 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: HallOfAxes
-  m_EditorClassIdentifier:
-  id: 'Feraldis_HallOfAxes'
-  displayName: 'Hall of Axes'
-  role: 'Feraldis ranged - throwing axes, fire and hunting bows'
+  m_EditorClassIdentifier: 
+  id: Feraldis_HallOfAxes
+  displayName: Hall of Axes
+  role: Feraldis ranged - throwing axes, fire and hunting bows
   description: Feraldis's ranged building. Its throwers hurl axes and fire rather
     than loosing arrows, which is why it is a hall and not a range. Replaces the
     retired Thrower Camp; it is a building in its own right, NOT a cultured Archery
     Range - the Archery Range is Alanthor-only.
   hp: 600
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 1
     ranged: 1
@@ -30,11 +30,24 @@ MonoBehaviour:
   lineOfSight: 18
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
   - Feraldis_Archer
   - Feraldis_Hunter
@@ -44,8 +57,21 @@ MonoBehaviour:
   cost:
     Supplies: 162
     Iron: 50
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 6982815668735424211, guid: d222bd9e61c40f742af01da96b87bd26, type: 3}
   presentationId: 369
+  prefabPath: 
+  canUpgradeTo: []

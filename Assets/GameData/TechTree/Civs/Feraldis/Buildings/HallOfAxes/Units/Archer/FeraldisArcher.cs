@@ -16,7 +16,7 @@ namespace TheWaningBorder.Entities
     /// </summary>
     public static class FeraldisArcher
     {
-        public const int PresentationID = 202;       // shares the Archer visual
+        public const int PresentationID = 428;       // own Archer.prefab (Archer Warrior variant) on its SO
 
         public static Entity Create(EntityManager em, float3 position, Faction faction)
             => CreateInternal(new EmCreator(em), position, faction);

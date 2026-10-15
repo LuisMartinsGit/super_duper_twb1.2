@@ -42,3 +42,11 @@ MonoBehaviour:
   - {fileID: 43762122179221550, guid: 6fce9bb271ab8f44083f881762d76a60, type: 3}
   - {fileID: 8859035990456395400, guid: d3efa76dd76be20478c8ec38d7186790, type: 3}
   - {fileID: 2566322791993599314, guid: fcb0d2f6a04dc404e84c665697a555da, type: 3}
+  cultureSets:
+  - culture: 3
+    curtain: {fileID: 718024413060738518, guid: 0444ea2f9633db94db754ead11588102, type: 3}
+    hub: {fileID: 3859034025762316607, guid: af4798f1de792e54189cb9e336cc7774, type: 3}
+    gate: {fileID: 6234497417832757828, guid: 4b02cfeb48a7d1b4886ef9054cf3ca0c, type: 3}
+    tower: {fileID: 1707101112956268055, guid: a866e98b455a551429367b3afed51d7e, type: 3}
+    ballistaMount: {fileID: 8754376238128589778, guid: 22d19ea69a469cd4fadc859fc9c88f06, type: 3}
+    trebuchetMount: {fileID: 8754376238128589778, guid: 22d19ea69a469cd4fadc859fc9c88f06, type: 3}

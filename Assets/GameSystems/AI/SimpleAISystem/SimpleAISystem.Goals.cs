@@ -1,4 +1,4 @@
-﻿// SimpleAISystem.Goals.cs
+// SimpleAISystem.Goals.cs
 // The decision layer: a PRIORITY LIST, not a script.
 // Partial of SimpleAISystem.cs.
 //
@@ -239,7 +239,46 @@ namespace TheWaningBorder.AI
                 Line<BarracksTag>(aged ? perKind : 2),
                 CountFactionBuildings<BarracksTag>(em, faction),
                 AIBudgetCategory.Military, "melee line"));
-            if (aged)
+            // FERALDIS production lines (docs/Design/Age_1_Feraldis.md §7):
+            // the Hall of Axes, the Rig Yard and the Engine Works — asking a
+            // Feraldis faction for the Alanthor buildings only burned its
+            // wallet on refusals (2026-10-12 probe).
+            if (aged && FactionCultureOf(em, faction) == Cultures.Feraldis)
+            {
+                goals.Add(new Goal(GoalKind.Build, "Feraldis_HallOfAxes",
+                    Line<HallOfAxesTag>(perKind),
+                    CountFactionBuildings<HallOfAxesTag>(em, faction),
+                    AIBudgetCategory.Military, "ranged line"));
+                goals.Add(new Goal(GoalKind.Build, "Feraldis_Pasture",
+                    Line<PastureTag>(perKind),
+                    CountFactionBuildings<PastureTag>(em, faction),
+                    AIBudgetCategory.Military, "cavalry line"));
+                goals.Add(new Goal(GoalKind.Build, "Feraldis_SiegeYard",
+                    Line<FerSiegeYardTag>(perKind),
+                    CountFactionBuildings<FerSiegeYardTag>(em, faction),
+                    AIBudgetCategory.Military, "siege line"));
+            }
+            // RUNAI production lines (docs/Design/Age_1_Runai.md §4): the Grazing
+            // Grounds and the Wagonworks. Placeholder AI — the Runai AI is an open item.
+            if (aged && FactionCultureOf(em, faction) == Cultures.Runai)
+            {
+                goals.Add(new Goal(GoalKind.Build, "Runai_GrazingGrounds",
+                    Line<GrazingGroundsTag>(perKind),
+                    CountFactionBuildings<GrazingGroundsTag>(em, faction),
+                    AIBudgetCategory.Military, "cavalry line"));
+                goals.Add(new Goal(GoalKind.Build, "Runai_Arrowyard",
+                    Line<ArrowyardTag>(perKind),
+                    CountFactionBuildings<ArrowyardTag>(em, faction),
+                    AIBudgetCategory.Military, "ranged line"));
+                goals.Add(new Goal(GoalKind.Build, "Runai_SiegeWorkshop",
+                    Line<SiegeWorkshopTag>(1),
+                    CountFactionBuildings<SiegeWorkshopTag>(em, faction),
+                    AIBudgetCategory.Military, "siege line"));
+            }
+            // The Archery Range, Royal Stable and Siege Yard are ALANTHOR
+            // buildings (CultureGate.CanFactionBuild, 2026-10-13): CommandRouter
+            // refuses them to any other culture, so no other culture plans them.
+            else if (aged && FactionCultureOf(em, faction) == Cultures.Alanthor)
             {
                 goals.Add(new Goal(GoalKind.Build, "ArcheryRange",
                     Line<ArcheryRangeTag>(perKind),
@@ -267,7 +306,18 @@ namespace TheWaningBorder.AI
             //
             // Housing is 80 supplies for 30 population and it is what every
             // later unit is bought WITH. It goes first.
-            if (popMax < FactionPopulation.AbsoluteMax && !OpeningHutsPending(faction))
+            // RUNAI: the Hut is the Waystation (Age_1_Runai.md §4.3, §9) —
+            // no population; two per depot route, up to the Hut cap.
+            if (aged && FactionCultureOf(em, faction) == Cultures.Runai)
+            {
+                int routes = CountFactionBuildings<RunaiDepot>(em, faction);
+                int cap = TechCatalog.Building("Hut").maxPerFaction;
+                int want = math.min(cap > 0 ? cap : 20, routes * 2);
+                if (want > 0)
+                    goals.Add(new Goal(GoalKind.Build, "Hut", want, CountFactionBuildings<HutTag>(em, faction),
+                        AIBudgetCategory.EconomyExpansion, "waystations"));
+            }
+            else if (popMax < FactionPopulation.AbsoluteMax && !OpeningHutsPending(faction))
                 goals.Add(new Goal(GoalKind.Build, "Hut", HousingTarget(pop), CountFactionBuildings<HutTag>(em, faction),
                     AIBudgetCategory.EconomyExpansion, "housing ahead"));
 
@@ -359,7 +409,13 @@ namespace TheWaningBorder.AI
                            g.Id == "Barracks"
                         || g.Id == "ArcheryRange"
                         || g.Id == "Alanthor_RoyalStable"
-                        || g.Id == "Alanthor_SiegeYard");
+                        || g.Id == "Alanthor_SiegeYard"
+                        || g.Id == "Feraldis_HallOfAxes"
+                        || g.Id == "Feraldis_Pasture"
+                        || g.Id == "Feraldis_SiegeYard"
+                        || g.Id == "Runai_GrazingGrounds"
+                        || g.Id == "Runai_Arrowyard"
+                        || g.Id == "Runai_SiegeWorkshop");
                     bool essential = g.Id == AgeUpGateBuilding(em, brain.Owner)
                         || g.Id == "Hut"
                         || g.Id == "GatherersHut"

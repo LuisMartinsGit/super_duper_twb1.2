@@ -132,6 +132,23 @@ namespace TheWaningBorder.Systems.Economy
                 var killer = em.GetComponentData<LastDamagedByFaction>(e).Value;
                 if (killer == Faction.Border || (int)killer < 0 || (int)killer > 7) continue;
 
+                // FERALDIS ARE PAID IN VEILSTONE TOO (Age_1_Feraldis.md §3.6,
+                // Religion.md §7): the curse they burn out pays the forge. And
+                // since 2026-10-13 a curse kill is drawn blood like any other
+                // kill, so it ALSO pays its points below — Feraldis religion
+                // runs on blood, and a Feraldis faction must never depend on
+                // one source alone (the old veilstone-only rule soft-locked a
+                // Feraldis player with no RP).
+                if (CultureConfig.GetCompletedCulture(em, killer) == Cultures.Feraldis)
+                {
+                    var fe = TheWaningBorder.Feraldis.FeraldisEconomy.Cfg;
+                    int stone = em.HasComponent<GodsplinterState>(e) ? fe.curseKillVeilstoneGodsplinter
+                              : em.HasComponent<VeilstingerState>(e) ? fe.curseKillVeilstoneVeilstinger
+                              : fe.curseKillVeilstoneCrystalling;
+                    if (stone > 0)
+                        FactionEconomy.Add(em, killer, Cost.Of(veilstone: stone), TheWaningBorder.Economy.IncomeSource.CurseKill);
+                }
+
                 int pts = em.HasComponent<GodsplinterState>(e) ? cfg.ptsGodsplinter
                         : em.HasComponent<VeilstingerState>(e) ? cfg.ptsVeilstinger
                         : cfg.ptsCrystalling;
@@ -179,12 +196,15 @@ namespace TheWaningBorder.Systems.Economy
                 // how the culture that wants the curse gone gets its own. The
                 // outcrop under it is pacified for everyone by
                 // VeilstoneNodeStateSystem on its next pass.
+                // 2026-10-12: veilstone AND veilsteel, from FeraldisEconomy.asset
+                // (Age_1_Feraldis.md §3.6); BorderSettings.feraldisNodeVeilsteel
+                // is no longer read.
                 if (CultureConfig.GetCompletedCulture(em, killer) == Cultures.Feraldis)
                 {
-                    var border = TheWaningBorder.Data.Border.BorderSettings.Get();
-                    int steel = border != null ? border.feraldisNodeVeilsteel : 0;
-                    if (steel > 0)
-                        FactionEconomy.Add(em, killer, Cost.Of(veilsteel: steel), TheWaningBorder.Economy.IncomeSource.CurseKill);
+                    var fe = TheWaningBorder.Feraldis.FeraldisEconomy.Cfg;
+                    var bounty = Cost.Of(veilstone: fe.curseNodeVeilstone, veilsteel: fe.curseNodeVeilsteel);
+                    if (!bounty.IsZero)
+                        FactionEconomy.Add(em, killer, bounty, TheWaningBorder.Economy.IncomeSource.CurseKill);
                 }
             }
         }

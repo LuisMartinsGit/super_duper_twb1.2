@@ -32,6 +32,8 @@ MonoBehaviour:
   lineOfSight: 8
   aimTime: 0
   radius: 1
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 0
     Iron: 0
@@ -43,9 +45,15 @@ MonoBehaviour:
   gatheringSpeed: 0
   healsPerSecond: 0
   healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Siege'
-  - 'Light'
+  - Siege
+  - Light
   bonusVsTags: []
+  preferTargets: []
   abilities: []
+  prefab: {fileID: 3127247417545642132, guid: 092428006b689a748a0be8f0e69df6b6, type: 3}
   presentationId: 410
+  animatorController: {fileID: 0}

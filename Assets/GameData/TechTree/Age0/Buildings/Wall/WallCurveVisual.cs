@@ -78,7 +78,11 @@ namespace TheWaningBorder.Rendering
         Matrix4x4 _builtLocalToWorld;   // the root frame the mesh was built for
         float _builtProgress = -1f;
         float _progress = 1f;
+        // The level the ART is picked at (WallTiers.ArtLevelOf — a Feraldis
+        // palisade raised to its Wooden Wall level reads 1 here while its sim
+        // level stays 0) and the owner culture whose wall set it may draw.
         byte _tier = TheWaningBorder.Entities.WallTiers.Palisade;
+        byte _culture = Cultures.None;
         byte _builtTier;
         MaterialPropertyBlock _mpb;
         WallModuleArt _art;
@@ -100,7 +104,7 @@ namespace TheWaningBorder.Rendering
             _renderer = gameObject.AddComponent<MeshRenderer>();
             _renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             _mpb = new MaterialPropertyBlock();
-            if (_em.Exists(Segment)) _tier = TheWaningBorder.Entities.WallTiers.Of(_em, Segment);
+            if (_em.Exists(Segment)) ReadArtLevel();
             // Start at the cells' real construction progress. _progress
             // defaults to 1, so a freshly laid wall used to be built FULL
             // height on its first frame and only sank to its foundation at
@@ -118,9 +122,15 @@ namespace TheWaningBorder.Rendering
         /// Point the renderer at the art's materials, or — with no art — at
         /// one shared Lit slot per procedural band, tinted per level.
         /// </summary>
+        void ReadArtLevel()
+        {
+            _tier = TheWaningBorder.Entities.WallTiers.ArtLevelOf(_em, Segment);
+            _culture = TheWaningBorder.Entities.WallTiers.ArtCultureOf(_em, Segment);
+        }
+
         void ApplyMaterials()
         {
-            _art = WallModuleArt.For(_tier);
+            _art = WallModuleArt.For(_tier, _culture);
             if (_art != null)
             {
                 _renderer.sharedMaterials = _art.Materials.ToArray();
@@ -261,7 +271,7 @@ namespace TheWaningBorder.Rendering
             if (counted == 0) progress = 1f;
             _progress = progress;
 
-            _tier = TheWaningBorder.Entities.WallTiers.Of(_em, Segment);
+            ReadArtLevel();
             if (_tier != _builtTier || (_art != null && OwnerColor() != _tintedFor)) ApplyMaterials();
 
             // The root is placed by SyncTransforms after we first build; the
@@ -311,7 +321,7 @@ namespace TheWaningBorder.Rendering
 
             // The authored module wins whenever it is bound; the swept
             // cross-section is what a wall looks like until then.
-            if (_art == null) _art = WallModuleArt.For(_tier);
+            if (_art == null) _art = WallModuleArt.For(_tier, _culture);
             if (_art != null && !_builtFromArt) { ApplyMaterials(); _builtFromArt = true; }
 
             _mesh = _art != null

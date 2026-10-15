@@ -1,4 +1,5 @@
-﻿// Runai Siege Workshop — trains the Catapult.
+// Runai Siege Workshop — displayed "Wagonworks" (docs/Design/Age_1_Runai.md §4.5):
+// the Catapult, the War Wagon and the Siege Caravan.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -39,6 +40,7 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             em.SetComponentData(entity, new ProductionState { Busy = 0, Remaining = 0 });
             em.AddComponent<SiegeWorkshopTag>(entity);
+            em.AddComponent<BuildingUpgradeable>(entity);   // the Wagonworks levels (2026-10-13)
             em.AddBuffer<ProductionQueueItem>(entity);
             em.AddComponentData(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             em.AddComponentData(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -64,6 +66,7 @@ namespace TheWaningBorder.Entities
             ecb.AddComponent(entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             ecb.AddComponent(entity, new ProductionState { Busy = 0, Remaining = 0 });
             ecb.AddComponent<SiegeWorkshopTag>(entity);
+            ecb.AddComponent<BuildingUpgradeable>(entity);   // the Wagonworks levels (2026-10-13)
             ecb.AddBuffer<ProductionQueueItem>(entity);
             ecb.AddComponent(entity, new RallyPoint { Position = position + new float3(3f, 0, 3f), Has = 1 });
             ecb.AddComponent(entity, new ArmorTypeData { Value = ArmorType.StructureHuman });

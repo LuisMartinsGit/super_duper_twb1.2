@@ -11,36 +11,65 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: TradingOutpost
-  m_EditorClassIdentifier:
-  id: 'Alanthor_TradingOutpost'
-  displayName: 'Trading Outpost'
-  role: 'Trade post beside a veilstone outcrop - buys veilstone with supplies and iron, or forges veilstone into veilsteel'
-  description: Raise it beside an uncursed or depleted veilstone outcrop - it snaps to a free side (north, east, south or west), up to four posts per outcrop, each further post there costing more to build and to level. Trade mode buys veilstone with supplies and iron; Forge mode turns veilstone into veilsteel.
+  m_EditorClassIdentifier: 
+  id: Alanthor_TradingOutpost
+  displayName: Trading Outpost
+  role: Trade post beside a veilstone outcrop - buys veilstone with supplies and
+    iron, or forges veilstone into veilsteel
+  description: Raise it beside an uncursed or depleted veilstone outcrop - it snaps
+    to a free side (north, east, south or west), up to four posts per outcrop, each
+    further post there costing more to build and to level. Trade mode buys veilstone
+    with supplies and iron; Forge mode turns veilstone into veilsteel.
   hp: 650
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 3
     ranged: 9
     siege: 0
     magic: 1
-  radius: 1.0
+  radius: 1
   lineOfSight: 14
   footprintCells: {x: 2, y: 2}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research: []
   minEra: 2
   cost:
     Supplies: 160
     Iron: 80
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
-  prefab: {fileID: 5421486725868418053, guid: 184d26b7cd924a248861dbda4269a8e5, type: 3}
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 8619284760837978803, guid: b830e6e94fcfd704eabc4a0f3b0c0e03, type: 3}
   presentationId: 523
+  prefabPath: 
+  canUpgradeTo: []

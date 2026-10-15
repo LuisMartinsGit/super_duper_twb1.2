@@ -29,6 +29,38 @@ public static class Alliances
     // which is the pre-teams behaviour and the default.
     private static readonly byte[] _teamOf = new byte[MaxFactions];
 
+    // ── Peace with the curse (docs/Design/Age_1_Runai.md §5.2) ──────────
+    //
+    // The one way a player faction stops being the curse's enemy: the Runai
+    // Voice of the Veil. A bit per player slot (0..7); the curse is allied
+    // with a faction whose bit is set, in every test below. Simulation state,
+    // written by RunaiSanctuarySystem from research on every peer.
+    private static byte _cursePeace;
+
+    /// <summary>True when <paramref name="faction"/> is at peace with the curse.</summary>
+    public static bool AtPeaceWithCurse(Faction faction)
+    {
+        int i = (int)faction;
+        return i >= 0 && i < 8 && (_cursePeace & (1 << i)) != 0;
+    }
+
+    public static void SetCursePeace(Faction faction, bool peace)
+    {
+        int i = (int)faction;
+        if (i < 0 || i >= 8) return;
+        byte next = peace ? (byte)(_cursePeace | (1 << i)) : (byte)(_cursePeace & ~(1 << i));
+        if (next == _cursePeace) return;
+        _cursePeace = next;
+        PublishShared();
+    }
+
+    public static void ClearCursePeace()
+    {
+        if (_cursePeace == 0) return;
+        _cursePeace = 0;
+        PublishShared();
+    }
+
     /// <summary>Reset every faction to "no team" (free-for-all).</summary>
     public static void Clear()
     {
@@ -61,6 +93,8 @@ public static class Alliances
     public struct TeamTable
     {
         public Unity.Collections.FixedList32Bytes<byte> Teams;
+        /// <summary>Bit per player faction at peace with the curse.</summary>
+        public byte CursePeace;
     }
 
     private static readonly Unity.Burst.SharedStatic<TeamTable> _shared =
@@ -70,6 +104,7 @@ public static class Alliances
     {
         var t = new TeamTable();
         for (int i = 0; i < MaxFactions; i++) t.Teams.Add(_teamOf[i]);
+        t.CursePeace = _cursePeace;
         _shared.Data = t;
     }
 
@@ -82,7 +117,11 @@ public static class Alliances
     public static bool AreHostileBurst(Faction a, Faction b)
     {
         if (a == b) return false;                                 // includes Border vs Border
-        if (a == Faction.Border || b == Faction.Border) return true;
+        if (a == Faction.Border || b == Faction.Border)
+        {
+            int p = a == Faction.Border ? (int)b : (int)a;
+            return p < 0 || p >= 8 || (_shared.Data.CursePeace & (1 << p)) == 0;
+        }
 
         var teams = _shared.Data.Teams;
         int ia = (int)a, ib = (int)b;
@@ -120,7 +159,8 @@ public static class Alliances
     public static bool AreAllied(Faction a, Faction b)
     {
         if (a == b) return true;                                  // includes Border vs Border
-        if (a == Faction.Border || b == Faction.Border) return false;
+        if (a == Faction.Border) return AtPeaceWithCurse(b);
+        if (b == Faction.Border) return AtPeaceWithCurse(a);
 
         byte ta = TeamOf(a);
         if (ta == NoTeam) return false;      // unteamed: allied with nobody but self

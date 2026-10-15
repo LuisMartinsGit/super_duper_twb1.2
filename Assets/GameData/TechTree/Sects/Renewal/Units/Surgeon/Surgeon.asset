@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: Surgeon
+  m_EditorClassIdentifier: 
+  id: Sect_Surgeon
+  displayName: Surgeon
+  unitClass: melee
+  hp: 520
+  speed: 3.2
+  trainingTime: 40
+  damage: 28
+  damageType: melee
+  armorType: infantry_heavy
+  defense:
+    melee: 4
+    ranged: 3
+    siege: 0
+    magic: 3
+  attackCooldown: 1.3
+  attackRange: 0
+  minAttackRange: 0
+  lineOfSight: 14
+  radius: 0.55
+  aimTime: 0
+  trajectory: 
+  projectileSpeed: 0
+  cost:
+    Supplies: 150
+    Iron: 80
+    Veilstone: 60
+    Veilsteel: 0
+  populationCost: 2
+  minBuildingLevel: 0
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags:
+  - 'Infantry'
+  - 'Hero'
+  bonusVsTags: []
+  abilities:
+  - Cauterize
+  - Bloodletting
+  - Lancet
+  prefab: {fileID: 32314801045755, guid: 05f7000860a9b9893ac91fd3aeb3f944, type: 3}
+  presentationId: 451
+  animatorController: {fileID: 0}

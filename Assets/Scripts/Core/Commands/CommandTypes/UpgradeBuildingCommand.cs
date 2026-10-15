@@ -1,4 +1,4 @@
-﻿// Issues a building upgrade. Validates the request, captures base stats the
+// Issues a building upgrade. Validates the request, captures base stats the
 // first time the building is upgraded, deducts cost, and ENQUEUES the level-up
 // on the building's production queue — the same queue its research sits in
 // (ProductionQueueComponents).
@@ -180,7 +180,7 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         public static bool IsUpgradeQueued(EntityManager em, Entity building)
         {
-            if (em.HasComponent<BuildingUpgrading>(building)) return true;
+            if (TransientState.Active<BuildingUpgrading>(em, building)) return true;
             if (!em.HasBuffer<ProductionQueueItem>(building)) return false;
             var q = em.GetBuffer<ProductionQueueItem>(building);
             for (int i = 0; i < q.Length; i++)
@@ -223,6 +223,11 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!BuildingUpgradeConfig.TryGetCost(em, faction, buildingId, level, out cost)) return false;
             if (em.HasComponent<TradingOutpostTag>(building))
                 cost = TheWaningBorder.Entities.TradingOutpost.RampedUpgradeCost(em, building, cost);
+            // Charter of Works (Prosperity): extractor levels cost less.
+            float m = TheWaningBorder.Economy.SectResearchEffects.LevelCostMultiplier(faction, buildingId);
+            if (m < 1f)
+                cost = Cost.Of((int)(cost.Supplies * m), (int)(cost.Iron * m),
+                               (int)(cost.Veilstone * m), (int)(cost.Veilsteel * m));
             return true;
         }
 
@@ -248,6 +253,25 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<RoyalStableTag>(e))  return "Alanthor_RoyalStable";
             if (em.HasComponent<WatchTowerTag>(e))   return "Alanthor_Tower";
             if (em.HasComponent<SiegeYardTag>(e))    return "Alanthor_SiegeYard";
+            // Feraldis ladders (2026-10-12, docs/Design/Age_1_Feraldis.md): the
+            // Hall of Axes, Rig Yard, Engine Works and Great Forge level L1-L3;
+            // their level SOs are Civs/Feraldis/Buildings/<Building>/<Building>_LvlN.
+            if (em.HasComponent<HallOfAxesTag>(e))   return "Feraldis_HallOfAxes";
+            if (em.HasComponent<PastureTag>(e))      return "Feraldis_Pasture";
+            if (em.HasComponent<FerSiegeYardTag>(e)) return "Feraldis_SiegeYard";
+            if (em.HasComponent<GreatForgeTag>(e))   return TheWaningBorder.Entities.GreatForge.BuildingId;
+            // Runai ladders (2026-10-13, docs/Design/Age_1_Runai.md): Grazing
+            // Grounds, Wagonworks and Sanctuary.
+            if (em.HasComponent<GrazingGroundsTag>(e))  return TheWaningBorder.Entities.GrazingGrounds.BuildingId;
+            if (em.HasComponent<ArrowyardTag>(e))       return TheWaningBorder.Entities.Arrowyard.BuildingId;
+            if (em.HasComponent<SiegeWorkshopTag>(e))   return "Runai_SiegeWorkshop";
+            if (em.HasComponent<RunaiSanctuaryTag>(e))  return TheWaningBorder.Entities.Sanctuary.BuildingId;
+            // The palisade hub's ONE cultured level (2026-10-13): the Feraldis
+            // Wooden Wall, Civs/Feraldis/Buildings/Palisade/Palisade_Lvl1, which
+            // the age-up auto-L1 applies. No culture authors a level 2, so it
+            // is never upgradeable (docs/Design/Age_1_Feraldis.md § Walls).
+            if (em.HasComponent<PalisadeTag>(e) && em.HasComponent<WallHubTag>(e))
+                return TheWaningBorder.Entities.AlanthorWall.PalisadeHubId;
             return string.Empty;
         }
 

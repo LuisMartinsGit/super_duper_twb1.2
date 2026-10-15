@@ -22,11 +22,11 @@ namespace TheWaningBorder.Entities
     public static class SectBuilding
     {
         /// <summary>
-        /// Build limit per faction, for every sect building. Design constant —
-        /// docs/Design/Sects.md section 1. Five is a real cap: the placement
-        /// panel greys out at five and CommandRouter refuses the sixth.
+        /// Build limit per faction, for every sect building: ONE per sect
+        /// (docs/Design/Religion.md §3.2, 2026-10-15). The placement panel
+        /// greys the button out and CommandRouter refuses a second.
         /// </summary>
-        public const int CapPerFaction = 5;
+        public const int CapPerFaction = 1;
 
         /// <summary>
         /// Create a sect building. <typeparamref name="TTag"/> is the

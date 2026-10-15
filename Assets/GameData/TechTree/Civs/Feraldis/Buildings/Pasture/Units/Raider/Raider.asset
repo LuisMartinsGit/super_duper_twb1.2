@@ -30,22 +30,30 @@ MonoBehaviour:
   attackRange: 1.5
   minAttackRange: 0
   lineOfSight: 16
+  aimTime: 0
   radius: 0.5
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 0
     Iron: 16
-    Crystal: 80
+    Veilstone: 80
     Veilsteel: 0
   populationCost: 1
   minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
-  - 'Cavalry'
-  - 'Light'
+  - Cavalry
+  - Light
   bonusVsTags: []
+  preferTargets: []
+  abilities: []
   prefab: {fileID: 3958872465679805044, guid: 0ac64b458f08ea041963b9e1136d4f25, type: 3}
   presentationId: 341
   animatorController: {fileID: 9100000, guid: 5105f202c362bb4488b894f908420206, type: 2}

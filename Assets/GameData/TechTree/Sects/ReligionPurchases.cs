@@ -3,8 +3,9 @@
 // §3.1, 2026-09-29).
 //
 //   Tithe          resources -> 1 RP, dearer each time (at the Temple)
-//   UnlockActive   the sect's next active: the other counterpart (1 RP),
-//                  then the wildcard (2 RP)
+//   UnlockB        the sect's power B (unlockSecondRp)
+//   UnlockWildcard the sect's wildcard (unlockWildcardRp) - B and the
+//                  wildcard are independent, either order (2026-10-15)
 //   ChapelLevel    the chapel's level — the level of every power it has
 //                  unlocked: II (2 RP), III (3 RP)
 //
@@ -21,8 +22,10 @@ namespace TheWaningBorder.Systems.Sect
     public enum ReligionPurchaseKind : byte
     {
         Tithe = 0,
-        UnlockActive = 1,
+        // 1 was the retired sequential UnlockActive; never reuse it (replays).
         ChapelLevel = 2,
+        UnlockB = 3,
+        UnlockWildcard = 4,
     }
 
     public static class ReligionPurchases
@@ -41,16 +44,17 @@ namespace TheWaningBorder.Systems.Sect
             switch (kind)
             {
                 case ReligionPurchaseKind.Tithe:
-                    if (!HasTemple(em, faction)) return false;
+                    // The Tithe is sold AT the Temple (Religion.md 1.1).
+                    if (!SectQuery.HasStandingTemple(em, faction)) return false;
                     return FactionEconomy.CanAfford(em, faction,
                         FactionReligionPointsHelper.TitheCost(em, faction));
 
-                case ReligionPurchaseKind.UnlockActive:
+                case ReligionPurchaseKind.UnlockB:
+                case ReligionPurchaseKind.UnlockWildcard:
                 {
                     if (!TryGetSect(em, faction, sectId, out _, out _, out var sect)) return false;
-                    int unlocked = sect.UnlockedActives < 1 ? 1 : sect.UnlockedActives;
-                    if (unlocked >= SectLeverEffects.ActiveSlots) return false;
-                    rpCost = unlocked == 1 ? cfg.unlockSecondRp : cfg.unlockWildcardRp;
+                    if (sect.IsSlotUnlocked(SlotOf(kind))) return false;
+                    rpCost = kind == ReligionPurchaseKind.UnlockB ? cfg.unlockSecondRp : cfg.unlockWildcardRp;
                     return FactionReligionPointsHelper.CanAfford(em, faction, rpCost);
                 }
 
@@ -78,14 +82,22 @@ namespace TheWaningBorder.Systems.Sect
             if (!FactionReligionPointsHelper.TrySpend(em, faction, rpCost)) return false;
 
             var state = em.GetComponentData<SectAdoptionState>(bank);
-            if (kind == ReligionPurchaseKind.UnlockActive)
-                sect.UnlockedActives = (byte)((sect.UnlockedActives < 1 ? 1 : sect.UnlockedActives) + 1);
+            if (kind == ReligionPurchaseKind.UnlockB || kind == ReligionPurchaseKind.UnlockWildcard)
+                sect.UnlockMask = (byte)(sect.UnlockMask | 1 | (1 << (SlotOf(kind) - 1)));
             else
                 sect.PowerLevel = (byte)((sect.PowerLevel < 1 ? 1 : sect.PowerLevel) + 1);
             state.Set(idx, sect);
             em.SetComponentData(bank, state);
             return true;
         }
+
+        /// <summary>The active slot (2 = B, 3 = wildcard) an unlock kind buys.</summary>
+        public static int SlotOf(ReligionPurchaseKind kind)
+            => kind == ReligionPurchaseKind.UnlockWildcard ? 3 : kind == ReligionPurchaseKind.UnlockB ? 2 : 0;
+
+        /// <summary>The unlock kind that buys active <paramref name="slot"/> (2 or 3).</summary>
+        public static ReligionPurchaseKind UnlockKindFor(int slot)
+            => slot == 3 ? ReligionPurchaseKind.UnlockWildcard : ReligionPurchaseKind.UnlockB;
 
         private static bool TryGetSect(EntityManager em, Faction faction, string sectId,
                                        out Entity bank, out int idx, out PerSectState sect)
@@ -99,8 +111,5 @@ namespace TheWaningBorder.Systems.Sect
             sect = em.GetComponentData<SectAdoptionState>(bank).Get(idx);
             return sect.IsAdopted;
         }
-
-        private static bool HasTemple(EntityManager em, Faction faction)
-            => TheWaningBorder.Entities.BuildingFactory.GetFactionBuildingCount<TempleOfRidanTag>(em, faction) > 0;
     }
 }

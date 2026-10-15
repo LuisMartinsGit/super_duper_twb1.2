@@ -9,13 +9,19 @@ internal static class Program
 
         // Two launchers racing each other would fight over the folder swap and
         // could leave a half-installed build behind.
-        using var singleton = new Mutex(initiallyOwned: true, "Global\\TheWaningBorder.Launcher", out var owned);
+        // One mutex per edition: each owns its own install root, so a demo and
+        // a developer launcher open together share no folder to fight over.
+        // The demo keeps the original name so it still excludes old launchers.
+        var mutexName = Edition.IsDemo
+            ? "Global\\TheWaningBorder.Launcher"
+            : $"Global\\TheWaningBorder.Launcher.{Edition.Id}";
+        using var singleton = new Mutex(initiallyOwned: true, mutexName, out var owned);
 
         if (!owned)
         {
             MessageBox.Show(
                 "The launcher is already running.",
-                "The Waning Border",
+                Edition.DisplayName,
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
             return;

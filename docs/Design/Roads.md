@@ -30,6 +30,41 @@
 
 ---
 
+## 0. The road graph is simulation (2026-10-14 — supersedes §2, §3 and the "presentation only" rule of §6)
+
+> Developer direction, 2026-10-14: *"Add routes as a network graph (with some
+> winding) and make it connect every node and building. Make it so that it
+> generates points where traffic concentrates in crossroads and forks (never
+> more than 5 paths joining in an intersection) and a minimum distance between
+> intersections and buildings."* The Runai caravans travel it
+> ([Age_1_Runai.md §3.1](Age_1_Runai.md)), so it has to be lockstep state.
+
+- **One graph for the whole map**, owned by the simulation
+  (`RoadGraphSystem`), rebuilt **on the lockstep tick** when a site appears or
+  disappears — never per frame, and identically on every peer (sorted inputs,
+  fixed arithmetic order, no frame-budgeted work).
+- **Sites:** every resource node (supply, iron, veilstone, curse node) and every
+  finished building of every faction (walls excluded, as before).
+- **It connects everything.** Every site is reachable from every other site on
+  the same landmass; the per-territory networks and the "merge where one faction
+  built on both sides" rule of §3.1 are retired.
+- **Traffic concentrates.** Roads leaving a site in similar directions are
+  bundled into one trunk that splits at a **fork**; trunks that meet form a
+  **crossroads**. These **junctions** are graph nodes of their own.
+  - **At most 5 roads join at any junction** (`maxJunctionDegree`).
+  - **Junctions keep a minimum distance from each other**
+    (`minJunctionSpacing`) **and from every building** (`minJunctionClearance`).
+- **Roads wind.** Every edge carries a few deterministic bend points
+  (seeded per edge) so no road is a ruler line; a bend that would land on
+  impassable ground is pulled back to the straight line.
+- **Movement:** a unit that travels the roads (a Runai caravan) asks the graph
+  for the shortest road path between two sites and walks it waypoint to
+  waypoint; local avoidance is the normal navigation.
+- **Drawing:** `RoadNetwork` (the renderer) draws the simulation's graph — its
+  edges and bend points — instead of building its own; the look rules (§4-§5:
+  plazas, earth vs paving, ruts, fades) are unchanged.
+- Tunables on `RoadGraphSystem.asset`.
+
 ## 1. In one paragraph
 
 Every map carries a trail network from the first frame: within each

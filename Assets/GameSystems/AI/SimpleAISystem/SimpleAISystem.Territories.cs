@@ -264,7 +264,9 @@ namespace TheWaningBorder.AI
                     string id = ExtractorPlan[k].Building;
                     bool isOutpost = id == OutpostIds.BuildingId;
                     if (isOutpost && !alanthor) continue;
-                    if (id == "VeilstoneMine" && alanthor) continue;
+                    bool runaiCulture = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Runai;
+                    if (id == "VeilstoneMine" && (alanthor || runaiCulture)) continue;
+                    if (id == "Runai_Sanctuary" && !runaiCulture) continue;
                     if (id != "GatherersHut" && AIPivotalReserve.Has(faction, HutBootstrapReserveKey)) continue;
                     if (!TechCatalog.TryGetBuilding(id, out var def) || def == null) continue;
 

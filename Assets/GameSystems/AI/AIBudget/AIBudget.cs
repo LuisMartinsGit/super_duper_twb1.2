@@ -693,6 +693,26 @@ namespace TheWaningBorder.AI
         public static bool VeilstoneHeldSurplus(EntityManager em, Faction faction)
             => IsMilitaryShort(faction, ResVeilstone) && BankOverflowing(em, faction);
 
+        /// <summary>
+        /// Supplies are piling up AND the army is short of something a
+        /// Trading Outpost makes — iron, veilstone or veilsteel (Game_AI.md
+        /// 5a, 2026-10-12). Every resource but supplies comes out of the
+        /// Buy -> Forge -> Sell chain, so supplies alone are enough: unlike
+        /// BankOverflowing, iron need not be piling up too. The 0.0.40
+        /// Mirror Marches batch had Alanthor banks of 30-57k supplies with
+        /// 0-30 iron for an hour — "wallet short" on every purchase, and no
+        /// surplus spender ever fired because iron was not overflowing.
+        /// </summary>
+        public static bool TradeHeldSurplus(EntityManager em, Faction faction)
+        {
+            if (Cfg.surplusSupplies <= 0) return false;
+            if (!FactionEconomy.TryGetResources(em, faction, out var res)) return false;
+            if (res.Supplies < Cfg.surplusSupplies) return false;
+            return IsMilitaryShort(faction, ResIron)
+                || IsMilitaryShort(faction, ResVeilstone)
+                || IsMilitaryShort(faction, ResVeilsteel);
+        }
+
         // ─────────────────────────────────────────────────────────────
         // ARMY FIRST (2026-10-04, docs/Design/Game_AI.md 5f)
         // ─────────────────────────────────────────────────────────────

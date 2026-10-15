@@ -12,11 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: ThessarasBazaar
   m_EditorClassIdentifier: 
-  id: 'ThessarasBazaar'
-  displayName: 'Thessara''s Bazaar'
-  role: 'Mobile trade HQ / Tariffs / Trains light military'
+  id: ThessarasBazaar
+  displayName: Thessara's Bazaar
+  role: Mobile trade HQ / Tariffs / Trains light military
+  description: 
   hp: 100
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 2
     ranged: 2
@@ -26,19 +27,32 @@ MonoBehaviour:
   lineOfSight: 26
   footprintCells: {x: 6, y: 6}
   buildTime: 40
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
-  - 'Runai_Spearman'
-  - 'Runai_Skirmisher'
-  - 'Runai_Raider'
+  - Runai_Spearman
+  - Runai_Skirmisher
+  - Runai_Raider
   research:
-  - 'Runai_LongHaulTariffs'
-  - 'Runai_PackBazaar'
-  - 'Runai_EscortedCaravans'
+  - Runai_LongHaulTariffs
+  - Runai_PackBazaar
+  - Runai_EscortedCaravans
   minEra: 0
   cost:
     Supplies: 667
@@ -46,5 +60,18 @@ MonoBehaviour:
     Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 919656388654685122, guid: abbc8ef6695675d4082328f0fe3acebb, type: 3}
   presentationId: 352
+  prefabPath: 
+  canUpgradeTo: []

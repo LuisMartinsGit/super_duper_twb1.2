@@ -37,6 +37,11 @@ internal static class InstallRoot
     {
         if (Directory.Exists(AppPaths.Game)) return;   // the new root is already populated
 
+        // Every legacy install is a demo install — the layout predates
+        // editions. A developer launcher run from beside one must not carry
+        // the demo off into its own root.
+        if (!Edition.IsDemo) return;
+
         var candidates = new[] { AppPaths.ExeDirectory, Path.GetDirectoryName(AppPaths.ExeDirectory) };
 
         foreach (var legacy in candidates)
@@ -135,7 +140,7 @@ internal static class InstallRoot
             shortcut.TargetPath = AppPaths.LauncherExe;
             shortcut.WorkingDirectory = AppPaths.Root;
             shortcut.IconLocation = AppPaths.LauncherExe + ",0";
-            shortcut.Description = AppPaths.Product;
+            shortcut.Description = Edition.DisplayName;
             shortcut.Save();
 
             notes.Add("Added the Start Menu shortcut.");

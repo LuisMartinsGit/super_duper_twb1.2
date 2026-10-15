@@ -12,11 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: HuntingLodge
   m_EditorClassIdentifier: 
-  id: 'Feraldis_HuntingLodge'
-  displayName: 'Hunting Lodge'
-  role: 'Upgraded hut; bonus near wildlife'
+  id: Feraldis_HuntingLodge
+  displayName: Hunting Lodge
+  role: Upgraded hut; bonus near wildlife
+  description: 
   hp: 30
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 1
     ranged: 1
@@ -26,19 +27,45 @@ MonoBehaviour:
   lineOfSight: 18
   footprintCells: {x: 4, y: 4}
   buildTime: 25
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research: []
   minEra: 0
   cost:
     Supplies: 160
     Iron: 20
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
-  presentationId: 358
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 4408867275437497555, guid: 86aaeb9a7e7ce004b80c8d7b23a2439d, type: 3}
+  presentationId: 580
+  prefabPath: 
+  canUpgradeTo: []

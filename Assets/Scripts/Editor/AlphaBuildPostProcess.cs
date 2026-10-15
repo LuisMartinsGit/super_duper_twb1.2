@@ -71,16 +71,25 @@ namespace TheWaningBorder.EditorTools
         private static void CarryLauncher(string buildRoot)
         {
             const string LauncherName = "TWBLauncher.exe";
-            string source = Path.GetFullPath(Path.Combine(
-                Application.dataPath, "..", "tools", "Launcher", "publish", LauncherName));
+
+            // EDITIONS: a build carries the launcher of its OWN edition, from
+            // publish\<Edition>\ (tools/Launcher/publish.ps1 -Edition). A demo
+            // build that carried a developer launcher would move a demo
+            // tester's install onto a developer root they hold no key for; the
+            // reverse would strand a developer install on the demo. So there is
+            // no cross-edition fallback.
+            string edition = PlayerBuild.ActiveEdition ?? "A";
+            string publish = Path.GetFullPath(Path.Combine(
+                Application.dataPath, "..", "tools", "Launcher", "publish"));
+            string source = Path.Combine(publish, edition, LauncherName);
 
             if (!File.Exists(source))
             {
                 // Not fatal: a build without it simply cannot upgrade the
                 // launcher, which is exactly the old behaviour.
-                Debug.LogWarning($"[AlphaBuildPostProcess] No launcher at {source} — this build "
-                                 + "will not be able to update a tester's launcher. Run "
-                                 + "tools/Launcher/publish.ps1 first.");
+                Debug.LogWarning($"[AlphaBuildPostProcess] No edition-{edition} launcher at {source} — "
+                                 + "this build will not be able to update a tester's launcher. Run "
+                                 + $"tools/Launcher/publish.ps1 -Edition {edition} first.");
                 return;
             }
 

@@ -255,39 +255,29 @@ namespace TheWaningBorder.Systems.Sect
             return 0f;
         }
 
+        /// <summary>
+        /// Can this faction cast active <paramref name="tier"/> (the SLOT: 1 = A,
+        /// 2 = B, 3 = wildcard) of <paramref name="sectId"/> right now? Adopted,
+        /// slot unlocked, a standing Temple (Religion.md 2) and off cooldown.
+        /// The issuer pre-check and the executor (Fire) use the same tests, so a
+        /// cast the UI allows is never dropped on every peer.
+        /// </summary>
         public static bool CanFire(EntityManager em, Faction faction, string sectId, int tier = 1)
         {
-            if (!IsAdopted(em, faction, sectId)) return false;
+            if (!IsSlotUnlocked(em, faction, sectId, tier)) return false;
+            if (!SectQuery.HasStandingTemple(em, faction)) return false;
             return CooldownRemaining(em, faction, sectId, tier) <= 0f;
         }
 
-        /// <summary>Highest active-skill tier this faction has unlocked on
-        /// the sect (levers auto-track the temple level, so this is the
-        /// sect's ActivePowerLevel clamped to the defined tiers).</summary>
-        public static int UnlockedTier(EntityManager em, Faction faction, string sectId)
+        /// <summary>Is active slot <paramref name="slot"/> (1 = A, 2 = B, 3 = wildcard)
+        /// of <paramref name="sectId"/> unlocked for this faction? B and the
+        /// wildcard are bought independently (Religion.md 3.1).</summary>
+        public static bool IsSlotUnlocked(EntityManager em, Faction faction, string sectId, int slot)
         {
-            // Canon sects hand over all THREE actives the moment the sect is
-            // adopted (docs/Design/Sects.md section 1); what Temple upgrades
-            // buy is the power LEVEL, a separate axis read through
-            // SectQuery.PowerLevelOf (section 3). Gating the SLOT on the
-            // Active-Power lever as well is the legacy tier model, and it left
-            // two of every canon sect's three powers uncastable until the
-            // Temple was upgraded - Heavy Bureaucracy and Sew Disorder were
-            // simply unreachable for an Antiquity faction at a Lv-1 Temple.
-            // Religion.md §3.1 (2026-09-29): the SLOTS are bought — the first
-            // comes with the chapel, the second and the wildcard for RP.
-            if (SectLeverEffects.IsCanonSect(sectId))
-            {
-                int idx = SectConfig.IndexOf(sectId);
-                if (idx < 0 || !FactionEconomy.TryGetBank(em, faction, out var bank)
-                    || !em.HasComponent<SectAdoptionState>(bank)) return 1;
-                var sect = em.GetComponentData<SectAdoptionState>(bank).Get(idx);
-                int unlocked = sect.UnlockedActives < 1 ? 1 : sect.UnlockedActives;
-                return unlocked > SectLeverEffects.ActiveSlots ? SectLeverEffects.ActiveSlots : unlocked;
-            }
-
-            byte level = SectQuery.LevelOf(em, faction, sectId, SectLeverKind.ActivePower);
-            return level == 0 ? 1 : (level > 3 ? 3 : level);
+            int idx = SectConfig.IndexOf(sectId);
+            if (idx < 0 || !FactionEconomy.TryGetBank(em, faction, out var bank)
+                || !em.HasComponent<SectAdoptionState>(bank)) return false;
+            return em.GetComponentData<SectAdoptionState>(bank).Get(idx).IsSlotUnlocked(slot);
         }
 
         /// <summary>
@@ -358,15 +348,18 @@ namespace TheWaningBorder.Systems.Sect
             // cooldown is charged so a blocked cast costs nothing.
             if (IsGloballySilenced(em)) return false;
             if (tier < 1) tier = 1;
-            if (tier > UnlockedTier(em, faction, sectId)) return false;
+            if (!IsSlotUnlocked(em, faction, sectId, tier)) return false;
+            // No standing Temple, no casting (Religion.md 2). Before the
+            // cooldown is charged, so a refused cast costs nothing.
+            if (!SectQuery.HasStandingTemple(em, faction)) return false;
             if (CooldownRemaining(em, faction, sectId, tier) > 0f) return false;
 
             // `tier` is the SLOT — which of the sect's three actives was
             // clicked. The LEVEL is a separate axis, earned by adopting before
             // a Temple upgrade rather than bought (docs/Design/Sects.md
             // section 3), so it is read here rather than inferred from the slot.
-            byte powerLevel = SectQuery.PowerLevelOf(em, faction, sectId);
-            if (powerLevel < 1) powerLevel = 1;
+            // Concord casts every power one level higher (Sects.md 6b).
+            byte powerLevel = (byte)SetPassives.EffectivePowerLevel(em, faction, sectId);
 
             var spec = SectLeverEffects.ActiveOf(sectId, tier, powerLevel);
             if (spec.Kind == SectActivePowerKind.None) return false;
@@ -394,6 +387,11 @@ namespace TheWaningBorder.Systems.Sect
             // friendly 1 s (docs/Design/Spells.md 8.6). The cooldown still
             // starts at cast.
             float windup = WindupFor(spec.Kind);
+            // Foreknown: a hostile power aimed at a Runai-set faction winds up
+            // twice as long (Sects.md 6b).
+            if (IsOffensive(spec.Kind)
+                && SetPassives.ForeknownTargeted(em, faction, targetPos, radius))
+                windup *= 2f;
             var strike = em.CreateEntity(typeof(PendingSectStrike));
             em.SetComponentData(strike, new PendingSectStrike
             {
@@ -456,6 +454,9 @@ namespace TheWaningBorder.Systems.Sect
             float cooldown = specCooldown;
             if (HasShardrootAllocated(em, faction, sectId))
                 cooldown *= SectLeverEffects.ShardrootCooldownScale;
+            // A standing Reliquary (Antiquity's building) recharges every
+            // sect power faster (Sects.md §4).
+            cooldown *= AlanthorSectEconomy.CooldownScale(em, faction);
             return cooldown;
         }
 
@@ -468,8 +469,7 @@ namespace TheWaningBorder.Systems.Sect
         public static SectActivePowerSpec CurrentSpec(EntityManager em, Faction faction,
             string sectId, int slot, out int level)
         {
-            level = SectQuery.PowerLevelOf(em, faction, sectId);
-            if (level < 1) level = 1;
+            level = SetPassives.EffectivePowerLevel(em, faction, sectId);
             return SectLeverEffects.ActiveOf(sectId, slot, level);
         }
 
@@ -495,6 +495,8 @@ namespace TheWaningBorder.Systems.Sect
             SectActivePowerKind.SpitePool       => true,
             SectActivePowerKind.AttainderStrike => true,
             SectActivePowerKind.RevealedStrike  => true,
+            SectActivePowerKind.TrespassStrike  => true,
+            SectActivePowerKind.Bounty          => true,
             _                                   => false,
         };
 
@@ -539,6 +541,8 @@ namespace TheWaningBorder.Systems.Sect
             SectActivePowerKind.AttainderStrike   => true,
             SectActivePowerKind.SpyNetwork        => true,
             SectActivePowerKind.Blind             => true,
+            SectActivePowerKind.TrespassStrike    => true,
+            SectActivePowerKind.Bounty            => true,
             // RevealedStrike is NOT listed: it is map-wide, so there is no
             // aim point for the curse-well refusal to protect, and gating it
             // on where the player happened to click would refuse a cast that
@@ -644,6 +648,27 @@ namespace TheWaningBorder.Systems.Sect
                     break;
                 case SectActivePowerKind.CurseWard:
                     ApplyCurseWard(em, faction, pos, radius, magnitude, duration);
+                    break;
+
+                // -- Alanthor 2026-10-15 kinds. Bodies in
+                //    Cultures/Alanthor/SectActivePowerSystem.Alanthor2026.cs --
+                case SectActivePowerKind.TrespassStrike:
+                    ApplyTrespass(em, faction, pos, radius, magnitude, dmgType);
+                    break;
+                case SectActivePowerKind.Revive:
+                    ApplyRevive(em, faction, pos, radius, magnitude, duration, secondary);
+                    break;
+                case SectActivePowerKind.WardCharge:
+                    ApplyWardCharge(em, faction, pos, radius, magnitude, duration, secondary);
+                    break;
+                case SectActivePowerKind.Bounty:
+                    ApplyBounty(em, faction, pos, magnitude, duration, dmgType);
+                    break;
+                case SectActivePowerKind.Overtime:
+                    ApplyOvertime(em, faction, pos, magnitude, duration);
+                    break;
+                case SectActivePowerKind.Plenty:
+                    ApplyPlenty(em, faction, duration);
                     break;
 
                 // -- War canon kinds. Bodies in SectActivePowerSystem.War.cs --

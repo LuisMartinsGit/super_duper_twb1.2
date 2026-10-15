@@ -16,7 +16,7 @@ beneath this one.
 | [Tech_Tree.md](Tech_Tree.md) | At-a-glance Mermaid charts — buildings, units, techs across Age 0 and all three cultures |
 | [Age_0.md](Age_0.md) | Pre-culture starting age — buildings, units, tech |
 | [Age_1_Alanthor.md](Age_1_Alanthor.md) | Alanthor cultured tree (defense focus) |
-| [Age_1_Runai.md](Age_1_Runai.md) | Runai cultured tree (economy focus) — *trade-lane mechanics formalized; some spec gaps* |
+| [Age_1_Runai.md](Age_1_Runai.md) | Runai — **full redesign 2026-10-13**: stock and haul (depots, caravans, markets, the road graph), escort squads and The Call, Waystation towers and the veilstone road tax, RP-only Sanctuaries and the curse ladder, Arrowyard / flying Sky Barge / Scaling Hooks; edition C |
 | [Age_1_Feraldis.md](Age_1_Feraldis.md) | Feraldis cultured tree (military focus) — *first-pass; many spec gaps* |
 | [Combat_Pacing.md](Combat_Pacing.md) | The five meta beats, the counter table (`bonusVsTags` truth source), the siege-only wall rule |
 | [Sect_Units.md](Sect_Units.md) | Sect chapel units — the rule, the live roster (Scar Guard / Judicator / Warbreaker), caps |
@@ -64,7 +64,7 @@ movement?"*.
 |---------|--------------------------|--------------------------|
 | **Alanthor** | **Denies** movement | …holding ground — income is the territory it owns and what it builds on it ([Territory_Claims.md](Territory_Claims.md), [Veilstone_Economy.md](Veilstone_Economy.md)); walls and towers are how it keeps that ground. *(The old "closed wall compartments yield supplies" income was removed 2026-07-06; workers no longer gather.)* |
 | **Feraldis** | **Preys on** movement | …inflicting damage (enemy / Border kills generate supplies) |
-| **Runai** | **Embodies** movement | …moving (caravan-wagons in transit + lane-patrolling traders) |
+| **Runai** | **Embodies** movement | …hauling: every resource is depot stock until a caravan sells it at a market, and longer hauls pay more ([Age_1_Runai.md §3](Age_1_Runai.md)) |
 
 Three corollary rules fall out of this axis:
 
@@ -74,8 +74,8 @@ Three corollary rules fall out of this axis:
    Feraldis's floor is **Veilstone
    Border creatures / nodes count as damage targets** (so an isolated
    Feraldis player can always farm income from the border); Runai's floor is
-   their patrolling trader-warriors generating supplies along their own
-   lanes regardless of who they meet.
+   their escorted caravans hauling supplies and iron along their own
+   roads regardless of who they meet.
 2. **Asymmetric matchups are built into the triangle**: Feraldis preys on
    movement, Runai depends on movement, Alanthor denies movement. A
    Feraldis-vs-Runai match is a chase economy; a Feraldis-vs-Alanthor match
@@ -269,7 +269,7 @@ These cross-faction loops are **retired.** In the design:
   attack bonus from carrying Iron.
 - **Veilsteel-carry is Feraldis-only**, gated behind the **Veilsteel
   Frenzy** tech (the renamed `Feraldis_IronFury`), researched at the
-  Feraldis War Hall. Feraldis units carry up to 5 Veilsteel shavings;
+  Feraldis Longhouse (the cultured Barracks). Feraldis units carry up to 5 Veilsteel shavings;
   each shaving grants +2 % attack (stacks to +10 %).
 
 > **Why the rewrite:** to give Feraldis a distinct, lore-rich combat-

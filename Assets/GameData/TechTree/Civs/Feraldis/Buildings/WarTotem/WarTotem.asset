@@ -11,34 +11,62 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: WarTotem
-  m_EditorClassIdentifier:
-  id: 'Feraldis_WarTotem'
-  displayName: 'War Totem'
-  role: 'Feraldis territory — plant on a blood pool; drinks blood into Fervor and claims ground'
+  m_EditorClassIdentifier: 
+  id: Feraldis_WarTotem
+  displayName: War Totem
+  role: "Feraldis territory \u2014 plant on a blood pool; drinks blood into Fervor
+    and claims ground"
+  description: 
   hp: 500
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 1
     ranged: 1
     siege: 0
     magic: 0
-  radius: 1.0
+  radius: 1
   lineOfSight: 16
   footprintCells: {x: 2, y: 2}
   buildTime: 15
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research: []
   minEra: 2
   cost:
     Supplies: 61
     Iron: 20
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 1723351204898839598, guid: 562267fb5bc6b694fa9dca1a1da89243, type: 3}
   presentationId: 361
+  prefabPath: 
+  canUpgradeTo: []

@@ -200,13 +200,17 @@ namespace TheWaningBorder.Entities
             { typeof(MineTag),           new[] { "Mine" } },
             { typeof(VeilstoneMineTag),  new[] { "VeilstoneMine" } },
             { typeof(TradingOutpostTag), new[] { "Alanthor_TradingOutpost" } },
+            { typeof(RunaiSanctuaryTag), new[] { "Runai_Sanctuary" } },
+            { typeof(GrazingGroundsTag), new[] { "Runai_GrazingGrounds" } },
+            { typeof(ArrowyardTag), new[] { "Runai_Arrowyard" } },
+            { typeof(SiegeWorkshopTag),  new[] { "Runai_SiegeWorkshop" } },
             { typeof(WatchTowerTag),     new[] { "Alanthor_Tower" } },
             { typeof(SiegeYardTag),      new[] { "Alanthor_SiegeYard" } },
             { typeof(RoyalStableTag),    new[] { "Alanthor_RoyalStable" } },
             { typeof(ReliquaryTag),      new[] { "Sect_Reliquary" } },
             { typeof(MendingHallTag),    new[] { "Sect_MendingHall" } },
             { typeof(StoneholdTag),      new[] { "Sect_Stonehold" } },
-            { typeof(VeilworksTag),      new[] { "Sect_Veilworks" } },
+            { typeof(TreasuryTag),      new[] { "Sect_Treasury" } },
             { typeof(MusterYardTag),     new[] { "Sect_MusterYard" } },
         };
 

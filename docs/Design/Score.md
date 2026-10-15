@@ -26,6 +26,11 @@ nothing held and nothing fought is not in the match and has no row.
 - **In the game:** `MatchScoreSystem` samples every `sampleIntervalSeconds`
   of sim time and publishes to `MatchScore` (`Core/Diagnostics/`), which the
   development stats board draws as `Score (eco/strat/mil)  K/D`.
+- **On the HUD (2026-10-11):** every player's Score in the top-right corner,
+  highest first, one line each: `<player name>: <score>`. A human is named by
+  their player name, an AI as `AI <Difficulty>` (its lobby difficulty); the
+  score is bold, in the player's colour. `ScoreBoardHUD`
+  (`UI/Ingame/Panels/`, placement in `ScoreBoardHUD.asset`).
 - **In the logs:** `Metrics_Score.csv` (one row per faction per sample) and
   a `Score :` line in `Summary.txt`.
 - **In the viewer:** Muster Rolls shows a standings table ranked by final

@@ -30,6 +30,7 @@ MonoBehaviour:
   attackRange: 0
   minAttackRange: 0
   lineOfSight: 14
+  aimTime: 0
   radius: 0.5
   trajectory: 
   projectileSpeed: 0
@@ -43,15 +44,17 @@ MonoBehaviour:
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
   tags:
-  - 'Ranged'
-  - 'Light'
-  - 'Religious'
+  - Ranged
+  - Light
+  - Religious
   bonusVsTags: []
+  preferTargets: []
   abilities: []
-  prefab: {fileID: 129823201014095, guid: 9130634f8c57e575880230244514fa52, type: 3}
+  prefab: {fileID: 6886602278709499003, guid: 9130634f8c57e575880230244514fa52, type: 3}
   presentationId: 406
-  animatorController: {fileID: 0}
+  animatorController: {fileID: 9100000, guid: bfde09e41b14e0349a0da00decb99b91, type: 2}

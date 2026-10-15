@@ -9,16 +9,18 @@
 // lesson the Raider Camp tagging learned the hard way — a one-shot pass at
 // the age-up moment silently misses everything built later.)
 //
-//   Worker → BUILD ONLY, but a real fighter. Feraldis has no use for a
-//            gatherer: its income is what Plunderers steal, and ore comes
-//            from Mines that need no workers. So the mining half is stripped
-//            and the combat half is made to actually mean something.
+//   Worker → SLAVE (2026-10-12, docs/Design/Age_1_Feraldis.md §2-3). It
+//            stays a builder (WorkerTag / CanBuild kept) and gains SlaveTag:
+//            it may staff an extractor or the Great Forge, feed the
+//            Soulforge and be sacrificed. It leaves the army population — the
+//            slave cap (Slave Pens) bounds it instead.
 //   Scout  → loses the huge scout-sight (and its settle ramp) and gains an
 //            EAGLE that circles it carrying its own vision.
 
 using Unity.Collections;
 using TheWaningBorder.Core;
 using Unity.Entities;
+using TheWaningBorder.Economy;
 using Unity.Transforms;
 using TheWaningBorder.Abilities;
 using TheWaningBorder.Entities;
@@ -60,7 +62,7 @@ namespace TheWaningBorder.Systems.Combat
         {
             _workerQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CanBuild, FactionTag, WorkerTag>()
-                .WithNone<FeraldisWorkerTag>()
+                .WithNone<SlaveTag>()
                 .Build(this);
 
             _scoutQuery = new EntityQueryBuilder(Allocator.Temp)
@@ -76,42 +78,8 @@ namespace TheWaningBorder.Systems.Combat
             var em = EntityManager;
             RetrofitWorkers(em);
             RetrofitScouts(em);
-            StampPlunderPurses(em);
         }
 
-        /// <summary>
-        /// EVERY FERALDIS WARRIOR PLUNDERS (canon 2026-08-07). The purse is
-        /// the single switch FeraldisPlunderSystem reads, so stamping it here
-        /// enlists the whole army into the raid economy — the compensation for
-        /// cutting raider throughput from 22 s to 60 s.
-        ///
-        /// Combat classes only: Workers already build and fight, and paying
-        /// them to raid as well would just rebuild the free-body problem this
-        /// rebalance is trying to remove.
-        /// </summary>
-        private void StampPlunderPurses(EntityManager em)
-        {
-            var q = QC_FeraldisUnitTagUnitTagFactionTag.Get(em, QT_FeraldisUnitTagUnitTagFactionTag);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            var targets = new NativeList<Entity>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.HasComponent<PlunderPurse>(ents[i])) continue;
-                var c = tags[i].Class;
-                if (c != UnitClass.Melee && c != UnitClass.Ranged && c != UnitClass.Siege) continue;
-                if (em.HasComponent<CanBuild>(ents[i])) continue;   // workers stay workers
-                if (CultureConfig.GetCompletedCulture(em, facs[i].Value) != Cultures.Feraldis) continue;
-                targets.Add(ents[i]);
-            }
-
-            for (int i = 0; i < targets.Length; i++)
-                em.AddComponentData(targets[i], new PlunderPurse());
-
-            targets.Dispose();
-        }
 
         private void RetrofitWorkers(EntityManager em)
         {
@@ -127,49 +95,21 @@ namespace TheWaningBorder.Systems.Combat
             for (int i = 0; i < targets.Length; i++)
             {
                 var e = targets[i];
-
-                // Build only — drop the gatherer half outright.
-                if (em.HasComponent<WorkerState>(e)) em.RemoveComponent<WorkerState>(e);
-                em.RemoveComponent<WorkerTag>(e);
-
-                // ...and make the fighter half real. Ordered onto an enemy a
-                // Feraldis worker is light infantry, not a victim. It still
-                // does NOT auto-acquire (TargetingSystem excludes CanBuild),
-                // which is deliberate — workers that wandered off to fight
-                // on their own would be a disaster.
-                if (em.HasComponent<Health>(e))
-                {
-                    var h = em.GetComponentData<Health>(e);
-                    if (h.Max < FeraldisWorkerHP)
-                    {
-                        int missing = h.Max - h.Value;
-                        h.Max = FeraldisWorkerHP;
-                        h.Value = h.Max - missing;
-                        em.SetComponentData(e, h);
-                    }
-                }
-                if (em.HasComponent<Damage>(e))
-                    em.SetComponentData(e, new Damage { Value = FeraldisWorkerDamage });
-                if (!em.HasComponent<AttackCooldown>(e))
-                    em.AddComponentData(e, new AttackCooldown
-                    {
-                        Cooldown = FeraldisWorkerAttackCooldown, Timer = 0f
-                    });
-                if (!em.HasComponent<Target>(e))
-                    em.AddComponentData(e, new Target { Value = Entity.Null });
-                if (!em.HasComponent<Defense>(e))
-                    em.AddComponentData(e, new Defense { Melee = 1, Ranged = 0, Siege = 0, Magic = 0 });
-
-                // ...and make them fight like soldiers. Dropping
-                // PassiveWorkerTag is what actually enlists them: it is the
-                // component TargetingSystem's auto-acquire and
-                // return-to-guard passes exclude. A Feraldis Worker holds
-                // ground and engages like any other unit, and still builds.
-                if (em.HasComponent<PassiveWorkerTag>(e))
-                    em.RemoveComponent<PassiveWorkerTag>(e);
-
-                em.AddComponent<FeraldisWorkerTag>(e);
-                em.AddComponent<FeraldisUnitTag>(e);
+                // The Worker becomes a Slave in place: same entity, same HP
+                // fraction, still a builder. Its id and name follow, so tech
+                // effects ("unit:Feraldis_Slave"), the roster and the HUD all
+                // see a Slave.
+                em.AddComponent<SlaveTag>(e);
+                if (!em.HasComponent<FeraldisWorkerTag>(e)) em.AddComponent<FeraldisWorkerTag>(e);
+                if (!em.HasComponent<FeraldisUnitTag>(e)) em.AddComponent<FeraldisUnitTag>(e);
+                var id = new UnitTypeId { Value = TheWaningBorder.Feraldis.FeraldisEconomy.SlaveId };
+                if (em.HasComponent<UnitTypeId>(e)) em.SetComponentData(e, id); else em.AddComponentData(e, id);
+                var name = new DisplayName { Value = "Slave" };
+                if (em.HasComponent<DisplayName>(e)) em.SetComponentData(e, name); else em.AddComponentData(e, name);
+                // Slaves are bounded by the slave cap, not the army population.
+                if (em.HasComponent<PopulationCost>(e))
+                    em.SetComponentData(e, new PopulationCost { Amount = 0 });
+                TheWaningBorder.Entities.FeraldisSlave.GrantFieldSacrifice(em, e);
             }
             targets.Dispose();
         }

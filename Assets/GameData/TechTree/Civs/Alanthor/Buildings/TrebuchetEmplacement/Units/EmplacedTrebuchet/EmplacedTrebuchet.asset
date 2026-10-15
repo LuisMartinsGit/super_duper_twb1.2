@@ -26,12 +26,12 @@ MonoBehaviour:
     ranged: 4
     siege: 0
     magic: 0
-  attackCooldown: 8.0
+  attackCooldown: 8
   attackRange: 48
   minAttackRange: 14
   lineOfSight: 52
-  radius: 1.4
   aimTime: 1.5
+  radius: 1.4
   trajectory: high
   projectileSpeed: 32
   cost:
@@ -44,6 +44,7 @@ MonoBehaviour:
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 4
@@ -54,7 +55,8 @@ MonoBehaviour:
   bonusVsTags:
   - vsTag: Building
     amount: 45
+  preferTargets: []
   abilities: []
   prefab: {fileID: 132866903991625, guid: 516d3df3946cc39f2f363f18aa224f48, type: 3}
-  presentationId: 348
+  presentationId: 433
   animatorController: {fileID: 0}

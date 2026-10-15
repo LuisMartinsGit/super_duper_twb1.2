@@ -176,10 +176,12 @@ namespace TheWaningBorder.AI
                 if (em.HasComponent<UnderConstruction>(rec.Enemy)) continue;
                 // Raid mode: economy targets only (workers + eco buildings).
                 if (ecoOnly && rec.Category != IntelCategory.Worker
-                            && rec.Category != IntelCategory.EcoBuilding) continue;
+                            && rec.Category != IntelCategory.EcoBuilding
+                            && rec.Category != IntelCategory.Caravan) continue;
 
                 bool mobile = rec.Category == IntelCategory.MilitaryUnit
-                           || rec.Category == IntelCategory.Worker;
+                           || rec.Category == IntelCategory.Worker
+                           || rec.Category == IntelCategory.Caravan;
                 if (fogMgr != null)
                 {
                     Vector3 p = (Vector3)rec.Position;

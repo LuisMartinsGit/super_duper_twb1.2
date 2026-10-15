@@ -57,8 +57,13 @@ public struct BuildingUpgradeState : IComponentData
 /// removes it when Progress >= Total and applies the level.
 ///
 /// Time scales per level — higher levels cost more elapsed time.
+///
+/// ENABLEABLE (2026-10-11): pre-added disabled on every building by
+/// BuildingTransientSeedSystem and switched on/off through TransientState, so
+/// an upgrade no longer moves the building to a new archetype and back. Test
+/// it with TransientState.Active, never HasComponent.
 /// </summary>
-public struct BuildingUpgrading : IComponentData
+public struct BuildingUpgrading : IComponentData, IEnableableComponent
 {
     public float Progress;
     public float Total;

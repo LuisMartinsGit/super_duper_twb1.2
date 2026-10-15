@@ -12,11 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: Vault
   m_EditorClassIdentifier: 
-  id: 'Runai_Vault'
-  displayName: 'Runai Vault'
-  role: 'Banking (tariff synergy)'
+  id: Runai_Vault
+  displayName: Runai Vault
+  role: Banking (tariff synergy)
+  description: 
   hp: 60
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 1
     ranged: 1
@@ -26,19 +27,45 @@ MonoBehaviour:
   lineOfSight: 20
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research: []
   minEra: 0
   cost:
     Supplies: 1633
     Iron: 250
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 7341319598866136353, guid: ccbc7e6ae17f8784eb7621fa6b70b0b3, type: 3}
   presentationId: 365
+  prefabPath: 
+  canUpgradeTo: []

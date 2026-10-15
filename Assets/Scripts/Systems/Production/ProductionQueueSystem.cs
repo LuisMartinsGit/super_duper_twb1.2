@@ -248,7 +248,7 @@ namespace TheWaningBorder.Systems.Production
                     // The gate every other system reads. Added here rather
                     // than at queue time so a building that is merely WAITING
                     // to upgrade can still shoot.
-                    em.AddComponentData(e, new BuildingUpgrading
+                    TransientState.Set(em, e, new BuildingUpgrading
                     {
                         Progress = 0f,
                         Total = duration,
@@ -279,20 +279,21 @@ namespace TheWaningBorder.Systems.Production
                 // Busy with nothing queued — a cancel raced the tick. Reset
                 // rather than counting a timer nobody will collect.
                 Idle(em, e, ref ps);
-                if (em.HasComponent<BuildingUpgrading>(e)) em.RemoveComponent<BuildingUpgrading>(e);
+                TransientState.Clear<BuildingUpgrading>(em, e);
                 return;
             }
 
             var item = queue[0];
             if (!HeadMayRun(em, e, item.Kind)) return;   // frozen where it stands
 
-            ps.Remaining -= dt;
+            // Overtime (Prosperity) runs a building's clock faster.
+            ps.Remaining -= dt * TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ProductionSpeed(em, e);
 
             // One clock: the upgrade's own component follows this timer rather
             // than keeping a second one. FloatingHealthBars and the actions
             // grid's radial sweep both read it.
             if (item.Kind == ProductionKind.BuildingUpgrade
-                && em.HasComponent<BuildingUpgrading>(e))
+                && TransientState.Active<BuildingUpgrading>(em, e))
             {
                 var up = em.GetComponentData<BuildingUpgrading>(e);
                 up.Progress = ps.Total - ps.Remaining;
@@ -342,7 +343,7 @@ namespace TheWaningBorder.Systems.Production
                     // Feraldis raiders, so the buffer is re-fetched below.
                     TheWaningBorder.Systems.Buildings.BuildingUpgradeSystem
                         .CompleteUpgrade(em, e, item.Level);
-                    if (em.HasComponent<BuildingUpgrading>(e)) em.RemoveComponent<BuildingUpgrading>(e);
+                    TransientState.Clear<BuildingUpgrading>(em, e);
                     break;
             }
 

@@ -94,7 +94,7 @@ namespace TheWaningBorder.UI.Ingame
             _button.anchoredPosition = cfg.buttonPosition;
             _button.sizeDelta = cfg.buttonSize;
             var bfill = GameUIKit.ButtonChrome(_button, raycast: true);
-            _buttonLabel = GameUIKit.Text(_button, "label", "", cfg.fontSize + 6f, GameUIKit.Gold,
+            _buttonLabel = GameUIKit.Text(_button, "label", "", cfg.buttonFontSize, GameUIKit.Gold,
                 TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(_buttonLabel.rectTransform);
             UITooltip.Relay(bfill.gameObject).OnLeftClick = Toggle;
@@ -103,9 +103,10 @@ namespace TheWaningBorder.UI.Ingame
                 "makes and spends across every territory."));
 
             _menu = GameUIKit.Rect(transform, "TradeMenu");
-            _menu.anchorMin = _menu.anchorMax = Vector2.zero;
-            _menu.pivot = Vector2.zero;
-            _menu.anchoredPosition = cfg.buttonPosition + new Vector2(0f, cfg.buttonSize.y) + cfg.menuOffset;
+            // Centred on the screen; menuOffset nudges it from the centre.
+            _menu.anchorMin = _menu.anchorMax = new Vector2(0.5f, 0.5f);
+            _menu.pivot = new Vector2(0.5f, 0.5f);
+            _menu.anchoredPosition = cfg.menuOffset;
             GameUIKit.PanelChrome(_menu);
 
             float inner = cfg.menuWidth - 2f * cfg.padding;
@@ -198,7 +199,7 @@ namespace TheWaningBorder.UI.Ingame
             row.Name = MakeCell(row.Root, cfg.padding, y, cfg.nameColumnWidth, cfg.rowHeight, "",
                 cfg.cellFontSize, () => FocusRow(r), () => NameTooltip(r));
             row.Name.Label.alignment = TextAlignmentOptions.MidlineLeft;
-            row.Name.Label.margin = new Vector4(12f, 0f, 8f, 0f);
+            row.Name.Label.margin = new Vector4(8f, 0f, 6f, 0f);
             for (int c = 0; c < Routes.Length; c++)
             {
                 int route = c;

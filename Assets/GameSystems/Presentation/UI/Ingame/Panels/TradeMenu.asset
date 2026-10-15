@@ -12,16 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f215d34071ce477083a4b8060e8e64fe, type: 3}
   m_Name: TradeMenu
   m_EditorClassIdentifier: 
-  buttonPosition: {x: 456, y: 680}
-  buttonSize: {x: 300, y: 96}
-  menuOffset: {x: 0, y: 8}
-  menuWidth: 1180
-  padding: 18
-  rowHeight: 52
-  gap: 6
-  nameColumnWidth: 330
+  buttonPosition: {x: 312, y: 680}
+  buttonSize: {x: 180, y: 60}
+  buttonFontSize: 26
+  menuOffset: {x: 0, y: 0}
+  menuWidth: 1060
+  padding: 12
+  rowHeight: 40
+  gap: 4
+  nameColumnWidth: 240
   maxRows: 12
-  titleFontSize: 34
-  fontSize: 26
-  cellFontSize: 22
+  titleFontSize: 28
+  fontSize: 22
+  cellFontSize: 19
   refreshSeconds: 0.5

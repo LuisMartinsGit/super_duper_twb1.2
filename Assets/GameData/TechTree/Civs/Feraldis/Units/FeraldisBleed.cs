@@ -26,6 +26,8 @@ namespace TheWaningBorder.Systems.Combat
         {
             if (victim == Entity.Null || !em.Exists(victim)) return;
             if (dps <= 0f || duration <= 0f) return;
+            // Barbed Heads (Hall of Axes): every Feraldis bleed lasts longer.
+            duration *= TheWaningBorder.Feraldis.FeraldisCombat.BleedDurationMult(source);
             if (!em.HasComponent<Health>(victim)) return;
             if (TransientState.Active<DeathAnimationState>(em, victim)) return;
             // An Invulnerable victim is not cut at all — it must not come out

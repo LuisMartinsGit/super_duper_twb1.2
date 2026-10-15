@@ -178,3 +178,11 @@ and it never scaled with what was actually lost.
 - **Multiplayer**: `HeroTrainLimit`'s respawn counter is a static dictionary
   and is already flagged for the netcode pass; the revival level must live in
   per-faction sim state for the same reason.
+
+## 6. Harkon Fiend — the Feraldis hero (2026-10-12)
+
+Trained at the Feraldis Fortress (its SO's `minBuildingLevel`), one per
+faction, levels and revival exactly as above. Abilities by level — Warcry
+(1), Leap (3), **Raze** (5), Blood Oath (10) — are specified in
+[Age_1_Feraldis.md §8](Age_1_Feraldis.md). Raze is the only non-siege effect
+allowed to destroy a wall piece.

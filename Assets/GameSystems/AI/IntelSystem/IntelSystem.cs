@@ -269,6 +269,7 @@ namespace TheWaningBorder.AI
             if (em.HasComponent<BorderMainNodeTag>(e) || em.HasComponent<SmallNodeTag>(e))
             { cat = IntelCategory.BorderNode; isMilitary = false; return; }
             if (em.HasComponent<WorkerTag>(e)) { cat = IntelCategory.Worker; isMilitary = false; return; }
+            if (em.HasComponent<CaravanTag>(e)) { cat = IntelCategory.Caravan; isMilitary = false; return; }
             if (em.HasComponent<BuildingTag>(e))
             {
                 bool mil = em.HasComponent<BarracksTag>(e) || em.HasComponent<ArcheryRangeTag>(e);

@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -315,6 +315,10 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (shouldDestroy)
                 {
+                    // Feraldis Corpse Engine / Harpoon Rig impacts
+                    // (docs/Design/Age_1_Feraldis.md §7.5).
+                    TheWaningBorder.Feraldis.FeraldisSiegeImpacts.OnImpact(em, ecb, entity, trans.Position, proj.Faction);
+
                     // AOE splash damage on impact
                     if (em.HasComponent<AOEProjectile>(entity))
                     {
@@ -563,6 +567,12 @@ namespace TheWaningBorder.Systems.Combat
 
                 // The Wall Rule: non-siege splash passes over wall pieces.
                 if (CombatDamageHelper.WallRuleBlocks(em, entities[i], proj.DmgType)) continue;
+
+                // Splash from a shooter that cannot hit the air passes under a
+                // FLYING unit (docs/Design/Age_1_Runai.md §6.4).
+                if (em.HasComponent<FlyingTag>(entities[i])
+                    && (shooter == Entity.Null || !em.Exists(shooter)
+                        || !TheWaningBorder.Systems.Combat.TargetingSystem.CanHitFlying(em, shooter))) continue;
 
                 // Check health > 0
                 var hp = em.GetComponentData<Health>(entities[i]);

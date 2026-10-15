@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
+  m_Name: WarWagon
+  m_EditorClassIdentifier: 
+  id: Runai_WarWagon
+  displayName: War Wagon
+  unitClass: machinery_siege
+  hp: 700
+  speed: 4.5
+  trainingTime: 40
+  damage: 14
+  damageType: ranged
+  armorType: infantry_heavy
+  defense:
+    melee: 4
+    ranged: 6
+    siege: 1
+    magic: 0
+  attackCooldown: 1.5
+  attackRange: 12
+  minAttackRange: 0
+  lineOfSight: 22
+  aimTime: 0.3
+  radius: 1.3
+  trajectory: flat
+  projectileSpeed: 30
+  cost:
+    Supplies: 200
+    Iron: 160
+    Veilstone: 120
+    Veilsteel: 0
+  populationCost: 4
+  minBuildingLevel: 2
+  buildSpeed: 0
+  gatheringSpeed: 0
+  healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
+  tags:
+  - Siege
+  - Heavy
+  bonusVsTags: []
+  preferTargets: []
+  abilities:
+  - Unload
+  prefab: {fileID: 8303799667744718446, guid: 43bdc3cdf69bfc94e88876dbb598e904, type: 3}
+  presentationId: 446
+  animatorController: {fileID: 0}

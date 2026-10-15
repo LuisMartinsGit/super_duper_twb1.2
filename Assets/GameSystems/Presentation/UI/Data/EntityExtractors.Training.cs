@@ -1,4 +1,4 @@
-﻿// EntityExtractors.Training.cs
+// EntityExtractors.Training.cs
 // Unit-training actions and state: per-building training buttons (culture and
 // building-level gated), training progress/queue info, unit cost lookup, and
 // the chapel/temple training specializations.
@@ -268,6 +268,11 @@ namespace TheWaningBorder.UI.Data
             if (!em.HasComponent<ChapelTag>(entity)) return actions;
             string sectId = em.GetComponentData<ChapelTag>(entity).SectId.ToString();
 
+            // A sect with its own building (the 2026-10 Alanthor kits) trains
+            // its unit and hero there; its chapel is decoration only
+            // (Religion.md §3, §3.2).
+            if (TheWaningBorder.Economy.SectConfig.BuildingIdFor(sectId) != null) return actions;
+
             // Generic chapel unit (2026-08-11, docs/Design/Sect_Units.md):
             // every sect with a live kit trains its unique unit here —
             // resolved through SectConfig.UnitIdFor + the TechCatalog def,
@@ -311,7 +316,7 @@ namespace TheWaningBorder.UI.Data
                 var cost = Cost.Of(supplies: 120, iron: 40);
                 actions.Add(new ActionButton
                 {
-                    Id = "Sect_Lorekeeper",
+                    Id = "Sect_Artificer",
                     Label = Loc.T("Lorekeeper"),
                     Tooltip = Loc.T("Lorekeeper — Antiquity support scholar.\n"
                         + "Reveals stealthed enemies nearby (Lv II: doubled radius; "
@@ -456,52 +461,8 @@ namespace TheWaningBorder.UI.Data
                 });
             }
 
-            // Feraldis CORRUPTOR: the Temple path bypasses the generic trains[]
-            // extractor, so without a hardcoded block the unit exists in the
-            // catalog but no button ever surfaces it. (That is exactly why
-            // Feraldis_Iconoclast was untrainable for its whole life.)
-            if (TechCatalog.TryGetUnit("Feraldis_Iconoclast", out var corruptorUnit))
-            {
-                byte reqCulture = GetRequiredCultureForUnit("Feraldis_Iconoclast");
-                if (reqCulture == Cultures.None || reqCulture == GetFactionCulture(em, faction))
-                {
-                    // The Temple has no levels (docs/Design/Religion.md): it is
-                    // always level 1, so a minBuildingLevel above 1 stays locked.
-                    const int templeLevel = 1;
-                    int minLv = corruptorUnit.minBuildingLevel < 1 ? 1 : corruptorUnit.minBuildingLevel;
-                    bool locked = templeLevel < minLv;
-
-                    var cCost = corruptorUnit.cost != null ? new Cost
-                    {
-                        Supplies = corruptorUnit.cost.Supplies,
-                        Iron = corruptorUnit.cost.Iron,
-                        Veilstone = corruptorUnit.cost.Veilstone,
-                        Veilsteel = corruptorUnit.cost.Veilsteel,
-                    } : default;
-
-                    string cTooltip = Loc.T("Corruptor — channels on a well to crack it OPEN, "
-                        + "leaving it vulnerable to attack for a short window. "
-                        + "The curse defends it while it is exposed; break the well "
-                        + "before it seals. Destroy every well to win.") + "\n"
-                        + BuildTooltip("Corruptor", corruptorUnit.unitClass, cCost, available,
-                            trainingTime: corruptorUnit.trainingTime);
-                    if (locked)
-                        cTooltip = string.Format(Loc.T("Requires Temple Level {0}"), minLv) + "\n" + cTooltip;
-
-                    actions.Add(new ActionButton
-                    {
-                        Id = corruptorUnit.id,
-                        Label = locked
-                            ? string.Format(Loc.T("{0}  (Temple Lv {1})"), Loc.T("Corruptor"), minLv)
-                            : Loc.T("Corruptor"),
-                        Tooltip = cTooltip,
-                        Cost = cCost,
-                        Enabled = !locked,
-                        CanAfford = !locked && FactionEconomy.CanAfford(em, faction, cCost),
-                        Icon = null
-                    });
-                }
-            }
+            // (The Feraldis Corruptor is retired — wells are gone; docs/Design/
+            // Age_1_Feraldis.md §7.7. It is no longer offered at the Temple.)
 
             // Adopted-sect unique units (new roster, rollout 2026-07-05):
             // once a sect is adopted its unit trains here at the Temple.
@@ -515,6 +476,8 @@ namespace TheWaningBorder.UI.Data
                 {
                     string sectId = TheWaningBorder.Economy.SectConfig.IdAt(i);
                     if (!adoption.Get(sectId).IsAdopted) continue;
+                    // Sects with their own building train there instead.
+                    if (TheWaningBorder.Economy.SectConfig.BuildingIdFor(sectId) != null) continue;
                     if (!SectUnitFor(sectId, out var unitId, out var label,
                         out var unitCost, out var tooltip)) continue;
 
@@ -557,18 +520,6 @@ namespace TheWaningBorder.UI.Data
         {
             switch (sectId)
             {
-                case TheWaningBorder.Economy.SectConfig.Antiquity:
-                    unitId = "Sect_Lorekeeper"; label = "Lorekeeper";
-                    cost = Cost.Of(supplies: 120, iron: 40);
-                    tooltip = "Lorekeeper — Antiquity support scholar. Reveals stealthed "
-                        + "enemies nearby; garrison the Reliquary to speed its cooldowns.";
-                    return true;
-                case TheWaningBorder.Economy.SectConfig.Renewal:
-                    unitId = "Sect_Tinker"; label = "Tinker";
-                    cost = Cost.Of(supplies: 100, iron: 20);
-                    tooltip = "Tinker — Renewal field engineer. Repairs and raises "
-                        + "structures; cannot fight or mine.";
-                    return true;
                 case TheWaningBorder.Economy.SectConfig.Justice:
                     unitId = "Sect_Inquisitor"; label = "Inquisitor";
                     cost = Cost.Of(supplies: 140, iron: 50);

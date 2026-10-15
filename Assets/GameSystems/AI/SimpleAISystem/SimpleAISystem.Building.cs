@@ -1,4 +1,4 @@
-﻿// SimpleAISystem.Building.cs
+// SimpleAISystem.Building.cs
 // Building placement: siting rules, spacing, worker dispatch, pop headroom.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -226,7 +226,8 @@ namespace TheWaningBorder.AI
             // answer has changed — see SiteSearchRemembered.
             // (The lost-trainer rebuild searches with the wall's walkway
             // relaxed, so a normal search's failure says nothing about it.)
-            if (buildingId != "FiendstoneKeep" && !_rebuildingLostTrainer
+            bool chokeLandmark = buildingId == "FiendstoneKeep" || buildingId == "ThessarasCrossing";
+            if (!chokeLandmark && !_rebuildingLostTrainer
                 && SiteSearchRemembered(em, faction, buildingId, anchor, out reason))
                 return false;
 
@@ -235,11 +236,16 @@ namespace TheWaningBorder.AI
             // sealable chokepoint, the Keep stands at the primary corridor
             // (behind the future wall line), not in the base ring.
             float3 pos;
-            if (buildingId == "FiendstoneKeep"
+            // Thessara's Crossing takes the same spot (2026-10-13): the Runai
+            // never wall the home ring, and by the time the Crossing is
+            // affordable the ring's interior is full — Headless runs on
+            // Veilmarch refused every candidate for ten minutes
+            // (docs/Design/Age_1_Runai.md §10, Runai AI).
+            if (chokeLandmark
                 && AIWallPlanner.TryFindKeepChokeSpot(em, hallPos, size, out pos))
             {
                 AILogger.Log(faction, "BUILDING",
-                    $"FiendstoneKeep sited at the ingress chokepoint ({pos.x:F0},{pos.z:F0})");
+                    $"{buildingId} sited at the ingress chokepoint ({pos.x:F0},{pos.z:F0})");
             }
             else if (!TryFindBuildPosition(em, anchor, size, buildingId, faction, out pos,
                          out bool inconclusive))
@@ -417,6 +423,7 @@ namespace TheWaningBorder.AI
                 && buildingId != "Fortress"
                 && buildingId != "VaultOfAlmierra"
                 && buildingId != "FiendstoneKeep"
+                && buildingId != "ThessarasCrossing"
                 && buildingId != "TempleOfRidan"
                 && buildingId != "Hut"
                 && !TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(buildingId)
@@ -758,11 +765,17 @@ namespace TheWaningBorder.AI
 
             bool placingGHut = buildingId == "GatherersHut";
 
+            // A RUNAI WAYSTATION (docs/Design/Age_1_Runai.md §4.3, §9) goes on
+            // a trade route, not in the house quarter: halfway between a depot
+            // and its market, the least-served route first.
+            bool waystation = buildingId == "Hut" && FactionCultureOf(em, faction) == Cultures.Runai;
+            if (waystation) anchor = WaystationAnchor(em, faction, anchor);
+
             // THE DRAWN BASE FIRST (2026-10-06, Game_AI.md § 6g): a building
             // the territory's layout has a slot for takes its next free slot
             // (moved to the nearest legal spot if blocked as drawn). The ring
             // search below runs only when every slot of its kind is used up.
-            if (buildingId != "Fortress"
+            if (buildingId != "Fortress" && !waystation
                 && !TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(buildingId)
                 && !TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(buildingId))
             {
@@ -783,7 +796,7 @@ namespace TheWaningBorder.AI
             // has, packed wall to wall with no centre spacing —
             // a single residential block instead of huts dotted through the
             // base. The first House still goes in the normal base ring.
-            bool houseQuarter = buildingId == "Hut"
+            bool houseQuarter = buildingId == "Hut" && !waystation
                 && AICommon.TryHouseQuarterAnchor(em, faction, out anchor, anchor);
 
             // Resource keep-out: never wall off a patch's approach ring.
@@ -1033,13 +1046,17 @@ namespace TheWaningBorder.AI
                             // (the walkway yields to a production line the
                             // army has none of); a small footprint likewise
                             // (AIWallCorridor.FootprintClear).
-                            if (!AIWallCorridor.FootprintClear(em, faction, candidate, size, lostTrainerCore))
+                            // Thessara's Crossing ignores the wall ring: the
+                            // Runai never build it (Age_1_Runai.md §1), and a
+                            // full ring interior refused every candidate.
+                            bool wallless = buildingId == "ThessarasCrossing";
+                            if (!wallless && !AIWallCorridor.FootprintClear(em, faction, candidate, size, lostTrainerCore))
                             {
                                 nCorridor++;
                                 if (ringed) rayPastRing[idx] = true;
                                 continue;
                             }
-                            if (ringed && !AIWallCorridor.FootprintInsideRing(em, faction, candidate, size))
+                            if (!wallless && ringed && !AIWallCorridor.FootprintInsideRing(em, faction, candidate, size))
                             {
                                 nWall++;
                                 if (ringed) rayPastRing[idx] = true;
@@ -1349,6 +1366,60 @@ namespace TheWaningBorder.AI
                 if (spare < Cfg.hutCostSupplies + Cfg.economyWorkingFloor) return;
             }
             TryBuildBuildingBudgeted(em, faction, "Hut", AIBudgetCategory.EconomyExpansion);
+        }
+
+        static readonly ComponentType[] QT_RunaiDepots =
+        {
+            ComponentType.ReadOnly<RunaiDepot>(), ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_RunaiDepots;
+        static readonly ComponentType[] QT_RunaiMarkets =
+        {
+            ComponentType.ReadOnly<HallTag>(), ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_RunaiMarkets;
+        static readonly ComponentType[] QT_OwnHuts =
+        {
+            ComponentType.ReadOnly<HutTag>(), ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_OwnHuts;
+
+        /// <summary>Where the next Waystation goes: the midpoint of the depot →
+        /// nearest-market line with the fewest of the faction's Waystations
+        /// near it (depots in entity order; ties keep the first).</summary>
+        private static float3 WaystationAnchor(EntityManager em, Faction faction, float3 fallback)
+        {
+            using var dE = QC_RunaiDepots.Get(em, QT_RunaiDepots).ToEntityArray(Allocator.Temp);
+            using var dF = QC_RunaiDepots.Get(em, QT_RunaiDepots).ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var dX = QC_RunaiDepots.Get(em, QT_RunaiDepots).ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var mF = QC_RunaiMarkets.Get(em, QT_RunaiMarkets).ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var mX = QC_RunaiMarkets.Get(em, QT_RunaiMarkets).ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var hF = QC_OwnHuts.Get(em, QT_OwnHuts).ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var hX = QC_OwnHuts.Get(em, QT_OwnHuts).ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            float3 best = fallback; int bestCount = int.MaxValue; int bestIdx = int.MaxValue;
+            for (int i = 0; i < dE.Length; i++)
+            {
+                if (dF[i].Value != faction) continue;
+                float3 d = dX[i].Position;
+                float md = float.MaxValue; float3 m = default;
+                for (int k = 0; k < mX.Length; k++)
+                {
+                    if (mF[k].Value != faction) continue;
+                    float dd = math.distancesq(mX[k].Position.xz, d.xz);
+                    if (dd < md) { md = dd; m = mX[k].Position; }
+                }
+                if (md == float.MaxValue || md < 40f * 40f) continue;   // a route too short to need one
+                float3 mid = (d + m) * 0.5f;
+                int count = 0;
+                for (int h = 0; h < hX.Length; h++)
+                    if (hF[h].Value == faction && math.distancesq(hX[h].Position.xz, mid.xz) < 30f * 30f) count++;
+                if (count < bestCount || (count == bestCount && dE[i].Index < bestIdx))
+                { bestCount = count; bestIdx = dE[i].Index; best = mid; }
+            }
+            return best;
         }
     }
 }

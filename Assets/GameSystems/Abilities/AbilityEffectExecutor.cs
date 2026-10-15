@@ -1,4 +1,4 @@
-﻿// AbilityEffectExecutor.cs
+// AbilityEffectExecutor.cs
 // Translates an AbilityCard's structured effects into concrete ECS buff
 // components on a target. Shared by the active-cast path and the aftermath
 // chain so a "cast" is one call.
@@ -189,6 +189,86 @@ namespace TheWaningBorder.Abilities
 
                     case AbilityEffectKind.ShardboundFury:
                         TheWaningBorder.Entities.ShardboundFury.Cast(em, caster, card);
+                        break;
+
+                    // Harkon Fiend (docs/Design/Age_1_Feraldis.md §8).
+                    case AbilityEffectKind.FeraldisWarcry:
+                        TheWaningBorder.Feraldis.HarkonAbilities.Warcry(em, caster, card, dur);
+                        break;
+                    case AbilityEffectKind.FeraldisLeap:
+                        TheWaningBorder.Feraldis.HarkonAbilities.Leap(em, caster);
+                        break;
+                    case AbilityEffectKind.FeraldisRaze:
+                        TheWaningBorder.Feraldis.HarkonAbilities.Raze(em, caster);
+                        break;
+                    case AbilityEffectKind.FeraldisBloodOath:
+                        TheWaningBorder.Feraldis.HarkonAbilities.BloodOath(em, caster, card, dur);
+                        break;
+                    case AbilityEffectKind.FeraldisFieldSacrifice:
+                        TheWaningBorder.Feraldis.FeraldisSacrifice.FieldSacrifice(em, caster);
+                        break;
+                    case AbilityEffectKind.FeraldisRigUnload:
+                        TheWaningBorder.Feraldis.WarRig.Unload(em, caster);
+                        break;
+                    case AbilityEffectKind.FeraldisOvercharge:
+                        TheWaningBorder.Feraldis.FeraldisCombatSystems.Overcharge(em, caster);
+                        break;
+
+                    // Runai (docs/Design/Age_1_Runai.md §6.1, §8).
+                    case AbilityEffectKind.RunaiWayfinding:
+                        TheWaningBorder.Runai.RunaiAbilities.Wayfinding(em, caster, card, dur);
+                        break;
+                    case AbilityEffectKind.RunaiMirage:
+                        TheWaningBorder.Runai.RunaiAbilities.Mirage(em, caster, card, dur);
+                        break;
+                    case AbilityEffectKind.RunaiCaravanOfSwords:
+                        TheWaningBorder.Runai.RunaiAbilities.CaravanOfSwords(em, caster, dur);
+                        break;
+                    case AbilityEffectKind.RunaiExodus:
+                        TheWaningBorder.Runai.RunaiAbilities.Exodus(em, caster, card);
+                        break;
+                    case AbilityEffectKind.RunaiScatter:
+                        TheWaningBorder.Runai.RunaiAbilities.Scatter(em, caster, card);
+                        break;
+                    case AbilityEffectKind.RunaiTheCall:
+                        TheWaningBorder.Runai.RunaiTradeSystem.Call(em, caster);
+                        break;
+                    case AbilityEffectKind.RunaiReturnToWagons:
+                        if (em.HasComponent<FactionTag>(caster))
+                            TheWaningBorder.Runai.RunaiTradeSystem.DismissCall(em, em.GetComponentData<FactionTag>(caster).Value);
+                        break;
+
+                    // The Alanthor sect heroes (docs/Design/Sects.md §4).
+                    case AbilityEffectKind.SectStampOfRecord:
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.StampOfRecord(em, caster, card);
+                        break;
+                    case AbilityEffectKind.SectRecall:
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Recall(em, caster, card);
+                        break;
+                    case AbilityEffectKind.SectBloodletting:
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Bloodletting(em, caster, card, e.Value, dur);
+                        break;
+                    case AbilityEffectKind.SectLancet:
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Lancet(em, caster, card, dur);
+                        break;
+                    case AbilityEffectKind.SectSallyForth:
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.SallyForth(em, caster, card, dur);
+                        break;
+                    case AbilityEffectKind.SectChallenge:
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Challenge(em, caster, card, dur);
+                        break;
+                    case AbilityEffectKind.SectStake:
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Stake(em, caster, dur);
+                        break;
+                    case AbilityEffectKind.SectLiquidate:
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Liquidate(em, caster, card, e.Value);
+                        break;
+                    // Catalogued, Cauterize, Drillmaster and Called In are
+                    // auras — SectHeroAuraSystem and StoredStrikeChargeSystem.
+                    case AbilityEffectKind.SectCatalogued:
+                    case AbilityEffectKind.SectCauterize:
+                    case AbilityEffectKind.SectDrillmaster:
+                    case AbilityEffectKind.SectCalledIn:
                         break;
 
                     case AbilityEffectKind.SummonPledgeArmy:

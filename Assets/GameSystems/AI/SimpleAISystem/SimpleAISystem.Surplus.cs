@@ -54,6 +54,20 @@ namespace TheWaningBorder.AI
                && FactionEra(em, faction) >= 2
                && AIBudget.VeilstoneHeldSurplus(em, faction);
 
+        /// <summary>
+        /// TRADE SURPLUS (2026-10-12, Game_AI.md 5a): the veilstone surplus,
+        /// or supplies piling up while the army is short of iron or veilsteel
+        /// (AIBudget.TradeHeldSurplus). The Outposts make every resource but
+        /// supplies, so either way the answer is more posts, their research
+        /// and their levels. Kept apart from IsVeilstoneSurplus, whose other
+        /// readers (claims, Fortress sites, the research sweep's veilstone
+        /// earmark) are about veilstone itself.
+        /// </summary>
+        private static bool IsTradeSurplus(EntityManager em, Faction faction)
+            => FactionCultureOf(em, faction) == Cultures.Alanthor
+               && FactionEra(em, faction) >= 2
+               && (AIBudget.VeilstoneHeldSurplus(em, faction) || AIBudget.TradeHeldSurplus(em, faction));
+
         /// <summary>One SURPLUS line per action, unthrottled — each is a real
         /// purchase, so it cannot spam faster than the bank allows.</summary>
         private static void LogSurplus(Faction faction, string message)
@@ -70,7 +84,7 @@ namespace TheWaningBorder.AI
         private void TickSurplus(EntityManager em, Faction faction, float now)
         {
             if (!TechCatalog.IsReady) return;
-            if (!IsVeilstoneSurplus(em, faction)) return;
+            if (!IsTradeSurplus(em, faction)) return;
 
             TrySurplusTradeResearch(em, faction);
             TrySurplusOutpostUpgrade(em, faction);
@@ -99,15 +113,33 @@ namespace TheWaningBorder.AI
             }
             var p = GetArmyPlan(em, faction);
             LogSurplus(faction,
-                $"veilstone-held (supplies {bank.Supplies}, iron {bank.Iron}, veilstone {bank.Veilstone}, " +
+                $"trade-held (short:{ShortList(faction)}; supplies {bank.Supplies}, iron {bank.Iron}, " +
+                $"veilstone {bank.Veilstone}, veilsteel {bank.Veilsteel}, " +
                 $"outposts {outposts}, free outcrops {free}, saving for {p.SavingFor ?? "a role unit"})");
         }
 
+        /// <summary>The non-supply resources the army is short of, for a log line.</summary>
+        private static string ShortList(Faction faction)
+        {
+            string s = "";
+            if (AIBudget.IsMilitaryShort(faction, AIBudget.ResIron)) s += " iron";
+            if (AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone)) s += " veilstone";
+            if (AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilsteel)) s += " veilsteel";
+            return s.Length == 0 ? " none" : s;
+        }
+
+        private static readonly string[] _chainTechs = new string[1];
+
         /// <summary>
         /// The Trading Outpost's own research, from TradingOutpostSystem.asset
-        /// (speedTechs, then discountTechs) — never an id list in the AI. One
-        /// per think. These pass the savings hold and the army's veilstone
-        /// earmark: they are the income the earmark is waiting on.
+        /// — never an id list in the AI. One per think. These pass the savings
+        /// hold and the army's veilstone earmark: they are the income the
+        /// earmark is waiting on. The ORDER follows what is short (2026-10-12):
+        ///   * iron or veilsteel short: the chain techs first — Veilsteel
+        ///     Forging, then (iron) Veilsteel Export, the only trade that MAKES
+        ///     iron — then the discounts, which cut every link's input;
+        ///   * veilstone only: speed first (it is the only one that raises
+        ///     veilstone bought per minute), then the discounts.
         /// </summary>
         private static void TrySurplusTradeResearch(EntityManager em, Faction faction)
         {
@@ -115,6 +147,21 @@ namespace TheWaningBorder.AI
             if (cfg == null) return;
             Entity host = FindResearchHost<TradingOutpostTag>(em, faction);
             if (host == Entity.Null) return;
+            bool ironShort = AIBudget.IsMilitaryShort(faction, AIBudget.ResIron);
+            bool steelShort = AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilsteel);
+            if (ironShort || steelShort)
+            {
+                _chainTechs[0] = cfg.forgeTech;
+                if (TryTradeResearchFrom(em, faction, host, _chainTechs)) return;
+                if (ironShort)
+                {
+                    _chainTechs[0] = cfg.sellTech;
+                    if (TryTradeResearchFrom(em, faction, host, _chainTechs)) return;
+                }
+                if (TryTradeResearchFrom(em, faction, host, cfg.discountTechs)) return;
+                TryTradeResearchFrom(em, faction, host, cfg.speedTechs);
+                return;
+            }
             if (TryTradeResearchFrom(em, faction, host, cfg.speedTechs)) return;
             TryTradeResearchFrom(em, faction, host, cfg.discountTechs);
         }
@@ -187,7 +234,7 @@ namespace TheWaningBorder.AI
                 TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
                     em, host, techId, TheWaningBorder.Core.Commands.CommandSource.AI);
                 InvalidateThinkMemo();
-                AILogger.Log(faction, "RESEARCH", $"{techId} queued (veilstone surplus)");
+                AILogger.Log(faction, "RESEARCH", $"{techId} queued (trade surplus)");
                 LogSurplus(faction, $"research {techId} at {TheWaningBorder.Entities.TradingOutpost.BuildingId}");
                 return true;
             }

@@ -18,6 +18,7 @@ MonoBehaviour:
   weightHall: 60
   weightBorderNode: 80
   weightMilitaryUnit: 40
+  weightCaravan: 150
   riskPerDefenseStrength: 0.6
   defenseProbeRadius: 25
   travelCostPerMeter: 0.4

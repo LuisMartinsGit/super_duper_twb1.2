@@ -230,7 +230,7 @@ namespace TheWaningBorder.AI
             // building, so the AI has no early-game milestones left to hit.
             int initialStepIndex = 0;
             byte ageUpIssued = 0;
-            if (GameSettings.StartAge != SkirmishStartAge.Age0)
+            if (GameSettings.StartsPromoted(faction))
             {
                 // Any step index past the longest build order (~30 steps)
                 // triggers the maintenance branch in SimpleAISystem.OnUpdate.

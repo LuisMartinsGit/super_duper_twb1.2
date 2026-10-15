@@ -32,6 +32,11 @@ MonoBehaviour:
   suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
   maxPerFaction: 1
   minWallLevel: 0
   garrisonSlots: 0
@@ -51,8 +56,17 @@ MonoBehaviour:
     Veilsteel: 0
   tags:
   - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
+  prefab: {fileID: 3639883352473435982, guid: f36ca7115fd26e54cabf2e6ed9f98152, type: 3}
   presentationId: 521
   prefabPath: 
   canUpgradeTo: []

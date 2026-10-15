@@ -1,4 +1,4 @@
-﻿// EntityExtractors.cs
+// EntityExtractors.cs
 // Helper classes to extract UI display info from ECS entities
 // Core file: GetDisplayInfo / GetActionInfo entry points, queue snapshot,
 // faction-level query helpers, and shared cost/tooltip helpers. Sibling
@@ -709,6 +709,18 @@ namespace TheWaningBorder.UI.Data
                     }
                 };
                 ApplyWallLock(ref info, entity, em, GameSettings.LocalPlayerFaction);
+                return info;
+            }
+
+            // FERALDIS: the Great Forge's bays and the War Totem's rites in the
+            // top row (docs/Design/Age_1_Feraldis.md §4, §6.2).
+            var feraldisButtons = FeraldisActions.ForgeButtons(em, entity) ?? FeraldisActions.TotemButtons(em, entity)
+                                  ?? FeraldisActions.SanctuaryButtons(em, entity);
+            if (feraldisButtons != null)
+            {
+                info.Type = ActionType.UnitTrainingAndResearch;
+                info.Actions = feraldisButtons;
+                info.ProductionState = em.HasComponent<ProductionState>(entity) ? GetProductionInfo(entity, em) : null;
                 return info;
             }
 

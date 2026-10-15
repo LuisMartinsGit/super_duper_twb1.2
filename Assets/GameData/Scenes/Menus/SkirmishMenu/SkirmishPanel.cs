@@ -30,14 +30,9 @@ namespace TheWaningBorder.UI.Menus.Panels
         private static readonly string[] StrategyNames = LobbyOptions.StrategyNames;
         private static readonly string[] DifficultyNames =
             { "EASY", "STANDARD", "HARD", "EXPERT" };
-        // The dropdown picks an age AND the culture every faction starts in —
-        // the labels have always carried the culture suffix, so the list is
-        // age/culture combinations rather than two separate controls.
-        //
-        // The tables themselves moved to LobbyOptions when the multiplayer
-        // lobby started offering the same two options: one source, so the two
-        // screens cannot drift apart on what an age label promises.
-        private static readonly string[] AgeNames = LobbyOptions.AgeNames;
+        // The STARTING AGE dropdown was replaced by START WITH CULTURE
+        // (StartCultureOption, 2026-10-14): AgeDropdown stays wired in the
+        // scene only as the cell the toggle is built into.
         private static readonly string[] ResourceNames = LobbyOptions.ResourceNames;
 
         /// <summary>
@@ -82,8 +77,14 @@ namespace TheWaningBorder.UI.Menus.Panels
         private int _mapIndex;
         private int _spawnSeed;
         private bool _fogOfWar, _curseNodes, _maxResources;
-        private SkirmishStartAge _startAge;
         private bool _wired;
+
+        // START WITH CULTURE (StartCultureOption) — replaced the STARTING AGE
+        // dropdown. The static remembers the choice for the session.
+        private static bool _startWithCultureDefault;
+        private bool _startWithCulture;
+        private Button _cultureToggle;
+        private TMP_Text _cultureState;
 
         // Observer mode (AI vs AI): the local player spectates and every
         // slot — including slot 0 — is AI-controlled. The pill is built
@@ -110,7 +111,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             _fogOfWar = GameSettings.FogOfWarEnabled;
             _curseNodes = GameSettings.BorderEnabled;
             _maxResources = GameSettings.MaxStartingResources;
-            _startAge = GameSettings.StartAge;
+            _startWithCulture = _startWithCultureDefault;
             _observer = _observerDefault;
 
             Wire();
@@ -142,11 +143,15 @@ namespace TheWaningBorder.UI.Menus.Panels
                 SetOptions(ResourcesDropdown, ResourceNames);
                 ResourcesDropdown.onValueChanged.AddListener(v => _maxResources = v == 1);
             }
-            if (AgeDropdown != null)
-            {
-                SetOptions(AgeDropdown, AgeNames);
-                AgeDropdown.onValueChanged.AddListener(v => _startAge = (SkirmishStartAge)v);
-            }
+            StartCultureOption.BuildToggle(AgeDropdown, FogToggle, FogState, out _cultureToggle, out _cultureState);
+            if (_cultureToggle != null)
+                _cultureToggle.onClick.AddListener(() =>
+                {
+                    _startWithCulture = !_startWithCulture;
+                    _startWithCultureDefault = _startWithCulture;
+                    SyncOptions();
+                    RebuildRoster();
+                });
             if (FogToggle != null) FogToggle.onClick.AddListener(() => { _fogOfWar = !_fogOfWar; SyncOptions(); });
             if (CurseToggle != null) CurseToggle.onClick.AddListener(() => { _curseNodes = !_curseNodes; SyncOptions(); });
             if (AddOpponentButton != null) AddOpponentButton.onClick.AddListener(AddOpponent);
@@ -269,7 +274,7 @@ namespace TheWaningBorder.UI.Menus.Panels
         private void SyncOptions()
         {
             if (ResourcesDropdown != null) ResourcesDropdown.SetValueWithoutNotify(_maxResources ? 1 : 0);
-            if (AgeDropdown != null) AgeDropdown.SetValueWithoutNotify((int)_startAge);
+            SyncPill(_cultureToggle, _cultureState, _startWithCulture);
             SyncPill(FogToggle, FogState, _fogOfWar);
             SyncPill(CurseToggle, CurseState, _curseNodes);
             SyncPill(_observerToggle, _observerState, _observer);
@@ -870,6 +875,17 @@ namespace TheWaningBorder.UI.Menus.Panels
                     });
                 }
             }
+            // START WITH CULTURE: every occupied row — the player's too — picks
+            // the culture it starts in, beside difficulty and personality.
+            var culture = StartCultureOption.RowDropdown(t, diff != null ? diff : strat);
+            if (culture != null)
+            {
+                bool show = occupied && _startWithCulture;
+                culture.gameObject.SetActive(show);
+                if (show)
+                    StartCultureOption.Fill(culture, slot.StartCulture,
+                        c => LobbyConfig.Slots[idx].StartCulture = c);
+            }
             if (remove != null)
             {
                 remove.gameObject.SetActive(occupied && index != 0 && LobbyConfig.ActiveSlotCount > 2);
@@ -1031,8 +1047,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             GameSettings.MaxStartingResources = _maxResources;
             GameSettings.BorderEnabled = _curseNodes;
             GameSettings.IsObserver = _observer;
-            GameSettings.StartAge = _startAge;
-            GameSettings.StartCulture = LobbyOptions.CultureForAge(_startAge);
+            StartCultureOption.Apply(_startWithCulture);
             GameSettings.Mode = GameMode.FreeForAll;
 
             // Last call before the table is published: make sure the map's team

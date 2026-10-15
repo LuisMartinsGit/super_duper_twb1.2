@@ -1628,8 +1628,7 @@ namespace TheWaningBorder.Multiplayer
                 case LockstepCommandType.SectAdopt:
                     if (entity != Entity.Null)
                     {
-                        CommandRouter.SectAdoptionCommandDirect(em, entity, cmd.BuildingId,
-                            cmd.TargetEntityId, cmd.TargetPosition.x);
+                        CommandRouter.SectAdoptionCommandDirect(em, entity, cmd.BuildingId);
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed SectAdopt {cmd.BuildingId} from player {cmd.PlayerIndex}");
                     }
                     break;
@@ -1710,6 +1709,14 @@ namespace TheWaningBorder.Multiplayer
                     // EntityNetworkId: the gate. TargetEntityId: 1 = sealed.
                     CommandRouter.SetGateLockDirect(em, entity, cmd.TargetEntityId != 0);
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetGateLock({cmd.TargetEntityId}) from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.FeraldisOrder:
+                    // EntityNetworkId: the actor. TargetEntityId: the target
+                    // (0 = none). SecondaryTargetId: FeraldisOp | arg << 8.
+                    CommandRouter.FeraldisOrderDirect(em, entity, targetEntity,
+                        (byte)(cmd.SecondaryTargetId & 0xFF), cmd.SecondaryTargetId >> 8, cmd.TargetPosition);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed FeraldisOrder({cmd.SecondaryTargetId & 0xFF}) from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.DeleteEntity:

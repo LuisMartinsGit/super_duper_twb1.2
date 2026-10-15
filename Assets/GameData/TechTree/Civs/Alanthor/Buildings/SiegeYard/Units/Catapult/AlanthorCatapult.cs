@@ -41,7 +41,7 @@ namespace TheWaningBorder.Entities
         // Sits between the Ballista (40 dmg single target) and the Trebuchet
         // (long-range building killer): less punch per hit than the bolt, but
         // it lands on everyone standing near the impact.
-        private const int PresentationID = 350;
+        private const int PresentationID = 420;   // own pid (350 was Runai_Outpost's, so the catapult spawned without its art)
 
         /// <summary>Create via EntityManager (immediate).</summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)

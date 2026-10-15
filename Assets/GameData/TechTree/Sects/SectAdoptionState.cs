@@ -4,8 +4,8 @@
 // / FactionReligionPoints).
 //
 // Holds, for each of the 12 sects, whether it's adopted and at what level
-// each of the 4 levers stands. Adoption itself happens via a chapel building
-// completing inside a Temple slot — see SectAdoption.OnChapelCompleted.
+// each of the 4 levers stands. Adoption is instant
+// (SectAdoption.TryAdopt, run by the SectAdopt command on every peer).
 //
 // Phase 1 (task-063): component layout + small read API. Effect dispatchers
 // (Phase 2) read this state to decide whether to apply each sect's bonuses.
@@ -50,12 +50,13 @@ namespace TheWaningBorder.Economy
         public byte PowerLevel;
 
         /// <summary>
-        /// How many of the sect's three actives this faction has unlocked
-        /// (docs/Design/Religion.md §3.1): 1 on adoption, 2 once the second
-        /// counterpart is bought (1 RP), 3 with the wildcard (2 RP). 0 reads
-        /// as 1 for an adopted sect (saves from before the field existed).
+        /// Which of the sect's three actives this faction has unlocked, one
+        /// bit per slot: 1 = A (comes with adoption), 2 = B, 4 = the wildcard.
+        /// B and the wildcard are bought independently, in either order
+        /// (docs/Design/Religion.md §3.1, 2026-10-15) — replaces the old
+        /// sequential count.
         /// </summary>
-        public byte UnlockedActives;
+        public byte UnlockMask;
 
         /// <summary>1 once the sect's hero has been recruited for its RP
         /// (Religion.md §4). A hero recruited again after dying pays only its
@@ -76,8 +77,13 @@ namespace TheWaningBorder.Economy
         public byte UnitLevelAchievedAtAge;
         public byte ActivePowerLevelAchievedAtAge;
 
-        /// <summary>True if this sect has been adopted (chapel built).</summary>
+        /// <summary>True if this sect has been adopted.</summary>
         public bool IsAdopted => AdoptedAtAge != 0;
+
+        /// <summary>Is active <paramref name="slot"/> (1 = A, 2 = B, 3 = wildcard)
+        /// unlocked? A always is once the sect is adopted.</summary>
+        public bool IsSlotUnlocked(int slot)
+            => IsAdopted && (slot == 1 || (slot >= 2 && slot <= 3 && (UnlockMask & (1 << (slot - 1))) != 0));
 
         /// <summary>Read the level of a specific lever (returns 0 if not adopted).</summary>
         public byte LevelOf(SectLeverKind kind)

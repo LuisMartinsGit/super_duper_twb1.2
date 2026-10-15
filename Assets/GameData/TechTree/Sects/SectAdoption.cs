@@ -1,21 +1,13 @@
 // SectAdoption.cs
-// Static helper for adopting sects (= building chapels in Temple slots) and
-// upgrading individual levers (Passive / Building / Unit / Active Power).
+// Static helper for adopting sects (docs/Design/Religion.md §3, 2026-10-15).
 //
-// Adoption flow (per task-063 design):
-//   1. Player builds a chapel (Chapel_Sect_X) inside a Temple slot.
-//   2. BuildingConstructionSystem completes the chapel, calls OnChapelCompleted.
-//   3. OnChapelCompleted deducts adoption cost, sets PerSectState.AdoptedAtAge,
-//      grants Lv I on every lever, fires SectAdopted event for broadcast.
+// Adoption is INSTANT and FINAL: the SectAdopt command, run on every peer,
+// re-validates (CanAdopt: known sect, free slot, standing Temple, RP), spends
+// the RP and stamps PerSectState through ApplyAdoption. The chapel on the
+// Temple is decoration; TempleChapelBuildSystem seats it from the bank state.
 //
-// Upgrade flow:
-//   1. Player clicks an upgrade button at a chapel (UI panel — Phase 1 stub).
-//   2. UI calls TryUpgradeLever, which validates affordability + age-gating
-//      + current-level constraints, then deducts cost and bumps lever.
-//   3. Upgrade is *private* — no broadcast event. Visual differentiation only.
-//
-// Phase 1 (task-063): adoption + upgrade primitives. Effect dispatch (Phase 2)
-// reads PerSectState to decide whether to apply each sect's bonuses.
+// The lever-upgrade code below is retired (levels are bought through
+// ReligionPurchases) and kept only until its last callers are gone.
 
 using System;
 using TheWaningBorder.Core;
@@ -90,6 +82,8 @@ namespace TheWaningBorder.Economy
             // Rollout gate — unimplemented sects can't be adopted by anyone
             // (players or AI); every adoption path funnels through here.
             if (!SectConfig.IsImplemented(sectId)) return SectAdoptionResult.NotYetImplemented;
+            // Not in this edition (Alpha_Build.md §4): treated as not implemented.
+            if (!SectConfig.IsInEdition(sectId)) return SectAdoptionResult.NotYetImplemented;
 
             if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return SectAdoptionResult.BankMissing;
             if (!em.HasComponent<SectAdoptionState>(bank)) return SectAdoptionResult.BankMissing;
@@ -97,6 +91,9 @@ namespace TheWaningBorder.Economy
             var state = em.GetComponentData<SectAdoptionState>(bank);
             if (state.Get(idx).IsAdopted) return SectAdoptionResult.AlreadyAdopted;
             if (state.AdoptedCount() >= SectConfig.MaxAdoptedSects) return SectAdoptionResult.SlotsFull;
+
+            // No standing Temple, no adoption (Religion.md §2).
+            if (!SectQuery.HasStandingTemple(em, faction)) return SectAdoptionResult.TempleMissing;
 
             byte culture = LookupCulture(em, faction);
             cost = SectConfig.AdoptionCost(sectId, culture);
@@ -183,100 +180,38 @@ namespace TheWaningBorder.Economy
         // ═══════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Validate a chapel build for <paramref name="sectId"/>: adoption
-        /// legality (RP afford / not adopted / slot count), the in-flight
-        /// build guard, and the chapel material affordability. NO spend
-        /// happens here — the RP + material debit lives in
-        /// <see cref="TrySpendAdoptionCosts"/>, which
-        /// CommandRouter.SectAdoptionCommandDirect runs on EVERY peer.
-        /// Spending at the click site debited the issuing peer's bank and RP
-        /// pool only, and the banks feed the desync checksum
+        /// Click-time check for the religion menu and the AI: may
+        /// <paramref name="faction"/> adopt <paramref name="sectId"/> now?
+        /// Nothing is spent here — the SectAdopt command spends on every peer
         /// (docs/Multiplayer_LAN_Readiness.md).
-        ///
-        /// This is the canonical click-time entry point for the Religion HUD
-        /// and the AI: validate here for feedback, then route
-        /// CommandRouter.IssueSectAdoption.
-        ///
-        /// Refuses if any temple slot is currently building this same sect
-        /// (reads <paramref name="temple"/> 's slot buffer if provided).
         /// </summary>
-        public static SectAdoptionResult ValidateAdoption(
-            EntityManager em, Faction faction, string sectId,
-            in TheWaningBorder.Core.Cost chapelCost, Entity temple)
+        public static SectAdoptionResult ValidateAdoption(EntityManager em, Faction faction, string sectId)
+            => CanAdopt(em, faction, sectId, out _);
+
+        /// <summary>
+        /// EXECUTOR side of an adoption: re-validates through
+        /// <see cref="CanAdopt"/>, spends the adoption RP (adoption has no
+        /// resource price, Religion.md §5) and applies the adoption. Run by
+        /// CommandRouter.SectAdoptionCommandDirect on every peer, so the RP
+        /// debit and the state stamp land identically everywhere. Returns
+        /// false (spending nothing) when the adoption is not legal.
+        /// </summary>
+        public static bool TryAdopt(EntityManager em, Faction faction, string sectId)
         {
-            int idx = SectConfig.IndexOf(sectId);
-            if (idx < 0) return SectAdoptionResult.UnknownSect;
-
-            // Standard validation (RP afford / not already adopted / slot count).
-            var check = CanAdopt(em, faction, sectId, out _);
-            if (check != SectAdoptionResult.Ok) return check;
-
-            // In-flight build guard — refuse if any temple slot is currently
-            // building this same sect.
-            if (em.Exists(temple) && em.HasBuffer<TempleChapelSlot>(temple))
-            {
-                var slots = em.GetBuffer<TempleChapelSlot>(temple);
-                for (int i = 0; i < slots.Length; i++)
-                {
-                    if (slots[i].State == 1 && slots[i].SectId == sectId)
-                        return SectAdoptionResult.AlreadyAdopted;
-                }
-            }
-
-            // Material affordability (check only — see summary).
-            if (!FactionEconomy.CanAfford(em, faction, chapelCost))
-                return SectAdoptionResult.NotEnoughRP; // re-using enum for "can't pay"
-
-            return SectAdoptionResult.Ok;
+            if (CanAdopt(em, faction, sectId, out int rpCost) != SectAdoptionResult.Ok) return false;
+            if (!FactionReligionPointsHelper.TrySpend(em, faction, rpCost)) return false;
+            if (ApplyAdoption(em, faction, sectId) == SectAdoptionResult.Ok) return true;
+            FactionReligionPointsHelper.Refund(em, faction, rpCost);
+            return false;
         }
 
         /// <summary>
-        /// EXECUTOR-side spend for a sect adoption: re-validates via
-        /// <see cref="CanAdopt"/>, recomputes the chapel material cost from
-        /// the shared BuildCosts table (identical data on every peer), then
-        /// atomically deducts RP first and materials second, refunding the
-        /// RP if the material spend fails so no peer ever loses one currency
-        /// without the other. Called by
-        /// CommandRouter.SectAdoptionCommandDirect — the path both the
-        /// single-player direct branch and every lockstep peer execute — so
-        /// the debit lands identically everywhere. Returns false (spending
-        /// nothing) when the adoption is not payable, which rejects the
-        /// whole command with no partial effects.
+        /// Stamp the adoption state (no spend — <see cref="TryAdopt"/> pays
+        /// first) and fire the public event. Idempotent: a sect already
+        /// adopted returns AlreadyAdopted. Also used by scenario setup.
         /// </summary>
-        public static bool TrySpendAdoptionCosts(EntityManager em, Faction faction, string sectId)
+        public static SectAdoptionResult ApplyAdoption(EntityManager em, Faction faction, string sectId)
         {
-            var check = CanAdopt(em, faction, sectId, out int rpCost);
-            if (check != SectAdoptionResult.Ok) return false;
-
-            if (!TheWaningBorder.Data.BuildCosts.TryGet(
-                    SectConfig.ChapelIdFor(sectId), out var chapelCost))
-                return false;
-            if (!FactionEconomy.CanAfford(em, faction, chapelCost)) return false;
-
-            // Atomic spend: RP first, then materials. If the material spend
-            // somehow fails (race), refund the RP.
-            if (!FactionReligionPointsHelper.TrySpend(em, faction, rpCost))
-                return false;
-            if (!FactionEconomy.Spend(em, faction, chapelCost, TheWaningBorder.Economy.SpendCategory.Religion))
-            {
-                FactionReligionPointsHelper.Refund(em, faction, rpCost);
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Called by TempleChapelBuildSystem when a chapel building completes.
-        /// At this point RP + materials were already deducted by
-        /// <see cref="TrySpendAdoptionCosts"/>; this method only stamps the
-        /// adoption state and fires the public event. Idempotent — re-entry
-        /// for the same sect is a no-op (returns AlreadyAdopted).
-        /// </summary>
-        public static SectAdoptionResult OnChapelCompleted(EntityManager em, Faction faction, string chapelBuildingId)
-        {
-            string sectId = SectConfig.SectIdFromChapelId(chapelBuildingId);
-            if (sectId == null) return SectAdoptionResult.UnknownSect;
             int idx = SectConfig.IndexOf(sectId);
             if (idx < 0) return SectAdoptionResult.UnknownSect;
 
@@ -297,11 +232,11 @@ namespace TheWaningBorder.Economy
             var sect = new PerSectState
             {
                 AdoptedAtAge = currentAge,
-                // A new chapel is level I with its FIRST active unlocked
-                // (docs/Design/Religion.md §3). The second active, the
-                // wildcard and chapel levels II / III are bought with RP.
+                // A new sect is level I with power A unlocked
+                // (docs/Design/Religion.md §3). B, the wildcard and levels
+                // II / III are bought with RP, B and the wildcard in either order.
                 PowerLevel = 1,
-                UnlockedActives = 1,
+                UnlockMask = 1,
                 PassiveLevel = startLevel,
                 BuildingLevel = startLevel,
                 UnitLevel = startLevel,

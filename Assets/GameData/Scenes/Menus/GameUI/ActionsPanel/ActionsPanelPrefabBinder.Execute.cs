@@ -1,4 +1,4 @@
-﻿// ActionsPanelPrefabBinder.Execute.cs
+// ActionsPanelPrefabBinder.Execute.cs
 // Acting on a click. These issue commands through CommandRouter; the
 // grid decides WHICH button was pressed, not what pressing it means.
 
@@ -88,6 +88,9 @@ namespace TheWaningBorder.UI.Ingame
         {
             var em = EM(out bool ok);
             if (!ok || !em.Exists(entity)) return;
+
+            // Feraldis Forge bays and totem rites (docs/Design/Age_1_Feraldis.md).
+            if (TheWaningBorder.UI.Data.FeraldisActions.TryExecute(em, entity, b.Id)) return;
 
             switch (b.Id)
             {

@@ -402,6 +402,7 @@ namespace TheWaningBorder.Systems.Combat
             // fall back to anyBest — overflow attackers will dogpile.
             bool isMelee = rules.IsMelee != 0;
             bool selfOnRampart = isMelee && IsOnRampart(em, self);
+            bool hitsAir = CanHitFlying(em, self);
 
             Entity underBest = Entity.Null;
             float underBestDist = float.MaxValue;
@@ -461,6 +462,21 @@ namespace TheWaningBorder.Systems.Combat
                             // literally touching.
                             var dist = TargetGeometry.SurfaceDistXZ(em, myPos, enemyPos, cand);
                             if (dist > rules.ScanRadius) continue;
+
+                            if ((flags & FlagFlying) != 0 && !hitsAir) continue;
+
+                            // The Runai curse ladder (docs/Design/Age_1_Runai.md §5.2):
+                            // Veiled Pilgrims — the curse never picks a Runai
+                            // caravan, trader-warrior or worker; Hushed Veil —
+                            // it notices a Runai unit only up close.
+                            if (myFaction == Faction.Border)
+                            {
+                                byte veil = RunaiVeil.TierOf(f);
+                                if (veil >= RunaiVeil.VeiledPilgrims
+                                    && (flags & (FlagWorker | FlagCivilian)) != 0) continue;
+                                if (veil >= RunaiVeil.HushedVeil
+                                    && dist > rules.ScanRadius * RunaiVeil.HushedScanMultiplier) continue;
+                            }
 
                             // Curse & Shardroot canon §2.1: BORDER units
                             // GUARD their wells — they don't hunt

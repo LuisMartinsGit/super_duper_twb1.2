@@ -1,4 +1,4 @@
-﻿// TerritoryOwnership.cs
+// TerritoryOwnership.cs
 // Who holds each territory.
 //
 // docs/Design/Territory_Claims.md (2026-09-29, FOURTH MODEL): ground belongs to
@@ -404,8 +404,25 @@ namespace TheWaningBorder.World.Regions
             // EVERY building goes on ground you own (Territory_Claims.md §5).
             // There is no claim structure any more: ground is taken by
             // standing on it, so nothing may be raised outside it.
+            // The Runai exception (docs/Design/Age_1_Runai.md §5.1): a Sanctuary
+            // may be raised on a CURSED outcrop in ground the curse holds.
+            if (owner == Curse && buildingId == "Runai_Sanctuary"
+                && TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.TryGetOutcropAt(
+                       em, worldX, worldZ, 4f, out _, out var sKind)
+                && sKind == VeilstoneNodeKind.Cursed)
+                return PlacementRefusal.None;
             if (owner == Curse) return PlacementRefusal.HeldByCurse;
             if (owner != Natural) return PlacementRefusal.HeldByRival;
+
+            // The one exception (Territory_Claims.md §5, 2026-10-12): a
+            // Feraldis War Totem may be planted on BLOOD in a territory no
+            // faction owns — blood spilt beyond the border opens new ground.
+            // Blood itself is checked by CheckPlaceBuilding for every totem.
+            if (buildingId == "Feraldis_WarTotem"
+                && TheWaningBorder.Influence.BloodMap.Ready
+                && TheWaningBorder.Influence.BloodMap.SampleWorld(worldX, worldZ)
+                   >= TheWaningBorder.Core.Config.FeraldisConstants.TotemPlacementBloodThreshold)
+                return PlacementRefusal.None;
             return PlacementRefusal.NotYourTerritory;
         }
 
@@ -643,6 +660,9 @@ namespace TheWaningBorder.World.Regions
             // stands BESIDE it, on one of its four side slots — see
             // NodeStoodOnBy (docs/Design/Veilstone_Economy.md §3.1, 2026-10-04).
             "Alanthor_TradingOutpost" => (ComponentType?)ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
+            // The Runai Sanctuary stands ON its outcrop, Inactive or Cursed
+            // (docs/Design/Age_1_Runai.md §5.1).
+            "Runai_Sanctuary"  => (ComponentType?)ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
             _ => null,
         };
 
@@ -668,6 +688,7 @@ namespace TheWaningBorder.World.Regions
             "Mine"             => (ComponentType?)ComponentType.ReadOnly<MineTag>(),
             "VeilstoneMine"    => (ComponentType?)ComponentType.ReadOnly<VeilstoneMineTag>(),
             "Alanthor_TradingOutpost" => (ComponentType?)ComponentType.ReadOnly<TradingOutpostTag>(),
+            "Runai_Sanctuary"  => (ComponentType?)ComponentType.ReadOnly<RunaiSanctuaryTag>(),
             _ => null,
         };
 
@@ -694,6 +715,9 @@ namespace TheWaningBorder.World.Regions
                 // veilstone outcrop, and only Alanthor's.
                 if (id == "Alanthor_TradingOutpost"
                     && CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor) continue;
+                // ...and the Runai Sanctuary, only the Runai's.
+                if (id == "Runai_Sanctuary"
+                    && CultureConfig.GetCompletedCulture(em, faction) != Cultures.Runai) continue;
                 if (!TrySnapToNode(em, id, pos, out var at)) continue;
                 float d = math.lengthsq(new float2(at.x - pos.x, at.z - pos.z));
                 if (d < best) { best = d; buildingId = id; snapped = at; }
@@ -702,7 +726,7 @@ namespace TheWaningBorder.World.Regions
         }
 
         /// <summary>The ids the one Mine button stands for.</summary>
-        public static readonly string[] MineIds = { "Mine", "VeilstoneMine", "Alanthor_TradingOutpost" };
+        public static readonly string[] MineIds = { "Mine", "VeilstoneMine", "Alanthor_TradingOutpost", "Runai_Sanctuary" };
 
         /// <summary>
         /// False for a Veilstone Mine under an Alanthor faction: Alanthor do
@@ -711,8 +735,13 @@ namespace TheWaningBorder.World.Regions
         /// every culture's (docs/Design/Veilstone_Economy.md §3.1).
         /// </summary>
         public static bool MayBuildMine(EntityManager em, Faction faction, string buildingId)
-            => buildingId != "VeilstoneMine"
-               || CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor;
+        {
+            if (buildingId != "VeilstoneMine") return true;
+            // Neither the Alanthor (they trade beside it) nor the Runai (it is
+            // sacred: they raise a Sanctuary on it) mine the curse's crystal.
+            byte c = CultureConfig.GetCompletedCulture(em, faction);
+            return c != Cultures.Alanthor && c != Cultures.Runai;
+        }
 
         /// <summary>True when this building must be raised on a resource node.</summary>
         public static bool IsExtractor(string buildingId)
@@ -869,6 +898,21 @@ namespace TheWaningBorder.World.Regions
             var tag = ExtractorTagFor(buildingId);
             if (tag == null) return default;
 
+            // A veilstone outcrop holds ONE building, a Veilstone Mine or a
+            // Runai Sanctuary: each counts as taken by the other.
+            if (buildingId == "VeilstoneMine" || buildingId == "Runai_Sanctuary")
+            {
+                using var a = TagWithTransform(em, ComponentType.ReadOnly<VeilstoneMineTag>())
+                    .ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+                using var b = TagWithTransform(em, ComponentType.ReadOnly<RunaiSanctuaryTag>())
+                    .ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+                var all = new Unity.Collections.NativeArray<LocalTransform>(a.Length + b.Length,
+                    Unity.Collections.Allocator.Temp);
+                for (int i = 0; i < a.Length; i++) all[i] = a[i];
+                for (int i = 0; i < b.Length; i++) all[a.Length + i] = b[i];
+                return all;
+            }
+
             return TagWithTransform(em, tag.Value)
                 .ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
         }
@@ -942,7 +986,7 @@ namespace TheWaningBorder.World.Regions
         Terrain,
         /// <summary>The footprint overlaps an existing building.</summary>
         Overlap,
-        /// <summary>Veil crust (only the Veilworks may stand on it).</summary>
+        /// <summary>Veil crust.</summary>
         CursedGround,
         /// <summary>An ordinary building outside ground you hold.</summary>
         NotYourTerritory,
@@ -983,6 +1027,16 @@ namespace TheWaningBorder.World.Regions
         OutcropUnavailable,
         /// <summary>A Trading Outpost with no free, uncursed outcrop beside it.</summary>
         NoOutcropNearby,
+        /// <summary>Another culture's building (CultureGate.CanFactionBuild) —
+        /// a Feraldis slave cannot raise an Archery Range. Appended last so
+        /// the byte values of the older members never move.</summary>
+        NotYourCulture,
+        /// <summary>A Runai Waystation off every trade route (Age_1_Runai.md §4.3).</summary>
+        NotOnTradeRoute,
+        /// <summary>A sect building with no standing Temple (Religion.md §2).</summary>
+        NeedsTemple,
+        /// <summary>A sect building of a sect the faction has not adopted.</summary>
+        SectNotAdopted,
     }
 
     /// <summary>
@@ -1020,6 +1074,10 @@ namespace TheWaningBorder.World.Regions
                 PlacementRefusal.WrongCulture     => "Alanthor do not mine veilstone — raise a Trading Outpost beside it",
                 PlacementRefusal.OutcropUnavailable => "This veilstone outcrop is cursed or mined out",
                 PlacementRefusal.NoOutcropNearby  => "Trading Outposts must stand beside an uncursed veilstone outcrop",
+                PlacementRefusal.NotYourCulture   => "Your culture cannot build that",
+                PlacementRefusal.NotOnTradeRoute  => "Waystations must stand on a trade route, between a depot and a market",
+                PlacementRefusal.NeedsTemple      => "Sect buildings need a standing Temple of Ridan",
+                PlacementRefusal.SectNotAdopted   => "Adopt this sect first",
                 _                                 => "Invalid placement",
             };
             return TheWaningBorder.Core.Localization.Loc.T(en);
@@ -1034,6 +1092,7 @@ namespace TheWaningBorder.World.Regions
             "Mine"             => "Mines must be built on a free iron or veilstone node",
             "VeilstoneMine"    => "Veilstone Mines must be built on a free, uncursed veilstone outcropping",
             "Alanthor_TradingOutpost" => "Trading Outposts must stand on a free side of an uncursed veilstone outcrop",
+            "Runai_Sanctuary"  => "Sanctuaries must be built on a free veilstone outcropping",
             _                  => "This building must stand on a free resource node",
         };
     }

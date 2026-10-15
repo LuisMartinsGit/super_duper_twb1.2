@@ -338,6 +338,26 @@ namespace TheWaningBorder.World.Roads
             AddNodes(em, QC_Supply.Get(em, QT_Supply));
             AddNodes(em, QC_Well.Get(em, QT_Well));
             AddNodes(em, QC_Pocket.Get(em, QT_Pocket));
+            AddJunctions();
+        }
+
+        /// <summary>The simulation graph's junctions (Roads.md §0) as sites, so
+        /// its forks and crossroads are drawn where the caravans turn.</summary>
+        private void AddJunctions()
+        {
+            if (!RoadGraphSystem.Built) return;
+            for (int i = RoadGraphSystem.SiteCount; i < RoadGraphSystem.NodeCount; i++)
+            {
+                var p = RoadGraphSystem.NodePos(i);
+                var pos = new Vector2(p.x, p.y);
+                _sites.Add(new Site
+                {
+                    Entity = RoadGraphSystem.NodeEntity(i), Pos = pos, Disc = Cfg.nodeDiscRadius,
+                    Finished = true, IsBuilding = false, Faction = Faction.Border,
+                    Region = RegionMap.RawRegionAt(pos.x, pos.y),
+                });
+                _siteHash += SiteHash(_sites[_sites.Count - 1]);
+            }
         }
 
         private void AddBuildings(EntityManager em)
@@ -495,7 +515,12 @@ namespace TheWaningBorder.World.Roads
             // reuses its cached graph; only a changed one recomputes it.
             _liveEdgeKeys.Clear();
             _netEdgeUsed.Clear();
-            for (int root = 0; root < regions; root++)
+            // ONE MAP NETWORK (Roads.md §0, 2026-10-14): once the simulation
+            // has built its road graph, its edges ARE the roads, for everyone;
+            // the per-territory graphs below are the fallback before that.
+            bool simGraph = RoadGraphSystem.Built;
+            if (simGraph) AddSimEdges();
+            for (int root = 0; root < regions && !simGraph; root++)
             {
                 var members = _netMembers[root];
                 if (members.Count < 2) continue;
@@ -574,6 +599,46 @@ namespace TheWaningBorder.World.Roads
                 if (kv.Value.Live) { kv.Value.Live = false; _dirty = true; _dirDirty = true; }
             }
             _synced = true;
+        }
+
+        private void AddSimEdges()
+        {
+            for (int i = 0; i < RoadGraphSystem.NodeCount; i++)
+            {
+                var ea = RoadGraphSystem.NodeEntity(i);
+                if (!_siteStates.TryGetValue(ea, out var sa) || !sa.Live) continue;
+                var nb = RoadGraphSystem.Neighbours(i);
+                for (int k = 0; k < nb.Count; k++)
+                {
+                    int j = nb[k];
+                    if (j <= i) continue;
+                    var eb = RoadGraphSystem.NodeEntity(j);
+                    if (!_siteStates.TryGetValue(eb, out var sb) || !sb.Live) continue;
+                    var a = sa.Data; var b = sb.Data;
+                    float halfWidth = ((a.IsBuilding || b.IsBuilding) ? Cfg.roadWidth : Cfg.trailWidth) * 0.5f;
+                    long key = RouteKey(a.Entity, b.Entity);
+                    _liveEdgeKeys.Add(key);
+                    bool finished = a.Finished && b.Finished;
+                    if (_edgeStates.TryGetValue(key, out var es))
+                    {
+                        if (!es.Live || es.Finished != finished || es.HalfWidthMetres != halfWidth) _dirty = true;
+                        if (!es.Live && es.NeedsRoute) _routeQueue.Enqueue(key);
+                        es.Live = true; es.Finished = finished; es.HalfWidthMetres = halfWidth;
+                        es.SiteA = a; es.SiteB = b;
+                        continue;
+                    }
+                    es = new EdgeState
+                    {
+                        A = a.Entity, B = b.Entity, Finished = finished,
+                        HalfWidthMetres = halfWidth, Strength = _synced ? 0f : 1f, Live = true,
+                        SiteA = a, SiteB = b, NeedsRoute = true,
+                    };
+                    if (_failedRoutes.ContainsKey(key)) es.NeedsRoute = false;
+                    else _routeQueue.Enqueue(key);
+                    _edgeStates[key] = es;
+                    _dirty = true; _dirDirty = true;
+                }
+            }
         }
 
         /// <summary>

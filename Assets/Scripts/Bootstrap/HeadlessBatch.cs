@@ -38,6 +38,10 @@
 //                             TechBoom|Rush|Turtle|Defensive; overrides the
 //                             colour-default personality for the colours it
 //                             names (sets the lobby slot's pick)
+//   -twbFactionCulture F=C[,F=C...]
+//                             per colour, C = Alanthor|Feraldis|Runai: the AI
+//                             of that colour builds that culture's landmark
+//                             (AICultureChoice.Forced). Still edition-gated.
 //   -twbLabel "text"          free-text run label. Written with the resolved
 //                             per-faction "AI" roster into the match header
 //                             (Console.log) and Summary.txt; the Muster Rolls
@@ -201,6 +205,7 @@ namespace TheWaningBorder.Bootstrap
             // reads it exactly as it would for a hand-started skirmish.
             ApplyDifficulty(args);
             ApplyPersonality(args);
+            ApplyCulture(args);
             MatchLogSession.RunInfo = DescribeRun(ArgStr(args, "-twbLabel"));
             GameSettings.IsObserver = true;
             GameSettings.TutorialActive = false;
@@ -432,6 +437,30 @@ namespace TheWaningBorder.Bootstrap
                 if (!applied)
                     Debug.LogError($"[HeadlessBatch] -twbFactionDifficulty: {faction} is not " +
                                    $"an AI slot in a {LobbyConfig.ActiveSlotCount}-player match");
+            }
+        }
+
+        /// <summary>-twbFactionCulture Blue=Alanthor,Red=Feraldis,Green=Runai.</summary>
+        private static void ApplyCulture(string[] args)
+        {
+            TheWaningBorder.AI.AICultureChoice.Forced.Clear();
+            string spec = ArgStr(args, "-twbFactionCulture");
+            if (string.IsNullOrEmpty(spec)) return;
+            foreach (var part in spec.Split(','))
+            {
+                var kv = part.Split('=');
+                if (kv.Length != 2) continue;
+                if (!Enum.TryParse(kv[0].Trim(), true, out Faction f)) continue;
+                byte c = kv[1].Trim().ToLowerInvariant() switch
+                {
+                    "alanthor" => Cultures.Alanthor,
+                    "feraldis" => Cultures.Feraldis,
+                    "runai"    => Cultures.Runai,
+                    _          => Cultures.None,
+                };
+                if (c == Cultures.None) continue;
+                TheWaningBorder.AI.AICultureChoice.Forced[f] = c;
+                Debug.Log($"[HeadlessBatch] {f} is forced to culture {kv[1].Trim()}");
             }
         }
 

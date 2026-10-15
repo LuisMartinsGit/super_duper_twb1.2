@@ -1,4 +1,4 @@
-﻿// ActionsPanelPrefabBinder.cs
+// ActionsPanelPrefabBinder.cs
 // Binder for the ARTIST-AUTHORED ActionsPanel prefab (GameData/Scenes/Menus/
 // GameUI/SelectionUI/ActionsPanel.prefab): a fixed 3x5 grid of Synty action
 // buttons under the "Actions" node, bound in sibling order (row-major,
@@ -72,7 +72,7 @@ namespace TheWaningBorder.UI.Ingame
         private static readonly HashSet<string> EconomyBuildings = new()
         {
             "Hut", "GatherersHut", "Fortress", "Mine", "VeilstoneMine",
-            "Runai_Outpost", "Runai_TradeHub", "Runai_TradingPost", "ThessarasBazaar",
+            "Runai_Sanctuary",
             "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
         };
         private static readonly HashSet<string> DefenseBuildings = new()
@@ -81,7 +81,10 @@ namespace TheWaningBorder.UI.Ingame
         };
         private static readonly HashSet<string> ReligionBuildings = new()
         {
-            "TempleOfRidan", "FiendstoneKeep", "VaultOfAlmierra",
+            "TempleOfRidan", "FiendstoneKeep", "VaultOfAlmierra", "ThessarasCrossing",
+            // Sect buildings are religion (Religion.md §3.2), not military.
+            "Sect_Reliquary", "Sect_MendingHall", "Sect_Stonehold", "Sect_Treasury",
+            "Sect_MusterYard",
         };
         // Everything else placeable (Barracks, ranges, siege yards, stables,
         // Longhouse = cultured Barracks, ...) falls through to Military.

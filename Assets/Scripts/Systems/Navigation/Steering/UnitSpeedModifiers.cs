@@ -17,8 +17,10 @@ namespace TheWaningBorder.Systems.Navigation
         /// 0 when it cannot move at all (Fortified).</summary>
         public static float Multiplier(EntityManager em, Entity e)
         {
-            float m = 1f;
-            if (TransientState.Active<SpellDebuff>(em, e))
+            float m = TheWaningBorder.Feraldis.FeraldisCombat.SpeedMult(em, e);
+            // No Retreat (Feraldis): a frenzied unit cannot be slowed.
+            if (TransientState.Active<SpellDebuff>(em, e)
+                && !TheWaningBorder.Feraldis.FeraldisCombat.IgnoresSlows(em, e))
                 m *= 1f - em.GetComponentData<SpellDebuff>(e).SpeedReduction;
             // The Veil / Suppression auras: BorderDebuff.SpeedPenalty was
             // authored but never consumed — units wading through veil crust

@@ -84,7 +84,7 @@ namespace TheWaningBorder.Systems.Buildings
                 // animation aren't eligible for the auto-bump. They'll be
                 // picked up on a later tick.
                 if (em.HasComponent<UnderConstruction>(e)) continue;
-                if (em.HasComponent<BuildingUpgrading>(e)) continue;
+                if (TransientState.Active<BuildingUpgrading>(em, e)) continue;
 
                 // Already at L1+? Nothing to do.
                 if (em.HasComponent<BuildingUpgradeState>(e))

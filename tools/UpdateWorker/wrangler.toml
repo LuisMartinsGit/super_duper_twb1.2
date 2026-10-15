@@ -3,7 +3,15 @@ main = "src/index.js"
 compatibility_date = "2026-08-18"
 
 # Per-tester keys. Revoking a tester is a single `wrangler kv key delete`,
-# no redeploy. See README.md for the provisioning commands.
+# no redeploy.
+#
+# A key's value says which EDITIONS it may download (src/index.js parseGrant):
+#   demo key (edition A only) - a bare name, as every key before editions:
+#     wrangler kv key put --binding KEYS "key:<KEY>" "<tester>"
+#   developer key (B and/or C as well):
+#     wrangler kv key put --binding KEYS "key:<KEY>" '{"name":"<tester>","editions":["A","B","C"]}'
+#   revoke:
+#     wrangler kv key delete --binding KEYS "key:<KEY>"
 [[kv_namespaces]]
 binding = "KEYS"
 id = "fa8c1b5913494faba25c936fc2156359"

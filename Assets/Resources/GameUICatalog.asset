@@ -119,7 +119,9 @@ MonoBehaviour:
   - key: Gatherer's Hut
     sprite: {fileID: 21300000, guid: 5b1d09927e72d44e681d72af8b4b6460, type: 3}
   - key: Hut
-    sprite: {fileID: 21300000, guid: fa8c9e58b4aae4f0b89181cb20a76c9a, type: 3}
+    sprite: {fileID: 21300000, guid: 6deff6f60887ce04d9dabf966c4c3318, type: 3}
+  - key: House
+    sprite: {fileID: 21300000, guid: 6deff6f60887ce04d9dabf966c4c3318, type: 3}
   - key: Depot
     sprite: {fileID: 21300000, guid: 98e83ba2543db420982c9347b9c9062f, type: 3}
   - key: Workshop

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Sect_MendingHall
   displayName: Mending Hall
-  role: "Renewal sect building. Trains the Scar Guard."
+  role: "Renewal sect building. Trains the Scar Guard, recruits the Surgeon."
   description: 
   hp: 750
   armorType: structure_human
@@ -34,6 +34,7 @@ MonoBehaviour:
   garrisonArrowsPerOccupant: 0
   trains:
   - Sect_ScarGuard
+  - Sect_Surgeon
   research:
   - FieldHospital
   minEra: 1
@@ -57,3 +58,4 @@ MonoBehaviour:
   presentationId: 0
   prefabPath: 
   canUpgradeTo: []
+  maxPerFaction: 1

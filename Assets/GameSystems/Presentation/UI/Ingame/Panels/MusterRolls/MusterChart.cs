@@ -32,7 +32,9 @@ namespace TheWaningBorder.UI.Ingame
             RecordSeries series, bool[] visible, float lineWidth, int maxPoints)
         {
             var bg = GameUIKit.Image(parent, name, new Color(0.03f, 0.04f, 0.09f, 0.75f));
-            var go = new GameObject("lines", typeof(RectTransform));
+            // CanvasRenderer up front: the custom graphic's RequireComponent was not
+            // honoured here, and SetActive(false) then threw MissingComponentException.
+            var go = new GameObject("lines", typeof(RectTransform), typeof(CanvasRenderer));
             go.transform.SetParent(bg.transform, false);
             GameUIKit.Stretch((RectTransform)go.transform);
             var c = go.AddComponent<MusterChart>();

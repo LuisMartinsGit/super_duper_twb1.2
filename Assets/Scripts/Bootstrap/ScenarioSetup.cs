@@ -922,8 +922,8 @@ namespace TheWaningBorder.Bootstrap
             {
                 // Row 0 — Alanthor (4 sects)
                 ("Sect_ScarGuard",         "Renewal: ScarGuard\nRapidMend (self-heal)"),
-                ("Sect_GolemAutark",        "Antiquity: GolemAutark\nArcanePulse (AOE dmg)"),
-                ("Sect_StoneWarden",        "LivingStone: StoneWarden\nFortify (armor+root self)"),
+                ("Sect_Collector",        "Antiquity: GolemAutark\nArcanePulse (AOE dmg)"),
+                ("Sect_Sallyguard",        "LivingStone: StoneWarden\nFortify (armor+root self)"),
                 ("Sect_ArchivistAdept",     "VeiledMemory: ArchivistAdept\nDispel (strip buffs)"),
                 // Row 1 — Runai (4 sects)
                 ("Sect_FlameWarden",        "StillFlame: FlameWarden\nSanction (root enemy)"),

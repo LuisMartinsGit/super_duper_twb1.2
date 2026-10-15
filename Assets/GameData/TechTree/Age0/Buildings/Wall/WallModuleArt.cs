@@ -136,15 +136,58 @@ namespace TheWaningBorder.Rendering
         }
 
         /// <summary>
+        /// <see cref="TierPrefab(WallPart, byte)"/> for an OWNER CULTURE: a
+        /// culture with its own wall set (WallModuleArt.asset `cultureSets`,
+        /// e.g. the Feraldis sturdy log wall) draws that set from level 1 up;
+        /// an empty slot, the palisade level, or a culture without a set falls
+        /// through to the shared level ladder. Data-driven: no culture is
+        /// named here, the asset says which culture owns which set.
+        /// </summary>
+        public static GameObject TierPrefab(WallPart part, byte tier, byte culture)
+        {
+            var cfg = Cfg;
+            if (cfg != null && cfg.cultureSets != null && tier >= 1 && culture != Cultures.None)
+            {
+                for (int i = 0; i < cfg.cultureSets.Length; i++)
+                {
+                    var set = cfg.cultureSets[i];
+                    if (set == null || set.culture != culture) continue;
+                    var p = part switch
+                    {
+                        WallPart.Curtain => set.curtain,
+                        WallPart.Hub => set.hub,
+                        WallPart.Gate => set.gate,
+                        WallPart.Tower => set.tower,
+                        WallPart.BallistaMount => set.ballistaMount,
+                        _ => set.trebuchetMount,
+                    };
+                    if (p != null) return p;
+                    break;
+                }
+            }
+            return TierPrefab(part, tier);
+        }
+
+        /// <summary><see cref="For(byte)"/> for an owner culture — see
+        /// <see cref="TierPrefab(WallPart, byte, byte)"/>.</summary>
+        public static WallModuleArt For(byte tier, byte culture)
+            => ForTier(WallPart.Curtain, tier,
+                       TheWaningBorder.Entities.AlanthorWall.InstancePresentationID,
+                       TheWaningBorder.Entities.AlanthorWall.InstanceSpacing, orientAlongZ: true,
+                       explicitScale: null, culture: culture);
+
+        /// <summary>
         /// A wall part's art at a wall level: the level's authored prefab when
         /// there is one, else the part's own SO prefab by
         /// <paramref name="fallbackPresentationId"/> (0 = none). Fitted exactly
-        /// as <see cref="ForPart"/> fits.
+        /// as <see cref="ForPart"/> fits. <paramref name="culture"/> (the
+        /// owner's, Cultures.None = shared ladder) selects a culture's own
+        /// wall set when the asset has one.
         /// </summary>
         public static WallModuleArt ForTier(WallPart part, byte tier, int fallbackPresentationId,
-            float fitLength, bool orientAlongZ, float? explicitScale = null)
+            float fitLength, bool orientAlongZ, float? explicitScale = null, byte culture = Cultures.None)
         {
-            var prefab = TierPrefab(part, tier);
+            var prefab = TierPrefab(part, tier, culture);
             if (prefab != null) return ForPrefab(prefab, fitLength, orientAlongZ, explicitScale);
             return fallbackPresentationId != 0
                 ? ForPart(fallbackPresentationId, fitLength, orientAlongZ, explicitScale)
