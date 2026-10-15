@@ -73,6 +73,36 @@ namespace TheWaningBorder.EditorTools
             Debug.Log($"[EditorBridge] {line} -> {result}");
         }
 
+        /// <summary>
+        /// Unity flags the open MainMenu as modified after a recompile with no
+        /// change to its content, and a dirty scene makes BuildPlayer stop on
+        /// a "save changes?" prompt. A scene whose in-memory content is
+        /// byte-identical to its file is reloaded from disk (nothing is lost);
+        /// a scene with real edits is left alone, so the prompt still guards
+        /// them.
+        /// </summary>
+        static void DiscardSpuriousDirt()
+        {
+            bool reload = false;
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (!scene.isDirty) continue;
+                if (string.IsNullOrEmpty(scene.path)) return;            // untitled: a real edit
+                string copy = Path.Combine("Temp", "bridge-dirty-check.unity");
+                if (!EditorSceneManager.SaveScene(scene, copy, true)) return;
+                bool same = File.ReadAllBytes(copy).AsSpan().SequenceEqual(File.ReadAllBytes(scene.path));
+                File.Delete(copy);
+                if (!same) return;                                       // real edits: keep, let Unity ask
+                reload = true;
+            }
+            if (!reload) return;
+            var setup = EditorSceneManager.GetSceneManagerSetup();
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.RestoreSceneManagerSetup(setup);
+            Debug.Log("[EditorBridge] Reloaded scene(s) flagged modified with no change before the build.");
+        }
+
         static string Execute(string line)
         {
             int sp = line.IndexOf(' ');
@@ -119,6 +149,7 @@ namespace TheWaningBorder.EditorTools
                 {
                     if (EditorApplication.isPlaying) return "ERROR in play mode; stop first";
                     if (string.IsNullOrEmpty(arg)) return "ERROR build needs an output folder";
+                    DiscardSpuriousDirt();
                     string error = TheWaningBorder.EditorTools.PlayerBuild.BuildTo(arg);
                     return error == null ? "OK built to " + arg : "ERROR " + error;
                 }
@@ -130,6 +161,7 @@ namespace TheWaningBorder.EditorTools
                     if (space <= 0) return "ERROR build-edition needs <A|B|C> <outDir>";
                     string edition = arg.Substring(0, space).Trim().ToUpperInvariant();
                     string outDir = arg.Substring(space + 1).Trim();
+                    DiscardSpuriousDirt();
                     string error = TheWaningBorder.EditorTools.PlayerBuild.BuildTo(outDir, edition);
                     return error == null ? $"OK built edition {edition} to {outDir}" : "ERROR " + error;
                 }
