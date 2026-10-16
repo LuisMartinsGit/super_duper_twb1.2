@@ -369,6 +369,9 @@ namespace TheWaningBorder.EditorTools
             }
             var sb = new System.Text.StringBuilder();
             sb.AppendLine($"Edition {edition}: {byReferrer.Count} kept asset(s) still reference stripped content");
+            var cat = AssetDatabase.LoadAssetAtPath<TechTreeCatalog>(CatalogPath);
+            sb.AppendLine($"editionStripped: {cat?.editionStripped?.Count ?? -1} id(s): "
+                + string.Join(",", cat?.editionStripped ?? new List<string>()));
             foreach (var kv in byReferrer)
                 sb.AppendLine(kv.Key + " -> " + kv.Value.Count + " (first: " + kv.Value[0] + ")");
             return sb.ToString();

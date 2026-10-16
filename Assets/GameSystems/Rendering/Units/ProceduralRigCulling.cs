@@ -30,21 +30,42 @@ namespace TheWaningBorder.Rendering
         private static int _frame = -1;
         private static bool _haveCamera;
 
-        public static bool Visible(Vector3 position)
+        public static bool Visible(Vector3 position) => Visible(position, PadRadius);
+
+        /// <summary>Padded-sphere frustum test with a caller-chosen pad (m).
+        /// Shares the once-per-frame plane cache with <see cref="Visible(Vector3)"/>.</summary>
+        public static bool Visible(Vector3 position, float pad)
         {
-            int frame = Time.frameCount;
-            if (frame != _frame)
-            {
-                _frame = frame;
-                var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
-                _haveCamera = cam != null;
-                if (_haveCamera) GeometryUtility.CalculateFrustumPlanes(cam, _planes);
-            }
+            Refresh();
             if (!_haveCamera) return true;   // no camera to cull against: animate
 
             for (int i = 0; i < 6; i++)
-                if (_planes[i].GetDistanceToPoint(position) < -PadRadius) return false;
+                if (_planes[i].GetDistanceToPoint(position) < -pad) return false;
             return true;
+        }
+
+        /// <summary>The gameplay camera's position this frame, if there is one.</summary>
+        public static bool TryGetCameraPosition(out Vector3 position)
+        {
+            Refresh();
+            position = _camPos;
+            return _haveCamera;
+        }
+
+        private static Vector3 _camPos;
+
+        private static void Refresh()
+        {
+            int frame = Time.frameCount;
+            if (frame == _frame) return;
+            _frame = frame;
+            var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;
+            _haveCamera = cam != null;
+            if (_haveCamera)
+            {
+                GeometryUtility.CalculateFrustumPlanes(cam, _planes);
+                _camPos = cam.transform.position;
+            }
         }
     }
 }

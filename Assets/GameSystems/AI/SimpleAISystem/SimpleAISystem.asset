@@ -52,7 +52,7 @@ MonoBehaviour:
   failedSiteSearchCooldown: 10
   siteSearchCandidateBudget: 4000
   siteSearchValidateBudget: 160
-  maxBrainThinksPerFrame: 1
+  maxBrainThinksPerFrame: 2
   thinkStarvationIntervals: 1
   claimPotReadyRetrySeconds: 2
   populationHeadroomFloor: 8

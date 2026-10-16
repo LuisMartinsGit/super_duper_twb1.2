@@ -88,6 +88,7 @@ namespace TheWaningBorder.AI
             {
                 _memoEpoch = SimCadence.Epoch;
                 _siteFails.Clear();
+                System.Array.Clear(_stage, 0, _stage.Length);
             }
 
             // 1. Tick every brain's countdown; collect the ones that are due.
@@ -113,11 +114,40 @@ namespace TheWaningBorder.AI
             _dueBrains.Sort((a, b) => a.Timer != b.Timer
                 ? a.Timer.CompareTo(b.Timer) : a.Owner.CompareTo(b.Owner));
 
+            // STAGED THINK (2026-10-15 perf): a think runs in ThinkStages
+            // stages, one per AIThinkBudget claim — territory & economy, then
+            // armies & defence, then strategy / budget / age-up / production.
+            // A whole think used to land on one tick (3-9 ms every frame late
+            // game, with eight Expert brains thinking four times a second).
+            // Brains already mid-think go first with their next stage; a due
+            // brain that is still mid-think finishes before it starts again
+            // (its timer keeps its phase, as below). Host-only, lockstep
+            // commands only: WHEN the AI thinks carries no desync risk.
+            _work.Clear();
+            float stageNow = TheWaningBorder.Core.SimClock.Now;
+            foreach (var brainEntity in brainEntities)
+            {
+                var b = em.GetComponentData<AIBrain>(brainEntity);
+                if (b.IsActive == 0) continue;
+                int o = (int)b.Owner;
+                if (o >= 0 && o < StageSlots && _stage[o] > 0 && _stageBrain[o] == brainEntity)
+                    _work.Add((brainEntity, _stage[o]));
+            }
             for (int d = 0; d < _dueBrains.Count; d++)
             {
-                var brainEntity = _dueBrains[d].Entity;
+                int o = _dueBrains[d].Owner;
+                if (o >= 0 && o < StageSlots && _stage[o] > 0 && _stageBrain[o] == _dueBrains[d].Entity) continue;
+                _work.Add((_dueBrains[d].Entity, 1));
+            }
+
+            for (int d = 0; d < _work.Count; d++)
+            {
+                var brainEntity = _work[d].Entity;
+                int stage = _work[d].Stage;
                 var brain = em.GetComponentData<AIBrain>(brainEntity);
                 var aiState = em.GetComponentData<SimpleAIState>(brainEntity);
+                int owner = (int)brain.Owner;
+                bool staged = owner >= 0 && owner < StageSlots;
 
                 // Difficulty is DATA (AoE4 model): one brain, per-tier knobs.
                 var profile = AISimpleDifficulty.GetProfile(brain.Difficulty);
@@ -126,8 +156,31 @@ namespace TheWaningBorder.AI
                 NoteProfile(brain.Owner, profile, brain.Personality);
                 float thinkInterval = profile.ThinkInterval;
 
+                if (stage > 1)
+                {
+                    // A later stage of a think in progress. It carries the
+                    // profile its first stage settled (army cap included).
+                    bool late = stageNow - _stageSince[owner] > thinkInterval * Cfg.thinkStarvationIntervals;
+                    if (!AIThinkBudget.TryClaim(late)) continue;
+                    profile = _stageProfile[owner];
+                    _stage[owner] = (byte)(stage >= ThinkStages ? 0 : stage + 1);
+                    _stageSince[owner] = stageNow;
+                    perfThinks++;
+                    BeginThinkMemo();
+                    _siteCandidatesLeft = Cfg.siteSearchCandidateBudget;
+                    _siteValidationsLeft = Cfg.siteSearchValidateBudget;
+                    _sealChecksLeft = Cfg.sealChecksPerThink;
+                    goto Stages;
+                }
+
                 bool starving = aiState.ThinkTimer <= -thinkInterval * Cfg.thinkStarvationIntervals;
                 if (!AIThinkBudget.TryClaim(starving)) continue;
+                if (staged)
+                {
+                    _stage[owner] = 2;
+                    _stageBrain[owner] = brainEntity;
+                    _stageSince[owner] = stageNow;
+                }
                 // PHASE stagger (2026-08-16; replaces the period stagger of
                 // 2026-08-05). Different PERIODS per faction drift brains
                 // apart but also beat back into alignment every ~27 ticks,
@@ -151,6 +204,7 @@ namespace TheWaningBorder.AI
                 _siteValidationsLeft = Cfg.siteSearchValidateBudget;
                 _sealChecksLeft = Cfg.sealChecksPerThink;
 
+            Stages:
                 var settings = AISettings.Get();
                 // Dampened by tier (Game_AI.md § 3): Easy plays its flavour in
                 // full, Expert a fraction of it.
@@ -169,8 +223,15 @@ namespace TheWaningBorder.AI
 
                 // THE ARMY CAP RISES WITH UNSPENT MONEY (§ 6j): every reader of
                 // the profile below, and ProfileOf, sees the raised cap.
-                profile.SustainArmyCap += ArmyCapBonus(em, brain.Owner, profile.SustainArmyCap, now);
+                if (stage == 1)
+                {
+                    profile.SustainArmyCap += ArmyCapBonus(em, brain.Owner, profile.SustainArmyCap, now);
+                    if (staged) _stageProfile[owner] = profile;
+                }
                 NoteProfile(brain.Owner, profile, brain.Personality);
+
+                if (stage == 1)
+                {
 
                 // THE LATE-GAME ALL-IN (Game_AI.md § 6n): armed past
                 // allInAfterSeconds, before anything below drafts the army.
@@ -240,6 +301,11 @@ namespace TheWaningBorder.AI
                 // The Vault, and the ECON / PRODUCTION measurement lines
                 // (Game_AI.md § 5h).
                 TickEconomyDrive(em, brain.Owner, aiState.Posture, profile, now);
+                if (staged) { em.SetComponentData(brainEntity, aiState); continue; }
+                }
+
+                if (stage <= 2)
+                {
 
                 // Army missions: prune the dead, regroup finished armies,
                 // retreat outmatched ones (per mission, not globally).
@@ -312,6 +378,8 @@ namespace TheWaningBorder.AI
                     Entity home = FindFactionBuilding<HallTag>(em, brain.Owner);
                     if (home != Entity.Null && em.HasComponent<LocalTransform>(home))
                         TickSupport(em, brain.Owner, em.GetComponentData<LocalTransform>(home).Position, now);
+                }
+                if (staged) { em.SetComponentData(brainEntity, aiState); continue; }
                 }
 
                 // ALWAYS-ON ECONOMY (2026-08-04 rev.2): the worker floor and
@@ -507,6 +575,21 @@ namespace TheWaningBorder.AI
         /// <summary>Brains due this frame (host scratch, cleared per update).</summary>
         private readonly System.Collections.Generic.List<(Entity Entity, float Timer, int Owner)> _dueBrains
             = new System.Collections.Generic.List<(Entity Entity, float Timer, int Owner)>(8);
+
+        // ── Staged think (see OnUpdate) ──────────────────────────────────
+        /// <summary>Stages one think is split into (engine shape: the number
+        /// of stage blocks in OnUpdate, not a tunable).</summary>
+        private const int ThinkStages = 3;
+        /// <summary>Owners a stage cursor is kept for (player factions); a
+        /// brain outside it thinks in one go, as before.</summary>
+        private const int StageSlots = 16;
+        /// <summary>Per owner: the NEXT stage of the think in progress (0 = none).</summary>
+        private readonly byte[] _stage = new byte[StageSlots];
+        private readonly Entity[] _stageBrain = new Entity[StageSlots];
+        private readonly float[] _stageSince = new float[StageSlots];
+        private readonly AIDifficultyProfile[] _stageProfile = new AIDifficultyProfile[StageSlots];
+        private readonly System.Collections.Generic.List<(Entity Entity, int Stage)> _work
+            = new System.Collections.Generic.List<(Entity Entity, int Stage)>(16);
 
         // (The age-up push time moved into the per-difficulty profile —
         // AIDifficultyProfile.AgeUpPushSeconds. It was a single 300 s constant

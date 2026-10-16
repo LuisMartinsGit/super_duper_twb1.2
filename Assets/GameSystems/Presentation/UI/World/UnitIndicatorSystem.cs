@@ -9,7 +9,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Input;
-using TheWaningBorder.Rendering;
 using TheWaningBorder.World.Terrain;
 using EntityWorld = Unity.Entities.World;
 
@@ -172,8 +171,22 @@ namespace TheWaningBorder.UI.World
         // CLEANUP
         // ═══════════════════════════════════════════════════════════════
 
+        // Cleanup gate (2026-10-15): a unit's death is a structural change, so
+        // the UnitTag order version moves; between deaths the sweep (an Exists
+        // per indicator, every frame) has nothing to find. A slow fallback
+        // cadence still catches a disc destroyed out from under us.
+        private int _lastCleanupOrderVersion = -1;
+        private int _cleanupFallbackFrame;
+        private const int CleanupFallbackFrames = 60;
+
         private void CleanupDestroyed()
         {
+            int orderVersion = _em.GetComponentOrderVersion<UnitTag>();
+            if (orderVersion == _lastCleanupOrderVersion
+                && Time.frameCount < _cleanupFallbackFrame) return;
+            _lastCleanupOrderVersion = orderVersion;
+            _cleanupFallbackFrame = Time.frameCount + CleanupFallbackFrames;
+
             _toRemove.Clear();
             foreach (var kv in _indicators)
             {
@@ -256,6 +269,10 @@ namespace TheWaningBorder.UI.World
         // UPDATE
         // ═══════════════════════════════════════════════════════════════
 
+        /// <summary>Frustum pad (m) around the disc anchor: covers the widest
+        /// thing this system draws for a unit, its selection ring.</summary>
+        private const float CullPad = 8f;
+
         private void UpdateIndicators()
         {
             var selection = SelectionSystem.CurrentSelection;
@@ -266,110 +283,156 @@ namespace TheWaningBorder.UI.World
 
             var evm = EntityViewManager.Instance;
 
-            foreach (var kv in _indicators)
+            // CHUNK WALK (2026-10-15, 3,000-unit pass). This used to iterate
+            // the indicator dictionary and pay Exists + HasComponent +
+            // GetComponentData (transform, owner, Litharch state) per unit per
+            // frame, plus the view lookup. The chunk arrays give the same data
+            // with no per-entity lookups, and units outside the camera frustum
+            // stop at a plane test.
+            var query = _visibleUnitQuery.Get(_em, VisibleUnitQueryTypes);
+            query.CompleteDependency();
+            var entityHandle = _em.GetEntityTypeHandle();
+            var ltHandle = _em.GetComponentTypeHandle<LocalTransform>(true);
+            var factionHandle = _em.GetComponentTypeHandle<FactionTag>(true);
+            var litharchHandle = _em.GetComponentTypeHandle<LitharchState>(true);
+
+            using var chunks = query.ToArchetypeChunkArray(Unity.Collections.Allocator.Temp);
+            for (int c = 0; c < chunks.Length; c++)
             {
-                var entity = kv.Key;
-                var ind = kv.Value;
+                var chunk = chunks[c];
+                var entities = chunk.GetNativeArray(entityHandle);
+                var transforms = chunk.GetNativeArray(ref ltHandle);
+                bool hasFaction = chunk.Has(ref factionHandle);
+                var factions = hasFaction ? chunk.GetNativeArray(ref factionHandle) : default;
+                bool hasLitharch = chunk.Has(ref litharchHandle);
+                var litharchs = hasLitharch ? chunk.GetNativeArray(ref litharchHandle) : default;
 
-                if (!_em.Exists(entity)) continue;
-                if (!_em.HasComponent<LocalTransform>(entity)) continue;
-
-                // FOG GATE. Follow the unit view's own visibility rather than
-                // re-deriving a fog rule here: FogVisibilitySyncSystem already
-                // owns that decision (own units always shown, enemies only in
-                // line of sight), and a second rule would eventually disagree
-                // with it. Without this the indicators were standalone objects
-                // the fog never touched, so an enemy's ownership disc hung in
-                // the dark exactly where the unit was — free intel.
-                bool viewVisible = evm != null
-                    && evm.TryGetView(entity, out var view)
-                    && view != null && view.activeInHierarchy;
-
-                if (!viewVisible)
+                for (int i = 0; i < entities.Length; i++)
                 {
-                    if (ind.Shown || !ind.Primed)
+                    var entity = entities[i];
+                    if (!_indicators.TryGetValue(entity, out var ind)) continue;
+
+                    float3 pos = transforms[i].Position;
+
+                    // OFF-SCREEN: nothing here can be seen, so skip the fog
+                    // lookup, terrain sample and transform writes. A unit that
+                    // stands still keeps its indicators where they are (still
+                    // correct); one that MOVED off-screen has them hidden once,
+                    // so no stale disc is left behind for the camera to find.
+                    // They are re-shown and re-placed the frame it is back in
+                    // view, before anything renders.
+                    if (!ProceduralRigCulling.Visible(
+                            new Vector3(pos.x, pos.y + circleYAboveUnit, pos.z), CullPad))
                     {
-                        if (ind.Ring != null) ind.Ring.gameObject.SetActive(false);
-                        if (ind.Circle != null) ind.Circle.SetActive(false);
-                        if (ind.CrossH != null) ind.CrossH.SetActive(false);
-                        if (ind.CrossV != null) ind.CrossV.SetActive(false);
-                        ind.Shown = false;
-                        ind.RingOn = false;
-                        ind.Healing = false;
-                        ind.Primed = true;
+                        // (!Primed: a brand-new disc is created active at the
+                        // origin and has never been placed — hide it too.)
+                        if (!ind.Primed || (ind.Shown && !pos.Equals(ind.LastPos)))
+                            HideIndicators(ind);
+                        continue;
                     }
-                    continue;
-                }
 
-                bool justShown = !ind.Shown;
-                ind.Shown = true;
-                ind.Primed = true;
+                    // FOG GATE. Follow the unit view's own visibility rather than
+                    // re-deriving a fog rule here: FogVisibilitySyncSystem already
+                    // owns that decision (own units always shown, enemies only in
+                    // line of sight), and a second rule would eventually disagree
+                    // with it. Without this the indicators were standalone objects
+                    // the fog never touched, so an enemy's ownership disc hung in
+                    // the dark exactly where the unit was — free intel.
+                    bool viewVisible = evm != null
+                        && evm.TryGetView(entity, out var view)
+                        && view != null && view.activeInHierarchy;
 
-                float3 pos = _em.GetComponentData<LocalTransform>(entity).Position;
-                bool moved = justShown || !pos.Equals(ind.LastPos);
-                if (moved)
-                {
-                    // Terrain sample only when the unit actually moved.
-                    float terrainY = TerrainUtility.GetHeight(pos.x, pos.z);
-                    ind.IndicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
-                    ind.LastPos = pos;
-                }
-
-                // ── Selection ring ──
-                if (ind.Ring != null)
-                {
-                    bool selected = _selectedSet.Contains(entity);
-                    if (selected != ind.RingOn || justShown)
+                    if (!viewVisible)
                     {
-                        ind.Ring.gameObject.SetActive(selected);
-                        ind.RingOn = selected;
+                        if (ind.Shown || !ind.Primed) HideIndicators(ind);
+                        continue;
                     }
-                    // Only a handful are selected; they keep the per-frame
-                    // shape/colour write the decal path always had.
-                    if (selected)
-                        UpdateSelectionRing(ind.Ring, entity, pos);
-                }
 
-                // ── Ownership disc ──
-                if (ind.Circle != null)
-                {
-                    if (justShown) ind.Circle.SetActive(true);
-                    if (moved) ind.Circle.transform.position = ind.IndicatorPos;
-                    // Owner can change (conversion): look the shared material
-                    // up only when the owner does — a Dictionary<Color, ...>
-                    // probe per unit per frame was most of this loop.
-                    int ownerKey = _em.HasComponent<FactionTag>(entity)
-                        ? (int)_em.GetComponentData<FactionTag>(entity).Value : -1;
-                    if (ownerKey != ind.OwnerKey)
+                    bool justShown = !ind.Shown;
+                    ind.Shown = true;
+                    ind.Primed = true;
+
+                    bool moved = justShown || !pos.Equals(ind.LastPos);
+                    if (moved)
                     {
-                        ind.OwnerKey = ownerKey;
-                        var mat = SharedMat(OwnerColor(entity));
-                        if (mat != ind.CircleMat)
+                        // Terrain sample only when the unit actually moved.
+                        float terrainY = TerrainUtility.GetHeight(pos.x, pos.z);
+                        ind.IndicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
+                        ind.LastPos = pos;
+                    }
+
+                    // ── Selection ring ──
+                    if (ind.Ring != null)
+                    {
+                        bool selected = _selectedSet.Contains(entity);
+                        if (selected != ind.RingOn || justShown)
                         {
-                            ind.CircleRenderer.sharedMaterial = mat;
-                            ind.CircleMat = mat;
+                            ind.Ring.gameObject.SetActive(selected);
+                            ind.RingOn = selected;
+                        }
+                        // Only a handful are selected; they keep the per-frame
+                        // shape/colour write the decal path always had.
+                        if (selected)
+                            UpdateSelectionRing(ind.Ring, entity, pos);
+                    }
+
+                    // ── Ownership disc ──
+                    if (ind.Circle != null)
+                    {
+                        if (justShown) ind.Circle.SetActive(true);
+                        if (moved) ind.Circle.transform.position = ind.IndicatorPos;
+                        // Owner can change (conversion): look the shared material
+                        // up only when the owner does.
+                        int ownerKey = hasFaction ? (int)factions[i].Value : -1;
+                        if (ownerKey != ind.OwnerKey)
+                        {
+                            ind.OwnerKey = ownerKey;
+                            var mat = SharedMat(OwnerColor(entity));
+                            if (mat != ind.CircleMat)
+                            {
+                                ind.CircleRenderer.sharedMaterial = mat;
+                                ind.CircleMat = mat;
+                            }
                         }
                     }
-                }
 
-                // ── Healing cross ──
-                // Overlaid ABOVE the ownership disc rather than replacing it, so
-                // a unit being healed still shows who owns it.
-                bool isHealing = IsHealing(entity);
-                bool healChanged = isHealing != ind.Healing || justShown;
-                ind.Healing = isHealing;
-                if (healChanged)
-                {
-                    if (ind.CrossH != null) ind.CrossH.SetActive(isHealing);
-                    if (ind.CrossV != null) ind.CrossV.SetActive(isHealing);
-                }
-                if (isHealing && (moved || healChanged))
-                {
-                    Vector3 crossPos = ind.IndicatorPos + Vector3.up * (circleRadius * 1.6f);
-                    if (ind.CrossH != null) ind.CrossH.transform.position = crossPos;
-                    if (ind.CrossV != null) ind.CrossV.transform.position = crossPos;
+                    // ── Healing cross ──
+                    // Overlaid ABOVE the ownership disc rather than replacing it, so
+                    // a unit being healed still shows who owns it.
+                    bool isHealing = false;
+                    if (hasLitharch)
+                    {
+                        var ls = litharchs[i];
+                        isHealing = ls.IsHealing != 0 && ls.HealTarget != Entity.Null
+                                    && _em.Exists(ls.HealTarget);
+                    }
+                    bool healChanged = isHealing != ind.Healing || justShown;
+                    ind.Healing = isHealing;
+                    if (healChanged)
+                    {
+                        if (ind.CrossH != null) ind.CrossH.SetActive(isHealing);
+                        if (ind.CrossV != null) ind.CrossV.SetActive(isHealing);
+                    }
+                    if (isHealing && (moved || healChanged))
+                    {
+                        Vector3 crossPos = ind.IndicatorPos + Vector3.up * (circleRadius * 1.6f);
+                        if (ind.CrossH != null) ind.CrossH.transform.position = crossPos;
+                        if (ind.CrossV != null) ind.CrossV.transform.position = crossPos;
+                    }
                 }
             }
+        }
+
+        private static void HideIndicators(Indicators ind)
+        {
+            if (ind.Ring != null) ind.Ring.gameObject.SetActive(false);
+            if (ind.Circle != null) ind.Circle.SetActive(false);
+            if (ind.CrossH != null) ind.CrossH.SetActive(false);
+            if (ind.CrossV != null) ind.CrossV.SetActive(false);
+            ind.Shown = false;
+            ind.RingOn = false;
+            ind.Healing = false;
+            ind.Primed = true;
         }
 
         /// <summary>One shared material per colour; see _sharedMats.</summary>

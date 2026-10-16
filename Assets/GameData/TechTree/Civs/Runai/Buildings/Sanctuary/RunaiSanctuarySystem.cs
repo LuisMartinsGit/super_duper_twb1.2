@@ -32,6 +32,15 @@ namespace TheWaningBorder.Runai
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class RunaiSanctuarySystem : SystemBase
     {
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            // Runai ships only in edition C (docs/Design/Alpha_Build.md §4). Off
+            // elsewhere: its configs are stripped from A/B builds, and running
+            // it there threw every tick, in the menu and in every match.
+            if (!GameEdition.Allows(Cultures.Runai)) { Enabled = false; return; }
+        }
+
         private static RunaiSanctuarySystemConfig _cfg;
         public static RunaiSanctuarySystemConfig Cfg =>
             _cfg != null ? _cfg : (_cfg = ComponentConfig.Require<RunaiSanctuarySystemConfig>());

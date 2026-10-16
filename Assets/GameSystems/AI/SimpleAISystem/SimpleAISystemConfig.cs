@@ -203,8 +203,9 @@ namespace TheWaningBorder.AI
         /// passability validation stage.</summary>
         public int siteSearchValidateBudget;
 
-        /// <summary>Heavy AI thinks (a SimpleAISystem brain think, an endgame
-        /// pass) allowed per rendered frame, across all brains and systems.
+        /// <summary>Heavy AI think STAGES (one stage of a SimpleAISystem brain
+        /// think, or of an endgame think — 2026-10-15 a think is split into
+        /// stages) allowed per rendered frame, across all brains and systems.
         /// Extra due brains wait a frame, most overdue first.</summary>
         public int maxBrainThinksPerFrame;
 

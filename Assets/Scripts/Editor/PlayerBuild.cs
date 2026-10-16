@@ -78,6 +78,10 @@ namespace TheWaningBorder.EditorTools
         /// output layout as the batch path — it IS the batch path minus the
         /// process exit.
         /// </summary>
+        /// <summary>Set by the bridge's build-dev command: the next build is a
+        /// development (profiling) player, as -twbDevelopment does in batch mode.</summary>
+        public static bool DevelopmentOnce;
+
         public static string BuildTo(string outDir, string edition = "A")
         {
             // A = the demo (Age 0 + Alanthor), B = + Feraldis, C = + Runai.
@@ -117,7 +121,7 @@ namespace TheWaningBorder.EditorTools
                 extraScriptingDefines = new[] { "TWB_EDITION_" + edition },
                 // -twbDevelopment: a profiling player (ENABLE_PROFILER on, so
                 // EcsSystemProfiler can time every system). Never shipped.
-                options = Array.IndexOf(Environment.GetCommandLineArgs(), "-twbDevelopment") >= 0
+                options = DevelopmentOnce || Array.IndexOf(Environment.GetCommandLineArgs(), "-twbDevelopment") >= 0
                     ? BuildOptions.Development : BuildOptions.None,
             };
 

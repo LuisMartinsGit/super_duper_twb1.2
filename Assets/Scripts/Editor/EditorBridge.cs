@@ -154,6 +154,13 @@ namespace TheWaningBorder.EditorTools
                     return error == null ? "OK built to " + arg : "ERROR " + error;
                 }
 
+                // `build-dev <A|B|C> <outDir>`: a development (profiling) player,
+                // so EcsSystemProfiler can time every system. Never shipped.
+                case "build-dev":
+                    TheWaningBorder.EditorTools.PlayerBuild.DevelopmentOnce = true;
+                    try { return Execute("build-edition " + arg); }
+                    finally { TheWaningBorder.EditorTools.PlayerBuild.DevelopmentOnce = false; }
+
                 case "build-edition":
                 {
                     if (EditorApplication.isPlaying) return "ERROR in play mode; stop first";

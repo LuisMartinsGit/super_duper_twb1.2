@@ -258,6 +258,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         /// <summary>An emplaced engine stands on a wall deck: its simulated
         /// Y IS its height, and no ground/bridge sample may replace it.</summary>
         public bool KeepSimY;
+        /// <summary>Building or plan (gets the +180° visual offset) —
+        /// resolved with the view instead of two HasComponent calls per
+        /// moving unit per frame (2026-10-15).</summary>
+        public bool BuildingLike;
         /// <summary>Resolved with the view — was a GetComponent per frame
         /// for every building under construction.</summary>
         public BuildingVisualSinkDepth Sink;
@@ -1123,7 +1127,11 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // scrolls into view) but skips the bone writes while no
                 // renderer is visible — which is most of the map, most of
                 // the time.
-                animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+                // 2026-10-15 (3,000-unit pass): the culling mode, keep-state-
+                // on-disable and the skinned-mesh flags now come from
+                // UnitAnimationSync.asset — CullCompletely by default, which
+                // also stops the state machine and clip sampling off-screen.
+                UnitAnimationSync.ConfigureView(goInst, animator);
 
                 var animSync = goInst.AddComponent<UnitAnimationSync>();
                 animSync.LinkedEntity = entity;
@@ -1732,6 +1740,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             sync.Rise = go.GetComponent<TheWaningBorder.Rendering.BuildingRiseData>();
             sync.Sink = go.GetComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>();
             sync.KeepSimY = _em.HasComponent<EmplacedEngineTag>(entity);
+            sync.BuildingLike = IsBuildingLike(entity);
             sync.Primed = false;   // new view: force a full write
         }
 
@@ -1752,7 +1761,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         }
 
         var simPos = lt.Position;
-        var simRot = VisualRotation(entity, lt.Rotation);
+        var simRot = sync.BuildingLike
+            ? (Quaternion)lt.Rotation * BuildingVisualOffsetY180
+            : (Quaternion)lt.Rotation;
 
         if (interpolate)
         {

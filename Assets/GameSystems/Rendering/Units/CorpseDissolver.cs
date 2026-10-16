@@ -75,6 +75,10 @@ namespace TheWaningBorder.Rendering
             {
                 // Keep animating off-screen so the fall always completes.
                 animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                // UnitAnimationSync's distance LOD may have taken the Animator
+                // over (disabled + stepped manually) the frame the entity died;
+                // the corpse must play its fall on Unity's own update.
+                animator.enabled = true;
 
                 // 1) Wait for the death state to reach its last frame. The entity
                 //    is gone, so nothing else drives this Animator; the death

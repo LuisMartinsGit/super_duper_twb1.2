@@ -8,7 +8,16 @@
 // Managed SystemBase (structural changes + managed AbilityCatalog lookups),
 // mirroring UnitAbilitySystem / TempleHealSystem. Auto-registers via
 // [UpdateInGroup]; ordered before combat so buffs apply the same frame.
+//
+// PERF (2026-10-15): the cooldown decay and the seven timed-marker countdowns
+// walked every unit chunk in managed foreach loops, then cleared the expired
+// markers one EntityManager call at a time. They are Burst IJobEntity passes
+// now (run on the main thread, at the same point in the update), and an
+// expired marker's enable bit is cleared in place — the same final state as
+// TransientState.Clear. Only subtraction, max and a compare: IEEE-exact, so
+// Burst and managed code give identical bits on every peer.
 
+using Unity.Burst;
 using Unity.Collections;
 using TheWaningBorder.Core;
 using TheWaningBorder.Core.Commands.Types;
@@ -44,13 +53,7 @@ namespace TheWaningBorder.Abilities
             var em = EntityManager;
 
             // ---- 1. Cooldown decay ----
-            foreach (var cd in SystemAPI.Query<RefRW<AbilityCooldowns>>())
-            {
-                var c = cd.ValueRO;
-                c.C0 = math.max(0f, c.C0 - dt); c.C1 = math.max(0f, c.C1 - dt);
-                c.C2 = math.max(0f, c.C2 - dt); c.C3 = math.max(0f, c.C3 - dt);
-                cd.ValueRW = c;
-            }
+            new CooldownDecayJob { Dt = dt }.Run();
 
             // ---- 2. Consume AbilityActivated -> begin the unit's active ability ----
             var actQ = QC_AbilityActivatedUnitAbilities.Get(em, QT_AbilityActivatedUnitAbilities);
@@ -194,59 +197,17 @@ namespace TheWaningBorder.Abilities
             foreach (var e in dotDone) TransientState.Clear<SelfDoT>(em, e);
             dotDone.Dispose();
 
-            // ---- 6. Timed markers: decrement TimeRemaining, remove at 0 ----
-            {
-                var done = new NativeList<Entity>(Allocator.Temp);
-                foreach (var (c, e) in SystemAPI.Query<RefRW<LifeCling>>().WithEntityAccess())
-                { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) TransientState.Clear<LifeCling>(em, e);
-                done.Dispose();
-            }
-            {
-                var done = new NativeList<Entity>(Allocator.Temp);
-                foreach (var (c, e) in SystemAPI.Query<RefRW<AutoYieldBoost>>().WithEntityAccess())
-                { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) TransientState.Clear<AutoYieldBoost>(em, e);
-                done.Dispose();
-            }
-            {
-                var done = new NativeList<Entity>(Allocator.Temp);
-                foreach (var (c, e) in SystemAPI.Query<RefRW<UnderAutomation>>().WithEntityAccess())
-                { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) TransientState.Clear<UnderAutomation>(em, e);
-                done.Dispose();
-            }
-            {
-                var done = new NativeList<Entity>(Allocator.Temp);
-                foreach (var (c, e) in SystemAPI.Query<RefRW<Charging>>().WithEntityAccess())
-                { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) TransientState.Clear<Charging>(em, e);
-                done.Dispose();
-            }
-            {
-                var done = new NativeList<Entity>(Allocator.Temp);
-                foreach (var (c, e) in SystemAPI.Query<RefRW<ChargeDamageBonus>>().WithEntityAccess())
-                { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) TransientState.Clear<ChargeDamageBonus>(em, e);
-                done.Dispose();
-            }
-            {
-                // War Horn window — normally consumed by the charge that lands, this
-                // is the timeout for cavalry that never connected.
-                var done = new NativeList<Entity>(Allocator.Temp);
-                foreach (var (c, e) in SystemAPI.Query<RefRW<NextChargePct>>().WithEntityAccess())
-                { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) TransientState.Clear<NextChargePct>(em, e);
-                done.Dispose();
-            }
-            {
-                // Full Gallop's sprint lockout.
-                var done = new NativeList<Entity>(Allocator.Temp);
-                foreach (var (c, e) in SystemAPI.Query<RefRW<TempDisarm>>().WithEntityAccess())
-                { var v = c.ValueRO; v.TimeRemaining -= dt; c.ValueRW = v; if (v.TimeRemaining <= 0f) done.Add(e); }
-                foreach (var e in done) TransientState.Clear<TempDisarm>(em, e);
-                done.Dispose();
-            }
+            // ---- 6. Timed markers: decrement TimeRemaining, clear at 0 ----
+            // (War Horn's NextChargePct window is normally consumed by the
+            // charge that lands — this is the timeout for cavalry that never
+            // connected; TempDisarm is Full Gallop's sprint lockout.)
+            new LifeClingTimerJob { Dt = dt }.Run();
+            new AutoYieldBoostTimerJob { Dt = dt }.Run();
+            new UnderAutomationTimerJob { Dt = dt }.Run();
+            new ChargingTimerJob { Dt = dt }.Run();
+            new ChargeDamageBonusTimerJob { Dt = dt }.Run();
+            new NextChargePctTimerJob { Dt = dt }.Run();
+            new TempDisarmTimerJob { Dt = dt }.Run();
 
             // (Use Celestar's fog reveal reuses the sect RevealCircle power — the
             // reveal entity is created + ticked by SectActivePowerSystem /
@@ -348,6 +309,106 @@ namespace TheWaningBorder.Abilities
         {
             if (em.HasComponent<T>(e)) em.SetComponentData(e, value);
             else em.AddComponentData(e, value);
+        }
+    }
+
+    // ── Burst countdowns (see the PERF note in the header) ──────────────
+    // One job per marker type: IJobEntity cannot be generic. Each skips a
+    // disabled marker explicitly, so it does not matter whether the
+    // EnabledRefRW parameter makes the query match disabled ones too.
+
+    [BurstCompile]
+    internal partial struct CooldownDecayJob : IJobEntity
+    {
+        public float Dt;
+        void Execute(ref AbilityCooldowns c)
+        {
+            c.C0 = math.max(0f, c.C0 - Dt); c.C1 = math.max(0f, c.C1 - Dt);
+            c.C2 = math.max(0f, c.C2 - Dt); c.C3 = math.max(0f, c.C3 - Dt);
+        }
+    }
+
+    [BurstCompile]
+    internal partial struct LifeClingTimerJob : IJobEntity
+    {
+        public float Dt;
+        void Execute(ref LifeCling c, EnabledRefRW<LifeCling> on)
+        {
+            if (!on.ValueRO) return;
+            c.TimeRemaining -= Dt;
+            if (c.TimeRemaining <= 0f) on.ValueRW = false;
+        }
+    }
+
+    [BurstCompile]
+    internal partial struct AutoYieldBoostTimerJob : IJobEntity
+    {
+        public float Dt;
+        void Execute(ref AutoYieldBoost c, EnabledRefRW<AutoYieldBoost> on)
+        {
+            if (!on.ValueRO) return;
+            c.TimeRemaining -= Dt;
+            if (c.TimeRemaining <= 0f) on.ValueRW = false;
+        }
+    }
+
+    [BurstCompile]
+    internal partial struct UnderAutomationTimerJob : IJobEntity
+    {
+        public float Dt;
+        void Execute(ref UnderAutomation c, EnabledRefRW<UnderAutomation> on)
+        {
+            if (!on.ValueRO) return;
+            c.TimeRemaining -= Dt;
+            if (c.TimeRemaining <= 0f) on.ValueRW = false;
+        }
+    }
+
+    [BurstCompile]
+    internal partial struct ChargingTimerJob : IJobEntity
+    {
+        public float Dt;
+        void Execute(ref Charging c, EnabledRefRW<Charging> on)
+        {
+            if (!on.ValueRO) return;
+            c.TimeRemaining -= Dt;
+            if (c.TimeRemaining <= 0f) on.ValueRW = false;
+        }
+    }
+
+    [BurstCompile]
+    internal partial struct ChargeDamageBonusTimerJob : IJobEntity
+    {
+        public float Dt;
+        void Execute(ref ChargeDamageBonus c, EnabledRefRW<ChargeDamageBonus> on)
+        {
+            if (!on.ValueRO) return;
+            c.TimeRemaining -= Dt;
+            if (c.TimeRemaining <= 0f) on.ValueRW = false;
+        }
+    }
+
+    [BurstCompile]
+    internal partial struct NextChargePctTimerJob : IJobEntity
+    {
+        public float Dt;
+        void Execute(ref NextChargePct c, EnabledRefRW<NextChargePct> on)
+        {
+            if (!on.ValueRO) return;
+            c.TimeRemaining -= Dt;
+            if (c.TimeRemaining <= 0f) on.ValueRW = false;
+        }
+    }
+
+    [BurstCompile]
+    internal partial struct TempDisarmTimerJob : IJobEntity
+    {
+        public float Dt;
+        void Execute(ref TempDisarm c, EnabledRefRW<TempDisarm> on)
+        {
+            if (!on.ValueRO) return;
+            c.TimeRemaining -= Dt;
+            if (c.TimeRemaining <= 0f) on.ValueRW = false;
         }
     }
 }

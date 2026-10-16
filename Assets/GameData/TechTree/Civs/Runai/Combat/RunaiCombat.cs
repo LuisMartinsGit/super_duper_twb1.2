@@ -13,6 +13,17 @@
 // longer than the pass, merged with whatever an ability already put there.
 // Stat ladders (weapons, Stride, veterancy, plating, Desert Cloaks) are plain
 // effectsList techs and need nothing here.
+//
+// STAGGERED BY FACTION (2026-10-15 perf). The pass walked every Runai unit of
+// every faction on one tick in fifteen — ~7 ms on that tick late game. Each
+// faction now keeps its OWN tickSeconds clock, phased k/8 of a period apart
+// at match start, so the factions' passes land on different ticks and each
+// unit is still visited every tickSeconds with that clock's elapsed step.
+// Deterministic (sim time, epoch-reset per match); a faction's pass moves by
+// a fraction of a period, so buffs land on a different tick than before. The
+// per-unit tech lookups are read once per faction per pass, and the Road
+// Warden test compares the FixedString instead of allocating a string per
+// unit per pass.
 
 using TheWaningBorder.Core;
 using TheWaningBorder.Core.Settings;
@@ -26,11 +37,32 @@ namespace TheWaningBorder.Runai
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class RunaiCombat : SystemBase
     {
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            // Runai ships only in edition C (docs/Design/Alpha_Build.md §4). Off
+            // elsewhere: its configs are stripped from A/B builds, and running
+            // it there threw every tick, in the menu and in every match.
+            if (!GameEdition.Allows(Cultures.Runai)) { Enabled = false; return; }
+        }
+
         private static RunaiCombatConfig _cfg;
         public static RunaiCombatConfig Cfg =>
             _cfg != null ? _cfg : (_cfg = ComponentConfig.Require<RunaiCombatConfig>());
 
-        private SimCadence.Periodic _tick;
+        // Per-faction clocks (player factions 0..7).
+        private const int Factions = 8;
+        private readonly float[] _acc = new float[Factions];
+        private readonly float[] _step = new float[Factions];
+        private int _accEpoch = -1;
+
+        private struct Techs
+        {
+            public bool RoadMarch, Remounts, FeignedRetreat, ParthianShot, EscortDuty, WagonLaager;
+        }
+        private readonly Techs[] _techs = new Techs[Factions];
+
+        private static readonly FixedString64Bytes RoadWardenId = "Runai_RoadWarden";
 
         static readonly ComponentType[] QT_Units =
         {
@@ -57,11 +89,44 @@ namespace TheWaningBorder.Runai
 
         protected override void OnUpdate()
         {
-            float step = _tick.DueStep(SystemAPI.Time.DeltaTime, math.max(0.1f, Cfg.tickSeconds));
-            if (step <= 0f) return;
+            float interval = math.max(0.1f, Cfg.tickSeconds);
+            float dt = SystemAPI.Time.DeltaTime;
+            if (_accEpoch != SimCadence.Epoch)
+            {
+                // New match: phase faction k k/8 of a period in, so the eight
+                // clocks fire on different ticks from the first second on.
+                _accEpoch = SimCadence.Epoch;
+                for (int f = 0; f < Factions; f++) _acc[f] = interval * f / Factions;
+            }
+            bool any = false;
+            for (int f = 0; f < Factions; f++)
+            {
+                _acc[f] += dt;
+                _step[f] = 0f;
+                if (_acc[f] < interval) continue;
+                _step[f] = _acc[f];      // reset-style, as DueStep
+                _acc[f] = 0f;
+                any = true;
+            }
+            if (!any) return;
             var em = EntityManager;
             var uq = QC_Units.Get(em, QT_Units);
             if (uq.IsEmptyIgnoreFilter) return;
+
+            for (int f = 0; f < Factions; f++)
+            {
+                if (_step[f] <= 0f) continue;
+                var fac = (Faction)f;
+                _techs[f] = new Techs
+                {
+                    RoadMarch = RunaiTradeSystem.Researched(fac, "Runai_RoadMarch"),
+                    Remounts = RunaiTradeSystem.Researched(fac, "Runai_Remounts"),
+                    FeignedRetreat = RunaiTradeSystem.Researched(fac, "Runai_FeignedRetreat"),
+                    ParthianShot = RunaiTradeSystem.Researched(fac, "Runai_ParthianShot"),
+                    EscortDuty = RunaiTradeSystem.Researched(fac, "Runai_EscortDuty"),
+                    WagonLaager = RunaiTradeSystem.Researched(fac, "Runai_WagonLaager"),
+                };
+            }
 
             var trade = RunaiTradeSystem.Cfg;
             using var ws = QC_Waystations.Get(em, QT_Waystations).ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -70,14 +135,19 @@ namespace TheWaningBorder.Runai
             using var cvf = QC_Caravans.Get(em, QT_Caravans).ToComponentDataArray<FactionTag>(Allocator.Temp);
 
             using var ents = uq.ToEntityArray(Allocator.Temp);
+            using var ufacs = uq.ToComponentDataArray<FactionTag>(Allocator.Temp);
             var addFires = new NativeList<Entity>(Allocator.Temp);
-            float life = step + 0.25f;
             for (int i = 0; i < ents.Length; i++)
             {
+                var f = ufacs[i].Value;
+                int fi = (int)f;
+                if (fi < 0 || fi >= Factions || _step[fi] <= 0f) continue;   // not this faction's tick
+                float step = _step[fi];
+                float life = step + 0.25f;
+                ref readonly var tech = ref _techs[fi];
                 var e = ents[i];
                 var hp = em.GetComponentData<Health>(e);
                 if (hp.Value <= 0) continue;
-                var f = em.GetComponentData<FactionTag>(e).Value;
                 var p = em.GetComponentData<LocalTransform>(e).Position;
                 var clock = em.GetComponentData<RunaiUnitClock>(e);
 
@@ -89,32 +159,30 @@ namespace TheWaningBorder.Runai
                 float speed = 1f, taken = 1f, armor = 0f;
 
                 // Road March — caravans get the Waystation bonus in RunaiTradeSystem.
-                if (!em.HasComponent<CaravanTag>(e) && RunaiTradeSystem.Researched(f, "Runai_RoadMarch")
+                if (tech.RoadMarch && !em.HasComponent<CaravanTag>(e)
                     && Near(ws, wsf, f, p, trade.waystationRadius))
                     speed *= 1f + trade.waystationSpeedPct / 100f;
 
-                if (cavalry && RunaiTradeSystem.Researched(f, "Runai_Remounts")
+                if (cavalry && tech.Remounts
                     && clock.Calm >= Cfg.remountCalmSeconds && hp.Value < hp.Max)
                 {
                     hp.Value = math.min(hp.Max, hp.Value + math.max(1, (int)math.round(Cfg.remountHealPerSecond * step)));
                     em.SetComponentData(e, hp);
                 }
 
-                if (cavalry && RunaiTradeSystem.Researched(f, "Runai_FeignedRetreat")
+                if (cavalry && tech.FeignedRetreat
                     && hp.Value < hp.Max * Cfg.feignedRetreatHpFraction)
                     speed *= Cfg.feignedRetreatSpeedMultiplier;
 
-                if (em.HasComponent<HorseArcherTag>(e) && !em.HasComponent<FiresOnMove>(e)
-                    && RunaiTradeSystem.Researched(f, "Runai_ParthianShot"))
+                if (tech.ParthianShot && em.HasComponent<HorseArcherTag>(e) && !em.HasComponent<FiresOnMove>(e))
                     addFires.Add(e);
 
-                if (em.HasComponent<UnitTypeId>(e)
-                    && em.GetComponentData<UnitTypeId>(e).Value.ToString() == "Runai_RoadWarden"
-                    && RunaiTradeSystem.Researched(f, "Runai_EscortDuty")
+                if (tech.EscortDuty && em.HasComponent<UnitTypeId>(e)
+                    && em.GetComponentData<UnitTypeId>(e).Value == RoadWardenId
                     && Near(cv, cvf, f, p, Cfg.escortDutyRadius))
                     taken = Cfg.escortDutyDamageTaken;
 
-                if (em.HasComponent<WarWagonTag>(e) && RunaiTradeSystem.Researched(f, "Runai_WagonLaager")
+                if (tech.WagonLaager && em.HasComponent<WarWagonTag>(e)
                     && clock.Still >= Cfg.laagerStillSeconds)
                     armor = Cfg.laagerArmorBonus;
 

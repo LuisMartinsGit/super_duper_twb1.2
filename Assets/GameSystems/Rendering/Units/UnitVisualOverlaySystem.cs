@@ -1,20 +1,27 @@
 // UnitVisualOverlaySystem.cs
 // Procedural overlays for unit feedback (spec refinement #7):
 //   - Rank pips above the unit (one per UnitRank.Value, capped at 5).
+//   - Shield bar under the pips while an equipment shield holds points.
 //
-// Standalone managed MonoBehaviour mirroring RitualBeamSystem's pattern:
-// each tick, snapshot ECS state, ensure GameObjects exist + are positioned,
-// prune any whose source entity is gone.
-//
-// Heavy-handed cost-wise for very large unit counts, but bounded — one
-// wrapper GameObject per unit, not allocated per frame.
+// 2026-10-15 (3,000-unit pass): drawn with GPU INSTANCING, not GameObjects.
+// Every unit used to own a wrapper GameObject plus a sphere per rank pip
+// (minimum one) and a two-cube shield bar — at 3,000 units that was 3,000+
+// MeshRenderers, each casting a shadow into both cascades, each moved by a
+// Transform write whenever its unit walked. The same meshes, materials and
+// transforms are now submitted as instanced draws each frame, culled on the
+// CPU against the gameplay camera, so the cost is a matrix per VISIBLE pip
+// and a handful of draw calls. Differences from the GameObject version:
+//   - pips and bars no longer cast shadows (a 14 cm marker's shadow);
+//   - they follow the unit view's fog visibility: an enemy hidden by fog of
+//     war no longer shows its pips floating in the dark (same fix
+//     UnitIndicatorSystem got for its discs).
 
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace TheWaningBorder.Rendering
 {
@@ -23,27 +30,16 @@ namespace TheWaningBorder.Rendering
         private const float PipBaseHeight = 2.4f;
         private const float PipSpacing = 0.18f;
         private const float PipSize = 0.14f;
+        private const float ShieldBarHeight = PipBaseHeight - 0.25f;
 
-        private class Overlay
-        {
-            public GameObject Root;
-            public Transform PipParent;
-            public Transform ShieldBarRoot;   // empty wrapper for the shield bar widget
-            public Transform ShieldBarFill;   // inner quad that gets X-scaled by ratio
-            public int LastRank = -1;
-            // Last values written (2026-09-25): a unit that did not move or
-            // change shield costs no transform write and no SetActive.
-            public bool Placed;
-            public float3 LastPos;
-            public int ShieldShown = -1;     // -1 unknown, 0 hidden, 1 shown
-            public float LastRatio = -1f;
-        }
+        /// <summary>Frustum pad (m) around a unit's overlay anchor: the widest
+        /// overlay is the 1 m shield bar.</summary>
+        private const float CullPad = 1.5f;
 
-        // Reused every frame — were a fresh HashSet and List per frame.
-        private readonly HashSet<Entity> _seen = new();
-        private readonly List<Entity> _toRemove = new();
+        /// <summary>Instances per draw call — the classic constant-buffer
+        /// ceiling for instanced matrices.</summary>
+        private const int MaxInstancesPerDraw = 1023;
 
-        private readonly Dictionary<Entity, Overlay> _overlays = new();
         private Unity.Entities.World _world;
         private EntityManager _em;
         // Cached queries — CreateEntityQuery per frame leaks into the world's query registry.
@@ -51,15 +47,25 @@ namespace TheWaningBorder.Rendering
             ComponentType.ReadOnly<UnitTag>(),
             ComponentType.ReadOnly<LocalTransform>() };
         private TheWaningBorder.Core.CachedEntityQuery _unitQuery;
+
         private Material _pipMat;
         private Material _shieldBgMat;
         private Material _shieldFillMat;
+        private Mesh _sphereMesh;
+        private Mesh _cubeMesh;
+
+        private Matrix4x4[] _pips = new Matrix4x4[1024];
+        private Matrix4x4[] _bgs = new Matrix4x4[64];
+        private Matrix4x4[] _fills = new Matrix4x4[64];
+        private int _pipCount, _bgCount, _fillCount;
 
         void Awake()
         {
             _pipMat = BuildMat(new Color(1.00f, 0.85f, 0.30f, 1f), emissive: true);
             _shieldBgMat = BuildMat(new Color(0.10f, 0.20f, 0.30f, 0.85f), emissive: false);
             _shieldFillMat = BuildMat(new Color(0.45f, 0.80f, 1.00f, 0.95f), emissive: true);
+            _sphereMesh = PrimitiveMesh(PrimitiveType.Sphere);
+            _cubeMesh = PrimitiveMesh(PrimitiveType.Cube);
         }
 
         void Update()
@@ -70,181 +76,150 @@ namespace TheWaningBorder.Rendering
                 if (_world == null || !_world.IsCreated) return;
                 _em = _world.EntityManager;
             }
+            if (_pipMat == null || _sphereMesh == null || _cubeMesh == null) return;
+
+            _pipCount = _bgCount = _fillCount = 0;
+            var evm = EntityViewManager.Instance;
 
             var unitQuery = _unitQuery.Get(_em, UnitQueryTypes);
-            using var ents = unitQuery.ToEntityArray(Allocator.Temp);
-            using var transforms = unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            unitQuery.CompleteDependency();
+            var entityHandle = _em.GetEntityTypeHandle();
+            var ltHandle = _em.GetComponentTypeHandle<LocalTransform>(true);
+            var rankHandle = _em.GetComponentTypeHandle<UnitRank>(true);
+            var shieldHandle = _em.GetComponentTypeHandle<ShieldBar>(true);
 
-            var seen = _seen;
-            seen.Clear();
-            for (int i = 0; i < ents.Length; i++)
+            using var chunks = unitQuery.ToArchetypeChunkArray(Allocator.Temp);
+            for (int c = 0; c < chunks.Length; c++)
             {
-                Entity e = ents[i];
-                seen.Add(e);
+                var chunk = chunks[c];
+                var entities = chunk.GetNativeArray(entityHandle);
+                var transforms = chunk.GetNativeArray(ref ltHandle);
+                bool hasRank = chunk.Has(ref rankHandle);
+                bool hasShield = chunk.Has(ref shieldHandle);
+                var ranks = hasRank ? chunk.GetNativeArray(ref rankHandle) : default;
+                var shields = hasShield ? chunk.GetNativeArray(ref shieldHandle) : default;
 
-                int rank = 1;
-                if (_em.HasComponent<UnitRank>(e))
-                    rank = math.clamp(_em.GetComponentData<UnitRank>(e).Value, 1, 5);
-
-
-                if (!_overlays.TryGetValue(e, out var ov) || ov == null || ov.Root == null)
+                for (int i = 0; i < entities.Length; i++)
                 {
-                    ov = BuildOverlay();
-                    _overlays[e] = ov;
-                }
+                    float3 p = transforms[i].Position;
+                    var anchor = new Vector3(p.x, p.y + PipBaseHeight, p.z);
 
-                // Position root at the unit; rank pips are children offset above.
-                float3 p = transforms[i].Position;
-                if (!ov.Placed || !p.Equals(ov.LastPos))
-                {
-                    ov.Root.transform.position = p;
-                    ov.LastPos = p;
-                    ov.Placed = true;
-                }
+                    // Cheapest test first: pure math on the frame's planes.
+                    if (!ProceduralRigCulling.Visible(anchor, CullPad)) continue;
 
-                if (ov.LastRank != rank)
-                {
-                    RebuildPips(ov, rank);
-                    ov.LastRank = rank;
-                }
-
-
-                // Shield bar: visible only when the unit has a ShieldBar component AND Current > 0.
-                bool hasShield = _em.HasComponent<ShieldBar>(e);
-                int curShield = 0, maxShield = 0;
-                if (hasShield)
-                {
-                    var sb = _em.GetComponentData<ShieldBar>(e);
-                    curShield = sb.Current;
-                    maxShield = sb.Max;
-                }
-                bool showBar = hasShield && curShield > 0 && maxShield > 0;
-                if (ov.ShieldBarRoot != null)
-                {
-                    int shown = showBar ? 1 : 0;
-                    if (ov.ShieldShown != shown)
+                    // FOG GATE: follow the unit view's own visibility (the
+                    // fog system deactivates hidden views). No view yet = not
+                    // drawn, as the unit itself is not drawn either.
+                    if (evm != null)
                     {
-                        ov.ShieldBarRoot.gameObject.SetActive(showBar);
-                        ov.ShieldShown = shown;
+                        if (!evm.TryGetView(entities[i], out var view) || view == null
+                            || !view.activeInHierarchy)
+                            continue;
                     }
-                    float ratio = showBar ? math.clamp((float)curShield / maxShield, 0f, 1f) : -1f;
-                    if (showBar && ov.ShieldBarFill != null && ratio != ov.LastRatio)
+
+                    // ── Rank pips ──
+                    int rank = hasRank ? math.clamp(ranks[i].Value, 1, 5) : 1;
+                    float row = -(rank - 1) * PipSpacing * 0.5f;
+                    for (int k = 0; k < rank; k++)
+                        Push(ref _pips, ref _pipCount,
+                            new Vector3(p.x + row + k * PipSpacing, anchor.y, p.z),
+                            new Vector3(PipSize, PipSize, PipSize));
+
+                    // ── Shield bar ── (visible only while Current > 0)
+                    if (hasShield)
                     {
-                        ov.LastRatio = ratio;
-                        ov.ShieldBarFill.localScale = new Vector3(ratio, 1f, 1f);
-                        // Pivot the fill to the left so it shrinks rightward.
-                        ov.ShieldBarFill.localPosition = new Vector3(-0.5f * (1f - ratio), 0f, 0f);
+                        var sb = shields[i];
+                        if (sb.Current > 0 && sb.Max > 0)
+                        {
+                            float ratio = math.clamp((float)sb.Current / sb.Max, 0f, 1f);
+                            float y = p.y + ShieldBarHeight;
+                            Push(ref _bgs, ref _bgCount,
+                                new Vector3(p.x, y, p.z), new Vector3(1f, 0.08f, 0.1f));
+                            // Pivoted to the left edge so it shrinks rightward.
+                            Push(ref _fills, ref _fillCount,
+                                new Vector3(p.x - 0.5f * (1f - ratio), y, p.z),
+                                new Vector3(ratio, 0.088f, 0.12f));
+                        }
                     }
                 }
             }
 
-            if (_overlays.Count > seen.Count)
-            {
-                var toRemove = _toRemove;
-                toRemove.Clear();
-                foreach (var kv in _overlays)
-                    if (!seen.Contains(kv.Key))
-                    {
-                        if (kv.Value?.Root != null) Destroy(kv.Value.Root);
-                        toRemove.Add(kv.Key);
-                    }
-                foreach (var k in toRemove) _overlays.Remove(k);
-            }
+            Draw(_pipMat, _sphereMesh, _pips, _pipCount);
+            Draw(_shieldBgMat, _cubeMesh, _bgs, _bgCount);
+            Draw(_shieldFillMat, _cubeMesh, _fills, _fillCount);
         }
 
         void OnDestroy()
         {
-            foreach (var kv in _overlays)
-                if (kv.Value?.Root != null) Destroy(kv.Value.Root);
-            _overlays.Clear();
+            if (_pipMat != null) Destroy(_pipMat);
+            if (_shieldBgMat != null) Destroy(_shieldBgMat);
+            if (_shieldFillMat != null) Destroy(_shieldFillMat);
         }
 
-        private Overlay BuildOverlay()
+        private static void Push(ref Matrix4x4[] buf, ref int count, Vector3 pos, Vector3 scale)
         {
-            var root = new GameObject("UnitOverlay");
+            if (count == buf.Length) System.Array.Resize(ref buf, buf.Length * 2);
+            // Axis-aligned TRS without the quaternion maths.
+            var m = new Matrix4x4();
+            m.m00 = scale.x; m.m11 = scale.y; m.m22 = scale.z; m.m33 = 1f;
+            m.m03 = pos.x; m.m13 = pos.y; m.m23 = pos.z;
+            buf[count++] = m;
+        }
 
-            var pipParent = new GameObject("Pips").transform;
-            pipParent.SetParent(root.transform, false);
-            pipParent.localPosition = new Vector3(0, PipBaseHeight, 0);
+        private static readonly Bounds HugeBounds = new Bounds(Vector3.zero, Vector3.one * 100000f);
 
-
-            // Shield bar: a horizontal bar floating slightly below the rank pips.
-            // Wrapper holds the background quad + fill quad. Fill is scaled per
-            // frame by Current/Max ratio; pivots from the left edge so it
-            // shrinks rightward.
-            var sbRoot = new GameObject("ShieldBar").transform;
-            sbRoot.SetParent(root.transform, false);
-            sbRoot.localPosition = new Vector3(0, PipBaseHeight - 0.25f, 0);
-            sbRoot.localScale = new Vector3(1.0f, 0.08f, 1f);  // 1u wide, 0.08u tall
-
-            var sbBg = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            sbBg.name = "Bg";
-            sbBg.transform.SetParent(sbRoot, false);
-            sbBg.transform.localScale = new Vector3(1f, 1f, 0.1f);
-            StripCollider(sbBg);
-            SetMat(sbBg, _shieldBgMat);
-
-            var sbFillParent = new GameObject("FillPivot").transform;
-            sbFillParent.SetParent(sbRoot, false);
-            sbFillParent.localPosition = Vector3.zero;
-            var sbFill = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            sbFill.name = "Fill";
-            sbFill.transform.SetParent(sbFillParent, false);
-            sbFill.transform.localScale = new Vector3(1f, 1.1f, 0.12f);  // slightly proud of the bg
-            StripCollider(sbFill);
-            SetMat(sbFill, _shieldFillMat);
-
-            sbRoot.gameObject.SetActive(false);
-
-            return new Overlay
+        private static void Draw(Material mat, Mesh mesh, Matrix4x4[] buf, int count)
+        {
+            if (count == 0 || mat == null) return;
+            // A headless player (no graphics device) has no instancing and
+            // throws on every call; there is nothing to draw there anyway.
+            if (!SystemInfo.supportsInstancing) return;
+            var rp = new RenderParams(mat)
             {
-                Root = root,
-                PipParent = pipParent,
-                ShieldBarRoot = sbRoot,
-                ShieldBarFill = sbFillParent,
+                // Culled per instance above; the batch bounds only need to
+                // keep Unity from culling the whole batch.
+                worldBounds = HugeBounds,
+                shadowCastingMode = ShadowCastingMode.Off,
+                receiveShadows = true,
+                lightProbeUsage = LightProbeUsage.Off,
+                layer = 0,
             };
+            for (int start = 0; start < count; start += MaxInstancesPerDraw)
+                Graphics.RenderMeshInstanced(rp, mesh, 0, buf,
+                    Mathf.Min(MaxInstancesPerDraw, count - start), start);
         }
 
-        private void RebuildPips(Overlay ov, int rank)
+        private static Mesh PrimitiveMesh(PrimitiveType type)
         {
-            // Clear existing pips.
-            for (int i = ov.PipParent.childCount - 1; i >= 0; i--)
-                Destroy(ov.PipParent.GetChild(i).gameObject);
-
-            float row = -(rank - 1) * PipSpacing * 0.5f;
-            for (int i = 0; i < rank; i++)
-            {
-                var pip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                pip.name = $"Pip{i + 1}";
-                pip.transform.SetParent(ov.PipParent, false);
-                pip.transform.localScale = new Vector3(PipSize, PipSize, PipSize);
-                pip.transform.localPosition = new Vector3(row + i * PipSpacing, 0, 0);
-                StripCollider(pip);
-                SetMat(pip, _pipMat);
-            }
+            var go = GameObject.CreatePrimitive(type);
+            var mesh = go.GetComponent<MeshFilter>().sharedMesh;
+            Destroy(go);
+            return mesh;
         }
 
-        private static void StripCollider(GameObject go)
-        {
-            var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
-        }
-
-        private static void SetMat(GameObject go, Material mat)
-        {
-            var r = go.GetComponent<MeshRenderer>();
-            if (r != null) r.sharedMaterial = mat;
-        }
+        private static UnitVisualOverlaySystemConfig _cfg;
+        private static UnitVisualOverlaySystemConfig Cfg
+            => _cfg != null ? _cfg
+             : (_cfg = TheWaningBorder.Core.Settings.ComponentConfig.Require<UnitVisualOverlaySystemConfig>());
 
         private static Material BuildMat(Color color, bool emissive)
         {
-            var shader = Shader.Find("Universal Render Pipeline/Lit")
-                       ?? Shader.Find("Standard")
-                       ?? Shader.Find("Sprites/Default");
-            var mat = new Material(shader);
+            // Copy of the shipped instanced base (see the config for why it
+            // must be an asset). A missing config is logged by Require; the
+            // Shader.Find path then still works in the Editor.
+            var baseMat = Cfg != null ? Cfg.instancedLitBase : null;
+            Material mat;
+            if (baseMat != null)
+                mat = new Material(baseMat);
+            else
+                mat = new Material(Shader.Find("Universal Render Pipeline/Lit")
+                                   ?? Shader.Find("Standard")
+                                   ?? Shader.Find("Sprites/Default"));
             mat.color = color;
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             if (emissive && mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", color * 2.5f);
+            // Required by Graphics.RenderMeshInstanced.
+            mat.enableInstancing = true;
             return mat;
         }
     }

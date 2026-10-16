@@ -211,16 +211,14 @@ namespace TheWaningBorder.AI
 
         private static int CountPlayerEnemiesNear(EntityManager em, Faction faction, float3 pos, float r)
         {
-            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
-            using var ents = query.ToEntityArray(Allocator.Temp);
+            AIUnitSnapshot.Refresh(em);
             float r2 = r * r; int n = 0;
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = 0; i < AIUnitSnapshot.Count; i++)
             {
-                var e = ents[i];
-                var fac = em.GetComponentData<FactionTag>(e).Value;
+                var fac = AIUnitSnapshot.Fac[i];
                 if (fac == Faction.Border || !Alliances.AreHostile(faction, fac)) continue;
-                if (em.GetComponentData<Health>(e).Value <= 0) continue;
-                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                if (AIUnitSnapshot.Hp[i] <= 0) continue;
+                float3 p = AIUnitSnapshot.Pos[i];
                 float dx = p.x - pos.x, dz = p.z - pos.z;
                 if (dx * dx + dz * dz <= r2) n++;
             }
@@ -365,21 +363,19 @@ namespace TheWaningBorder.AI
             float castRadius, int need, out float3 target, out int caught)
         {
             target = default; caught = 0;
-            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
-            using var ents = query.ToEntityArray(Allocator.Temp);
+            AIUnitSnapshot.Refresh(em);
             float siteR = AITactics.Cfg.powerRadius;
             float siteR2 = siteR * siteR;
 
             var pts = new NativeList<float3>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = 0; i < AIUnitSnapshot.Count; i++)
             {
-                var e = ents[i];
-                var fac = em.GetComponentData<FactionTag>(e).Value;
+                var fac = AIUnitSnapshot.Fac[i];
                 // PLAYER enemies only: curse critters respawn from the node,
                 // so a smite on them buys nothing (2026-08-11).
                 if (fac == Faction.Border || !Alliances.AreHostile(faction, fac)) continue;
-                if (em.GetComponentData<Health>(e).Value <= 0) continue;
-                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                if (AIUnitSnapshot.Hp[i] <= 0) continue;
+                float3 p = AIUnitSnapshot.Pos[i];
                 bool atSite = false;
                 for (int s = 0; s < _powerSites.Count && !atSite; s++)
                 {
@@ -432,20 +428,18 @@ namespace TheWaningBorder.AI
                 if (pivotalSite < 0) { why = "no fight is pivotal"; return false; }
             }
 
-            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
-            using var ents = query.ToEntityArray(Allocator.Temp);
+            AIUnitSnapshot.Refresh(em);
             float siteR = AITactics.Cfg.powerRadius;
             float siteR2 = siteR * siteR;
             var pos = new NativeList<float3>(Allocator.Temp);
             var cur = new NativeList<int>(Allocator.Temp);
             var max = new NativeList<int>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = 0; i < AIUnitSnapshot.Count; i++)
             {
-                var e = ents[i];
-                if (em.GetComponentData<FactionTag>(e).Value != faction) continue;
-                var hp = em.GetComponentData<Health>(e);
+                if (AIUnitSnapshot.Fac[i] != faction) continue;
+                var hp = new Health { Value = AIUnitSnapshot.Hp[i], Max = AIUnitSnapshot.HpMax[i] };
                 if (hp.Value <= 0) continue;
-                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                float3 p = AIUnitSnapshot.Pos[i];
                 bool atSite = false;
                 for (int s = 0; s < _powerSites.Count && !atSite; s++)
                 {
@@ -526,8 +520,7 @@ namespace TheWaningBorder.AI
             out float3 target)
         {
             target = default;
-            var query = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
-            using var ents = query.ToEntityArray(Allocator.Temp);
+            AIUnitSnapshot.Refresh(em);
 
             const float scanRadius = 80f;
             float scanRadiusSq = scanRadius * scanRadius;
@@ -537,13 +530,12 @@ namespace TheWaningBorder.AI
             // cooldowns on Border creature clusters at the wells — curse
             // critters respawn from the node, so the smite bought nothing.
             var enemyPositions = new NativeList<float3>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = 0; i < AIUnitSnapshot.Count; i++)
             {
-                var e = ents[i];
-                var fac = em.GetComponentData<FactionTag>(e).Value;
+                var fac = AIUnitSnapshot.Fac[i];
                 if (fac == faction || fac == Faction.Border) continue;
-                if (em.GetComponentData<Health>(e).Value <= 0) continue;
-                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                if (AIUnitSnapshot.Hp[i] <= 0) continue;
+                float3 p = AIUnitSnapshot.Pos[i];
                 float dx = p.x - hallPos.x, dz = p.z - hallPos.z;
                 if (dx * dx + dz * dz > scanRadiusSq) continue;
                 enemyPositions.Add(p);
@@ -597,22 +589,28 @@ namespace TheWaningBorder.AI
             target = default;
             var q = QC_BuildingTagLocalTransformFactionTagHealth.Get(em, QT_BuildingTagLocalTransformFactionTagHealth);
             using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             const float scanRadius = 80f;
             float bestD2 = scanRadius * scanRadius;
             bool found = false;
             for (int i = 0; i < ents.Length; i++)
             {
-                var e = ents[i];
-                var fac = em.GetComponentData<FactionTag>(e).Value;
+                var fac = facs[i].Value;
                 if (fac == faction || fac == Faction.Border) continue;
-                if (em.GetComponentData<Health>(e).Value <= 0) continue;
-                if (em.HasComponent<WallTag>(e)) continue;
-                if (em.HasComponent<UnderConstruction>(e)) continue;
-                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                if (hps[i].Value <= 0) continue;
+                float3 p = xfs[i].Position;
                 float dx = p.x - hallPos.x, dz = p.z - hallPos.z;
                 float d2 = dx * dx + dz * dz;
-                if (d2 < bestD2) { bestD2 = d2; target = p; found = true; }
+                // The distance test first: the tag tests are EntityManager
+                // calls, and only a nearer candidate needs them.
+                if (d2 >= bestD2) continue;
+                var e = ents[i];
+                if (em.HasComponent<WallTag>(e)) continue;
+                if (em.HasComponent<UnderConstruction>(e)) continue;
+                bestD2 = d2; target = p; found = true;
             }
             return found;
         }

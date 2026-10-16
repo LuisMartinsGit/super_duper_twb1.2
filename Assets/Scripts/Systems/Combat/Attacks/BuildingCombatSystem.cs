@@ -1,8 +1,10 @@
 ﻿// Handles ranged attacks for buildings (Hall, Fiendstone Keep, etc.)
 // Buildings auto-target and fire at enemies within range.
 
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core;
@@ -156,25 +158,11 @@ namespace TheWaningBorder.Systems.Combat
             var cfg = BuildingCombatSystemConfig.I;
             float noTargetRetry = cfg != null ? cfg.noTargetRetryDelay : 0f;
 
-            var tgtEntities = targetQuery.ToEntityArray(Allocator.Temp);
-            var tgtTransforms = targetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var tgtFactions = targetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            var tgtHealth = targetQuery.ToComponentDataArray<Health>(Allocator.Temp);
+            var tgtEntities = targetQuery.ToEntityArray(Allocator.TempJob);
+            var tgtTransforms = targetQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+            var tgtFactions = targetQuery.ToComponentDataArray<FactionTag>(Allocator.TempJob);
+            var tgtHealth = targetQuery.ToComponentDataArray<Health>(Allocator.TempJob);
             int nTargets = tgtEntities.Length;
-
-            // The per-candidate lookups (see the fields) are refreshed here —
-            // and again after the one structural change the tower loop makes
-            // (dropping an illegal forced target), which invalidates them.
-            RefreshLookups(ref state);
-
-            // Footprints, resolved LAZILY — only for a candidate that survives
-            // the cheap pivot reject, then remembered for the next tower. Range
-            // is measured to the target's SURFACE (TargetGeometry), so a 7x7
-            // Hall is in range when its wall is, not only when its pivot is.
-            // `tgtPad` is the footprint's farthest reach from the pivot.
-            var tgtExtents = new NativeArray<TargetExtent>(nTargets, Allocator.Temp);
-            var tgtPad = new NativeArray<float>(nTargets, Allocator.Temp);
-            var tgtExtentDone = new NativeArray<byte>(nTargets, Allocator.Temp);
 
             // An upper bound on every footprint's reach, for the cell sweep
             // and the first reject: the largest BuildingSize diagonal and the
@@ -186,17 +174,16 @@ namespace TheWaningBorder.Systems.Combat
             // Every ready tower used to walk all ~2,300 targets. Now each
             // visits only the cells inside its reach. Bucketed by cell AND
             // owner slot (0..8 = the players + Border, 9 = anything else), so
-            // a tower skips allied buckets outright. The visit order no
-            // longer matters for the result: the pick below is a total order
-            // (distance, then NetworkId, then position bits), so the same
-            // targets win on every peer whatever order the buckets hold.
-            float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
-            for (int i = 0; i < nTargets; i++)
-            {
-                var p = tgtTransforms[i].Position;
-                minX = math.min(minX, p.x); maxX = math.max(maxX, p.x);
-                minZ = math.min(minZ, p.z); maxZ = math.max(maxZ, p.z);
-            }
+            // a tower skips allied buckets outright. The visit order does not
+            // matter for the result: the pick is a total order (distance, then
+            // NetworkId, then position bits), so the same targets win on every
+            // peer whatever order the buckets hold. Built in Burst.
+            var bounds = new NativeReference<float4>(Allocator.TempJob);
+            var boundsJob = new GridBoundsJob { Transforms = tgtTransforms, Bounds = bounds };
+            boundsJob.Run();
+            float4 bb = bounds.Value;
+            bounds.Dispose();
+            float minX = bb.x, minZ = bb.y, maxX = bb.z, maxZ = bb.w;
             if (nTargets == 0) { minX = minZ = maxX = maxZ = 0f; }
             // Grow the cell when the spread is huge (a stray entity far off
             // the map), so the table stays bounded.
@@ -205,34 +192,25 @@ namespace TheWaningBorder.Systems.Combat
             int cellsX = math.max(1, (int)math.floor((maxX - minX) / cellSize) + 1);
             int cellsZ = math.max(1, (int)math.floor((maxZ - minZ) / cellSize) + 1);
             int bucketCount = cellsX * cellsZ * GridSlots;
-            var bucketStart = new NativeArray<int>(bucketCount + 1, Allocator.Temp);
-            var bucketItems = new NativeArray<int>(math.max(1, nTargets), Allocator.Temp);
-            var tgtBucket = new NativeArray<int>(math.max(1, nTargets), Allocator.Temp);
-            for (int i = 0; i < nTargets; i++)
+            var bucketStart = new NativeArray<int>(bucketCount + 1, Allocator.TempJob);
+            var bucketItems = new NativeArray<int>(math.max(1, nTargets), Allocator.TempJob);
+            var fillJob = new GridFillJob
             {
-                var p = tgtTransforms[i].Position;
-                int cx = math.clamp((int)math.floor((p.x - minX) / cellSize), 0, cellsX - 1);
-                int cz = math.clamp((int)math.floor((p.z - minZ) / cellSize), 0, cellsZ - 1);
-                int f = (int)tgtFactions[i].Value;
-                int slot = f < FactionSlots ? f : FactionSlots;
-                int b = (cz * cellsX + cx) * GridSlots + slot;
-                tgtBucket[i] = b;
-                bucketStart[b + 1]++;
-            }
-            for (int b = 0; b < bucketCount; b++) bucketStart[b + 1] += bucketStart[b];
-            {
-                var fill = new NativeArray<int>(bucketCount, Allocator.Temp);
-                for (int i = 0; i < nTargets; i++)
-                {
-                    int b = tgtBucket[i];
-                    bucketItems[bucketStart[b] + fill[b]++] = i;
-                }
-                fill.Dispose();
-            }
+                Transforms = tgtTransforms,
+                Factions = tgtFactions,
+                MinX = minX,
+                MinZ = minZ,
+                CellSize = cellSize,
+                CellsX = cellsX,
+                CellsZ = cellsZ,
+                BucketStart = bucketStart,
+                BucketItems = bucketItems,
+            };
+            fillJob.Run();
 
             // Hostility table, once per update instead of a team lookup per
             // candidate. Slot FactionSlots ("other") is decided per candidate.
-            var hostile = new NativeArray<byte>(FactionSlots * FactionSlots, Allocator.Temp);
+            var hostile = new NativeArray<byte>(FactionSlots * FactionSlots, Allocator.TempJob);
             for (int a = 0; a < FactionSlots; a++)
                 for (int b = 0; b < FactionSlots; b++)
                     hostile[a * FactionSlots + b] = (byte)(Alliances.AreHostile((Faction)a, (Faction)b) ? 1 : 0);
@@ -243,7 +221,12 @@ namespace TheWaningBorder.Systems.Combat
             // loop can change them. Bit 0 = known, then one bit per answer.
             var factionFlags = new NativeArray<byte>(256, Allocator.Temp);
 
-            // PASS 2 — the ready towers, same order as the old single loop.
+            // PASS 2a — each ready tower's parameters, in the old order
+            // (managed: sect / research reads, the forced-target rule and its
+            // one structural change).
+            var towers = new NativeArray<TowerScan>(ready.Length, Allocator.TempJob);
+            var fire = new NativeArray<TowerFire>(ready.Length, Allocator.TempJob);
+            int totalSlots = 0;
             for (int ri = 0; ri < ready.Length; ri++)
             {
                 var entity = ready[ri];
@@ -283,8 +266,6 @@ namespace TheWaningBorder.Systems.Combat
                 bool hasSiegeShot = em.HasComponent<BuildingSiegeShot>(entity);
                 bool keepSiege = hasSiegeShot
                     || (keepTechs & (FlagBallista | FlagTrebuchet)) != 0;
-                bool haveWall = false;
-                var nearestWall = default(TargetCandidate);
 
                 // Directed fire (docs/Design/Combat_Pacing.md § Directed
                 // building fire): a legal forced target in range takes the
@@ -298,12 +279,12 @@ namespace TheWaningBorder.Systems.Combat
                     var ft = em.GetComponentData<BuildingForcedTarget>(entity).Target;
                     if (!IsLegalForcedTarget(em, entity, ft))
                     {
-                        // Direct, not through the ECB: the loop walks a copied
-                        // list, so the structural change is safe here, and a
+                        // Direct, not through the ECB: the tower list is a
+                        // copy, so the structural change is safe here, and a
                         // deferred removal could land on a building the same
-                        // playback destroys.
+                        // playback destroys. Nothing the sweep reads depends
+                        // on it; the lookups are refreshed after this pass.
                         em.RemoveComponent<BuildingForcedTarget>(entity);
-                        RefreshLookups(ref state);
                     }
                     else
                     {
@@ -320,162 +301,87 @@ namespace TheWaningBorder.Systems.Combat
                 }
                 int autoSlots = forced != Entity.Null ? maxTargets - 1 : maxTargets;
 
-                // Find closest enemies within range
-                var targets = new NativeList<TargetCandidate>(maxTargets, Allocator.Temp);
-
-                // Every slot belongs to the forced target and there is no
-                // siege fallback to find: nothing to auto-pick (a one-target
-                // tower under a direct order).
-                if (autoSlots > 0 || keepSiege)
+                towers[ri] = new TowerScan
                 {
-                    float reach = math.sqrt(rejectSq);
-                    float sweep = reach + maxPad;
-                    float sweepSq = sweep * sweep;
-                    // The cell range gets a metre of slack so float rounding
-                    // at a cell edge can never drop a target the sweep keeps.
-                    float cellSweep = sweep + 1f;
-                    int cx0 = math.clamp((int)math.floor((myPos.x - cellSweep - minX) / cellSize), 0, cellsX - 1);
-                    int cx1 = math.clamp((int)math.floor((myPos.x + cellSweep - minX) / cellSize), 0, cellsX - 1);
-                    int cz0 = math.clamp((int)math.floor((myPos.z - cellSweep - minZ) / cellSize), 0, cellsZ - 1);
-                    int cz1 = math.clamp((int)math.floor((myPos.z + cellSweep - minZ) / cellSize), 0, cellsZ - 1);
-                    int myF = (int)myFaction;
-                    bool tableFaction = myF < FactionSlots;
+                    Entity = entity,
+                    MyPos = myPos,
+                    MyFaction = myFaction,
+                    Range = range,
+                    RejectSq = rejectSq,
+                    AutoSlots = autoSlots,
+                    MainIsSiege = (byte)(mainIsSiege ? 1 : 0),
+                    KeepSiege = (byte)(keepSiege ? 1 : 0),
+                    Forced = forced,
+                    SlotOffset = totalSlots,
+                };
+                fire[ri] = new TowerFire
+                {
+                    Attack = attackData,
+                    Slits = (byte)(slits ? 1 : 0),
+                    KeepResearch = (byte)(isKeep && research != null ? 1 : 0),
+                    KeepTechs = keepTechs,
+                    DmgType = dmgType,
+                    HasSiegeShot = (byte)(hasSiegeShot ? 1 : 0),
+                    ForcedCandidate = forcedCandidate,
+                };
+                totalSlots += math.max(0, autoSlots);
+            }
 
-                    for (int cz = cz0; cz <= cz1; cz++)
-                    for (int cx = cx0; cx <= cx1; cx++)
-                    for (int slot = 0; slot < GridSlots; slot++)
-                    {
-                        // Towers hold fire on allies. docs/Design/Teams.md
-                        // Whole buckets are skipped when the table can say so.
-                        bool perCandidate = !tableFaction || slot == FactionSlots;
-                        if (!perCandidate && hostile[myF * FactionSlots + slot] == 0) continue;
+            // PASS 2b — every ready tower's candidate sweep, in parallel
+            // (Burst). Each tower writes only its own record and slot range.
+            // Refreshed here: a forced-target removal above invalidates them.
+            RefreshLookups(ref state);
+            var slots = new NativeArray<TargetCandidate>(math.max(1, totalSlots), Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
+            var scanJob = new TowerScanJob
+            {
+                TgtEntities = tgtEntities,
+                TgtTransforms = tgtTransforms,
+                TgtFactions = tgtFactions,
+                TgtHealth = tgtHealth,
+                BucketStart = bucketStart,
+                BucketItems = bucketItems,
+                Hostile = hostile,
+                MinX = minX,
+                MinZ = minZ,
+                CellSize = cellSize,
+                CellsX = cellsX,
+                CellsZ = cellsZ,
+                MaxPad = maxPad,
+                SizeLk = _sizeLk,
+                RadiusLk = _radiusLk,
+                WallLk = _wallLk,
+                WorkerLk = _workerLk,
+                CanBuildLk = _canBuildLk,
+                RitualLk = _ritualLk,
+                NetLk = _netLk,
+                Towers = towers,
+                Slots = slots,
+            };
+            var scanHandle = scanJob.Schedule(ready.Length, 1, state.Dependency);
+            scanHandle.Complete();
 
-                        int bucket = (cz * cellsX + cx) * GridSlots + slot;
-                        int bEnd = bucketStart[bucket + 1];
-                        for (int bi = bucketStart[bucket]; bi < bEnd; bi++)
-                        {
-                            int i = bucketItems[bi];
-                            Entity cand = tgtEntities[i];
-                            if (cand == forced) continue;
-                            if (perCandidate && !Alliances.AreHostile(myFaction, tgtFactions[i].Value)) continue;
-                            if (tgtHealth[i].Value <= 0) continue;
+            // PASS 2c — fire, in the old order (managed: per-target debuff
+            // reads, projectile spawns through the ECB, timers).
+            var targets = new NativeList<TargetCandidate>(8, Allocator.Temp);
+            for (int ri = 0; ri < ready.Length; ri++)
+            {
+                var entity = ready[ri];
+                var tw = towers[ri];
+                var fd = fire[ri];
+                var attackData = fd.Attack;
+                var myPos = tw.MyPos;
+                var myFaction = tw.MyFaction;
+                bool slits = fd.Slits != 0;
+                bool hasSiegeShot = fd.HasSiegeShot != 0;
+                DamageType dmgType = fd.DmgType;
+                bool haveWall = tw.HaveWall != 0;
+                var nearestWall = tw.NearestWall;
 
-                            // First reject on the pivot against the LARGEST
-                            // footprint anywhere — no component reads yet.
-                            float3 tp = tgtTransforms[i].Position;
-                            float rx = tp.x - myPos.x, rz = tp.z - myPos.z;
-                            float pivotSq = rx * rx + rz * rz;
-                            if (pivotSq > sweepSq) continue;
-
-                            // This target's own footprint, resolved once per
-                            // update and shared by every tower after this one.
-                            if (tgtExtentDone[i] == 0)
-                            {
-                                var ext = TargetGeometry.Extent(cand, tp, in _sizeLk, in _radiusLk);
-                                tgtExtents[i] = ext;
-                                tgtPad[i] = ext.IsBox
-                                    ? math.sqrt(ext.HalfW * ext.HalfW + ext.HalfH * ext.HalfH)
-                                    : ext.Radius;
-                                tgtExtentDone[i] = 1;
-                            }
-
-                            // The original padded reject, unchanged, so the
-                            // accepted set is bit-for-bit the old one.
-                            float padded = reach + tgtPad[i];
-                            if (pivotSq > padded * padded) continue;
-
-                            // Range gate on the SURFACE distance; `dist` (pivot) is
-                            // still what the aim, the ordering and the flight use.
-                            if (tgtExtents[i].SurfaceDistXZ(myPos) > range) continue;
-                            float dist = math.distance(myPos, tp);
-
-                            if (!mainIsSiege && _wallLk.HasComponent(cand))
-                            {
-                                if (keepSiege)
-                                {
-                                    var wc = MakeCandidate(cand, tp, dist, in _netLk);
-                                    if (!haveWall || Closer(in wc, in nearestWall))
-                                    {
-                                        nearestWall = wc;
-                                        haveWall = true;
-                                    }
-                                }
-                                continue;
-                            }
-                            if (autoSlots <= 0) continue;
-
-                            // Curse & Shardroot canon §2.1: BORDER emplacements
-                            // (well turrets, Turret sub-nodes) GUARD the well — they
-                            // don't hunt harvesters. Worker-class units (workers)
-                            // are only fired on when they press right up
-                            // to the structure; military targets are engaged
-                            // normally. This is what makes sneak-mining the crystal
-                            // fields survivable.
-                            if (myFaction == Faction.Border && dist > BorderWorkerGraceRange
-                                && (_workerLk.HasComponent(cand) || _canBuildLk.HasComponent(cand)))
-                                continue;
-
-                            // A RITUALIST CHANNELLING ON THIS STRUCTURE IS NOT ITS
-                            // TARGET. The well turret is 25 damage per 1.2 s — 20.8
-                            // DPS — over an 18 m reach, and every verb is channelled
-                            // from 6 m, so the caster is never outside it. That kills
-                            // a 90 HP Scholar in 4.3 s and a 280 HP Iconoclast in
-                            // 13.4 s against channels of 35-45 s. It is not a hard
-                            // fight, it is an impossible one: the well simply shoots
-                            // whoever comes to claim it. The 2026-08-07 diagnostics
-                            // caught it exactly — "channel BROKEN at 13.3 s:
-                            // Corruptor dead (hp 0)", one attack cycle off the
-                            // predicted 13.44 s.
-                            //
-                            // Scoped to THIS node deliberately, not blanket immunity:
-                            // the well still fires on the escort and on the army
-                            // assaulting it, other buildings still fire on the
-                            // ritualist, and killing the caster remains the
-                            // counterplay — it just has to be done by a player rather
-                            // than by the objective defending itself for free.
-                            if (_ritualLk.TryGetComponent(cand, out var ritual)
-                                && ritual.TargetNode == entity)
-                                continue;
-
-                            // Keep the autoSlots closest. "Closest" is a TOTAL
-                            // order — distance, then NetworkId, then position
-                            // bits (2026-10-15). The old strict `<` on distance
-                            // alone kept whichever of two equidistant targets
-                            // the walk met first, and the walk was chunk order,
-                            // which differs between lockstep peers: two
-                            // grid-snapped buildings at the same distance could
-                            // draw a tower's fire differently per peer.
-                            var candidate = MakeCandidate(cand, tp, dist, in _netLk);
-
-                            if (targets.Length < autoSlots)
-                            {
-                                targets.Add(candidate);
-                            }
-                            else if (Closer(in candidate, targets[targets.Length - 1]))
-                            {
-                                targets[targets.Length - 1] = candidate;
-                            }
-                            else continue;
-
-                            // Bubble the new entry into position
-                            for (int j = targets.Length - 1; j > 0; j--)
-                            {
-                                if (!Closer(targets[j], targets[j - 1])) break;
-                                var tmp = targets[j];
-                                targets[j] = targets[j - 1];
-                                targets[j - 1] = tmp;
-                            }
-                        }
-                    }
-                }
-
+                targets.Clear();
                 // The forced target leads the list.
-                if (forced != Entity.Null)
-                {
-                    targets.Add(default);
-                    for (int j = targets.Length - 1; j > 0; j--) targets[j] = targets[j - 1];
-                    targets[0] = forcedCandidate;
-                }
+                if (tw.Forced != Entity.Null) targets.Add(fd.ForcedCandidate);
+                for (int j = 0; j < tw.Found; j++) targets.Add(slots[tw.SlotOffset + j]);
 
                 // Fire at each target
                 if (targets.Length > 0 || haveWall)
@@ -531,17 +437,17 @@ namespace TheWaningBorder.Systems.Combat
                             ballistaBolt: true);
                     }
 
-                    if (isKeep && research != null)
+                    if (fd.KeepResearch != 0)
                     {
                         var nearest = targets.Length > 0 ? targets[0] : nearestWall;
-                        if ((keepTechs & FlagBallista) != 0)
+                        if ((fd.KeepTechs & FlagBallista) != 0)
                         {
                             CreateProjectile(ref ecb, in this, myPos, nearest.Position,
                                 nearest.Distance, entity, myFaction,
                                 18, time, nearest.Entity, isLaser: false,
                                 DamageType.Siege, spawnYOffset, ballistaBolt: true);
                         }
-                        if ((keepTechs & FlagTrebuchet) != 0)
+                        if ((fd.KeepTechs & FlagTrebuchet) != 0)
                         {
                             CreateTrebuchetShot(ref ecb, _shellArch, myPos, nearest.Position,
                                 entity, myFaction, 36, time, nearest.Entity, spawnYOffset);
@@ -556,23 +462,277 @@ namespace TheWaningBorder.Systems.Combat
                     attackData.Timer = noTargetRetry;
                     em.SetComponentData(entity, attackData);
                 }
-
-                targets.Dispose();
             }
 
+            targets.Dispose();
+            slots.Dispose();
+            towers.Dispose();
+            fire.Dispose();
             tgtEntities.Dispose();
             tgtTransforms.Dispose();
             tgtFactions.Dispose();
             tgtHealth.Dispose();
-            tgtExtents.Dispose();
-            tgtPad.Dispose();
-            tgtExtentDone.Dispose();
             bucketStart.Dispose();
             bucketItems.Dispose();
-            tgtBucket.Dispose();
             hostile.Dispose();
             factionFlags.Dispose();
             ready.Dispose();
+        }
+
+        /// <summary>One ready tower's sweep inputs and results.</summary>
+        private struct TowerScan
+        {
+            public Entity Entity;
+            public float3 MyPos;
+            public Faction MyFaction;
+            public float Range;
+            public float RejectSq;
+            public int AutoSlots;
+            public byte MainIsSiege;
+            public byte KeepSiege;
+            public Entity Forced;
+            /// <summary>Start of this tower's AutoSlots-long range in the slot buffer.</summary>
+            public int SlotOffset;
+            // Results.
+            public int Found;
+            public byte HaveWall;
+            public TargetCandidate NearestWall;
+        }
+
+        /// <summary>One ready tower's fire inputs, read in PASS 2a.</summary>
+        private struct TowerFire
+        {
+            public BuildingRangedAttack Attack;
+            public byte Slits;
+            public byte KeepResearch;
+            public byte KeepTechs;
+            public byte HasSiegeShot;
+            public DamageType DmgType;
+            public TargetCandidate ForcedCandidate;
+        }
+
+        /// <summary>The targets' XZ bounds (min x, min z, max x, max z).</summary>
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+        private struct GridBoundsJob : IJob
+        {
+            [ReadOnly] public NativeArray<LocalTransform> Transforms;
+            public NativeReference<float4> Bounds;
+
+            public void Execute()
+            {
+                float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
+                for (int i = 0; i < Transforms.Length; i++)
+                {
+                    var p = Transforms[i].Position;
+                    minX = math.min(minX, p.x); maxX = math.max(maxX, p.x);
+                    minZ = math.min(minZ, p.z); maxZ = math.max(maxZ, p.z);
+                }
+                Bounds.Value = new float4(minX, minZ, maxX, maxZ);
+            }
+        }
+
+        /// <summary>Counting-sort the targets into (cell, owner slot) buckets —
+        /// the old inline build, unchanged.</summary>
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+        private struct GridFillJob : IJob
+        {
+            [ReadOnly] public NativeArray<LocalTransform> Transforms;
+            [ReadOnly] public NativeArray<FactionTag> Factions;
+            public float MinX, MinZ, CellSize;
+            public int CellsX, CellsZ;
+            public NativeArray<int> BucketStart;
+            public NativeArray<int> BucketItems;
+
+            public void Execute()
+            {
+                int n = Transforms.Length;
+                int bucketCount = BucketStart.Length - 1;
+                var tgtBucket = new NativeArray<int>(math.max(1, n), Allocator.Temp);
+                for (int i = 0; i < n; i++)
+                {
+                    var p = Transforms[i].Position;
+                    int cx = math.clamp((int)math.floor((p.x - MinX) / CellSize), 0, CellsX - 1);
+                    int cz = math.clamp((int)math.floor((p.z - MinZ) / CellSize), 0, CellsZ - 1);
+                    int f = (int)Factions[i].Value;
+                    int slot = f < FactionSlots ? f : FactionSlots;
+                    int b = (cz * CellsX + cx) * GridSlots + slot;
+                    tgtBucket[i] = b;
+                    BucketStart[b + 1]++;
+                }
+                for (int b = 0; b < bucketCount; b++) BucketStart[b + 1] += BucketStart[b];
+                var fill = new NativeArray<int>(math.max(1, bucketCount), Allocator.Temp);
+                for (int i = 0; i < n; i++)
+                {
+                    int b = tgtBucket[i];
+                    BucketItems[BucketStart[b] + fill[b]++] = i;
+                }
+                fill.Dispose();
+                tgtBucket.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// One ready tower's candidate sweep — the old PASS 2 inner loop with
+        /// its tests in the same order: keep the AutoSlots closest (a TOTAL
+        /// order, so the visit order never matters), plus the nearest wall for
+        /// a Keep's siege shots. Footprints are resolved per candidate (the old
+        /// loop cached them across towers; the value is the same pure function
+        /// of the same lookups).
+        /// </summary>
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+        private struct TowerScanJob : IJobParallelFor
+        {
+            [ReadOnly] public NativeArray<Entity> TgtEntities;
+            [ReadOnly] public NativeArray<LocalTransform> TgtTransforms;
+            [ReadOnly] public NativeArray<FactionTag> TgtFactions;
+            [ReadOnly] public NativeArray<Health> TgtHealth;
+            [ReadOnly] public NativeArray<int> BucketStart;
+            [ReadOnly] public NativeArray<int> BucketItems;
+            [ReadOnly] public NativeArray<byte> Hostile;
+            public float MinX, MinZ, CellSize, MaxPad;
+            public int CellsX, CellsZ;
+            [ReadOnly] public ComponentLookup<BuildingSize> SizeLk;
+            [ReadOnly] public ComponentLookup<Radius> RadiusLk;
+            [ReadOnly] public ComponentLookup<WallTag> WallLk;
+            [ReadOnly] public ComponentLookup<WorkerTag> WorkerLk;
+            [ReadOnly] public ComponentLookup<CanBuild> CanBuildLk;
+            [ReadOnly] public ComponentLookup<RitualState> RitualLk;
+            [ReadOnly] public ComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity> NetLk;
+            public NativeArray<TowerScan> Towers;
+            [NativeDisableParallelForRestriction] public NativeArray<TargetCandidate> Slots;
+
+            public void Execute(int ti)
+            {
+                var tw = Towers[ti];
+                tw.Found = 0;
+                tw.HaveWall = 0;
+                tw.NearestWall = default;
+
+                int autoSlots = tw.AutoSlots;
+                bool keepSiege = tw.KeepSiege != 0;
+                // Every slot belongs to the forced target and there is no
+                // siege fallback to find: nothing to auto-pick.
+                if (!(autoSlots > 0 || keepSiege)) { Towers[ti] = tw; return; }
+
+                var entity = tw.Entity;
+                var myPos = tw.MyPos;
+                var myFaction = tw.MyFaction;
+                float range = tw.Range;
+                bool mainIsSiege = tw.MainIsSiege != 0;
+                Entity forced = tw.Forced;
+                int baseSlot = tw.SlotOffset;
+                int count = 0;
+                bool haveWall = false;
+                var nearestWall = default(TargetCandidate);
+
+                float reach = math.sqrt(tw.RejectSq);
+                float sweep = reach + MaxPad;
+                float sweepSq = sweep * sweep;
+                // The cell range gets a metre of slack so float rounding
+                // at a cell edge can never drop a target the sweep keeps.
+                float cellSweep = sweep + 1f;
+                int cx0 = math.clamp((int)math.floor((myPos.x - cellSweep - MinX) / CellSize), 0, CellsX - 1);
+                int cx1 = math.clamp((int)math.floor((myPos.x + cellSweep - MinX) / CellSize), 0, CellsX - 1);
+                int cz0 = math.clamp((int)math.floor((myPos.z - cellSweep - MinZ) / CellSize), 0, CellsZ - 1);
+                int cz1 = math.clamp((int)math.floor((myPos.z + cellSweep - MinZ) / CellSize), 0, CellsZ - 1);
+                int myF = (int)myFaction;
+                bool tableFaction = myF < FactionSlots;
+
+                for (int cz = cz0; cz <= cz1; cz++)
+                for (int cx = cx0; cx <= cx1; cx++)
+                for (int slot = 0; slot < GridSlots; slot++)
+                {
+                    // Towers hold fire on allies. docs/Design/Teams.md
+                    bool perCandidate = !tableFaction || slot == FactionSlots;
+                    if (!perCandidate && Hostile[myF * FactionSlots + slot] == 0) continue;
+
+                    int bucket = (cz * CellsX + cx) * GridSlots + slot;
+                    int bEnd = BucketStart[bucket + 1];
+                    for (int bi = BucketStart[bucket]; bi < bEnd; bi++)
+                    {
+                        int i = BucketItems[bi];
+                        Entity cand = TgtEntities[i];
+                        if (cand == forced) continue;
+                        if (perCandidate && !Alliances.AreHostileBurst(myFaction, TgtFactions[i].Value)) continue;
+                        if (TgtHealth[i].Value <= 0) continue;
+
+                        // First reject on the pivot against the LARGEST
+                        // footprint anywhere — no component reads yet.
+                        float3 tp = TgtTransforms[i].Position;
+                        float rx = tp.x - myPos.x, rz = tp.z - myPos.z;
+                        float pivotSq = rx * rx + rz * rz;
+                        if (pivotSq > sweepSq) continue;
+
+                        var ext = TargetGeometry.Extent(cand, tp, in SizeLk, in RadiusLk);
+                        float pad = ext.IsBox
+                            ? math.sqrt(ext.HalfW * ext.HalfW + ext.HalfH * ext.HalfH)
+                            : ext.Radius;
+
+                        // The original padded reject, unchanged.
+                        float padded = reach + pad;
+                        if (pivotSq > padded * padded) continue;
+
+                        // Range gate on the SURFACE distance; `dist` (pivot) is
+                        // still what the aim, the ordering and the flight use.
+                        if (ext.SurfaceDistXZ(myPos) > range) continue;
+                        float dist = math.distance(myPos, tp);
+
+                        if (!mainIsSiege && WallLk.HasComponent(cand))
+                        {
+                            if (keepSiege)
+                            {
+                                var wc = MakeCandidate(cand, tp, dist, in NetLk);
+                                if (!haveWall || Closer(in wc, in nearestWall))
+                                {
+                                    nearestWall = wc;
+                                    haveWall = true;
+                                }
+                            }
+                            continue;
+                        }
+                        if (autoSlots <= 0) continue;
+
+                        // Curse & Shardroot canon §2.1: BORDER emplacements
+                        // guard the well; workers only when they press close.
+                        if (myFaction == Faction.Border && dist > BorderWorkerGraceRange
+                            && (WorkerLk.HasComponent(cand) || CanBuildLk.HasComponent(cand)))
+                            continue;
+
+                        // A ritualist channelling on THIS structure is not its
+                        // target (the 2026-08-07 well-turret fix).
+                        if (RitualLk.TryGetComponent(cand, out var ritual)
+                            && ritual.TargetNode == entity)
+                            continue;
+
+                        var candidate = MakeCandidate(cand, tp, dist, in NetLk);
+
+                        if (count < autoSlots)
+                        {
+                            Slots[baseSlot + count] = candidate;
+                            count++;
+                        }
+                        else if (Closer(in candidate, Slots[baseSlot + count - 1]))
+                        {
+                            Slots[baseSlot + count - 1] = candidate;
+                        }
+                        else continue;
+
+                        // Bubble the new entry into position
+                        for (int j = count - 1; j > 0; j--)
+                        {
+                            if (!Closer(Slots[baseSlot + j], Slots[baseSlot + j - 1])) break;
+                            var tmp = Slots[baseSlot + j];
+                            Slots[baseSlot + j] = Slots[baseSlot + j - 1];
+                            Slots[baseSlot + j - 1] = tmp;
+                        }
+                    }
+                }
+
+                tw.Found = count;
+                tw.HaveWall = (byte)(haveWall ? 1 : 0);
+                tw.NearestWall = nearestWall;
+                Towers[ti] = tw;
+            }
         }
 
         /// <summary>

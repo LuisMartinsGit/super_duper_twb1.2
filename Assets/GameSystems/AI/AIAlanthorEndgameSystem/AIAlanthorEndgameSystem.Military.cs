@@ -66,19 +66,17 @@ namespace TheWaningBorder.AI
         private static void HandleWorkerFlee(Faction faction, EntityManager em,
             float3 hallPos, float time)
         {
-            // Collect enemy unit positions once per tick.
+            // Collect enemy unit positions once per tick — from the shared
+            // per-step unit snapshot (AIUnitSnapshot), not three
+            // EntityManager calls per unit of the map.
             var enemyPositions = new NativeList<float3>(Allocator.Temp);
+            AIUnitSnapshot.Refresh(em);
+            for (int i = 0; i < AIUnitSnapshot.Count; i++)
             {
-                var enemyQuery = QC_UnitTagLocalTransformFactionTagHealth.Get(em, QT_UnitTagLocalTransformFactionTagHealth);
-                using var eEnts = enemyQuery.ToEntityArray(Allocator.Temp);
-                for (int i = 0; i < eEnts.Length; i++)
-                {
-                    // Allies are not enemies. docs/Design/Teams.md
-                    if (!Alliances.AreHostile(faction,
-                            em.GetComponentData<FactionTag>(eEnts[i]).Value)) continue;
-                    if (em.GetComponentData<Health>(eEnts[i]).Value <= 0) continue;
-                    enemyPositions.Add(em.GetComponentData<LocalTransform>(eEnts[i]).Position);
-                }
+                // Allies are not enemies. docs/Design/Teams.md
+                if (!Alliances.AreHostile(faction, AIUnitSnapshot.Fac[i])) continue;
+                if (AIUnitSnapshot.Hp[i] <= 0) continue;
+                enemyPositions.Add(AIUnitSnapshot.Pos[i]);
             }
             if (enemyPositions.Length == 0) { enemyPositions.Dispose(); return; }
 
@@ -98,11 +96,12 @@ namespace TheWaningBorder.AI
         {
             var workerQuery = AIQueryCache.TagFactionXf<TWorkerTag>(em);
             using var wEnts = workerQuery.ToEntityArray(Allocator.Temp);
+            using var wFacs = workerQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
             for (int w = 0; w < wEnts.Length; w++)
             {
                 var worker = wEnts[w];
-                if (em.GetComponentData<FactionTag>(worker).Value != faction) continue;
+                if (wFacs[w].Value != faction) continue;
 
                 // Only flee once actually HURT. Proximity-fleeing made
                 // sneak-mining the well crystal fields impossible — workers

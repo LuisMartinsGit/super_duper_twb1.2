@@ -12,6 +12,17 @@
 // already carried the tag pre-added by TransientState.PreAddUnitSet; this
 // covers buildings, nodes, walls, pickups and anything else that gets a view.
 // The spawn system now only flips the enable bit, which is not structural.
+//
+// BATCHED (2026-10-15 perf): the add is a structural change, so every tick
+// that created a building, plan, wall piece or node paid a full job sync
+// here (CompleteAllTrackedJobs at the end of the sim group) — 2-5 ms per
+// such tick late game, for a handful of entities. The seed now runs on a
+// SimCadence period (SeedSeconds of sim time), so the sync is paid at most
+// that often and covers every entity created since. Still deterministic:
+// the cadence is lockstep sim time, phased per match, so the change lands
+// on the same tick on every peer. The view itself is not delayed: the spawn
+// system spawns it at once and parks the enable-bit flip in _tagPending
+// until the seed lands.
 
 using Unity.Collections;
 using Unity.Entities;
@@ -23,6 +34,11 @@ namespace TheWaningBorder.Rendering
     public partial struct PresentationViewTagSeedSystem : ISystem
     {
         private EntityQuery _unseeded;
+        private SimCadence.Periodic _tick;
+
+        /// <summary>Engine cadence, not balance: how often the batched seed
+        /// runs. Nothing in the simulation reads the tag.</summary>
+        private const float SeedSeconds = 0.5f;
 
         public void OnCreate(ref SystemState state)
         {
@@ -34,11 +50,13 @@ namespace TheWaningBorder.Rendering
                 .WithNone<PresentationViewSpawned>()
                 .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
                 .Build(ref state);
-            state.RequireForUpdate(_unseeded);
+            // No RequireForUpdate: the cadence must advance on every tick, not
+            // only on ticks that happen to have unseeded entities.
         }
 
         public void OnUpdate(ref SystemState state)
         {
+            if (!_tick.Due(SystemAPI.Time.DeltaTime, SeedSeconds)) return;
             if (_unseeded.IsEmptyIgnoreFilter) return;
             var em = state.EntityManager;
             var entities = _unseeded.ToEntityArray(Allocator.Temp);

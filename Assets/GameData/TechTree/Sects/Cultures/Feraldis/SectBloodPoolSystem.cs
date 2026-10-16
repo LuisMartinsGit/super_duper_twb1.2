@@ -22,6 +22,14 @@
 //   - Duration:  10s
 //
 // task-063 phase 3.
+//
+// PERF (2026-10-15): the sweep walked every unit every tick with an
+// EntityManager.HasComponent each, and tested each Feraldis unit against
+// every pool. It now (a) skips the sweep outright when no unit can be in a
+// pool and none carries the marker, (b) reads the marker through a
+// ComponentLookup, and (c) buckets the pools in a grid no finer than the
+// largest radius, so a unit tests only the pools in its 3x3 cells. The
+// answer is an any() test, so the result is identical to the full scan.
 
 using Unity.Collections;
 using Unity.Entities;
@@ -41,10 +49,17 @@ namespace TheWaningBorder.Systems.Sect
         // Faction enum is byte (0..7). We size cache arrays accordingly.
         private const int   FactionCount = 8;
 
+        private ComponentLookup<InBloodPool> _inPool;
+        private EntityQuery _stamped;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<UnitTag>();
+            _inPool = state.GetComponentLookup<InBloodPool>(true);
+            _stamped = SystemAPI.QueryBuilder().WithAll<UnitTag, InBloodPool>().Build();
         }
+
+        private static int CellKey(int x, int z) => (x * 73856093) ^ (z * 19349663);
 
         public void OnUpdate(ref SystemState state)
         {
@@ -115,44 +130,72 @@ namespace TheWaningBorder.Systems.Sect
             // Collect surviving pool positions/radii for the proximity test.
             var poolPositions = new NativeList<float3>(Allocator.Temp);
             var poolRadii = new NativeList<float>(Allocator.Temp);
+            float maxRadius = 0.5f;
             foreach (var (pool, transform) in SystemAPI
                 .Query<RefRO<BloodPool>, RefRO<LocalTransform>>())
             {
                 if (pool.ValueRO.TimeRemaining <= 0f) continue;
                 poolPositions.Add(transform.ValueRO.Position);
                 poolRadii.Add(pool.ValueRO.Radius);
+                maxRadius = math.max(maxRadius, pool.ValueRO.Radius);
             }
 
             // Stamp / clear InBloodPool on Feraldis Age II+ units.
             var toStamp = new NativeList<Entity>(Allocator.Temp);
             var toClear = new NativeList<Entity>(Allocator.Temp);
 
-            foreach (var (faction, transform, entity) in SystemAPI
-                .Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
-                .WithAll<UnitTag>()
-                .WithEntityAccess())
+            // Nothing can be in a pool and nobody carries the marker: the
+            // sweep below would change nothing, so it is not run.
+            bool anyInputs = anyFeraldisAge2Plus && poolPositions.Length > 0;
+            if (anyInputs || !_stamped.IsEmpty)
             {
-                bool gated = (byte)faction.ValueRO.Value < FactionCount
-                          && feraldisAge2Plus[(byte)faction.ValueRO.Value];
-                bool inAnyPool = false;
-                if (gated && poolPositions.Length > 0)
+                // Bucket the pools; cells a little LARGER than the largest
+                // radius (the 1% keeps float rounding at the exact rim from
+                // ever putting a reaching pool two cells away), so every pool
+                // that can reach a point is in its 3x3 cells.
+                float invCell = 1f / (maxRadius * 1.01f);
+                var buckets = new NativeParallelMultiHashMap<int, int>(math.max(1, poolPositions.Length), Allocator.Temp);
+                for (int i = 0; i < poolPositions.Length; i++)
+                    buckets.Add(CellKey((int)math.floor(poolPositions[i].x * invCell),
+                                        (int)math.floor(poolPositions[i].z * invCell)), i);
+
+                _inPool.Update(ref state);
+                foreach (var (faction, transform, entity) in SystemAPI
+                    .Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
+                    .WithAll<UnitTag>()
+                    .WithEntityAccess())
                 {
-                    var p = transform.ValueRO.Position;
-                    for (int i = 0; i < poolPositions.Length; i++)
+                    bool gated = (byte)faction.ValueRO.Value < FactionCount
+                              && feraldisAge2Plus[(byte)faction.ValueRO.Value];
+                    bool inAnyPool = false;
+                    if (gated && poolPositions.Length > 0)
                     {
-                        float dx = p.x - poolPositions[i].x;
-                        float dz = p.z - poolPositions[i].z;
-                        if (dx * dx + dz * dz <= poolRadii[i] * poolRadii[i])
+                        var p = transform.ValueRO.Position;
+                        int cx = (int)math.floor(p.x * invCell);
+                        int cz = (int)math.floor(p.z * invCell);
+                        for (int oz = -1; oz <= 1 && !inAnyPool; oz++)
+                        for (int ox = -1; ox <= 1 && !inAnyPool; ox++)
                         {
-                            inAnyPool = true;
-                            break;
+                            if (!buckets.TryGetFirstValue(CellKey(cx + ox, cz + oz), out int i, out var it))
+                                continue;
+                            do
+                            {
+                                float dx = p.x - poolPositions[i].x;
+                                float dz = p.z - poolPositions[i].z;
+                                if (dx * dx + dz * dz <= poolRadii[i] * poolRadii[i])
+                                {
+                                    inAnyPool = true;
+                                    break;
+                                }
+                            } while (buckets.TryGetNextValue(out i, ref it));
                         }
                     }
-                }
 
-                bool stamped = em.HasComponent<InBloodPool>(entity);
-                if (inAnyPool && !stamped) toStamp.Add(entity);
-                else if (!inAnyPool && stamped) toClear.Add(entity);
+                    bool stamped = _inPool.HasComponent(entity);
+                    if (inAnyPool && !stamped) toStamp.Add(entity);
+                    else if (!inAnyPool && stamped) toClear.Add(entity);
+                }
+                buckets.Dispose();
             }
 
             for (int i = 0; i < toStamp.Length; i++)

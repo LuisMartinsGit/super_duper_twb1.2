@@ -57,6 +57,48 @@ namespace TheWaningBorder.World.Terrain
         /// </summary>
         public const float MountStepLimit = 1.25f;
 
+        /// <summary>The deck-edge tolerance, for the Burst mirror of
+        /// <see cref="TryGetDeckHeight"/> (NavSurfaceField).</summary>
+        public const float DeckEdgeEpsilon = EdgeEpsilon;
+
+        /// <summary>Bumped whenever a bridge registers or unregisters, so a
+        /// native mirror of the pieces (NavSurfaceField) knows to re-copy.</summary>
+        public static int Version { get; private set; }
+
+        /// <summary>One deck piece, as the native mirror needs it.</summary>
+        public struct PieceSnapshot
+        {
+            public Matrix4x4 WorldToLocal;
+            public Vector3 BoundsCenter;
+            public Vector3 BoundsExtents;
+        }
+
+        /// <summary>
+        /// Copy every registered bridge out for a native (Burst) mirror:
+        /// <paramref name="aabbs"/> gets one (minX, minZ, maxX, maxZ) per
+        /// bridge, <paramref name="ranges"/> its (first piece, piece count)
+        /// into <paramref name="pieces"/>. Registration order, which is the
+        /// order <see cref="TryGetDeckHeight"/> walks (its answer is a max,
+        /// so the order never changes the result).
+        /// </summary>
+        public static void Snapshot(List<PieceSnapshot> pieces, List<Vector4> aabbs, List<Vector2Int> ranges)
+        {
+            pieces.Clear(); aabbs.Clear(); ranges.Clear();
+            for (int i = 0; i < _all.Count; i++)
+            {
+                var b = _all[i];
+                ranges.Add(new Vector2Int(pieces.Count, b._pieces.Count));
+                aabbs.Add(new Vector4(b._aabbMin.x, b._aabbMin.y, b._aabbMax.x, b._aabbMax.y));
+                for (int p = 0; p < b._pieces.Count; p++)
+                    pieces.Add(new PieceSnapshot
+                    {
+                        WorldToLocal = b._pieces[p].WorldToLocal,
+                        BoundsCenter = b._pieces[p].BoundsCenter,
+                        BoundsExtents = b._pieces[p].BoundsExtents,
+                    });
+            }
+        }
+
 
         void Awake()
         {
@@ -98,14 +140,17 @@ namespace TheWaningBorder.World.Terrain
             }
 
             if (_pieces.Count > 0)
+            {
                 _all.Add(this);
+                Version++;
+            }
             else
                 Debug.LogWarning($"[BridgeSurface] '{name}' has no MeshFilter pieces — nothing to walk on.");
         }
 
         void OnDestroy()
         {
-            _all.Remove(this);
+            if (_all.Remove(this)) Version++;
         }
 
         // ──────────────────────────────────────────────────────────────────

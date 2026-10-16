@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
@@ -102,6 +103,37 @@ namespace TheWaningBorder.Systems.Combat
             // impact did.
             var aoeSnap = new AoeSnapshot();
 
+            // Per-projectile reads, in a parallel Burst job (2026-10-15 perf
+            // pass): the tag tests and the target's liveness / position at the
+            // top of the loop. The loop below re-reads the target's Health
+            // LIVE for a target the plan saw alive (an impact earlier in this
+            // same loop may have killed it), so every branch decides exactly
+            // what the old per-projectile EntityManager reads decided. Health
+            // only ever drops in this loop: a target dead at the top stays dead.
+            var projQuery = SystemAPI.QueryBuilder()
+                .WithAllRW<LocalTransform, ArrowProjectile>().WithAllRW<Projectile>()
+                .Build();
+            using var planEntities = projQuery.ToEntityArray(Allocator.TempJob);
+            using var plans = new NativeArray<ProjectilePlan>(planEntities.Length, Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
+            var planJob = new ProjectilePlanJob
+            {
+                Entities = planEntities,
+                Projectiles = SystemAPI.GetComponentLookup<Projectile>(true),
+                Laser = SystemAPI.GetComponentLookup<LaserProjectileTag>(true),
+                Piercing = SystemAPI.GetComponentLookup<PiercingProjectile>(true),
+                HighArc = SystemAPI.GetComponentLookup<HighArcProjectile>(true),
+                Aoe = SystemAPI.GetComponentLookup<AOEProjectile>(true),
+                Health = SystemAPI.GetComponentLookup<Health>(true),
+                Transforms = SystemAPI.GetComponentLookup<LocalTransform>(true),
+                Storage = SystemAPI.GetEntityStorageInfoLookup(),
+                Plans = plans,
+            };
+            var planHandle = planJob.Schedule(planEntities.Length, 64, state.Dependency);
+            planHandle.Complete();
+            var liveHealth = SystemAPI.GetComponentLookup<Health>(true);
+            int planIdx = 0;
+
             foreach (var (transform, arrow, projectile, entity)
                      in SystemAPI.Query<RefRW<LocalTransform>, RefRW<ArrowProjectile>, RefRW<Projectile>>()
                      .WithEntityAccess())
@@ -110,6 +142,13 @@ namespace TheWaningBorder.Systems.Combat
                 ref var arr = ref arrow.ValueRW;
                 ref readonly var proj = ref projectile.ValueRO;
 
+                // The plan for this projectile (same query, same order). A
+                // mismatch cannot happen, but if it ever did the reads fall
+                // back to the EntityManager, never to a wrong plan.
+                int myPlan = planIdx < planEntities.Length && planEntities[planIdx] == entity ? planIdx : -1;
+                planIdx++;
+                var plan = myPlan >= 0 ? plans[myPlan] : PlanFromEntityManager(em, entity, in proj);
+
                 var arrowPos = trans.Position;
                 var shouldDestroy = false;
 
@@ -117,7 +156,7 @@ namespace TheWaningBorder.Systems.Combat
                 var elapsed = (float)(time - proj.StartTime);
 
                 // Determine if this is a laser projectile (straight-line + terrain collision)
-                bool isLaser = em.HasComponent<LaserProjectileTag>(entity);
+                bool isLaser = plan.IsLaser != 0;
 
                 if (isLaser)
                 {
@@ -149,23 +188,9 @@ namespace TheWaningBorder.Systems.Combat
                         if (!shouldDestroy)
                         {
                             // Check hit on target
-                            float3 targetPos = proj.End;
                             Entity targetEntity = proj.Target;
-                            bool targetIsAlive = false;
-
-                            if (targetEntity != Entity.Null && em.Exists(targetEntity))
-                            {
-                                if (em.HasComponent<Health>(targetEntity))
-                                {
-                                    var targetHealth = em.GetComponentData<Health>(targetEntity);
-                                    if (targetHealth.Value > 0)
-                                    {
-                                        targetIsAlive = true;
-                                        if (em.HasComponent<LocalTransform>(targetEntity))
-                                            targetPos = em.GetComponentData<LocalTransform>(targetEntity).Position;
-                                    }
-                                }
-                            }
+                            LiveTarget(in plan, in liveHealth, targetEntity, in proj,
+                                out bool targetIsAlive, out float3 targetPos);
 
                             float distToTarget = math.length(targetPos - newPos);
 
@@ -197,27 +222,13 @@ namespace TheWaningBorder.Systems.Combat
                     }
                     else
                     {
-                        float3 targetPos = proj.End;
                         Entity targetEntity = proj.Target;
-                        bool targetIsAlive = false;
-
-                        if (targetEntity != Entity.Null && em.Exists(targetEntity))
-                        {
-                            if (em.HasComponent<Health>(targetEntity))
-                            {
-                                var targetHealth = em.GetComponentData<Health>(targetEntity);
-                                if (targetHealth.Value > 0)
-                                {
-                                    targetIsAlive = true;
-                                    if (em.HasComponent<LocalTransform>(targetEntity))
-                                        targetPos = em.GetComponentData<LocalTransform>(targetEntity).Position;
-                                }
-                            }
-                        }
+                        LiveTarget(in plan, in liveHealth, targetEntity, in proj,
+                            out bool targetIsAlive, out float3 targetPos);
 
                         float distToTarget = math.length(targetPos - arrowPos);
 
-                        bool isPiercing = em.HasComponent<PiercingProjectile>(entity);
+                        bool isPiercing = plan.IsPiercing != 0;
 
                         // Piercing bolts: scan the shared per-frame enemy snapshot
                         // (see Fix #213 at the top of OnUpdate). No per-bolt query.
@@ -277,10 +288,9 @@ namespace TheWaningBorder.Systems.Combat
                             // path caps at ArcHeight=3 once horizontalDist≥15 m,
                             // which reads as a flat shot at 50 m+ ranges.
                             float dynamicArcHeight;
-                            if (em.HasComponent<HighArcProjectile>(entity))
+                            if (plan.HasHighArc != 0)
                             {
-                                var ha = em.GetComponentData<HighArcProjectile>(entity);
-                                dynamicArcHeight = horizontalDist * ha.ArcFraction;
+                                dynamicArcHeight = horizontalDist * plan.ArcFraction;
                             }
                             else
                             {
@@ -320,7 +330,7 @@ namespace TheWaningBorder.Systems.Combat
                     TheWaningBorder.Feraldis.FeraldisSiegeImpacts.OnImpact(em, ecb, entity, trans.Position, proj.Faction);
 
                     // AOE splash damage on impact
-                    if (em.HasComponent<AOEProjectile>(entity))
+                    if (plan.IsAoe != 0)
                     {
                         if (!aoeSnap.Taken)
                         {
@@ -339,6 +349,105 @@ namespace TheWaningBorder.Systems.Combat
             }
 
             aoeSnap.Dispose();
+        }
+
+        /// <summary>One projectile's top-of-loop reads (see OnUpdate).</summary>
+        private struct ProjectilePlan
+        {
+            public byte IsLaser;
+            public byte IsPiercing;
+            public byte IsAoe;
+            public byte HasHighArc;
+            public float ArcFraction;
+            /// <summary>The target was alive when the loop began.</summary>
+            public byte Alive;
+            /// <summary>Its position then (proj.End when not alive / no transform).</summary>
+            public float3 TargetPos;
+        }
+
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+        private struct ProjectilePlanJob : IJobParallelFor
+        {
+            [ReadOnly] public NativeArray<Entity> Entities;
+            [ReadOnly] public ComponentLookup<Projectile> Projectiles;
+            [ReadOnly] public ComponentLookup<LaserProjectileTag> Laser;
+            [ReadOnly] public ComponentLookup<PiercingProjectile> Piercing;
+            [ReadOnly] public ComponentLookup<HighArcProjectile> HighArc;
+            [ReadOnly] public ComponentLookup<AOEProjectile> Aoe;
+            [ReadOnly] public ComponentLookup<Health> Health;
+            [ReadOnly] public ComponentLookup<LocalTransform> Transforms;
+            [ReadOnly] public EntityStorageInfoLookup Storage;
+            [WriteOnly] public NativeArray<ProjectilePlan> Plans;
+
+            public void Execute(int i)
+            {
+                var e = Entities[i];
+                var proj = Projectiles[e];
+                var p = new ProjectilePlan
+                {
+                    IsLaser = (byte)(Laser.HasComponent(e) ? 1 : 0),
+                    IsPiercing = (byte)(Piercing.HasComponent(e) ? 1 : 0),
+                    IsAoe = (byte)(Aoe.HasComponent(e) ? 1 : 0),
+                    TargetPos = proj.End,
+                };
+                if (HighArc.TryGetComponent(e, out var ha))
+                {
+                    p.HasHighArc = 1;
+                    p.ArcFraction = ha.ArcFraction;
+                }
+                var t = proj.Target;
+                if (t != Entity.Null && Storage.Exists(t)
+                    && Health.TryGetComponent(t, out var h) && h.Value > 0)
+                {
+                    p.Alive = 1;
+                    if (Transforms.TryGetComponent(t, out var txf)) p.TargetPos = txf.Position;
+                }
+                Plans[i] = p;
+            }
+        }
+
+        /// <summary>The plan, read through the EntityManager: only the safety
+        /// net for a plan / loop order mismatch.</summary>
+        private static ProjectilePlan PlanFromEntityManager(EntityManager em, Entity e, in Projectile proj)
+        {
+            var p = new ProjectilePlan
+            {
+                IsLaser = (byte)(em.HasComponent<LaserProjectileTag>(e) ? 1 : 0),
+                IsPiercing = (byte)(em.HasComponent<PiercingProjectile>(e) ? 1 : 0),
+                IsAoe = (byte)(em.HasComponent<AOEProjectile>(e) ? 1 : 0),
+                TargetPos = proj.End,
+            };
+            if (em.HasComponent<HighArcProjectile>(e))
+            {
+                p.HasHighArc = 1;
+                p.ArcFraction = em.GetComponentData<HighArcProjectile>(e).ArcFraction;
+            }
+            var t = proj.Target;
+            if (t != Entity.Null && em.Exists(t) && em.HasComponent<Health>(t)
+                && em.GetComponentData<Health>(t).Value > 0)
+            {
+                p.Alive = 1;
+                if (em.HasComponent<LocalTransform>(t)) p.TargetPos = em.GetComponentData<LocalTransform>(t).Position;
+            }
+            return p;
+        }
+
+        /// <summary>
+        /// The target's liveness and aim point NOW: the plan's answer, unless
+        /// the plan saw it alive and an impact earlier this loop has since
+        /// dropped it to 0. Then it is dead and aimed at proj.End, exactly as
+        /// the old per-projectile read would have found it.
+        /// </summary>
+        private static void LiveTarget(in ProjectilePlan plan, in ComponentLookup<Health> liveHealth,
+            Entity target, in Projectile proj, out bool alive, out float3 targetPos)
+        {
+            alive = plan.Alive != 0;
+            targetPos = plan.TargetPos;
+            if (alive && liveHealth[target].Value <= 0)
+            {
+                alive = false;
+                targetPos = proj.End;
+            }
         }
 
         /// <summary>

@@ -25,6 +25,15 @@ namespace TheWaningBorder.Runai
     [UpdateBefore(typeof(DeathSystem))]
     public partial class CaravanLootSystem : SystemBase
     {
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            // Runai ships only in edition C (docs/Design/Alpha_Build.md §4). Off
+            // elsewhere: its configs are stripped from A/B builds, and running
+            // it there threw every tick, in the menu and in every match.
+            if (!GameEdition.Allows(Cultures.Runai)) { Enabled = false; return; }
+        }
+
         static readonly ComponentType[] QT_Dead =
         {
             ComponentType.ReadOnly<RunaiCaravan>(), ComponentType.ReadOnly<Health>(),

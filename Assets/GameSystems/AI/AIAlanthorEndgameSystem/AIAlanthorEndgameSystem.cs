@@ -19,6 +19,17 @@
 //
 // Tick rate: 5 seconds (slow loop — strategic decisions, not micro).
 //
+// STAGED THINK (2026-10-15 perf). One think used to run every phase below
+// back to back — 5-40 ms on ONE tick, the endgame's spike. A think is now
+// split into ThinkStages stages, ONE per AIThinkBudget claim (so at most one
+// per rendered frame, shared with SimpleAISystem's brains): sects, then the
+// building ladder + sect buildings / houses + sect research, then towers,
+// then walls, then sect units + worker flee. The think interval is measured
+// from the think's START, so the cadence is unchanged; a think simply takes a
+// few frames to finish. A stage left waiting longer than a whole think
+// interval is forced through, as before. Host-only and acting only through
+// lockstep commands, so when the AI thinks is free of desync risk.
+//
 // Phases (each tick):
 //   1. (removed 2026-10-05 — the AIStrategyState latch / Defensive flip;
 //      the personality is the only strategy state now.)
@@ -112,6 +123,10 @@ namespace TheWaningBorder.AI
         /// they live in AIAlanthorEndgameSystem.asset now.</summary>
         static AIAlanthorEndgameSystemConfig Cfg => AIAlanthorEndgameSystemConfig.I;
 
+        /// <summary>Stages one endgame think is split into (engine shape,
+        /// not a tunable: it is the number of cases in OnUpdate).</summary>
+        private const int ThinkStages = 5;
+
         #endregion
 
 
@@ -150,15 +165,26 @@ namespace TheWaningBorder.AI
                             * AISimpleDifficulty.GetProfile(brain.Difficulty).SupportThinkScale;
 
                 // Per-brain tick state, lazy-stamped on first sight.
+                int stage;
+                AIAlanthorTickState tick;
                 if (em.HasComponent<AIAlanthorTickState>(entity))
                 {
-                    var tick = em.GetComponentData<AIAlanthorTickState>(entity);
-                    if (time < tick.NextThinkTime) continue;
-                    // Shared per-frame heavy-think budget (AIThinkBudget):
-                    // refused = try again next frame, unless a whole interval
-                    // overdue.
-                    if (!AIThinkBudget.TryClaim(time - tick.NextThinkTime > think)) continue;
-                    tick.NextThinkTime = time + think;
+                    tick = em.GetComponentData<AIAlanthorTickState>(entity);
+                    if (tick.Stage == 0)
+                    {
+                        if (time < tick.NextThinkTime) continue;
+                        // Shared per-frame heavy-think budget (AIThinkBudget):
+                        // refused = try again next frame, unless a whole
+                        // interval overdue.
+                        if (!AIThinkBudget.TryClaim(time - tick.NextThinkTime > think)) continue;
+                        tick.NextThinkTime = time + think;
+                        tick.Stage = 1;
+                    }
+                    else if (!AIThinkBudget.TryClaim(time - tick.StageSince > think)) continue;
+                    // One stage per claim; the next one waits for the next claim.
+                    stage = tick.Stage;
+                    tick.Stage = (byte)(stage >= ThinkStages ? 0 : stage + 1);
+                    tick.StageSince = time;
                     em.SetComponentData(entity, tick);
                     perfThinks++;
                 }
@@ -173,6 +199,7 @@ namespace TheWaningBorder.AI
                     {
                         NextThinkTime = time + think + (int)faction * (think / 8f),
                     });
+                    // (Stage 0: the first think starts at NextThinkTime.)
                     continue; // skip first tick after stamp
                 }
 
@@ -207,24 +234,36 @@ namespace TheWaningBorder.AI
                         hasHall  = true;
                     }
                 }
-                if (!hasHall) continue;
                 if (FactionEconomy.TryGetBank(em, faction, out var bank)
                     && em.HasComponent<FactionEra>(bank))
                     era = em.GetComponentData<FactionEra>(bank).Value;
 
-                if (culture != Cultures.Alanthor) continue;
-                if (era < 2) continue;
+                if (!hasHall || culture != Cultures.Alanthor || era < 2)
+                {
+                    // Not an Alanthor endgame faction (yet): the think ends
+                    // here, as it always did — no later stages to run.
+                    tick.Stage = 0;
+                    em.SetComponentData(entity, tick);
+                    continue;
+                }
 
                 // (Phase 1, the AIStrategyState HasAgedUp latch and the
                 // losses-to-Defensive flip, was removed on 2026-10-05: the
                 // loss counter was never incremented, so the flip never
                 // fired, and nothing read the flipped value.)
 
+                if (stage == 1)
+                {
                 // ─── 2. Sect adoption ─────────────────────────────────
                 TryAdoptNextSect(faction, em);
 
                 // ─── 3. Sect active-power firing ──────────────────────
                 TryFireSectPowers(faction, em, hallPos);
+                continue;
+                }
+
+                if (stage == 2)
+                {
 
                 // ─── 4. Age-2 building ladder ─────────────────────────
                 // Temple FIRST (sect adoption hard-requires a Temple to
@@ -235,6 +274,9 @@ namespace TheWaningBorder.AI
                 // missing so the expansion passes below wait for the core to
                 // stand.
                 bool ladderBusy = TryBuildAge2Ladder(faction, em, hallPos);
+                // Remembered for the wall stage, a claim or two later.
+                tick.LadderBusy = (byte)(ladderBusy ? 1 : 0);
+                em.SetComponentData(entity, tick);
 
                 // Pivotal savings hold (AIPivotalReserve): while the faction
                 // saves toward a pivotal purchase, the discretionary passes
@@ -245,9 +287,6 @@ namespace TheWaningBorder.AI
                 // research, the tower), so a save short only on veilstone no
                 // longer freezes supplies/iron spending. The wall program is
                 // gated here on a stone hub's price.
-                bool wallsHeld = BuildCosts.TryGet("Alanthor_Wall", out var wallHubCost)
-                    ? AIPivotalReserve.ShouldHold(em, faction, wallHubCost)
-                    : AIPivotalReserve.ShouldHold(em, faction);
 
                 // ─── 4c/4d. Expansion targets ─────────────────────────
                 // Once the Age-2 core stands: Huts toward 8 Houses, one
@@ -264,6 +303,8 @@ namespace TheWaningBorder.AI
                 // One faction-wide effect per adopted sect, bought at that
                 // sect's own building (docs/Design/Sects.md section 1).
                 TryResearchSectTech(faction, em);
+                continue;
+                }
 
                 // ─── 6. Tower doctrine ────────────────────────────────
                 // Towers are BOTH Alanthor's territory claims (each projects
@@ -271,7 +312,18 @@ namespace TheWaningBorder.AI
                 // toward the known threat with chokepoint preference and
                 // anti-clump spacing — from era-2 start, budget by
                 // difficulty (no more 4-in-a-row ring spam at minute 5).
+                if (stage == 3)
+                {
                 TryBuildDefensiveTower(faction, em, entity, brain.Difficulty, hallPos);
+                continue;
+                }
+
+                if (stage == 4)
+                {
+                bool ladderBusy = tick.LadderBusy != 0;
+                bool wallsHeld = BuildCosts.TryGet("Alanthor_Wall", out var wallHubCost)
+                    ? AIPivotalReserve.ShouldHold(em, faction, wallHubCost)
+                    : AIPivotalReserve.ShouldHold(em, faction);
 
                 // ─── 6b. Wall doctrine ────────────────────────────────
                 // Terrain-aware plan execution — endgame only (the ladder
@@ -290,6 +342,8 @@ namespace TheWaningBorder.AI
                 // (TryBuildWallDefenses runs it first when it runs at all).
                 else if (wallsEnabled)
                     TryEnsureRingGates(faction, em, entity, hallPos);
+                continue;
+                }
 
                 // ─── 7. (Armoured-unit production moved to the composition
                 //    layer, 2026-10-03 — see AIAlanthorEndgameSystem.Military.cs.)
@@ -361,6 +415,16 @@ namespace TheWaningBorder.AI
     public struct AIAlanthorTickState : IComponentData
     {
         public float NextThinkTime;
+
+        /// <summary>The stage of the think in progress (0 = none; the next
+        /// think starts at NextThinkTime). See the staged-think note.</summary>
+        public byte Stage;
+
+        /// <summary>The ladder pass's verdict, kept for the wall stage.</summary>
+        public byte LadderBusy;
+
+        /// <summary>When the current stage became due (starvation guard).</summary>
+        public float StageSince;
     }
 
     /// <summary>

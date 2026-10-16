@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
@@ -88,455 +89,216 @@ namespace TheWaningBorder.Systems.Combat
             _lk.Update(ref state);
             var lk = _lk;
 
-            foreach (var (transform, target, archerState, damage, faction, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<ArcherState>, RefRO<Damage>, RefRO<FactionTag>>()
-                .WithAll<ArcherTag>()
-                // A CORPSE DOES NOT SWING. DeathAnimationState is added the
-                // moment DeathSystem registers the death and the entity then
-                // survives for the length of its death animation — two whole
-                // seconds in which it was still acquiring, cooling down and
-                // landing hits. Excluding it here is the same treatment
-                // UnitIntegratorSystem already gives movement.
+            // The ranged loop, Burst (RangedCombatSystem.Jobs.cs): a parallel
+            // plan per unit, then an in-order apply that hands each shot back
+            // here. Same entity set and order as the old foreach.
+            var query = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, Damage, FactionTag, ArcherTag>()
+                .WithAllRW<Target, ArcherState>()
+                // A CORPSE DOES NOT SHOOT. DeathAnimationState is added the
+                // moment DeathSystem registers the death; on the frame a unit
+                // dies it is still in this query and its zero Health (read by
+                // the plan) closes that window.
                 .WithNone<DeathAnimationState>()
                 .WithNone<TheWaningBorder.Entities.Launched>()   // airborne units shoot at nothing
-                .WithEntityAccess())
+                .Build();
+
+            using var units = query.ToEntityArray(Unity.Collections.Allocator.TempJob);
+            int n = units.Length;
+            using var plans = new Unity.Collections.NativeArray<RangedPlan>(n,
+                Unity.Collections.Allocator.TempJob, Unity.Collections.NativeArrayOptions.UninitializedMemory);
+
+            var planJob = new RangedPlanJob
             {
-                // The marker lands via an EndSimulation ECB, so on the FRAME a
-                // unit dies it is still in this query. Health is authoritative
-                // and already zero by then, so one cheap read closes that
-                // window — without it a lethal blow and the victim's reply
-                // still trade in the same frame.
-                if (SystemAPI.HasComponent<Health>(entity)
-                    && SystemAPI.GetComponent<Health>(entity).Value <= 0) continue;
+                Units = units,
+                Lk = lk,
+                Targets = SystemAPI.GetComponentLookup<Target>(true),
+                Archers = SystemAPI.GetComponentLookup<ArcherState>(true),
+                Damages = SystemAPI.GetComponentLookup<Damage>(true),
+                Trebuchets = SystemAPI.GetComponentLookup<TrebuchetState>(true),
+                Storage = SystemAPI.GetEntityStorageInfoLookup(),
+                Dt = dt,
+                Plans = plans,
+            };
+            var planHandle = planJob.Schedule(n, 32, state.Dependency);
+            planHandle.Complete();
 
-                // A DISARMED UNIT DOES NOT SHOOT — the same rule and the same
-                // reason as MeleeCombatSystem's guard: the damage floor at the
-                // impact site must never be what arms a Damage<=0 unit.
-                if (damage.ValueRO.Value <= 0) continue;
-
-                ref var tgt = ref target.ValueRW;
-                ref var archer = ref archerState.ValueRW;
-
-                // Update cooldown timer. Frozen by Recall the Codex
-                // (Antiquity): cooldowns do not recover while CodexFrozen.
-                if (archer.CooldownTimer > 0 && !lk.CodexFrozen.HasComponent(entity))
-                {
-                    archer.CooldownTimer -= dt;
-                }
-
-                // Validate target exists
-                if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // Fix #212: defensively check HasComponent<Health> before reading.
-                // If DeathSystem removed Health via ECB playback, GetComponentData
-                // would throw.
-                if (!lk.Health.TryGetComponent(tgt.Value, out var targetHealth))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // Validate target is alive
-                if (targetHealth.Value <= 0)
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // The Wall Rule (docs/Design/Combat_Pacing.md): only siege
-                // damages wall pieces — a non-siege shooter refuses to loose
-                // at one even when force-ordered. Same drop contract as the
-                // melee path; the targeting pass filters walls out the same
-                // way, so the re-pick lands elsewhere.
-                if (lk.Wall.HasComponent(tgt.Value) && !lk.DealsSiege(entity))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // Fix #211: skip targets that are currently Invulnerable.
-                if (CombatLookups.Active(in lk.Invulnerable, tgt.Value)) continue;
-
-                // Archers cannot FIRE while moving — but they must keep
-                // steering. The old `continue` here was the pursue-jiggle bug:
-                // TargetingSystem queues a DesiredDestination{Has=0} clear
-                // every frame a live AttackCommand exists, and this system's
-                // chase write (below, same end-sim ECB, played back later)
-                // only overrode it on stationary ticks — the early-out meant
-                // moving ticks wrote nothing, the clear landed uncontested,
-                // and Has toggled 1/0/1/0: the unit stuttered every other tick
-                // and the aim timer never accumulated. Melee never jiggled
-                // precisely because it re-issues its chase every frame. Now
-                // ranged does the same: movement intent is (re)written every
-                // frame; only the aim/fire block below is gated on standing.
-                bool isMoving = lk.Destination.TryGetComponent(entity, out var dest) && dest.Has != 0;
-                if (isMoving)
-                {
-                    archer.AimTimer = 0;
-                    archer.IsFiring = 0;
-                }
-
-                var myPos = transform.ValueRO.Position;
-                var targetPos = lk.Transform[tgt.Value].Position;
-                var dist = DistXZ(myPos, targetPos);
-
-                // Use archer's configured ranges or defaults
-                // MinRange is taken verbatim: 0 means no dead zone, and the
-                // retreat branch below is then simply unreachable.
-                float minRange = math.max(0f, archer.MinRange);
-                float maxRange = archer.MaxRange > 0 ? archer.MaxRange : DefaultMaxRange;
-
-                // High-ground rule: effective range scales per shot with the
-                // height difference to THIS target — a shooter above its
-                // target reaches farther (up to +20 %), one below falls short
-                // (down to -20 %). The same multiplier scales damage at fire
-                // time below.
-                float heightMult = HeightAdvantage.Multiplier(myPos.y, targetPos.y);
-                maxRange *= heightMult;
-
-                // Surface-aware ranging vs bulky targets (buildings): measure
-                // to the target's EDGE, not its pivot — a Hall's centre can sit
-                // outside an archer's reach even when its walls are in easy
-                // range. Buildings with a BuildingSize footprint use the exact
-                // axis-aligned rect, same model as MeleeCombatSystem: the
-                // legacy circle Radius (max(W,H)/2) is the INSCRIBED circle of
-                // a square footprint, so it misjudged rect corners and the
-                // short axis of non-square buildings — against 4x4 halls / 7x7
-                // temples a catapult could read as inside its own MinRange
-                // dead-zone and oscillate retreat/chase without ever letting
-                // the aim timer complete. Both the min- AND max-range checks
-                // below use this surface distance. (fix 2026-08-03)
-                // (Now shared with melee/targeting/arrival via TargetGeometry so
-                // every system agrees on how big a given building is.)
-                var extent = lk.Extent(tgt.Value);
-                float edgeDist = extent.SurfaceDistXZ(myPos);
-
-                // =============================================================================
-                // BEHAVIOR: Too close - RETREAT
-                // =============================================================================
-                if (edgeDist < minRange)
-                {
-                    // An emplaced engine is bolted to its platform
-                    // (docs/Design/Age_1_Alanthor.md § Ballista and Trebuchet
-                    // emplacements): it cannot back off, so a target inside
-                    // its dead zone is simply dropped for the next re-pick.
-                    if (TargetingSystem.IsFixedMount(in lk, entity))
-                    {
-                        tgt.Value = Entity.Null;
-                        archer.AimTimer = 0;
-                        archer.IsRetreating = 0;
-                        DropAttackCommand(in lk, ecb, entity);
-                        continue;
-                    }
-
-                    archer.IsRetreating = 1;
-                    archer.AimTimer = 0;
-
-                    // Calculate retreat direction (away from target)
-                    var retreatDir = math.normalize(myPos - targetPos);
-                    var retreatTarget = myPos + retreatDir * (minRange - edgeDist + 3f);
-
-                    if (!lk.Destination.HasComponent(entity))
-                    {
-                        ecb.AddComponent(entity, new DesiredDestination
-                        {
-                            Position = retreatTarget,
-                            Has = 1
-                        });
-                    }
-                    else
-                    {
-                        ecb.SetComponent(entity, new DesiredDestination
-                        {
-                            Position = retreatTarget,
-                            Has = 1
-                        });
-                    }
-                }
-                // =============================================================================
-                // BEHAVIOR: In optimal range - AIM AND FIRE
-                // =============================================================================
-                else if (edgeDist <= maxRange)
-                {
-                    archer.IsRetreating = 0;
-
-                    // Plant and face the target. Facing used to be siege-only, so
-                    // plain archers loosed arrows over their own shoulder.
-                    // Feraldis rigs that fire on the move (the War Rig; the Corpse
-                    // Engine and Harpoon Rig with Fire on the Move) keep driving.
-                    bool firesOnMove = lk.FiresOnMove.HasComponent(entity);
-                    if (!firesOnMove)
-                        TargetGeometry.StopAndFace(ecb, em, in lk.Destination, in lk.Transform,
-                            entity, targetPos, dt);
-
-                    // Still mid-step this frame — the stop write above lands at
-                    // ECB playback; aim starts accumulating from the NEXT frame
-                    // once the unit actually stands. Never fire on the move.
-                    if (isMoving && !firesOnMove) continue;
-
-                    // Full Gallop: a sprinting unit cannot shoot either (mounted
-                    // archers keep the same rule as melee cavalry).
-                    if (CombatLookups.Active(in lk.TempDisarm, entity)) continue;
-
-                    // Trebuchet pack/unpack: an undeployed trebuchet plants and
-                    // faces (StopAndFace above) but must finish its 3 s set-up
-                    // before it may aim or fire. TrebuchetDeploySystem (co-located
-                    // with the unit) flips Deployed once the engine has stood
-                    // with a live target long enough; any movement packs it again.
-                    if (em.HasComponent<TrebuchetState>(entity)
-                        && em.GetComponentData<TrebuchetState>(entity).Deployed == 0)
-                    {
-                        archer.AimTimer = 0;
-                        archer.IsFiring = 0;
-                        continue;
-                    }
-
-                    // Use the unit's configured AimTimeRequired as-is
-                    // (set per-unit in entity factories: Archer=0.5, Ballista=1.0, etc.)
-
-                    // Accumulate aim time
-                    archer.AimTimer += dt;
-
-                    // task-063 phase 1: sect RangedAccuracy multiplier gone with the old
-                    // multiplier bridge. Phase 2 reintroduces per-sect levers.
-                    float effectiveAimRequired = archer.AimTimeRequired;
-
-                    // Siege units must be SQUARELY on target before firing — a
-                    // catapult that looses mid-traverse throws the stone wide.
-                    // The rotation itself is done by StopAndFace above (every
-                    // ranged unit turns now); this is just the aim gate.
-                    bool isSiege = lk.Siege.HasComponent(entity);
-                    if (isSiege)
-                    {
-                        float3 toTarget = targetPos - myPos;
-                        toTarget.y = 0;
-                        float3 forward = math.mul(
-                            em.GetComponentData<LocalTransform>(entity).Rotation, new float3(0, 0, 1));
-                        forward.y = 0;
-                        if (math.lengthsq(toTarget) > 0.01f && math.lengthsq(forward) > 0.01f)
-                        {
-                            float dot = math.dot(math.normalizesafe(forward), math.normalizesafe(toTarget));
-                            if (dot < 0.9f) // ~25° tolerance before firing
-                            {
-                                archer.AimTimer = 0;
-                                continue;
-                            }
-                        }
-                    }
-
-                    // Fire when aim is ready and cooldown is complete
-                    if (archer.AimTimer >= effectiveAimRequired && archer.CooldownTimer <= 0)
-                    {
-                        archer.IsFiring = 1;
-
-                        // High-ground rule: same height multiplier as the range
-                        // scaling above, applied to this shot's damage.
-                        int finalDamage = HeightAdvantage.ScaleDamage(damage.ValueRO.Value, myPos.y, targetPos.y);
-
-                        // Veilstone buff on attacker (bonus damage)
-                        if (em.HasComponent<BorderBuff>(entity))
-                        {
-                            var buff = em.GetComponentData<BorderBuff>(entity);
-                            finalDamage = (int)math.round(finalDamage * (1f + buff.AttBonus));
-                        }
-                        // Note: BorderDebuff on target is applied at projectile impact, not here
-
-                        // Feraldis: blood frenzy (the Hunter frenzies on blood
-                        // like every other Feraldis unit).
-                        float frenzy = CombatDamageHelper.GetFrenzyDamageMult(em, entity);
-                        if (frenzy != 1f)
-                            finalDamage = (int)math.round(finalDamage * frenzy);
-
-                        finalDamage = math.max(1, finalDamage);
-
-                        // task-063 phase 1: sect RangedDamage / DamageVsBorder multipliers
-                        // gone — baseline 1.0×. Phase 2 reintroduces per-sect levers.
-
-                        // Fortified armor bonus on target (flat defense increase)
-                        if (TransientState.Active<Fortified>(em, tgt.Value))
-                        {
-                            var fort = em.GetComponentData<Fortified>(tgt.Value);
-                            int fortReduction = (int)fort.ArmorBonus;
-                            finalDamage = math.max(1, finalDamage - fortReduction);
-                        }
-
-                        // SpellBuff armor bonus on target (Aegis-style timed buff,
-                        // StoneheartBastion +3 aura, etc.). Mirrors the Fortified
-                        // path — flat reduction on the already-computed damage.
-                        // (task-062 C-1)
-                        int spellArmor = CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value, CombatDamageHelper.BaseDefense(em, tgt.Value, em.HasComponent<DamageTypeData>(entity) ? em.GetComponentData<DamageTypeData>(entity).Value : DamageType.Ranged));
-                        if (spellArmor > 0)
-                            finalDamage = math.max(1, finalDamage - spellArmor);
-
-                        // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) routed through shared helper.
-                        // ApplyDamageReflect is intentionally NOT called here — for
-                        // ranged attacks the reflect must trigger at impact, not at
-                        // fire time, so the shooter only loses HP if the projectile
-                        // actually lands (target alive, not blocked, etc). Calling
-                        // here would punish a missed shot or one whose target died
-                        // before impact, and would double-reflect against
-                        // the original target. ProjectileSystem.ApplyDamage handles
-                        // the impact-time reflect call. (task-062 C-2)
-
-                        finalDamage = math.max(1, finalDamage);
-
-                        // Get shooter's damage type (default Ranged for archers)
-                        DamageType dmgType = DamageType.Ranged;
-                        if (em.HasComponent<DamageTypeData>(entity))
-                            dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
-
-                        // Spawn height: use entity's Radius + 0.5f (taller units shoot higher)
-                        float spawnYOffset = em.HasComponent<Radius>(entity)
-                            ? em.GetComponentData<Radius>(entity).Value + 0.5f
-                            : 1.5f;
-
-                        // Create projectile(s)
-                        bool isAOE = em.HasComponent<AOEShooterData>(entity);
-                        float aoeRadius = isAOE ? em.GetComponentData<AOEShooterData>(entity).Radius : 0f;
-                        bool isCatapult = em.HasComponent<CatapultTag>(entity);
-
-                        // Siege bolt-throwers volley 3 bolts; catapults lob ONE AOE stone.
-                        int shotCount = isSiege && !isCatapult ? 3 : 1;
-                        // Aim at the target's SURFACE, not its pivot.
-                        //
-                        // Range is measured edge-to-edge (edgeDist above), but
-                        // the shot was always sent at the centre — so against a
-                        // building the arrow flew past the wall it was ranged
-                        // against and landed in the middle of the footprint.
-                        // Doubling the footprints made that gap impossible to
-                        // miss: a Hall's pivot is now 4 m behind its wall and a
-                        // Temple's is 8 m, so arrows visibly sailed over the
-                        // near wall. Aiming at the surface point facing the
-                        // shooter puts the arc back in agreement with the
-                        // ranging that authorised the shot.
-                        //
-                        // Units are unaffected: a non-box target's surface
-                        // point is its centre offset by its own small radius.
-                        float3 aimPos = extent.IsBox
-                            ? extent.ApproachPoint(myPos, 0f)
-                            : targetPos;
-                        float aimDist = isSiege ? math.distance(myPos, aimPos) : dist;
-
-                        // Feraldis on-hit riders travel WITH the shot, so a
-                        // volley that lands after its shooter dies still
-                        // bleeds / ignites. (Axe Thrower, Firethrower.)
-                        InflictsBleed shotBleed = em.HasComponent<InflictsBleed>(entity)
-                            ? em.GetComponentData<InflictsBleed>(entity)
-                            : default;
-                        bool shotIgnites = em.HasComponent<IgnitesBlood>(entity);
-                        IgnitesBlood ignite = shotIgnites
-                            ? em.GetComponentData<IgnitesBlood>(entity)
-                            : default;
-
-                        // 1 = ballista bolt, 2 = trebuchet stone (the projectile's look).
-                        byte shooterKind = em.HasComponent<BallistaShooterTag>(entity) ? (byte)1
-                            : em.HasComponent<TrebuchetShooterTag>(entity) ? (byte)2 : (byte)0;
-                        for (int shot = 0; shot < shotCount; shot++)
-                        {
-                            CreateArrow(ref ecb, _arrowArch, myPos, aimPos, aimDist, entity,
-                                faction.ValueRO.Value, finalDamage, (float)time + shot * 0.001f, tgt.Value, dmgType,
-                                isAOE, aoeRadius, spawnYOffset,
-                                archer.Trajectory, archer.ProjectileSpeed, isCatapult,
-                                shotBleed, shotIgnites ? ignite : default, shotIgnites, shooterKind,
-                                em.HasComponent<CorpseEngineTag>(entity) ? (byte)1
-                                : em.HasComponent<HarpoonRigTag>(entity) ? (byte)2 : (byte)0);
-                        }
-
-                        // Reset state — use unit's configured cooldown.
-                        // Glow Ability (Lv 5 active window) shortens by 30%
-                        // per the design spec. (audit follow-up)
-                        float cooldownValue = 1.5f;
-                        if (em.HasComponent<AttackCooldown>(entity))
-                            cooldownValue = em.GetComponentData<AttackCooldown>(entity).Cooldown;
-                        if (em.HasComponent<ShardrootAbilityState>(entity)
-                            && em.GetComponentData<ShardrootAbilityState>(entity).ActiveRemaining > 0f)
-                            cooldownValue *= (1f / 1.30f);
-                        cooldownValue *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
-                        // Timed haste (Blood Rain and any future SpellBuff
-                        // attack-speed effect) fires faster too.
-                        cooldownValue *= CombatDamageHelper.GetHasteCooldownMult(em, entity);
-                        // Choreographed Volleys: faction-wide archer fire-rate burst.
-                        if (TransientState.Active<TheWaningBorder.Abilities.VolleyBuff>(em, entity))
-                        {
-                            float m = em.GetComponentData<TheWaningBorder.Abilities.VolleyBuff>(entity).Mult;
-                            if (m > 1f) cooldownValue /= m;
-                        }
-
-                        archer.CooldownTimer = cooldownValue;
-                        archer.AimTimer = 0;
-                        archer.IsFiring = 0;
-                    }
-                }
-                // =============================================================================
-                // BEHAVIOR: Too far - CHASE (unless holding position or defensive stance)
-                // =============================================================================
-                else
-                {
-                    // Chase only if this engagement allows it
-                    // (TargetingSystem.MayChase, docs/Design/Stances.md §1/§5):
-                    // an ORDERED target is always chased, on every stance —
-                    // Hold included; a target the unit picked itself only on a
-                    // leashed (Aggressive / attack-move / patrol) engagement.
-                    // A fixed mount (emplaced engine) never chases, whatever
-                    // the order. Otherwise clear the target and stay put.
-                    if (!TargetingSystem.MayChase(in lk, entity, tgt.Value))
-                    {
-                        tgt.Value = Entity.Null;
-                        archer.AimTimer = 0;
-                        DropAttackCommand(in lk, ecb, entity);
-                        continue;
-                    }
-
-                    archer.IsRetreating = 0;
-                    archer.AimTimer = 0;
-
-                    // Move to a position just inside max range, not all the way
-                    // to target. Re-issued EVERY frame (see isMoving note above)
-                    // so the destination tracks a moving target and always
-                    // out-plays TargetingSystem's per-frame Has=0 clear.
-                    float3 toTarget = targetPos - myPos;
-                    float3 dirToTarget = math.normalizesafe(toTarget);
-                    // Stop 2 units inside max range, measured from the EDGE of
-                    // bulky targets. (dist - edgeDist) is the center-to-surface
-                    // distance along THIS approach line, so the stop point
-                    // shares the exact box/circle model of the range checks
-                    // above — a mismatched circle stop vs box range check could
-                    // land the unit just outside the fire band. (2026-08-03)
-                    float stopDist = (dist - edgeDist) + maxRange - 2f;
-                    float3 chasePos = targetPos - dirToTarget * stopDist;
-
-                    if (!lk.Destination.HasComponent(entity))
-                    {
-                        ecb.AddComponent(entity, new DesiredDestination
-                        {
-                            Position = chasePos,
-                            Has = 1
-                        });
-                    }
-                    else
-                    {
-                        ecb.SetComponent(entity, new DesiredDestination
-                        {
-                            Position = chasePos,
-                            Has = 1
-                        });
-                    }
-                }
+            using var stop = new Unity.Collections.NativeReference<int>(0, Unity.Collections.Allocator.TempJob);
+            var apply = new RangedApplyJob
+            {
+                Units = units,
+                Plans = plans,
+                Targets = SystemAPI.GetComponentLookup<Target>(false),
+                Archers = SystemAPI.GetComponentLookup<ArcherState>(false),
+                Transforms = SystemAPI.GetComponentLookup<LocalTransform>(false),
+                Ecb = ecb,
+                Stop = stop,
+            };
+            int next = 0;
+            while (next < n)
+            {
+                apply.Start = next;
+                apply.Run();
+                int k = stop.Value;
+                if (k >= n) break;
+                Fire(em, ecb, _arrowArch, units[k], plans[k], time);
+                next = k + 1;
             }
+        }
+
+        /// <summary>
+        /// One volley, unchanged from the old loop body: damage, riders,
+        /// projectile spawn, cooldown reset. Managed (Feraldis / sect / ability
+        /// helpers); called by OnUpdate between apply runs, in query order.
+        /// </summary>
+        private static void Fire(EntityManager em, EntityCommandBuffer ecb, EntityArchetype arrowArch,
+            Entity entity, in RangedPlan plan, double time)
+        {
+            var archer = em.GetComponentData<ArcherState>(entity);
+            var tgt = new Target { Value = plan.Target };
+            float3 myPos = plan.MyPos;
+            float3 targetPos = plan.TargetPos;
+            float3 aimPos = plan.AimPos;
+            float aimDist = plan.AimDist;
+            bool isSiege = plan.IsSiege != 0;
+
+            int finalDamage = HeightAdvantage.ScaleDamage(em.GetComponentData<Damage>(entity).Value, myPos.y, targetPos.y);
+
+            // Veilstone buff on attacker (bonus damage)
+            if (em.HasComponent<BorderBuff>(entity))
+            {
+                var buff = em.GetComponentData<BorderBuff>(entity);
+                finalDamage = (int)math.round(finalDamage * (1f + buff.AttBonus));
+            }
+            // Note: BorderDebuff on target is applied at projectile impact, not here
+
+            // Feraldis: blood frenzy (the Hunter frenzies on blood
+            // like every other Feraldis unit).
+            float frenzy = CombatDamageHelper.GetFrenzyDamageMult(em, entity);
+            if (frenzy != 1f)
+                finalDamage = (int)math.round(finalDamage * frenzy);
+
+            finalDamage = math.max(1, finalDamage);
+
+            // task-063 phase 1: sect RangedDamage / DamageVsBorder multipliers
+            // gone — baseline 1.0×. Phase 2 reintroduces per-sect levers.
+
+            // Fortified armor bonus on target (flat defense increase)
+            if (TransientState.Active<Fortified>(em, tgt.Value))
+            {
+                var fort = em.GetComponentData<Fortified>(tgt.Value);
+                int fortReduction = (int)fort.ArmorBonus;
+                finalDamage = math.max(1, finalDamage - fortReduction);
+            }
+
+            // SpellBuff armor bonus on target (Aegis-style timed buff,
+            // StoneheartBastion +3 aura, etc.). Mirrors the Fortified
+            // path — flat reduction on the already-computed damage.
+            // (task-062 C-1)
+            int spellArmor = CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value, CombatDamageHelper.BaseDefense(em, tgt.Value, em.HasComponent<DamageTypeData>(entity) ? em.GetComponentData<DamageTypeData>(entity).Value : DamageType.Ranged));
+            if (spellArmor > 0)
+                finalDamage = math.max(1, finalDamage - spellArmor);
+
+            // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) routed through shared helper.
+            // ApplyDamageReflect is intentionally NOT called here — for
+            // ranged attacks the reflect must trigger at impact, not at
+            // fire time, so the shooter only loses HP if the projectile
+            // actually lands (target alive, not blocked, etc). Calling
+            // here would punish a missed shot or one whose target died
+            // before impact, and would double-reflect against
+            // the original target. ProjectileSystem.ApplyDamage handles
+            // the impact-time reflect call. (task-062 C-2)
+
+            finalDamage = math.max(1, finalDamage);
+
+            // Get shooter's damage type (default Ranged for archers)
+            DamageType dmgType = DamageType.Ranged;
+            if (em.HasComponent<DamageTypeData>(entity))
+                dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
+
+            // Spawn height: use entity's Radius + 0.5f (taller units shoot higher)
+            float spawnYOffset = em.HasComponent<Radius>(entity)
+                ? em.GetComponentData<Radius>(entity).Value + 0.5f
+                : 1.5f;
+
+            // Create projectile(s)
+            bool isAOE = em.HasComponent<AOEShooterData>(entity);
+            float aoeRadius = isAOE ? em.GetComponentData<AOEShooterData>(entity).Radius : 0f;
+            bool isCatapult = em.HasComponent<CatapultTag>(entity);
+
+            // Siege bolt-throwers volley 3 bolts; catapults lob ONE AOE stone.
+            int shotCount = isSiege && !isCatapult ? 3 : 1;
+            // Aim at the target's SURFACE, not its pivot.
+            //
+            // Range is measured edge-to-edge (edgeDist above), but
+            // the shot was always sent at the centre — so against a
+            // building the arrow flew past the wall it was ranged
+            // against and landed in the middle of the footprint.
+            // Doubling the footprints made that gap impossible to
+            // miss: a Hall's pivot is now 4 m behind its wall and a
+            // Temple's is 8 m, so arrows visibly sailed over the
+            // near wall. Aiming at the surface point facing the
+            // shooter puts the arc back in agreement with the
+            // ranging that authorised the shot.
+            //
+            // Units are unaffected: a non-box target's surface
+            // point is its centre offset by its own small radius.
+
+            // Feraldis on-hit riders travel WITH the shot, so a
+            // volley that lands after its shooter dies still
+            // bleeds / ignites. (Axe Thrower, Firethrower.)
+            InflictsBleed shotBleed = em.HasComponent<InflictsBleed>(entity)
+                ? em.GetComponentData<InflictsBleed>(entity)
+                : default;
+            bool shotIgnites = em.HasComponent<IgnitesBlood>(entity);
+            IgnitesBlood ignite = shotIgnites
+                ? em.GetComponentData<IgnitesBlood>(entity)
+                : default;
+
+            // 1 = ballista bolt, 2 = trebuchet stone (the projectile's look).
+            byte shooterKind = em.HasComponent<BallistaShooterTag>(entity) ? (byte)1
+                : em.HasComponent<TrebuchetShooterTag>(entity) ? (byte)2 : (byte)0;
+            for (int shot = 0; shot < shotCount; shot++)
+            {
+                CreateArrow(ref ecb, arrowArch, myPos, aimPos, aimDist, entity,
+                    em.GetComponentData<FactionTag>(entity).Value, finalDamage, (float)time + shot * 0.001f, tgt.Value, dmgType,
+                    isAOE, aoeRadius, spawnYOffset,
+                    archer.Trajectory, archer.ProjectileSpeed, isCatapult,
+                    shotBleed, shotIgnites ? ignite : default, shotIgnites, shooterKind,
+                    em.HasComponent<CorpseEngineTag>(entity) ? (byte)1
+                    : em.HasComponent<HarpoonRigTag>(entity) ? (byte)2 : (byte)0);
+            }
+
+            // Reset state — use unit's configured cooldown.
+            // Glow Ability (Lv 5 active window) shortens by 30%
+            // per the design spec. (audit follow-up)
+            float cooldownValue = 1.5f;
+            if (em.HasComponent<AttackCooldown>(entity))
+                cooldownValue = em.GetComponentData<AttackCooldown>(entity).Cooldown;
+            if (em.HasComponent<ShardrootAbilityState>(entity)
+                && em.GetComponentData<ShardrootAbilityState>(entity).ActiveRemaining > 0f)
+                cooldownValue *= (1f / 1.30f);
+            cooldownValue *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
+            // Timed haste (Blood Rain and any future SpellBuff
+            // attack-speed effect) fires faster too.
+            cooldownValue *= CombatDamageHelper.GetHasteCooldownMult(em, entity);
+            // Choreographed Volleys: faction-wide archer fire-rate burst.
+            if (TransientState.Active<TheWaningBorder.Abilities.VolleyBuff>(em, entity))
+            {
+                float m = em.GetComponentData<TheWaningBorder.Abilities.VolleyBuff>(entity).Mult;
+                if (m > 1f) cooldownValue /= m;
+            }
+
+            archer.CooldownTimer = cooldownValue;
+            archer.AimTimer = 0;
+            archer.IsFiring = 0;
+            em.SetComponentData(entity, archer);
         }
 
         /// <summary>
         /// Create an arrow projectile entity.
         /// </summary>
-        private void CreateArrow(ref EntityCommandBuffer ecb, EntityArchetype arrowArch, float3 start, float3 targetPos,
+        private static void CreateArrow(ref EntityCommandBuffer ecb, EntityArchetype arrowArch, float3 start, float3 targetPos,
             float distance, Entity shooter, Faction faction, int damage, float time, Entity targetEntity,
             DamageType dmgType = DamageType.Ranged, bool isAOE = false, float aoeRadius = 0f,
             float spawnYOffset = 1.5f, byte trajectory = ShotTrajectory.Low, float projectileSpeed = 0f,

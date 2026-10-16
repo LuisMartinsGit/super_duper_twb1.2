@@ -27,6 +27,15 @@ namespace TheWaningBorder.Runai
     [UpdateAfter(typeof(LayerTransitionSystem))]
     public partial class ScalingHooksSystem : SystemBase
     {
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            // Runai ships only in edition C (docs/Design/Alpha_Build.md §4). Off
+            // elsewhere: its configs are stripped from A/B builds, and running
+            // it there threw every tick, in the menu and in every match.
+            if (!GameEdition.Allows(Cultures.Runai)) { Enabled = false; return; }
+        }
+
         public const string TechId = "Runai_ScalingHooks";
         public const int HookPortal = -1;
         // Engine-side motion constants, like LayerTransitionSystem's.

@@ -79,12 +79,17 @@ public static class TechCatalog
     // fields Build() owns.
     private static readonly Dictionary<string, int> _eraOverrides = new();
     private static readonly Dictionary<string, string[]> _derivedResearch = new();
+    // The edition prune's rosters: the live refresh re-copied the SO's trains[]
+    // (which still lists the stripped Feraldis/Runai units) over the pruned
+    // def, so the demo offered and validated stripped units.
+    private static readonly Dictionary<string, string[]> _derivedTrains = new();
 
     private static void ReapplyDerived(string id, BuildingDef def)
     {
         if (def == null) return;
         if (_eraOverrides.TryGetValue(id, out int era)) def.minEra = era;
         if (_derivedResearch.TryGetValue(id, out var research)) def.research = research;
+        if (_derivedTrains.TryGetValue(id, out var trains)) def.trains = trains;
     }
 
     private static void Build()
@@ -92,7 +97,7 @@ public static class TechCatalog
         _unitsById.Clear(); _buildingsById.Clear(); _technologiesById.Clear();
         _unitSOsById.Clear(); _buildingSOsById.Clear(); _techSOsById.Clear(); _buildingLevels.Clear();
         _prefabByPid.Clear(); _controllerByPid.Clear();
-        _eraOverrides.Clear(); _derivedResearch.Clear();
+        _eraOverrides.Clear(); _derivedResearch.Clear(); _derivedTrains.Clear();
 
         var catalog = UnityEngine.Resources.Load<TechTreeCatalog>(CatalogResourceName);
 
@@ -117,7 +122,6 @@ public static class TechCatalog
                 }
             }
             LoadFromCatalog(catalog);
-            PruneEditionStripped(catalog.editionStripped);
         }
 
         // 3. Ensure required buildings exist + Temple fixup (only adds/repairs missing).
@@ -142,6 +146,12 @@ public static class TechCatalog
         // 5. Cross-reference audit (2026-08-11, "make the tech tree fool
         //    proof") — every dangling reference surfaces LOUDLY at load
         //    instead of as a silent runtime stall.
+        // 4c. The edition prune runs LAST, after every default and derived
+        //     list: the defaults step above rebuilt the Fortress / Barracks
+        //     rosters after an earlier prune, so the demo still offered (and
+        //     the validator still flagged) every stripped Feraldis/Runai unit.
+        if (catalog != null) PruneEditionStripped(catalog.editionStripped);
+
         ValidateCrossReferences();
     }
 
@@ -194,6 +204,11 @@ public static class TechCatalog
             if (b == null) continue;
             b.trains = Keep(b.trains);
             b.research = Keep(b.research);
+            if (!string.IsNullOrEmpty(b.id))
+            {
+                _derivedTrains[b.id] = b.trains;
+                if (_derivedResearch.ContainsKey(b.id)) _derivedResearch[b.id] = b.research;
+            }
         }
         foreach (var t in _technologiesById.Values)
             if (t != null) t.prerequisites = Keep(t.prerequisites);

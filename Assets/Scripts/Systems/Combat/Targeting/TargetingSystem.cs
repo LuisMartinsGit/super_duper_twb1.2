@@ -265,10 +265,10 @@ namespace TheWaningBorder.Systems.Combat
                 .WithNone<WallSegmentTag>()
                 .Build();
 
-            using var allEnemies = enemyQuery.ToEntityArray(Allocator.Temp);
-            using var allEnemyTransforms = enemyQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var allEnemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.Temp);
+            using var allEnemies = enemyQuery.ToEntityArray(Allocator.TempJob);
+            using var allEnemyTransforms = enemyQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+            using var allEnemyFactions = enemyQuery.ToComponentDataArray<FactionTag>(Allocator.TempJob);
+            using var allEnemyHealth = enemyQuery.ToComponentDataArray<Health>(Allocator.TempJob);
 
             // Lookups for the per-enemy reads (2026-10-15 perf pass): an
             // EntityManager.HasComponent walks the archetype's ~100 types per
@@ -301,11 +301,11 @@ namespace TheWaningBorder.Systems.Combat
             var sizeLookup = SystemAPI.GetComponentLookup<BuildingSize>(true);
             var radiusLookup = SystemAPI.GetComponentLookup<Radius>(true);
             int enemyCount = allEnemies.Length;
-            var enemyIsBox = new NativeArray<byte>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-            var enemyHalfW = new NativeArray<float>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-            var enemyHalfH = new NativeArray<float>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-            var enemyRadius = new NativeArray<float>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-            var enemyPad = new NativeArray<float>(enemyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+            var enemyIsBox = new NativeArray<byte>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var enemyHalfW = new NativeArray<float>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var enemyHalfH = new NativeArray<float>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var enemyRadius = new NativeArray<float>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var enemyPad = new NativeArray<float>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
             for (int i = 0; i < enemyCount; i++)
             {
                 var e = allEnemies[i];
@@ -331,7 +331,7 @@ namespace TheWaningBorder.Systems.Combat
 
             // Hostility table, once per tick instead of a team lookup per
             // candidate. Burst-safe variant (SharedStatic team table).
-            var hostile = new NativeArray<byte>(FactionSlots * FactionSlots, Allocator.Temp);
+            var hostile = new NativeArray<byte>(FactionSlots * FactionSlots, Allocator.TempJob);
             for (int a = 0; a < FactionSlots; a++)
                 for (int b = 0; b < FactionSlots; b++)
                     hostile[a * FactionSlots + b] = (byte)(Alliances.AreHostileBurst((Faction)a, (Faction)b) ? 1 : 0);
@@ -341,8 +341,8 @@ namespace TheWaningBorder.Systems.Combat
             // owner lets the scan skip every friendly entry outright instead
             // of rejecting them one at a time.
             using var spatialMap = new NativeParallelMultiHashMap<int3, int>(
-                math.max(16, allEnemies.Length * 2), Allocator.Temp);
-            var factionPresent = new NativeArray<byte>(FactionSlots, Allocator.Temp);
+                math.max(16, allEnemies.Length * 2), Allocator.TempJob);
+            var factionPresent = new NativeArray<byte>(FactionSlots, Allocator.TempJob);
 
             // PEER-STABLE INSERT ORDER (2026-09-05, MP harness catch #14 —
             // the same disease and cure as the nav spatial hash, catch #4).
@@ -417,13 +417,10 @@ namespace TheWaningBorder.Systems.Combat
 
             // =============================================================================
             // PHASE 2: Auto-acquire targets for idle units
-            // =============================================================================
-            AutoAcquireTargets(ref state, ref ecb, in scan, in settings, ref attackerCount);
-
-            // =============================================================================
             // PHASE 3: Return to guard point (handled after combat systems process)
+            // Both planned in parallel Burst jobs, applied in order (Jobs.cs).
             // =============================================================================
-            ProcessReturnToGuard(ref state, ref ecb, in scan, in settings, ref attackerCount);
+            AutoAcquireAndReturnToGuard(ref state, ref ecb, in scan, in settings, ref attackerCount);
 
             attackerCount.Dispose();
             hostile.Dispose();
@@ -568,23 +565,23 @@ namespace TheWaningBorder.Systems.Combat
         /// callers (acquire, return-to-guard) share one scan.</summary>
         private struct EnemyScan
         {
-            public NativeArray<Entity> Entities;
-            public NativeArray<LocalTransform> Transforms;
-            public NativeArray<FactionTag> Factions;
-            public NativeArray<Health> Health;
-            public NativeArray<byte> Flags;
-            public NativeArray<byte> Priority;
-            public NativeArray<uint> Tags;
-            public NativeParallelMultiHashMap<int3, int> Map;
-            public NativeArray<byte> Hostile;
-            public NativeArray<byte> FactionPresent;
+            [ReadOnly] public NativeArray<Entity> Entities;
+            [ReadOnly] public NativeArray<LocalTransform> Transforms;
+            [ReadOnly] public NativeArray<FactionTag> Factions;
+            [ReadOnly] public NativeArray<Health> Health;
+            [ReadOnly] public NativeArray<byte> Flags;
+            [ReadOnly] public NativeArray<byte> Priority;
+            [ReadOnly] public NativeArray<uint> Tags;
+            [ReadOnly] public NativeParallelMultiHashMap<int3, int> Map;
+            [ReadOnly] public NativeArray<byte> Hostile;
+            [ReadOnly] public NativeArray<byte> FactionPresent;
 
             // Per-enemy footprint, filled once per tick (see OnUpdate).
-            public NativeArray<byte> IsBox;
-            public NativeArray<float> HalfW;
-            public NativeArray<float> HalfH;
-            public NativeArray<float> Radius;
-            public NativeArray<float> Pad;
+            [ReadOnly] public NativeArray<byte> IsBox;
+            [ReadOnly] public NativeArray<float> HalfW;
+            [ReadOnly] public NativeArray<float> HalfH;
+            [ReadOnly] public NativeArray<float> Radius;
+            [ReadOnly] public NativeArray<float> Pad;
 
             // Live per-candidate reads for the candidates that survive the
             // range test.

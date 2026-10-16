@@ -13,6 +13,15 @@
 //
 // Determinism: managed iteration on the main thread; portal scan walks
 // blob node array in node-id ascending order (stable across machines).
+//
+// FINGERPRINT GATE (2026-10-15 perf): the resolution is a pure function of
+// the graph generation, the nav grid layout and each gate's (entity,
+// position, owner, has-state). This ran the full gates x portal-nodes scan
+// on EVERY tick (2 ms a frame late game) although its inputs change only on
+// a graph rebuild or a gate being built / converted / destroyed. It now
+// hashes those inputs (O(gates)) and skips the scan when the hash matches
+// the last pass — result-identical, since nothing else writes the node ids
+// or OwnerId, and an unchanged input gives the same writes (none).
 
 using Unity.Collections;
 using Unity.Entities;
@@ -32,6 +41,8 @@ namespace TheWaningBorder.Systems.Navigation
     public partial struct WallGateRegistrationSystem : ISystem
     {
         private EntityQuery _gateQuery;
+        private ulong _lastFingerprint;
+        private bool _haveFingerprint;
 
         public void OnCreate(ref SystemState state)
         {
@@ -58,6 +69,27 @@ namespace TheWaningBorder.Systems.Navigation
             using var gateEntities = _gateQuery.ToEntityArray(Allocator.Temp);
             using var gateXfs = _gateQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var gateFactions = _gateQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+
+            // Skip the scan when no input moved since the last pass.
+            ulong fp = 1469598103934665603UL;
+            fp = Mix(fp, (uint)SimCadence.Epoch);
+            fp = Mix(fp, (uint)graphSingleton.Generation);
+            fp = Mix(fp, (uint)nodeCount);
+            fp = Mix(fp, (uint)grid.Width);
+            fp = Mix(fp, math.asuint(grid.CellSize));
+            fp = Mix(fp, math.asuint(grid.Origin.x));
+            fp = Mix(fp, math.asuint(grid.Origin.z));
+            fp = Mix(fp, (uint)gateEntities.Length);
+            for (int gi = 0; gi < gateEntities.Length; gi++)
+            {
+                fp = Mix(fp, (uint)gateEntities[gi].Index);
+                fp = Mix(fp, (uint)gateEntities[gi].Version);
+                fp = Mix(fp, math.asuint(gateXfs[gi].Position.x));
+                fp = Mix(fp, math.asuint(gateXfs[gi].Position.z));
+                fp = Mix(fp, (uint)gateFactions[gi].Value);
+                fp = Mix(fp, em.HasComponent<GateRuntimeState>(gateEntities[gi]) ? 1u : 0u);
+            }
+            if (_haveFingerprint && fp == _lastFingerprint) return;
 
             for (int gi = 0; gi < gateEntities.Length; gi++)
             {
@@ -119,6 +151,40 @@ namespace TheWaningBorder.Systems.Navigation
                     if (changed) em.SetComponentData(gateEntity, st);
                 }
             }
+
+            // The pass above made every gate carry its state, so the input
+            // the NEXT pass sees has has-state = 1 for each: hash that.
+            ulong done = 1469598103934665603UL;
+            done = Mix(done, (uint)SimCadence.Epoch);
+            done = Mix(done, (uint)graphSingleton.Generation);
+            done = Mix(done, (uint)nodeCount);
+            done = Mix(done, (uint)grid.Width);
+            done = Mix(done, math.asuint(grid.CellSize));
+            done = Mix(done, math.asuint(grid.Origin.x));
+            done = Mix(done, math.asuint(grid.Origin.z));
+            done = Mix(done, (uint)gateEntities.Length);
+            for (int gi = 0; gi < gateEntities.Length; gi++)
+            {
+                done = Mix(done, (uint)gateEntities[gi].Index);
+                done = Mix(done, (uint)gateEntities[gi].Version);
+                done = Mix(done, math.asuint(gateXfs[gi].Position.x));
+                done = Mix(done, math.asuint(gateXfs[gi].Position.z));
+                done = Mix(done, (uint)gateFactions[gi].Value);
+                done = Mix(done, 1u);
+            }
+            _lastFingerprint = done;
+            _haveFingerprint = true;
+        }
+
+        /// <summary>FNV-1a style fold of one 32-bit word.</summary>
+        private static ulong Mix(ulong h, uint v)
+        {
+            for (int b = 0; b < 4; b++)
+            {
+                h ^= (v >> (b * 8)) & 0xFFu;
+                h *= 1099511628211UL;
+            }
+            return h;
         }
     }
 }

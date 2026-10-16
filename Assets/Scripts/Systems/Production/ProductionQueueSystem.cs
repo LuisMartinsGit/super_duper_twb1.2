@@ -28,6 +28,18 @@
 //      is moved to the head and runs, and no unit trains until that is done.
 //      The held unit is marked Trained, so when it is back at the head it
 //      only waits for room; it never trains twice.
+//
+// PERF (2026-10-15), both result-identical:
+//   * Idle buildings with an empty queue (most of them, late game) are
+//     skipped by a chunk-level read of ProductionState + the queue length,
+//     instead of an Exists / HasComponent / HasBuffer / GetComponentData /
+//     GetBuffer round per building per tick. The survivors are visited in
+//     exactly the order ToEntityArray gave (chunk order).
+//   * A finished unit held at the population cap asks for room every tick;
+//     each ask copied the whole population query twice. The population rows
+//     are now read once per update and re-read after anything that can move
+//     them (a level-up completing) — spawns are deferred past the loop, so
+//     nothing else inside it changes a FactionPopulation.
 
 using System.Collections.Generic;
 using Unity.Collections;
@@ -70,9 +82,58 @@ namespace TheWaningBorder.Systems.Production
             public byte HeroLevel;
         }
 
+        private EntityTypeHandle _entityH;
+        private ComponentTypeHandle<ProductionState> _stateH;
+        private BufferTypeHandle<ProductionQueueItem> _queueH;
+
+        static readonly ComponentType[] QT_Population =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<TheWaningBorder.Economy.FactionPopulation>(),
+        };
+        static CachedEntityQuery QC_Population;
+
+        // Population rows for this update (TrainingSystem.HasPopulationCapacity's
+        // input), in query order; invalid until first needed.
+        private static FactionTag[] _popFac = System.Array.Empty<FactionTag>();
+        private static TheWaningBorder.Economy.FactionPopulation[] _popRows =
+            System.Array.Empty<TheWaningBorder.Economy.FactionPopulation>();
+        private static int _popCount;
+        private static bool _popValid;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<ProductionState>();
+            _entityH = state.GetEntityTypeHandle();
+            _stateH = state.GetComponentTypeHandle<ProductionState>(true);
+            _queueH = state.GetBufferTypeHandle<ProductionQueueItem>(true);
+        }
+
+        /// <summary>Exactly TrainingSystem.HasPopulationCapacity, on rows read
+        /// once per update (re-read after <see cref="_popValid"/> is cleared).</summary>
+        private static bool HasPopulationCapacity(EntityManager em, Faction faction,
+            int requiredPop, int extraSpawnedThisTick)
+        {
+            if (!_popValid)
+            {
+                var q = QC_Population.Get(em, QT_Population);
+                using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                using var pops = q.ToComponentDataArray<TheWaningBorder.Economy.FactionPopulation>(Allocator.Temp);
+                if (_popFac.Length < facs.Length)
+                {
+                    _popFac = new FactionTag[facs.Length];
+                    _popRows = new TheWaningBorder.Economy.FactionPopulation[facs.Length];
+                }
+                for (int i = 0; i < facs.Length; i++) { _popFac[i] = facs[i]; _popRows[i] = pops[i]; }
+                _popCount = facs.Length;
+                _popValid = true;
+            }
+            for (int i = 0; i < _popCount; i++)
+            {
+                if (_popFac[i].Value != faction) continue;
+                return _popRows[i].Current + extraSpawnedThisTick + requiredPop <= _popRows[i].Max;
+            }
+            return true;
         }
 
         public void OnUpdate(ref SystemState state)
@@ -86,7 +147,30 @@ namespace TheWaningBorder.Systems.Production
             // Feraldis raiders spawning), which a live query may not be
             // iterating over.
             var query = QC_Production.Get(em, QT_Production);
-            using var ents = query.ToEntityArray(Allocator.Temp);
+            _popValid = false;
+
+            // Only buildings with something to do: busy, or a non-empty
+            // queue. An idle building with an empty queue was a no-op below
+            // (StartHead returns on an empty queue), so dropping it here
+            // changes nothing; the rest keep their chunk order.
+            _entityH.Update(ref state);
+            _stateH.Update(ref state);
+            _queueH.Update(ref state);
+            query.CompleteDependency();
+            var ents = new NativeList<Entity>(Allocator.Temp);
+            using (var chunks = query.ToArchetypeChunkArray(Allocator.Temp))
+            {
+                for (int c = 0; c < chunks.Length; c++)
+                {
+                    var chunk = chunks[c];
+                    if (!chunk.Has(ref _queueH)) continue;   // HasBuffer failed for every row
+                    var ce = chunk.GetNativeArray(_entityH);
+                    var cs = chunk.GetNativeArray(ref _stateH);
+                    var cq = chunk.GetBufferAccessor(ref _queueH);
+                    for (int i = 0; i < chunk.Count; i++)
+                        if (cs[i].Busy != 0 || cq[i].Length > 0) ents.Add(ce[i]);
+                }
+            }
 
             // CompleteResearch fires OnTechCompleted, whose handlers
             // (TechEffectSystem) make structural changes of their own — so
@@ -125,6 +209,7 @@ namespace TheWaningBorder.Systems.Production
             if (completed != null)
                 foreach (var (faction, techId) in completed)
                     researchState.CompleteResearch(faction, techId);
+            ents.Dispose();
         }
 
         // ── Gates ──────────────────────────────────────────────────────────
@@ -343,6 +428,7 @@ namespace TheWaningBorder.Systems.Production
                     // Feraldis raiders, so the buffer is re-fetched below.
                     TheWaningBorder.Systems.Buildings.BuildingUpgradeSystem
                         .CompleteUpgrade(em, e, item.Level);
+                    _popValid = false;   // a level can move a population cap
                     TransientState.Clear<BuildingUpgrading>(em, e);
                     break;
             }
@@ -422,7 +508,7 @@ namespace TheWaningBorder.Systems.Production
 
             int extra = 0;
             popThisTick?.TryGetValue(faction, out extra);
-            if (!TrainingSystem.HasPopulationCapacity(em, faction, requiredPop, extra))
+            if (!HasPopulationCapacity(em, faction, requiredPop, extra))
             {
                 NoticePopulationHold(em, faction);
                 return false;

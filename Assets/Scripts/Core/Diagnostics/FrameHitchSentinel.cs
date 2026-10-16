@@ -14,6 +14,8 @@ namespace TheWaningBorder.Core.Diagnostics
         private const float FrameThresholdMs = 50f;
 
         private int _gc0, _gc1, _gc2;
+        private const float SysAvgSeconds = 30f;
+        private float _nextSysAvg;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
@@ -35,6 +37,17 @@ namespace TheWaningBorder.Core.Diagnostics
             EcsGroupProfiler.EnsureInstalled();
             EcsSystemProfiler.EnsureInstalled();
             WorldCensus.Tick();
+            EcsSystemProfiler.Accumulate();
+
+            // Every 30 s: the average ms per frame of every system (SYSAVG),
+            // so a whole frame budget can be attributed, not just its spikes.
+            if (Time.unscaledTime >= _nextSysAvg)
+            {
+                _nextSysAvg = Time.unscaledTime + SysAvgSeconds;
+                string avg = EcsSystemProfiler.FlushWindow(40);
+                if (avg.Length > 0 && !TheWaningBorder.Core.PresentationState.LoadingOverlayVisible)
+                    PerfSpikeLog.Report("SYSAVG", Time.unscaledDeltaTime * 1000f, avg, 0.0);
+            }
 
             float ms = Time.unscaledDeltaTime * 1000f;
             int g0 = System.GC.CollectionCount(0);

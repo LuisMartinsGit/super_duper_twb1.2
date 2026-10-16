@@ -261,6 +261,23 @@ namespace TheWaningBorder.Systems.Visibility
         private EntityQuery _presentedQuery;
         private EntityQuery _playerLosQuery;
 
+        // STATIC ROUND-ROBIN (2026-10-15 perf). Units (mobile chunks) are
+        // re-evaluated every pass as before. Everything else - buildings,
+        // nodes, walls, deposits: most of the views - only changes visibility
+        // when the fog moves over it, so its chunks are re-evaluated one
+        // StaticSlices-th per pass (every view within StaticSlices x 0.1 s),
+        // EXCEPT a chunk that changed since the last pass (an entity spawned
+        // or moved into it, a transform written, or a view landed - the
+        // PresentationViewSpawned bit flip bumps that column's version),
+        // which is done at once so a new view is never shown a frame it
+        // should not be. A change of viewing faction re-sweeps everything.
+        // Presentation only: nothing here writes simulation state.
+        private const int StaticSlices = 3;
+        private int _staticCursor;
+        private uint _lastPassVersion;
+        private bool _havePass;
+        private Faction _lastHuman;
+
         protected override void OnCreate()
         {
             _presentedQuery = GetEntityQuery(
@@ -304,10 +321,20 @@ namespace TheWaningBorder.Systems.Visibility
                         go.SetActive(true);
                 }
                 allEntities.Dispose();
+                _havePass = false;   // the next culled pass starts with a full sweep
                 return;
             }
 
             var humanFaction = mgr.HumanFaction;
+            bool fullPass = !_havePass || humanFaction != _lastHuman;
+            uint sinceVersion = _lastPassVersion;
+            // Stamp BEFORE the walk, one version back, so a change stamped
+            // with this same version (a MonoBehaviour flip before the next
+            // system runs) still reads as new next pass.
+            _lastPassVersion = EntityManager.GlobalSystemVersion - 1;
+            _havePass = true;
+            _lastHuman = humanFaction;
+            _staticCursor = (_staticCursor + 1) % StaticSlices;
 
             // Player sight sources for the direct-distance fallback, bucketed
             // into a coarse grid (2026-09-25). The fallback used to walk
@@ -357,6 +384,7 @@ namespace TheWaningBorder.Systems.Visibility
             var planHandle = GetComponentTypeHandle<PlannedBuilding>(true);
             var unitHandle = GetComponentTypeHandle<UnitTag>(true);
             var stealthHandle = GetComponentTypeHandle<StealthTag>(true);
+            var viewTagHandle = GetComponentTypeHandle<PresentationViewSpawned>(true);
 
             // Main-thread chunk reads: finish any job still writing them.
             _presentedQuery.CompleteDependency();
@@ -373,6 +401,14 @@ namespace TheWaningBorder.Systems.Visibility
                 bool isUnit = chunk.Has(ref unitHandle);
                 bool isStealth = chunk.Has(ref stealthHandle);
                 bool mobile = isUnit && !isBuilding;
+
+                // A static chunk outside this pass's slice that has not
+                // changed keeps the visibility it was given (see header).
+                if (!mobile && !fullPass && c % StaticSlices != _staticCursor
+                    && !chunk.DidOrderChange(sinceVersion)
+                    && !chunk.DidChange(ref ltHandle, sinceVersion)
+                    && !(chunk.Has(ref viewTagHandle) && chunk.DidChange(ref viewTagHandle, sinceVersion)))
+                    continue;
 
                 for (int i = 0; i < entities.Length; i++)
                 {

@@ -19,6 +19,19 @@
 // Entity.Index order (indices are allocated identically on every peer — the
 // same assumption LandmarkAgeUp makes). The sale is paid through
 // FactionEconomy.Add on every peer.
+//
+// STAGGERED BY FACTION (2026-10-15 perf). The trade pass ran every Runai
+// faction's depots, caravans and escorts on one tick in eight — the spike on
+// that tick. Each faction now has its OWN tickSeconds clock, phased k/8 of a
+// period apart at match start, and a pass works only the factions whose clock
+// fired: their depots, caravans, escorts and sites. Every rule a caravan or
+// escort reads is its own faction's (its markets, Waystations, Caravan
+// Master, flags, carry), so a faction's pass is the old pass restricted to
+// it, run with its own elapsed step. Deterministic (sim time, epoch-reset per
+// match). The 1 s depot tagging / The Call grant read only the extractors /
+// eligible units (Any-queries in the same archetype order) instead of every
+// building / unit, and escorts find their caravan through a per-depot chain
+// instead of re-testing every caravan with EntityManager calls.
 
 using System.Collections.Generic;
 using TheWaningBorder.Core;
@@ -37,11 +50,47 @@ namespace TheWaningBorder.Runai
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial class RunaiTradeSystem : SystemBase
     {
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            // Runai ships only in edition C (docs/Design/Alpha_Build.md §4). Off
+            // elsewhere: its configs are stripped from A/B builds, and running
+            // it there threw every tick, in the menu and in every match.
+            if (!GameEdition.Allows(Cultures.Runai)) { Enabled = false; return; }
+
+            // TagDepots: an extractor (hut or mine) of any faction, finished,
+            // not yet a depot. Same rows as QT_DepotCandidates' that
+            // DepotKind != 0 accepts, in the same archetype order.
+            _depotCandidates = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<BuildingTag>(), ComponentType.ReadOnly<FactionTag>() },
+                Any = new[] { ComponentType.ReadOnly<GathererHutTag>(), ComponentType.ReadOnly<MineTag>() },
+                None = new[] { ComponentType.ReadOnly<RunaiDepot>(), ComponentType.ReadOnly<UnderConstruction>() },
+            });
+            // GrantTheCall: Workers, Litharchs and heroes only.
+            _callerCandidates = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<UnitTag>(), ComponentType.ReadOnly<FactionTag>() },
+                Any = new[] { ComponentType.ReadOnly<WorkerTag>(), ComponentType.ReadOnly<LitharchTag>(),
+                              ComponentType.ReadOnly<HeroLevel>() },
+            });
+        }
+
         private static RunaiTradeSystemConfig _cfg;
         public static RunaiTradeSystemConfig Cfg =>
             _cfg != null ? _cfg : (_cfg = ComponentConfig.Require<RunaiTradeSystemConfig>());
 
-        private SimCadence.Periodic _tick;
+        // Per-faction trade clocks (player factions 0..7) — see the header.
+        private const int ClockFactions = 8;
+        private readonly float[] _clockAcc = new float[ClockFactions];
+        private readonly float[] _clockStep = new float[ClockFactions];
+        private readonly bool[] _due = new bool[Alliances.MaxFactions];
+        private int _clockEpoch = -1;
+
+        // Narrow candidate queries for the 1 s passes (built in OnCreate:
+        // an Any-query keeps the wide query's archetype order).
+        private EntityQuery _depotCandidates;
+        private EntityQuery _callerCandidates;
         private SimCadence.Periodic _tagTick;
         private SimCadence.Periodic _logTick;
 
@@ -400,30 +449,53 @@ namespace TheWaningBorder.Runai
             float dt = SystemAPI.Time.DeltaTime;
             SnapshotCultures(em);
 
-            if (_tagTick.Due(dt, 1f)) { TagDepots(em); GrantTheCall(em); }
+            if (_tagTick.Due(dt, 1f)) { TagDepots(em, _depotCandidates); GrantTheCall(em, _callerCandidates); }
             if (_logTick.Due(dt, 60f)) LogTrade(em);
 
-            float step = _tick.DueStep(dt, math.max(0.05f, Cfg.tickSeconds));
-            if (step <= 0f) return;
+            // Per-faction clocks, reset-style (as DueStep), phased k/8 apart.
+            float interval = math.max(0.05f, Cfg.tickSeconds);
+            if (_clockEpoch != SimCadence.Epoch)
+            {
+                _clockEpoch = SimCadence.Epoch;
+                for (int f = 0; f < ClockFactions; f++) _clockAcc[f] = interval * f / ClockFactions;
+            }
+            bool anyDue = false;
+            System.Array.Clear(_due, 0, _due.Length);
+            for (int f = 0; f < ClockFactions; f++)
+            {
+                _clockAcc[f] += dt;
+                _clockStep[f] = 0f;
+                if (_clockAcc[f] < interval) continue;
+                _clockStep[f] = _clockAcc[f];
+                _clockAcc[f] = 0f;
+                _due[f] = true;
+                anyDue = true;
+            }
+            if (!anyDue) return;
 
             var dq = QC_Depots.Get(em, QT_Depots);
             if (dq.IsEmptyIgnoreFilter && QC_Caravans.Get(em, QT_Caravans).IsEmptyIgnoreFilter) return;
 
-            CollectSites(em);
+            CollectSites(em, _due);
             SnapshotFlags();
 
             var depotList = SortedEntities(em, dq);
             var caravans = SortedEntities(em, QC_Caravans.Get(em, QT_Caravans));
             var escorts = SortedEntities(em, QC_Escorts.Get(em, QT_Escorts));
 
-            SpawnMissing(em, depotList, caravans, escorts, step);
+            SpawnMissing(em, depotList, caravans, escorts, _clockStep);
             depotList.Dispose(); caravans.Dispose(); escorts.Dispose();
 
             // Re-read after the spawns so the new ones act this tick.
             caravans = SortedEntities(em, QC_Caravans.Get(em, QT_Caravans));
             escorts = SortedEntities(em, QC_Escorts.Get(em, QT_Escorts));
-            for (int i = 0; i < caravans.Length; i++) TickCaravan(em, caravans[i], step);
-            TickEscorts(em, escorts, caravans, step);
+            for (int i = 0; i < caravans.Length; i++)
+            {
+                int fi = (int)em.GetComponentData<FactionTag>(caravans[i]).Value;
+                if (fi < 0 || fi >= ClockFactions || !_due[fi]) continue;
+                TickCaravan(em, caravans[i], _clockStep[fi]);
+            }
+            TickEscorts(em, escorts, caravans, _clockStep);
             caravans.Dispose(); escorts.Dispose();
         }
 
@@ -474,11 +546,11 @@ namespace TheWaningBorder.Runai
         /// <summary>The Call (§8.1) on every Worker, Litharch and hero of an
         /// aged-up Runai faction. Granted, not authored on the Age 0 SOs,
         /// because those units are every culture's.</summary>
-        private static void GrantTheCall(EntityManager em)
+        private static void GrantTheCall(EntityManager em, EntityQuery q)
         {
             int idx = AbilityCatalog.IndexOf("The Call");
             if (idx < 0) return;
-            var q = QC_Callers.Get(em, QT_Callers);
+            if (q.IsEmptyIgnoreFilter) return;
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             var add = new NativeList<Entity>(Allocator.Temp);
@@ -501,9 +573,8 @@ namespace TheWaningBorder.Runai
 
         /// <summary>Give every finished extractor of an aged-up Runai faction its depot —
         /// the home territory's Age 0 huts and mines included (§3.1).</summary>
-        private static void TagDepots(EntityManager em)
+        private static void TagDepots(EntityManager em, EntityQuery q)
         {
-            var q = QC_DepotCandidates.Get(em, QT_DepotCandidates);
             if (q.IsEmptyIgnoreFilter) return;
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -520,10 +591,27 @@ namespace TheWaningBorder.Runai
             add.Dispose();
         }
 
-        private void CollectSites(EntityManager em)
+        /// <summary>Markets, Waystations and Caravan Masters, in Entity.Index
+        /// order — of the factions in <paramref name="only"/> (null = all).
+        /// Every reader asks for its own faction's sites only, so a pass that
+        /// works a few factions needs only theirs.</summary>
+        private void CollectSites(EntityManager em, bool[] only = null)
         {
             _markets.Clear(); _waystations.Clear(); _masters.Clear();
-            var ents = SortedEntities(em, QC_Buildings.Get(em, QT_Buildings));
+            var bq = QC_Buildings.Get(em, QT_Buildings);
+            NativeList<Entity> ents;
+            using (var all = bq.ToEntityArray(Allocator.Temp))
+            using (var allF = bq.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            {
+                ents = new NativeList<Entity>(all.Length, Allocator.Temp);
+                for (int i = 0; i < all.Length; i++)
+                {
+                    int fi = (int)allF[i].Value;
+                    if (only != null && (fi < 0 || fi >= only.Length || !only[fi])) continue;
+                    ents.Add(all[i]);
+                }
+                SortByIndex(ents);
+            }
             for (int i = 0; i < ents.Length; i++)
             {
                 var e = ents[i];
@@ -538,16 +626,23 @@ namespace TheWaningBorder.Runai
 
             var ms = SortedEntities(em, QC_Masters.Get(em, QT_Masters));
             for (int i = 0; i < ms.Length; i++)
-                if (em.GetComponentData<Health>(ms[i]).Value > 0)
+                if (em.GetComponentData<Health>(ms[i]).Value > 0
+                    && (only == null || Due(only, em.GetComponentData<FactionTag>(ms[i]).Value)))
                     _masters.Add((em.GetComponentData<FactionTag>(ms[i]).Value,
                                   em.GetComponentData<LocalTransform>(ms[i]).Position.xz));
             ms.Dispose();
         }
 
+        private static bool Due(bool[] only, Faction f)
+        {
+            int fi = (int)f;
+            return fi >= 0 && fi < only.Length && only[fi];
+        }
+
         // ── spawning ───────────────────────────────────────────────────
 
         private void SpawnMissing(EntityManager em, NativeList<Entity> depots, NativeList<Entity> caravans,
-                                  NativeList<Entity> escorts, float step)
+                                  NativeList<Entity> escorts, float[] stepOf)
         {
             var caravanCount = new NativeHashMap<Entity, int>(depots.Length, Allocator.Temp);
             for (int i = 0; i < caravans.Length; i++)
@@ -571,8 +666,11 @@ namespace TheWaningBorder.Runai
             for (int i = 0; i < depots.Length; i++)
             {
                 var e = depots[i];
-                if (DepotKind(em, e) == 0) continue;
                 var f = em.GetComponentData<FactionTag>(e).Value;
+                int sfi = (int)f;
+                if (sfi < 0 || sfi >= ClockFactions || stepOf[sfi] <= 0f) continue;   // not this faction's pass
+                float step = stepOf[sfi];
+                if (DepotKind(em, e) == 0) continue;
                 if (!IsRunaiNow(f)) continue;
                 var fl = FlagsOf(f);
                 int cap = fl.Cap;
@@ -901,14 +999,37 @@ namespace TheWaningBorder.Runai
 
         // ── escorts ────────────────────────────────────────────────────
 
-        private static void TickEscorts(EntityManager em, NativeList<Entity> escorts, NativeList<Entity> caravans, float step)
+        private static void TickEscorts(EntityManager em, NativeList<Entity> escorts, NativeList<Entity> caravans, float[] stepOf)
         {
+            // Every caravan read once: alive, and its depot. A chain per depot
+            // (head -> next, ascending Entity.Index) replaces the old scan of
+            // every caravan, with three EntityManager calls each, for every
+            // unassigned escort — same first match, same order.
+            int cn = caravans.Length;
+            var carIndex = new NativeHashMap<Entity, int>(cn + 1, Allocator.Temp);
+            var carAlive = new NativeArray<bool>(cn, Allocator.Temp);
+            var carNext = new NativeArray<int>(cn, Allocator.Temp);
+            var depotHead = new NativeHashMap<Entity, int>(cn + 1, Allocator.Temp);
+            for (int k = 0; k < cn; k++)
+            {
+                carIndex[caravans[k]] = k;
+                carAlive[k] = CaravanAlive(em, caravans[k]);
+            }
+            for (int k = cn - 1; k >= 0; k--)
+            {
+                carNext[k] = -1;
+                if (!carAlive[k]) continue;
+                var d = em.GetComponentData<RunaiCaravan>(caravans[k]).Depot;
+                carNext[k] = depotHead.TryGetValue(d, out int head) ? head : -1;
+                depotHead[d] = k;
+            }
+
             // How many of each kind already ride with each caravan.
             var riding = new NativeHashMap<long, int>(caravans.Length * 3 + 1, Allocator.Temp);
             for (int i = 0; i < escorts.Length; i++)
             {
                 var es = em.GetComponentData<RunaiEscort>(escorts[i]);
-                if (es.Caravan != Entity.Null && CaravanAlive(em, es.Caravan))
+                if (es.Caravan != Entity.Null && Alive(em, es.Caravan, carIndex, carAlive))
                 {
                     long k = Key(es.Caravan, es.Kind);
                     riding.TryGetValue(k, out int n); riding[k] = n + 1;
@@ -918,10 +1039,13 @@ namespace TheWaningBorder.Runai
             for (int i = 0; i < escorts.Length; i++)
             {
                 var e = escorts[i];
+                var f = em.GetComponentData<FactionTag>(e).Value;
+                int efi = (int)f;
+                if (efi < 0 || efi >= ClockFactions || stepOf[efi] <= 0f) continue;   // not this faction's pass
+                float step = stepOf[efi];
                 var hp = em.GetComponentData<Health>(e);
                 if (hp.Value <= 0) continue;
                 var es = em.GetComponentData<RunaiEscort>(e);
-                var f = em.GetComponentData<FactionTag>(e).Value;
 
                 // The Call holds it: a controllable army until it runs out.
                 if (es.Called > 0f)
@@ -935,15 +1059,15 @@ namespace TheWaningBorder.Runai
                 bool depotAlive = es.Depot != Entity.Null && em.Exists(es.Depot) && em.HasComponent<RunaiDepot>(es.Depot);
                 if (!depotAlive) { hp.Value = 0; em.SetComponentData(e, hp); continue; }
 
-                if (es.Caravan == Entity.Null || !CaravanAlive(em, es.Caravan))
+                if (es.Caravan == Entity.Null || !Alive(em, es.Caravan, carIndex, carAlive))
                 {
                     es.Caravan = Entity.Null;
                     EscortSquad(f, out int g, out int a, out int r);
                     int per = es.Kind == EscortKind.Guard ? g : es.Kind == EscortKind.Archer ? a : r;
-                    for (int k = 0; k < caravans.Length && per > 0; k++)
+                    int start = per > 0 && depotHead.TryGetValue(es.Depot, out int h0) ? h0 : -1;
+                    for (int k = start; k >= 0; k = carNext[k])
                     {
                         var ce = caravans[k];
-                        if (!CaravanAlive(em, ce) || em.GetComponentData<RunaiCaravan>(ce).Depot != es.Depot) continue;
                         long key = Key(ce, es.Kind);
                         riding.TryGetValue(key, out int have);
                         if (have >= per) continue;
@@ -977,7 +1101,14 @@ namespace TheWaningBorder.Runai
                 }
             }
             riding.Dispose();
+            carIndex.Dispose(); carAlive.Dispose(); carNext.Dispose(); depotHead.Dispose();
         }
+
+        /// <summary>CaravanAlive, answered from the pass's caravan read for
+        /// the caravans in it (the list holds every RunaiCaravan) and live
+        /// for anything else.</summary>
+        private static bool Alive(EntityManager em, Entity c, NativeHashMap<Entity, int> index, NativeArray<bool> alive)
+            => index.TryGetValue(c, out int k) ? alive[k] : CaravanAlive(em, c);
 
         private static bool CaravanAlive(EntityManager em, Entity c)
             => em.Exists(c) && em.HasComponent<RunaiCaravan>(c) && em.GetComponentData<Health>(c).Value > 0;

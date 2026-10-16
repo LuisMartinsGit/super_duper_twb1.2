@@ -158,6 +158,13 @@ namespace TheWaningBorder.AI
             var q = QC_Shooters.Get(em, QT_Shooters);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            // Bulk columns (2026-10-15 perf): the two tests that reject almost
+            // every shooter — dead, or not reloading — read from arrays BEFORE
+            // the EntityManager tag tests. All of them are side-effect-free
+            // filters joined by AND, so the order changes no answer.
+            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
+            using var archers = q.ToComponentDataArray<ArcherState>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             System.Array.Clear(_issued, 0, MaxF);
 
             for (int i = 0; i < ents.Length; i++)
@@ -165,6 +172,8 @@ namespace TheWaningBorder.AI
                 int fi = (int)facs[i].Value;
                 if (fi < 0 || fi >= MaxF || !_kiteDue[fi]) continue;
                 if (_issued[fi] >= Cfg.kiteMaxPerTick) continue;
+                if (hps[i].Value <= 0) continue;
+                if (archers[i].CooldownTimer < Cfg.kiteMinReloadSeconds) continue;
                 var e = ents[i];
 
                 // Siege and emplaced engines do not dance; a channelling
@@ -172,12 +181,9 @@ namespace TheWaningBorder.AI
                 if (em.HasComponent<SiegeTag>(e) || em.HasComponent<EmplacedEngineTag>(e)
                     || em.HasComponent<StationaryAutoFire>(e)) continue;
                 if (TransientState.Active<AbilityCastState>(em, e) || em.HasComponent<Launched>(e)) continue;
-                if (em.GetComponentData<Health>(e).Value <= 0) continue;
-                var archer = em.GetComponentData<ArcherState>(e);
-                if (archer.CooldownTimer < Cfg.kiteMinReloadSeconds) continue;
                 if (AITactics.IsKiting(em, e)) continue;
 
-                float3 myPos = em.GetComponentData<LocalTransform>(e).Position;
+                float3 myPos = xfs[i].Position;
                 float myRadius = AITactics.RadiusOf(em, e);
                 var faction = facs[i].Value;
 
@@ -355,19 +361,22 @@ namespace TheWaningBorder.AI
             var q = QC_Casters.Get(em, QT_Casters);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            // Bulk Health, and the cheap host-side tests first (2026-10-15
+            // perf) — AND-joined, side-effect-free filters: same answers.
+            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
             for (int f = 0; f < MaxF; f++) _callable[f] = -1;
 
             for (int i = 0; i < ents.Length; i++)
             {
                 int fi = (int)facs[i].Value;
                 if (fi < 0 || fi >= MaxF || !_abilityDue[fi]) continue;
+                if (hps[i].Value <= 0) continue;
                 var e = ents[i];
+                if (CastPending(e)) continue;
                 if (!em.HasComponent<UnitTag>(e)) continue;   // buildings / Ledger targets
-                if (em.GetComponentData<Health>(e).Value <= 0) continue;
                 if (TransientState.Active<AbilityCastState>(em, e) || TransientState.Active<AbilityActivated>(em, e)
                     || em.HasComponent<Launched>(e)) continue;
 
-                if (CastPending(e)) continue;
                 int nSlots = AbilityQuery.ActiveSlots(em, e, _slots);
                 if (nSlots == 0) continue;
 

@@ -32,6 +32,19 @@
 // Every input is replicated simulation state and every step runs on the
 // lockstep clock, so every peer moves every meter identically. The meter is
 // stored as integer thousandths (TerritoryOwnership.MeterMax) and hashed.
+//
+// ROLLING CENSUS (2026-10-15 perf). The once-a-second pass used to walk every
+// unit at once - a region lookup (polygon test) and seven EntityManager calls
+// each, ~2,600 units: a 5-10 ms spike on one tick in thirty. Units are now
+// counted in CensusSlots slices, one per tick across the second: a unit is
+// sampled on the tick its Entity.Index falls due (Index % CensusSlots), so
+// each living unit is counted exactly once per meter step, at a position at
+// most a second old. Deterministic: Entity.Index is allocated identically on
+// every peer (the assumption RunaiTradeSystem and LandmarkAgeUp already make)
+// and the slot cursor is epoch-reset per match. The tag tests are per chunk.
+// Buildings, which do not move, keep their region in a per-entity memo keyed
+// on exact position and RegionMap.Version (identical answers), and the tick-0
+// seed walks only Fortresses and curse nodes.
 
 using Unity.Collections;
 using Unity.Entities;
@@ -65,6 +78,21 @@ namespace TheWaningBorder.Systems.World
         private const float DisconnectSeconds = 240f;
 
         private EntityQuery _fortressQuery;
+        private EntityQuery _seedFortressQuery;
+        private EntityQuery _seedNodeQuery;
+
+        /// <summary>Slices of the rolling unit census - one per tick of the
+        /// one-second meter step.</summary>
+        private const int CensusSlots = 30;
+        private int _censusSlot;
+        private int[] _popAcc = System.Array.Empty<int>();
+
+        // Building -> territory, valid while the building has not moved and
+        // the region map is the same version. Rebuilt from the live building
+        // set every pass, so the dead fall out.
+        private struct RegionMemo { public float X, Z; public int Version, Region; }
+        private System.Collections.Generic.Dictionary<Entity, RegionMemo> _regionMemo = new();
+        private System.Collections.Generic.Dictionary<Entity, RegionMemo> _regionMemoNext = new();
         // Static so read-only displays (the debug board) can read the last
         // tick's answer; only this system writes them.
         private static readonly int[] _held = new int[Sides];
@@ -116,6 +144,18 @@ namespace TheWaningBorder.Systems.World
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.ReadOnly<Health>(),
                 ComponentType.Exclude<UnderConstruction>());
+            _seedFortressQuery = GetEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<FortressTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<Health>());
+            _seedNodeQuery = GetEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<SmallNodeTag>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<Health>());
         }
 
         protected override void OnUpdate()
@@ -133,6 +173,10 @@ namespace TheWaningBorder.Systems.World
             {
                 _epoch = SimCadence.Epoch;
                 TerritoryOwnership.ResetMeter();
+                _censusSlot = 0;
+                System.Array.Clear(_popAcc, 0, _popAcc.Length);
+                _regionMemo.Clear();
+                _regionMemoNext.Clear();
             }
             if (!TerritoryOwnership.EnsureMeter()) return;
 
@@ -148,7 +192,20 @@ namespace TheWaningBorder.Systems.World
             // curse node — which the build gate makes impossible after tick 0
             // except for exactly those two grants — so a late spawn (the
             // start-age promoter, a reseeded node) is picked up too.
-            if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
+            bool due = _acc.Due(SystemAPI.Time.DeltaTime, TickInterval);
+
+            // The rolling census: this tick's slice, and on the meter tick
+            // any slice a short period did not reach (never one twice).
+            int cells = RegionMap.Count * Sides;
+            if (_popAcc.Length != cells)
+            {
+                _popAcc = new int[cells];
+                _censusSlot = 0;
+            }
+            if (_censusSlot < CensusSlots) SampleUnits(em, _censusSlot++);
+            if (!due) return;
+            while (_censusSlot < CensusSlots) SampleUnits(em, _censusSlot++);
+
             SeedFromStructures(em);
             Tick(em, TickInterval);
         }
@@ -165,11 +222,16 @@ namespace TheWaningBorder.Systems.World
                 _hasBuilding = new byte[cells];
                 _hasLock = new byte[cells];
             }
-            System.Array.Clear(_pop, 0, cells);
             System.Array.Clear(_hasBuilding, 0, cells);
             System.Array.Clear(_hasLock, 0, cells);
 
-            GatherUnits(em);
+            // This second's census becomes the meter's input; the next one
+            // starts empty.
+            if (_popAcc.Length == cells) System.Array.Copy(_popAcc, _pop, cells);
+            else System.Array.Clear(_pop, 0, cells);
+            System.Array.Clear(_popAcc, 0, _popAcc.Length);
+            _censusSlot = 0;
+
             GatherBuildings(em);
             ComputeReach(em, count);
 
@@ -424,7 +486,7 @@ namespace TheWaningBorder.Systems.World
             {
                 int side = (int)facs[i].Value;
                 if (side < 0 || side >= CurseSide) continue;
-                int t = RegionMap.NearestRegion(xfs[i].Position.x, xfs[i].Position.z);
+                int t = BuildingRegion(ents[i], xfs[i].Position);
                 if (t == RegionMap.None || !TerritoryOwnership.IsClaimed(t)) continue;
                 if (SideOf(TerritoryOwnership.HolderOf(t)) != side) continue;
                 if (_connected[t * Sides + side] != 0) continue;
@@ -454,29 +516,73 @@ namespace TheWaningBorder.Systems.World
 
         // ── Inputs ──────────────────────────────────────────────────────
 
-        private void GatherUnits(EntityManager em)
+        /// <summary>
+        /// One slice of the rolling census: every living, counting unit whose
+        /// Entity.Index falls in <paramref name="slot"/> adds its population
+        /// weight to the territory it stands in. Exactly the old GatherUnits
+        /// rules (<see cref="Counts"/>, <see cref="PopOf"/>,
+        /// <see cref="IsStanding"/>), with the archetype-level tests made once
+        /// per chunk instead of once per unit.
+        /// </summary>
+        private void SampleUnits(EntityManager em, int slot)
         {
-            using var ents = _unitQuery.ToEntityArray(Allocator.Temp);
-            using var facs = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var hps = _unitQuery.ToComponentDataArray<Health>(Allocator.Temp);
-            using var classes = _unitQuery.ToComponentDataArray<UnitTag>(Allocator.Temp);
+            var entH = GetEntityTypeHandle();
+            var facH = GetComponentTypeHandle<FactionTag>(true);
+            var xfH = GetComponentTypeHandle<LocalTransform>(true);
+            var hpH = GetComponentTypeHandle<Health>(true);
+            var tagH = GetComponentTypeHandle<UnitTag>(true);
+            var caravanH = GetComponentTypeHandle<CaravanTag>(true);
+            var traderH = GetComponentTypeHandle<RunaiTraderWarrior>(true);
+            var escortH = GetComponentTypeHandle<RunaiEscort>(true);
+            var summonH = GetComponentTypeHandle<TemporarySummon>(true);
+            var conscriptH = GetComponentTypeHandle<ConscriptedTag>(true);
+            var deathH = GetComponentTypeHandle<DeathAnimationState>(true);
+            var popH = GetComponentTypeHandle<PopulationCost>(true);
+            var godH = GetComponentTypeHandle<GodsplinterState>(true);
+            var stingH = GetComponentTypeHandle<VeilstingerState>(true);
 
-            for (int i = 0; i < ents.Length; i++)
+            _unitQuery.CompleteDependency();
+            using var chunks = _unitQuery.ToArchetypeChunkArray(Allocator.Temp);
+            for (int c = 0; c < chunks.Length; c++)
             {
-                if (hps[i].Value <= 0) continue;
-                int side = (int)facs[i].Value;
-                if (side < 0 || side >= Sides) continue;
-                var e = ents[i];
-                if (!Counts(em, e, classes[i].Class)) continue;
+                var chunk = chunks[c];
+                // Counts(): never caravans, escorts, summons or conscripts.
+                if (chunk.Has(ref caravanH) || chunk.Has(ref traderH) || chunk.Has(ref escortH)
+                    || chunk.Has(ref summonH) || chunk.Has(ref conscriptH)) continue;
 
-                var p = xfs[i].Position;
-                int t = RegionMap.RegionAt(p.x, p.z);
-                if (t == RegionMap.None) continue;
+                var ents = chunk.GetNativeArray(entH);
+                var facs = chunk.GetNativeArray(ref facH);
+                var xfs = chunk.GetNativeArray(ref xfH);
+                var hps = chunk.GetNativeArray(ref hpH);
+                var tags = chunk.GetNativeArray(ref tagH);
+                bool hasDeath = chunk.Has(ref deathH);
+                bool hasPop = chunk.Has(ref popH);
+                var pops = hasPop ? chunk.GetNativeArray(ref popH) : default;
+                bool isGod = chunk.Has(ref godH), isSting = chunk.Has(ref stingH);
 
-                if (side == CurseSide && !IsStanding(em, e, t)) continue;
+                for (int i = 0; i < chunk.Count; i++)
+                {
+                    var e = ents[i];
+                    if (e.Index % CensusSlots != slot) continue;
+                    if (hps[i].Value <= 0) continue;
+                    int side = (int)facs[i].Value;
+                    if (side < 0 || side >= Sides) continue;
+                    var cls = tags[i].Class;
+                    if (cls == UnitClass.Economy || cls == UnitClass.Worker || cls == UnitClass.Scout) continue;
+                    if (hasDeath && chunk.IsComponentEnabled(ref deathH, i)) continue;
 
-                _pop[t * Sides + side] += PopOf(em, e, side);
+                    var p = xfs[i].Position;
+                    int t = RegionMap.RegionAt(p.x, p.z);
+                    if (t == RegionMap.None) continue;
+
+                    if (side == CurseSide && !IsStanding(em, e, t)) continue;
+
+                    // PopOf(): the population cost, else the curse tier, else 1.
+                    int pop = hasPop ? pops[i].Amount
+                            : side == CurseSide ? (isGod ? 3 : isSting ? 2 : 1)
+                            : 1;
+                    _popAcc[t * Sides + side] += pop;
+                }
             }
         }
 
@@ -532,12 +638,37 @@ namespace TheWaningBorder.Systems.World
             return RegionMap.RegionAt(dest.x, dest.z) == t;
         }
 
+        /// <summary>RegionMap.NearestRegion for a building, memoised on its
+        /// exact position and the region map version - the same answer.</summary>
+        private int BuildingRegion(Entity e, float3 p)
+        {
+            if (_regionMemo.TryGetValue(e, out var m) && m.X == p.x && m.Z == p.z && m.Version == RegionMap.Version)
+                return m.Region;
+            int t = RegionMap.NearestRegion(p.x, p.z);
+            _regionMemo[e] = new RegionMemo { X = p.x, Z = p.z, Version = RegionMap.Version, Region = t };
+            return t;
+        }
+
         private void GatherBuildings(EntityManager em)
         {
             using var ents = _buildingQuery.ToEntityArray(Allocator.Temp);
             using var facs = _buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xfs = _buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var hps = _buildingQuery.ToComponentDataArray<Health>(Allocator.Temp);
+
+            // Re-key the memo on the live set: every building now standing
+            // gets its region (cached or fresh); the destroyed fall out.
+            _regionMemoNext.Clear();
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var p = xfs[i].Position;
+                if (!(_regionMemo.TryGetValue(ents[i], out var m) && m.X == p.x && m.Z == p.z
+                      && m.Version == RegionMap.Version))
+                    m = new RegionMemo { X = p.x, Z = p.z, Version = RegionMap.Version,
+                                         Region = RegionMap.NearestRegion(p.x, p.z) };
+                _regionMemoNext[ents[i]] = m;
+            }
+            (_regionMemo, _regionMemoNext) = (_regionMemoNext, _regionMemo);
 
             for (int i = 0; i < ents.Length; i++)
             {
@@ -547,8 +678,7 @@ namespace TheWaningBorder.Systems.World
                 int side = (int)facs[i].Value;
                 if (side < 0 || side >= Sides) continue;
 
-                var p = xfs[i].Position;
-                int t = RegionMap.NearestRegion(p.x, p.z);
+                int t = BuildingRegion(e, xfs[i].Position);
                 if (t == RegionMap.None) continue;
 
                 _hasBuilding[t * Sides + side] = 1;
@@ -584,19 +714,19 @@ namespace TheWaningBorder.Systems.World
 
         private void SeedPass(EntityManager em, bool fortresses)
         {
-            using var ents = _buildingQuery.ToEntityArray(Allocator.Temp);
-            using var facs = _buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = _buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var hps = _buildingQuery.ToComponentDataArray<Health>(Allocator.Temp);
+            // Only the structures this pass can match (was: every building,
+            // tag-tested one by one). Same relative order: a narrower query
+            // walks the same archetypes in the same creation order.
+            var q = fortresses ? _seedFortressQuery : _seedNodeQuery;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {
                 var e = ents[i];
                 if (hps[i].Value <= 0) continue;                    // collapsing
                 if (em.HasComponent<UnderConstruction>(e)) continue; // a foundation grants nothing
-                bool match = fortresses
-                    ? em.HasComponent<FortressTag>(e)
-                    : em.HasComponent<SmallNodeTag>(e);
-                if (!match) continue;
                 int side = (int)facs[i].Value;
                 if (side < 0 || side >= Sides) continue;
                 var p = xfs[i].Position;
@@ -626,8 +756,7 @@ namespace TheWaningBorder.Systems.World
             for (int i = 0; i < ents.Length; i++)
             {
                 if ((int)facs[i].Value != side) continue;
-                var p = xfs[i].Position;
-                if (RegionMap.NearestRegion(p.x, p.z) != t) continue;
+                if (BuildingRegion(ents[i], xfs[i].Position) != t) continue;
                 var hp = em.GetComponentData<Health>(ents[i]);
                 if (hp.Value <= 0) continue;
                 hp.Value = 0;

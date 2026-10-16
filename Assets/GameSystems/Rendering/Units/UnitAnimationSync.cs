@@ -4,6 +4,8 @@
 
 using UnityEngine;
 using Unity.Entities;
+using Unity.Transforms;
+using TheWaningBorder.Core.Settings;
 
 namespace TheWaningBorder.Rendering
 {
@@ -28,6 +30,14 @@ namespace TheWaningBorder.Rendering
     ///
     /// Works with any Animator Controller that has these parameters.
     /// Missing parameters are silently ignored.
+    ///
+    /// 3,000-unit pass (2026-10-15): tunables in UnitAnimationSync.asset
+    /// (<see cref="UnitAnimationSyncConfig"/>). Off-screen units poll slower
+    /// and are re-polled the frame they come into view; parameters are written
+    /// only when they change; render settings (culling, keep-state, skinned
+    /// mesh flags) are applied at spawn by <see cref="ConfigureView"/>; an
+    /// optional distance LOD and distance shadow cull exist, both OFF in the
+    /// shipped config.
     /// </summary>
     public class UnitAnimationSync : MonoBehaviour
     {
@@ -72,15 +82,78 @@ namespace TheWaningBorder.Rendering
         // Natural attack clip length (seconds); 0 = no attack clip found.
         private float _attackClipLength;
 
-        /// <summary>State-boolean poll cadence (2026-08-31 profile pass).
-        /// The booleans feed animator TRANSITIONS, which blend over longer
-        /// than this anyway, so 10 Hz is visually identical to per-frame —
-        /// while cutting this component's managed ECS reads (~10 per unit
-        /// per frame, hundreds of units) by an order of magnitude. The bow
-        /// draw cue is exempt: it is phase-locked to the arrow spawn and
-        /// runs per-frame in <see cref="UpdateDrawCue"/>.</summary>
-        private const float PollInterval = 0.1f;
+        /// <summary>State-boolean poll cadence (2026-08-31 profile pass;
+        /// tunable since 2026-10-15). The booleans feed animator TRANSITIONS,
+        /// which blend over longer than the on-screen interval anyway, so it
+        /// is visually identical to per-frame. Off-screen units poll slower
+        /// and are re-polled the frame they come into view. The bow draw cue
+        /// is exempt: it is phase-locked to the arrow spawn and runs per-frame
+        /// in <see cref="UpdateDrawCue"/>.</summary>
         private float _nextPoll;
+
+        // ── Render-side state (2026-10-15, 3,000-unit pass) ──────────────
+        private static UnitAnimationSyncConfig _cfg;
+        internal static UnitAnimationSyncConfig Cfg
+            => _cfg != null ? _cfg : (_cfg = ComponentConfig.Require<UnitAnimationSyncConfig>());
+
+        /// <summary>Sim position at the last poll — the on-screen and LOD
+        /// tests read this instead of a Transform (no native call per unit
+        /// per frame). Stale by at most one off-screen poll interval, which
+        /// <see cref="UnitAnimationSyncConfig.visibilityPad"/> covers.</summary>
+        private Vector3 _lastPos;
+        private bool _wasVisible;
+
+        // Last value written per Animator parameter (-1 = unknown). Each
+        // SetBool/SetFloat is a native call; most polls change nothing.
+        // Reset in OnEnable, because an Animator that does NOT keep its state
+        // on disable comes back with default parameters.
+        private sbyte _vMoving = -1, _vAttacking = -1, _vWorking = -1;
+        private sbyte _vBuilding = -1, _vMining = -1, _vHealing = -1;
+        private float _vAttackSpeed = float.NaN;
+
+        // Distance LOD: this component disabled the Animator and steps it.
+        private bool _lodManual;
+        private float _lodAccum;
+        private int _lodPhase;
+
+        // Distance shadow cull (only when the config asks for it).
+        private Renderer[] _shadowRenderers;
+        private UnityEngine.Rendering.ShadowCastingMode[] _shadowModes;
+        private bool _shadowsCulled;
+
+        /// <summary>
+        /// Apply the render settings every animated unit view gets, the moment
+        /// it is instantiated (PresentationSpawnSystem): Animator culling and
+        /// keep-state, skinned-mesh offscreen/motion-vector/quality flags.
+        /// None of these change how an on-screen unit looks with the shipped
+        /// config; see <see cref="UnitAnimationSyncConfig"/>.
+        /// </summary>
+        public static void ConfigureView(GameObject view, Animator animator)
+        {
+            var cfg = Cfg;
+            if (cfg == null)
+            {
+                // Config missing (already logged loudly by Require): keep the
+                // pre-config behaviour rather than leave the prefab default.
+                if (animator != null) animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+                return;
+            }
+
+            if (animator != null)
+            {
+                animator.cullingMode = cfg.cullingMode;
+                animator.keepAnimatorStateOnDisable = cfg.keepStateOnDisable;
+            }
+
+            var smrs = view.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            for (int i = 0; i < smrs.Length; i++)
+            {
+                var smr = smrs[i];
+                if (cfg.forceNoUpdateWhenOffscreen) smr.updateWhenOffscreen = false;
+                if (cfg.disableSkinnedMotionVectors) smr.skinnedMotionVectors = false;
+                if (cfg.skinQuality != SkinQuality.Auto) smr.quality = cfg.skinQuality;
+            }
+        }
 
         void Start()
         {
@@ -125,11 +198,36 @@ namespace TheWaningBorder.Rendering
 
             _valid = true;
 
-            // Stagger the 10 Hz polls across units so a whole army does not
-            // pay its poll on the same frame — that synchronization would
-            // just rebuild the spike this throttle removes.
+            var cfg = Cfg;
+            float interval = cfg != null ? cfg.onscreenPollInterval : 0.1f;
+
+            // Stagger the polls across units so a whole army does not pay its
+            // poll on the same frame — that synchronization would just
+            // rebuild the spike this throttle removes.
             _nextPoll = Time.unscaledTime
-                + ((GetInstanceID() & 15) / 16f) * PollInterval;
+                + ((GetInstanceID() & 15) / 16f) * interval;
+            _lodPhase = GetInstanceID() & 0x7fff;
+
+            if (LinkedEntity != Entity.Null && _em.Exists(LinkedEntity)
+                && _em.HasComponent<LocalTransform>(LinkedEntity))
+                _lastPos = _em.GetComponentData<LocalTransform>(LinkedEntity).Position;
+            else
+                _lastPos = transform.position;
+
+            if (cfg != null && cfg.shadowCullDistance > 0f)
+            {
+                var all = GetComponentsInChildren<Renderer>(true);
+                int n = 0;
+                for (int i = 0; i < all.Length; i++)
+                    if (all[i] is SkinnedMeshRenderer || all[i] is MeshRenderer) all[n++] = all[i];
+                _shadowRenderers = new Renderer[n];
+                _shadowModes = new UnityEngine.Rendering.ShadowCastingMode[n];
+                for (int i = 0; i < n; i++)
+                {
+                    _shadowRenderers[i] = all[i];
+                    _shadowModes[i] = all[i].shadowCastingMode;
+                }
+            }
         }
 
         // ── Central tick (2026-09-25) ────────────────────────────────────
@@ -140,24 +238,76 @@ namespace TheWaningBorder.Rendering
         // them all from one LateUpdate with one world lookup.
         internal int TickIndex = -1;
 
-        void OnEnable() => UnitAnimationTicker.Register(this);
-        void OnDisable() => UnitAnimationTicker.Unregister(this);
+        void OnEnable()
+        {
+            UnitAnimationTicker.Register(this);
+            _vMoving = _vAttacking = _vWorking = _vBuilding = _vMining = _vHealing = -1;
+            _vAttackSpeed = float.NaN;
+            _wasVisible = false;   // re-poll on the first visible frame
+        }
 
-        internal void Tick(EntityManager em)
+        void OnDisable()
+        {
+            UnitAnimationTicker.Unregister(this);
+            ExitLod();
+        }
+
+        /// <summary>Hand the Animator back to Unity if the LOD disabled it.
+        /// Every path that stops driving this unit (death, entity gone, view
+        /// hidden) calls this, so a corpse or a re-shown view never stays
+        /// frozen on a manually stepped rig.</summary>
+        private void ExitLod()
+        {
+            if (!_lodManual) return;
+            _lodManual = false;
+            _lodAccum = 0f;
+            if (_animator != null) _animator.enabled = true;
+        }
+
+        internal void Tick(EntityManager em, in UnitAnimationTicker.Frame f)
         {
             if (!_valid || _animator == null) return;
             if (_em != em) _em = em;
-            if (LinkedEntity == Entity.Null || !_em.Exists(LinkedEntity)) return;
-            if (_deathTriggered) return;
+            if (LinkedEntity == Entity.Null || !_em.Exists(LinkedEntity)) { ExitLod(); return; }
+            if (_deathTriggered) { ExitLod(); return; }
 
             // Phase-locked bow cue stays PER-FRAME — its whole purpose is to
             // land the visible release on the exact arrow-spawn tick, and a
             // 10 Hz poll would jitter it by up to 100 ms.
-            UpdateDrawCue();
+            if (_hasDrawBow && AttackCycleSeconds > 0f)
+                UpdateDrawCue();
 
-            // Everything below is transition booleans — 10 Hz, staggered.
-            if (Time.unscaledTime < _nextPoll) return;
-            _nextPoll = Time.unscaledTime + PollInterval;
+            // On-screen test against the last polled position: pure math on
+            // the once-per-frame frustum planes, no native call.
+            var cfg = f.Cfg;
+            bool visible = ProceduralRigCulling.Visible(_lastPos, f.VisibilityPad);
+            bool becameVisible = visible && !_wasVisible;
+            _wasVisible = visible;
+
+            if (cfg != null && cfg.lodEnabled) StepLod(cfg, visible, in f);
+
+            if (_shadowRenderers != null && f.HaveCamera)
+            {
+                float d = cfg.shadowCullDistance;
+                bool far = (_lastPos - f.CameraPos).sqrMagnitude > d * d;
+                if (far != _shadowsCulled)
+                {
+                    _shadowsCulled = far;
+                    for (int i = 0; i < _shadowRenderers.Length; i++)
+                        if (_shadowRenderers[i] != null)
+                            _shadowRenderers[i].shadowCastingMode = far
+                                ? UnityEngine.Rendering.ShadowCastingMode.Off
+                                : _shadowModes[i];
+                }
+            }
+
+            // Everything below is transition booleans — throttled, staggered;
+            // a unit that just came into view is polled immediately.
+            if (!becameVisible && f.Now < _nextPoll) return;
+            _nextPoll = f.Now + (visible ? f.OnscreenInterval : f.OffscreenInterval);
+
+            if (_em.HasComponent<LocalTransform>(LinkedEntity))
+                _lastPos = _em.GetComponentData<LocalTransform>(LinkedEntity).Position;
 
             // ── Death check ──
             if (_em.HasComponent<Health>(LinkedEntity))
@@ -167,6 +317,7 @@ namespace TheWaningBorder.Rendering
                 {
                     if (_hasIsDead)
                     {
+                        ExitLod();
                         _animator.SetTrigger(IsDeadHash);
                         _deathTriggered = true;
                     }
@@ -180,6 +331,7 @@ namespace TheWaningBorder.Rendering
             {
                 if (_hasIsDead && !_deathTriggered)
                 {
+                    ExitLod();
                     _animator.SetTrigger(IsDeadHash);
                     _deathTriggered = true;
                 }
@@ -195,7 +347,7 @@ namespace TheWaningBorder.Rendering
                     var dest = _em.GetComponentData<DesiredDestination>(LinkedEntity);
                     isMoving = dest.Has == 1;
                 }
-                _animator.SetBool(IsMovingHash, isMoving);
+                SetBoolCached(IsMovingHash, isMoving, ref _vMoving);
             }
 
             // ── Attack (ranged via ArcherState or melee via Target) ──
@@ -224,7 +376,7 @@ namespace TheWaningBorder.Rendering
                     isAttacking = target.Value != Entity.Null;
                 }
 
-                _animator.SetBool(IsAttackingHash, isAttacking);
+                SetBoolCached(IsAttackingHash, isAttacking, ref _vAttacking);
             }
 
             // ── Working (worker gathering or worker constructing) ──
@@ -246,7 +398,7 @@ namespace TheWaningBorder.Rendering
                     isWorking = order.Site != Entity.Null;
                 }
 
-                _animator.SetBool(IsWorkingHash, isWorking);
+                SetBoolCached(IsWorkingHash, isWorking, ref _vWorking);
             }
 
             // ── Worker granular work states (build / mine) ──
@@ -269,8 +421,8 @@ namespace TheWaningBorder.Rendering
                     mining = worker.State == WorkerActivity.Gathering;
                 }
 
-                if (_hasIsBuilding) _animator.SetBool(IsBuildingHash, building);
-                if (_hasIsMining)   _animator.SetBool(IsMiningHash, mining);
+                if (_hasIsBuilding) SetBoolCached(IsBuildingHash, building, ref _vBuilding);
+                if (_hasIsMining)   SetBoolCached(IsMiningHash, mining, ref _vMining);
             }
 
             // ── Healing (Litharch) ──
@@ -282,7 +434,7 @@ namespace TheWaningBorder.Rendering
                     var litharch = _em.GetComponentData<LitharchState>(LinkedEntity);
                     isHealing = litharch.IsHealing == 1;
                 }
-                _animator.SetBool(IsHealingHash, isHealing);
+                SetBoolCached(IsHealingHash, isHealing, ref _vHealing);
             }
 
             // ── Attack speed ──
@@ -309,9 +461,57 @@ namespace TheWaningBorder.Rendering
                         speed = Mathf.Max(ms.Value / 4f, 0.5f); // Normalize around base speed 4
                     }
                 }
-                _animator.SetFloat(AttackSpeedHash, speed);
+                if (!(speed == _vAttackSpeed))
+                {
+                    _animator.SetFloat(AttackSpeedHash, speed);
+                    _vAttackSpeed = speed;
+                }
             }
 
+        }
+
+        private void SetBoolCached(int hash, bool value, ref sbyte last)
+        {
+            sbyte v = value ? (sbyte)1 : (sbyte)0;
+            if (v == last) return;
+            _animator.SetBool(hash, value);
+            last = v;
+        }
+
+        /// <summary>
+        /// Distance animation LOD (off in the shipped config — see
+        /// <see cref="UnitAnimationSyncConfig.lodEnabled"/>). A visible unit
+        /// farther than lodDistance has its Animator disabled and stepped
+        /// manually every lodFrameInterval frames with the accumulated delta,
+        /// so clips keep real speed at a lower sample rate. Near or off-screen
+        /// units hand the Animator back to Unity (off-screen it is culled).
+        /// Relies on keepAnimatorStateOnDisable: disabling an Animator that
+        /// does not keep its state resets it.
+        /// </summary>
+        private void StepLod(UnitAnimationSyncConfig cfg, bool visible, in UnitAnimationTicker.Frame f)
+        {
+            bool want = visible && f.HaveCamera && _animator.keepAnimatorStateOnDisable
+                && (_lastPos - f.CameraPos).sqrMagnitude > cfg.lodDistance * cfg.lodDistance;
+            if (!want) { ExitLod(); return; }
+
+            if (!_lodManual)
+            {
+                // Only take over an Animator Unity is running. One a unit's
+                // own script disabled (the Ledger's procedural gait) is left
+                // alone, or this would switch it back on.
+                if (!_animator.enabled) return;
+                _animator.enabled = false;
+                _lodManual = true;
+                _lodAccum = 0f;
+            }
+
+            _lodAccum += f.DeltaTime;
+            int every = Mathf.Max(1, cfg.lodFrameInterval);
+            if ((f.FrameCount + _lodPhase) % every == 0)
+            {
+                _animator.Update(_lodAccum);
+                _lodAccum = 0f;
+            }
         }
 
         // ── Draw cue (phase-locked to the reload) ──
@@ -321,8 +521,8 @@ namespace TheWaningBorder.Rendering
         // CooldownTimer counts down to the next shot (interval =
         // max(aim, cooldown); see RangedCombatSystem); it jumps back to the
         // full cooldown right after firing, which re-arms the cue.
-        // Called per-frame from LateUpdate, deliberately outside the 10 Hz
-        // throttle — see PollInterval.
+        // Called per-frame from LateUpdate, deliberately outside the poll
+        // throttle — see _nextPoll.
         private void UpdateDrawCue()
         {
             if (_hasDrawBow && AttackCycleSeconds > 0f
@@ -361,6 +561,22 @@ namespace TheWaningBorder.Rendering
         private static UnitAnimationTicker _instance;
         private static readonly System.Collections.Generic.List<UnitAnimationSync> _all = new();
 
+        /// <summary>Everything a unit tick needs that is the same for every
+        /// unit this frame — read once here instead of once per unit (each
+        /// Time.* / camera read is a native call).</summary>
+        internal struct Frame
+        {
+            public UnitAnimationSyncConfig Cfg;
+            public float Now;
+            public float DeltaTime;
+            public int FrameCount;
+            public bool HaveCamera;
+            public Vector3 CameraPos;
+            public float VisibilityPad;
+            public float OnscreenInterval;
+            public float OffscreenInterval;
+        }
+
         internal static void Register(UnitAnimationSync s)
         {
             if (s.TickIndex >= 0) return;
@@ -398,6 +614,20 @@ namespace TheWaningBorder.Rendering
             var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
+
+            var cfg = UnitAnimationSync.Cfg;
+            var f = new Frame
+            {
+                Cfg = cfg,
+                Now = Time.unscaledTime,
+                DeltaTime = Time.deltaTime,
+                FrameCount = Time.frameCount,
+                VisibilityPad = cfg != null ? cfg.visibilityPad : 8f,
+                OnscreenInterval = cfg != null ? cfg.onscreenPollInterval : 0.1f,
+                OffscreenInterval = cfg != null ? cfg.offscreenPollInterval : 0.1f,
+            };
+            f.HaveCamera = ProceduralRigCulling.TryGetCameraPosition(out f.CameraPos);
+
             // Backwards: a tick that disables its own view swap-removes it.
             for (int i = _all.Count - 1; i >= 0; i--)
             {
@@ -412,7 +642,7 @@ namespace TheWaningBorder.Rendering
                     _all.RemoveAt(last);
                     continue;
                 }
-                s.Tick(em);
+                s.Tick(em, in f);
             }
         }
     }

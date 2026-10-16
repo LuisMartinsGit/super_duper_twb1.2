@@ -18,19 +18,49 @@
 //   * MoveCommand / AttackMoveCommand -> DesiredDestination conversion.
 //   * Per-unit smoothed-direction blending (anti-jitter).
 //   * Per-unit cosmetic rotation (turn-rate clamped).
-//   * Slope check against TerrainUtility.GetHeight (no NavMesh sample).
 //   * Stuck-counter escalation (sidestep -> escape -> cancel).
 //   * Combat short-circuit for archers with in-range targets.
 //
-// Determinism notes:
-//   * No UnityEngine.Random / wall-clock / Mathf in sim-affecting code.
-//   * dt = SystemAPI.Time.DeltaTime is the fixed-step value the
-//     SimulationSystemGroup ticks at -- deterministic across machines.
-//   * Per-unit work writes only the entity's own components; no
-//     cross-entity reads inside the per-entity loop.
-//   * Job not Burst-compiled because TerrainUtility.GetHeight is managed
-//     (calls into UnityEngine.Terrain). Same limitation as the old
-//     MovementSystem -- documented in the file header there too.
+// BURST (perf pass 2026-10-15). The per-unit integration (Phase 2) was the
+// largest slice of the late-game tick (35 ms of 49 at ~2,600 entities) as a
+// main-thread foreach. It is now IntegrateUnitsJob, a Burst IJobEntity run
+// ScheduleParallel. What made it managed, and what replaced each piece:
+//   * TerrainUtility.GetSurfaceHeight (Terrain.SampleHeight + BridgeSurface)
+//     and LayeredMoveSystem.RampartSurfaceY  -> NavSurface (NavSurfaceField):
+//     a baked heightmap sampled bilinearly + a native copy of the bridge
+//     deck pieces. Heights differ from SampleHeight by millimetres between
+//     heightmap samples; they are identical on every peer.
+//   * PassabilityGrid.GetCell / IsBridgeDeckOnly -> NavTerrainMask.
+//   * NavGridQuery (managed static cache)  -> the NavGridSingleton +
+//     NavCostField arrays, same index math (IsCellPassable* / SnapToWalkable
+//     re-implemented below, bit-for-bit the same rules).
+//   * TargetGeometry.SurfaceDistXZ(em, ...) -> its lookup overload.
+//   * UnitSpeedModifiers -> its (now Burst-safe) Lookups overload.
+//   * TransientState helpers -> the inline lookup / ParallelWriter twins
+//     at the bottom of the job (same rules).
+//
+// Determinism notes (lockstep):
+//   * Burst FloatMode.Deterministic / FloatPrecision.High, math.* only, no
+//     Random, no wall clock. dt is the fixed sim step.
+//   * READ-BEFORE-WRITE: the job never writes LocalTransform. It writes each
+//     unit's new transform into a per-unit output slot (indexed by
+//     EntityIndexInQuery), and a second job applies them. So every cross-
+//     entity read (an archer's target, the crowded-arrival neighbours) sees
+//     the PRE-TICK positions, whatever the thread schedule. (The old
+//     main-thread loop saw neighbours earlier in chunk order already moved —
+//     a deterministic but order-dependent read; the result now differs
+//     slightly from it, by design, and is order-independent.)
+//   * Each unit writes only its own DesiredDestination (query column).
+//   * ECB commands go through a ParallelWriter with sortKey =
+//     EntityIndexInQuery: playback order is the entity's query index, then
+//     record order — fixed on every peer. Phase 1 (main thread) records into
+//     its own ECB, created FIRST, so its commands still play back before
+//     Phase 2's, exactly as when both shared one buffer.
+//   * The neighbour test (GoalTakenByCloserNeighbour) is existential over
+//     the hash buckets, so bucket iteration order cannot change its answer.
+//   * The jobs complete inside OnUpdate: PassabilityGrid.Cells and the
+//     NavSurfaceField snapshots are main-thread-owned and must never be
+//     touched by managed code while a read is in flight.
 //
 // [UpdateAfter(typeof(...))] hooks that used to point at MovementSystem
 // (BattalionSyncSystem, WallGarrisonSystem, WallDoorAccessSystem) now
@@ -39,88 +69,27 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core.Commands.Types;
-using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Systems.Navigation
 {
     /// <summary>
-    /// task-112 M4 integrator. Single-thread main-thread foreach over units
-    /// (mirrors the deleted MovementSystem's shape). The per-unit work is
-    /// pure (writes only the entity's own components) so a future Burst
-    /// IJobEntity port is mechanical -- M4 keeps it readable / debuggable
-    /// since this is the deletion-gate phase.
+    /// task-112 M4 integrator. Phase 1 (command -> destination) stays a small
+    /// main-thread pass; Phase 2 (the per-unit step) is a parallel Burst job.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct UnitIntegratorSystem : ISystem
     {
-        private const float StopDistance = 0.5f;
-
-        /// <summary>Arrival window for a unit settling into a FORMATION SLOT.
-        /// Tighter than the loose-unit window because the slot is a designed
-        /// position rather than "somewhere near the flag", and eight units each
-        /// parked anywhere in a 0.5 m disc do not read as a formation. Matches
-        /// FormationGroupSystem.InPlaceDistance so the marching shape and the
-        /// stopped shape are the same shape.</summary>
-        private const float FormationStopDistance = 0.15f;
-        private const float DefaultMoveSpeed = 3.5f;
-        // 8 -> 6 rad/s (~460 -> ~344 deg/s). At 460 deg/s a unit changing
-        // heading completed the turn inside a couple of frames, which reads
-        // as the model snapping between facings rather than turning. Still
-        // brisk enough that a unit is pointing where it walks before it has
-        // covered its own radius, which is what stops it looking like it is
-        // sliding sideways.
-        private const float TurnSpeed = 6f;             // rad/s (~344 deg/s)
-
-        // Mirror of SteeringSystem.SeparationRadius. Two units cannot stand
-        // closer than this, which is the whole reason for the crowded-arrival
-        // rule below: with a 0.5 m StopDistance and a 1.5 m separation ring,
-        // two units sent to the SAME point can never both satisfy arrival.
-        private const float SeparationClearance = 1.5f;
-        /// <summary>Arrival window when the ordered point is already occupied
-        /// by someone who got there first.</summary>
-        private const float CrowdStopDistance = StopDistance + SeparationClearance;
-
-        /// <summary>How near the goal another unit must be before it genuinely
-        /// blocks arrival. A unit `d` from the goal keeps us at least
-        /// (SeparationClearance - d) away, which only beats StopDistance while
-        /// d &lt; SeparationClearance - StopDistance. Past that we can walk
-        /// around it, and declaring arrival would be giving up early.</summary>
-        private const float GoalBlockedRadius = SeparationClearance - StopDistance;
-
-        // Arrival braking. SteeringSystem normalises its force vector, so a
-        // unit one metre from its goal, with flow and separation very nearly
-        // cancelling, still moved at FULL speed along whatever tiny residual
-        // survived — the literal circling motion at a destination. Taper the
-        // step over the last few metres so units decelerate into the goal
-        // instead of skating around it.
-        private const float ArriveSlowRadius = 2.5f;
-        private const float MinArriveSpeedScale = 0.2f;
-        // Per-step terrain backstop: the PassabilityGrid cell mask is the
-        // single authority (see the TERRAIN CHECK in the step loop) — no
-        // independent slope constants here any more.
-        private const float SmoothRate = 12f;
-
-        // Max walking-surface drop per step. Terrain is continuous so real
-        // slopes never trip this; only ledges (bridge deck edges) do.
-        private const float MaxLedgeDrop = 2f;
-
-        // ── Per-unit lookups (perf pass 2026-10-15) ────────────────────
-        // Phase 2 used to make ~50 EntityManager calls per moving unit per
-        // tick (HasComponent / GetComponentData / IsComponentEnabled), each
-        // one a dependency check plus an archetype walk — the profiled
-        // ~88 ms late-game frame. Lookups answer the same questions with
-        // the same values; Update()d once per tick, which is enough because
-        // nothing in OnUpdate makes a main-thread structural change (every
-        // add / enable goes through the ECB).
-        //
-        // LocalTransform is written through _xform, NOT a RefRW query
-        // column: a RefRW column bumps the change version of every chunk it
-        // visits, so every unit read as "moved" to the presentation sync
-        // each tick whether it moved or not.
+        // ── Per-unit lookups ───────────────────────────────────────────
+        // Read-only for the job; LocalTransform is written ONLY by the apply
+        // job through _xformRW (a RefRW query column would bump the change
+        // version of every chunk, so every unit would read as "moved" to the
+        // presentation sync each tick whether it moved or not).
         private ComponentLookup<LocalTransform> _xform;
+        private ComponentLookup<LocalTransform> _xformRW;
         private ComponentLookup<LayerTraversalState> _traversal;
         private ComponentLookup<SmoothedDirection> _smoothed;
         private ComponentLookup<StuckState> _stuck;
@@ -141,14 +110,33 @@ namespace TheWaningBorder.Systems.Navigation
         private ComponentLookup<SteeringDesiredDir> _steerDir;
         private ComponentLookup<FlowDesiredDir> _flowDir;
         private ComponentLookup<FactionTag> _faction;
+        private ComponentLookup<BuildingTag> _building;
+        private ComponentLookup<EmplacedEngineTag> _emplaced;
+        private ComponentLookup<BuildingSize> _buildingSize;
+        private ComponentLookup<Radius> _radius;
         private EntityStorageInfoLookup _exists;
         private UnitSpeedModifiers.Lookups _speedMods;
+
+        private EntityQuery _moveQuery;
+
+        // Stand-ins for optional singletons: a job field must always hold an
+        // allocated container, even on the ticks it is not consulted.
+        private NativeArray<byte> _dummyBytes;
+        private NativeParallelMultiHashMap<int, Entity> _dummyHash;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
 
-            _xform = state.GetComponentLookup<LocalTransform>(false);
+            _moveQuery = SystemAPI.QueryBuilder()
+                .WithAll<UnitTag, LocalTransform>()
+                .WithAllRW<DesiredDestination>()
+                .WithNone<DeathAnimationState>()
+                .WithNone<TheWaningBorder.Entities.Launched>()   // airborne: LaunchSystem owns the transform
+                .Build();
+
+            _xform = state.GetComponentLookup<LocalTransform>(true);
+            _xformRW = state.GetComponentLookup<LocalTransform>(false);
             _traversal = state.GetComponentLookup<LayerTraversalState>(true);
             _smoothed = state.GetComponentLookup<SmoothedDirection>(true);
             _stuck = state.GetComponentLookup<StuckState>(true);
@@ -169,8 +157,23 @@ namespace TheWaningBorder.Systems.Navigation
             _steerDir = state.GetComponentLookup<SteeringDesiredDir>(true);
             _flowDir = state.GetComponentLookup<FlowDesiredDir>(true);
             _faction = state.GetComponentLookup<FactionTag>(true);
+            _building = state.GetComponentLookup<BuildingTag>(true);
+            _emplaced = state.GetComponentLookup<EmplacedEngineTag>(true);
+            _buildingSize = state.GetComponentLookup<BuildingSize>(true);
+            _radius = state.GetComponentLookup<Radius>(true);
             _exists = state.GetEntityStorageInfoLookup();
             _speedMods = UnitSpeedModifiers.Lookups.Create(ref state);
+
+            _dummyBytes = new NativeArray<byte>(1, Allocator.Persistent);
+            _dummyHash = new NativeParallelMultiHashMap<int, Entity>(1, Allocator.Persistent);
+        }
+
+        public void OnDestroy(ref SystemState state)
+        {
+            _speedMods.Dispose();
+            if (_dummyBytes.IsCreated) _dummyBytes.Dispose();
+            if (_dummyHash.IsCreated) _dummyHash.Dispose();
+            NavSurfaceField.Dispose();
         }
 
         public void OnUpdate(ref SystemState state)
@@ -178,41 +181,14 @@ namespace TheWaningBorder.Systems.Navigation
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
 
-            // Main-thread pass reading through lookups: drain every job that
-            // touches the lookup types first (the EntityManager calls this
-            // replaced did that implicitly, one type at a time).
+            // Drain every in-flight job touching the types read here (flow /
+            // steering write the direction components this consumes).
             state.CompleteDependency();
-            _xform.Update(ref state);
-            _traversal.Update(ref state);
-            _smoothed.Update(ref state);
-            _stuck.Update(ref state);
-            _speedOverride.Update(ref state);
-            _moveSpeed.Update(ref state);
-            _archer.Update(ref state);
-            _archerState.Update(ref state);
-            _target.Update(ref state);
-            _health.Update(ref state);
-            _userMove.Update(ref state);
-            _attackMove.Update(ref state);
-            _member.Update(ref state);
-            _slotMemory.Update(ref state);
-            _dying.Update(ref state);
-            _guard.Update(ref state);
-            _layer.Update(ref state);
-            _flying.Update(ref state);
-            _steerDir.Update(ref state);
-            _flowDir.Update(ref state);
-            _faction.Update(ref state);
-            _exists.Update(ref state);
-            _speedMods.Update(ref state);
 
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+            // Phase 1's buffer is created FIRST so it plays back before the
+            // job's (ECBs from one singleton play back in creation order).
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
-
-            // Neighbour lookup for the crowded-arrival test. Optional: the hash
-            // is allocated lazily by SpatialHashRebuildSystem, so early ticks
-            // simply fall back to the plain StopDistance arrival.
-            bool hasHash = SystemAPI.TryGetSingleton<NavSpatialHash>(out var navHash);
 
             // ── PHASE 1: MoveCommand -> DesiredDestination ──────────────
             foreach (var (mc, entity) in SystemAPI.Query<RefRO<MoveCommand>>().WithEntityAccess())
@@ -286,563 +262,640 @@ namespace TheWaningBorder.Systems.Navigation
 
             // ── PHASE 2: integrate units toward DesiredDestination ──────
             // Dying units (DeathAnimationState) are excluded so a corpse stops
-            // instantly and doesn't slide through its death animation — its
-            // movement is cancelled the moment DeathSystem registers the death.
-            foreach (var (xf, dd, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRW<DesiredDestination>>()
-                .WithAll<UnitTag>()
-                .WithNone<DeathAnimationState>()
-                .WithNone<TheWaningBorder.Entities.Launched>()   // airborne: LaunchSystem owns the transform
-                .WithEntityAccess())
+            // instantly and doesn't slide through its death animation.
+            int count = _moveQuery.CalculateEntityCount();
+            if (count == 0) return;
+
+            _xform.Update(ref state);
+            _xformRW.Update(ref state);
+            _traversal.Update(ref state);
+            _smoothed.Update(ref state);
+            _stuck.Update(ref state);
+            _speedOverride.Update(ref state);
+            _moveSpeed.Update(ref state);
+            _archer.Update(ref state);
+            _archerState.Update(ref state);
+            _target.Update(ref state);
+            _health.Update(ref state);
+            _userMove.Update(ref state);
+            _attackMove.Update(ref state);
+            _member.Update(ref state);
+            _slotMemory.Update(ref state);
+            _dying.Update(ref state);
+            _guard.Update(ref state);
+            _layer.Update(ref state);
+            _flying.Update(ref state);
+            _steerDir.Update(ref state);
+            _flowDir.Update(ref state);
+            _faction.Update(ref state);
+            _building.Update(ref state);
+            _emplaced.Update(ref state);
+            _buildingSize.Update(ref state);
+            _radius.Update(ref state);
+            _exists.Update(ref state);
+            _speedMods.Update(ref state);
+
+            // Neighbour lookup for the crowded-arrival test. Optional: the hash
+            // is allocated lazily by SpatialHashRebuildSystem, so early ticks
+            // simply fall back to the plain StopDistance arrival.
+            bool hasHash = SystemAPI.TryGetSingleton<NavSpatialHash>(out var navHash)
+                && navHash.Map.IsCreated;
+
+            // The cost field (NavGridQuery's source): absent before the nav
+            // bootstrap, in which case every cost test is skipped exactly as
+            // NavGridQuery's "not bootstrapped" answers made it skip.
+            bool hasGrid = SystemAPI.TryGetSingleton<NavGridSingleton>(out var grid)
+                & SystemAPI.TryGetSingleton<NavCostField>(out var cost);
+            hasGrid = hasGrid && cost.Cost.IsCreated && cost.Flags.IsCreated;
+
+            var outXf = new NativeArray<LocalTransform>(count, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var outEntity = new NativeArray<Entity>(count, Allocator.TempJob);
+            var outFlag = new NativeArray<byte>(count, Allocator.TempJob);   // zeroed
+
+            var job = new IntegrateUnitsJob
             {
-                if (dd.ValueRO.Has == 0) continue;
+                Dt = dt,
+                HasHash = hasHash,
+                HashMap = hasHash ? navHash.Map : _dummyHash,
+                HashCellSize = hasHash ? navHash.CellSize : 1f,
+                HasGrid = hasGrid,
+                GridWidth = hasGrid ? grid.Width : 0,
+                GridHeight = hasGrid ? grid.Height : 0,
+                GridCellSize = hasGrid ? grid.CellSize : 1f,
+                GridOrigin = hasGrid ? grid.Origin : float3.zero,
+                Cost = hasGrid ? cost.Cost : _dummyBytes,
+                CostFlags = hasGrid ? cost.Flags : _dummyBytes,
+                CostWidth = hasGrid ? cost.Width : 0,
+                CostHeight = hasGrid ? cost.Height : 0,
+                CostLayerCount = hasGrid ? cost.LayerCount : 0,
+                Surface = NavSurfaceField.GetSurface(),
+                Mask = NavSurfaceField.GetMask(),
+                Xform = _xform,
+                Traversal = _traversal,
+                Smoothed = _smoothed,
+                Stuck = _stuck,
+                SpeedOverride = _speedOverride,
+                MoveSpeedL = _moveSpeed,
+                Archer = _archer,
+                ArcherStateL = _archerState,
+                TargetL = _target,
+                HealthL = _health,
+                UserMove = _userMove,
+                AttackMove = _attackMove,
+                Member = _member,
+                SlotMemory = _slotMemory,
+                Dying = _dying,
+                Guard = _guard,
+                Layer = _layer,
+                Flying = _flying,
+                SteerDir = _steerDir,
+                FlowDir = _flowDir,
+                Faction = _faction,
+                Building = _building,
+                Emplaced = _emplaced,
+                Sizes = _buildingSize,
+                Radii = _radius,
+                Exists = _exists,
+                SpeedMods = _speedMods,
+                Ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter(),
+                OutXf = outXf,
+                OutEntity = outEntity,
+                OutFlag = outFlag,
+            };
+            var integrate = job.ScheduleParallel(_moveQuery, state.Dependency);
 
-                // Buildings should never move — and neither should an
-                // emplaced engine, whose Y is the wall deck it stands on and
-                // must never be re-snapped to the ground under the wall.
-                if (SystemAPI.HasComponent<BuildingTag>(entity)
-                    || SystemAPI.HasComponent<EmplacedEngineTag>(entity))
+            var apply = new ApplyIntegratedTransformsJob
+            {
+                Entities = outEntity,
+                Transforms = outXf,
+                Written = outFlag,
+                Xform = _xformRW,
+            }.Schedule(count, 64, integrate);
+
+            // Complete here: see "The jobs complete inside OnUpdate" above.
+            apply.Complete();
+            state.Dependency = apply;
+
+            outXf.Dispose();
+            outEntity.Dispose();
+            outFlag.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Phase 2 of <see cref="UnitIntegratorSystem"/>: one unit's step. Writes
+    /// only its own DesiredDestination, its own output slot, and ECB commands
+    /// keyed by its own query index.
+    /// </summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal partial struct IntegrateUnitsJob : IJobEntity
+    {
+        private const float StopDistance = 0.5f;
+
+        /// <summary>Arrival window for a unit settling into a FORMATION SLOT.
+        /// Tighter than the loose-unit window because the slot is a designed
+        /// position rather than "somewhere near the flag", and eight units each
+        /// parked anywhere in a 0.5 m disc do not read as a formation. Matches
+        /// FormationGroupSystem.InPlaceDistance so the marching shape and the
+        /// stopped shape are the same shape.</summary>
+        private const float FormationStopDistance = 0.15f;
+        private const float DefaultMoveSpeed = 3.5f;
+        // 8 -> 6 rad/s (~460 -> ~344 deg/s). At 460 deg/s a unit changing
+        // heading completed the turn inside a couple of frames, which reads
+        // as the model snapping between facings rather than turning. Still
+        // brisk enough that a unit is pointing where it walks before it has
+        // covered its own radius, which is what stops it looking like it is
+        // sliding sideways.
+        private const float TurnSpeed = 6f;             // rad/s (~344 deg/s)
+
+        // Mirror of SteeringSystem.SeparationRadius. Two units cannot stand
+        // closer than this, which is the whole reason for the crowded-arrival
+        // rule below: with a 0.5 m StopDistance and a 1.5 m separation ring,
+        // two units sent to the SAME point can never both satisfy arrival.
+        private const float SeparationClearance = 1.5f;
+        /// <summary>Arrival window when the ordered point is already occupied
+        /// by someone who got there first.</summary>
+        private const float CrowdStopDistance = StopDistance + SeparationClearance;
+
+        /// <summary>How near the goal another unit must be before it genuinely
+        /// blocks arrival. A unit `d` from the goal keeps us at least
+        /// (SeparationClearance - d) away, which only beats StopDistance while
+        /// d &lt; SeparationClearance - StopDistance. Past that we can walk
+        /// around it, and declaring arrival would be giving up early.</summary>
+        private const float GoalBlockedRadius = SeparationClearance - StopDistance;
+
+        // Arrival braking. SteeringSystem normalises its force vector, so a
+        // unit one metre from its goal, with flow and separation very nearly
+        // cancelling, still moved at FULL speed along whatever tiny residual
+        // survived — the literal circling motion at a destination. Taper the
+        // step over the last few metres so units decelerate into the goal
+        // instead of skating around it.
+        private const float ArriveSlowRadius = 2.5f;
+        private const float MinArriveSpeedScale = 0.2f;
+        // Per-step terrain backstop: the PassabilityGrid cell mask is the
+        // single authority (see the TERRAIN CHECK in the step loop) — no
+        // independent slope constants here any more.
+        private const float SmoothRate = 12f;
+
+        // Max walking-surface drop per step. Terrain is continuous so real
+        // slopes never trip this; only ledges (bridge deck edges) do.
+        private const float MaxLedgeDrop = 2f;
+
+        /// <summary>NavGridQuery.SnapMaxCellRadius.</summary>
+        private const int SnapMaxCellRadius = NavGridQuery.SnapMaxCellRadius;
+
+        public float Dt;
+
+        public bool HasHash;
+        [ReadOnly] public NativeParallelMultiHashMap<int, Entity> HashMap;
+        public float HashCellSize;
+
+        public bool HasGrid;
+        public int GridWidth, GridHeight;
+        public float GridCellSize;
+        public float3 GridOrigin;
+        [ReadOnly] public NativeArray<byte> Cost;
+        [ReadOnly] public NativeArray<byte> CostFlags;
+        public int CostWidth, CostHeight, CostLayerCount;
+
+        public NavSurface Surface;
+        public NavTerrainMask Mask;
+
+        [ReadOnly] public ComponentLookup<LocalTransform> Xform;
+        [ReadOnly] public ComponentLookup<LayerTraversalState> Traversal;
+        [ReadOnly] public ComponentLookup<SmoothedDirection> Smoothed;
+        [ReadOnly] public ComponentLookup<StuckState> Stuck;
+        [ReadOnly] public ComponentLookup<FormationSpeedOverride> SpeedOverride;
+        [ReadOnly] public ComponentLookup<MoveSpeed> MoveSpeedL;
+        [ReadOnly] public ComponentLookup<ArcherTag> Archer;
+        [ReadOnly] public ComponentLookup<ArcherState> ArcherStateL;
+        [ReadOnly] public ComponentLookup<Target> TargetL;
+        [ReadOnly] public ComponentLookup<Health> HealthL;
+        [ReadOnly] public ComponentLookup<UserMoveOrder> UserMove;
+        [ReadOnly] public ComponentLookup<AttackMoveTag> AttackMove;
+        [ReadOnly] public ComponentLookup<FormationMemberState> Member;
+        [ReadOnly] public ComponentLookup<FormationSlotMemory> SlotMemory;
+        [ReadOnly] public ComponentLookup<DeathAnimationState> Dying;
+        [ReadOnly] public ComponentLookup<GuardPoint> Guard;
+        [ReadOnly] public ComponentLookup<NavLayerIndex> Layer;
+        [ReadOnly] public ComponentLookup<FlyingTag> Flying;
+        [ReadOnly] public ComponentLookup<SteeringDesiredDir> SteerDir;
+        [ReadOnly] public ComponentLookup<FlowDesiredDir> FlowDir;
+        [ReadOnly] public ComponentLookup<FactionTag> Faction;
+        [ReadOnly] public ComponentLookup<BuildingTag> Building;
+        [ReadOnly] public ComponentLookup<EmplacedEngineTag> Emplaced;
+        [ReadOnly] public ComponentLookup<BuildingSize> Sizes;
+        [ReadOnly] public ComponentLookup<Radius> Radii;
+        [ReadOnly] public EntityStorageInfoLookup Exists;
+        public UnitSpeedModifiers.Lookups SpeedMods;
+
+        public EntityCommandBuffer.ParallelWriter Ecb;
+
+        [NativeDisableParallelForRestriction] public NativeArray<LocalTransform> OutXf;
+        [NativeDisableParallelForRestriction] public NativeArray<Entity> OutEntity;
+        [NativeDisableParallelForRestriction] public NativeArray<byte> OutFlag;
+
+        public void Execute([EntityIndexInQuery] int k, Entity entity,
+            in LocalTransform xf, ref DesiredDestination dd)
+        {
+            OutEntity[k] = entity;
+            // OutFlag[k] stays 0 (zeroed) unless a transform is produced.
+
+            if (dd.Has == 0) return;
+
+            // Buildings should never move — and neither should an
+            // emplaced engine, whose Y is the wall deck it stands on and
+            // must never be re-snapped to the ground under the wall.
+            if (Building.HasComponent(entity) || Emplaced.HasComponent(entity))
+            {
+                dd.Has = 0;
+                return;
+            }
+
+            // task-112 M5 -- LayerTransitionSystem owns the unit's
+            // position while a climb / gate traversal is in flight.
+            if (Traversal.HasComponent(entity)) return;
+
+            // Lazy-enable ECS scratch (deferred via ECB). Pre-added
+            // DISABLED at spawn (TransientState UnitSet6).
+            if (!Active(ref Smoothed, entity))
+                Set(k, entity, new SmoothedDirection { Value = float3.zero });
+            if (!Active(ref Stuck, entity))
+                Set(k, entity, new StuckState { Counter = 0, LastAttempt = 0 });
+
+            // Resolve effective speed: FormationSpeedOverride > MoveSpeed > default.
+            float speed = DefaultMoveSpeed;
+            if (Active(ref SpeedOverride, entity))
+            {
+                var fso = SpeedOverride[entity];
+                if (fso.Value > 0) speed = fso.Value;
+            }
+            else if (MoveSpeedL.HasComponent(entity))
+            {
+                var ms = MoveSpeedL[entity];
+                if (ms.Value > 0) speed = ms.Value;
+            }
+
+            // Spell slows, veil / Suppression drag, Fortify, haste — one
+            // shared definition, so FormationGroupSystem can size a group's
+            // speed from exactly what this applies.
+            speed *= UnitSpeedModifiers.Multiplier(ref SpeedMods, entity);
+            if (speed <= 0f) return;
+
+            // Archers in firing range: ARRIVE, don't just halt (clearing Has
+            // makes the halt a real arrival RangedCombatSystem can fire from).
+            // The metric matches RangedCombatSystem exactly (XZ distance,
+            // height-scaled max range, measured to the target's edge). An
+            // EXPLICIT player move order outranks the firing band.
+            if (Archer.HasComponent(entity)
+                && TargetL.HasComponent(entity)
+                && !Active(ref UserMove, entity))
+            {
+                var tgt = TargetL[entity];
+                if (tgt.Value != Entity.Null && Exists.Exists(tgt.Value)
+                    && Xform.HasComponent(tgt.Value)
+                    && HealthL.HasComponent(tgt.Value)
+                    && HealthL[tgt.Value].Value > 0)
                 {
-                    dd.ValueRW.Has = 0;
-                    continue;
-                }
-
-                // task-112 M5 -- LayerTransitionSystem owns the unit's
-                // position while a climb / gate traversal is in flight.
-                // The integrator must not touch LocalTransform here or
-                // the two systems will fight over the same frame.
-                if (_traversal.HasComponent(entity)) continue;
-
-                // Lazy-enable ECS scratch (deferred via ECB). Pre-added
-                // DISABLED at spawn (TransientState UnitSet6); enabling is the
-                // old lazy add, minus the structural change.
-                if (!TransientState.Active(ref _smoothed, entity))
-                    TransientState.Set(ecb, entity, new SmoothedDirection { Value = float3.zero });
-                if (!TransientState.Active(ref _stuck, entity))
-                    TransientState.Set(ecb, entity, new StuckState { Counter = 0, LastAttempt = 0 });
-
-                // Resolve effective speed: FormationSpeedOverride > MoveSpeed > default.
-                float speed = DefaultMoveSpeed;
-                if (TransientState.Active(ref _speedOverride, entity))
-                {
-                    var fso = _speedOverride[entity];
-                    if (fso.Value > 0) speed = fso.Value;
-                }
-                else if (_moveSpeed.HasComponent(entity))
-                {
-                    var ms = _moveSpeed[entity];
-                    if (ms.Value > 0) speed = ms.Value;
-                }
-
-                // Spell slows, veil / Suppression drag, Fortify, haste — one
-                // shared definition, so FormationGroupSystem can size a group's
-                // speed from exactly what this applies.
-                speed *= UnitSpeedModifiers.Multiplier(ref _speedMods, entity);
-                if (speed <= 0f) continue;
-
-                // Archers in firing range: ARRIVE, don't just halt. The old
-                // bare `continue` here skipped the arrival Has-clear below, so
-                // the unit froze with DesiredDestination.Has = 1 — which is
-                // exactly the "is moving" state RangedCombatSystem's fire gate
-                // reads, so the archer stood forever without shooting (the
-                // auto-acquire freeze). Clearing Has makes the halt a real
-                // arrival the combat system can fire from. The metric also now
-                // matches RangedCombatSystem exactly (XZ distance, height-
-                // scaled max range, measured to the target's edge) so the two
-                // systems can never disagree about "in range" and flip-flop
-                // across a halt/chase band on slopes or against buildings.
-                // ...but an EXPLICIT player move order outranks the firing
-                // band. Without this, a ranged unit carrying a target into a
-                // move order — one it was already fighting when the order
-                // landed, or one handed over by retaliation — would declare
-                // itself arrived and drop the order the moment the target
-                // entered a very wide band. On a catapult (min 5.5-10 m, max
-                // 20-30 m) that was reported as "siege engines cannot move".
-                // TargetingSystem's auto-acquire does skip UserMoveOrder units,
-                // but a Target can reach a moving unit by other routes, so the
-                // exemption stays here.
-                if (_archer.HasComponent(entity)
-                    && _target.HasComponent(entity)
-                    && !TransientState.Active(ref _userMove, entity))
-                {
-                    var tgt = _target[entity];
-                    if (tgt.Value != Entity.Null && _exists.Exists(tgt.Value)
-                        && _xform.HasComponent(tgt.Value)
-                        && _health.HasComponent(tgt.Value)
-                        && _health[tgt.Value].Value > 0)
+                    float3 myP = xf.Position;
+                    float3 tgtPos = Xform[tgt.Value].Position;
+                    // minRange 0 is the DEFAULT and a valid value — only
+                    // siege keeps a dead zone; must agree with RangedCombatSystem.
+                    float maxRange = 25f, minRange = 0f;
+                    if (ArcherStateL.HasComponent(entity))
                     {
-                        float3 myP = xf.ValueRO.Position;
-                        float3 tgtPos = _xform[tgt.Value].Position;
-                        // minRange 0 is the DEFAULT and a valid value — only
-                        // siege keeps a dead zone. This used to default to 10 m
-                        // and then only overwrite it when the unit's own value
-                        // was above zero, so a unit authored with no dead zone
-                        // got a ten-metre one here and halted outside its own
-                        // firing band. It has to agree with RangedCombatSystem
-                        // or the two flip a unit between halt and retreat.
-                        float maxRange = 25f, minRange = 0f;
-                        if (_archerState.HasComponent(entity))
-                        {
-                            var ast = _archerState[entity];
-                            if (ast.MaxRange > 0) maxRange = ast.MaxRange;
-                            minRange = math.max(0f, ast.MinRange);
-                        }
-                        maxRange *= TheWaningBorder.Systems.Combat.HeightAdvantage
-                            .Multiplier(myP.y, tgtPos.y);
-                        // Shared surface metric — the legacy circle Radius here
-                        // disagreed with RangedCombatSystem's box math against
-                        // sized buildings, which is exactly the halt/chase
-                        // flip-flop this block exists to prevent.
-                        float edge = TheWaningBorder.Core.TargetGeometry
-                            .SurfaceDistXZ(em, myP, tgt.Value);
-                        // Halt only inside the FIRING band. Below min range the
-                        // unit must stay mobile or RangedCombat's retreat order
-                        // would be arrived-out right here every frame.
-                        if (edge <= maxRange && edge >= minRange)
-                        {
-                            dd.ValueRW.Has = 0;
-                            continue;
-                        }
+                        var ast = ArcherStateL[entity];
+                        if (ast.MaxRange > 0) maxRange = ast.MaxRange;
+                        minRange = math.max(0f, ast.MinRange);
+                    }
+                    maxRange *= TheWaningBorder.Systems.Combat.HeightAdvantage
+                        .Multiplier(myP.y, tgtPos.y);
+                    float edge = TheWaningBorder.Core.TargetGeometry
+                        .SurfaceDistXZ(myP, tgtPos, tgt.Value, in Sizes, in Radii);
+                    // Halt only inside the FIRING band. Below min range the
+                    // unit must stay mobile or RangedCombat's retreat order
+                    // would be arrived-out right here every frame.
+                    if (edge <= maxRange && edge >= minRange)
+                    {
+                        dd.Has = 0;
+                        return;
                     }
                 }
+            }
 
-                float3 pos = xf.ValueRO.Position;
-                float3 goal = dd.ValueRO.Position;
+            float3 pos = xf.Position;
+            float3 goal = dd.Position;
 
-                float3 to = goal - pos;
-                to.y = 0f;
-                float distSqr = math.lengthsq(to);
+            float3 to = goal - pos;
+            to.y = 0f;
+            float distSqr = math.lengthsq(to);
+            float dist = math.sqrt(distSqr);
 
-                float dist = math.sqrt(distSqr);
+            // A unit with a live Target is CHASING: neither the crowd-arrival
+            // rule nor the arrival brake applies.
+            bool chasing = TargetL.HasComponent(entity)
+                && TargetL[entity].Value != Entity.Null;
 
-                // A unit with a live Target is CHASING: its destination is
-                // re-issued every frame at a point that moves with the target.
-                // Neither the crowd-arrival rule nor the arrival brake below
-                // applies to that — settling early would stop a chase short of
-                // contact, and braking near a fleeing target of equal speed
-                // would mean melee could never close. Combat approach keeps the
-                // behaviour it already had (see GoalWallSlideSuppressRadius in
-                // SteeringSystem, which owns the orbit-a-building case).
-                bool chasing = _target.HasComponent(entity)
-                    && _target[entity].Value != Entity.Null;
+            // Arrived — inside the ordinary stop window, or as close as the
+            // crowd physically permits (StopDistance < the separation ring).
+            // A FORMATION MEMBER IS NOT A CROWD (distinct slot each), and gets
+            // the tighter window.
+            bool inFormation = Active(ref Member, entity);
+            float stop = inFormation ? FormationStopDistance : StopDistance;
 
-                // Arrived — either inside the ordinary stop window, or as close
-                // as the crowd physically permits. The second case matters
-                // because StopDistance (0.5 m) is smaller than the separation
-                // ring (1.5 m): whenever two or more units are sent to the same
-                // point — a rally flag, a formation slot that snapped onto an
-                // already-taken cell, an AI staging position — everyone but the
-                // first arrival is FORBIDDEN by steering from ever satisfying
-                // the plain test. They used to mill around the point instead,
-                // until StuckRedirectSystem noticed seconds later. Settle them
-                // immediately.
-                // A FORMATION MEMBER IS NOT A CROWD. Every member has its own
-                // distinct slot, so it is never competing with anyone for the
-                // point it was sent to — the case the crowd rule exists for.
-                // Applying it anyway let a member call itself "arrived" up to
-                // CrowdStopDistance (2.0 m) from its slot the moment a
-                // neighbour happened to be nearer the goal than it was, which
-                // on a 2.0 m slot pitch is essentially always. That is why
-                // units stopped out of formation: the shape was correct right
-                // up to the last two metres, and then everyone settled wherever
-                // they happened to be.
-                //
-                // They also get a tighter window than a loose unit. 0.5 m of
-                // slop is invisible on a single unit walking to a flag and very
-                // visible across eight units meant to be standing in a line.
-                bool inFormation = TransientState.Active(ref _member, entity);
-                float stop = inFormation ? FormationStopDistance : StopDistance;
+            bool arrived = distSqr <= (stop * stop);
+            if (!arrived && !chasing && HasHash && !inFormation
+                && distSqr <= CrowdStopDistance * CrowdStopDistance)
+                arrived = GoalTakenByCloserNeighbour(goal, pos, entity, dist);
 
-                bool arrived = distSqr <= (stop * stop);
-                if (!arrived && !chasing && hasHash && !inFormation
-                    && distSqr <= CrowdStopDistance * CrowdStopDistance)
-                    arrived = GoalTakenByCloserNeighbour(in navHash, goal, pos, entity, dist);
+            if (arrived)
+            {
+                dd.Has = 0;
+                // A finished PLAYER MOVE makes where the unit stopped its
+                // guard point (docs/Design/Stances.md §2). Not for a chase.
+                if (!chasing && Active(ref UserMove, entity) && Active(ref Guard, entity))
+                    Ecb.SetComponent(k, entity, new GuardPoint { Position = pos, Has = 1 });
+                Clear(ref UserMove, k, entity);
+                Clear(ref AttackMove, k, entity);
+                // Only for a unit travelling ALONE — the group owns a member's
+                // FormationSpeedOverride lifecycle.
+                if (!Active(ref Member, entity) && Active(ref SpeedOverride, entity))
+                    Ecb.SetComponentEnabled<FormationSpeedOverride>(k, entity, false);
+                return;
+            }
 
-                if (arrived)
+            float3 dir = to / math.max(1e-5f, dist);
+
+            // Which nav layer is this unit on (0 = Ground, 1 = Rampart)?
+            byte unitLayer = 0;
+            if (Layer.HasComponent(entity))
+                unitLayer = Layer[entity].Layer;
+            bool onRampart = unitLayer == NavLayerIndex.LayerRampart;
+            // A FLYING unit (docs/Design/Age_1_Runai.md §6.4) ignores
+            // pathfinding: straight at the goal, over walls and cliffs.
+            bool flying = Flying.HasComponent(entity);
+
+            // === PATHFINDING DIRECTION (M4 preference chain) ===
+            //   1. SteeringDesiredDir (M2) -- flow + local avoidance
+            //   2. FlowDesiredDir    (M1) -- raw flow direction
+            //   3. direct-line       -- straight at the goal cell
+            // Rampart units skip flow/steering (ground-layer fields).
+            if (!onRampart && !flying && Active(ref SteerDir, entity))
+            {
+                var sdd = SteerDir[entity];
+                if (sdd.HasValue != 0 && math.lengthsq(sdd.Value) > 1e-8f)
+                    dir = math.normalize(new float3(sdd.Value.x, 0f, sdd.Value.z));
+            }
+            else if (!onRampart && !flying && Active(ref FlowDir, entity))
+            {
+                var fdd = FlowDir[entity];
+                if (fdd.HasValue != 0 && math.lengthsq(fdd.Value) > 1e-8f)
+                    dir = math.normalize(new float3(fdd.Value.x, 0f, fdd.Value.z));
+            }
+
+            // === Smoothing ===
+            float3 smoothedDir = dir;
+            if (Active(ref Smoothed, entity))
+            {
+                var sd = Smoothed[entity];
+                if (math.lengthsq(sd.Value) > 1e-8f)
+                    smoothedDir = math.normalizesafe(math.lerp(sd.Value, dir, math.saturate(SmoothRate * Dt)));
+                Ecb.SetComponent(k, entity, new SmoothedDirection { Value = smoothedDir });
+            }
+
+            var t = xf;
+
+            // === Cosmetic rotation ===
+            if (math.lengthsq(smoothedDir) > 1e-8f)
+            {
+                float3 fwd = math.normalize(new float3(smoothedDir.x, 0f, smoothedDir.z));
+                quaternion targetRot = quaternion.RotateY(math.atan2(fwd.x, fwd.z));
+                float maxTurn = TurnSpeed * Dt;
+                SmoothSlerp(in t.Rotation, in targetRot, maxTurn, out var smoothed);
+                t.Rotation = smoothed;
+            }
+
+            // === Step === (arrival braking over the last ArriveSlowRadius m)
+            float arriveScale = (!chasing && dist < ArriveSlowRadius)
+                ? math.max(MinArriveSpeedScale, dist / ArriveSlowRadius)
+                : 1f;
+            float step = math.min(speed * arriveScale * Dt, dist);
+            float3 nextPos = pos + smoothedDir * step;
+
+            // === COST-FIELD PASSABILITY ===
+            // Faction-aware: a gate cell (CostConditional) admits only its owner.
+            bool blocked = false;
+            byte navFaction = Faction.HasComponent(entity)
+                ? (byte)Faction[entity].Value
+                : (byte)0xFF; // no faction -> never matches an owner
+            int2 nextCell = WorldToCellInt2(nextPos);
+            if (!flying && nextCell.x != int.MinValue
+                && !IsCellPassableFor(nextCell, unitLayer, navFaction))
+            {
+                // Only enforce the cost-field block if the unit's current
+                // cell IS passable -- units that spawn inside a building
+                // need to walk OUT through their own footprint.
+                int2 currentCell = WorldToCellInt2(pos);
+                if (currentCell.x != int.MinValue
+                    && IsCellPassableFor(currentCell, unitLayer, navFaction))
+                    blocked = true;
+            }
+
+            // === TERRAIN CHECK (ground only — the rampart deck is flat) ===
+            // Backstop against cost-grid rounding at cell edges, against the
+            // SAME PassabilityGrid mask the pathfinding bake uses. Gated on
+            // the mask being READY: an unbuilt mask reads all-walkable.
+            if (!blocked && !onRampart && !flying && Mask.Ready != 0)
+            {
+                var cell = Mask.WorldToCell(nextPos);
+                if (Mask.GetCell(cell) == TheWaningBorder.World.Terrain.PassabilityGrid.TerrainBlocked)
                 {
-                    dd.ValueRW.Has = 0;
-                    // A finished PLAYER MOVE makes where the unit stopped its
-                    // guard point: its stance takes over from here
-                    // (docs/Design/Stances.md §2). Not for a chase, whose
-                    // destination is the target's edge.
-                    if (!chasing && TransientState.Active(ref _userMove, entity)
-                        && TransientState.Active(ref _guard, entity))
-                        ecb.SetComponent(entity, new GuardPoint { Position = pos, Has = 1 });
-                    TransientState.Clear(ref _userMove, ecb, entity);
-                    TransientState.Clear(ref _attackMove, ecb, entity);
-                    // Only for a unit travelling ALONE. While it is still a
-                    // formation member the group owns this component's
-                    // lifecycle and removes it on Detach; stripping it here
-                    // hands the unit back its own speed in the middle of a
-                    // march it is supposed to be marching in step with.
-                    if (!TransientState.Active(ref _member, entity)
-                        && TransientState.Active(ref _speedOverride, entity))
-                        ecb.SetComponentEnabled<FormationSpeedOverride>(entity, false);
-                    continue;
+                    blocked = true;
+                }
+                else if (Mask.IsBridgeDeckOnly(cell))
+                {
+                    // Deck-only cell: admit the step only when the deck is
+                    // within step-up reach (same MountStepLimit rule as the
+                    // height snap, so admission and snap never disagree).
+                    bool onDeck = Surface.BridgeCount > 0
+                        && Surface.TryGetDeckHeight(nextPos.x, nextPos.z, out float deckY)
+                        && deckY - t.Position.y
+                            <= TheWaningBorder.World.Terrain.BridgeSurface.MountStepLimit;
+                    if (!onDeck) blocked = true;
                 }
 
-                float3 dir = to / math.max(1e-5f, dist);
-
-                // Which nav layer is this unit on (0 = Ground, 1 = Rampart)?
-                byte unitLayer = 0;
-                if (_layer.HasComponent(entity))
-                    unitLayer = _layer[entity].Layer;
-                bool onRampart = unitLayer == NavLayerIndex.LayerRampart;
-                // A FLYING unit (docs/Design/Age_1_Runai.md §6.4) ignores
-                // pathfinding: straight at the goal, over walls and cliffs.
-                bool flying = _flying.HasComponent(entity);
-
-                // === PATHFINDING DIRECTION (M4 preference chain) ===
-                // task-112 M4: NavMesh corridor is gone. Preference chain is:
-                //   1. SteeringDesiredDir (M2) -- flow + local avoidance
-                //   2. FlowDesiredDir    (M1) -- raw flow direction
-                //   3. direct-line       -- straight at the goal cell
-                // Rampart units skip flow/steering entirely — those are
-                // computed on the ground (layer-0) cost field and would steer
-                // a wall-top unit off the wall. They walk straight toward
-                // their (garrison-slot) goal; the layer-aware passability
-                // check below keeps them on walkable rampart cells.
-                if (!onRampart && !flying && TransientState.Active(ref _steerDir, entity))
+                // === LEDGE GUARD === units leave a bridge via its ramps.
+                if (!blocked)
                 {
-                    var sdd = _steerDir[entity];
-                    if (sdd.HasValue != 0 && math.lengthsq(sdd.Value) > 1e-8f)
-                        dir = math.normalize(new float3(sdd.Value.x, 0f, sdd.Value.z));
-                }
-                else if (!onRampart && !flying && TransientState.Active(ref _flowDir, entity))
-                {
-                    var fdd = _flowDir[entity];
-                    if (fdd.HasValue != 0 && math.lengthsq(fdd.Value) > 1e-8f)
-                        dir = math.normalize(new float3(fdd.Value.x, 0f, fdd.Value.z));
-                }
-
-                // === Smoothing ===
-                float3 smoothedDir = dir;
-                if (TransientState.Active(ref _smoothed, entity))
-                {
-                    var sd = _smoothed[entity];
-                    if (math.lengthsq(sd.Value) > 1e-8f)
-                        smoothedDir = math.normalizesafe(math.lerp(sd.Value, dir, math.saturate(SmoothRate * dt)));
-                    ecb.SetComponent(entity, new SmoothedDirection { Value = smoothedDir });
-                }
-
-                var t = xf.ValueRO;
-
-                // === Cosmetic rotation ===
-                if (math.lengthsq(smoothedDir) > 1e-8f)
-                {
-                    float3 fwd = math.normalize(new float3(smoothedDir.x, 0f, smoothedDir.z));
-                    quaternion targetRot = quaternion.RotateY(math.atan2(fwd.x, fwd.z));
-                    float maxTurn = TurnSpeed * dt;
-                    SmoothSlerp(in t.Rotation, in targetRot, maxTurn, out var smoothed);
-                    t.Rotation = smoothed;
-                }
-
-                // === Step ===
-                // Arrival braking: taper speed over the last ArriveSlowRadius
-                // metres. Without it the unit ran at full speed right up to the
-                // arrival test, and since the steering vector is NORMALISED,
-                // near-cancelling forces at the goal still produced full-speed
-                // motion in an arbitrary direction — a circle, not a stop.
-                float arriveScale = (!chasing && dist < ArriveSlowRadius)
-                    ? math.max(MinArriveSpeedScale, dist / ArriveSlowRadius)
-                    : 1f;
-                float step = math.min(speed * arriveScale * dt, dist);
-                float3 nextPos = pos + smoothedDir * step;
-
-                // === COST-FIELD PASSABILITY (replaces PassabilityGrid + NavMesh sample gate) ===
-                bool blocked = false;
-                // Faction-aware: gate cells stamp CostConditional (254), which
-                // the plain IsCellPassable reports walkable for EVERYONE. That
-                // made every gate a permanent hole in the wall for the enemy.
-                // The owner faction is in the cell's flag bits, so ask the
-                // faction-aware overload instead.
-                byte navFaction = _faction.HasComponent(entity)
-                    ? (byte)_faction[entity].Value
-                    : (byte)0xFF; // no faction -> never matches an owner
-                int2 nextCell = NavGridQuery.WorldToCellInt2(nextPos);
-                if (!flying && nextCell.x != int.MinValue
-                    && !NavGridQuery.IsCellPassableFor(nextCell, unitLayer, navFaction))
-                {
-                    // Only enforce the cost-field block if the unit's current
-                    // cell IS passable -- units that spawn inside a building
-                    // need to walk OUT through their own footprint.
-                    int2 currentCell = NavGridQuery.WorldToCellInt2(pos);
-                    if (currentCell.x != int.MinValue
-                        && NavGridQuery.IsCellPassableFor(currentCell, unitLayer, navFaction))
+                    float nextSurf = Surface.SurfaceHeight(nextPos.x, nextPos.z, t.Position.y);
+                    if (t.Position.y - nextSurf > MaxLedgeDrop)
                         blocked = true;
                 }
-
-                // === TERRAIN CHECK (ground only — the rampart deck is flat) ===
-                // Backstop against cost-grid rounding at cell edges. Consults
-                // the SAME PassabilityGrid mask the pathfinding bake uses
-                // (slope budget, water, NoWalk paint, paint-only mode and
-                // bridges are all encoded there), so movement can never
-                // disagree with the plan. The old version re-derived slope
-                // from raw terrain heights per step — on sculpted terrain
-                // that spiked over the budget on surface noise the grid
-                // considered walkable, and units stuttered on legitimate
-                // inclines (blocked step -> sidestep -> retry).
-                if (!blocked && !onRampart && !flying)
-                {
-                    var pg = TheWaningBorder.World.Terrain.PassabilityGrid.Instance;
-                    // IsMaskReady, not just non-null: an unbuilt mask is all
-                    // zeros, i.e. "everything walkable", and this backstop
-                    // would wave units into water and off cliffs while
-                    // reporting agreement with the plan.
-                    if (pg != null && pg.IsMaskReady)
-                    {
-                        var cell = pg.WorldToCell(nextPos);
-                        if (pg.GetCell(cell) == TheWaningBorder.World.Terrain.PassabilityGrid.TerrainBlocked)
-                        {
-                            blocked = true;
-                        }
-                        else if (pg.IsBridgeDeckOnly(cell))
-                        {
-                            // Deck-only cell: the ground here is cliff/NoWalk;
-                            // only the bridge deck is walkable. Admit the step
-                            // only when the deck is within step-up reach of
-                            // the unit (same MountStepLimit rule as
-                            // GetSurfaceHeight, so admission and the height
-                            // snap can never disagree) — a ground-level unit
-                            // under the span must route around, not
-                            // cliff-walk beneath.
-                            bool onDeck =
-                                TheWaningBorder.World.Terrain.BridgeSurface.TryGetDeckHeight(
-                                    nextPos.x, nextPos.z, out float deckY)
-                                && deckY - t.Position.y
-                                    <= TheWaningBorder.World.Terrain.BridgeSurface.MountStepLimit;
-                            if (!onDeck) blocked = true;
-                        }
-
-                        // === LEDGE GUARD ===
-                        // A step whose walking surface drops far below the
-                        // unit is a fall off a deck edge (terrain itself is
-                        // continuous, so ordinary downhill never trips this).
-                        // Units must leave a bridge via its ramps, not by
-                        // clipping down the sides.
-                        if (!blocked)
-                        {
-                            float nextSurf = TerrainUtility.GetSurfaceHeight(
-                                nextPos.x, nextPos.z, t.Position.y);
-                            if (t.Position.y - nextSurf > MaxLedgeDrop)
-                                blocked = true;
-                        }
-                    }
-                }
-
-                // === STUCK DETECTION ===
-                if (blocked)
-                {
-                    if (TransientState.Active(ref _stuck, entity))
-                    {
-                        var stuck = _stuck[entity];
-                        stuck.Counter = (byte)math.min(stuck.Counter + 1, 255);
-
-                        if (stuck.Counter > 30)
-                        {
-                            // Tier 3: try cost-field escape via NavGridQuery.SnapToPassable.
-                            // If the current cell is impassable, snap to the nearest
-                            // passable cell so the unit can resume moving.
-                            // Ground-only — snapping a rampart unit to passable
-                            // ground would yank it off the wall to terrain.
-                            bool escaped = false;
-                            int2 here = NavGridQuery.WorldToCellInt2(pos);
-                            if (!onRampart && here.x != int.MinValue && !NavGridQuery.IsCellPassable(here))
-                            {
-                                NavGridQuery.SnapToPassable(pos, out var escapePos, out var escOk);
-                                if (escOk)
-                                {
-                                    escapePos.y = TerrainUtility.GetSurfaceHeight(escapePos.x, escapePos.z, pos.y);
-                                    // Ledge guard applies to escapes too — a
-                                    // deck unit must not teleport off the
-                                    // bridge side; fall through to the order
-                                    // cancel instead.
-                                    if (pos.y - escapePos.y <= MaxLedgeDrop)
-                                    {
-                                        t.Position = escapePos;
-                                        ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
-                                        escaped = true;
-                                    }
-                                }
-                            }
-
-                            if (!escaped && TransientState.Active(ref _member, entity))
-                            {
-                                // A FORMATION MEMBER DOES NOT ABANDON ITS ORDER
-                                // HERE. Clearing Has made FormationGroupSystem's
-                                // prune read the member as "settled" and detach
-                                // it mid-march, leaving it parked against the
-                                // blocker with no order at all. The group owns a
-                                // member's progress: its spot steering (with the
-                                // goal-flow fallback when the spot is out of
-                                // sight) routes it round, and the tether fuse
-                                // drops it if it stays wedged - at which point it
-                                // is a loose unit and this give-up applies.
-                                ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
-                            }
-                            else if (!escaped)
-                            {
-                                dd.ValueRW.Has = 0;
-                                TransientState.Clear(ref _userMove, ecb, entity);
-                                TransientState.Clear(ref _attackMove, ecb, entity);
-                                if (TransientState.Active(ref _speedOverride, entity))
-                                    ecb.SetComponentEnabled<FormationSpeedOverride>(entity, false);
-                                ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
-
-                                // Tell the leash the order is abandoned, or
-                                // TargetingSystem's return-to-guard re-issues
-                                // this exact destination next tick and the unit
-                                // grinds back into the same blocker forever.
-                                if (TransientState.Active(ref _guard, entity))
-                                {
-                                    var gp = _guard[entity];
-                                    if (gp.Has != 0)
-                                    {
-                                        TransientState.Set(ecb, entity, new GuardSuppressed { Point = gp.Position });
-                                    }
-                                }
-                            }
-                        }
-                        else if (stuck.Counter > 5)
-                        {
-                            // Tier 2: try perpendicular direction.
-                            byte attempt = (byte)(stuck.LastAttempt == 1 ? 2 : 1);
-                            float3 perp = attempt == 1
-                                ? new float3(-smoothedDir.z, 0f, smoothedDir.x)
-                                : new float3(smoothedDir.z, 0f, -smoothedDir.x);
-                            perp = math.normalizesafe(perp);
-
-                            float3 perpPos = pos + perp * step;
-                            bool perpBlocked = false;
-                            int2 perpCell = NavGridQuery.WorldToCellInt2(perpPos);
-                            if (perpCell.x != int.MinValue && !NavGridQuery.IsCellPassable(perpCell, unitLayer))
-                                perpBlocked = true;
-
-                            if (!perpBlocked)
-                            {
-                                perpPos.y = onRampart
-                                    ? TheWaningBorder.Systems.Buildings.LayeredMoveSystem
-                                        .RampartSurfaceY(perpPos.x, perpPos.z)
-                                    : TerrainUtility.GetSurfaceHeight(perpPos.x, perpPos.z, t.Position.y);
-                                // Ledge guard applies to sidesteps too — the
-                                // perpendicular hop must not carry a deck
-                                // unit over the bridge side.
-                                if (t.Position.y - perpPos.y > MaxLedgeDrop)
-                                    perpBlocked = true;
-                            }
-
-                            if (!perpBlocked)
-                            {
-                                t.Position = perpPos;
-                            }
-
-                            stuck.LastAttempt = attempt;
-                            ecb.SetComponent(entity, stuck);
-                        }
-                        else
-                        {
-                            ecb.SetComponent(entity, stuck);
-                        }
-                    }
-
-                    _xform[entity] = t;
-                    continue;
-                }
-
-                // Not blocked: reset stuck counter. Skipped when it already
-                // reads zero: the only other StuckState writes in a tick are
-                // zero resets (Phase 1 above, MoveCommandHelper), so the
-                // command could only ever re-write a zero. It was one ECB
-                // command per walking unit per tick, for nothing.
-                if (TransientState.Active(ref _stuck, entity))
-                {
-                    var cur = _stuck[entity];
-                    if (cur.Counter != 0 || cur.LastAttempt != 0)
-                        ecb.SetComponent(entity, new StuckState { Counter = 0, LastAttempt = 0 });
-                }
-
-                // === Layer-aware height snap (task-112 M5) ===
-                // Layer 0 (Ground) -> walking-surface height (ground, or a
-                // bridge deck when the unit is already up on one — nearest
-                // surface to the unit's current Y wins, so units under an
-                // arch stay under it). Layer 1 (Rampart) -> the wall-deck
-                // constant, or the actual deck mesh height when the unit is
-                // crossing an overpass bridge (BridgeSurface-covered cells).
-                if (onRampart)
-                    nextPos.y = TheWaningBorder.Systems.Buildings.LayeredMoveSystem
-                        .RampartSurfaceY(nextPos.x, nextPos.z);
-                else
-                    nextPos.y = TerrainUtility.GetSurfaceHeight(nextPos.x, nextPos.z, t.Position.y);
-
-                t.Position = nextPos;
-                _xform[entity] = t;
             }
+
+            // === STUCK DETECTION ===
+            if (blocked)
+            {
+                if (Active(ref Stuck, entity))
+                {
+                    var stuck = Stuck[entity];
+                    stuck.Counter = (byte)math.min(stuck.Counter + 1, 255);
+
+                    if (stuck.Counter > 30)
+                    {
+                        // Tier 3: snap to the nearest passable cell when the
+                        // current one is impassable. Ground-only.
+                        bool escaped = false;
+                        int2 here = WorldToCellInt2(pos);
+                        if (!onRampart && here.x != int.MinValue && !IsCellPassable(here))
+                        {
+                            if (SnapToWalkable(pos, out var escapePos))
+                            {
+                                escapePos.y = Surface.SurfaceHeight(escapePos.x, escapePos.z, pos.y);
+                                // Ledge guard applies to escapes too.
+                                if (pos.y - escapePos.y <= MaxLedgeDrop)
+                                {
+                                    t.Position = escapePos;
+                                    Ecb.SetComponent(k, entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                                    escaped = true;
+                                }
+                            }
+                        }
+
+                        if (!escaped && Active(ref Member, entity))
+                        {
+                            // A FORMATION MEMBER DOES NOT ABANDON ITS ORDER
+                            // HERE — the group owns its progress (spot
+                            // steering + tether fuse).
+                            Ecb.SetComponent(k, entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                        }
+                        else if (!escaped)
+                        {
+                            dd.Has = 0;
+                            Clear(ref UserMove, k, entity);
+                            Clear(ref AttackMove, k, entity);
+                            if (Active(ref SpeedOverride, entity))
+                                Ecb.SetComponentEnabled<FormationSpeedOverride>(k, entity, false);
+                            Ecb.SetComponent(k, entity, new StuckState { Counter = 0, LastAttempt = 0 });
+
+                            // Tell the leash the order is abandoned, or
+                            // TargetingSystem's return-to-guard re-issues this
+                            // exact destination next tick.
+                            if (Active(ref Guard, entity))
+                            {
+                                var gp = Guard[entity];
+                                if (gp.Has != 0)
+                                    Set(k, entity, new GuardSuppressed { Point = gp.Position });
+                            }
+                        }
+                    }
+                    else if (stuck.Counter > 5)
+                    {
+                        // Tier 2: try perpendicular direction.
+                        byte attempt = (byte)(stuck.LastAttempt == 1 ? 2 : 1);
+                        float3 perp = attempt == 1
+                            ? new float3(-smoothedDir.z, 0f, smoothedDir.x)
+                            : new float3(smoothedDir.z, 0f, -smoothedDir.x);
+                        perp = math.normalizesafe(perp);
+
+                        float3 perpPos = pos + perp * step;
+                        bool perpBlocked = false;
+                        int2 perpCell = WorldToCellInt2(perpPos);
+                        if (perpCell.x != int.MinValue && !IsCellPassable(perpCell, unitLayer))
+                            perpBlocked = true;
+
+                        if (!perpBlocked)
+                        {
+                            perpPos.y = onRampart
+                                ? Surface.RampartSurfaceY(perpPos.x, perpPos.z, t.Position.y)
+                                : Surface.SurfaceHeight(perpPos.x, perpPos.z, t.Position.y);
+                            // Ledge guard applies to sidesteps too.
+                            if (t.Position.y - perpPos.y > MaxLedgeDrop)
+                                perpBlocked = true;
+                        }
+
+                        if (!perpBlocked)
+                            t.Position = perpPos;
+
+                        stuck.LastAttempt = attempt;
+                        Ecb.SetComponent(k, entity, stuck);
+                    }
+                    else
+                    {
+                        Ecb.SetComponent(k, entity, stuck);
+                    }
+                }
+
+                OutXf[k] = t;
+                OutFlag[k] = 1;
+                return;
+            }
+
+            // Not blocked: reset stuck counter (skipped when already zero).
+            if (Active(ref Stuck, entity))
+            {
+                var cur = Stuck[entity];
+                if (cur.Counter != 0 || cur.LastAttempt != 0)
+                    Ecb.SetComponent(k, entity, new StuckState { Counter = 0, LastAttempt = 0 });
+            }
+
+            // === Layer-aware height snap (task-112 M5) ===
+            // Ground -> walking surface (ground, or a bridge deck within
+            // step-up reach). Rampart -> the deck / wall-walk height.
+            if (onRampart)
+                nextPos.y = Surface.RampartSurfaceY(nextPos.x, nextPos.z, t.Position.y);
+            else
+                nextPos.y = Surface.SurfaceHeight(nextPos.x, nextPos.z, t.Position.y);
+
+            t.Position = nextPos;
+            OutXf[k] = t;
+            OutFlag[k] = 1;
         }
+
+        // ── Crowded arrival ─────────────────────────────────────────────
 
         /// <summary>
         /// True when another unit already holds the ordered point and is
-        /// wedged between us and it — i.e. it sits CLOSER to the goal than we
-        /// are, and is inside our separation ring, so steering can never let us
-        /// past it. That makes our current stand-off the closest approach
-        /// physically available, and the order complete.
-        ///
-        /// Existential over the 3x3 spatial-hash ring around the goal, so the
-        /// result does not depend on bucket iteration order (determinism: the
-        /// hash is populated in chunk-walk order, and this reads it read-only).
+        /// wedged between us and it. Existential over the 3x3 spatial-hash
+        /// ring around the goal, so the result does not depend on bucket
+        /// iteration order. Reads PRE-TICK positions (the job never writes
+        /// LocalTransform).
         /// </summary>
-        private bool GoalTakenByCloserNeighbour(in NavSpatialHash hash,
-            float3 goal, float3 pos, Entity self, float myDist)
+        private bool GoalTakenByCloserNeighbour(float3 goal, float3 pos, Entity self, float myDist)
         {
-            if (!hash.Map.IsCreated) return false;
             uint myKey = FormationKinKey(self);
 
-            NavSpatialHash.WorldToCell(in goal, hash.CellSize, out int cx, out int cz);
+            NavSpatialHash.WorldToCell(in goal, HashCellSize, out int cx, out int cz);
             for (int dz = -1; dz <= 1; dz++)
             {
                 for (int dx = -1; dx <= 1; dx++)
                 {
                     int key = NavSpatialHash.PackKey(cx + dx, cz + dz);
-                    if (!hash.Map.TryGetFirstValue(key, out Entity other, out var it)) continue;
+                    if (!HashMap.TryGetFirstValue(key, out Entity other, out var it)) continue;
                     do
                     {
                         if (other == self) continue;
-                        if (!_xform.HasComponent(other)) continue;
-                        // A formation-mate does not block us: steering exempts
-                        // units of the same formation order from pushing each
-                        // other (SteeringSystem), so we can walk right up to a
-                        // slot a mate is standing beside. Counting it would let
-                        // a member released by the settle timeout call itself
-                        // arrived up to 2 m off its slot, which is the "out of
-                        // formation on arrival" the tight window exists to stop.
+                        if (!Xform.HasComponent(other)) continue;
+                        // A formation-mate does not block us (steering exempts
+                        // same-order units from pushing each other).
                         if (myKey != 0 && FormationKinKey(other) == myKey) continue;
                         // A corpse mid-death-animation is about to stop
                         // occupying the point; don't settle behind it.
-                        if (TransientState.Active(ref _dying, other)) continue;
+                        if (Active(ref Dying, other)) continue;
 
-                        float3 op = _xform[other].Position;
+                        float3 op = Xform[other].Position;
 
                         float gx = op.x - goal.x, gz = op.z - goal.z;
                         float otherToGoal = math.sqrt(gx * gx + gz * gz);
 
-                        // The blocker must actually be SITTING ON the goal, not
-                        // merely somewhere between us and it. "Closer than me"
-                        // alone was far too weak: a worker walking past, or one
-                        // parked at a different stand slot 2.8 m away, counted
-                        // as proof the destination was unreachable — so units
-                        // stopped metres short of ground they could plainly have
-                        // walked to, which is the "they give up too soon".
-                        //
-                        // A unit `d` from the goal forces us no nearer than
-                        // (SeparationClearance - d), so it only genuinely
-                        // prevents arrival while that exceeds StopDistance.
-                        // Anything further out we can simply walk around.
+                        // The blocker must actually be SITTING ON the goal.
                         if (otherToGoal >= GoalBlockedRadius) continue;
                         if (otherToGoal >= myDist) continue; // not ahead of us
 
                         float sx = op.x - pos.x, sz = op.z - pos.z;
                         float otherToMe = math.sqrt(sx * sx + sz * sz);
                         if (otherToMe <= SeparationClearance) return true;
-                    } while (hash.Map.TryGetNextValue(out other, ref it));
+                    } while (HashMap.TryGetNextValue(out other, ref it));
                 }
             }
             return false;
@@ -853,18 +906,130 @@ namespace TheWaningBorder.Systems.Navigation
         /// a target. Mirrors SteeringSystem's push-exemption key exactly.</summary>
         private uint FormationKinKey(Entity e)
         {
-            if (!TransientState.Active(ref _slotMemory, e)) return 0;
-            if (_target.HasComponent(e) && _target[e].Value != Entity.Null)
+            if (!Active(ref SlotMemory, e)) return 0;
+            if (TargetL.HasComponent(e) && TargetL[e].Value != Entity.Null)
                 return 0;
-            return _slotMemory[e].GroupKey;
+            return SlotMemory[e].GroupKey;
+        }
+
+        // ── NavGridQuery twins (same rules, same index math) ────────────
+
+        /// <summary>NavGridQuery.WorldToCellInt2: int.MinValue cells while
+        /// the grid is not bootstrapped.</summary>
+        private int2 WorldToCellInt2(float3 world)
+        {
+            if (!HasGrid) return new int2(int.MinValue, int.MinValue);
+            int cx = (int)math.floor((world.x - GridOrigin.x) / GridCellSize);
+            int cz = (int)math.floor((world.z - GridOrigin.z) / GridCellSize);
+            return new int2(cx, cz);
+        }
+
+        /// <summary>NavGridQuery.IsCellPassable(int2) — layer 0.</summary>
+        private bool IsCellPassable(int2 cell)
+        {
+            if (!HasGrid) return false;
+            if (cell.x < 0 || cell.x >= GridWidth || cell.y < 0 || cell.y >= GridHeight) return false;
+            return Cost[cell.y * GridWidth + cell.x] != NavCostField.CostImpassable;
+        }
+
+        /// <summary>NavGridQuery.IsCellPassable(int2, byte).</summary>
+        private bool IsCellPassable(int2 cell, byte layer)
+        {
+            if (!HasGrid) return false;
+            if (layer >= CostLayerCount) return false;
+            if (cell.x < 0 || cell.x >= GridWidth || cell.y < 0 || cell.y >= GridHeight) return false;
+            int layerArea = CostWidth * CostHeight;
+            int idx = layer * layerArea + cell.y * CostWidth + cell.x;
+            return Cost[idx] != NavCostField.CostImpassable;
+        }
+
+        /// <summary>NavGridQuery.IsCellPassableFor: a gate (CostConditional)
+        /// admits only its owner, and only player slots can own one.</summary>
+        private bool IsCellPassableFor(int2 cell, byte layer, byte faction)
+        {
+            if (!HasGrid) return false;
+            if (layer >= CostLayerCount) return false;
+            if (cell.x < 0 || cell.x >= GridWidth || cell.y < 0 || cell.y >= GridHeight) return false;
+
+            int layerArea = CostWidth * CostHeight;
+            int idx = layer * layerArea + cell.y * CostWidth + cell.x;
+
+            byte c = Cost[idx];
+            if (c == NavCostField.CostImpassable) return false;
+            if (c != NavCostField.CostConditional) return true;
+
+            if (faction > NavCostField.FlagOwnerMask) return false; // not a player slot
+            byte flags = CostFlags[idx];
+            return (flags & NavCostField.FlagOwnerMask) == faction;
+        }
+
+        /// <summary>NavGridQuery.SnapToWalkable: the start cell if walkable,
+        /// else expanding Chebyshev rings visited row-major (z, then x), so
+        /// every peer picks the same winner. Keeps the caller's Y.</summary>
+        private bool SnapToWalkable(float3 world, out float3 snapped)
+        {
+            snapped = world;
+            if (!HasGrid) return false;
+            int cx = (int)math.floor((world.x - GridOrigin.x) / GridCellSize);
+            int cz = (int)math.floor((world.z - GridOrigin.z) / GridCellSize);
+            if (TryCellCentre(cx, cz, world.y, out snapped)) return true;
+
+            for (int r = 1; r <= SnapMaxCellRadius; r++)
+            {
+                int z0 = cz - r, z1 = cz + r, x0 = cx - r, x1 = cx + r;
+                for (int z = z0; z <= z1; z++)
+                {
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        if (x > x0 && x < x1 && z > z0 && z < z1) continue;
+                        if (TryCellCentre(x, z, world.y, out snapped)) return true;
+                    }
+                }
+            }
+            snapped = world;
+            return false;
+        }
+
+        private bool TryCellCentre(int cx, int cz, float worldY, out float3 snapped)
+        {
+            if (cx < 0 || cx >= GridWidth || cz < 0 || cz >= GridHeight
+                || Cost[cz * GridWidth + cx] == NavCostField.CostImpassable)
+            {
+                snapped = float3.zero;
+                return false;
+            }
+            snapped = new float3(
+                GridOrigin.x + (cx + 0.5f) * GridCellSize,
+                worldY,
+                GridOrigin.z + (cz + 0.5f) * GridCellSize);
+            return true;
+        }
+
+        // ── TransientState twins (lookup read + ParallelWriter write) ───
+
+        private static bool Active<T>(ref ComponentLookup<T> lookup, Entity e)
+            where T : unmanaged, IComponentData, IEnableableComponent
+            => lookup.HasComponent(e) && lookup.IsComponentEnabled(e);
+
+        private void Clear<T>(ref ComponentLookup<T> lookup, int k, Entity e)
+            where T : unmanaged, IComponentData, IEnableableComponent
+        {
+            if (lookup.HasComponent(e))
+                Ecb.SetComponentEnabled<T>(k, e, false);
+        }
+
+        /// <summary>TransientState.Set(ecb, ...): Add (set-value on a
+        /// pre-added unit) + enable.</summary>
+        private void Set<T>(int k, Entity e, T value)
+            where T : unmanaged, IComponentData, IEnableableComponent
+        {
+            Ecb.AddComponent(k, e, value);
+            Ecb.SetComponentEnabled<T>(k, e, true);
         }
 
         /// <summary>
         /// Slerp from current to target rotation, clamped to maxAngle radians.
-        /// Pure math; safe to mark [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)] for any future Burst-job
-        /// port of the integrator.
         /// </summary>
-        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         private static void SmoothSlerp(in quaternion from, in quaternion to, float maxAngle, out quaternion result)
         {
             float4 toVal = to.value;
@@ -879,6 +1044,24 @@ namespace TheWaningBorder.Systems.Navigation
 
             float tParam = maxAngle / angle;
             result = math.slerp(from, toFixed, tParam);
+        }
+    }
+
+    /// <summary>Second half of the integrator: write each produced transform
+    /// to its own entity. Every slot names a distinct entity, so the parallel
+    /// writes never alias.</summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal struct ApplyIntegratedTransformsJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<Entity> Entities;
+        [ReadOnly] public NativeArray<LocalTransform> Transforms;
+        [ReadOnly] public NativeArray<byte> Written;
+        [NativeDisableParallelForRestriction] public ComponentLookup<LocalTransform> Xform;
+
+        public void Execute(int i)
+        {
+            if (Written[i] == 0) return;
+            Xform[Entities[i]] = Transforms[i];
         }
     }
 }

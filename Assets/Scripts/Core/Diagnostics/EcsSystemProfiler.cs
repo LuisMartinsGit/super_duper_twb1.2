@@ -137,6 +137,46 @@ namespace TheWaningBorder.Core.Diagnostics
             _world = null;
         }
 
+        // ── Window totals (2026-10-15) ─────────────────────────────────────
+        // A hitch line names only the six worst systems of ONE slow frame. To
+        // see where a whole frame budget goes, every system is summed over a
+        // window of frames and reported as average ms per frame, worst first.
+        private static readonly Dictionary<string, double> _window = new();
+        private static int _windowFrames;
+
+        /// <summary>Add this frame's per-system times to the window. Called
+        /// every frame by FrameHitchSentinel.</summary>
+        public static void Accumulate()
+        {
+            if (_probes.Count == 0) return;
+            _windowFrames++;
+            for (int i = 0; i < _probes.Count; i++)
+            {
+                var probe = _probes[i];
+                if (!probe.Recorder.Valid) continue;
+                long ns = probe.Recorder.LastValue;
+                if (ns <= 0) continue;
+                _window.TryGetValue(probe.Name, out double ms);
+                _window[probe.Name] = ms + ns / 1e6;
+            }
+        }
+
+        /// <summary>The window as "frames=N Name=avg ..." (average ms per frame,
+        /// the <paramref name="top"/> worst), then reset it. Empty with no data.</summary>
+        public static string FlushWindow(int top)
+        {
+            if (_windowFrames == 0 || _window.Count == 0) { _window.Clear(); _windowFrames = 0; return ""; }
+            var list = new List<KeyValuePair<string, double>>(_window);
+            list.Sort((a, b) => b.Value.CompareTo(a.Value));
+            var sb = new System.Text.StringBuilder(1024);
+            sb.Append("frames=").Append(_windowFrames).Append(' ');
+            for (int i = 0; i < list.Count && i < top; i++)
+                sb.Append(list[i].Key).Append('=').Append((list[i].Value / _windowFrames).ToString("F2")).Append(' ');
+            _window.Clear();
+            _windowFrames = 0;
+            return sb.ToString();
+        }
+
         // Reused across frames so a hitch report allocates nothing beyond the
         // string it returns.
         private static readonly Dictionary<string, double> _totals = new();

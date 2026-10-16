@@ -200,10 +200,6 @@ namespace TheWaningBorder.UI.Ingame
             // Always and Smart are unaffected and are the sane observer modes.
             var local = GameSettings.ViewFaction ?? GameSettings.LocalPlayerFaction;
             var q = QC_Healthy.Get(_em, QT_Healthy);
-            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            using var hps = q.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
 
             // Screen rect with a margin, so a bar whose anchor is just off the
             // edge still draws. Off-screen candidates used to be drawn (and
@@ -212,54 +208,97 @@ namespace TheWaningBorder.UI.Ingame
             float margin = barWidth + 8f;
             float sw = Screen.width, sh = Screen.height;
 
+            // CHUNK WALK (2026-10-15, 3,000-unit pass): this copied four
+            // arrays over every entity with Health each frame and paid
+            // HasComponent BuildingTag / UnitTag / ShieldBar (+ Exists) per
+            // entity. Those are per-ARCHETYPE facts, read once per chunk here;
+            // same entity order, so the budget picks the same bars.
+            q.CompleteDependency();
+            var entityHandle = _em.GetEntityTypeHandle();
+            var hpHandle = _em.GetComponentTypeHandle<Health>(true);
+            var facHandle = _em.GetComponentTypeHandle<FactionTag>(true);
+            var xfHandle = _em.GetComponentTypeHandle<LocalTransform>(true);
+            var shieldHandle = _em.GetComponentTypeHandle<ShieldBar>(true);
+            var buildingHandle = _em.GetComponentTypeHandle<BuildingTag>(true);
+            var unitHandle = _em.GetComponentTypeHandle<UnitTag>(true);
+
             int budget = MaxUnpromptedBars;
-            for (int i = 0; i < ents.Length && budget > 0; i++)
+            using var chunks = q.ToArchetypeChunkArray(Unity.Collections.Allocator.Temp);
+            for (int c = 0; c < chunks.Length && budget > 0; c++)
             {
-                var e = ents[i];
-                if (_drawn.Contains(e)) continue;
-
-                var hp = hps[i];
-                if (hp.Max <= 0 || hp.Value <= 0) continue;
-
-                bool isBuilding = _em.HasComponent<BuildingTag>(e);
-                // A spent shield is lost hit points too (Combat_Pacing.md).
-                bool damaged = hp.Value < hp.Max
-                    || (EntityInfoExtractor.TryGetShield(_em, e, out int shCur, out int shMax)
-                        && shCur < shMax);
-
+                var chunk = chunks[c];
+                bool isBuilding = chunk.Has(ref buildingHandle);
                 if (mode != HealthBarMode.Smart && isBuilding) continue;
-                if (!isBuilding && !_em.HasComponent<UnitTag>(e)) continue;
+                if (!isBuilding && !chunk.Has(ref unitHandle)) continue;
 
-                var faction = facs[i].Value;
-                bool mine = faction == local;
-                bool friendly = mine || !Alliances.AreHostile(local, faction);
+                var ents = chunk.GetNativeArray(entityHandle);
+                var hps = chunk.GetNativeArray(ref hpHandle);
+                var facs = chunk.GetNativeArray(ref facHandle);
+                var xfs = chunk.GetNativeArray(ref xfHandle);
+                bool hasShield = chunk.Has(ref shieldHandle);
+                var shields = hasShield ? chunk.GetNativeArray(ref shieldHandle) : default;
 
-                bool want = mode switch
+                for (int i = 0; i < ents.Length && budget > 0; i++)
                 {
-                    HealthBarMode.Always   => true,
-                    HealthBarMode.Own      => mine,
-                    HealthBarMode.Friendly => friendly,
-                    // "Visible" is already guaranteed by IsVisible below, so
-                    // what Smart adds is the hurt test: a full-strength army
-                    // stays clean and the eye goes to whatever is taking fire.
-                    HealthBarMode.Smart    => damaged,
-                    _ => false,
-                };
-                if (!want) continue;
+                    var e = ents[i];
 
-                var wp = xfs[i].Position;
-                Vector3 sp = cam.WorldToScreenPoint(new Vector3(wp.x,
-                    wp.y + (isBuilding ? buildingYOffset : yOffsetAboveEntity), wp.z));
-                if (sp.z < 0f || sp.x < -margin || sp.x > sw + margin
-                    || sp.y < -margin || sp.y > sh + margin) continue;
+                    var hp = hps[i];
+                    if (hp.Max <= 0 || hp.Value <= 0) continue;
 
-                if (!IsVisible(e)) continue;
+                    // A spent shield is lost hit points too (Combat_Pacing.md).
+                    // Same test as EntityInfoExtractor.TryGetShield.
+                    bool damaged = hp.Value < hp.Max;
+                    if (!damaged && hasShield)
+                    {
+                        var sb = shields[i];
+                        if (sb.Max > 0)
+                        {
+                            int cur = sb.Current < 0 ? 0 : (sb.Current > sb.Max ? sb.Max : sb.Current);
+                            damaged = cur < sb.Max;
+                        }
+                    }
 
-                DrawBarForEntity(cam, e);
-                _drawn.Add(e);
-                budget--;
+                    var faction = facs[i].Value;
+                    bool mine = faction == local;
+                    bool friendly = mine || !Alliances.AreHostile(local, faction);
+
+                    bool want = mode switch
+                    {
+                        HealthBarMode.Always   => true,
+                        HealthBarMode.Own      => mine,
+                        HealthBarMode.Friendly => friendly,
+                        // "Visible" is already guaranteed by IsVisible below, so
+                        // what Smart adds is the hurt test: a full-strength army
+                        // stays clean and the eye goes to whatever is taking fire.
+                        HealthBarMode.Smart    => damaged,
+                        _ => false,
+                    };
+                    if (!want) continue;
+                    if (_drawn.Contains(e)) continue;
+
+                    var wp = xfs[i].Position;
+                    var anchor = new Vector3(wp.x,
+                        wp.y + (isBuilding ? buildingYOffset : yOffsetAboveEntity), wp.z);
+                    // Managed frustum pre-test (padded well past the pixel
+                    // margin) before the native WorldToScreenPoint.
+                    if (!TheWaningBorder.Rendering.ProceduralRigCulling.Visible(anchor, FrustumPrePad))
+                        continue;
+                    Vector3 sp = cam.WorldToScreenPoint(anchor);
+                    if (sp.z < 0f || sp.x < -margin || sp.x > sw + margin
+                        || sp.y < -margin || sp.y > sh + margin) continue;
+
+                    if (!IsVisible(e)) continue;
+
+                    DrawBarForEntity(cam, e);
+                    _drawn.Add(e);
+                    budget--;
+                }
             }
         }
+
+        /// <summary>World-space pad (m) for the frustum pre-test; generous so
+        /// it never rejects a bar the pixel-margin test would have kept.</summary>
+        private const float FrustumPrePad = 6f;
 
         /// <summary>
         /// Can the player actually see this entity right now?

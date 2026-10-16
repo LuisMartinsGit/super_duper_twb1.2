@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad3f415a9095473594852f10a28471f3, type: 3}
+  m_Name: UnitAnimationSync
+  m_EditorClassIdentifier: 
+  cullingMode: 2
+  keepStateOnDisable: 1
+  onscreenPollInterval: 0.1
+  offscreenPollInterval: 0.5
+  visibilityPad: 8
+  lodEnabled: 0
+  lodDistance: 70
+  lodFrameInterval: 2
+  forceNoUpdateWhenOffscreen: 1
+  disableSkinnedMotionVectors: 1
+  skinQuality: 0
+  shadowCullDistance: 0

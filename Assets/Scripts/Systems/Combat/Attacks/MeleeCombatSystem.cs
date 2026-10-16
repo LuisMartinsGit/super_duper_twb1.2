@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
@@ -83,413 +84,248 @@ namespace TheWaningBorder.Systems.Combat
                 ? math.cos(math.radians(meleeCfg.frontArcHalfAngleDegrees))
                 : -2f; // below any dot product: everything is "front"
 
-            foreach (var (transform, target, cooldown, damage, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<AttackCooldown>, RefRO<Damage>>()
-                .WithAll<UnitTag>()
+            // The melee loop, Burst (MeleeCombatSystem.Jobs.cs): a parallel plan
+            // per unit, then an in-order apply that hands each due swing back
+            // here. Same entity set and order as the old foreach.
+            var query = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, UnitTag, Damage>()
+                .WithAllRW<Target, AttackCooldown>()
                 .WithNone<ArcherTag>()             // Exclude ranged units
                 // A CORPSE DOES NOT SWING. DeathAnimationState is added the
                 // moment DeathSystem registers the death and the entity then
-                // survives for the length of its death animation — two whole
-                // seconds in which it was still acquiring, cooling down and
-                // landing hits. Excluding it here is the same treatment
-                // UnitIntegratorSystem already gives movement.
+                // survives for the length of its death animation. The frame a
+                // unit dies it is still in this query; Health (read live at
+                // apply) closes that window.
                 .WithNone<DeathAnimationState>()
                 .WithNone<TheWaningBorder.Entities.Launched>()   // airborne units swing at nothing
-                .WithEntityAccess())
+                .Build();
+
+            using var units = query.ToEntityArray(Unity.Collections.Allocator.TempJob);
+            int n = units.Length;
+            using var plans = new Unity.Collections.NativeArray<MeleePlan>(n,
+                Unity.Collections.Allocator.TempJob, Unity.Collections.NativeArrayOptions.UninitializedMemory);
+
+            var planJob = new MeleePlanJob
             {
-                // The marker lands via an EndSimulation ECB, so on the FRAME a
-                // unit dies it is still in this query. Health is authoritative
-                // and already zero by then, so one cheap read closes that
-                // window — without it a lethal blow and the victim's reply
-                // still trade in the same frame.
-                if (SystemAPI.HasComponent<Health>(entity)
-                    && SystemAPI.GetComponent<Health>(entity).Value <= 0) continue;
+                Units = units,
+                Lk = lk,
+                Targets = SystemAPI.GetComponentLookup<Target>(true),
+                Cooldowns = SystemAPI.GetComponentLookup<AttackCooldown>(true),
+                Damages = SystemAPI.GetComponentLookup<Damage>(true),
+                Storage = SystemAPI.GetEntityStorageInfoLookup(),
+                Dt = dt,
+                Plans = plans,
+            };
+            var planHandle = planJob.Schedule(n, 32, state.Dependency);
+            planHandle.Complete();
 
-                // A DISARMED UNIT DOES NOT SWING. TargetingSystem already
-                // refuses to auto-acquire for a Damage<=0 unit (the Scout
-                // before Armed Scouts, the Litharch before Warrior Priests),
-                // but a target set any OTHER way — a player-issued attack
-                // order, an AI order, a formation engage — reached this loop
-                // and the `math.max(1, finalDamage)` floor below turned the
-                // unarmed unit's swing into exactly 1 damage a hit. The floor
-                // exists so an armed attacker never rounds to nothing; it was
-                // never meant to arm someone.
-                if (damage.ValueRO.Value <= 0) continue;
+            ResolveChasePoints(plans);
 
-                ref var tgt = ref target.ValueRW;
-                ref var cd = ref cooldown.ValueRW;
-
-                // Update cooldown timer. Frozen by Recall the Codex
-                // (Antiquity): cooldowns do not recover while CodexFrozen.
-                if (cd.Timer > 0 && !lk.CodexFrozen.HasComponent(entity))
-                {
-                    cd.Timer -= dt;
-                }
-
-                // Validate target exists
-                if (tgt.Value == Entity.Null || !em.Exists(tgt.Value))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // Fix #212: defensively check HasComponent<Health> before reading.
-                // If the target lost its Health component (e.g. DeathSystem removed
-                // it via ECB playback ordering), GetComponentData would throw.
-                if (!lk.Health.TryGetComponent(tgt.Value, out var targetHealth))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // Melee cannot reach a FLYING target (Age_1_Runai.md §6.4).
-                if (lk.Flying.HasComponent(tgt.Value)
-                    && !TargetingSystem.CanHitFlying(in lk, entity))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // Validate target is alive
-                if (targetHealth.Value <= 0)
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // Buildings-only siege (Battering Ram): refuse to swing at
-                // anything that is not a building — even when force-ordered.
-                // Drop the target so the next targeting pass (which filters
-                // the same way) finds a wall or leaves the ram idle.
-                // DesiredDestination is deliberately untouched — the
-                // chase-arbitration contract stays intact.
-                if (lk.BuildingsOnly.HasComponent(entity)
-                    && !lk.Building.HasComponent(tgt.Value))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // The Wall Rule (docs/Design/Combat_Pacing.md): only siege
-                // damages wall pieces — a non-siege attacker refuses to swing
-                // at one even when force-ordered. Same drop contract as the
-                // ram's buildings-only rule above; the targeting pass filters
-                // walls out the same way, so the re-pick lands elsewhere.
-                if (lk.Wall.HasComponent(tgt.Value) && !lk.DealsSiege(entity))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // An ALLY is never a valid melee target. Acquisition already
-                // filters teammates out (TargetingSystem.Acquire/Guard, the AI
-                // ladder), so reaching here means a Target that outlived the
-                // relationship that justified it — drop it with the same
-                // contract as the two rules above and let the next targeting
-                // pass re-pick. docs/Design/Teams.md
-                if (!CombatDamageHelper.CanDamage(in lk, entity, tgt.Value))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // Full Gallop: cavalry mid-sprint cannot swing. They keep chasing —
-                // only the attack is suppressed for the burst's duration.
-                if (CombatLookups.Active(in lk.TempDisarm, entity)) continue;
-
-                // Fix #211: skip targets that are currently Invulnerable (set by
-                // SpellBuffSystem). Without this guard, protected units still
-                // took full damage, making the buff a no-op.
-                if (CombatLookups.Active(in lk.Invulnerable, tgt.Value)) continue;
-
-                var myPos = transform.ValueRO.Position;
-                var targetXf = lk.Transform[tgt.Value];
-                var targetPos = targetXf.Position;
-
-                // SURFACE distance — how far the attacker is from the target's
-                // BODY, not its pivot. See TargetGeometry: box footprint for
-                // buildings, circle for everything else. Shared with the
-                // targeting, ranged and arrival paths so a building is the same
-                // size to every system that looks at it.
-                var extent = lk.Extent(tgt.Value);
-                float surfaceDist = extent.SurfaceDistXZ(myPos);
-
-                // Vertically separated (bridge deck vs underpass): melee
-                // cannot reach across surfaces. Drop the target so the next
-                // targeting pass picks someone reachable — standing under an
-                // enemy hacking at the deck is neither. A building is exempt
-                // unless the attacker is on a rampart: its pivot height is the
-                // terrain at its centre, not its body (MeleeHeightBlocks).
-                if (surfaceDist <= MeleeRange
-                    && TargetingSystem.MeleeHeightBlocks(myPos.y, targetPos.y,
-                        lk.Building.HasComponent(tgt.Value),
-                        TargetingSystem.IsOnRampart(in lk, entity)))
-                {
-                    tgt.Value = Entity.Null;
-                    DropAttackCommand(in lk, ecb, entity);
-                    continue;
-                }
-
-                // In melee range - attack
-                if (surfaceDist <= MeleeRange)
-                {
-                    // Plant and turn to face the target. Stopping alone left the
-                    // unit swinging at whatever heading it arrived on — usually
-                    // tangential, because the approach ends in a sidestep.
-                    // Ride-By (Feraldis Rig Yard tech): Raiders strike without
-                    // stopping — FiresOnMove is stamped on them by FeraldisTechStampSystem.
-                    if (!lk.FiresOnMove.HasComponent(entity))
-                        TargetGeometry.StopAndFace(ecb, em, in lk.Destination, in lk.Transform,
-                            entity, targetPos, dt);
-
-                    // Attack if cooldown is ready
-                    if (cd.Timer <= 0)
-                    {
-                        int baseDamage = damage.ValueRO.Value;
-
-                        // --- Batch-read attacker components once ---
-                        DamageType dmgType = DamageType.Melee;
-                        bool attackerHasDmgType = em.HasComponent<DamageTypeData>(entity);
-                        if (attackerHasDmgType)
-                            dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
-
-                        bool attackerHasBuff = em.HasComponent<BorderBuff>(entity);
-                        BorderBuff attackerBuff = attackerHasBuff
-                            ? em.GetComponentData<BorderBuff>(entity)
-                            : default;
-
-                        // --- Batch-read target components once ---
-                        bool targetHasArmor = em.HasComponent<ArmorTypeData>(tgt.Value);
-                        // Buildings without explicit armor read as Structure —
-                        // the InfantryLight fallback made archers (1.1x) beat
-                        // catapults (0.6x) against them, inverting the siege
-                        // matchup (fix 2026-08-03).
-                        ArmorType armorType = targetHasArmor
-                            ? em.GetComponentData<ArmorTypeData>(tgt.Value).Value
-                            : em.HasComponent<BuildingTag>(tgt.Value)
-                                ? ArmorType.Structure
-                                : ArmorType.InfantryLight;
-
-                        bool targetHasDefense = em.HasComponent<Defense>(tgt.Value);
-                        int defenseValue = targetHasDefense
-                            ? CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(tgt.Value), dmgType)
-                            : 0;
-
-                        // Fortified armor bonus on target
-                        if (TransientState.Active<Fortified>(em, tgt.Value))
-                        {
-                            var fort = em.GetComponentData<Fortified>(tgt.Value);
-                            defenseValue += (int)fort.ArmorBonus;
-                        }
-
-                        // SpellBuff armor bonus on target (Aegis-style timed buff,
-                        // StoneheartBastion +3 aura, etc.). Adds to defense BEFORE
-                        // the matrix calc so it actually reduces incoming damage.
-                        // Was previously written but never read. (task-062 C-1)
-                        defenseValue += CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value, CombatDamageHelper.BaseDefense(em, tgt.Value, dmgType));
-
-                        bool targetHasDebuff = em.HasComponent<BorderDebuff>(tgt.Value);
-                        BorderDebuff targetDebuff = targetHasDebuff
-                            ? em.GetComponentData<BorderDebuff>(tgt.Value)
-                            : default;
-
-                        bool targetHasLastDamaged = em.HasComponent<LastDamagedByFaction>(tgt.Value);
-                        bool targetHasLastAttacker = em.HasComponent<LastAttackerEntity>(tgt.Value);
-                        // (presence only feeds the add-vs-set below; the enable
-                        // bit is raised by the helper either way)
-
-                        // Calculate height-based damage modifier
-                        float heightMod = CalculateHeightDamageModifier(myPos.y, targetPos.y);
-
-                        // Veilstone modifier (uses pre-fetched data)
-                        float borderMod = 1.0f;
-                        if (attackerHasBuff)
-                            borderMod *= 1f + attackerBuff.AttBonus;
-                        if (targetHasDebuff)
-                            borderMod *= 1f + targetDebuff.AttPenalty;
-
-                        // Feraldis: blood frenzy + Berserker last stand.
-                        borderMod *= CombatDamageHelper.GetFrenzyDamageMult(em, entity);
-
-                        // Flanking: same multiplier layer as height and
-                        // veilstone — on the post-armour total, tag bonus
-                        // included. Units only; a building has no facing.
-                        bool flank = em.HasComponent<UnitTag>(tgt.Value)
-                            && IsFlankHit(targetXf, myPos, frontArcCos);
-                        if (flank) borderMod *= flankMult;
-
-                        // Tag bonus (AoE4-style): attacker's BonusVsTags vs the
-                        // target's tags — flat, armor-ignoring, from the unit SO.
-                        int tagBonus = TagBonus.Compute(em, entity, tgt.Value);
-
-                        int finalDamage = CombatModifiers.CalculateFinalDamage(
-                            baseDamage, dmgType, armorType, defenseValue, heightMod, borderMod, tagBonus);
-
-                        // task-063 phase 1: sect melee/AS/veilstone/panic/control multipliers
-                        // gone with the old multiplier bridge. Phase 2 reintroduces these
-                        // per-sect, per-lever — for now use baseline (1.0× damage / no debuffs).
-
-                        // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) routed through shared helper
-                        finalDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, entity, tgt.Value, finalDamage);
-
-                        // Fix #226: DamageReflect routed through shared helper
-                        CombatDamageHelper.ApplyDamageReflect(em, entity, tgt.Value, finalDamage);
-
-                        finalDamage = math.max(1, finalDamage);
-
-                        // Ability: scale total incoming damage by the target's
-                        // damage-taken multiplier (Liquid Courage 90% DR) before HP.
-                        finalDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, tgt.Value, finalDamage, entity);
-
-                        // Apply damage — use immediate write so multiple attackers
-                        // in the same frame correctly stack damage (not last-write-wins via ECB)
-                        // Shield points are hit points: the shield pays first.
-                        var health = em.GetComponentData<Health>(tgt.Value);
-                        health.Value -= ShieldDamage.Absorb(em, tgt.Value, finalDamage);
-                        if (health.Value < 0) health.Value = 0;
-                        // (Life Cling HP-floor is applied centrally in DeathSystem,
-                        // source-agnostic, right before the death check.)
-                        em.SetComponentData(tgt.Value, health);
-
-                        // Fix #226: last-damager tracking routed through shared helper
-                        CombatDamageHelper.TrackLastDamager(em, ecb, entity, tgt.Value, elapsed);
-
-                        // The Shardbound King's blows cleave: every hostile
-                        // within CleaveRadius of the target takes a share of
-                        // the same hit (Curse_And_Shardroot.md 3.1).
-                        if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(entity))
-                            Cleave(em, entity, tgt.Value, finalDamage);
-
-                        // Match-long damage ledger — what Wrath's Spite pools
-                        // and pays back (docs/Design/Sects.md).
-                        CombatDamageHelper.RecordDamageDealt(em, ecb, entity, finalDamage);
-
-                        // Diagnostics only (no-op unless metrics are on):
-                        // melee / flank hit counts per attacking faction.
-                        if (TheWaningBorder.Core.Diagnostics.MatchMetrics.Enabled
-                            && em.HasComponent<FactionTag>(entity))
-                            TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordMeleeHit(
-                                em.GetComponentData<FactionTag>(entity).Value, flank);
-
-                        // Feraldis on-hit riders. Both no-op for units without
-                        // the declaring component, so every other unit in the
-                        // game pays two HasComponent checks.
-                        if (em.HasComponent<WhirlAttack>(entity)
-                            || em.HasComponent<InflictsBleed>(entity)
-                            || em.HasComponent<InflictsBuildingBurn>(entity))
-                        {
-                            var atkFaction = em.HasComponent<FactionTag>(entity)
-                                ? em.GetComponentData<FactionTag>(entity).Value
-                                : Faction.Blue;
-
-                            // Bloodletter: widen the swing into an area strike.
-                            FeraldisWhirl.Strike(em, ecb, entity, tgt.Value,
-                                targetPos, atkFaction, finalDamage);
-                            // Axe Thrower / future melee bleeders.
-                            FeraldisBleed.ApplyFrom(em, ecb, entity, tgt.Value, atkFaction);
-                            // Raider: leaves enemy BUILDINGS burning.
-                            FeraldisBuildingBurn.ApplyFrom(em, ecb, entity, tgt.Value, atkFaction);
-                        }
-                        // Hamstring (Feraldis War Hall tech): melee hits slow.
-                        TheWaningBorder.Feraldis.FeraldisCombat.OnMeleeHit(em, ecb, entity, tgt.Value);
-
-                        // Reset cooldown. Glow Ability (Lv 5 active window)
-                        // shortens the cooldown by 30% per the design spec.
-                        // (audit follow-up — was deferred in PR #258.)
-                        float cdMult = 1f;
-                        if (em.HasComponent<ShardrootAbilityState>(entity)
-                            && em.GetComponentData<ShardrootAbilityState>(entity).ActiveRemaining > 0f)
-                            cdMult = 1f / 1.30f;
-                        // Feraldis blood frenzy also swings faster.
-                        cdMult *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
-                        // Timed haste (Blood Rain and any future SpellBuff
-                        // attack-speed effect) swings faster too.
-                        cdMult *= CombatDamageHelper.GetHasteCooldownMult(em, entity);
-                        cd.Timer = cd.Cooldown * cdMult;
-                    }
-                }
-                else
-                {
-                    // Out of range — chase only if this engagement allows it
-                    // (TargetingSystem.MayChase, docs/Design/Stances.md §1/§5).
-                    // An ORDERED target is always chased, on every stance —
-                    // Hold included: player orders win. A target the unit
-                    // picked itself is chased only on a leashed (Aggressive /
-                    // attack-move / patrol) engagement; Defensive, Hold and
-                    // support units let it go. A fixed mount never moves.
-                    //
-                    // A channelling ritualist holds its ground too.
-                    // TargetingSystem no longer hands one a target, but a
-                    // target acquired BEFORE the channel began would survive
-                    // into it, and the chase below rewrites DesiredDestination
-                    // every frame — the same way the return-to-guard branch
-                    // did before it was gated, which broke every measured
-                    // channel on 2026-08-07.
-                    if (!TargetingSystem.MayChase(in lk, entity, tgt.Value))
-                    {
-                        // Clear target so unit stays put
-                        tgt.Value = Entity.Null;
-                        DropAttackCommand(in lk, ecb, entity);
-                        continue;
-                    }
-
-                    // Chase via DesiredDestination — ALWAYS aim at the target's
-                    // EDGE, never its center. The old code edge-aimed only when
-                    // targetRadius > MeleeRange (1.5), so any 3x3 building
-                    // (legacy radius exactly 1.5) was chased dead-center: a
-                    // destination INSIDE the impassable footprint. The stuck
-                    // escalation cancelled it, this system re-issued it next
-                    // frame — the bump-and-jiggle at the wall. Edge-aiming is
-                    // also strictly better against unit targets (no body
-                    // overlap push on arrival).
-                    // Closest point on the target's surface, pulled back half a
-                    // melee step so the destination is walkable ground squarely
-                    // inside attack range — never a cell inside the footprint.
-                    //
-                    // LATCHED, not recomputed per frame. ApproachPoint is
-                    // relative to OUR position, so re-deriving it every frame
-                    // made the goal slide sideways with us: lateral movement
-                    // could never close the gap, and a unit that needed to walk
-                    // AROUND an obstacle pressed into it and span instead. We
-                    // still WRITE the destination every frame (TargetingSystem
-                    // clears Has on attackers) — we just write the same point
-                    // until the target actually moves. See ChaseAnchor.
-                    float3 chaseTarget = ResolveChaseAnchor(in lk, ecb, entity, tgt.Value,
-                        targetPos, myPos, in extent);
-
-                    // No facing write here on purpose: while the unit is moving,
-                    // UnitIntegratorSystem owns rotation (face where you walk).
-                    // Writing here too would have the two systems fight over
-                    // LocalTransform.Rotation every frame.
-
-                    if (!lk.Destination.HasComponent(entity))
-                    {
-                        ecb.AddComponent(entity, new DesiredDestination
-                        {
-                            Position = chaseTarget,
-                            Has = 1
-                        });
-                    }
-                    else
-                    {
-                        ecb.SetComponent(entity, new DesiredDestination
-                        {
-                            Position = chaseTarget,
-                            Has = 1
-                        });
-                    }
-                }
+            using var stop = new Unity.Collections.NativeReference<int>(0, Unity.Collections.Allocator.TempJob);
+            var apply = new MeleeApplyJob
+            {
+                Units = units,
+                Plans = plans,
+                Health = SystemAPI.GetComponentLookup<Health>(true),
+                Targets = SystemAPI.GetComponentLookup<Target>(false),
+                Cooldowns = SystemAPI.GetComponentLookup<AttackCooldown>(false),
+                Transforms = SystemAPI.GetComponentLookup<LocalTransform>(false),
+                Ecb = ecb,
+                Dt = dt,
+                Stop = stop,
+            };
+            int next = 0;
+            while (next < n)
+            {
+                apply.Start = next;
+                apply.Run();
+                int k = stop.Value;
+                if (k >= n) break;
+                Swing(em, ecb, in lk, units[k], plans[k].Target, elapsed, flankMult, frontArcCos);
+                next = k + 1;
             }
 
             TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("MeleeCombat",
                 (UnityEngine.Time.realtimeSinceStartupAsDouble - perfT0) * 1000.0);
+        }
+
+        /// <summary>
+        /// One melee hit, unchanged from the old loop body: the damage
+        /// pipeline and its riders, then the cooldown reset. Managed (sect,
+        /// ability and Feraldis hooks); called by OnUpdate between apply runs,
+        /// in query order, after this unit's stop-and-face.
+        /// </summary>
+        private static void Swing(EntityManager em, EntityCommandBuffer ecb, in CombatLookups lk,
+            Entity entity, Entity target, double elapsed, float flankMult, float frontArcCos)
+        {
+            var tgt = new Target { Value = target };
+            var myPos = lk.Transform[entity].Position;
+            var targetXf = lk.Transform[tgt.Value];
+            var targetPos = targetXf.Position;
+
+            int baseDamage = em.GetComponentData<Damage>(entity).Value;
+
+            // --- Batch-read attacker components once ---
+            DamageType dmgType = DamageType.Melee;
+            bool attackerHasDmgType = em.HasComponent<DamageTypeData>(entity);
+            if (attackerHasDmgType)
+                dmgType = em.GetComponentData<DamageTypeData>(entity).Value;
+
+            bool attackerHasBuff = em.HasComponent<BorderBuff>(entity);
+            BorderBuff attackerBuff = attackerHasBuff
+                ? em.GetComponentData<BorderBuff>(entity)
+                : default;
+
+            // --- Batch-read target components once ---
+            bool targetHasArmor = em.HasComponent<ArmorTypeData>(tgt.Value);
+            // Buildings without explicit armor read as Structure —
+            // the InfantryLight fallback made archers (1.1x) beat
+            // catapults (0.6x) against them, inverting the siege
+            // matchup (fix 2026-08-03).
+            ArmorType armorType = targetHasArmor
+                ? em.GetComponentData<ArmorTypeData>(tgt.Value).Value
+                : em.HasComponent<BuildingTag>(tgt.Value)
+                    ? ArmorType.Structure
+                    : ArmorType.InfantryLight;
+
+            bool targetHasDefense = em.HasComponent<Defense>(tgt.Value);
+            int defenseValue = targetHasDefense
+                ? CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(tgt.Value), dmgType)
+                : 0;
+
+            // Fortified armor bonus on target
+            if (TransientState.Active<Fortified>(em, tgt.Value))
+            {
+                var fort = em.GetComponentData<Fortified>(tgt.Value);
+                defenseValue += (int)fort.ArmorBonus;
+            }
+
+            // SpellBuff armor bonus on target (Aegis-style timed buff,
+            // StoneheartBastion +3 aura, etc.). Adds to defense BEFORE
+            // the matrix calc so it actually reduces incoming damage.
+            // Was previously written but never read. (task-062 C-1)
+            defenseValue += CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value, CombatDamageHelper.BaseDefense(em, tgt.Value, dmgType));
+
+            bool targetHasDebuff = em.HasComponent<BorderDebuff>(tgt.Value);
+            BorderDebuff targetDebuff = targetHasDebuff
+                ? em.GetComponentData<BorderDebuff>(tgt.Value)
+                : default;
+
+            bool targetHasLastDamaged = em.HasComponent<LastDamagedByFaction>(tgt.Value);
+            bool targetHasLastAttacker = em.HasComponent<LastAttackerEntity>(tgt.Value);
+            // (presence only feeds the add-vs-set below; the enable
+            // bit is raised by the helper either way)
+
+            // Calculate height-based damage modifier
+            float heightMod = CalculateHeightDamageModifier(myPos.y, targetPos.y);
+
+            // Veilstone modifier (uses pre-fetched data)
+            float borderMod = 1.0f;
+            if (attackerHasBuff)
+                borderMod *= 1f + attackerBuff.AttBonus;
+            if (targetHasDebuff)
+                borderMod *= 1f + targetDebuff.AttPenalty;
+
+            // Feraldis: blood frenzy + Berserker last stand.
+            borderMod *= CombatDamageHelper.GetFrenzyDamageMult(em, entity);
+
+            // Flanking: same multiplier layer as height and
+            // veilstone — on the post-armour total, tag bonus
+            // included. Units only; a building has no facing.
+            bool flank = em.HasComponent<UnitTag>(tgt.Value)
+                && IsFlankHit(targetXf, myPos, frontArcCos);
+            if (flank) borderMod *= flankMult;
+
+            // Tag bonus (AoE4-style): attacker's BonusVsTags vs the
+            // target's tags — flat, armor-ignoring, from the unit SO.
+            int tagBonus = TagBonus.Compute(em, entity, tgt.Value);
+
+            int finalDamage = CombatModifiers.CalculateFinalDamage(
+                baseDamage, dmgType, armorType, defenseValue, heightMod, borderMod, tagBonus);
+
+            // task-063 phase 1: sect melee/AS/veilstone/panic/control multipliers
+            // gone with the old multiplier bridge. Phase 2 reintroduces these
+            // per-sect, per-lever — for now use baseline (1.0× damage / no debuffs).
+
+            // Fix #226: on-hit bonus damage (Condemned/Ignite/VoidStrike) routed through shared helper
+            finalDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, entity, tgt.Value, finalDamage);
+
+            // Fix #226: DamageReflect routed through shared helper
+            CombatDamageHelper.ApplyDamageReflect(em, entity, tgt.Value, finalDamage);
+
+            finalDamage = math.max(1, finalDamage);
+
+            // Ability: scale total incoming damage by the target's
+            // damage-taken multiplier (Liquid Courage 90% DR) before HP.
+            finalDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, tgt.Value, finalDamage, entity);
+
+            // Apply damage — use immediate write so multiple attackers
+            // in the same frame correctly stack damage (not last-write-wins via ECB)
+            // Shield points are hit points: the shield pays first.
+            var health = em.GetComponentData<Health>(tgt.Value);
+            health.Value -= ShieldDamage.Absorb(em, tgt.Value, finalDamage);
+            if (health.Value < 0) health.Value = 0;
+            // (Life Cling HP-floor is applied centrally in DeathSystem,
+            // source-agnostic, right before the death check.)
+            em.SetComponentData(tgt.Value, health);
+
+            // Fix #226: last-damager tracking routed through shared helper
+            CombatDamageHelper.TrackLastDamager(em, ecb, entity, tgt.Value, elapsed);
+
+            // The Shardbound King's blows cleave: every hostile
+            // within CleaveRadius of the target takes a share of
+            // the same hit (Curse_And_Shardroot.md 3.1).
+            if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(entity))
+                Cleave(em, entity, tgt.Value, finalDamage);
+
+            // Match-long damage ledger — what Wrath's Spite pools
+            // and pays back (docs/Design/Sects.md).
+            CombatDamageHelper.RecordDamageDealt(em, ecb, entity, finalDamage);
+
+            // Diagnostics only (no-op unless metrics are on):
+            // melee / flank hit counts per attacking faction.
+            if (TheWaningBorder.Core.Diagnostics.MatchMetrics.Enabled
+                && em.HasComponent<FactionTag>(entity))
+                TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordMeleeHit(
+                    em.GetComponentData<FactionTag>(entity).Value, flank);
+
+            // Feraldis on-hit riders. Both no-op for units without
+            // the declaring component, so every other unit in the
+            // game pays two HasComponent checks.
+            if (em.HasComponent<WhirlAttack>(entity)
+                || em.HasComponent<InflictsBleed>(entity)
+                || em.HasComponent<InflictsBuildingBurn>(entity))
+            {
+                var atkFaction = em.HasComponent<FactionTag>(entity)
+                    ? em.GetComponentData<FactionTag>(entity).Value
+                    : Faction.Blue;
+
+                // Bloodletter: widen the swing into an area strike.
+                FeraldisWhirl.Strike(em, ecb, entity, tgt.Value,
+                    targetPos, atkFaction, finalDamage);
+                // Axe Thrower / future melee bleeders.
+                FeraldisBleed.ApplyFrom(em, ecb, entity, tgt.Value, atkFaction);
+                // Raider: leaves enemy BUILDINGS burning.
+                FeraldisBuildingBurn.ApplyFrom(em, ecb, entity, tgt.Value, atkFaction);
+            }
+            // Hamstring (Feraldis War Hall tech): melee hits slow.
+            TheWaningBorder.Feraldis.FeraldisCombat.OnMeleeHit(em, ecb, entity, tgt.Value);
+
+            // Reset cooldown. Glow Ability (Lv 5 active window)
+            // shortens the cooldown by 30% per the design spec.
+            // (audit follow-up — was deferred in PR #258.)
+            float cdMult = 1f;
+            if (em.HasComponent<ShardrootAbilityState>(entity)
+                && em.GetComponentData<ShardrootAbilityState>(entity).ActiveRemaining > 0f)
+                cdMult = 1f / 1.30f;
+            // Feraldis blood frenzy also swings faster.
+            cdMult *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
+            // Timed haste (Blood Rain and any future SpellBuff
+            // attack-speed effect) swings faster too.
+            cdMult *= CombatDamageHelper.GetHasteCooldownMult(em, entity);
+            var cd = em.GetComponentData<AttackCooldown>(entity);
+            cd.Timer = cd.Cooldown * cdMult;
+            em.SetComponentData(entity, cd);
         }
 
         /// <summary>

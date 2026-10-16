@@ -1,8 +1,10 @@
 // LitharchHealingSystem.cs
 // Processes healing for Litharch support units
 
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
@@ -27,6 +29,18 @@ namespace TheWaningBorder.Systems.Combat
     /// planted: it heals only what is already in range and never steps away,
     /// unless the heal was ORDERED (orders win on every stance).
     /// Tunables: LitharchHealingSystem.asset; heal range / rate: Litharch.asset.
+    ///
+    /// PERF (2026-10-15): the three scans that made this system expensive —
+    /// the patient search (every unit, with a threat test per far patient),
+    /// the step-away threat test, and the stand-point safety test — run in a
+    /// parallel Burst job (<see cref="LithPlanJob"/>) before the per-Litharch
+    /// loop, which then reads their answers. The loop itself is unchanged and
+    /// still runs in query order. The only state the loop changes that a scan
+    /// read is a patient's Health (a heal), and a heal can only take a patient
+    /// OUT of the candidate set (to full): so a planned pick that is still
+    /// injured when its Litharch's turn comes is exactly the pick the old
+    /// in-loop search would have made, and one that is not falls back to that
+    /// search, live. The threat and stand answers read nothing the loop writes.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TargetingSystem))]
@@ -71,19 +85,109 @@ namespace TheWaningBorder.Systems.Combat
                 ecb.RemoveComponent<HealCommand>(entity);
             }
 
-            // Armed, living units, gathered ONCE per frame on first need and
-            // shared by every Litharch's threat / stand-point checks (it used
-            // to be a full unit query per Litharch per check).
-            var armed = new NativeList<ArmedUnit>(Allocator.Temp);
-            bool armedBuilt = false;
+            // ── Phase 2 set-up ────────────────────────────────────────────
+            // The Phase 2 Litharchs, in the order the loop walks them.
+            var lithQuery = SystemAPI.QueryBuilder()
+                .WithAllRW<LitharchState>()
+                .WithAll<CanHeal, FactionTag, LocalTransform, LitharchTag>()
+                .WithNone<HealCommand>()
+                .Build();
+            using var liths = lithQuery.ToEntityArray(Allocator.TempJob);
+            int nL = liths.Length;
+            if (nL == 0) return;
+
+            // Armed, living units — what every threat / stand-point check
+            // reads. Built once, in Burst. (The old loop built it on first
+            // need; its content cannot differ: a heal never raises a unit
+            // from 0 HP, and nothing else here touches Health or Damage.)
+            var armedQuery = SystemAPI.QueryBuilder()
+                .WithAll<Health, FactionTag, LocalTransform, Damage, UnitTag>()
+                .WithNone<DeathAnimationState>()
+                .Build();
+            using var armedEntities = armedQuery.ToEntityArray(Allocator.TempJob);
+            using var armed = new NativeList<ArmedUnit>(armedEntities.Length, Allocator.TempJob);
+            var armedJob = new BuildArmedJob
+            {
+                Entities = armedEntities,
+                Health = SystemAPI.GetComponentLookup<Health>(true),
+                Faction = SystemAPI.GetComponentLookup<FactionTag>(true),
+                Transform = SystemAPI.GetComponentLookup<LocalTransform>(true),
+                Damage = SystemAPI.GetComponentLookup<Damage>(true),
+                Net = SystemAPI.GetComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(true),
+                Armed = armed,
+            };
+            armedJob.Run();
+
+            // Every possible patient, in the order the old search walked them.
+            var candQuery = SystemAPI.QueryBuilder()
+                .WithAll<Health, FactionTag, LocalTransform, UnitTag>()
+                .Build();
+            using var candEntities = candQuery.ToEntityArray(Allocator.TempJob);
+            using var candXf = candQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+            using var candFaction = candQuery.ToComponentDataArray<FactionTag>(Allocator.TempJob);
+
+            var ctx = new SearchCtx
+            {
+                Cands = candEntities,
+                CandXf = candXf,
+                CandFaction = candFaction,
+                Armed = armed.AsArray(),
+                Health = SystemAPI.GetComponentLookup<Health>(true),
+                Unhealable = SystemAPI.GetComponentLookup<UnhealableTag>(true),
+                Net = SystemAPI.GetComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(true),
+                Targets = SystemAPI.GetComponentLookup<Target>(true),
+                LastAttacker = SystemAPI.GetComponentLookup<LastAttackerEntity>(true),
+                Transform = SystemAPI.GetComponentLookup<LocalTransform>(true),
+                Storage = SystemAPI.GetEntityStorageInfoLookup(),
+                ThreatRadius = cfg.threatRadius,
+                StandOffMargin = cfg.standOffMargin,
+                StandSafetyMargin = cfg.standSafetyMargin,
+                MeleeContactRadius = cfg.meleeContactRadius,
+            };
+
+            // Per-Litharch inputs (managed, cheap: one stance read each).
+            var lithIn = new NativeArray<LithInput>(nL, Allocator.TempJob);
+            for (int i = 0; i < nL; i++)
+            {
+                var e = liths[i];
+                var ls = em.GetComponentData<LitharchState>(e);
+                var ch = em.GetComponentData<CanHeal>(e);
+                bool hold = StanceCommandHelper.Effective(em, e) == UnitStanceMode.Hold;
+                bool curValid = false;
+                if (ls.HealTarget != Entity.Null && em.Exists(ls.HealTarget)
+                    && em.HasComponent<Health>(ls.HealTarget))
+                {
+                    var h = em.GetComponentData<Health>(ls.HealTarget);
+                    curValid = h.Value < h.Max && h.Value > 0;
+                }
+                lithIn[i] = new LithInput
+                {
+                    Self = e,
+                    Pos = em.GetComponentData<LocalTransform>(e).Position,
+                    Faction = em.GetComponentData<FactionTag>(e).Value,
+                    HealRange = ch.HealRange,
+                    SearchRange = hold ? ch.HealRange : cfg.autoSearchRange,
+                    NeedThreat = (byte)(hold ? 0 : 1),
+                    NeedSearch = (byte)(ls.SearchTimer + dt >= SearchInterval ? 1 : 0),
+                    CurTarget = curValid ? ls.HealTarget : Entity.Null,
+                };
+            }
+
+            using var plans = new NativeArray<LithPlan>(nL, Allocator.TempJob);
+            var planJob = new LithPlanJob { In = lithIn, Ctx = ctx, Plans = plans };
+            var planHandle = planJob.Schedule(nL, 1, state.Dependency);
+            planHandle.Complete();
 
             // Phase 2: Auto-search for injured friendlies when idle
-            foreach (var (lithState, canHeal, factionTag, transform, entity) in SystemAPI
-                         .Query<RefRW<LitharchState>, RefRO<CanHeal>, RefRO<FactionTag>, RefRO<LocalTransform>>()
-                         .WithAll<LitharchTag>()
-                         .WithNone<HealCommand>()
-                         .WithEntityAccess())
+            for (int li = 0; li < nL; li++)
             {
+                var entity = liths[li];
+                var plan = plans[li];
+                var lithState = SystemAPI.GetComponentRW<LitharchState>(entity);
+                var canHeal = em.GetComponentData<CanHeal>(entity);
+                var myPos = lithIn[li].Pos;
+                var myFaction = lithIn[li].Faction;
+
                 // UserMoveOrder = player/AI issued a manual command — cancel healing, obey command
                 if (TransientState.Active<UserMoveOrder>(em, entity))
                 {
@@ -100,9 +204,7 @@ namespace TheWaningBorder.Systems.Combat
                 // healing must not fight over the destination with.
                 if (TransientState.Active<AttackCommand>(em, entity)) continue;
 
-                var myPos = transform.ValueRO.Position;
-                var myFaction = factionTag.ValueRO.Value;
-                bool hold = StanceCommandHelper.Effective(em, entity) == UnitStanceMode.Hold;
+                bool hold = lithIn[li].NeedThreat == 0;
 
                 // ── Step away from an armed enemy that got too close. ──
                 // Checked on its own cadence; a running step-away blocks the
@@ -124,9 +226,11 @@ namespace TheWaningBorder.Systems.Combat
                 if (!hold && lithState.ValueRO.ThreatTimer <= 0f)
                 {
                     lithState.ValueRW.ThreatTimer = cfg.threatCheckInterval;
-                    EnsureArmed(ref state, em, armed, ref armedBuilt);
-                    if (NearestArmedEnemy(armed, myPos, myFaction, cfg.threatRadius, out float3 threatPos))
+                    // Planned (NearestArmedEnemy on the armed set, which this
+                    // loop never changes).
+                    if (plan.ThreatFound != 0)
                     {
+                        float3 threatPos = plan.ThreatPos;
                         float3 away = myPos - threatPos;
                         away.y = 0f;
                         float len = math.length(away);
@@ -169,58 +273,22 @@ namespace TheWaningBorder.Systems.Combat
                 lithState.ValueRW.SearchTimer = 0f;
 
                 {
-                    // On Hold it heals only what it can reach from where it stands.
-                    float searchRange = hold ? canHeal.ValueRO.HealRange : cfg.autoSearchRange;
-                    float healRange = canHeal.ValueRO.HealRange;
-                    float standDist = math.max(1f, healRange - cfg.standOffMargin);
-                    float bestFree = float.MaxValue, bestContact = float.MaxValue;
-                    uint bestFreeKey = uint.MaxValue, bestContactKey = uint.MaxValue;
-                    Entity freeTarget = Entity.Null, contactTarget = Entity.Null;
-                    EnsureArmed(ref state, em, armed, ref armedBuilt);
-
-                    foreach (var (tHealth, tFaction, tTransform, tEntity) in SystemAPI
-                                 .Query<RefRO<Health>, RefRO<FactionTag>, RefRO<LocalTransform>>()
-                                 .WithAll<UnitTag>()
-                                 .WithEntityAccess())
+                    // The planned pick stands while it is still injured (a heal
+                    // earlier this tick can only REMOVE candidates — see the
+                    // class note); otherwise search again, live.
+                    Entity bestTarget;
+                    if (plan.SearchDone != 0
+                        && (plan.SearchBest == Entity.Null || StillInjured(em, plan.SearchBest)))
                     {
-                        if (tEntity == entity) continue;
-                        // Litharchs heal allies too. docs/Design/Teams.md
-                        if (!Alliances.AreAllied(myFaction, tFaction.ValueRO.Value)) continue;
-                        if (em.HasComponent<UnhealableTag>(tEntity)) continue;
-                        if (tHealth.ValueRO.Value >= tHealth.ValueRO.Max) continue;
-                        if (tHealth.ValueRO.Value <= 0) continue;
-
-                        var tPos = tTransform.ValueRO.Position;
-                        float dist = DistXZ(myPos, tPos);
-                        if (dist >= searchRange) continue;
-
-                        // A patient it would have to WALK to is only a
-                        // candidate if the stand point it would walk to is
-                        // clear of armed enemies; otherwise it waits for
-                        // another patient rather than walking into the fight.
-                        if (dist > healRange)
-                        {
-                            float3 stand = StandPoint(armed, tPos, myPos, myFaction, standDist, cfg.threatRadius);
-                            if (ThreatNear(armed, stand, myFaction, cfg.threatRadius + cfg.standSafetyMargin))
-                                continue;
-                        }
-
-                        // Exact-distance ties broken on a peer-stable key, not
-                        // chunk order (lockstep).
-                        uint key = StableKey(em, tEntity, tPos);
-
-                        // Prefer a patient who is NOT trading blows: healing
-                        // one in melee contact drags the healer into the fight.
-                        if (InMeleeContact(em, tEntity, tPos, cfg.meleeContactRadius))
-                        {
-                            if (Better(dist, key, bestContact, bestContactKey))
-                            { bestContact = dist; bestContactKey = key; contactTarget = tEntity; }
-                        }
-                        else if (Better(dist, key, bestFree, bestFreeKey))
-                        { bestFree = dist; bestFreeKey = key; freeTarget = tEntity; }
+                        bestTarget = plan.SearchBest;
+                    }
+                    else
+                    {
+                        ctx.Health.Update(ref state);
+                        bestTarget = SearchCore(entity, myPos, myFaction, lithIn[li].SearchRange,
+                            canHeal.HealRange, in ctx);
                     }
 
-                    Entity bestTarget = freeTarget != Entity.Null ? freeTarget : contactTarget;
                     if (bestTarget != Entity.Null)
                     {
                         lithState.ValueRW.HealTarget = bestTarget;
@@ -245,7 +313,7 @@ namespace TheWaningBorder.Systems.Combat
                     var healTarget = lithState.ValueRO.HealTarget;
                     var targetPos = em.GetComponentData<LocalTransform>(healTarget).Position;
                     float dist = DistXZ(myPos, targetPos);
-                    float range = canHeal.ValueRO.HealRange;
+                    float range = canHeal.HealRange;
 
                     if (dist > range)
                     {
@@ -265,16 +333,28 @@ namespace TheWaningBorder.Systems.Combat
                         // else on the patient→Litharch line (the RitualApproach
                         // pattern). Pathing to the patient's exact spot walked
                         // the healer into the melee it was healing.
-                        EnsureArmed(ref state, em, armed, ref armedBuilt);
-                        float3 stand = StandPoint(armed, targetPos, myPos, myFaction,
-                            math.max(1f, range - cfg.standOffMargin), cfg.threatRadius);
-
+                        //
                         // Never walk in to an unsafe stand point. Hold here
                         // (and make here the post, so return-to-guard does not
                         // walk it in either); an AUTO patient is let go so the
                         // next search picks a safer one, an ORDERED one is
                         // waited on until the point clears.
-                        if (ThreatNear(armed, stand, myFaction, cfg.threatRadius + cfg.standSafetyMargin))
+                        float3 stand;
+                        bool unsafeStand;
+                        if (plan.StandDone != 0 && plan.StandTarget == healTarget)
+                        {
+                            stand = plan.Stand;
+                            unsafeStand = plan.StandUnsafe != 0;
+                        }
+                        else
+                        {
+                            stand = StandPoint(ctx.Armed, targetPos, myPos, myFaction,
+                                math.max(1f, range - cfg.standOffMargin), cfg.threatRadius);
+                            unsafeStand = ThreatNear(ctx.Armed, stand, myFaction,
+                                cfg.threatRadius + cfg.standSafetyMargin);
+                        }
+
+                        if (unsafeStand)
                         {
                             TheWaningBorder.Core.TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
                             if (TransientState.Active<GuardPoint>(em, entity))
@@ -314,7 +394,7 @@ namespace TheWaningBorder.Systems.Combat
                             lithState.ValueRW.HealTimer = 0f;
 
                             var targetHealth = em.GetComponentData<Health>(healTarget);
-                            float healRate = canHeal.ValueRO.HealRate;
+                            float healRate = canHeal.HealRate;
 
                             int healAmount = (int)(healRate * HealTickInterval);
                             if (healAmount < 1) healAmount = 1;
@@ -338,9 +418,16 @@ namespace TheWaningBorder.Systems.Combat
                     }
                 }
             }
-
-            armed.Dispose();
+            lithIn.Dispose();
             // ECB plays back automatically at EndSimulation.
+        }
+
+        /// <summary>The search's own "is this still a patient" test, live.</summary>
+        private static bool StillInjured(EntityManager em, Entity e)
+        {
+            if (!em.Exists(e) || !em.HasComponent<Health>(e)) return false;
+            var h = em.GetComponentData<Health>(e);
+            return h.Value < h.Max && h.Value > 0;
         }
 
         /// <summary>An armed, living unit, as the threat checks see it.</summary>
@@ -351,36 +438,200 @@ namespace TheWaningBorder.Systems.Combat
             public uint Key;
         }
 
-        /// <summary>Fill <paramref name="armed"/> once per frame, on first need.
-        /// NativeList is a handle, so the by-value parameter fills the caller's list.</summary>
-        private void EnsureArmed(ref SystemState state, EntityManager em,
-            NativeList<ArmedUnit> armed, ref bool built)
+        /// <summary>One Litharch's plan inputs, gathered on the main thread.</summary>
+        private struct LithInput
         {
-            if (built) return;
-            built = true;
-            foreach (var (eHealth, eFaction, eXf, eDmg, e) in SystemAPI
-                         .Query<RefRO<Health>, RefRO<FactionTag>, RefRO<LocalTransform>, RefRO<Damage>>()
-                         .WithAll<UnitTag>()
-                         .WithNone<DeathAnimationState>()
-                         .WithEntityAccess())
+            public Entity Self;
+            public float3 Pos;
+            public Faction Faction;
+            public float HealRange;
+            public float SearchRange;
+            public byte NeedThreat;
+            public byte NeedSearch;
+            /// <summary>The current heal target when it is still a patient.</summary>
+            public Entity CurTarget;
+        }
+
+        /// <summary>One Litharch's planned answers.</summary>
+        private struct LithPlan
+        {
+            public byte ThreatFound;
+            public float3 ThreatPos;
+            public byte SearchDone;
+            public Entity SearchBest;
+            public byte StandDone;
+            public byte StandUnsafe;
+            public Entity StandTarget;
+            public float3 Stand;
+        }
+
+        /// <summary>Everything the patient search and the threat tests read.</summary>
+        private struct SearchCtx
+        {
+            [ReadOnly] public NativeArray<Entity> Cands;
+            [ReadOnly] public NativeArray<LocalTransform> CandXf;
+            [ReadOnly] public NativeArray<FactionTag> CandFaction;
+            [ReadOnly] public NativeArray<ArmedUnit> Armed;
+            [ReadOnly] public ComponentLookup<Health> Health;
+            [ReadOnly] public ComponentLookup<UnhealableTag> Unhealable;
+            [ReadOnly] public ComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity> Net;
+            [ReadOnly] public ComponentLookup<Target> Targets;
+            [ReadOnly] public ComponentLookup<LastAttackerEntity> LastAttacker;
+            [ReadOnly] public ComponentLookup<LocalTransform> Transform;
+            [ReadOnly] public EntityStorageInfoLookup Storage;
+            public float ThreatRadius;
+            public float StandOffMargin;
+            public float StandSafetyMargin;
+            public float MeleeContactRadius;
+        }
+
+        /// <summary>The armed set, in query order, with its peer-stable keys.</summary>
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+        private struct BuildArmedJob : IJob
+        {
+            [ReadOnly] public NativeArray<Entity> Entities;
+            [ReadOnly] public ComponentLookup<Health> Health;
+            [ReadOnly] public ComponentLookup<FactionTag> Faction;
+            [ReadOnly] public ComponentLookup<LocalTransform> Transform;
+            [ReadOnly] public ComponentLookup<Damage> Damage;
+            [ReadOnly] public ComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity> Net;
+            public NativeList<ArmedUnit> Armed;
+
+            public void Execute()
             {
-                if (eDmg.ValueRO.Value <= 0 || eHealth.ValueRO.Value <= 0) continue;
-                armed.Add(new ArmedUnit
+                for (int i = 0; i < Entities.Length; i++)
                 {
-                    Pos = eXf.ValueRO.Position,
-                    Faction = eFaction.ValueRO.Value,
-                    Key = StableKey(em, e, eXf.ValueRO.Position),
-                });
+                    var e = Entities[i];
+                    if (Damage[e].Value <= 0 || Health[e].Value <= 0) continue;
+                    var pos = Transform[e].Position;
+                    Armed.Add(new ArmedUnit
+                    {
+                        Pos = pos,
+                        Faction = Faction[e].Value,
+                        Key = StableKey(in Net, e, pos),
+                    });
+                }
             }
+        }
+
+        /// <summary>Every Litharch's threat check, patient search and
+        /// stand-point test, in parallel; each writes only its own plan.</summary>
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+        private struct LithPlanJob : IJobParallelFor
+        {
+            [ReadOnly] public NativeArray<LithInput> In;
+            [ReadOnly] public SearchCtx Ctx;
+            [WriteOnly] public NativeArray<LithPlan> Plans;
+
+            public void Execute(int i)
+            {
+                var input = In[i];
+                var p = new LithPlan();
+
+                if (input.NeedThreat != 0)
+                {
+                    p.ThreatFound = (byte)(NearestArmedEnemy(Ctx.Armed, input.Pos, input.Faction,
+                        Ctx.ThreatRadius, out p.ThreatPos) ? 1 : 0);
+                }
+
+                // The patient the walk branch will most likely use: the
+                // current one while it is still injured, else the search pick.
+                Entity standFor = input.CurTarget;
+                if (input.NeedSearch != 0)
+                {
+                    p.SearchDone = 1;
+                    p.SearchBest = SearchCore(input.Self, input.Pos, input.Faction, input.SearchRange,
+                        input.HealRange, in Ctx);
+                    if (standFor == Entity.Null) standFor = p.SearchBest;
+                }
+
+                if (standFor != Entity.Null && Ctx.Storage.Exists(standFor)
+                    && Ctx.Transform.TryGetComponent(standFor, out var txf))
+                {
+                    var targetPos = txf.Position;
+                    if (DistXZ(input.Pos, targetPos) > input.HealRange)
+                    {
+                        p.StandDone = 1;
+                        p.StandTarget = standFor;
+                        p.Stand = StandPoint(Ctx.Armed, targetPos, input.Pos, input.Faction,
+                            math.max(1f, input.HealRange - Ctx.StandOffMargin), Ctx.ThreatRadius);
+                        p.StandUnsafe = (byte)(ThreatNear(Ctx.Armed, p.Stand, input.Faction,
+                            Ctx.ThreatRadius + Ctx.StandSafetyMargin) ? 1 : 0);
+                    }
+                }
+
+                Plans[i] = p;
+            }
+        }
+
+        /// <summary>
+        /// The patient search — the old in-loop search, unchanged in its tests
+        /// and its order (every unit in query order, peer-stable tie-breaks):
+        /// the nearest allied, injured, healable unit inside the search range,
+        /// preferring one NOT in melee contact, and skipping a far one whose
+        /// stand point is not clear of armed enemies. Reads Health through the
+        /// lookup, so it is the live value whenever it is called.
+        /// </summary>
+        private static Entity SearchCore(Entity self, float3 myPos, Faction myFaction,
+            float searchRange, float healRange, in SearchCtx c)
+        {
+            float standDist = math.max(1f, healRange - c.StandOffMargin);
+            float bestFree = float.MaxValue, bestContact = float.MaxValue;
+            uint bestFreeKey = uint.MaxValue, bestContactKey = uint.MaxValue;
+            Entity freeTarget = Entity.Null, contactTarget = Entity.Null;
+
+            for (int i = 0; i < c.Cands.Length; i++)
+            {
+                var tEntity = c.Cands[i];
+                if (tEntity == self) continue;
+                // Litharchs heal allies too. docs/Design/Teams.md
+                if (!Alliances.AreAlliedBurst(myFaction, c.CandFaction[i].Value)) continue;
+                if (c.Unhealable.HasComponent(tEntity)) continue;
+                var tHealth = c.Health[tEntity];
+                if (tHealth.Value >= tHealth.Max) continue;
+                if (tHealth.Value <= 0) continue;
+
+                var tPos = c.CandXf[i].Position;
+                float dist = DistXZ(myPos, tPos);
+                if (dist >= searchRange) continue;
+
+                // A patient it would have to WALK to is only a candidate if
+                // the stand point it would walk to is clear of armed enemies;
+                // otherwise it waits for another patient rather than walking
+                // into the fight.
+                if (dist > healRange)
+                {
+                    float3 stand = StandPoint(c.Armed, tPos, myPos, myFaction, standDist, c.ThreatRadius);
+                    if (ThreatNear(c.Armed, stand, myFaction, c.ThreatRadius + c.StandSafetyMargin))
+                        continue;
+                }
+
+                // Exact-distance ties broken on a peer-stable key, not chunk
+                // order (lockstep).
+                uint key = StableKey(in c.Net, tEntity, tPos);
+
+                // Prefer a patient who is NOT trading blows: healing one in
+                // melee contact drags the healer into the fight.
+                if (InMeleeContact(in c, tEntity, tPos, c.MeleeContactRadius))
+                {
+                    if (Better(dist, key, bestContact, bestContactKey))
+                    { bestContact = dist; bestContactKey = key; contactTarget = tEntity; }
+                }
+                else if (Better(dist, key, bestFree, bestFreeKey))
+                { bestFree = dist; bestFreeKey = key; freeTarget = tEntity; }
+            }
+
+            return freeTarget != Entity.Null ? freeTarget : contactTarget;
         }
 
         /// <summary>A peer-stable identity for tie-breaks: the lockstep
         /// NetworkId, else the position bits. Never chunk order, which differs
         /// between peers.</summary>
-        private static uint StableKey(EntityManager em, Entity e, float3 pos)
+        private static uint StableKey(in ComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity> net,
+            Entity e, float3 pos)
         {
-            if (em.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(e))
-                return (uint)em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(e).NetworkId;
+            if (net.TryGetComponent(e, out var n))
+                return (uint)n.NetworkId;
             return math.hash(pos) | 0x80000000u;
         }
 
@@ -393,7 +644,7 @@ namespace TheWaningBorder.Systems.Combat
         /// in, or pathed through, the melee); with no such enemy, on the
         /// patient→healer line. Degenerate directions fall back to a fixed
         /// bearing, so the result is the same on every peer.</summary>
-        private static float3 StandPoint(NativeList<ArmedUnit> armed, float3 patient, float3 healer,
+        private static float3 StandPoint(NativeArray<ArmedUnit> armed, float3 patient, float3 healer,
             Faction myFaction, float standDist, float threatRadius)
         {
             float3 d;
@@ -408,12 +659,12 @@ namespace TheWaningBorder.Systems.Combat
         }
 
         /// <summary>Is any armed hostile within <paramref name="radius"/>?</summary>
-        private static bool ThreatNear(NativeList<ArmedUnit> armed, float3 pos, Faction myFaction, float radius)
+        private static bool ThreatNear(NativeArray<ArmedUnit> armed, float3 pos, Faction myFaction, float radius)
         {
             for (int i = 0; i < armed.Length; i++)
             {
                 var a = armed[i];
-                if (!Alliances.AreHostile(myFaction, a.Faction)) continue;
+                if (!Alliances.AreHostileBurst(myFaction, a.Faction)) continue;
                 if (DistXZ(pos, a.Pos) <= radius) return true;
             }
             return false;
@@ -421,20 +672,20 @@ namespace TheWaningBorder.Systems.Combat
 
         /// <summary>Is this patient trading blows — its own target, or the unit
         /// that last hit it, standing within <paramref name="radius"/>?</summary>
-        private static bool InMeleeContact(EntityManager em, Entity patient, float3 pos, float radius)
+        private static bool InMeleeContact(in SearchCtx c, Entity patient, float3 pos, float radius)
         {
-            if (em.HasComponent<Target>(patient))
+            if (c.Targets.TryGetComponent(patient, out var tc))
             {
-                var t = em.GetComponentData<Target>(patient).Value;
-                if (t != Entity.Null && em.Exists(t) && em.HasComponent<LocalTransform>(t)
-                    && DistXZ(pos, em.GetComponentData<LocalTransform>(t).Position) <= radius)
+                var t = tc.Value;
+                if (t != Entity.Null && c.Storage.Exists(t) && c.Transform.TryGetComponent(t, out var txf)
+                    && DistXZ(pos, txf.Position) <= radius)
                     return true;
             }
-            if (TransientState.Active<LastAttackerEntity>(em, patient))
+            if (c.LastAttacker.HasComponent(patient) && c.LastAttacker.IsComponentEnabled(patient))
             {
-                var a = em.GetComponentData<LastAttackerEntity>(patient).Value;
-                if (a != Entity.Null && em.Exists(a) && em.HasComponent<LocalTransform>(a)
-                    && DistXZ(pos, em.GetComponentData<LocalTransform>(a).Position) <= radius)
+                var a = c.LastAttacker[patient].Value;
+                if (a != Entity.Null && c.Storage.Exists(a) && c.Transform.TryGetComponent(a, out var axf)
+                    && DistXZ(pos, axf.Position) <= radius)
                     return true;
             }
             return false;
@@ -442,7 +693,7 @@ namespace TheWaningBorder.Systems.Combat
 
         /// <summary>The nearest hostile, living, ARMED unit within
         /// <paramref name="radius"/> of <paramref name="pos"/>.</summary>
-        private static bool NearestArmedEnemy(NativeList<ArmedUnit> armed, float3 pos,
+        private static bool NearestArmedEnemy(NativeArray<ArmedUnit> armed, float3 pos,
             Faction myFaction, float radius, out float3 threatPos)
         {
             threatPos = default;
@@ -452,7 +703,7 @@ namespace TheWaningBorder.Systems.Combat
             for (int i = 0; i < armed.Length; i++)
             {
                 var a = armed[i];
-                if (!Alliances.AreHostile(myFaction, a.Faction)) continue;
+                if (!Alliances.AreHostileBurst(myFaction, a.Faction)) continue;
                 float d = DistXZ(pos, a.Pos);
                 if (d > radius) continue;
                 // Peer-stable tie-break (the old '<=' kept the LAST in chunk

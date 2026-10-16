@@ -7,6 +7,7 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using static TheWaningBorder.Core.MathUtil;
 using Unity.Transforms;
@@ -195,207 +196,142 @@ namespace TheWaningBorder.Systems.Combat
             return r;
         }
 
+        /// <summary>
+        /// PHASE 2 + 3 together: auto-acquire for idle / attack-move / patrol
+        /// units, then return-to-guard. Both passes' per-unit gates and
+        /// candidate scans run as parallel Burst plan jobs
+        /// (TargetingSystem.Jobs.cs); the plans are then applied here in the
+        /// original order — every acquire unit in query order, then every
+        /// guard unit in query order — which is where the shared attacker
+        /// count and the ECB writes happen, exactly as the old loops did them.
+        /// </summary>
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
-        private void AutoAcquireTargets(ref SystemState state, ref EntityCommandBuffer ecb,
+        private void AutoAcquireAndReturnToGuard(ref SystemState state, ref EntityCommandBuffer ecb,
             in EnemyScan scan, in StanceSettings settings,
             ref NativeHashMap<Entity, int> attackerCount)
         {
             var em = state.EntityManager;
-            uint tick = _tick;
-            float clock = _clock;
 
-            // Single unified loop for all target-seeking units:
-            // idle units, attack-move units, and patrol units.
-            // Workers are excluded.
-            foreach (var (transform, faction, lineOfSight, target, unitTag, damage, eng, entity) in SystemAPI
-                .Query<RefRO<LocalTransform>, RefRO<FactionTag>, RefRO<LineOfSight>, RefRO<Target>,
-                       RefRO<UnitTag>, RefRO<Damage>, RefRW<UnitEngagement>>()
-                .WithNone<DeathAnimationState>()  // a corpse acquires nothing
-                .WithNone<TheWaningBorder.Entities.Launched>()  // neither does a unit in the air
-                .WithNone<AttackCommand>()
-                .WithNone<PassiveWorkerTag>()   // Workers are passive...
-                                                //   ...except Feraldis Workers, which are
-                                                //   light infantry that also build. The tag
-                                                //   (not CanBuild) is what marks a worker as
-                                                //   non-combatant; FeraldisCultureRetrofitSystem
-                                                //   strips it.
-                .WithNone<BuildCommand>()       // A COMMITTED WORKER IS BUSY. Feraldis
-                                                //   Workers fight, so dropping PassiveWorkerTag
-                                                //   let this pass (and return-to-guard below)
-                                                //   grab them mid-build and fight the build
-                                                //   order for their DesiredDestination every
-                                                //   frame — the visible worker "glitching"
-                                                //   reported 2026-08-06. Command follow-through:
-                                                //   a worker with a build order finishes it.
-                .WithNone<SectVeiled>()         // Stoneveil (Fortitude): a veiled unit may
-                                                //   move, and nothing else. It cannot attack,
-                                                //   gather, build or capture while veiled.
-                .WithNone<WorkerTag>()           // Workers are handled by MiningSystem
-                .WithNone<RitualState>()        // A CHANNELLING RITUALIST IS BUSY — the same
-                                                //   rule as the committed worker above, added
-                                                //   for the same failure.
-                                                //
-                                                //   The killer is the return-to-guard branch
-                                                //   below, not target acquisition. A ritualist
-                                                //   clears DesiredDestination to channel, which
-                                                //   makes it IDLE; its GuardPoint is still where
-                                                //   it spawned, tens of metres away; so the very
-                                                //   next tick walks it home at full speed. It
-                                                //   `continue`s before the damage check, so even
-                                                //   a 0-damage caster like the Iconoclast is
-                                                //   dragged off.
-                                                //
-                                                //   Measured 2026-08-07: 6 m -> 14 m in ~3 s
-                                                //   (2.7 m/s against a 3.2 move speed), breaking
-                                                //   the 40 s channel every single time. With
-                                                //   MaxGuardDistance at 10 m this hit EVERY
-                                                //   ritual on every map — no well is within
-                                                //   10 m of a spawn.
-                .WithEntityAccess())
+            // The same entity sets, in the same order, as the two old foreach
+            // loops (see the comments there for why each exclusion exists).
+            var acquireQuery = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, FactionTag, LineOfSight, Target, UnitTag, Damage>()
+                .WithAllRW<UnitEngagement>()
+                .WithNone<DeathAnimationState, TheWaningBorder.Entities.Launched, AttackCommand>()
+                .WithNone<PassiveWorkerTag, BuildCommand, SectVeiled>()
+                .WithNone<WorkerTag, RitualState>()
+                .Build();
+            var guardQuery = SystemAPI.QueryBuilder()
+                .WithAll<LocalTransform, GuardPoint, FactionTag, LineOfSight, Target>()
+                .WithAllRW<UnitEngagement>()
+                .WithAll<UnitTag>()
+                .WithNone<AttackCommand, UserMoveOrder, HealCommand>()
+                .WithNone<PassiveWorkerTag, BuildCommand, WorkerTag, RitualState>()
+                .Build();
+
+            using var acquireUnits = acquireQuery.ToEntityArray(Allocator.TempJob);
+            using var guardUnits = guardQuery.ToEntityArray(Allocator.TempJob);
+            using var acquirePlans = new NativeArray<UnitPlan>(acquireUnits.Length, Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
+            using var guardPlans = new NativeArray<UnitPlan>(guardUnits.Length, Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
+            using var acquireKinds = new NativeArray<byte>(acquireUnits.Length, Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
+            using var guardKinds = new NativeArray<byte>(guardUnits.Length, Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
+
+            var lk = GetUnitLookups(ref state);
+            var jobA = new AcquirePlanJob
             {
-                // Skip units that already have an active target
-                if (target.ValueRO.Value != Entity.Null) continue;
-                // An acquisition queued earlier this tick has not played back
-                // yet (the ECB lands at end of frame).
-                if (eng.ValueRO.AutoTarget != Entity.Null) continue;
+                Units = acquireUnits,
+                Lk = lk,
+                Scan = scan,
+                Settings = settings,
+                Tick = _tick,
+                Clock = _clock,
+                Plans = acquirePlans,
+                Kinds = acquireKinds,
+            };
+            var hA = jobA.Schedule(acquireUnits.Length, 8, state.Dependency);
+            var jobG = new GuardPlanJob
+            {
+                Units = guardUnits,
+                Lk = lk,
+                Scan = scan,
+                Settings = settings,
+                Tick = _tick,
+                Clock = _clock,
+                Plans = guardPlans,
+                Kinds = guardKinds,
+            };
+            var hG = jobG.Schedule(guardUnits.Length, 8, state.Dependency);
+            Unity.Jobs.JobHandle.CombineDependencies(hA, hG).Complete();
 
-                // Scouts are vision-only by design. Even if a future tech /
-                // TechTreeDB entry ever bumps their Damage above 0, they
-                // must NEVER auto-engage — they are the AI's and player's
-                // sole map-vision tool and the AI patrol loop relies on
-                // them staying alive. Explicit class check guarantees this
-                // regardless of the damage value below.
-                //
-                // Economy units (workers) NEVER auto-engage either. A
-                // worker standing on a deposit is mining, so its
-                // DesiredDestination.Has is 0 — which means the "skip units
-                // with a destination" gate below does NOT protect it, and it
-                // would auto-acquire a nearby enemy and wander off to chase it
-                // while still assigned to the deposit.
-                var cls = unitTag.ValueRO.Class;
-                if (cls == UnitClass.Scout || cls == UnitClass.Economy || cls == UnitClass.Worker)
-                    continue;
+            var engRW = SystemAPI.GetComponentLookup<UnitEngagement>(false);
 
-                // Damage gate — only units that actually deal damage
-                // engage enemies. Litharchs (and any future zero-damage
-                // support tier) sit idle in their formation slot until a
-                // tech upgrades their damage above 0.
-                if (damage.ValueRO.Value <= 0) continue;
-
-                // STAGGER: one tick in AcquireStagger per unit, phase from its
-                // network id (UnitStanceSystem stamps it), so every peer scans
-                // the same units on the same tick.
-                if (((tick + eng.ValueRO.ScanPhase) & (AcquireStagger - 1)) != 0) continue;
-
-                // Just broke a leash: do not let the same fleeing target tow
-                // the unit straight back out.
-                if (clock < eng.ValueRO.NextAcquireAt) continue;
-
-                // Cache the lookups; enableable transients read as active only
-                // while their enabled bit is set (TransientState).
-                bool hasAttackMove = TransientState.Active<AttackMoveTag>(em, entity);
-                bool hasPatrol = em.HasComponent<PatrolTag>(entity);
-                bool hasUserMoveOrder = TransientState.Active<UserMoveOrder>(em, entity);
-                bool isActiveScanner = hasAttackMove || hasPatrol;
-
-                // ── MARCH IN FORMATION, FIGHT AT THE GATES (2026-09-03). ──
-                // A formation attack-move used to auto-acquire the whole way,
-                // so the army peeled off unit by unit at every farm and stray
-                // scout it marched past and arrived as a strung-out queue —
-                // the "armies attack as a trickle" report. While a formation
-                // member is still farther than FormationHoldRadius from its
-                // attack-move destination (the guard point IS that
-                // destination), it holds rank and keeps walking. Retaliation
-                // is exempt: a unit HIT within the under-fire window fights
-                // back — marching silently through an ambush would be worse.
-                // (It used to key on "my last attacker is still alive", which
-                // only cleared when that attacker died: one graze from an
-                // archer that lived on released the unit for good.)
-                if (hasAttackMove
-                    && TransientState.Active<FormationMemberState>(em, entity)
-                    && TransientState.Active<GuardPoint>(em, entity))
+            // ── Apply: acquisition, in query order. ──
+            for (int i = 0; i < acquireUnits.Length; i++)
+            {
+                if (acquireKinds[i] == PlanNone) continue;
+                var plan = acquirePlans[i];
+                var entity = acquireUnits[i];
+                if (plan.Kind == PlanSetDest)
                 {
-                    var fgp = em.GetComponentData<GuardPoint>(entity);
-                    if (fgp.Has != 0
-                        && DistXZ(transform.ValueRO.Position, fgp.Position) > FormationHoldRadius)
-                    {
-                        bool underFire = clock - eng.ValueRO.HitAt <= settings.UnderFireWindow;
-                        if (!underFire) continue;
-                    }
+                    SetDestination(ref ecb, entity, plan.Pos, plan.HasDest != 0);
+                    continue;
                 }
 
-                // Idle units (no AttackMove/Patrol) with UserMoveOrder skip targeting
-                if (!isActiveScanner && hasUserMoveOrder) continue;
-
-                // Walking a QUEUED plain-move route: waypoints outweigh the
-                // stance until the queue is done (2026-09-29) — a route that
-                // fights at every stop is an attack-move, queued as such.
-                if (!isActiveScanner && TransientState.Active<QueuedMoveStep>(em, entity)) continue;
-
-                // Idle units skip while moving to a destination — including the
-                // walk home from a broken leash. Return-to-guard owns
-                // re-engagement en route (ProcessReturnToGuard).
-                if (!isActiveScanner && em.HasComponent<DesiredDestination>(entity)
-                    && em.GetComponentData<DesiredDestination>(entity).Has != 0)
-                    continue;
-
-                var myPos = transform.ValueRO.Position;
-                var myFaction = faction.ValueRO.Value;
-                var stance = EffectiveStance(em, entity);
-
-                // ── Idle-only guard distance constraint ──
-                // An idle unit that has wandered beyond MaxGuardDistance from
-                // its guard point is sent back instead of acquiring a target —
-                // and an idle unit only auto-acquires INSIDE its own chase
-                // leash, so a unit left past it walks home rather than
-                // re-engaging on the way (Stances.md §3).
-                // Attack-move / patrol scanners are exempt (they advance), and
-                // so is Hold (it never moves on its own) and an emplaced
-                // engine (it is on its post).
-                bool hitRecently = clock - eng.ValueRO.HitAt <= settings.RetaliationWindow;
-                var rules = RulesFor(em, entity, cls, stance, isActiveScanner,
-                    lineOfSight.ValueRO.Radius, hitRecently, in settings);
-                if (rules.Acquire == 0) continue;   // Hold: passive unless ordered
-
-                float3 anchor = myPos;
-                if (!isActiveScanner && stance != UnitStanceMode.Hold
-                    && !IsFixedMount(em, entity)
-                    && TransientState.Active<GuardPoint>(em, entity))
-                {
-                    var guardPoint = em.GetComponentData<GuardPoint>(entity);
-                    if (guardPoint.Has != 0)
-                    {
-                        anchor = guardPoint.Position;
-                        var distFromGuard = DistXZ(myPos, guardPoint.Position);
-                        if (distFromGuard > MaxGuardDistance)
-                        {
-                            SetDestination(em, ref ecb, entity, guardPoint.Position);
-                            continue;
-                        }
-                        // A unit that may chase only acquires inside its own
-                        // leash; one that never moves (leash 0) fights where
-                        // it stands.
-                        if (rules.Leash > 0f && distFromGuard > rules.Leash) continue;
-                    }
-                }
-
-                Entity bestTarget = FindAutoTarget(em, entity, myPos, myFaction, in rules,
-                    in scan, ref attackerCount);
-
+                Entity bestTarget = ResolveScan(em, entity, in plan, in scan, ref attackerCount);
                 if (bestTarget != Entity.Null && em.Exists(bestTarget))
                 {
                     ecb.SetComponent(entity, new Target { Value = bestTarget });
-                    ref var e = ref eng.ValueRW;
+                    var e = engRW[entity];
                     e.AutoTarget = bestTarget;
-                    e.Anchor = isActiveScanner ? myPos : anchor;
-                    e.Leash = rules.Leash;
+                    e.Anchor = plan.Pos;
+                    e.Leash = plan.Rules.Leash;
+                    engRW[entity] = e;
 
                     // Attack-move and patrol units also issue an AttackCommand so combat systems chase
                     // Do NOT clear DesiredDestination - unit resumes movement after combat.
                     // Not for a unit that may not chase (support on attack-move):
                     // it returns fire where it stands and keeps marching.
-                    if (isActiveScanner && rules.Leash > 0f)
+                    if (plan.Scanner != 0 && plan.Rules.Leash > 0f)
                         TransientState.Set(ecb, entity, new AttackCommand { Target = bestTarget });
+                }
+            }
+
+            // ── Apply: return-to-guard, in query order. ──
+            for (int i = 0; i < guardUnits.Length; i++)
+            {
+                if (guardKinds[i] == PlanNone) continue;
+                var plan = guardPlans[i];
+                var entity = guardUnits[i];
+                if (plan.Kind == PlanClearSuppressed)
+                {
+                    // TransientState.Clear: the plan saw it present.
+                    ecb.SetComponentEnabled<GuardSuppressed>(entity, false);
+                    continue;
+                }
+                // Acquired earlier this tick (the Target write is still in the
+                // ECB): it is about to fight, not to walk home. Live read —
+                // the acquire apply above may have just set it.
+                if (engRW[entity].AutoTarget != Entity.Null) continue;
+
+                if (plan.Kind == PlanSetDest)
+                {
+                    SetDestination(ref ecb, entity, plan.Pos, plan.HasDest != 0);
+                    continue;
+                }
+
+                Entity nearestEnemy = ResolveScan(em, entity, in plan, in scan, ref attackerCount);
+                if (nearestEnemy != Entity.Null && em.Exists(nearestEnemy))
+                {
+                    ecb.SetComponent(entity, new Target { Value = nearestEnemy });
+                    var e = engRW[entity];
+                    e.AutoTarget = nearestEnemy;
+                    e.Anchor = plan.Pos;
+                    e.Leash = plan.Rules.Leash;
+                    engRW[entity] = e;
                 }
             }
         }

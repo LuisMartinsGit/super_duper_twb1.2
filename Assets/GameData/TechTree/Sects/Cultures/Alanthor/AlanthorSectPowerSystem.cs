@@ -85,8 +85,21 @@ namespace TheWaningBorder.Systems.Sect
         {
             var q = QC_Dying.Get(em, QT_Dying);
             if (q.IsEmpty) return;
-            using var ents = q.ToEntityArray(Allocator.Temp);
+            // PERF (2026-10-15): the query is every living unit, and a unit
+            // is only of interest on the tick its Health reaches 0. Copy the
+            // Health column alone first; the four other columns (entities,
+            // ids, factions, transforms — five full copies of ~2,600 rows
+            // every tick) are copied only on a tick where someone died.
+            // Same rows, same order: result-identical.
             using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
+            bool anyDead = false;
+            for (int i = 0; i < hps.Length && !anyDead; i++) anyDead = hps[i].Value <= 0;
+            if (!anyDead)
+            {
+                TrimDeathLog(em);
+                return;
+            }
+            using var ents = q.ToEntityArray(Allocator.Temp);
             using var ids = q.ToComponentDataArray<UnitTypeId>(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var trs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -131,13 +144,23 @@ namespace TheWaningBorder.Systems.Sect
                 });
             }
 
-            if (logEntity != Entity.Null)
-            {
-                var log = em.GetBuffer<RecentDeath>(logEntity);
-                int drop = 0;
-                while (drop < log.Length && Now - log[drop].Time > DeathLogSeconds) drop++;
-                if (drop > 0) log.RemoveRange(0, drop);
-            }
+            if (logEntity != Entity.Null) TrimLog(em, logEntity);
+        }
+
+        /// <summary>The expiry half of the death log, for a tick with no
+        /// deaths (it ran on every tick the query was non-empty).</summary>
+        private void TrimDeathLog(EntityManager em)
+        {
+            foreach (var (_, e) in SystemAPI.Query<RefRO<DeathLogTag>>().WithEntityAccess())
+            { TrimLog(em, e); return; }
+        }
+
+        private static void TrimLog(EntityManager em, Entity logEntity)
+        {
+            var log = em.GetBuffer<RecentDeath>(logEntity);
+            int drop = 0;
+            while (drop < log.Length && Now - log[drop].Time > DeathLogSeconds) drop++;
+            if (drop > 0) log.RemoveRange(0, drop);
         }
 
         private void TickBounties(EntityManager em, EntityCommandBuffer ecb, float dt)
