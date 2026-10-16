@@ -23,15 +23,23 @@ namespace TheWaningBorder.AI
         private static int _used;
 
         /// <summary>
-        /// Claim one heavy think for this frame. <paramref name="force"/>
-        /// (the caller is starving) always succeeds and still counts.
+        /// Claim one heavy think (or think stage) for this frame. Refused when
+        /// the frame already ran maxBrainThinksPerFrame of them OR the AI's
+        /// per-frame TIME budget (AIFrameBudget, 2026-10-16) has no room for
+        /// <paramref name="estimateMs"/>. <paramref name="force"/> (the caller
+        /// is starving) gets past both, but only maxForcedAIWorkPerFrame
+        /// forced pieces run per frame — several starving brains used to be
+        /// forced through on the SAME frame, which is the spike this bounds.
         /// </summary>
-        public static bool TryClaim(bool force = false)
+        public static bool TryClaim(bool force = false, double estimateMs = 0.0)
         {
             int frame = UnityEngine.Time.frameCount;
             if (frame != _frame) { _frame = frame; _used = 0; }
             int cap = System.Math.Max(1, SimpleAISystemConfig.I.maxBrainThinksPerFrame);
-            if (_used >= cap && !force) return false;
+            bool granted = force
+                ? AIFrameBudget.TryGrantOrForce(estimateMs)
+                : _used < cap && AIFrameBudget.TryGrant(estimateMs);
+            if (!granted) return false;
             _used++;
             return true;
         }

@@ -376,6 +376,13 @@ namespace TheWaningBorder.World.FogOfWar
             DataVersion++;
         }
 
+        /// <summary>True when the cached static layer was built from exactly
+        /// this (hash, count) and is still valid — a caller that knows its
+        /// static set has not changed may then pass no commands at all
+        /// (StampPass will not rebuild). 2026-10-16 perf.</summary>
+        public bool StaticLayerMatches(ulong hash, int count)
+            => _staticValid && _static.IsCreated && hash == _staticHash && count == _staticCount;
+
         unsafe void RebuildStatic(NativeArray<StampCommand> statics, int count, ulong hash)
         {
             int cells = _w * _h;
@@ -469,25 +476,57 @@ namespace TheWaningBorder.World.FogOfWar
                 NativeArrayOptions.UninitializedMemory);
             if (count == 0) return cmds;
 
-            for (int i = 0; i < count; i++) cnt[FIdx(src[i].Faction)]++;
-            int run = 0;
-            for (int f = 0; f < MaxFactions; f++) { start[f] = run; run += cnt[f]; }
-            var fill = new NativeArray<int>(MaxFactions, Allocator.Temp);
-            int cells = _w * _h;
-            for (int i = 0; i < count; i++)
+            // Burst (2026-10-16): the same counting sort, compiled — it was
+            // two managed passes over every sighted unit per fog pass. Same
+            // float expressions in the same order (IEEE-exact either way).
+            new SortByFactionJob
             {
-                var c = src[i];
-                int f = FIdx(c.Faction);
-                cmds[start[f] + fill[f]++] = new StampJobCmd
-                {
-                    GX = (c.Position.x - WorldMin.x) / CellSize,
-                    GY = (c.Position.z - WorldMin.y) / CellSize,
-                    R = Mathf.Max(0.01f, c.Radius / CellSize),
-                    Ofs = f * cells,
-                };
-            }
-            fill.Dispose();
+                Src = src, Count = count, Start = start, Cnt = cnt, Cmds = cmds,
+                WorldMinX = WorldMin.x, WorldMinY = WorldMin.y, CellSize = CellSize,
+                Cells = _w * _h, MaxF = MaxFactions,
+            }.Run();
             return cmds;
+        }
+
+        [BurstCompile]
+        struct SortByFactionJob : IJob
+        {
+            [ReadOnly] public NativeArray<StampCommand> Src;
+            public int Count;
+            public NativeArray<int> Start;
+            public NativeArray<int> Cnt;
+            public NativeArray<StampJobCmd> Cmds;
+            public float WorldMinX, WorldMinY, CellSize;
+            public int Cells, MaxF;
+
+            static int Fi(Faction f, int maxF)
+            {
+                int fi = (int)f;
+                if (fi < 0) fi = -fi;
+                return fi % maxF;
+            }
+
+            public void Execute()
+            {
+                for (int i = 0; i < Count; i++) Cnt[Fi(Src[i].Faction, MaxF)]++;
+                int run = 0;
+                for (int f = 0; f < MaxF; f++) { Start[f] = run; run += Cnt[f]; }
+                var fill = new NativeArray<int>(MaxF, Allocator.Temp);
+                for (int i = 0; i < Count; i++)
+                {
+                    var c = Src[i];
+                    int f = Fi(c.Faction, MaxF);
+                    float r = c.Radius / CellSize;
+                    Cmds[Start[f] + fill[f]++] = new StampJobCmd
+                    {
+                        GX = (c.Position.x - WorldMinX) / CellSize,
+                        GY = (c.Position.z - WorldMinY) / CellSize,
+                        R = 0.01f > r ? 0.01f : r,   // Mathf.Max(0.01f, r), exactly
+                        Ofs = f * Cells,
+                    };
+                }
+                fill.Dispose();
+            }
         }
 
         const byte FlagClear = 1;

@@ -97,31 +97,78 @@ namespace TheWaningBorder.Abilities
         }
 
         // ---- King's Call & any Passive Aura ability ----
+        // PERF (2026-10-16): the aura pass snapshotted every unit (three
+        // columns) and read three components per ability holder through the
+        // EntityManager on every pass, although only a hero or two carries a
+        // passive aura. The holders' columns are now read in one copy each,
+        // the "is this ability a passive aura" test is memoised per ability
+        // index for the pass, and the unit snapshot is taken only once an
+        // aura source has been found. Same sources in the same order, same
+        // targets: result-identical.
+        private AbilityCard[] _auraOf = System.Array.Empty<AbilityCard>();
+        private byte[] _auraKnown = System.Array.Empty<byte>();
+
+        private static bool IsPassiveAura(AbilityCard c)
+            => c != null && c.Activation == AbilityActivation.Passive && c.Targeting == AbilityTargeting.Aura;
+
+        private AbilityCard AuraCardFor(int idx)
+        {
+            if (idx < 0 || idx >= _auraKnown.Length)
+            {
+                var c = AbilityCatalog.Get(idx);
+                return IsPassiveAura(c) ? c : null;
+            }
+            if (_auraKnown[idx] == 0)
+            {
+                var c = AbilityCatalog.Get(idx);
+                _auraOf[idx] = IsPassiveAura(c) ? c : null;
+                _auraKnown[idx] = 1;
+            }
+            return _auraOf[idx];
+        }
+
         private void ApplyPassiveAuras(EntityManager em)
         {
-            // Snapshot all units (potential aura targets) once.
-            var unitQ = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using var units = unitQ.ToEntityArray(Allocator.Temp);
-            using var unitFac = unitQ.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var unitXf = unitQ.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            // The memo lives for one pass (the catalog can be reloaded).
+            int n = AbilityCatalog.Count;
+            if (_auraKnown.Length != n) { _auraKnown = new byte[n]; _auraOf = new AbilityCard[n]; }
+            else System.Array.Clear(_auraKnown, 0, n);
 
             var auraQ = QC_UnitAbilitiesFactionTagLocalTransform.Get(em, QT_UnitAbilitiesFactionTagLocalTransform);
             using var auras = auraQ.ToEntityArray(Allocator.Temp);
+            using var auraSlots = auraQ.ToComponentDataArray<UnitAbilities>(Allocator.Temp);
+            using var auraFacs = auraQ.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var auraXfs = auraQ.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            foreach (var src in auras)
+            // Snapshot all units (potential aura targets) once, on the first
+            // source that needs them.
+            var unitQ = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
+            NativeArray<Entity> units = default;
+            NativeArray<FactionTag> unitFac = default;
+            NativeArray<LocalTransform> unitXf = default;
+            bool unitsLoaded = false;
+
+            for (int a = 0; a < auras.Length; a++)
             {
-                var slots = em.GetComponentData<UnitAbilities>(src);
+                var slots = auraSlots[a];
                 AbilityCard aura = null;
                 for (int s = 0; s < 4; s++)
                 {
-                    var c = AbilityCatalog.Get(slots.Get(s));
-                    if (c != null && c.Activation == AbilityActivation.Passive && c.Targeting == AbilityTargeting.Aura)
-                    { aura = c; break; }
+                    var c = AuraCardFor(slots.Get(s));
+                    if (c != null) { aura = c; break; }
                 }
                 if (aura == null) continue;
 
-                Faction srcFac = em.GetComponentData<FactionTag>(src).Value;
-                float3 srcPos = em.GetComponentData<LocalTransform>(src).Position;
+                if (!unitsLoaded)
+                {
+                    units = unitQ.ToEntityArray(Allocator.Temp);
+                    unitFac = unitQ.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                    unitXf = unitQ.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                    unitsLoaded = true;
+                }
+
+                Faction srcFac = auraFacs[a].Value;
+                float3 srcPos = auraXfs[a].Position;
                 float radSq = aura.Radius * aura.Radius;
 
                 float atkMult = 1f + aura.EffectValue(AbilityEffectKind.AttackPct) / 100f;
@@ -156,6 +203,7 @@ namespace TheWaningBorder.Abilities
                     }
                 }
             }
+            if (unitsLoaded) { units.Dispose(); unitFac.Dispose(); unitXf.Dispose(); }
         }
 
         // ---- Ledger: fire Automate Facility on a nearby eligible eco building ----
@@ -177,6 +225,13 @@ namespace TheWaningBorder.Abilities
             float castRange = card.Range + 2f;               // must be ~adjacent to automate
             float castRangeSq = castRange * castRange;
 
+            // Eligibility is a property of the BUILDING, and nothing in the
+            // ledger loop changes it (the loop writes only the Ledgers), so it
+            // is tested once per building per pass instead of once per
+            // building per Ledger (five EntityManager calls each).
+            // Result-identical. Filled on first use.
+            byte[] eligible = null;
+
             foreach (var led in ledgers)
             {
                 bool casting = TransientState.Active<AbilityCastState>(em, led) || TransientState.Active<AbilityActivated>(em, led);
@@ -197,11 +252,18 @@ namespace TheWaningBorder.Abilities
 
                 // Nearest eligible economy building at ANY distance (not just in range).
                 Entity best = Entity.Null; float bestSq = float.MaxValue; float3 bestPos = default;
+                if (eligible == null)
+                {
+                    eligible = new byte[bldgs.Length];
+                    for (int i = 0; i < bldgs.Length; i++)
+                        eligible[i] = (byte)(!TransientState.Active<UnderAutomation>(em, bldgs[i])
+                                             && !TransientState.Active<AutoYieldBoost>(em, bldgs[i])
+                                             && IsEconomyBuilding(em, bldgs[i]) ? 1 : 0);
+                }
                 for (int i = 0; i < bldgs.Length; i++)
                 {
                     if (bldgFac[i].Value != fac) continue;
-                    if (TransientState.Active<UnderAutomation>(em, bldgs[i]) || TransientState.Active<AutoYieldBoost>(em, bldgs[i])) continue;
-                    if (!IsEconomyBuilding(em, bldgs[i])) continue;
+                    if (eligible[i] == 0) continue;
                     float2 d = new float2(bldgXf[i].Position.x - pos.x, bldgXf[i].Position.z - pos.z);
                     float sq = math.dot(d, d);
                     if (sq < bestSq) { bestSq = sq; best = bldgs[i]; bestPos = bldgXf[i].Position; }
@@ -298,10 +360,14 @@ namespace TheWaningBorder.Abilities
         {
             // Collect first, then apply — structural adds can't happen inside the query.
             var chargers = new NativeList<Entity>(Allocator.Temp);
-            foreach (var (xf, tgt, e) in
-                     SystemAPI.Query<RefRO<LocalTransform>, RefRO<Target>>().WithEntityAccess())
+            // ArmorTypeData joins the query (2026-10-16): a unit without it
+            // was skipped by the HasComponent test anyway, and the armour
+            // class is now read from the chunk instead of two EntityManager
+            // calls per unit. Result-identical.
+            foreach (var (xf, tgt, armor, e) in
+                     SystemAPI.Query<RefRO<LocalTransform>, RefRO<Target>, RefRO<ArmorTypeData>>().WithEntityAccess())
             {
-                if (!em.HasComponent<ArmorTypeData>(e) || em.GetComponentData<ArmorTypeData>(e).Value != ArmorType.Cavalry)
+                if (armor.ValueRO.Value != ArmorType.Cavalry)
                     continue;
                 var t = tgt.ValueRO.Value;
                 if (t == Entity.Null || !em.Exists(t) || !em.HasComponent<LocalTransform>(t)) continue;

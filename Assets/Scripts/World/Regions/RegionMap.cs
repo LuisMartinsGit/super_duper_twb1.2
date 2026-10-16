@@ -384,9 +384,16 @@ namespace TheWaningBorder.World.Regions
             // off the line the author drew.
             if (_anyShape)
             {
-                for (int i = 0; i < _shapes.Length; i++)
-                    if (_shapes[i] != null && InsideBounded(i, worldX, worldZ))
-                        return i;
+                // The outline test, memoised per cell where it cannot vary
+                // (see ShapeLookup): >= 0 the outline, None = inside none.
+                int known = ShapeLookup(worldX, worldZ);
+                if (known >= 0) return known;
+                if (known == Uncached)
+                {
+                    for (int i = 0; i < _shapes.Length; i++)
+                        if (_shapes[i] != null && InsideBounded(i, worldX, worldZ))
+                            return i;
+                }
 
                 // Inside no outline. On a fully authored map the outlines ARE
                 // the borders: a sliver between two neighbours heals to the
@@ -411,6 +418,111 @@ namespace TheWaningBorder.World.Regions
                 if (d < bestD) { bestD = d; best = i; }
             }
             return best;
+        }
+
+        // ── outline lookup cache (2026-10-16 perf) ─────────────────────
+        // RawRegionAt's outline loop is a bounding-box sweep plus a ray-
+        // crossing test over every vertex of each candidate polygon — on an
+        // authored map ~1 us a call, and the census, the set passives and the
+        // income pass ask it for thousands of units a second.
+        //
+        // EXACT, not approximate. The map is cut into cells; a cell that any
+        // outline edge comes within LookupMargin of is never cached. In every
+        // other cell no edge passes near any point, so each polygon's
+        // inside/outside answer is the same for every point of the cell (a
+        // closed curve is only crossed at its edges), and InsideBounded's box
+        // rejects agree with the full test (see its summary). The first query
+        // in such a cell runs the ordinary loop and its answer is reused for
+        // the whole cell. Float rounding of the crossing lerp is ~1e-4 m at
+        // map coordinates; the margin is 500x that. A pure function of the
+        // static outlines, rebuilt per Version: lockstep-identical.
+        private const int Uncached = -2;
+        private const float LookupMargin = 0.05f;
+        private static int _lkVersion = int.MinValue;
+        private static float _lkInv;
+        private static Vector2 _lkMin;
+        private static int _lkW, _lkH;
+        private static byte[] _lkEdge = System.Array.Empty<byte>();   // 1 = an edge passes near
+        private static int[] _lkAnswer = System.Array.Empty<int>();   // 0 = not yet, else answer + 2
+
+        /// <summary>The outline containing a point (&gt;= 0), <see cref="None"/>
+        /// when it is inside none, or <see cref="Uncached"/> when the caller
+        /// must run the polygon loop itself.</summary>
+        private static int ShapeLookup(float x, float z)
+        {
+            if (_lkVersion != Version) BuildShapeLookup();
+            if (_lkW == 0) return Uncached;
+            int cx = (int)Mathf.Floor((x - _lkMin.x) * _lkInv);
+            int cz = (int)Mathf.Floor((z - _lkMin.y) * _lkInv);
+            if (cx < 0 || cz < 0 || cx >= _lkW || cz >= _lkH) return Uncached;
+            int c = cz * _lkW + cx;
+            if (_lkEdge[c] != 0) return Uncached;
+            int a = _lkAnswer[c];
+            if (a != 0) return a - 2;
+
+            int found = None;
+            for (int i = 0; i < _shapes.Length; i++)
+                if (_shapes[i] != null && InsideBounded(i, x, z)) { found = i; break; }
+            _lkAnswer[c] = found + 2;
+            return found;
+        }
+
+        private static void BuildShapeLookup()
+        {
+            _lkVersion = Version;
+            _lkW = _lkH = 0;
+            if (!_anyShape) return;
+
+            bool any = false;
+            Vector2 mn = default, mx = default;
+            for (int i = 0; i < _shapes.Length; i++)
+            {
+                if (_shapes[i] == null) continue;
+                if (!any) { mn = _shapeMin[i]; mx = _shapeMax[i]; any = true; }
+                else { mn = Vector2.Min(mn, _shapeMin[i]); mx = Vector2.Max(mx, _shapeMax[i]); }
+            }
+            if (!any) return;
+
+            // 2 m cells (the build grid), coarser on a huge map (at most ~1M cells).
+            float cell = 2f;
+            float ext = Mathf.Max(mx.x - mn.x, mx.y - mn.y) + 2f * cell;
+            if (ext / cell > 1024f) cell = ext / 1024f;
+            _lkInv = 1f / cell;
+            _lkMin = mn - new Vector2(cell, cell);
+            _lkW = Mathf.CeilToInt((mx.x - mn.x) * _lkInv) + 3;
+            _lkH = Mathf.CeilToInt((mx.y - mn.y) * _lkInv) + 3;
+            _lkEdge = new byte[_lkW * _lkH];
+            _lkAnswer = new int[_lkW * _lkH];
+
+            // Mark every cell that holds a point within LookupMargin of an
+            // edge: samples no further apart than half a cell, each marking
+            // its 3x3 cells. A point p within the margin of the edge is within
+            // margin + cell/4 (< one cell) of some sample, so p's own cell is
+            // in that sample's 3x3.
+            float step = cell * 0.5f;
+            for (int i = 0; i < _shapes.Length; i++)
+            {
+                var poly = _shapes[i];
+                if (poly == null) continue;
+                for (int a = 0, b = poly.Length - 1; a < poly.Length; b = a++)
+                {
+                    Vector2 p0 = poly[b], p1 = poly[a];
+                    int n = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(p0, p1) / step));
+                    for (int k = 0; k <= n; k++)
+                    {
+                        Vector2 s = Vector2.Lerp(p0, p1, k / (float)n);
+                        int sx = (int)Mathf.Floor((s.x - _lkMin.x) * _lkInv);
+                        int sz = (int)Mathf.Floor((s.y - _lkMin.y) * _lkInv);
+                        for (int oz = -1; oz <= 1; oz++)
+                        for (int ox = -1; ox <= 1; ox++)
+                        {
+                            int x = sx + ox, z = sz + oz;
+                            if (x < 0 || z < 0 || x >= _lkW || z >= _lkH) continue;
+                            _lkEdge[z * _lkW + x] = 1;
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>

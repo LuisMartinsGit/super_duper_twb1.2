@@ -51,7 +51,9 @@ namespace TheWaningBorder.Core.Multiplayer
         // 6 (2026-10-15): FormationOrder carries an arrival facing in its flag
         // word (right-drag), and the flow-field / road-graph / tower-targeting
         // performance pass changes sim results -- a 0.0.42 peer would fork.
-        public const int ProtocolVersion = 6;
+        // 7 (2026-10-16): movement, formation and combat run as Burst jobs
+        // (deterministic float mode, baked height grid) -- sim results differ.
+        public const int ProtocolVersion = 7;
 
         // ═══════════════════════════════════════════════════════════════
         // BUILD FINGERPRINT

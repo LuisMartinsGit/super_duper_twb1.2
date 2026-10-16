@@ -13,6 +13,30 @@ build always name the same number.
 
 ---
 
+## [0.0.44] — 2026-10-16
+
+Everyone in a multiplayer match needs 0.0.44. Saved games and replays from
+earlier versions do not load.
+
+### Changed
+
+- **Big battles run much faster again.** Unit movement, formations,
+  targeting and combat now run on all CPU cores, the AI spreads its thinking
+  over several frames instead of stalling one, and many background systems
+  only do work when something changed. Off-screen units no longer animate,
+  and rank markers are drawn in one pass. In an 8-player match with about
+  3,000 units the simulation is about three times as fast as 0.0.43.
+- **Late-game AI thinks a little less often** when the battle is very large,
+  so it never slows the game down. Its reactions in a fight are unaffected.
+- **Rank markers are hidden under the fog of war**, so they no longer give
+  away enemy units you cannot see.
+
+### Fixed
+
+- **The demo threw thousands of errors** in the main menu and in every match
+  (Runai systems running without their data). It also offered Feraldis and
+  Runai units in the Fortress and Barracks lists internally.
+
 ## [0.0.43] — 2026-10-15
 
 Everyone in a multiplayer match needs 0.0.43. Saved games and replays from

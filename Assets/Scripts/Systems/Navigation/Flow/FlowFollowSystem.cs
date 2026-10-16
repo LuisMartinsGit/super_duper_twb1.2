@@ -55,6 +55,14 @@ namespace TheWaningBorder.Systems.Navigation
         private ComponentLookup<DesiredDestination> _destLookup;
         private ComponentLookup<FactionTag> _factionLookup;
 
+        // Line-of-sight memo (perf pass 2026-10-16) — see LosMemo. Last
+        // tick's answers are read from _losPrev while this tick's are written
+        // to _losNext; the two swap every update. Never saved: a load starts
+        // a new match epoch, which invalidates every entry.
+        private NativeParallelHashMap<Entity, LosMemo> _losPrev;
+        private NativeParallelHashMap<Entity, LosMemo> _losNext;
+        private Unity.Jobs.JobHandle _losHandle;
+
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
         {
@@ -75,6 +83,13 @@ namespace TheWaningBorder.Systems.Navigation
 
             _destLookup = state.GetComponentLookup<DesiredDestination>(isReadOnly: true);
             _factionLookup = state.GetComponentLookup<FactionTag>(isReadOnly: true);
+        }
+
+        public void OnDestroy(ref SystemState state)
+        {
+            _losHandle.Complete();
+            if (_losPrev.IsCreated) _losPrev.Dispose();
+            if (_losNext.IsCreated) _losNext.Dispose();
         }
 
         public void OnUpdate(ref SystemState state)
@@ -101,6 +116,20 @@ namespace TheWaningBorder.Systems.Navigation
             _destLookup.Update(ref state);
             _factionLookup.Update(ref state);
 
+            // Swap the memo maps: last tick's answers become the read side.
+            // Last tick's job wrote them; it has normally long finished (the
+            // integrator completes FlowDesiredDir every tick).
+            _losHandle.Complete();
+            if (!_losPrev.IsCreated)
+            {
+                _losPrev = new NativeParallelHashMap<Entity, LosMemo>(1024, Allocator.Persistent);
+                _losNext = new NativeParallelHashMap<Entity, LosMemo>(1024, Allocator.Persistent);
+            }
+            (_losPrev, _losNext) = (_losNext, _losPrev);
+            _losNext.Clear();
+            int units = _hasComponentQuery.CalculateEntityCount();
+            if (_losNext.Capacity < units) _losNext.Capacity = units + units / 2;
+
             var job = new SampleGoalFlowJob
             {
                 GoalSlotIndex = goalCache.SlotIndex,
@@ -116,8 +145,14 @@ namespace TheWaningBorder.Systems.Navigation
                 FactionLookup = _factionLookup,
                 Cost = costField.Cost,
                 Flags = costField.Flags,
+                MemoPrev = _losPrev,
+                MemoNext = _losNext.AsParallelWriter(),
+                MemoGeneration = costField.Generation,
+                MemoEpoch = SimCadence.Epoch,
             };
-            state.Dependency = job.ScheduleParallel(_hasComponentQuery, state.Dependency);
+            state.Dependency = job.ScheduleParallel(_hasComponentQuery,
+                Unity.Jobs.JobHandle.CombineDependencies(state.Dependency, _losHandle));
+            _losHandle = state.Dependency;
         }
     }
 
@@ -142,6 +177,11 @@ namespace TheWaningBorder.Systems.Navigation
         [ReadOnly] public ComponentLookup<FactionTag> FactionLookup;
         [ReadOnly] public NativeArray<byte> Cost;
         [ReadOnly] public NativeArray<byte> Flags;
+        /// <summary>Last tick's answers (read) and this tick's (written).</summary>
+        [ReadOnly] public NativeParallelHashMap<Entity, LosMemo> MemoPrev;
+        public NativeParallelHashMap<Entity, LosMemo>.ParallelWriter MemoNext;
+        public int MemoGeneration;
+        public int MemoEpoch;
 
         public void Execute(Entity self, in LocalTransform xf, ref FlowDesiredDir dst)
         {
@@ -174,7 +214,7 @@ namespace TheWaningBorder.Systems.Navigation
             // ── Source 1: LOS-to-goal. If we can see the goal directly,
             // use a true bearing instead of the quantized field — smooth
             // motion on open ground, exact arrival lines.
-            if (HasLineOfSight(xf.Position, desired.Position, selfFactionIdx))
+            if (MemoLineOfSight(self, xf.Position, desired.Position, selfFactionIdx))
             {
                 float inv = math.rsqrt(distSq);
                 dst.Value = toGoal * inv;
@@ -295,13 +335,49 @@ namespace TheWaningBorder.Systems.Navigation
         //   * Cost <  254 -> walkable
         //
         // Integer math throughout -- deterministic across machines.
-        private bool HasLineOfSight(float3 from, float3 to, byte selfFactionIdx)
+        /// <summary>
+        /// <see cref="HasLineOfSight"/>, memoised per unit (perf pass
+        /// 2026-10-16). The walk is a pure function of its two end CELLS, the
+        /// faction and the cost grid — and every cost-grid writer bumps
+        /// NavCostField.Generation (the goal-field snapshot relies on the same
+        /// contract). A unit marching across open ground re-walked hundreds of
+        /// cells every tick while it changed cell only every few ticks; the
+        /// memo returns the stored answer while (entity, cells, faction,
+        /// generation, match epoch) all match, and walks otherwise. The answer
+        /// is the walk's own, so the result is identical on every peer.
+        /// </summary>
+        private bool MemoLineOfSight(Entity self, float3 from, float3 to, byte selfFactionIdx)
         {
             int x0 = (int)math.floor((from.x - GridOrigin.x) / CellSize);
             int z0 = (int)math.floor((from.z - GridOrigin.z) / CellSize);
             int x1 = (int)math.floor((to.x - GridOrigin.x) / CellSize);
             int z1 = (int)math.floor((to.z - GridOrigin.z) / CellSize);
 
+            bool los;
+            if (MemoPrev.TryGetValue(self, out var m)
+                && m.X0 == x0 && m.Z0 == z0 && m.X1 == x1 && m.Z1 == z1
+                && m.Faction == selfFactionIdx
+                && m.Generation == MemoGeneration && m.Epoch == MemoEpoch)
+            {
+                los = m.Result != 0;
+            }
+            else
+            {
+                los = HasLineOfSight(x0, z0, x1, z1, selfFactionIdx);
+            }
+            MemoNext.TryAdd(self, new LosMemo
+            {
+                X0 = x0, Z0 = z0, X1 = x1, Z1 = z1,
+                Generation = MemoGeneration,
+                Epoch = MemoEpoch,
+                Faction = selfFactionIdx,
+                Result = (byte)(los ? 1 : 0),
+            });
+            return los;
+        }
+
+        private bool HasLineOfSight(int x0, int z0, int x1, int z1, byte selfFactionIdx)
+        {
             if (x0 < 0 || x0 >= GridWidth || z0 < 0 || z0 >= GridHeight) return false;
             if (x1 < 0 || x1 >= GridWidth || z1 < 0 || z1 >= GridHeight) return false;
 
@@ -338,5 +414,15 @@ namespace TheWaningBorder.Systems.Navigation
             }
             return false;
         }
+    }
+
+    /// <summary>One unit's remembered line-of-sight answer (FlowFollowSystem).</summary>
+    internal struct LosMemo
+    {
+        public int X0, Z0, X1, Z1;
+        public int Generation;
+        public int Epoch;
+        public byte Faction;
+        public byte Result;
     }
 }

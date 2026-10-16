@@ -66,16 +66,43 @@ namespace TheWaningBorder.Systems.Border
         {
             public NativeArray<float3> Nodes;
             public float Radius;
+            // PERF (2026-10-16): nodes bucketed in cells no smaller than the
+            // radius, so a point tests only the nodes in its 3x3 cells. Every
+            // node that can be within Radius sits there; if none of them is
+            // within Radius the nearest of ALL is not either and the answer is
+            // 0 - and when one is, it is the global minimum. Same min() over
+            // the same squared distances: result-identical.
+            public NativeParallelMultiHashMap<int, int> Grid;
+            public float InvCell;
+
+            public static int Key(int x, int z) => (x * 73856093) ^ (z * 19349663);
+
+            public void BuildGrid(Allocator alloc)
+            {
+                InvCell = Radius > 0f ? 1f / (Radius * 1.01f) : 0f;
+                Grid = new NativeParallelMultiHashMap<int, int>(math.max(1, Nodes.Length), alloc);
+                if (Radius <= 0f) return;
+                for (int i = 0; i < Nodes.Length; i++)
+                    Grid.Add(Key((int)math.floor(Nodes[i].x * InvCell), (int)math.floor(Nodes[i].z * InvCell)), i);
+            }
 
             public byte SaturationAt(float3 p)
             {
                 if (!Nodes.IsCreated || Nodes.Length == 0 || Radius <= 0f) return 0;
                 float best = float.MaxValue;
-                for (int i = 0; i < Nodes.Length; i++)
+                int cx = (int)math.floor(p.x * InvCell);
+                int cz = (int)math.floor(p.z * InvCell);
+                for (int oz = -1; oz <= 1; oz++)
+                for (int ox = -1; ox <= 1; ox++)
                 {
-                    float dx = Nodes[i].x - p.x, dz = Nodes[i].z - p.z;
-                    best = math.min(best, dx * dx + dz * dz);
+                    if (!Grid.TryGetFirstValue(Key(cx + ox, cz + oz), out int i, out var it)) continue;
+                    do
+                    {
+                        float dx = Nodes[i].x - p.x, dz = Nodes[i].z - p.z;
+                        best = math.min(best, dx * dx + dz * dz);
+                    } while (Grid.TryGetNextValue(out i, ref it));
                 }
+                if (best == float.MaxValue) return 0;   // nothing within reach
                 float d = math.sqrt(best);
                 if (d > Radius) return 0;
                 float t = 1f - d / Radius;
@@ -144,8 +171,10 @@ namespace TheWaningBorder.Systems.Border
                 Nodes = nodes.AsArray(),
                 Radius = settings != null ? settings.nodeAuraRadius : 20f,
             };
+            field.BuildGrid(Allocator.Temp);
             TickUnits(em, in field);
             TickBuildings(em, in field);
+            field.Grid.Dispose();
             nodes.Dispose();
         }
 
@@ -157,6 +186,12 @@ namespace TheWaningBorder.Systems.Border
                 / (float)(255 - VeilField.CrustThreshold);
             return math.lerp(ExposureDpsMin, ExposureDpsMax, math.saturate(t));
         }
+
+        /// <summary>Opt-in (2026-10-16): the per-pass desync checksum line
+        /// below was a "temporary" Debug.Log once a second in every lockstep
+        /// match - a stack-traced log line plus a per-unit EntityManager walk.
+        /// Set true to get it back while hunting an exposure desync.</summary>
+        public static bool LogExposureChecksums;
 
         private void TickUnits(EntityManager em, in CurseGround field)
         {
@@ -173,21 +208,46 @@ namespace TheWaningBorder.Systems.Border
             if (_lk != null && _lk.IsSimulationRunning)
             {
                 _passCount++;
-                ulong secSum = 0;
-                int exposed = 0;
-                for (int i = 0; i < ents.Length; i++)
+                if (LogExposureChecksums)
                 {
-                    if (!em.HasComponent<ExposureState>(ents[i])) continue;
-                    float s = em.GetComponentData<ExposureState>(ents[i]).Seconds;
-                    if (s > 0f) exposed++;
-                    secSum += math.asuint(s);
+                    ulong secSum = 0;
+                    int exposed = 0;
+                    for (int i = 0; i < ents.Length; i++)
+                    {
+                        if (!em.HasComponent<ExposureState>(ents[i])) continue;
+                        float s = em.GetComponentData<ExposureState>(ents[i]).Seconds;
+                        if (s > 0f) exposed++;
+                        secSum += math.asuint(s);
+                    }
+                    UnityEngine.Debug.Log($"[VeilExpo] tick={_lk.CurrentTick} pass={_passCount} " +
+                        $"units={ents.Length} exposed={exposed} secSum={secSum:X}");
                 }
-                UnityEngine.Debug.Log($"[VeilExpo] tick={_lk.CurrentTick} pass={_passCount} " +
-                    $"units={ents.Length} exposed={exposed} secSum={secSum:X}");
+            }
+
+            // PERF (2026-10-16): a unit OFF the crust, with no veil tag and no
+            // accrued seconds, is left exactly as it was by the body below
+            // (seconds stay 0, nothing is cleared, the ExposureState write
+            // stores the 0 it already holds). Those units - nearly all of
+            // them - are now recognised with read-only lookups and skipped
+            // before the seven EntityManager calls the body makes. Taken
+            // before the loop (the body makes structural changes, which would
+            // invalidate a lookup); the skip test only reads state no other
+            // unit's iteration writes. Result-identical.
+            var veilTagLookup = GetComponentLookup<VeilDebuffTag>(true);
+            var exposureLookup = GetComponentLookup<ExposureState>(true);
+            var idle = new NativeArray<bool>(ents.Length, Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value == Faction.Border || hps[i].Value <= 0) continue;
+                if (field.SaturationAt(xfs[i].Position) >= VeilField.CrustThreshold) continue;
+                if (TransientState.Active(ref veilTagLookup, ents[i])) continue;
+                if (exposureLookup.HasComponent(ents[i]) && exposureLookup[ents[i]].Seconds != 0f) continue;
+                idle[i] = true;
             }
 
             for (int i = 0; i < ents.Length; i++)
             {
+                if (idle[i]) continue;
                 if (facs[i].Value == Faction.Border) continue; // the curse is home here
                 if (hps[i].Value <= 0) continue; // dying — DeathSystem owns it now
 
@@ -272,6 +332,7 @@ namespace TheWaningBorder.Systems.Border
                 else if (seconds > 0f)
                     em.AddComponentData(ents[i], new ExposureState { Seconds = seconds });
             }
+            idle.Dispose();
         }
 
         /// <summary>Nearest completed Hall of the unit's own faction — the
@@ -305,6 +366,9 @@ namespace TheWaningBorder.Systems.Border
             for (int i = 0; i < ents.Length; i++)
             {
                 if (hps[i].Value <= 0) continue;
+                // The ground test first (2026-10-16): it is pure and almost
+                // always fails, the tag tests are EntityManager calls.
+                if (field.SaturationAt(xfs[i].Position) < VeilField.DeepThreshold) continue;
                 if (em.HasComponent<SmallNodeTag>(ents[i])) continue; // starves, never crumbles
                 // The curse's own structures are HOME in the crust — wells
                 // (BorderMainNode carries BuildingTag + BorderTag) sit at the
@@ -312,7 +376,6 @@ namespace TheWaningBorder.Systems.Border
                 // by mid-game (2026-08-03 playtest). Only PLAYER buildings
                 // engulfed by later growth crumble.
                 if (em.HasComponent<BorderTag>(ents[i])) continue;
-                if (field.SaturationAt(xfs[i].Position) < VeilField.DeepThreshold) continue;
 
                 // Same DOT contract as unit exposure (Invulnerable, scaling).
                 var hp = hps[i];

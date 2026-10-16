@@ -73,6 +73,16 @@ namespace TheWaningBorder.AI
 
             if (!_acc.Due(AIClock.Delta(ref _simClockLast), Cfg.tickInterval)) return;
 
+            // Charged to the AI's per-frame TIME budget (AIFrameBudget,
+            // 2026-10-16) so the brains that read this intel yield to it.
+            AIFrameBudget.Enter();
+            try { Tick(); }
+            finally { AIFrameBudget.Exit(); }
+        }
+
+        private void Tick()
+        {
+
             var em = EntityManager;
             float now = TheWaningBorder.Core.SimClock.Now;
             var fog = FogOfWarManager.Instance;

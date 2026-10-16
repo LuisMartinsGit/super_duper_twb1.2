@@ -74,7 +74,69 @@ namespace TheWaningBorder.Runai
                 Any = new[] { ComponentType.ReadOnly<WorkerTag>(), ComponentType.ReadOnly<LitharchTag>(),
                               ComponentType.ReadOnly<HeroLevel>() },
             });
+            // CollectSites: only the buildings that can be a market or a
+            // Waystation (Crossing, Hall, Fortress, Hut) — not every building
+            // on the map. The result is re-sorted by Entity.Index, so the
+            // narrower query yields the same lists.
+            _siteCandidates = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<BuildingTag>(), ComponentType.ReadOnly<FactionTag>(),
+                              ComponentType.ReadOnly<LocalTransform>() },
+                Any = new[] { ComponentType.ReadOnly<ThessarasCrossingTag>(), ComponentType.ReadOnly<HallTag>(),
+                              ComponentType.ReadOnly<FortressTag>(), ComponentType.ReadOnly<HutTag>() },
+                None = new[] { ComponentType.ReadOnly<UnderConstruction>() },
+            });
+
+            _lkHealth  = GetComponentLookup<Health>();
+            _lkCaravan = GetComponentLookup<RunaiCaravan>();
+            _lkEscort  = GetComponentLookup<RunaiEscort>();
+            _lkDepot   = GetComponentLookup<RunaiDepot>();
+            _lkDD      = GetComponentLookup<DesiredDestination>();
+            _lkSpeed   = GetComponentLookup<MoveSpeed>();
+            _lkDamage  = GetComponentLookup<Damage>();
+            _lkBuff    = GetComponentLookup<SpellBuff>();
+            _lkTarget  = GetComponentLookup<Target>();
+            _lkFaction = GetComponentLookup<FactionTag>(true);
+            _lkXf      = GetComponentLookup<LocalTransform>(true);
+            _lkSize    = GetComponentLookup<BuildingSize>(true);
+            _lkRadius  = GetComponentLookup<Radius>(true);
         }
+
+        // ── lookups for the per-entity passes (2026-10-16 perf) ─────────
+        // TickCaravan / TickEscorts made ~10-20 EntityManager calls per
+        // entity, each a dependency-complete + safety check. Same reads and
+        // writes through lookups; refreshed after every structural change
+        // (spawns, deferred adds), so a lookup never outlives one.
+        private ComponentLookup<Health> _lkHealth;
+        private ComponentLookup<RunaiCaravan> _lkCaravan;
+        private ComponentLookup<RunaiEscort> _lkEscort;
+        private ComponentLookup<RunaiDepot> _lkDepot;
+        private ComponentLookup<DesiredDestination> _lkDD;
+        private ComponentLookup<MoveSpeed> _lkSpeed;
+        private ComponentLookup<Damage> _lkDamage;
+        private ComponentLookup<SpellBuff> _lkBuff;
+        private ComponentLookup<Target> _lkTarget;
+        private ComponentLookup<FactionTag> _lkFaction;
+        private ComponentLookup<LocalTransform> _lkXf;
+        private ComponentLookup<BuildingSize> _lkSize;
+        private ComponentLookup<Radius> _lkRadius;
+        private EntityQuery _siteCandidates;
+
+        private void RefreshLookups()
+        {
+            _lkHealth.Update(this); _lkCaravan.Update(this); _lkEscort.Update(this);
+            _lkDepot.Update(this); _lkDD.Update(this); _lkSpeed.Update(this);
+            _lkDamage.Update(this); _lkBuff.Update(this); _lkTarget.Update(this);
+            _lkFaction.Update(this); _lkXf.Update(this); _lkSize.Update(this); _lkRadius.Update(this);
+        }
+
+        // Structural changes met mid-pass are queued and applied after it, so
+        // the lookups stay valid. Nothing later in the pass reads them.
+        private readonly List<(Entity e, SpellBuff b)> _deferBuff = new();
+        private readonly List<Entity> _deferUncontrol = new();
+
+        /// <summary>Escort squad per faction for this pass (EscortSquad, read once).</summary>
+        private readonly int3[] _squad = new int3[Alliances.MaxFactions];
 
         private static RunaiTradeSystemConfig _cfg;
         public static RunaiTradeSystemConfig Cfg =>
@@ -129,13 +191,6 @@ namespace TheWaningBorder.Runai
             ComponentType.ReadOnly<UnitTag>(), ComponentType.ReadOnly<FactionTag>(),
         };
         static CachedEntityQuery QC_Callers;
-
-        static readonly ComponentType[] QT_Buildings =
-        {
-            ComponentType.ReadOnly<BuildingTag>(), ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<UnderConstruction>(),
-        };
-        static CachedEntityQuery QC_Buildings;
 
         static readonly ComponentType[] QT_Masters =
         {
@@ -408,17 +463,36 @@ namespace TheWaningBorder.Runai
         /// <summary>The point just outside the footprint nearest <paramref name="from"/> —
         /// where a caravan parks to load or sell.</summary>
         public static float3 ApproachPoint(EntityManager em, Entity building, float3 from)
+            => ApproachCore(em.GetComponentData<LocalTransform>(building).Position, HalfExtent(em, building), from);
+
+        private static float3 ApproachCore(float3 c, float halfExtent, float3 from)
         {
-            var c = em.GetComponentData<LocalTransform>(building).Position;
-            float h = HalfExtent(em, building) + math.max(0.5f, Cfg.arriveSlack * 0.5f);
+            float h = halfExtent + math.max(0.5f, Cfg.arriveSlack * 0.5f);
             float3 d = from - c; d.y = 0f;
             float m = math.max(math.abs(d.x), math.abs(d.z));
             if (m < 0.01f) d = new float3(1f, 0f, 0f); else d /= m;    // onto the unit square
             return new float3(c.x + d.x * h, c.y, c.z + d.z * h);
         }
 
-        private static bool Arrived(EntityManager em, float3 pos, Entity building)
-            => DistanceToFootprint(em, building, pos) <= Cfg.arriveSlack;
+        // Lookup twins of the three helpers above — the same arithmetic.
+        private float HalfExtentL(Entity building)
+        {
+            if (_lkSize.TryGetComponent(building, out var s))
+                return math.max(s.Width, s.Height) * BuildGrid.CellSize * 0.5f;
+            return _lkRadius.TryGetComponent(building, out var r) ? r.Value : 2f;
+        }
+
+        private float3 ApproachPointL(Entity building, float3 from)
+            => ApproachCore(_lkXf[building].Position, HalfExtentL(building), from);
+
+        private bool ArrivedL(float3 p, Entity building)
+        {
+            var c = _lkXf[building].Position;
+            float h = HalfExtentL(building);
+            float dx = math.max(0f, math.abs(p.x - c.x) - h);
+            float dz = math.max(0f, math.abs(p.z - c.z) - h);
+            return math.sqrt(dx * dx + dz * dz) <= Cfg.arriveSlack;
+        }
 
         // Was an insertion sort — O(n²) over every caravan and escort each
         // tick. Same order: the keys are unique.
@@ -474,29 +548,91 @@ namespace TheWaningBorder.Runai
             if (!anyDue) return;
 
             var dq = QC_Depots.Get(em, QT_Depots);
-            if (dq.IsEmptyIgnoreFilter && QC_Caravans.Get(em, QT_Caravans).IsEmptyIgnoreFilter) return;
+            var cq = QC_Caravans.Get(em, QT_Caravans);
+            var eq = QC_Escorts.Get(em, QT_Escorts);
+            if (dq.IsEmptyIgnoreFilter && cq.IsEmptyIgnoreFilter) return;
+
+            // ONLY TRADERS (2026-10-16 perf). The eight clocks are phased
+            // 1/8 of 0.25 s apart — less than one 30 Hz tick — so some
+            // faction is due on nearly EVERY tick, and each pass paid the
+            // all-faction work again. A faction that is not Runai and owns
+            // no caravan or escort has nothing a pass could touch (its
+            // depots are skipped, it has no wagons), so its pass is dropped.
+            // Its clock still runs exactly as before.
+            if (!NarrowToTraders(cq, eq)) return;
 
             CollectSites(em, _due);
             SnapshotFlags();
+            for (int fi = 0; fi < _squad.Length; fi++)
+            {
+                EscortSquad((Faction)fi, out int g, out int a, out int r);
+                _squad[fi] = new int3(g, a, r);
+            }
 
-            var depotList = SortedEntities(em, dq);
-            var caravans = SortedEntities(em, QC_Caravans.Get(em, QT_Caravans));
-            var escorts = SortedEntities(em, QC_Escorts.Get(em, QT_Escorts));
-
-            SpawnMissing(em, depotList, caravans, escorts, _clockStep);
-            depotList.Dispose(); caravans.Dispose(); escorts.Dispose();
+            var depotList = SortedOf(dq, _due);
+            SpawnMissing(em, depotList, cq, eq, _clockStep);
+            depotList.Dispose();
 
             // Re-read after the spawns so the new ones act this tick.
-            caravans = SortedEntities(em, QC_Caravans.Get(em, QT_Caravans));
-            escorts = SortedEntities(em, QC_Escorts.Get(em, QT_Escorts));
+            CompleteDependency();
+            RefreshLookups();
+            var caravans = SortedOf(cq, _due);
+            _deferBuff.Clear();
             for (int i = 0; i < caravans.Length; i++)
             {
-                int fi = (int)em.GetComponentData<FactionTag>(caravans[i]).Value;
-                if (fi < 0 || fi >= ClockFactions || !_due[fi]) continue;
+                int fi = (int)_lkFaction[caravans[i]].Value;
                 TickCaravan(em, caravans[i], _clockStep[fi]);
             }
-            TickEscorts(em, escorts, caravans, _clockStep);
-            caravans.Dispose(); escorts.Dispose();
+            caravans.Dispose();
+            if (_deferBuff.Count > 0)
+            {
+                for (int i = 0; i < _deferBuff.Count; i++) TransientState.Set(em, _deferBuff[i].e, _deferBuff[i].b);
+                _deferBuff.Clear();
+                RefreshLookups();
+            }
+
+            _deferUncontrol.Clear();
+            TickEscorts(em, cq, eq, _clockStep);
+            for (int i = 0; i < _deferUncontrol.Count; i++)
+                if (!em.HasComponent<NotControllableTag>(_deferUncontrol[i])) em.AddComponent<NotControllableTag>(_deferUncontrol[i]);
+            _deferUncontrol.Clear();
+        }
+
+        /// <summary>Clear the due flag of every faction that is neither Runai
+        /// nor the owner of a caravan or escort. False when none is left.</summary>
+        private bool NarrowToTraders(EntityQuery cq, EntityQuery eq)
+        {
+            uint owns = 0;
+            using (var f1 = cq.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < f1.Length; i++) { int fi = (int)f1[i].Value; if (fi >= 0 && fi < 32) owns |= 1u << fi; }
+            using (var f2 = eq.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < f2.Length; i++) { int fi = (int)f2[i].Value; if (fi >= 0 && fi < 32) owns |= 1u << fi; }
+            bool any = false;
+            for (int f = 0; f < ClockFactions; f++)
+            {
+                if (!_due[f]) continue;
+                if (!IsRunaiNow((Faction)f) && (owns & (1u << f)) == 0) { _due[f] = false; _clockStep[f] = 0f; continue; }
+                any = true;
+            }
+            return any;
+        }
+
+        /// <summary>The query's entities of the due factions, in Entity.Index
+        /// order — the old all-entity sorted list with the others filtered
+        /// out, so the relative order is unchanged.</summary>
+        private static NativeList<Entity> SortedOf(EntityQuery q, bool[] due)
+        {
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var list = new NativeList<Entity>(ents.Length, Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                int fi = (int)facs[i].Value;
+                if (fi < 0 || fi >= ClockFactions || !due[fi]) continue;
+                list.Add(ents[i]);
+            }
+            SortByIndex(list);
+            return list;
         }
 
         /// <summary>Once a minute, per Runai faction: depot stock by kind and
@@ -598,7 +734,7 @@ namespace TheWaningBorder.Runai
         private void CollectSites(EntityManager em, bool[] only = null)
         {
             _markets.Clear(); _waystations.Clear(); _masters.Clear();
-            var bq = QC_Buildings.Get(em, QT_Buildings);
+            var bq = _siteCandidates;
             NativeList<Entity> ents;
             using (var all = bq.ToEntityArray(Allocator.Temp))
             using (var allF = bq.ToComponentDataArray<FactionTag>(Allocator.Temp))
@@ -641,25 +777,31 @@ namespace TheWaningBorder.Runai
 
         // ── spawning ───────────────────────────────────────────────────
 
-        private void SpawnMissing(EntityManager em, NativeList<Entity> depots, NativeList<Entity> caravans,
-                                  NativeList<Entity> escorts, float[] stepOf)
+        private void SpawnMissing(EntityManager em, NativeList<Entity> depots, EntityQuery cq,
+                                  EntityQuery eq, float[] stepOf)
         {
-            var caravanCount = new NativeHashMap<Entity, int>(depots.Length, Allocator.Temp);
-            for (int i = 0; i < caravans.Length; i++)
-            {
-                if (em.GetComponentData<Health>(caravans[i]).Value <= 0) continue;
-                var d = em.GetComponentData<RunaiCaravan>(caravans[i]).Depot;
-                caravanCount.TryGetValue(d, out int n); caravanCount[d] = n + 1;
-            }
+            // Counts are order-free, so they read the chunks in bulk (two
+            // copies) instead of two EntityManager calls per caravan / escort
+            // of every faction.
+            var caravanCount = new NativeHashMap<Entity, int>(depots.Length + 1, Allocator.Temp);
+            using (var cars = cq.ToComponentDataArray<RunaiCaravan>(Allocator.Temp))
+            using (var chp = cq.ToComponentDataArray<Health>(Allocator.Temp))
+                for (int i = 0; i < cars.Length; i++)
+                {
+                    if (chp[i].Value <= 0) continue;
+                    var d = cars[i].Depot;
+                    caravanCount.TryGetValue(d, out int n); caravanCount[d] = n + 1;
+                }
             // escorts per depot per kind
-            var escortCount = new NativeHashMap<long, int>(depots.Length * 3, Allocator.Temp);
-            for (int i = 0; i < escorts.Length; i++)
-            {
-                if (em.GetComponentData<Health>(escorts[i]).Value <= 0) continue;
-                var es = em.GetComponentData<RunaiEscort>(escorts[i]);
-                long k = Key(es.Depot, es.Kind);
-                escortCount.TryGetValue(k, out int n); escortCount[k] = n + 1;
-            }
+            var escortCount = new NativeHashMap<long, int>(depots.Length * 3 + 1, Allocator.Temp);
+            using (var ess = eq.ToComponentDataArray<RunaiEscort>(Allocator.Temp))
+            using (var ehp = eq.ToComponentDataArray<Health>(Allocator.Temp))
+                for (int i = 0; i < ess.Length; i++)
+                {
+                    if (ehp[i].Value <= 0) continue;
+                    long k = Key(ess[i].Depot, ess[i].Kind);
+                    escortCount.TryGetValue(k, out int n); escortCount[k] = n + 1;
+                }
 
             var spawnCaravan = new NativeList<Entity>(Allocator.Temp);
             var spawnEscort = new NativeList<(Entity depot, EscortKind kind)>(Allocator.Temp);
@@ -750,13 +892,13 @@ namespace TheWaningBorder.Runai
 
         private void TickCaravan(EntityManager em, Entity e, float step)
         {
-            var hp = em.GetComponentData<Health>(e);
+            var hp = _lkHealth[e];
             if (hp.Value <= 0) return;
-            var c = em.GetComponentData<RunaiCaravan>(e);
-            var f = em.GetComponentData<FactionTag>(e).Value;
-            var pos = em.GetComponentData<LocalTransform>(e).Position;
-            bool depotAlive = c.Depot != Entity.Null && em.Exists(c.Depot) && em.HasComponent<RunaiDepot>(c.Depot)
-                              && em.GetComponentData<Health>(c.Depot).Value > 0;
+            var c = _lkCaravan[e];
+            var f = _lkFaction[e].Value;
+            var pos = _lkXf[e].Position;
+            bool depotAlive = c.Depot != Entity.Null && _lkDepot.HasComponent(c.Depot)
+                              && _lkHealth.TryGetComponent(c.Depot, out var depotHp) && depotHp.Value > 0;
 
             if (c.TaxCooldown > 0f) c.TaxCooldown = math.max(0f, c.TaxCooldown - step);
             if (c.Armed > 0f) c.Armed = math.max(0f, c.Armed - step);
@@ -768,18 +910,18 @@ namespace TheWaningBorder.Runai
             {
                 c.HunkerSpent = 1;
                 c.Hunker = Cfg.hunkerSeconds;
-                var b = TransientState.Active<SpellBuff>(em, e) ? em.GetComponentData<SpellBuff>(e) : default;
+                var b = TransientState.Active(ref _lkBuff, e) ? _lkBuff[e] : default;
                 b.ArmorPct = math.max(b.ArmorPct, Cfg.hunkerArmorPct);
                 b.TimeRemaining = math.max(b.TimeRemaining, Cfg.hunkerSeconds);
-                TransientState.Set(em, e, b);
+                SetBuff(e, b);
             }
             if (c.Hunker > 0f)
             {
                 c.Hunker = math.max(0f, c.Hunker - step);
-                em.SetComponentData(e, new DesiredDestination { Position = pos, Has = 0 });
-                em.SetComponentData(e, new MoveSpeed { Value = 0f });
-                ApplyWeapons(em, e, f, c);
-                em.SetComponentData(e, c);
+                _lkDD[e] = new DesiredDestination { Position = pos, Has = 0 };
+                _lkSpeed[e] = new MoveSpeed { Value = 0f };
+                ApplyWeapons(e, f, c);
+                _lkCaravan[e] = c;
                 return;
             }
 
@@ -787,17 +929,17 @@ namespace TheWaningBorder.Runai
             {
                 // Its depot is gone: sell what it carries, else it has no reason to exist.
                 if (c.Cargo > 0f && PickMarket(em, f, pos, c.BaseSpeed, out var m))
-                { c.Market = m.E; c.Leg = CaravanLeg.ToMarket; GoTo(em, e, ref c, m.E, pos); }
-                else { hp.Value = 0; em.SetComponentData(e, hp); return; }
+                { c.Market = m.E; c.Leg = CaravanLeg.ToMarket; GoToL(e, ref c, m.E, pos); }
+                else { hp.Value = 0; _lkHealth[e] = hp; return; }
             }
 
             switch (c.Leg)
             {
                 case CaravanLeg.Loading:
                 {
-                    if (!Arrived(em, pos, c.Depot)) { GoTo(em, e, ref c, c.Depot, pos); break; }
+                    if (!ArrivedL(pos, c.Depot)) { GoToL(e, ref c, c.Depot, pos); break; }
                     c.Waited += step;
-                    var d = em.GetComponentData<RunaiDepot>(c.Depot);
+                    var d = _lkDepot[c.Depot];
                     float room = CapacityAt(f, pos) - c.Cargo;
                     if (room > 0f && d.Total > 0f)
                     {
@@ -807,39 +949,39 @@ namespace TheWaningBorder.Runai
                         c.Veilstone += d.Veilstone * k; c.Veilsteel += d.Veilsteel * k;
                         d.Supplies -= d.Supplies * k; d.Iron -= d.Iron * k;
                         d.Veilstone -= d.Veilstone * k; d.Veilsteel -= d.Veilsteel * k;
-                        em.SetComponentData(c.Depot, d);
+                        _lkDepot[c.Depot] = d;
                     }
                     bool full = c.Cargo >= CapacityAt(f, pos) - 0.01f;
-                    var dp = em.GetComponentData<LocalTransform>(c.Depot).Position;
+                    var dp = _lkXf[c.Depot].Position;
                     if ((full || (c.Waited >= Cfg.loadSeconds && c.Cargo > 0f))
                         && PickMarket(em, f, dp, c.BaseSpeed, out var mk))
                     {
                         c.Market = mk.E; c.Leg = CaravanLeg.ToMarket; c.Waited = 0f; c.PathId = 0;
-                        GoTo(em, e, ref c, mk.E, pos);
+                        GoToL(e, ref c, mk.E, pos);
                     }
                     break;
                 }
                 case CaravanLeg.ToMarket:
                 {
-                    if (c.Market == Entity.Null || !em.Exists(c.Market) || em.GetComponentData<Health>(c.Market).Value <= 0)
+                    if (c.Market == Entity.Null || !_lkHealth.TryGetComponent(c.Market, out var mhp) || mhp.Value <= 0)
                     {
                         c.PathId = 0;
-                        if (PickMarket(em, f, pos, c.BaseSpeed, out var m2)) { c.Market = m2.E; GoTo(em, e, ref c, m2.E, pos); }
-                        else if (depotAlive) { c.Leg = CaravanLeg.Returning; GoTo(em, e, ref c, c.Depot, pos); }
+                        if (PickMarket(em, f, pos, c.BaseSpeed, out var m2)) { c.Market = m2.E; GoToL(e, ref c, m2.E, pos); }
+                        else if (depotAlive) { c.Leg = CaravanLeg.Returning; GoToL(e, ref c, c.Depot, pos); }
                         break;
                     }
-                    if (!Arrived(em, pos, c.Market)) { GoTo(em, e, ref c, c.Market, pos); break; }
-                    float3 from = depotAlive ? em.GetComponentData<LocalTransform>(c.Depot).Position : pos;
+                    if (!ArrivedL(pos, c.Market)) { GoToL(e, ref c, c.Market, pos); break; }
+                    float3 from = depotAlive ? _lkXf[c.Depot].Position : pos;
                     Sell(em, f, ref c, from, c.Market);
                     c.PathId = 0;
-                    if (depotAlive) { c.Leg = CaravanLeg.Returning; GoTo(em, e, ref c, c.Depot, pos); }
-                    else { em.SetComponentData(e, c); hp.Value = 0; em.SetComponentData(e, hp); return; }
+                    if (depotAlive) { c.Leg = CaravanLeg.Returning; GoToL(e, ref c, c.Depot, pos); }
+                    else { _lkCaravan[e] = c; hp.Value = 0; _lkHealth[e] = hp; return; }
                     break;
                 }
                 case CaravanLeg.Returning:
                 {
-                    if (Arrived(em, pos, c.Depot)) { c.Leg = CaravanLeg.Loading; c.Waited = 0f; c.PathId = 0; }
-                    else GoTo(em, e, ref c, c.Depot, pos);
+                    if (ArrivedL(pos, c.Depot)) { c.Leg = CaravanLeg.Loading; c.Waited = 0f; c.PathId = 0; }
+                    else GoToL(e, ref c, c.Depot, pos);
                     break;
                 }
             }
@@ -861,7 +1003,7 @@ namespace TheWaningBorder.Runai
                 }
             }
 
-            ApplyWeapons(em, e, f, c);
+            ApplyWeapons(e, f, c);
 
             // Speed: Swift Wheels I-II, a Waystation, the Caravan Master.
             float mult = 1f;
@@ -870,19 +1012,28 @@ namespace TheWaningBorder.Runai
             if (fl.SwiftWheels2) mult *= 1f + Cfg.swiftWheels2SpeedPct / 100f;
             if (NearWaystation(f, pos.xz)) mult *= 1f + Cfg.waystationSpeedPct / 100f;
             if (NearMaster(f, pos.xz)) mult *= 1f + Cfg.caravanMasterSpeedPct / 100f;
-            em.SetComponentData(e, new MoveSpeed { Value = c.BaseSpeed * mult });
+            _lkSpeed[e] = new MoveSpeed { Value = c.BaseSpeed * mult };
 
-            em.SetComponentData(e, c);
+            _lkCaravan[e] = c;
+        }
+
+        /// <summary>TransientState.Set through the lookup; an entity that
+        /// never carried SpellBuff (units are pre-added it) is queued for
+        /// the structural add after the pass.</summary>
+        private void SetBuff(Entity e, SpellBuff b)
+        {
+            if (_lkBuff.HasComponent(e)) { _lkBuff[e] = b; _lkBuff.SetComponentEnabled(e, true); }
+            else _deferBuff.Add((e, b));
         }
 
         /// <summary>Caravan of Swords arms it; Wagon Archers lets it shoot back (§7.2).</summary>
-        private static void ApplyWeapons(EntityManager em, Entity e, Faction f, in RunaiCaravan c)
+        private void ApplyWeapons(Entity e, Faction f, in RunaiCaravan c)
         {
-            if (!em.HasComponent<Damage>(e)) return;
+            if (!_lkDamage.HasComponent(e)) return;
             int want = c.Armed > 0f ? (int)Cfg.caravanOfSwordsDamage
                      : FlagsOf(f).WagonArchers ? (int)Cfg.wagonArcherDamage : 0;
-            var dmg = em.GetComponentData<Damage>(e);
-            if (dmg.Value != want) { dmg.Value = want; em.SetComponentData(e, dmg); }
+            var dmg = _lkDamage[e];
+            if (dmg.Value != want) { dmg.Value = want; _lkDamage[e] = dmg; }
         }
 
         private float CapacityAt(Faction f, float3 pos)
@@ -924,8 +1075,23 @@ namespace TheWaningBorder.Runai
         private static void GoTo(EntityManager em, Entity e, ref RunaiCaravan c, Entity building, float3 pos)
         {
             float3 goal = ApproachPoint(em, building, pos);
-            var dd = em.GetComponentData<DesiredDestination>(e);
+            if (Route(ref c, pos, goal, em.GetComponentData<DesiredDestination>(e), out var set))
+                em.SetComponentData(e, set);
+        }
 
+        /// <summary>GoTo through the pass's lookups.</summary>
+        private void GoToL(Entity e, ref RunaiCaravan c, Entity building, float3 pos)
+        {
+            float3 goal = ApproachPointL(building, pos);
+            if (Route(ref c, pos, goal, _lkDD[e], out var set)) _lkDD[e] = set;
+        }
+
+        /// <summary>The routing decision of GoTo: true with the destination to
+        /// write, false when the current one stands.</summary>
+        private static bool Route(ref RunaiCaravan c, float3 pos, float3 goal, DesiredDestination dd,
+                                  out DesiredDestination set)
+        {
+            set = default;
             // WATCHDOG: a wagon that has not got nearer its goal for
             // stallSeconds leaves the road for the rest of this leg and walks
             // there by the ordinary pathfinder — it always delivers.
@@ -937,8 +1103,8 @@ namespace TheWaningBorder.Runai
             if (c.OffRoad != 0)
             {
                 if (dd.Has == 0 || math.distancesq(dd.Position.xz, goal.xz) >= 1f)
-                    em.SetComponentData(e, new DesiredDestination { Position = goal, Has = 1 });
-                return;
+                { set = new DesiredDestination { Position = goal, Has = 1 }; return true; }
+                return false;
             }
 
             // The mover dropped the order short of the waypoint (unreachable,
@@ -946,8 +1112,9 @@ namespace TheWaningBorder.Runai
             if (dd.Has == 0 && c.PathId != 0 && math.distancesq(dd.Position.xz, pos.xz) < 1f)
                 TheWaningBorder.World.Roads.RoadGraphSystem.Skip(ref c.PathId, ref c.PathIndex);
             float3 to = TheWaningBorder.World.Roads.RoadGraphSystem.NextWaypoint(pos, goal, ref c.PathId, ref c.PathIndex);
-            if (dd.Has != 0 && math.distancesq(dd.Position.xz, to.xz) < 1f) return;
-            em.SetComponentData(e, new DesiredDestination { Position = to, Has = 1 });
+            if (dd.Has != 0 && math.distancesq(dd.Position.xz, to.xz) < 1f) return false;
+            set = new DesiredDestination { Position = to, Has = 1 };
+            return true;
         }
 
         /// <summary>The market paying the most per second of round trip from <paramref name="from"/>.</summary>
@@ -969,7 +1136,7 @@ namespace TheWaningBorder.Runai
 
         private void Sell(EntityManager em, Faction f, ref RunaiCaravan c, float3 from, Entity market)
         {
-            var mp = em.GetComponentData<LocalTransform>(market).Position;
+            var mp = _lkXf[market].Position;
             float d = TheWaningBorder.World.Roads.RoadGraphSystem.RoadDistance(from, mp);
             float mult = (1f + Premium(f, d)) * MarketMultiplier(em, market, f);
             int fi = (int)f;
@@ -999,75 +1166,95 @@ namespace TheWaningBorder.Runai
 
         // ── escorts ────────────────────────────────────────────────────
 
-        private static void TickEscorts(EntityManager em, NativeList<Entity> escorts, NativeList<Entity> caravans, float[] stepOf)
+        /// <summary>Sort key for a caravan read in bulk: its Entity.Index.</summary>
+        private struct CarRow { public Entity E; public Entity Depot; public bool Alive; }
+        private struct CarRowByIndex : IComparer<CarRow>
         {
-            // Every caravan read once: alive, and its depot. A chain per depot
-            // (head -> next, ascending Entity.Index) replaces the old scan of
-            // every caravan, with three EntityManager calls each, for every
-            // unassigned escort — same first match, same order.
-            int cn = caravans.Length;
+            public int Compare(CarRow a, CarRow b) => a.E.Index.CompareTo(b.E.Index);
+        }
+
+        private void TickEscorts(EntityManager em, EntityQuery cq, EntityQuery eq, float[] stepOf)
+        {
+            // Every caravan read once, in bulk: alive, and its depot. A chain
+            // per depot (head -> next, ascending Entity.Index) gives each
+            // unassigned escort the same first match the old scan did.
+            // (A caravan in the query exists and has RunaiCaravan, so
+            // CaravanAlive is its Health > 0.)
+            NativeArray<CarRow> rows;
+            using (var cents = cq.ToEntityArray(Allocator.Temp))
+            using (var ccars = cq.ToComponentDataArray<RunaiCaravan>(Allocator.Temp))
+            using (var chp = cq.ToComponentDataArray<Health>(Allocator.Temp))
+            {
+                rows = new NativeArray<CarRow>(cents.Length, Allocator.Temp);
+                for (int k = 0; k < cents.Length; k++)
+                    rows[k] = new CarRow { E = cents[k], Depot = ccars[k].Depot, Alive = chp[k].Value > 0 };
+            }
+            rows.Sort(new CarRowByIndex());
+            int cn = rows.Length;
             var carIndex = new NativeHashMap<Entity, int>(cn + 1, Allocator.Temp);
             var carAlive = new NativeArray<bool>(cn, Allocator.Temp);
             var carNext = new NativeArray<int>(cn, Allocator.Temp);
             var depotHead = new NativeHashMap<Entity, int>(cn + 1, Allocator.Temp);
             for (int k = 0; k < cn; k++)
             {
-                carIndex[caravans[k]] = k;
-                carAlive[k] = CaravanAlive(em, caravans[k]);
+                carIndex[rows[k].E] = k;
+                carAlive[k] = rows[k].Alive;
             }
             for (int k = cn - 1; k >= 0; k--)
             {
                 carNext[k] = -1;
                 if (!carAlive[k]) continue;
-                var d = em.GetComponentData<RunaiCaravan>(caravans[k]).Depot;
+                var d = rows[k].Depot;
                 carNext[k] = depotHead.TryGetValue(d, out int head) ? head : -1;
                 depotHead[d] = k;
             }
 
-            // How many of each kind already ride with each caravan.
-            var riding = new NativeHashMap<long, int>(caravans.Length * 3 + 1, Allocator.Temp);
-            for (int i = 0; i < escorts.Length; i++)
-            {
-                var es = em.GetComponentData<RunaiEscort>(escorts[i]);
-                if (es.Caravan != Entity.Null && Alive(em, es.Caravan, carIndex, carAlive))
+            // How many of each kind already ride with each caravan (order-free).
+            var riding = new NativeHashMap<long, int>(cn * 3 + 1, Allocator.Temp);
+            using (var all = eq.ToComponentDataArray<RunaiEscort>(Allocator.Temp))
+                for (int i = 0; i < all.Length; i++)
                 {
-                    long k = Key(es.Caravan, es.Kind);
-                    riding.TryGetValue(k, out int n); riding[k] = n + 1;
+                    var es = all[i];
+                    if (es.Caravan != Entity.Null && Alive(em, es.Caravan, carIndex, carAlive))
+                    {
+                        long k = Key(es.Caravan, es.Kind);
+                        riding.TryGetValue(k, out int n); riding[k] = n + 1;
+                    }
                 }
-            }
 
+            var escorts = SortedOf(eq, _due);
             for (int i = 0; i < escorts.Length; i++)
             {
                 var e = escorts[i];
-                var f = em.GetComponentData<FactionTag>(e).Value;
+                var f = _lkFaction[e].Value;
                 int efi = (int)f;
                 if (efi < 0 || efi >= ClockFactions || stepOf[efi] <= 0f) continue;   // not this faction's pass
                 float step = stepOf[efi];
-                var hp = em.GetComponentData<Health>(e);
+                var hp = _lkHealth[e];
                 if (hp.Value <= 0) continue;
-                var es = em.GetComponentData<RunaiEscort>(e);
+                var es = _lkEscort[e];
 
                 // The Call holds it: a controllable army until it runs out.
                 if (es.Called > 0f)
                 {
                     es.Called = math.max(0f, es.Called - step);
-                    if (es.Called <= 0f) EndCall(em, e, ref es);
-                    em.SetComponentData(e, es);
+                    if (es.Called <= 0f) EndCallL(e, ref es);
+                    _lkEscort[e] = es;
                     continue;
                 }
 
-                bool depotAlive = es.Depot != Entity.Null && em.Exists(es.Depot) && em.HasComponent<RunaiDepot>(es.Depot);
-                if (!depotAlive) { hp.Value = 0; em.SetComponentData(e, hp); continue; }
+                bool depotAlive = es.Depot != Entity.Null && _lkDepot.HasComponent(es.Depot);
+                if (!depotAlive) { hp.Value = 0; _lkHealth[e] = hp; continue; }
 
                 if (es.Caravan == Entity.Null || !Alive(em, es.Caravan, carIndex, carAlive))
                 {
                     es.Caravan = Entity.Null;
-                    EscortSquad(f, out int g, out int a, out int r);
-                    int per = es.Kind == EscortKind.Guard ? g : es.Kind == EscortKind.Archer ? a : r;
+                    int3 sq = efi < _squad.Length ? _squad[efi] : default;
+                    int per = es.Kind == EscortKind.Guard ? sq.x : es.Kind == EscortKind.Archer ? sq.y : sq.z;
                     int start = per > 0 && depotHead.TryGetValue(es.Depot, out int h0) ? h0 : -1;
                     for (int k = start; k >= 0; k = carNext[k])
                     {
-                        var ce = caravans[k];
+                        var ce = rows[k].E;
                         long key = Key(ce, es.Kind);
                         riding.TryGetValue(key, out int have);
                         if (have >= per) continue;
@@ -1075,17 +1262,17 @@ namespace TheWaningBorder.Runai
                     }
                 }
 
-                var pos = em.GetComponentData<LocalTransform>(e).Position;
+                var pos = _lkXf[e].Position;
                 float3 anchor = es.Caravan != Entity.Null
-                    ? em.GetComponentData<LocalTransform>(es.Caravan).Position
-                    : ApproachPoint(em, es.Depot, pos);
+                    ? _lkXf[es.Caravan].Position
+                    : ApproachPointL(es.Depot, pos);
                 float dist = math.distance(pos.xz, anchor.xz);
                 if (es.Returning != 0 && dist <= Cfg.escortOffset * 2f) es.Returning = 0;
-                bool fighting = es.Returning == 0 && em.HasComponent<Target>(e)
-                                && em.GetComponentData<Target>(e).Value != Entity.Null;
-                em.SetComponentData(e, es);
+                bool fighting = es.Returning == 0 && _lkTarget.TryGetComponent(e, out var tgt)
+                                && tgt.Value != Entity.Null;
+                _lkEscort[e] = es;
                 if (fighting && dist <= Cfg.escortLeash) continue;
-                if (fighting) em.SetComponentData(e, new Target { Value = Entity.Null });
+                if (fighting) _lkTarget[e] = new Target { Value = Entity.Null };
                 if (dist > Cfg.escortOffset * 1.5f)
                 {
                     float ang = e.Index * 1.1f;
@@ -1095,13 +1282,24 @@ namespace TheWaningBorder.Runai
                     // has drifted EscortRetargetMetres from the one being
                     // walked to. A new goal every tick behind a rolling wagon
                     // rebuilt the escort's flow-field goal every tick.
-                    var dd = em.GetComponentData<DesiredDestination>(e);
+                    var dd = _lkDD[e];
                     if (dd.Has == 0 || math.distancesq(dd.Position.xz, to.xz) > EscortRetargetMetres * EscortRetargetMetres)
-                        em.SetComponentData(e, new DesiredDestination { Position = to, Has = 1 });
+                        _lkDD[e] = new DesiredDestination { Position = to, Has = 1 };
                 }
             }
-            riding.Dispose();
+            escorts.Dispose();
+            riding.Dispose(); rows.Dispose();
             carIndex.Dispose(); carAlive.Dispose(); carNext.Dispose(); depotHead.Dispose();
+        }
+
+        /// <summary>EndCall through the lookups; the NotControllableTag add
+        /// is structural, so it is queued for after the pass.</summary>
+        private void EndCallL(Entity e, ref RunaiEscort es)
+        {
+            es.Called = 0f;
+            es.Returning = 1;
+            _deferUncontrol.Add(e);
+            if (_lkTarget.HasComponent(e)) _lkTarget[e] = new Target { Value = Entity.Null };
         }
 
         /// <summary>CaravanAlive, answered from the pass's caravan read for

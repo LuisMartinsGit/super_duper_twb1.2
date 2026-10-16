@@ -127,25 +127,11 @@ namespace TheWaningBorder.Systems.Combat
             // query order (2026-09-25). The four-array snapshot of every
             // target in the world used to be taken every tick even when every
             // tower was mid-cooldown, which late game is nearly every tick.
-            var ready = new NativeList<Entity>(16, Allocator.Temp);
-            foreach (var (attack, entity) in SystemAPI
-                .Query<RefRW<BuildingRangedAttack>>()
-                .WithAll<BuildingTag, LocalTransform, FactionTag>()
-                // BuildingCollapseState is the buildings' DeathAnimationState:
-                // a tower that has already fallen kept firing for the whole
-                // collapse.
-                .WithNone<UnderConstruction, BuildingUpgrading, NodeDormant>()
-                .WithNone<BuildingCollapseState>()
-                .WithEntityAccess())
-            {
-                // Tick cooldown
-                if (attack.ValueRO.Timer > 0f)
-                {
-                    attack.ValueRW.Timer -= dt;
-                    continue;
-                }
-                ready.Add(entity);
-            }
+            // Burst IJobEntity Run() on the main thread (perf pass
+            // 2026-10-16): the same query, the same chunk order, as the
+            // managed foreach it replaces.
+            var ready = new NativeList<Entity>(16, Allocator.TempJob);
+            new TickTowerCooldownJob { Dt = dt, Ready = ready }.Run();
 
             if (ready.Length == 0)
             {
@@ -931,20 +917,14 @@ namespace TheWaningBorder.Systems.Combat
         /// </summary>
         private float MaxFootprintPad(ref SystemState state)
         {
-            float maxPad = 0f;
-            using (var sizes = _sizeQuery.ToComponentDataArray<BuildingSize>(Allocator.Temp))
-            {
-                for (int i = 0; i < sizes.Length; i++)
-                {
-                    float hw = sizes[i].Width * 0.5f, hh = sizes[i].Height * 0.5f;
-                    maxPad = math.max(maxPad, math.sqrt(hw * hw + hh * hh));
-                }
-            }
-            using (var radii = _radiusQuery.ToComponentDataArray<Radius>(Allocator.Temp))
-            {
-                for (int i = 0; i < radii.Length; i++)
-                    maxPad = math.max(maxPad, radii[i].Value);
-            }
+            // Burst, in place over the chunks (perf pass 2026-10-16) — no
+            // per-tick copies of every BuildingSize and Radius in the world.
+            // The same max over the same values (max is order-free).
+            var pad = new NativeReference<float>(0f, Allocator.TempJob);
+            new MaxSizePadJob { MaxPad = pad }.Run(_sizeQuery);
+            new MaxRadiusPadJob { MaxPad = pad }.Run(_radiusQuery);
+            float maxPad = pad.Value;
+            pad.Dispose();
             return maxPad;
         }
 
@@ -970,6 +950,55 @@ namespace TheWaningBorder.Systems.Combat
             }
             flags[f] = v;
             return v;
+        }
+    }
+
+    /// <summary>BuildingCombatSystem PASS 1: tick every eligible tower's
+    /// cooldown; collect the ready ones, in query order.</summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    [WithAll(typeof(BuildingTag), typeof(LocalTransform), typeof(FactionTag))]
+    // BuildingCollapseState is the buildings' DeathAnimationState: a tower
+    // that has already fallen kept firing for the whole collapse.
+    [WithNone(typeof(UnderConstruction), typeof(BuildingUpgrading), typeof(NodeDormant),
+        typeof(BuildingCollapseState))]
+    internal partial struct TickTowerCooldownJob : IJobEntity
+    {
+        public float Dt;
+        public NativeList<Entity> Ready;
+
+        private void Execute(Entity entity, ref BuildingRangedAttack attack)
+        {
+            if (attack.Timer > 0f)
+            {
+                attack.Timer -= Dt;
+                return;
+            }
+            Ready.Add(entity);
+        }
+    }
+
+    /// <summary>Largest BuildingSize half-diagonal (MaxFootprintPad).</summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal partial struct MaxSizePadJob : IJobEntity
+    {
+        public NativeReference<float> MaxPad;
+
+        private void Execute(in BuildingSize size)
+        {
+            float hw = size.Width * 0.5f, hh = size.Height * 0.5f;
+            MaxPad.Value = math.max(MaxPad.Value, math.sqrt(hw * hw + hh * hh));
+        }
+    }
+
+    /// <summary>Largest Radius (MaxFootprintPad).</summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal partial struct MaxRadiusPadJob : IJobEntity
+    {
+        public NativeReference<float> MaxPad;
+
+        private void Execute(in Radius radius)
+        {
+            MaxPad.Value = math.max(MaxPad.Value, radius.Value);
         }
     }
 }

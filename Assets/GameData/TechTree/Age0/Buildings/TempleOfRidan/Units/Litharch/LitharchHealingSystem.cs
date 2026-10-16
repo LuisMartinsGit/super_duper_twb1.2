@@ -106,6 +106,12 @@ namespace TheWaningBorder.Systems.Combat
                 .Build();
             using var armedEntities = armedQuery.ToEntityArray(Allocator.TempJob);
             using var armed = new NativeList<ArmedUnit>(armedEntities.Length, Allocator.TempJob);
+            // The armed set's cell index (perf pass 2026-10-16): every threat
+            // and stand-point test used to walk the WHOLE armed list — per
+            // Litharch per tick, and per far patient inside every search.
+            using var armedStart = new NativeList<int>(64, Allocator.TempJob);
+            using var armedItems = new NativeList<int>(armedEntities.Length, Allocator.TempJob);
+            using var armedGrid = new NativeReference<ArmedGridParams>(Allocator.TempJob);
             var armedJob = new BuildArmedJob
             {
                 Entities = armedEntities,
@@ -115,8 +121,18 @@ namespace TheWaningBorder.Systems.Combat
                 Damage = SystemAPI.GetComponentLookup<Damage>(true),
                 Net = SystemAPI.GetComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(true),
                 Armed = armed,
+                Start = armedStart,
+                Items = armedItems,
+                Grid = armedGrid,
             };
             armedJob.Run();
+            var armedIndex = new ArmedIndex
+            {
+                Units = armed.AsArray(),
+                Start = armedStart.AsArray(),
+                Items = armedItems.AsArray(),
+                P = armedGrid.Value,
+            };
 
             // Every possible patient, in the order the old search walked them.
             var candQuery = SystemAPI.QueryBuilder()
@@ -131,7 +147,7 @@ namespace TheWaningBorder.Systems.Combat
                 Cands = candEntities,
                 CandXf = candXf,
                 CandFaction = candFaction,
-                Armed = armed.AsArray(),
+                Armed = armedIndex,
                 Health = SystemAPI.GetComponentLookup<Health>(true),
                 Unhealable = SystemAPI.GetComponentLookup<UnhealableTag>(true),
                 Net = SystemAPI.GetComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(true),
@@ -160,6 +176,16 @@ namespace TheWaningBorder.Systems.Combat
                     var h = em.GetComponentData<Health>(ls.HealTarget);
                     curValid = h.Value < h.Max && h.Value > 0;
                 }
+                // Plan only what the loop below will read (perf pass
+                // 2026-10-16). The threat check runs on its own cadence: the
+                // loop subtracts dt and checks at <= 0, or re-checks at once
+                // when a step-away ends — exactly these two cases. The search
+                // runs only when the current patient is not (still) valid; a
+                // patient that turns invalid later this tick (healed to full
+                // by an earlier Litharch) takes the loop's live fallback
+                // search, as a stale plan already did.
+                bool threatDue = !hold
+                    && (ls.SteppingAway != 0 || ls.ThreatTimer - dt <= 0f);
                 lithIn[i] = new LithInput
                 {
                     Self = e,
@@ -167,8 +193,9 @@ namespace TheWaningBorder.Systems.Combat
                     Faction = em.GetComponentData<FactionTag>(e).Value,
                     HealRange = ch.HealRange,
                     SearchRange = hold ? ch.HealRange : cfg.autoSearchRange,
-                    NeedThreat = (byte)(hold ? 0 : 1),
-                    NeedSearch = (byte)(ls.SearchTimer + dt >= SearchInterval ? 1 : 0),
+                    Hold = (byte)(hold ? 1 : 0),
+                    NeedThreat = (byte)(threatDue ? 1 : 0),
+                    NeedSearch = (byte)(!curValid && ls.SearchTimer + dt >= SearchInterval ? 1 : 0),
                     CurTarget = curValid ? ls.HealTarget : Entity.Null,
                 };
             }
@@ -204,7 +231,7 @@ namespace TheWaningBorder.Systems.Combat
                 // healing must not fight over the destination with.
                 if (TransientState.Active<AttackCommand>(em, entity)) continue;
 
-                bool hold = lithIn[li].NeedThreat == 0;
+                bool hold = lithIn[li].Hold != 0;
 
                 // ── Step away from an armed enemy that got too close. ──
                 // Checked on its own cadence; a running step-away blocks the
@@ -227,10 +254,16 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     lithState.ValueRW.ThreatTimer = cfg.threatCheckInterval;
                     // Planned (NearestArmedEnemy on the armed set, which this
-                    // loop never changes).
-                    if (plan.ThreatFound != 0)
+                    // loop never changes). Planned exactly when this check
+                    // runs (LithInput.NeedThreat) — the fallback below is a
+                    // guard, never taken while the two agree.
+                    bool threatFound = plan.ThreatFound != 0;
+                    float3 threatPos = plan.ThreatPos;
+                    if (lithIn[li].NeedThreat == 0)
+                        threatFound = NearestArmedEnemy(in ctx.Armed, myPos, myFaction,
+                            cfg.threatRadius, out threatPos);
+                    if (threatFound)
                     {
-                        float3 threatPos = plan.ThreatPos;
                         float3 away = myPos - threatPos;
                         away.y = 0f;
                         float len = math.length(away);
@@ -348,9 +381,9 @@ namespace TheWaningBorder.Systems.Combat
                         }
                         else
                         {
-                            stand = StandPoint(ctx.Armed, targetPos, myPos, myFaction,
+                            stand = StandPoint(in ctx.Armed, targetPos, myPos, myFaction,
                                 math.max(1f, range - cfg.standOffMargin), cfg.threatRadius);
-                            unsafeStand = ThreatNear(ctx.Armed, stand, myFaction,
+                            unsafeStand = ThreatNear(in ctx.Armed, stand, myFaction,
                                 cfg.threatRadius + cfg.standSafetyMargin);
                         }
 
@@ -446,6 +479,8 @@ namespace TheWaningBorder.Systems.Combat
             public Faction Faction;
             public float HealRange;
             public float SearchRange;
+            /// <summary>The Hold stance (heals only what is in reach, never steps away).</summary>
+            public byte Hold;
             public byte NeedThreat;
             public byte NeedSearch;
             /// <summary>The current heal target when it is still a patient.</summary>
@@ -471,7 +506,7 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public NativeArray<Entity> Cands;
             [ReadOnly] public NativeArray<LocalTransform> CandXf;
             [ReadOnly] public NativeArray<FactionTag> CandFaction;
-            [ReadOnly] public NativeArray<ArmedUnit> Armed;
+            public ArmedIndex Armed;
             [ReadOnly] public ComponentLookup<Health> Health;
             [ReadOnly] public ComponentLookup<UnhealableTag> Unhealable;
             [ReadOnly] public ComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity> Net;
@@ -496,9 +531,14 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public ComponentLookup<Damage> Damage;
             [ReadOnly] public ComponentLookup<TheWaningBorder.Core.Multiplayer.NetworkedEntity> Net;
             public NativeList<ArmedUnit> Armed;
+            public NativeList<int> Start;
+            public NativeList<int> Items;
+            public NativeReference<ArmedGridParams> Grid;
 
             public void Execute()
             {
+                float minX = float.MaxValue, minZ = float.MaxValue;
+                float maxX = float.MinValue, maxZ = float.MinValue;
                 for (int i = 0; i < Entities.Length; i++)
                 {
                     var e = Entities[i];
@@ -510,7 +550,54 @@ namespace TheWaningBorder.Systems.Combat
                         Faction = Faction[e].Value,
                         Key = StableKey(in Net, e, pos),
                     });
+                    minX = math.min(minX, pos.x); maxX = math.max(maxX, pos.x);
+                    minZ = math.min(minZ, pos.z); maxZ = math.max(maxZ, pos.z);
                 }
+
+                int n = Armed.Length;
+                if (n == 0) { minX = minZ = maxX = maxZ = 0f; }
+                // Grow the cell when the spread is huge (a stray unit far off
+                // the map), so the table stays bounded.
+                float cell = math.max(ArmedCellSize, math.max(maxX - minX, maxZ - minZ) / ArmedMaxCellsPerAxis);
+                int cellsX = math.max(1, (int)math.floor((maxX - minX) / cell) + 1);
+                int cellsZ = math.max(1, (int)math.floor((maxZ - minZ) / cell) + 1);
+                int buckets = cellsX * cellsZ;
+
+                // Counting sort, stable: each cell lists its units in armed
+                // (query) order.
+                Start.ResizeUninitialized(buckets + 1);
+                for (int b = 0; b <= buckets; b++) Start[b] = 0;
+                var cellOf = new NativeArray<int>(math.max(1, n), Allocator.Temp,
+                    NativeArrayOptions.UninitializedMemory);
+                for (int i = 0; i < n; i++)
+                {
+                    var p = Armed[i].Pos;
+                    int cx = math.clamp((int)math.floor((p.x - minX) / cell), 0, cellsX - 1);
+                    int cz = math.clamp((int)math.floor((p.z - minZ) / cell), 0, cellsZ - 1);
+                    int b = cz * cellsX + cx;
+                    cellOf[i] = b;
+                    Start[b + 1] = Start[b + 1] + 1;
+                }
+                for (int b = 0; b < buckets; b++) Start[b + 1] = Start[b + 1] + Start[b];
+                var fill = new NativeArray<int>(buckets, Allocator.Temp);
+                Items.ResizeUninitialized(math.max(1, n));
+                for (int i = 0; i < n; i++)
+                {
+                    int b = cellOf[i];
+                    Items[Start[b] + fill[b]] = i;
+                    fill[b] = fill[b] + 1;
+                }
+                fill.Dispose();
+                cellOf.Dispose();
+
+                Grid.Value = new ArmedGridParams
+                {
+                    MinX = minX,
+                    MinZ = minZ,
+                    Cell = cell,
+                    CellsX = cellsX,
+                    CellsZ = cellsZ,
+                };
             }
         }
 
@@ -530,7 +617,7 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (input.NeedThreat != 0)
                 {
-                    p.ThreatFound = (byte)(NearestArmedEnemy(Ctx.Armed, input.Pos, input.Faction,
+                    p.ThreatFound = (byte)(NearestArmedEnemy(in Ctx.Armed, input.Pos, input.Faction,
                         Ctx.ThreatRadius, out p.ThreatPos) ? 1 : 0);
                 }
 
@@ -553,9 +640,9 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         p.StandDone = 1;
                         p.StandTarget = standFor;
-                        p.Stand = StandPoint(Ctx.Armed, targetPos, input.Pos, input.Faction,
+                        p.Stand = StandPoint(in Ctx.Armed, targetPos, input.Pos, input.Faction,
                             math.max(1f, input.HealRange - Ctx.StandOffMargin), Ctx.ThreatRadius);
-                        p.StandUnsafe = (byte)(ThreatNear(Ctx.Armed, p.Stand, input.Faction,
+                        p.StandUnsafe = (byte)(ThreatNear(in Ctx.Armed, p.Stand, input.Faction,
                             Ctx.ThreatRadius + Ctx.StandSafetyMargin) ? 1 : 0);
                     }
                 }
@@ -601,8 +688,8 @@ namespace TheWaningBorder.Systems.Combat
                 // into the fight.
                 if (dist > healRange)
                 {
-                    float3 stand = StandPoint(c.Armed, tPos, myPos, myFaction, standDist, c.ThreatRadius);
-                    if (ThreatNear(c.Armed, stand, myFaction, c.ThreatRadius + c.StandSafetyMargin))
+                    float3 stand = StandPoint(in c.Armed, tPos, myPos, myFaction, standDist, c.ThreatRadius);
+                    if (ThreatNear(in c.Armed, stand, myFaction, c.ThreatRadius + c.StandSafetyMargin))
                         continue;
                 }
 
@@ -644,11 +731,11 @@ namespace TheWaningBorder.Systems.Combat
         /// in, or pathed through, the melee); with no such enemy, on the
         /// patient→healer line. Degenerate directions fall back to a fixed
         /// bearing, so the result is the same on every peer.</summary>
-        private static float3 StandPoint(NativeArray<ArmedUnit> armed, float3 patient, float3 healer,
+        private static float3 StandPoint(in ArmedIndex armed, float3 patient, float3 healer,
             Faction myFaction, float standDist, float threatRadius)
         {
             float3 d;
-            if (NearestArmedEnemy(armed, patient, myFaction, standDist + threatRadius, out float3 enemy))
+            if (NearestArmedEnemy(in armed, patient, myFaction, standDist + threatRadius, out float3 enemy))
                 d = patient - enemy;
             else
                 d = healer - patient;
@@ -658,14 +745,22 @@ namespace TheWaningBorder.Systems.Combat
             return patient + d * standDist;
         }
 
-        /// <summary>Is any armed hostile within <paramref name="radius"/>?</summary>
-        private static bool ThreatNear(NativeArray<ArmedUnit> armed, float3 pos, Faction myFaction, float radius)
+        /// <summary>Is any armed hostile within <paramref name="radius"/>?
+        /// Existential, so the cell walk order cannot change the answer.</summary>
+        private static bool ThreatNear(in ArmedIndex armed, float3 pos, Faction myFaction, float radius)
         {
-            for (int i = 0; i < armed.Length; i++)
+            armed.Cells(pos, radius, out int cx0, out int cx1, out int cz0, out int cz1);
+            for (int cz = cz0; cz <= cz1; cz++)
+            for (int cx = cx0; cx <= cx1; cx++)
             {
-                var a = armed[i];
-                if (!Alliances.AreHostileBurst(myFaction, a.Faction)) continue;
-                if (DistXZ(pos, a.Pos) <= radius) return true;
+                int b = cz * armed.P.CellsX + cx;
+                int end = armed.Start[b + 1];
+                for (int k = armed.Start[b]; k < end; k++)
+                {
+                    var a = armed.Units[armed.Items[k]];
+                    if (!Alliances.AreHostileBurst(myFaction, a.Faction)) continue;
+                    if (DistXZ(pos, a.Pos) <= radius) return true;
+                }
             }
             return false;
         }
@@ -692,25 +787,76 @@ namespace TheWaningBorder.Systems.Combat
         }
 
         /// <summary>The nearest hostile, living, ARMED unit within
-        /// <paramref name="radius"/> of <paramref name="pos"/>.</summary>
-        private static bool NearestArmedEnemy(NativeArray<ArmedUnit> armed, float3 pos,
+        /// <paramref name="radius"/> of <paramref name="pos"/>. The cells are
+        /// walked in any order, so the old list walk's tie rule is kept
+        /// explicitly: smallest (distance, key), and among exact equals the
+        /// EARLIEST in armed order — the one the old strict walk kept.</summary>
+        private static bool NearestArmedEnemy(in ArmedIndex armed, float3 pos,
             Faction myFaction, float radius, out float3 threatPos)
         {
             threatPos = default;
             float best = float.MaxValue;
             uint bestKey = uint.MaxValue;
+            int bestIdx = int.MaxValue;
             bool found = false;
-            for (int i = 0; i < armed.Length; i++)
+            armed.Cells(pos, radius, out int cx0, out int cx1, out int cz0, out int cz1);
+            for (int cz = cz0; cz <= cz1; cz++)
+            for (int cx = cx0; cx <= cx1; cx++)
             {
-                var a = armed[i];
-                if (!Alliances.AreHostileBurst(myFaction, a.Faction)) continue;
-                float d = DistXZ(pos, a.Pos);
-                if (d > radius) continue;
-                // Peer-stable tie-break (the old '<=' kept the LAST in chunk
-                // order, which can differ between lockstep peers).
-                if (Better(d, a.Key, best, bestKey)) { best = d; bestKey = a.Key; threatPos = a.Pos; found = true; }
+                int b = cz * armed.P.CellsX + cx;
+                int end = armed.Start[b + 1];
+                for (int k = armed.Start[b]; k < end; k++)
+                {
+                    int idx = armed.Items[k];
+                    var a = armed.Units[idx];
+                    if (!Alliances.AreHostileBurst(myFaction, a.Faction)) continue;
+                    float d = DistXZ(pos, a.Pos);
+                    if (d > radius) continue;
+                    // Peer-stable tie-break (the old '<=' kept the LAST in chunk
+                    // order, which can differ between lockstep peers).
+                    if (Better(d, a.Key, best, bestKey)
+                        || (d == best && a.Key == bestKey && idx < bestIdx))
+                    {
+                        best = d; bestKey = a.Key; bestIdx = idx; threatPos = a.Pos; found = true;
+                    }
+                }
             }
             return found;
+        }
+
+        /// <summary>Cell edge of the armed index, and the cap on cells per
+        /// axis. Loop resolution, not tunables.</summary>
+        private const float ArmedCellSize = 8f;
+        private const float ArmedMaxCellsPerAxis = 256f;
+
+        private struct ArmedGridParams
+        {
+            public float MinX, MinZ, Cell;
+            public int CellsX, CellsZ;
+        }
+
+        /// <summary>The armed set plus its uniform cell index (BuildArmedJob).
+        /// Cell c's units are Units[Items[Start[c] .. Start[c+1])], in armed
+        /// order.</summary>
+        private struct ArmedIndex
+        {
+            [ReadOnly] public NativeArray<ArmedUnit> Units;
+            [ReadOnly] public NativeArray<int> Start;
+            [ReadOnly] public NativeArray<int> Items;
+            public ArmedGridParams P;
+
+            /// <summary>The cells a radius query must visit: the query box
+            /// grown by a metre, so float rounding at a cell edge can never
+            /// drop a unit the exact distance test would accept.</summary>
+            public void Cells(float3 pos, float radius, out int cx0, out int cx1, out int cz0, out int cz1)
+            {
+                float r = radius + 1f;
+                cx0 = math.clamp((int)math.floor((pos.x - r - P.MinX) / P.Cell), 0, P.CellsX - 1);
+                cx1 = math.clamp((int)math.floor((pos.x + r - P.MinX) / P.Cell), 0, P.CellsX - 1);
+                cz0 = math.clamp((int)math.floor((pos.z - r - P.MinZ) / P.Cell), 0, P.CellsZ - 1);
+                cz1 = math.clamp((int)math.floor((pos.z + r - P.MinZ) / P.Cell), 0, P.CellsZ - 1);
+                if (Units.Length == 0) { cx0 = 0; cx1 = -1; cz0 = 0; cz1 = -1; }
+            }
         }
 
         private static void SetDestination(EntityManager em, ref EntityCommandBuffer ecb, Entity e, float3 pos)

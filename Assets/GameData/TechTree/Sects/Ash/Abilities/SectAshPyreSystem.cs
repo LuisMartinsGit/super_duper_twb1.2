@@ -15,6 +15,7 @@
 //
 // task-063 phase 2f.
 
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -43,27 +44,42 @@ namespace TheWaningBorder.Systems.Sect
             var pyreRadius = new NativeList<float>(Allocator.Temp);
             var pyreDuration = new NativeList<float>(Allocator.Temp);
 
-            foreach (var (health, transform, faction, entity) in SystemAPI
-                .Query<RefRO<Health>, RefRO<LocalTransform>, RefRO<FactionTag>>()
-                .WithAll<UnitTag>()
-                .WithNone<DeathAnimationState>()
-                .WithEntityAccess())
+            // PERF (2026-10-16): the dying-unit scan is a Burst pass over the
+            // Health column (it was a managed per-unit loop over every unit,
+            // every tick), and LevelOf — a string lookup, a bank read and a
+            // sect-building walk — is asked once per faction per tick instead
+            // of once per corpse. Same rows in the same chunk order, same
+            // answers: result-identical.
+            var deadPos = new NativeList<float3>(8, Allocator.Temp);
+            var deadFac = new NativeList<Faction>(8, Allocator.Temp);
+            new DyingUnitScanJob { Positions = deadPos, Factions = deadFac }.Run();
+
+            if (deadPos.Length > 0)
             {
-                if (health.ValueRO.Value > 0) continue;
+                var levels = new NativeArray<byte>(256, Allocator.Temp);
+                for (int i = 0; i < levels.Length; i++) levels[i] = 255;
+                for (int i = 0; i < deadPos.Length; i++)
+                {
+                    Faction victimFaction = deadFac[i];
+                    int fi = (byte)victimFaction;
+                    if (levels[fi] == 255)
+                        levels[fi] = SectQuery.LevelOf(em, victimFaction,
+                            SectConfig.Ash, SectLeverKind.Passive);
+                    byte level = levels[fi];
+                    if (level == 0) continue;
 
-                Faction victimFaction = faction.ValueRO.Value;
-                byte level = SectQuery.LevelOf(em, victimFaction,
-                    SectConfig.Ash, SectLeverKind.Passive);
-                if (level == 0) continue;
+                    GetTuning(level, out float dps, out float duration, out float radius);
 
-                GetTuning(level, out float dps, out float duration, out float radius);
-
-                pyreSpawns.Add(transform.ValueRO.Position);
-                pyreFactions.Add(victimFaction);
-                pyreDps.Add(dps);
-                pyreRadius.Add(radius);
-                pyreDuration.Add(duration);
+                    pyreSpawns.Add(deadPos[i]);
+                    pyreFactions.Add(victimFaction);
+                    pyreDps.Add(dps);
+                    pyreRadius.Add(radius);
+                    pyreDuration.Add(duration);
+                }
+                levels.Dispose();
             }
+            deadPos.Dispose();
+            deadFac.Dispose();
 
             for (int i = 0; i < pyreSpawns.Length; i++)
             {
@@ -87,6 +103,24 @@ namespace TheWaningBorder.Systems.Sect
             pyreDps.Dispose();
             pyreRadius.Dispose();
             pyreDuration.Dispose();
+        }
+
+        /// <summary>Units at or below 0 HP not yet handed to the death
+        /// animation, in chunk order — the rows the old foreach visited.</summary>
+        [BurstCompile]
+        [WithAll(typeof(UnitTag))]
+        [WithNone(typeof(DeathAnimationState))]
+        private partial struct DyingUnitScanJob : IJobEntity
+        {
+            public NativeList<float3> Positions;
+            public NativeList<Faction> Factions;
+
+            void Execute(in Health health, in LocalTransform transform, in FactionTag faction)
+            {
+                if (health.Value > 0) return;
+                Positions.Add(transform.Position);
+                Factions.Add(faction.Value);
+            }
         }
 
         /// <summary>

@@ -156,12 +156,39 @@ namespace TheWaningBorder.AI
         /// Curse-clearing sorties are claim squads, so they are covered.</remarks>
         private bool IsClaimSquadMember(Entity e) => _claimSquadMembers.Contains(e) || IsEconResponder(e);
 
+        /// <summary>
+        /// Is <paramref name="e"/> a member of one of the faction's missions?
+        /// Called once per soldier inside whole-army walks, and it used to be
+        /// a List.Contains over every mission's roster — O(army x enrolled)
+        /// per walk (2026-10-16 perf). Now a set, rebuilt only when the
+        /// faction, the think memo or the rosters' shape (mission count +
+        /// member total, O(missions) to read) changed since the last ask.
+        /// </summary>
         private bool IsEnrolledInMission(Faction faction, Entity e)
         {
-            foreach (var m in MissionsFor(faction))
-                if (m.Members.Contains(e)) return true;
-            return false;
+            var missions = MissionsFor(faction);
+            int members = 0;
+            for (int i = 0; i < missions.Count; i++) members += missions[i].Members.Count;
+            if (_enrolledFaction != faction || _enrolledStamp != _memoStamp
+                || _enrolledMissions != missions.Count || _enrolledMembers != members)
+            {
+                _enrolledFaction = faction;
+                _enrolledStamp = _memoStamp;
+                _enrolledMissions = missions.Count;
+                _enrolledMembers = members;
+                _enrolledLookup.Clear();
+                for (int i = 0; i < missions.Count; i++)
+                {
+                    var roster = missions[i].Members;
+                    for (int k = 0; k < roster.Count; k++) _enrolledLookup.Add(roster[k]);
+                }
+            }
+            return _enrolledLookup.Contains(e);
         }
+
+        private readonly HashSet<Entity> _enrolledLookup = new HashSet<Entity>();
+        private Faction _enrolledFaction = (Faction)255;
+        private int _enrolledStamp = -1, _enrolledMissions = -1, _enrolledMembers = -1;
 
         private List<ClaimSquad> ClaimSquadsOf(int key)
         {
@@ -443,17 +470,12 @@ namespace TheWaningBorder.AI
         {
             _claimPool.Clear();
             int army = 0;
-            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using var ents = mq.ToEntityArray(Allocator.Temp);
-            using var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp);
-            using var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
+            var roster = OwnCombatRoster(em, faction);
+            for (int i = 0; i < roster.Count; i++)
             {
-                if (facs[i].Value != faction) continue;
-                if (!IsCombatClass(tags[i].Class)) continue;
-                Entity e = ents[i];
-                if (em.HasComponent<UnderConstruction>(e)) continue;
-                if (IsVerbUnit(em, e)) continue;
+                Entity e = roster.E[i];
+                if (roster.UnderConstruction(i)) continue;
+                if (roster.Verb(i)) continue;
                 if (IsClaimSquadMember(e)) continue;
                 army++;
                 if (IsEnrolledInMission(faction, e)) continue;
@@ -485,17 +507,12 @@ namespace TheWaningBorder.AI
         private static int ArmyPowerOf(EntityManager em, Faction faction)
         {
             int sum = 0;
-            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using var ents = mq.ToEntityArray(Allocator.Temp);
-            using var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp);
-            using var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
+            var roster = OwnCombatRoster(em, faction);
+            for (int i = 0; i < roster.Count; i++)
             {
-                if (facs[i].Value != faction) continue;
-                if (!IsCombatClass(tags[i].Class)) continue;
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                if (IsVerbUnit(em, ents[i])) continue;
-                sum += TacticalQuery.UnitStrength(em, ents[i]);
+                if (roster.UnderConstruction(i)) continue;
+                if (roster.Verb(i)) continue;
+                sum += TacticalQuery.UnitStrength(em, roster.E[i]);
             }
             return sum;
         }
@@ -1030,25 +1047,20 @@ namespace TheWaningBorder.AI
         private bool DraftHostileAssault(EntityManager em, Faction faction, ClaimSquad squad, float now)
         {
             _curseAssaultArmy.Clear();
-            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using (var ents = mq.ToEntityArray(Allocator.Temp))
-            using (var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp))
-            using (var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp))
-                for (int i = 0; i < ents.Length && _curseAssaultArmy.Count < Cfg.claimCurseSquadMax; i++)
-                {
-                    if (facs[i].Value != faction) continue;
-                    if (!IsCombatClass(tags[i].Class)) continue;
-                    Entity e = ents[i];
-                    if (em.HasComponent<UnderConstruction>(e)) continue;
-                    if (IsVerbUnit(em, e)) continue;
-                    if (IsClaimSquadMember(e)) continue;
-                    if (IsEnrolledInMission(faction, e)) continue;
-                    if (TransientState.Active<AttackMoveTag>(em, e)) continue;
-                    if (TransientState.Active<MoveCommand>(em, e)) continue;
-                    if (TransientState.Active<AttackCommand>(em, e)) continue;
-                    if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                    _curseAssaultArmy.Add(e);
-                }
+            var roster = OwnCombatRoster(em, faction);
+            for (int i = 0; i < roster.Count && _curseAssaultArmy.Count < Cfg.claimCurseSquadMax; i++)
+            {
+                Entity e = roster.E[i];
+                if (roster.UnderConstruction(i)) continue;
+                if (roster.Verb(i)) continue;
+                if (IsClaimSquadMember(e)) continue;
+                if (IsEnrolledInMission(faction, e)) continue;
+                if (TransientState.Active<AttackMoveTag>(em, e)) continue;
+                if (TransientState.Active<MoveCommand>(em, e)) continue;
+                if (TransientState.Active<AttackCommand>(em, e)) continue;
+                if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                _curseAssaultArmy.Add(e);
+            }
 
             int key = (int)faction;
             if (_curseAssaultArmy.Count == 0)
@@ -1109,25 +1121,20 @@ namespace TheWaningBorder.AI
         private bool DraftCurseAssault(EntityManager em, Faction faction, ClaimSquad squad, float now)
         {
             _curseAssaultArmy.Clear();
-            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using (var ents = mq.ToEntityArray(Allocator.Temp))
-            using (var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp))
-            using (var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp))
-                for (int i = 0; i < ents.Length && _curseAssaultArmy.Count < Cfg.claimCurseSquadMax; i++)
-                {
-                    if (facs[i].Value != faction) continue;
-                    if (!IsCombatClass(tags[i].Class)) continue;
-                    Entity e = ents[i];
-                    if (em.HasComponent<UnderConstruction>(e)) continue;
-                    if (IsVerbUnit(em, e)) continue;
-                    if (IsClaimSquadMember(e)) continue;
-                    if (IsEnrolledInMission(faction, e)) continue;
-                    if (TransientState.Active<AttackMoveTag>(em, e)) continue;
-                    if (TransientState.Active<MoveCommand>(em, e)) continue;
-                    if (TransientState.Active<AttackCommand>(em, e)) continue;
-                    if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                    _curseAssaultArmy.Add(e);
-                }
+            var roster = OwnCombatRoster(em, faction);
+            for (int i = 0; i < roster.Count && _curseAssaultArmy.Count < Cfg.claimCurseSquadMax; i++)
+            {
+                Entity e = roster.E[i];
+                if (roster.UnderConstruction(i)) continue;
+                if (roster.Verb(i)) continue;
+                if (IsClaimSquadMember(e)) continue;
+                if (IsEnrolledInMission(faction, e)) continue;
+                if (TransientState.Active<AttackMoveTag>(em, e)) continue;
+                if (TransientState.Active<MoveCommand>(em, e)) continue;
+                if (TransientState.Active<AttackCommand>(em, e)) continue;
+                if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                _curseAssaultArmy.Add(e);
+            }
 
             int key = (int)faction;
             if (_curseAssaultArmy.Count == 0)

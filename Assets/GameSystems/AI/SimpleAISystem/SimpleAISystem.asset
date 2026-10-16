@@ -53,7 +53,11 @@ MonoBehaviour:
   siteSearchCandidateBudget: 4000
   siteSearchValidateBudget: 160
   maxBrainThinksPerFrame: 2
-  thinkStarvationIntervals: 1
+  thinkStarvationIntervals: 4
+  aiFrameBudgetMs: 2.5
+  maxForcedAIWorkPerFrame: 1
+  aiStepSpikeLogMs: 2
+  aiBudgetSummarySeconds: 30
   claimPotReadyRetrySeconds: 2
   populationHeadroomFloor: 8
   hutCostSupplies: 80

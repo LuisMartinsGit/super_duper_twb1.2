@@ -12,6 +12,19 @@
 // wall piece, or its move order ends on a rampart cell. A unit on a
 // wall-walk drops down when its target is on the ground, or its move order
 // ends on the ground. Units are walked in entity order; every peer agrees.
+//
+// PERF (2026-10-16). The scan insertion-sorted EVERY Runai infantry unit of
+// every faction (O(n^2) on chunk order) and then made ~8 EntityManager calls
+// per unit before it even asked whether the faction had the tech. Now: the
+// tech is read once per faction and a scan with no faction holding it does
+// nothing; the class / health / faction filters run on bulk chunk copies;
+// the survivors are sorted with an O(n log n) sort (unique keys, so the same
+// order); Wants reads through ComponentLookups; and the two component adds
+// are queued until after the walk. Deferring them changes nothing the walk
+// reads: a unit only ever reads its OWN LayerTraversalState, and a target
+// that would have just received NavLayerIndex gets Layer = its current
+// layer, which for a unit without one is LayerGround (0) — exactly what
+// "no NavLayerIndex" answers. Result-identical.
 
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
@@ -34,6 +47,15 @@ namespace TheWaningBorder.Runai
             // elsewhere: its configs are stripped from A/B builds, and running
             // it there threw every tick, in the menu and in every match.
             if (!GameEdition.Allows(Cultures.Runai)) { Enabled = false; return; }
+            _lkTarget = GetComponentLookup<Target>(true);
+            _lkFaction = GetComponentLookup<FactionTag>(true);
+            _lkXf = GetComponentLookup<LocalTransform>(true);
+            _lkLayer = GetComponentLookup<NavLayerIndex>(true);
+            _lkDD = GetComponentLookup<DesiredDestination>(true);
+            _lkWall = GetComponentLookup<WallTag>(true);
+            _lkWallSeg = GetComponentLookup<WallSegmentTag>(true);
+            _lkWallInst = GetComponentLookup<WallInstanceTag>(true);
+            _lkTraversal = GetComponentLookup<LayerTraversalState>(true);
         }
 
         public const string TechId = "Runai_ScalingHooks";
@@ -95,66 +117,111 @@ namespace TheWaningBorder.Runai
             }
         }
 
-        private static void Scan(EntityManager em)
+        private ComponentLookup<Target> _lkTarget;
+        private ComponentLookup<FactionTag> _lkFaction;
+        private ComponentLookup<LocalTransform> _lkXf;
+        private ComponentLookup<NavLayerIndex> _lkLayer;
+        private ComponentLookup<DesiredDestination> _lkDD;
+        private ComponentLookup<WallTag> _lkWall;
+        private ComponentLookup<WallSegmentTag> _lkWallSeg;
+        private ComponentLookup<WallInstanceTag> _lkWallInst;
+        private ComponentLookup<LayerTraversalState> _lkTraversal;
+
+        private struct Climb { public Entity E; public bool AddLayer; public LayerTraversalState S; public byte Layer; }
+
+        private void Scan(EntityManager em)
         {
             var research = FactionResearchState.Instance;
             if (research == null) return;
             var q = QC_Climbers.Get(em, QT_Climbers);
             if (q.IsEmptyIgnoreFilter) return;
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            var order = new NativeList<Entity>(ents.Length, Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++) order.Add(ents[i]);
-            for (int i = 1; i < order.Length; i++)
-            {
-                var k = order[i]; int j = i - 1;
-                while (j >= 0 && order[j].Index > k.Index) { order[j + 1] = order[j]; j--; }
-                order[j + 1] = k;
-            }
 
+            // The tech, once per faction: no holder, no scan.
+            ulong hooks = 0;
+            for (int fi = 0; fi < 64; fi++)
+                if (research.HasResearched((Faction)fi, TechId)) hooks |= 1UL << fi;
+            if (hooks == 0) return;
+
+            CompleteDependency();
+            var order = new NativeList<Entity>(Allocator.Temp);
+            using (var ents = q.ToEntityArray(Allocator.Temp))
+            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp))
+            using (var hps = q.ToComponentDataArray<Health>(Allocator.Temp))
+            {
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    var cls = tags[i].Class;
+                    if (cls != UnitClass.Melee && cls != UnitClass.Ranged) continue;
+                    if (hps[i].Value <= 0) continue;
+                    int fi = (int)facs[i].Value;
+                    if (fi < 0 || fi >= 64 || (hooks & (1UL << fi)) == 0) continue;
+                    order.Add(ents[i]);
+                }
+            }
+            if (order.Length == 0) { order.Dispose(); return; }
+            order.Sort(new ByIndex());
+
+            _lkTarget.Update(this); _lkXf.Update(this); _lkLayer.Update(this); _lkDD.Update(this);
+            _lkWall.Update(this); _lkWallSeg.Update(this); _lkWallInst.Update(this); _lkTraversal.Update(this);
+            _lkFaction.Update(this);
+
+            var climbs = new NativeList<Climb>(Allocator.Temp);
             for (int i = 0; i < order.Length; i++)
             {
                 var e = order[i];
-                var cls = em.GetComponentData<UnitTag>(e).Class;
-                if (cls != UnitClass.Melee && cls != UnitClass.Ranged) continue;
-                if (em.HasComponent<LayerTraversalState>(e)) continue;
-                if (em.GetComponentData<Health>(e).Value <= 0) continue;
-                var f = em.GetComponentData<FactionTag>(e).Value;
-                if (!research.HasResearched(f, TechId)) continue;
+                if (_lkTraversal.HasComponent(e)) continue;
+                var f = _lkFaction[e].Value;
 
-                byte layer = em.HasComponent<NavLayerIndex>(e) ? em.GetComponentData<NavLayerIndex>(e).Layer : (byte)0;
-                var pos = em.GetComponentData<LocalTransform>(e).Position;
-                byte want = Wants(em, e, layer);
+                bool hasLayer = _lkLayer.TryGetComponent(e, out var nli);
+                byte layer = hasLayer ? nli.Layer : (byte)0;
+                var pos = _lkXf[e].Position;
+                byte want = Wants(e, layer);
                 if (want == layer) continue;
                 if (!NearestCell(pos, want, f, out var to)) continue;
 
-                if (!em.HasComponent<NavLayerIndex>(e)) em.AddComponentData(e, new NavLayerIndex { Layer = layer });
-                em.AddComponentData(e, new LayerTraversalState
+                climbs.Add(new Climb
                 {
-                    InProgress = 1, FromLayer = layer, ToLayer = want, PortalId = HookPortal,
-                    Progress = 0f, StartPos = pos, EndPos = to,
+                    E = e, AddLayer = !hasLayer, Layer = layer,
+                    S = new LayerTraversalState
+                    {
+                        InProgress = 1, FromLayer = layer, ToLayer = want, PortalId = HookPortal,
+                        Progress = 0f, StartPos = pos, EndPos = to,
+                    },
                 });
             }
             order.Dispose();
+
+            for (int i = 0; i < climbs.Length; i++)
+            {
+                var c = climbs[i];
+                if (c.AddLayer && !em.HasComponent<NavLayerIndex>(c.E)) em.AddComponentData(c.E, new NavLayerIndex { Layer = c.Layer });
+                em.AddComponentData(c.E, c.S);
+            }
+            climbs.Dispose();
+        }
+
+        private struct ByIndex : System.Collections.Generic.IComparer<Entity>
+        {
+            public int Compare(Entity a, Entity b) => a.Index.CompareTo(b.Index);
         }
 
         /// <summary>The layer the unit wants to be on, from its target or its
         /// move order; its current layer when neither says.</summary>
-        private static byte Wants(EntityManager em, Entity e, byte layer)
+        private byte Wants(Entity e, byte layer)
         {
-            if (em.HasComponent<Target>(e))
+            if (_lkTarget.TryGetComponent(e, out var tc))
             {
-                var t = em.GetComponentData<Target>(e).Value;
-                if (t != Entity.Null && em.Exists(t) && em.HasComponent<LocalTransform>(t))
+                var t = tc.Value;
+                if (t != Entity.Null && _lkXf.HasComponent(t))
                 {
-                    if (em.HasComponent<WallTag>(t) || em.HasComponent<WallSegmentTag>(t)
-                        || em.HasComponent<WallInstanceTag>(t))
+                    if (_lkWall.HasComponent(t) || _lkWallSeg.HasComponent(t) || _lkWallInst.HasComponent(t))
                         return NavLayerIndex.LayerRampart;
-                    return em.HasComponent<NavLayerIndex>(t) ? em.GetComponentData<NavLayerIndex>(t).Layer : NavLayerIndex.LayerGround;
+                    return _lkLayer.TryGetComponent(t, out var tl) ? tl.Layer : NavLayerIndex.LayerGround;
                 }
             }
-            if (em.HasComponent<DesiredDestination>(e))
+            if (_lkDD.TryGetComponent(e, out var dd))
             {
-                var dd = em.GetComponentData<DesiredDestination>(e);
                 if (dd.Has == 0) return layer;
                 var cell = NavGridQuery.WorldToCellInt2(dd.Position);
                 if (cell.x == int.MinValue) return layer;

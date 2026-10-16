@@ -214,6 +214,25 @@ namespace TheWaningBorder.AI
         /// slows brains down but never starves one.</summary>
         public float thinkStarvationIntervals;
 
+        /// <summary>The whole AI's TIME allowance per rendered frame, ms
+        /// (AIFrameBudget, 2026-10-16) — shared by SimpleAISystem's think
+        /// steps, the endgame systems and AITacticsMicroSystem. Work that
+        /// does not fit waits a frame; the first piece of a frame always runs.</summary>
+        public float aiFrameBudgetMs;
+
+        /// <summary>Starving AI work (a brain overdue by
+        /// thinkStarvationIntervals) that may run past an exhausted
+        /// aiFrameBudgetMs, per rendered frame.</summary>
+        public int maxForcedAIWorkPerFrame;
+
+        /// <summary>A single think STEP slower than this (ms) is written to
+        /// Perf.log with its name — the profile that names the next hotspot.</summary>
+        public float aiStepSpikeLogMs;
+
+        /// <summary>Real seconds between the "AI budget" summary lines in
+        /// Perf.log (average / peak AI ms per frame, per-step cost). 0 = off.</summary>
+        public float aiBudgetSummarySeconds;
+
         /// <summary>Minimum seconds between claim attempts while a funded
         /// claim pot bypasses claimAttemptInterval.</summary>
         public float claimPotReadyRetrySeconds;

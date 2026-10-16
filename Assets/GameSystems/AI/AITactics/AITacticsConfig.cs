@@ -30,6 +30,16 @@ namespace TheWaningBorder.AI
         /// <summary>Seconds between ability-value passes for one AI faction.</summary>
         public float abilityInterval;
 
+        /// <summary>Most milliseconds the micro (kiting + ability passes, all
+        /// factions) may spend in one rendered frame (2026-10-16). A pass that
+        /// runs out resumes where it stopped next frame; the time is also
+        /// charged to the AI's shared budget (AIFrameBudget).</summary>
+        public float microFrameBudgetMs;
+
+        /// <summary>Units a frame's micro always evaluates in full before
+        /// the time limit is consulted, so a pass always moves forward.</summary>
+        public int microMinUnitsPerFrame;
+
         // ── Kiting ───────────────────────────────────────────────────────
 
         /// <summary>A hostile melee unit this close (edge to edge) to a

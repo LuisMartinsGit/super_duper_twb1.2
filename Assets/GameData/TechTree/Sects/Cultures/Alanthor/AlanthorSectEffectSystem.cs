@@ -31,8 +31,29 @@ namespace TheWaningBorder.Systems.Sect
         /// query-leak sweep of 2026-07-16).</summary>
         private EntityQuery _healTargets;
 
+        // PERF (2026-10-16): emptiness guards, one per timed effect. Every
+        // effect here is an enableable component pre-added DISABLED on every
+        // unit / building, so each foreach below walked every unit chunk's
+        // enable bits every tick — and the three that write Health first
+        // completed every job writing Health (the Burst combat passes) —
+        // although on almost every tick no effect is live. IsEmpty honours
+        // enable bits, so a guard that reads "empty" means the foreach would
+        // have visited nothing: result-identical.
+        private EntityQuery _anyShutdown, _anyDisorder, _anyRegenTail, _anyDeathWard,
+                            _anyVeil, _anyBulwark, _anyOverYield, _anyBurst, _anyCurseWard;
+
         protected override void OnCreate()
         {
+            _anyShutdown  = GetEntityQuery(ComponentType.ReadOnly<SectShutdown>());
+            _anyDisorder  = GetEntityQuery(ComponentType.ReadOnly<SectDisordered>());
+            _anyRegenTail = GetEntityQuery(ComponentType.ReadOnly<SectRegenTail>());
+            _anyDeathWard = GetEntityQuery(ComponentType.ReadOnly<SectDeathWard>());
+            _anyVeil      = GetEntityQuery(ComponentType.ReadOnly<SectVeiled>());
+            _anyBulwark   = GetEntityQuery(ComponentType.ReadOnly<SectBulwark>());
+            _anyOverYield = GetEntityQuery(ComponentType.ReadOnly<SectNodeOverYield>());
+            _anyBurst     = GetEntityQuery(ComponentType.ReadOnly<SectInfluenceBurst>());
+            _anyCurseWard = GetEntityQuery(ComponentType.ReadOnly<SectCurseWard>());
+
             _healTargets = GetEntityQuery(
                 ComponentType.ReadOnly<FactionTag>(),
                 ComponentType.ReadWrite<Health>(),
@@ -48,15 +69,15 @@ namespace TheWaningBorder.Systems.Sect
             var em = EntityManager;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            TickShutdown(em, ecb, dt);
-            TickDisorder(em, ecb, dt);
-            TickRegenTail(em, ecb, dt);
-            TickDeathWard(em, ecb, dt);
-            TickVeil(em, ecb, dt);
-            TickBulwark(em, ecb, dt);
-            TickOverYield(em, ecb, dt);
-            TickInfluenceBurst(em, ecb, dt);
-            TickCurseWard(em, ecb, dt);
+            if (!_anyShutdown.IsEmpty)  TickShutdown(em, ecb, dt);
+            if (!_anyDisorder.IsEmpty)  TickDisorder(em, ecb, dt);
+            if (!_anyRegenTail.IsEmpty) TickRegenTail(em, ecb, dt);
+            if (!_anyDeathWard.IsEmpty) TickDeathWard(em, ecb, dt);
+            if (!_anyVeil.IsEmpty)      TickVeil(em, ecb, dt);
+            if (!_anyBulwark.IsEmpty)   TickBulwark(em, ecb, dt);
+            if (!_anyOverYield.IsEmpty) TickOverYield(em, ecb, dt);
+            if (!_anyBurst.IsEmpty)     TickInfluenceBurst(em, ecb, dt);
+            if (!_anyCurseWard.IsEmpty) TickCurseWard(em, ecb, dt);
 
             ecb.Playback(em);
             ecb.Dispose();

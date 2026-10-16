@@ -343,8 +343,18 @@ namespace TheWaningBorder.Systems.Navigation
         private ComponentLookup<LayerTraversalState> _traversalLookup;
         private ComponentLookup<FormationMemberState> _memberLookup;
 
+        // Per-tick key / seeker collection output, persistent and cleared
+        // each tick (perf pass 2026-10-16) - see CollectGoalKeysJob.
+        private NativeList<GoalFlowKey> _wanted;
+        private NativeHashMap<GoalFlowKey, byte> _seen;
+        private NativeList<GoalSeekerRec> _seekerRecs;
+
         public void OnCreate(ref SystemState state)
         {
+            _wanted = new NativeList<GoalFlowKey>(64, Allocator.Persistent);
+            _seen = new NativeHashMap<GoalFlowKey, byte>(64, Allocator.Persistent);
+            _seekerRecs = new NativeList<GoalSeekerRec>(1024, Allocator.Persistent);
+
             _initialised = 0;
             _lastEpoch = -1;   // force a TickCounter re-phase on first update
             state.RequireForUpdate<NavCostField>();
@@ -510,11 +520,18 @@ namespace TheWaningBorder.Systems.Navigation
             int quant = GoalFlowQuant.CellsPerBucket(grid.CellSize);
 
             // ── Collect distinct needed keys in deterministic order ───────
-            // Pure array walks (no per-entity managed EntityManager calls —
-            // this loop runs every tick over every moving unit).
-            using var dests = _unitQuery.ToComponentDataArray<DesiredDestination>(Allocator.Temp);
-            using var factions = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xforms = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            // Burst (perf pass 2026-10-16): the two per-unit passes below
+            // used to run as MANAGED loops on the main thread — a component
+            // lookup, a hash lookup and a cost read per unit per variant,
+            // twice, every tick, over every unit holding a destination. They
+            // are now CollectGoalKeysJob / CollectSeekersJob, Run() on the
+            // main thread (single-threaded, so the walk order, the LRU bumps
+            // and the seeker order are exactly the old loops'), into
+            // persistent containers instead of per-tick Temp allocations.
+            using var dests = _unitQuery.ToComponentDataArray<DesiredDestination>(Allocator.TempJob);
+            using var factions = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.TempJob);
+            using var xforms = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+            using var unitEntities = _unitQuery.ToEntityArray(Allocator.TempJob);
 
             // Units that never sample a goal field (see the lookups' note).
             // A flying FORMATION MEMBER still counts: the group's virtual
@@ -524,143 +541,39 @@ namespace TheWaningBorder.Systems.Navigation
             _flyingLookup.Update(ref state);
             _traversalLookup.Update(ref state);
             _memberLookup.Update(ref state);
-            using var unitEntities = _unitQuery.ToEntityArray(Allocator.Temp);
-            var ignoresField = new NativeArray<byte>(unitEntities.Length, Allocator.Temp);
-            for (int i = 0; i < unitEntities.Length; i++)
+
+            _wanted.Clear();
+            _seen.Clear();
+            _seekerRecs.Clear();
+            new CollectGoalKeysJob
             {
-                var ue = unitEntities[i];
-                bool onRampart = _layerLookup.HasComponent(ue)
-                    && _layerLookup[ue].Layer == NavLayerIndex.LayerRampart;
-                bool traversing = _traversalLookup.HasComponent(ue);
-                bool flyingLoose = _flyingLookup.HasComponent(ue)
-                    && !(_memberLookup.HasComponent(ue) && _memberLookup.IsComponentEnabled(ue));
-                ignoresField[i] = (byte)(onRampart || traversing || flyingLoose ? 1 : 0);
-            }
-
-            var wanted = new NativeList<GoalFlowKey>(64, Allocator.Temp);
-            var seen = new NativeHashMap<GoalFlowKey, byte>(64, Allocator.Temp);
-
-            for (int i = 0; i < dests.Length; i++)
-            {
-                if (dests[i].Has == 0) continue;
-                if (ignoresField[i] != 0) continue;
-
-                int gx = (int)math.floor((dests[i].Position.x - grid.Origin.x) / grid.CellSize);
-                int gz = (int)math.floor((dests[i].Position.z - grid.Origin.z) / grid.CellSize);
-                gx = math.clamp(gx, 0, grid.Width - 1);
-                gz = math.clamp(gz, 0, grid.Height - 1);
-
-                // The unit's own cell — half of the coverage test below, and
-                // the seeker cell the bounded sweep must settle.
-                int ucx = (int)math.floor((xforms[i].Position.x - grid.Origin.x) / grid.CellSize);
-                int ucz = (int)math.floor((xforms[i].Position.z - grid.Origin.z) / grid.CellSize);
-                ucx = math.clamp(ucx, 0, grid.Width - 1);
-                ucz = math.clamp(ucz, 0, grid.Height - 1);
-
-                int f = (int)factions[i].Value;
-                byte factionIdx = (f >= 0 && f <= 7) ? (byte)f : (byte)0xFF;
-
-                // Which variants does this goal need?
-                //   * Goal ON a bridge deck (deck-only cell): bridge variant
-                //     only — the ground variant would snap the goal off the
-                //     bridge and divert the order.
-                //   * Otherwise: the ground variant always; plus the bridge
-                //     variant when the map has bridges (consulted by units
-                //     the ground variant cannot reach).
-                int goalIdx = gz * grid.Width + gx;
-                bool goalOnDeck = cost.Cost[goalIdx] == NavCostField.CostBridgeDeckOnly;
-                bool bridges = TheWaningBorder.World.Terrain.BridgeSurface.HasAny;
-
-                for (byte variant = 0; variant <= 1; variant++)
-                {
-                    if (variant == GoalFlowKey.VariantGround && goalOnDeck) continue;
-                    if (variant == GoalFlowKey.VariantBridge && !bridges) continue;
-
-                    var key = new GoalFlowKey
-                    {
-                        GoalCell = new int2(gx / quant, gz / quant),
-                        FactionIdx = factionIdx,
-                        Variant = variant,
-                    };
-
-                    if (cacheSingleton.SlotIndex.TryGetValue(key, out int slot))
-                    {
-                        var meta = cacheSingleton.Slots[slot];
-                        if (meta.Valid != 0)
-                        {
-                            // Bump LRU for ANY actively wanted key — stale
-                            // ones included. Under cost-field Generation
-                            // churn (the veil crust stamp bumps it about
-                            // once a second) every live key reads as stale
-                            // most ticks; without this bump their slots
-                            // decayed into eviction bait WHILE units were
-                            // sampling them, and eviction yanked live
-                            // fields out from under moving workers.
-                            meta.LastUsedTick = cacheSingleton.TickCounter;
-                            cacheSingleton.Slots[slot] = meta;
-
-                            // Integration already in flight for this key —
-                            // never double-book the slot (two detached jobs
-                            // writing one DirPool slice is the exact double-
-                            // assignment bug the claim state exists to stop).
-                            if (meta.Valid == 2) continue;
-
-                            // Coverage test: a NotCovered byte at the unit's
-                            // own cell means the seeker-bounded sweep stopped
-                            // short of this unit — its field cannot steer it,
-                            // so re-integrate NOW (this unit is a seeker of
-                            // the new sweep), bypassing both the fresh-hit
-                            // skip and the stale cooldown.
-                            // A unit standing on a cell CLOSED to this key
-                            // (wall, foreign gate, deck strip in the ground
-                            // variant) counts as covered: no sweep ever
-                            // settles a closed cell, so its byte is always a
-                            // sentinel, and it used to force a re-integration
-                            // every tick, cooldown bypassed, forever. The
-                            // unit walks out on the direct bearing and is a
-                            // real seeker from its first open cell.
-                            bool covered = true;
-                            if (meta.Valid == 1)
-                                covered = cacheSingleton.DirPool[
-                                        slot * cacheSingleton.CellCount
-                                        + ucz * grid.Width + ucx]
-                                    != NavFlowConstants.NotCovered
-                                    || !CellOpenFor(cost.Cost, cost.Flags,
-                                        ucz * grid.Width + ucx, factionIdx, variant);
-
-                            // An uncovered unit on a CAPPED field is not
-                            // urgent: re-integrating now hits the same cap.
-                            // It waits out the cooldown like a stale field.
-                            bool cappedMiss = !covered && meta.Capped != 0;
-
-                            if (covered && meta.Valid == 1
-                                && meta.Generation == cost.Generation)
-                                continue; // fresh hit — nothing to integrate
-
-                            // STALE-REFRESH THROTTLE (lag fix, 2026-07-12).
-                            // The veil crust stamp bumps NavCostField.Generation
-                            // about once a second while the front moves, which
-                            // marked EVERY cached field stale — and this system
-                            // re-integrated four whole-map fields every single
-                            // tick, forever. A stale field still points at the
-                            // right goal (the world shifted by a few crust
-                            // cells at most), so serve it and refresh at most
-                            // once per cooldown window instead of every tick.
-                            // Brand-new keys (no field at all) are unaffected.
-                            if ((covered || cappedMiss) && meta.Valid == 1
-                                && cacheSingleton.TickCounter - meta.IntegratedTick
-                                    < ReintegrateCooldownTicks)
-                                continue;
-                        }
-                    }
-
-                    if (!seen.ContainsKey(key))
-                    {
-                        seen.Add(key, 1);
-                        wanted.Add(key);
-                    }
-                }
-            }
+                Dests = dests,
+                Factions = factions,
+                Xforms = xforms,
+                Entities = unitEntities,
+                Layer = _layerLookup,
+                Flying = _flyingLookup,
+                Traversal = _traversalLookup,
+                Member = _memberLookup,
+                Cost = cost.Cost,
+                Flags = cost.Flags,
+                CostGeneration = cost.Generation,
+                GridOrigin = grid.Origin,
+                CellSize = grid.CellSize,
+                Width = grid.Width,
+                Height = grid.Height,
+                Quant = quant,
+                Bridges = (byte)(TheWaningBorder.World.Terrain.BridgeSurface.HasAny ? 1 : 0),
+                SlotIndex = cacheSingleton.SlotIndex,
+                Slots = cacheSingleton.Slots,
+                DirPool = cacheSingleton.DirPool,
+                CellCount = cacheSingleton.CellCount,
+                TickCounter = cacheSingleton.TickCounter,
+                Wanted = _wanted,
+                Seen = _seen,
+                SeekerRecs = _seekerRecs,
+            }.Run();
+            var wanted = _wanted;
 
             // ── Integrate up to the per-tick budget, in parallel ───────────
             // Each job writes a disjoint DirPool slice and owns a disjoint
@@ -687,8 +600,8 @@ namespace TheWaningBorder.Systems.Navigation
 
                 // Batch keys are fixed before the seeker pass below needs
                 // to match units against them.
-                var batchKeys = new NativeArray<GoalFlowKey>(budget, Allocator.Temp);
-                var seekerCounts = new NativeArray<int>(budget, Allocator.Temp,
+                var batchKeys = new NativeArray<GoalFlowKey>(budget, Allocator.TempJob);
+                var seekerCounts = new NativeArray<int>(budget, Allocator.TempJob,
                     NativeArrayOptions.ClearMemory);
 
                 if (!synchronous)
@@ -778,52 +691,19 @@ namespace TheWaningBorder.Systems.Navigation
                 // Per batch key: seeker cells dropped as CLOSED to the key
                 // (see below). A key whose every seeker was closed still
                 // bounds its sweep (StopWithoutSeekers) instead of flooding.
-                var droppedClosed = new NativeArray<int>(budget, Allocator.Temp,
+                var droppedClosed = new NativeArray<int>(budget, Allocator.TempJob,
                     NativeArrayOptions.ClearMemory);
 
-                for (int i = 0; i < dests.Length; i++)
+                new CollectSeekersJob
                 {
-                    if (dests[i].Has == 0) continue;
-                    if (ignoresField[i] != 0) continue;
-
-                    int sgx = (int)math.floor((dests[i].Position.x - grid.Origin.x) / grid.CellSize);
-                    int sgz = (int)math.floor((dests[i].Position.z - grid.Origin.z) / grid.CellSize);
-                    sgx = math.clamp(sgx, 0, grid.Width - 1);
-                    sgz = math.clamp(sgz, 0, grid.Height - 1);
-
-                    int sf = (int)factions[i].Value;
-                    byte sFactionIdx = (sf >= 0 && sf <= 7) ? (byte)sf : (byte)0xFF;
-                    var sBucket = new int2(sgx / quant, sgz / quant);
-
-                    int sucx = (int)math.floor((xforms[i].Position.x - grid.Origin.x) / grid.CellSize);
-                    int sucz = (int)math.floor((xforms[i].Position.z - grid.Origin.z) / grid.CellSize);
-                    sucx = math.clamp(sucx, 0, grid.Width - 1);
-                    sucz = math.clamp(sucz, 0, grid.Height - 1);
-                    int seekerCell = sucz * grid.Width + sucx;
-
-                    for (int j = 0; j < budget; j++)
-                    {
-                        // Variant is deliberately ignored in the match: a
-                        // unit needing this goal bucket is a seeker of BOTH
-                        // its variants' sweeps.
-                        if (!batchKeys[j].GoalCell.Equals(sBucket)
-                            || batchKeys[j].FactionIdx != sFactionIdx) continue;
-                        // A seeker on a cell closed to THIS sweep (wall,
-                        // foreign gate, deck strip in the ground variant)
-                        // can never be settled, so it disabled the early-out
-                        // and every such field was a full-map flood. Tested
-                        // against the snapshot the job will read.
-                        if (!CellOpenFor(_costSnapshot, _flagsSnapshot, seekerCell,
-                                batchKeys[j].FactionIdx, batchKeys[j].Variant))
-                        {
-                            droppedClosed[j] = droppedClosed[j] + 1;
-                            continue;
-                        }
-                        if (seekerCounts[j] >= MaxSeekersPerField) continue;
-                        _seekerPool[j * MaxSeekersPerField + seekerCounts[j]] = seekerCell;
-                        seekerCounts[j] = seekerCounts[j] + 1;
-                    }
-                }
+                    Recs = _seekerRecs.AsArray(),
+                    BatchKeys = batchKeys,
+                    Cost = _costSnapshot,
+                    Flags = _flagsSnapshot,
+                    SeekerPool = _seekerPool,
+                    SeekerCounts = seekerCounts,
+                    DroppedClosed = droppedClosed,
+                }.Run();
 
                 for (int i = 0; i < budget; i++)
                 {
@@ -951,9 +831,6 @@ namespace TheWaningBorder.Systems.Navigation
                 droppedClosed.Dispose();
             }
 
-            ignoresField.Dispose();
-            wanted.Dispose();
-            seen.Dispose();
             SystemAPI.SetSingleton(cacheSingleton);
         }
 
@@ -968,6 +845,9 @@ namespace TheWaningBorder.Systems.Navigation
             if (_costSnapshot.IsCreated) _costSnapshot.Dispose();
             if (_flagsSnapshot.IsCreated) _flagsSnapshot.Dispose();
             if (_nearWallSnapshot.IsCreated) _nearWallSnapshot.Dispose();
+            if (_wanted.IsCreated) _wanted.Dispose();
+            if (_seen.IsCreated) _seen.Dispose();
+            if (_seekerRecs.IsCreated) _seekerRecs.Dispose();
 
             // Mirrors, not the component — the entity may already be wiped.
             ReleaseCache();
@@ -1009,10 +889,227 @@ namespace TheWaningBorder.Systems.Navigation
             return lru;
         }
 
-        /// <summary>The job's IsOpen for one cell, on the main thread:
-        /// walls never, gates for the owner's team, deck-only strips not in
-        /// the ground variant. MUST match IntegrateGoalFieldJob.IsOpen.</summary>
-        private static bool CellOpenFor(NativeArray<byte> costArr, NativeArray<byte> flagsArr,
+    }
+
+    /// <summary>One unit that wants a goal field this tick, as the seeker
+    /// pass needs it (CollectGoalKeysJob records them in walk order).</summary>
+    internal struct GoalSeekerRec
+    {
+        public int2 Bucket;
+        public byte FactionIdx;
+        public int SeekerCell;
+    }
+
+    /// <summary>
+    /// GoalFlowFieldSystem's key collection — the old main-thread loop, in
+    /// Burst, unchanged in its tests and its order: every unit in query
+    /// order, both variants, the LRU bump, the coverage test, the fresh-hit
+    /// skip and the stale cooldown. Also records each unit that wants a field
+    /// (same order, same clamp math) for the seeker pass. Run() on the main
+    /// thread: single-threaded, so the result is the old loop's exactly.
+    /// </summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal struct CollectGoalKeysJob : IJob
+    {
+        [ReadOnly] public NativeArray<DesiredDestination> Dests;
+        [ReadOnly] public NativeArray<FactionTag> Factions;
+        [ReadOnly] public NativeArray<LocalTransform> Xforms;
+        [ReadOnly] public NativeArray<Entity> Entities;
+        [ReadOnly] public ComponentLookup<NavLayerIndex> Layer;
+        [ReadOnly] public ComponentLookup<FlyingTag> Flying;
+        [ReadOnly] public ComponentLookup<LayerTraversalState> Traversal;
+        [ReadOnly] public ComponentLookup<FormationMemberState> Member;
+        [ReadOnly] public NativeArray<byte> Cost;
+        [ReadOnly] public NativeArray<byte> Flags;
+        public int CostGeneration;
+        public float3 GridOrigin;
+        public float CellSize;
+        public int Width;
+        public int Height;
+        public int Quant;
+        public byte Bridges;
+        [ReadOnly] public NativeHashMap<GoalFlowKey, int> SlotIndex;
+        public NativeArray<GoalFlowSlot> Slots;
+        // Detached integration jobs write other slots' slices of the pool
+        // (with container safety off); this reads only Valid == 1 slices.
+        [ReadOnly, Unity.Collections.LowLevel.Unsafe.NativeDisableContainerSafetyRestriction]
+        public NativeArray<byte> DirPool;
+        public int CellCount;
+        public int TickCounter;
+        public NativeList<GoalFlowKey> Wanted;
+        public NativeHashMap<GoalFlowKey, byte> Seen;
+        public NativeList<GoalSeekerRec> SeekerRecs;
+
+        public void Execute()
+        {
+            for (int i = 0; i < Dests.Length; i++)
+            {
+                if (Dests[i].Has == 0) continue;
+
+                var ue = Entities[i];
+                bool onRampart = Layer.HasComponent(ue)
+                    && Layer[ue].Layer == NavLayerIndex.LayerRampart;
+                bool traversing = Traversal.HasComponent(ue);
+                bool flyingLoose = Flying.HasComponent(ue)
+                    && !(Member.HasComponent(ue) && Member.IsComponentEnabled(ue));
+                if (onRampart || traversing || flyingLoose) continue;
+
+                int gx = (int)math.floor((Dests[i].Position.x - GridOrigin.x) / CellSize);
+                int gz = (int)math.floor((Dests[i].Position.z - GridOrigin.z) / CellSize);
+                gx = math.clamp(gx, 0, Width - 1);
+                gz = math.clamp(gz, 0, Height - 1);
+
+                // The unit's own cell — half of the coverage test below, and
+                // the seeker cell the bounded sweep must settle.
+                int ucx = (int)math.floor((Xforms[i].Position.x - GridOrigin.x) / CellSize);
+                int ucz = (int)math.floor((Xforms[i].Position.z - GridOrigin.z) / CellSize);
+                ucx = math.clamp(ucx, 0, Width - 1);
+                ucz = math.clamp(ucz, 0, Height - 1);
+
+                int f = (int)Factions[i].Value;
+                byte factionIdx = (f >= 0 && f <= 7) ? (byte)f : (byte)0xFF;
+
+                SeekerRecs.Add(new GoalSeekerRec
+                {
+                    Bucket = new int2(gx / Quant, gz / Quant),
+                    FactionIdx = factionIdx,
+                    SeekerCell = ucz * Width + ucx,
+                });
+
+                // Which variants does this goal need?
+                //   * Goal ON a bridge deck (deck-only cell): bridge variant
+                //     only — the ground variant would snap the goal off the
+                //     bridge and divert the order.
+                //   * Otherwise: the ground variant always; plus the bridge
+                //     variant when the map has bridges (consulted by units
+                //     the ground variant cannot reach).
+                int goalIdx = gz * Width + gx;
+                bool goalOnDeck = Cost[goalIdx] == NavCostField.CostBridgeDeckOnly;
+                bool bridges = Bridges != 0;
+
+                for (byte variant = 0; variant <= 1; variant++)
+                {
+                    if (variant == GoalFlowKey.VariantGround && goalOnDeck) continue;
+                    if (variant == GoalFlowKey.VariantBridge && !bridges) continue;
+
+                    var key = new GoalFlowKey
+                    {
+                        GoalCell = new int2(gx / Quant, gz / Quant),
+                        FactionIdx = factionIdx,
+                        Variant = variant,
+                    };
+
+                    if (SlotIndex.TryGetValue(key, out int slot))
+                    {
+                        var meta = Slots[slot];
+                        if (meta.Valid != 0)
+                        {
+                            // Bump LRU for ANY actively wanted key — stale
+                            // ones included (eviction must never yank a field
+                            // out from under units sampling it).
+                            meta.LastUsedTick = TickCounter;
+                            Slots[slot] = meta;
+
+                            // Integration already in flight for this key —
+                            // never double-book the slot.
+                            if (meta.Valid == 2) continue;
+
+                            // Coverage test: a NotCovered byte at the unit's
+                            // own cell means the bounded sweep stopped short of
+                            // it — re-integrate now. A unit on a cell CLOSED to
+                            // this key counts as covered (no sweep ever settles
+                            // a closed cell).
+                            bool covered = true;
+                            if (meta.Valid == 1)
+                                covered = DirPool[slot * CellCount + ucz * Width + ucx]
+                                        != NavFlowConstants.NotCovered
+                                    || !GoalFlowCells.OpenFor(Cost, Flags,
+                                        ucz * Width + ucx, factionIdx, variant);
+
+                            // An uncovered unit on a CAPPED field is not
+                            // urgent: re-integrating now hits the same cap.
+                            bool cappedMiss = !covered && meta.Capped != 0;
+
+                            if (covered && meta.Valid == 1
+                                && meta.Generation == CostGeneration)
+                                continue; // fresh hit — nothing to integrate
+
+                            // STALE-REFRESH THROTTLE: serve a stale field and
+                            // refresh it at most once per cooldown window.
+                            if ((covered || cappedMiss) && meta.Valid == 1
+                                && TickCounter - meta.IntegratedTick
+                                    < GoalFlowFieldSystem.ReintegrateCooldownTicks)
+                                continue;
+                        }
+                    }
+
+                    if (!Seen.ContainsKey(key))
+                    {
+                        Seen.Add(key, 1);
+                        Wanted.Add(key);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// GoalFlowFieldSystem's seeker pass — the old main-thread loop, in
+    /// Burst: every recorded unit (walk order) against every batch key, the
+    /// closed-cell drop tested on the snapshot the integration will read, and
+    /// the per-field cap. Run() on the main thread, so the seeker order is
+    /// the old loop's exactly.
+    /// </summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal struct CollectSeekersJob : IJob
+    {
+        [ReadOnly] public NativeArray<GoalSeekerRec> Recs;
+        [ReadOnly] public NativeArray<GoalFlowKey> BatchKeys;
+        [ReadOnly] public NativeArray<byte> Cost;
+        [ReadOnly] public NativeArray<byte> Flags;
+        // Earlier integration jobs read their (completed) slices with safety
+        // off; no job reads this while the main thread refills it.
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableContainerSafetyRestriction]
+        public NativeArray<int> SeekerPool;
+        public NativeArray<int> SeekerCounts;
+        public NativeArray<int> DroppedClosed;
+
+        public void Execute()
+        {
+            int budget = BatchKeys.Length;
+            for (int i = 0; i < Recs.Length; i++)
+            {
+                var r = Recs[i];
+                for (int j = 0; j < budget; j++)
+                {
+                    // Variant is deliberately ignored in the match: a unit
+                    // needing this goal bucket is a seeker of BOTH its
+                    // variants' sweeps.
+                    if (!BatchKeys[j].GoalCell.Equals(r.Bucket)
+                        || BatchKeys[j].FactionIdx != r.FactionIdx) continue;
+                    // A seeker on a cell closed to THIS sweep can never be
+                    // settled; it would disable the early-out (a full-map
+                    // flood). Tested against the snapshot the job will read.
+                    if (!GoalFlowCells.OpenFor(Cost, Flags, r.SeekerCell,
+                            BatchKeys[j].FactionIdx, BatchKeys[j].Variant))
+                    {
+                        DroppedClosed[j] = DroppedClosed[j] + 1;
+                        continue;
+                    }
+                    if (SeekerCounts[j] >= GoalFlowFieldSystem.MaxSeekersPerField) continue;
+                    SeekerPool[j * GoalFlowFieldSystem.MaxSeekersPerField + SeekerCounts[j]] = r.SeekerCell;
+                    SeekerCounts[j] = SeekerCounts[j] + 1;
+                }
+            }
+        }
+    }
+
+    /// <summary>The integration's IsOpen for one cell, outside the job:
+    /// walls never, gates for the owner's team, deck-only strips not in the
+    /// ground variant. MUST match IntegrateGoalFieldJob.IsOpen.</summary>
+    internal static class GoalFlowCells
+    {
+        public static bool OpenFor(NativeArray<byte> costArr, NativeArray<byte> flagsArr,
             int idx, byte factionIdx, byte variant)
         {
             byte c = costArr[idx];

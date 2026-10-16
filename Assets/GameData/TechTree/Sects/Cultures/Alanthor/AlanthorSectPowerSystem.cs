@@ -55,6 +55,26 @@ namespace TheWaningBorder.Systems.Sect
         };
         static CachedEntityQuery QC_Hostiles;
 
+        // PERF (2026-10-16), all result-identical:
+        //  * Emptiness guards on the three timed markers. BountyMarked,
+        //    OvertimeBoost and WardDischargeCharge are enableable and
+        //    pre-added DISABLED, so each RefRW foreach walked (and stamped
+        //    changed) every chunk carrying them on every tick although almost
+        //    never one is live. IsEmpty honours enable bits.
+        //  * The death scan is CHANGE-DRIVEN. A unit can only newly be at
+        //    <= 0 HP in a chunk whose Health was written, whose DeathAnimation
+        //    bit moved, or that gained entities since the last pass; every
+        //    other chunk holds exactly the rows it held then, all of which
+        //    were seen alive. Whenever the last pass DID find a dead unit (it
+        //    may still be at 0 now), or a ward pulse wrote Health inside this
+        //    system (stamped with our own version, invisible to the next
+        //    pass's filter), or a new match began, the next pass scans every
+        //    chunk exactly as before. The rows are read in place (no five
+        //    column copies) and visited in the same chunk order.
+        private EntityQuery _anyBounty, _anyOvertime, _anyWard;
+        private bool _fullDeathScan = true;
+        private int _deathEpoch = int.MinValue;
+
         protected override void OnCreate()
         {
             var log = EntityManager.CreateEntity(typeof(DeathLogTag));
@@ -62,6 +82,9 @@ namespace TheWaningBorder.Systems.Sect
 #if UNITY_EDITOR
             EntityManager.SetName(log, "DeathLog");
 #endif
+            _anyBounty = GetEntityQuery(ComponentType.ReadOnly<BountyMarked>());
+            _anyOvertime = GetEntityQuery(ComponentType.ReadOnly<OvertimeBoost>());
+            _anyWard = GetEntityQuery(ComponentType.ReadOnly<WardDischargeCharge>());
         }
 
         protected override void OnUpdate()
@@ -70,11 +93,17 @@ namespace TheWaningBorder.Systems.Sect
             float dt = SystemAPI.Time.DeltaTime;
             Now = SystemAPI.Time.ElapsedTime;
 
+            if (_deathEpoch != SimCadence.Epoch)
+            {
+                _deathEpoch = SimCadence.Epoch;
+                _fullDeathScan = true;
+            }
+
             LogDeathsAndPayBounties(em);
             var ecb = new EntityCommandBuffer(Allocator.Temp);
-            TickBounties(em, ecb, dt);
-            TickOvertime(em, ecb, dt);
-            TickWards(em, ecb, dt);
+            if (!_anyBounty.IsEmpty) TickBounties(em, ecb, dt);
+            if (!_anyOvertime.IsEmpty) TickOvertime(em, ecb, dt);
+            if (!_anyWard.IsEmpty && TickWards(em, ecb, dt)) _fullDeathScan = true;
             ecb.Playback(em);
             ecb.Dispose();
         }
@@ -84,40 +113,71 @@ namespace TheWaningBorder.Systems.Sect
         private void LogDeathsAndPayBounties(EntityManager em)
         {
             var q = QC_Dying.Get(em, QT_Dying);
-            if (q.IsEmpty) return;
-            // PERF (2026-10-15): the query is every living unit, and a unit
-            // is only of interest on the tick its Health reaches 0. Copy the
-            // Health column alone first; the four other columns (entities,
-            // ids, factions, transforms — five full copies of ~2,600 rows
-            // every tick) are copied only on a tick where someone died.
-            // Same rows, same order: result-identical.
-            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
-            bool anyDead = false;
-            for (int i = 0; i < hps.Length && !anyDead; i++) anyDead = hps[i].Value <= 0;
-            if (!anyDead)
+            if (q.IsEmpty) { _fullDeathScan = false; return; }
+
+            bool full = _fullDeathScan;
+            uint since = LastSystemVersion;
+            var entH = GetEntityTypeHandle();
+            var hpH = GetComponentTypeHandle<Health>(true);
+            var idH = GetComponentTypeHandle<UnitTypeId>(true);
+            var facH = GetComponentTypeHandle<FactionTag>(true);
+            var trH = GetComponentTypeHandle<LocalTransform>(true);
+            var deathH = GetComponentTypeHandle<DeathAnimationState>(true);
+
+            // The dead rows, in the order ToEntityArray used to give them.
+            var deadE = new NativeList<Entity>(4, Allocator.Temp);
+            var deadId = new NativeList<UnitTypeId>(4, Allocator.Temp);
+            var deadFac = new NativeList<FactionTag>(4, Allocator.Temp);
+            var deadTr = new NativeList<LocalTransform>(4, Allocator.Temp);
+
+            q.CompleteDependency();
+            using (var chunks = q.ToArchetypeChunkArray(Allocator.Temp))
             {
+                for (int c = 0; c < chunks.Length; c++)
+                {
+                    var chunk = chunks[c];
+                    bool hasDeath = chunk.Has(ref deathH);
+                    if (!full
+                        && !chunk.DidChange(ref hpH, since)
+                        && !chunk.DidOrderChange(since)
+                        && !(hasDeath && chunk.DidChange(ref deathH, since)))
+                        continue;
+
+                    var hps = chunk.GetNativeArray(ref hpH);
+                    for (int i = 0; i < chunk.Count; i++)
+                    {
+                        if (hps[i].Value > 0) continue;
+                        // Exclude<DeathAnimationState>: an enabled bit drops the row.
+                        if (hasDeath && chunk.IsComponentEnabled(ref deathH, i)) continue;
+                        deadE.Add(chunk.GetNativeArray(entH)[i]);
+                        deadId.Add(chunk.GetNativeArray(ref idH)[i]);
+                        deadFac.Add(chunk.GetNativeArray(ref facH)[i]);
+                        deadTr.Add(chunk.GetNativeArray(ref trH)[i]);
+                    }
+                }
+            }
+
+            _fullDeathScan = deadE.Length > 0;
+            if (deadE.Length == 0)
+            {
+                deadE.Dispose(); deadId.Dispose(); deadFac.Dispose(); deadTr.Dispose();
                 TrimDeathLog(em);
                 return;
             }
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var ids = q.ToComponentDataArray<UnitTypeId>(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var trs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             Entity logEntity = Entity.Null;
             foreach (var (_, e) in SystemAPI.Query<RefRO<DeathLogTag>>().WithEntityAccess())
             { logEntity = e; break; }
 
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = 0; i < deadE.Length; i++)
             {
-                if (hps[i].Value > 0) continue;
-                var e = ents[i];
+                var e = deadE[i];
 
                 // Bounty: paid once, then cleared so the corpse cannot pay twice.
                 if (TransientState.Active<BountyMarked>(em, e))
                 {
                     var mark = em.GetComponentData<BountyMarked>(e);
-                    var def = TechCatalog.Unit(ids[i].Value.ToString());
+                    var def = TechCatalog.Unit(deadId[i].Value.ToString());
                     if (def != null && def.cost != null)
                         FactionEconomy.Add(em, mark.ByFaction, Cost.Of(def.cost.Supplies, def.cost.Iron,
                             def.cost.Veilstone, def.cost.Veilsteel), IncomeSource.Loot);
@@ -129,21 +189,23 @@ namespace TheWaningBorder.Systems.Sect
                 if (em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(e)) continue;
                 if (em.HasComponent<SectHeroTag>(e)) continue;
                 var log = em.GetBuffer<RecentDeath>(logEntity);
+                var pos = deadTr[i].Position;
                 // A unit seen dying twice (still at <= 0 next tick) logs once.
                 bool seen = false;
                 for (int j = log.Length - 1; j >= 0 && j >= log.Length - 64; j--)
-                    if (log[j].Time == Now && log[j].UnitId == ids[i].Value
-                        && math.all(log[j].Position == trs[i].Position)) { seen = true; break; }
+                    if (log[j].Time == Now && log[j].UnitId == deadId[i].Value
+                        && math.all(log[j].Position == pos)) { seen = true; break; }
                 if (seen) continue;
                 log.Add(new RecentDeath
                 {
-                    UnitId = ids[i].Value,
-                    Position = trs[i].Position,
+                    UnitId = deadId[i].Value,
+                    Position = pos,
                     Time = Now,
-                    Faction = facs[i].Value,
+                    Faction = deadFac[i].Value,
                 });
             }
 
+            deadE.Dispose(); deadId.Dispose(); deadFac.Dispose(); deadTr.Dispose();
             if (logEntity != Entity.Null) TrimLog(em, logEntity);
         }
 
@@ -183,7 +245,9 @@ namespace TheWaningBorder.Systems.Sect
 
         // ── Ward Discharge ──────────────────────────────────────────────────
 
-        private void TickWards(EntityManager em, EntityCommandBuffer ecb, float dt)
+        /// <summary>True when a pulse fired (it wrote Health inside this
+        /// system - see the PERF note on the death scan).</summary>
+        private bool TickWards(EntityManager em, EntityCommandBuffer ecb, float dt)
         {
             var hq = QC_Hostiles.Get(em, QT_Hostiles);
             NativeArray<Entity> units = default;
@@ -228,6 +292,7 @@ namespace TheWaningBorder.Systems.Sect
             }
 
             // Pulses after the query: SpellDamage writes other entities.
+            bool pulsed = false;
             for (int f = 0; f < fire.Length; f++)
             {
                 var e = fire[f];
@@ -243,9 +308,11 @@ namespace TheWaningBorder.Systems.Sect
                     SpellDamage.Apply(em, units[i], (int)math.round(ward.Damage), DamageType.Magic, owner);
                 }
                 TheWaningBorder.Rendering.SectPowerVfx.SpawnTelegraph(at, ward.TriggerRadius, 0.4f);
+                pulsed = true;
             }
             fire.Dispose();
             if (loaded) { units.Dispose(); utr.Dispose(); ufa.Dispose(); uhp.Dispose(); }
+            return pulsed;
         }
     }
 }

@@ -108,6 +108,16 @@ namespace TheWaningBorder.AI
 
         public void OnUpdate(ref SystemState state)
         {
+            if (!GameSettings.ShouldRunAIBrains()) return;
+            // Charged to the AI's per-frame TIME budget (AIFrameBudget,
+            // 2026-10-16); its stage claims (AIThinkBudget) read that budget.
+            AIFrameBudget.Enter();
+            try { RunThinks(ref state); }
+            finally { AIFrameBudget.Exit(); }
+        }
+
+        private void RunThinks(ref SystemState state)
+        {
             // Host authority only — the same guard the Alanthor sibling uses.
             if (!GameSettings.ShouldRunAIBrains()) return;
 

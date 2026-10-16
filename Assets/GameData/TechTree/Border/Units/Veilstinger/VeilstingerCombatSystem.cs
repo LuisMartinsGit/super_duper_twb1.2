@@ -45,6 +45,7 @@ namespace TheWaningBorder.Systems.Border
 
         // Cached query — created once in OnCreate, reused every frame
         private EntityQuery _targetQuery;
+        private EntityQuery _stingerQuery;
 
         // PatrolDefense-scenario targeting range. We pick up nearest enemy
         // within this radius for Veilstingers carrying PatrolTag+HoldPositionTag
@@ -63,6 +64,11 @@ namespace TheWaningBorder.Systems.Border
                 .WithAll<LocalTransform, FactionTag, Health>()
                 .WithAny<UnitTag, BuildingTag>()
                 .Build(ref state);
+            // The main loop's own query, for the no-Veilstinger early-out.
+            _stingerQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<LocalTransform, Target, VeilstingerState, Damage, FactionTag, Health>()
+                .WithAll<BorderUnitTag>()
+                .Build(ref state);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -73,10 +79,16 @@ namespace TheWaningBorder.Systems.Border
             float time = (float)SimCadence.MatchTimeOr(SystemAPI.Time.ElapsedTime);
             var em = state.EntityManager;
 
-            var tgtEntities = _targetQuery.ToEntityArray(Allocator.Temp);
-            var tgtTransforms = _targetQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var tgtFactions = _targetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            var tgtHealth = _targetQuery.ToComponentDataArray<Health>(Allocator.Temp);
+            // PERF (2026-10-16): the candidate snapshot (every unit AND
+            // building, four columns) was copied on every tick even with no
+            // Veilstinger alive, and each shot then scanned all of it for the
+            // secondary target. The snapshot is now taken on first need, and
+            // the secondary search walks a spatial grid of the candidates.
+            // The grid only narrows WHICH rows are tested: the winner is the
+            // smallest distance with ties to the lowest snapshot row - exactly
+            // what the old in-order strict-less scan picked. Result-identical.
+            if (_stingerQuery.IsEmpty) return;
+            var targets = new TargetSnapshot();
 
             foreach (var (transform, target, veilState, damage, faction, health, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRW<Target>, RefRW<VeilstingerState>, RefRO<Damage>, RefRO<FactionTag>, RefRO<Health>>()
@@ -105,6 +117,11 @@ namespace TheWaningBorder.Systems.Border
                     em.HasComponent<PatrolTag>(entity) && TransientState.Active<HoldPositionTag>(em, entity);
                 if (isScenarioPatrol)
                 {
+                    targets.Ensure(_targetQuery);
+                    var tgtEntities = targets.Entities;
+                    var tgtTransforms = targets.Transforms;
+                    var tgtFactions = targets.Factions;
+                    var tgtHealth = targets.Health;
                     var selfPos = transform.ValueRO.Position;
                     var selfFaction = faction.ValueRO.Value;
                     float bestDistSq = ScenarioPatrolEngageRange * ScenarioPatrolEngageRange;
@@ -255,19 +272,60 @@ namespace TheWaningBorder.Systems.Border
                         Entity secondTarget = Entity.Null;
                         float3 secondPos = float3.zero;
                         float bestDist = float.MaxValue;
-                        for (int i = 0; i < tgtEntities.Length; i++)
+                        targets.Ensure(_targetQuery);
+                        targets.EnsureGrid();
                         {
-                            // docs/Design/Teams.md
-                            if (!Alliances.AreHostile(myFaction, tgtFactions[i].Value)) continue;
-                            if (tgtHealth[i].Value <= 0) continue;
-                            if (tgtEntities[i] == tgt.Value) continue;
-                            float d = DistXZ(myPos, tgtTransforms[i].Position);
-                            if (d > maxRange) continue;
-                            if (d < bestDist)
+                            var tgtEntities = targets.Entities;
+                            var tgtTransforms = targets.Transforms;
+                            var tgtFactions = targets.Factions;
+                            var tgtHealth = targets.Health;
+                            int bestRow = int.MaxValue;
+                            float inv = TargetSnapshot.InvCell;
+                            int x0 = (int)math.floor((myPos.x - maxRange) * inv) - 1;   // +-1 cell: float slack
+                            int x1 = (int)math.floor((myPos.x + maxRange) * inv) + 1;
+                            int z0 = (int)math.floor((myPos.z - maxRange) * inv) - 1;
+                            int z1 = (int)math.floor((myPos.z + maxRange) * inv) + 1;
+                            // An absurd range (not a real SO value) would walk
+                            // millions of empty cells: scan the rows instead.
+                            if ((long)(x1 - x0 + 1) * (z1 - z0 + 1) > 4096)
                             {
-                                bestDist = d;
-                                secondTarget = tgtEntities[i];
-                                secondPos = tgtTransforms[i].Position;
+                                for (int i = 0; i < tgtEntities.Length; i++)
+                                {
+                                    if (!Alliances.AreHostile(myFaction, tgtFactions[i].Value)) continue;
+                                    if (tgtHealth[i].Value <= 0) continue;
+                                    if (tgtEntities[i] == tgt.Value) continue;
+                                    float d = DistXZ(myPos, tgtTransforms[i].Position);
+                                    if (d > maxRange) continue;
+                                    if (d < bestDist)
+                                    {
+                                        bestDist = d;
+                                        secondTarget = tgtEntities[i];
+                                        secondPos = tgtTransforms[i].Position;
+                                    }
+                                }
+                                z1 = z0 - 1;   // skip the grid walk below
+                            }
+                            for (int cz = z0; cz <= z1; cz++)
+                            for (int cx = x0; cx <= x1; cx++)
+                            {
+                                if (!targets.Grid.TryGetFirstValue(TargetSnapshot.Key(cx, cz), out int i, out var it))
+                                    continue;
+                                do
+                                {
+                                    // docs/Design/Teams.md
+                                    if (!Alliances.AreHostile(myFaction, tgtFactions[i].Value)) continue;
+                                    if (tgtHealth[i].Value <= 0) continue;
+                                    if (tgtEntities[i] == tgt.Value) continue;
+                                    float d = DistXZ(myPos, tgtTransforms[i].Position);
+                                    if (d > maxRange) continue;
+                                    if (d < bestDist || (d == bestDist && i < bestRow))
+                                    {
+                                        bestDist = d;
+                                        bestRow = i;
+                                        secondTarget = tgtEntities[i];
+                                        secondPos = tgtTransforms[i].Position;
+                                    }
+                                } while (targets.Grid.TryGetNextValue(out i, ref it));
                             }
                         }
 
@@ -346,10 +404,56 @@ namespace TheWaningBorder.Systems.Border
                 }
             }
 
-            tgtEntities.Dispose();
-            tgtTransforms.Dispose();
-            tgtFactions.Dispose();
-            tgtHealth.Dispose();
+            targets.Dispose();
+        }
+
+        /// <summary>The candidate-target columns, copied on first need, plus
+        /// a lazily built XZ grid of row indices for range searches.</summary>
+        private struct TargetSnapshot
+        {
+            public const float CellSize = 16f;
+            public const float InvCell = 1f / CellSize;
+
+            public bool Loaded;
+            public NativeArray<Entity> Entities;
+            public NativeArray<LocalTransform> Transforms;
+            public NativeArray<FactionTag> Factions;
+            public NativeArray<Health> Health;
+            public bool HasGrid;
+            public NativeParallelMultiHashMap<int, int> Grid;
+
+            public static int Key(int x, int z) => (x * 73856093) ^ (z * 19349663);
+
+            public void Ensure(EntityQuery q)
+            {
+                if (Loaded) return;
+                Entities = q.ToEntityArray(Allocator.Temp);
+                Transforms = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                Factions = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                Health = q.ToComponentDataArray<Health>(Allocator.Temp);
+                Loaded = true;
+            }
+
+            public void EnsureGrid()
+            {
+                if (HasGrid) return;
+                Grid = new NativeParallelMultiHashMap<int, int>(math.max(1, Transforms.Length), Allocator.Temp);
+                for (int i = 0; i < Transforms.Length; i++)
+                {
+                    var p = Transforms[i].Position;
+                    Grid.Add(Key((int)math.floor(p.x * InvCell), (int)math.floor(p.z * InvCell)), i);
+                }
+                HasGrid = true;
+            }
+
+            public void Dispose()
+            {
+                if (Loaded)
+                {
+                    Entities.Dispose(); Transforms.Dispose(); Factions.Dispose(); Health.Dispose();
+                }
+                if (HasGrid) Grid.Dispose();
+            }
         }
 
         /// <summary>

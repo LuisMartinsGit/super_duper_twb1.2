@@ -1,3 +1,4 @@
+using Unity.Burst;
 using Unity.Entities;
 using Unity.Collections;
 using Unity.Transforms;
@@ -41,6 +42,7 @@ namespace TheWaningBorder.Systems.Visibility
 
         private EntityQuery _staticQuery;
         private EntityQuery _mobileQuery;
+        private EntityQuery _eagleQuery;
         private EntityQuery _shardrootQuery;
         private EntityQuery _embeddedQuery;
         private readonly System.Collections.Generic.List<float3> _shardrootSpots =
@@ -52,10 +54,26 @@ namespace TheWaningBorder.Systems.Visibility
             // and should NOT reveal fog. Split by UnitTag (2026-09-25): the
             // non-units (buildings, walls, towers) are stamped once into a
             // cached static layer and only re-stamped when that set changes.
+            // The Feraldis eagle has sight but no UnitTag (it is deliberately
+            // not a unit), so it used to land in the STATIC set - and since it
+            // moves every tick, it changed the static hash on every pass and
+            // forced a full re-stamp of every building's sight into all eight
+            // faction layers, 4x a second, for as long as one eagle flew
+            // (2026-10-16). It is stamped with the units now. Which set a
+            // stamp goes in never changes the grids (max is commutative, see
+            // FogOfWarManager.StampPass), so this is result-identical.
             _staticQuery = GetEntityQuery(
                 ComponentType.ReadOnly<LineOfSight>(),
                 ComponentType.ReadOnly<LocalTransform>(),
                 ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.Exclude<BorderTag>(),
+                ComponentType.Exclude<UnitTag>(),
+                ComponentType.Exclude<EagleCompanion>());
+            _eagleQuery = GetEntityQuery(
+                ComponentType.ReadOnly<LineOfSight>(),
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.ReadOnly<FactionTag>(),
+                ComponentType.ReadOnly<EagleCompanion>(),
                 ComponentType.Exclude<BorderTag>(),
                 ComponentType.Exclude<UnitTag>());
             _mobileQuery = GetEntityQuery(
@@ -90,12 +108,51 @@ namespace TheWaningBorder.Systems.Visibility
             // FactionSectState bridge. Phase 2 reintroduces vision-related sect
             // levers (e.g. Witness — All-Seeing).
 
-            var statics = BuildCommands(_staticQuery, out ulong staticHash);
-            var mobiles = BuildCommands(_mobileQuery, out _);
+            // STATIC SET UNCHANGED (2026-10-16 perf): the static commands
+            // (and their content hash) were rebuilt from three full column
+            // copies on every pass, only for StampPass to find the hash equal
+            // and keep its cached layer. When no static chunk has gained or
+            // lost entities and none had its LineOfSight, LocalTransform or
+            // FactionTag written since the last pass, the static set is the
+            // one the layer was built from - so the last hash and count are
+            // passed with no commands, and StampPass reuses the layer exactly
+            // as it would have. Any doubt (a change, a fresh manager, an
+            // invalidated layer) builds the commands as before.
+            NativeArray<FogOfWarManager.StampCommand> statics;
+            ulong staticHash;
+            int staticCount;
+            if (_haveStatic && !StaticSetChanged() && mgr.StaticLayerMatches(_lastStaticHash, _lastStaticCount))
+            {
+                statics = new NativeArray<FogOfWarManager.StampCommand>(0, Allocator.Temp);
+                staticHash = _lastStaticHash;
+                staticCount = _lastStaticCount;
+            }
+            else
+            {
+                statics = BuildCommands(_staticQuery, unit: false, out staticHash);
+                staticCount = statics.Length;
+            }
+            _lastStaticHash = staticHash;
+            _lastStaticCount = staticCount;
+            _haveStatic = true;
+            _staticSince = EntityManager.GlobalSystemVersion;
+
+            var mobiles = BuildCommands(_mobileQuery, unit: true, out _);
+            if (!_eagleQuery.IsEmptyIgnoreFilter)
+            {
+                var eagles = BuildCommands(_eagleQuery, unit: true, out _);
+                var grown = new NativeArray<FogOfWarManager.StampCommand>(
+                    mobiles.Length + eagles.Length, Allocator.Temp);
+                NativeArray<FogOfWarManager.StampCommand>.Copy(mobiles, 0, grown, 0, mobiles.Length);
+                NativeArray<FogOfWarManager.StampCommand>.Copy(eagles, 0, grown, mobiles.Length, eagles.Length);
+                mobiles.Dispose();
+                eagles.Dispose();
+                mobiles = grown;
+            }
             AppendShardrootReveal(ref mobiles);
 
             // Clear + static layer + unit stamps, one Burst worker per faction.
-            mgr.StampPass(statics, statics.Length, staticHash, mobiles, mobiles.Length);
+            mgr.StampPass(statics, staticCount, staticHash, mobiles, mobiles.Length);
 
             statics.Dispose();
             mobiles.Dispose();
@@ -173,40 +230,94 @@ namespace TheWaningBorder.Systems.Visibility
             return true;
         }
 
+        private bool _haveStatic;
+        private ulong _lastStaticHash;
+        private int _lastStaticCount;
+        private uint _staticSince;
+
+        /// <summary>Has the static query's content possibly changed since
+        /// the last pass? Order (entities in or out of a chunk) or a write to
+        /// any column the commands are built from. Conservative: a "yes" only
+        /// costs the old full rebuild.</summary>
+        private bool StaticSetChanged()
+        {
+            var losH = GetComponentTypeHandle<LineOfSight>(true);
+            var ltH = GetComponentTypeHandle<LocalTransform>(true);
+            var facH = GetComponentTypeHandle<FactionTag>(true);
+            using var chunks = _staticQuery.ToArchetypeChunkArray(Allocator.Temp);
+            if (chunks.Length != _lastStaticChunks) { _lastStaticChunks = chunks.Length; return true; }
+            uint since = _staticSince - 1;   // one back: a write stamped with the version we read is still new
+            for (int c = 0; c < chunks.Length; c++)
+            {
+                var ch = chunks[c];
+                if (ch.DidOrderChange(since) || ch.DidChange(ref losH, since)
+                    || ch.DidChange(ref ltH, since) || ch.DidChange(ref facH, since))
+                    return true;
+            }
+            return false;
+        }
+        private int _lastStaticChunks = -1;
+
         /// <summary>Snapshot a query into stamp commands, plus an
         /// ORDER-INDEPENDENT content hash (sum and xor of per-entity mixes),
-        /// so chunk reordering never looks like a change.</summary>
-        private static NativeArray<FogOfWarManager.StampCommand> BuildCommands(EntityQuery q, out ulong hash)
+        /// so chunk reordering never looks like a change. Burst (2026-10-16):
+        /// the same per-entity maths in the same chunk order — integer mixes
+        /// and one compare, identical bits.</summary>
+        private NativeArray<FogOfWarManager.StampCommand> BuildCommands(
+            EntityQuery q, bool unit, out ulong hash)
         {
-            var lineOfSights = q.ToComponentDataArray<LineOfSight>(Allocator.Temp);
-            var transforms = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var factions = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-
-            var commands = new NativeArray<FogOfWarManager.StampCommand>(
-                lineOfSights.Length, Allocator.Temp);
-            ulong sum = 0, xor = 0;
-            for (int i = 0; i < lineOfSights.Length; i++)
-            {
-                float3 p = transforms[i].Position;
-                float r = Mathf.Max(0.01f, lineOfSights[i].Radius);
-                var f = factions[i].Value;
-                commands[i] = new FogOfWarManager.StampCommand
-                {
-                    Position = (Vector3)p,
-                    Radius = r,
-                    Faction = f,
-                };
-                ulong h = Mix(((ulong)math.asuint(p.x) << 32) | math.asuint(p.z));
-                h = Mix(h ^ (((ulong)math.asuint(r) << 8) | (uint)(int)f));
-                sum += h;
-                xor ^= Mix(h + 0x9E3779B97F4A7C15UL);
-            }
-            hash = sum ^ (xor * 0xBF58476D1CE4E5B9UL);
-
-            lineOfSights.Dispose();
-            transforms.Dispose();
-            factions.Dispose();
+            q.CompleteDependency();
+            var list = new NativeList<FogOfWarManager.StampCommand>(
+                q.CalculateEntityCount(), Allocator.Temp);
+            var acc = new NativeArray<ulong>(2, Allocator.Temp);
+            if (unit)
+                new MobileCommandsJob { Commands = list, Acc = acc }.Run(q);
+            else
+                new StaticCommandsJob { Commands = list, Acc = acc }.Run(q);
+            hash = acc[0] ^ (acc[1] * 0xBF58476D1CE4E5B9UL);
+            acc.Dispose();
+            var commands = new NativeArray<FogOfWarManager.StampCommand>(list.AsArray(), Allocator.Temp);
+            list.Dispose();
             return commands;
+        }
+
+        internal static void Append(ref NativeList<FogOfWarManager.StampCommand> commands,
+            ref NativeArray<ulong> acc, in LineOfSight los, in LocalTransform xf, in FactionTag fac)
+        {
+            float3 p = xf.Position;
+            float r = 0.01f > los.Radius ? 0.01f : los.Radius;   // Mathf.Max(0.01f, r), exactly
+            var f = fac.Value;
+            commands.Add(new FogOfWarManager.StampCommand
+            {
+                Position = new Vector3(p.x, p.y, p.z),
+                Radius = r,
+                Faction = f,
+            });
+            ulong h = Mix(((ulong)math.asuint(p.x) << 32) | math.asuint(p.z));
+            h = Mix(h ^ (((ulong)math.asuint(r) << 8) | (uint)(int)f));
+            acc[0] += h;
+            acc[1] ^= Mix(h + 0x9E3779B97F4A7C15UL);
+        }
+
+        [BurstCompile]
+        [WithAll(typeof(UnitTag))]
+        [WithNone(typeof(BorderTag))]
+        private partial struct MobileCommandsJob : IJobEntity
+        {
+            public NativeList<FogOfWarManager.StampCommand> Commands;
+            public NativeArray<ulong> Acc;
+            void Execute(in LineOfSight los, in LocalTransform xf, in FactionTag fac)
+                => Append(ref Commands, ref Acc, in los, in xf, in fac);
+        }
+
+        [BurstCompile]
+        [WithNone(typeof(BorderTag), typeof(UnitTag))]
+        private partial struct StaticCommandsJob : IJobEntity
+        {
+            public NativeList<FogOfWarManager.StampCommand> Commands;
+            public NativeArray<ulong> Acc;
+            void Execute(in LineOfSight los, in LocalTransform xf, in FactionTag fac)
+                => Append(ref Commands, ref Acc, in los, in xf, in fac);
         }
 
         private static ulong Mix(ulong z)
@@ -274,6 +385,32 @@ namespace TheWaningBorder.Systems.Visibility
         // Presentation only: nothing here writes simulation state.
         private const int StaticSlices = 3;
         private int _staticCursor;
+
+        // APPLIED-STATE CACHE (2026-10-16 perf). The pass used to touch the
+        // managed side for EVERY unit on EVERY pass - a view-dictionary
+        // lookup, a Unity null check and an activeSelf read - although a
+        // unit's visibility changes only when it crosses the fog edge. The
+        // show/hide decided for each entity is now remembered (by Entity
+        // index + version), and an entity whose decision is unchanged is not
+        // touched. Everything is still re-verified against the real
+        // GameObject on a rolling slice (MobileSlices x 0.1 s for units,
+        // StaticSlices x 0.1 s for the rest), on any chunk that gained
+        // entities or had a view land, and on every full pass - so a view
+        // that something else re-activated (a prefab swap builds its new
+        // object active) is corrected within the same bound the static
+        // round-robin already had. Presentation only.
+        private const int MobileSlices = 4;
+        private int _mobileCursor;
+        private int[] _appliedVersion = System.Array.Empty<int>();   // Entity.Version, 0 = unknown
+        private byte[] _appliedShow = System.Array.Empty<byte>();
+
+        private void EnsureCache(int index)
+        {
+            if (index < _appliedVersion.Length) return;
+            int n = System.Math.Max(index + 1, System.Math.Max(1024, _appliedVersion.Length * 2));
+            System.Array.Resize(ref _appliedVersion, n);
+            System.Array.Resize(ref _appliedShow, n);
+        }
         private uint _lastPassVersion;
         private bool _havePass;
         private Faction _lastHuman;
@@ -297,6 +434,9 @@ namespace TheWaningBorder.Systems.Visibility
             // differs per peer, and any future sim write added to this sweep
             // would desync silently. Keep the tick wall-clock-free on principle.
             double now = SystemAPI.Time.ElapsedTime;
+            // A match clock that restarted (a second match in this process)
+            // must not leave the throttle parked minutes in the future.
+            if (_nextSync - now > SyncInterval * 2) _nextSync = now;
             if (now < _nextSync) return;
             _nextSync = now + SyncInterval;
 
@@ -335,6 +475,7 @@ namespace TheWaningBorder.Systems.Visibility
             _havePass = true;
             _lastHuman = humanFaction;
             _staticCursor = (_staticCursor + 1) % StaticSlices;
+            _mobileCursor = (_mobileCursor + 1) % MobileSlices;
 
             // Player sight sources for the direct-distance fallback, bucketed
             // into a coarse grid (2026-09-25). The fallback used to walk
@@ -402,73 +543,94 @@ namespace TheWaningBorder.Systems.Visibility
                 bool isStealth = chunk.Has(ref stealthHandle);
                 bool mobile = isUnit && !isBuilding;
 
+                // Verify = consult the real GameObject for every row of the
+                // chunk, as the old pass did for all of them.
+                bool landed = chunk.Has(ref viewTagHandle) && chunk.DidChange(ref viewTagHandle, sinceVersion);
+                bool verify = fullPass || landed || chunk.DidOrderChange(sinceVersion)
+                              || (mobile ? c % MobileSlices == _mobileCursor
+                                         : c % StaticSlices == _staticCursor);
+
                 // A static chunk outside this pass's slice that has not
                 // changed keeps the visibility it was given (see header).
-                if (!mobile && !fullPass && c % StaticSlices != _staticCursor
-                    && !chunk.DidOrderChange(sinceVersion)
-                    && !chunk.DidChange(ref ltHandle, sinceVersion)
-                    && !(chunk.Has(ref viewTagHandle) && chunk.DidChange(ref viewTagHandle, sinceVersion)))
+                if (!mobile && !verify && !chunk.DidChange(ref ltHandle, sinceVersion))
                     continue;
 
                 for (int i = 0; i < entities.Length; i++)
                 {
-                    if (!entityViewManager.TryGetView(entities[i], out var gameObject) || gameObject == null)
-                        continue;
+                    var entity = entities[i];
 
-                    // Player-owned entities - always visible
+                    // What this entity should show as - decided from ECS and
+                    // fog data alone, before touching anything managed.
+                    bool show;
                     if (hasFaction && factions[i].Value == humanFaction)
                     {
-                        if (!gameObject.activeSelf) gameObject.SetActive(true);
-                        continue;
+                        // Player-owned entities - always visible
+                        show = true;
                     }
-
-                    // Another player's PLAN is never seen, fog or not
-                    // (docs/Design/Planned_Buildings.md).
-                    if (isPlan)
+                    else if (isPlan)
                     {
-                        if (gameObject.activeSelf) gameObject.SetActive(false);
-                        continue;
+                        // Another player's PLAN is never seen, fog or not
+                        // (docs/Design/Planned_Buildings.md).
+                        show = false;
                     }
-
-                    var position = transforms[i].Position;
-                    bool isVisible = mgr.IsVisible(humanFaction, (Vector3)position);
-
-                    // Enemy/neutral units - show when visible through fog OR
-                    // when any player unit is close enough to see them directly.
-                    // The direct distance check catches fog grid resolution issues.
-                    if (mobile)
+                    else
                     {
-                        if (!isVisible)
-                            isVisible = AnySourceWithin(position, buckets, invCell,
-                                playerPositions, playerLOSRadii, true, 0f);
+                        var position = transforms[i].Position;
+                        bool isVisible = mgr.IsVisible(humanFaction, (Vector3)position);
 
-                        // Stealth: an enemy unit with StealthTag stays hidden inside
-                        // our vision area unless one of our units is within proximity
-                        // (mirrors TargetingSystem's 3u reveal - keeps "I can shoot it"
-                        // and "I can see it" consistent).
-                        // StealthTag is enableable and pre-added on every unit
-                        // (TransientState.cs): the chunk test only says the
-                        // archetype CAN be stealthed; the bit says it is.
-                        if (isVisible && isStealth && chunk.IsComponentEnabled(ref stealthHandle, i)
-                            && !AnySourceWithin(position, buckets, invCell,
-                                playerPositions, playerLOSRadii, false,
-                                StealthProximityReveal * StealthProximityReveal))
-                            isVisible = false;
+                        // Enemy/neutral units - show when visible through fog OR
+                        // when any player unit is close enough to see them directly.
+                        // The direct distance check catches fog grid resolution issues.
+                        if (mobile)
+                        {
+                            if (!isVisible)
+                                isVisible = AnySourceWithin(position, buckets, invCell,
+                                    playerPositions, playerLOSRadii, true, 0f);
 
-                        if (gameObject.activeSelf != isVisible) gameObject.SetActive(isVisible);
-                        continue;
+                            // Stealth: an enemy unit with StealthTag stays hidden inside
+                            // our vision area unless one of our units is within proximity
+                            // (mirrors TargetingSystem's 3u reveal - keeps "I can shoot it"
+                            // and "I can see it" consistent).
+                            // StealthTag is enableable and pre-added on every unit
+                            // (TransientState.cs): the chunk test only says the
+                            // archetype CAN be stealthed; the bit says it is.
+                            if (isVisible && isStealth && chunk.IsComponentEnabled(ref stealthHandle, i)
+                                && !AnySourceWithin(position, buckets, invCell,
+                                    playerPositions, playerLOSRadii, false,
+                                    StealthProximityReveal * StealthProximityReveal))
+                                isVisible = false;
+
+                            show = isVisible;
+                        }
+                        else
+                        {
+                            // Enemy/neutral static entities (buildings, deposits, border
+                            // structures - anything without UnitTag). Three-state visibility:
+                            //   currently visible              -> show normally
+                            //   previously revealed, not visible -> show as ghost (last-seen)
+                            //   never revealed                 -> hide entirely
+                            // Previously the ghost branch required isBuilding, which made
+                            // iron / veilstone deposits and any non-BuildingTag static entity
+                            // vanish for good once they left vision - fixed here.
+                            show = isVisible || mgr.IsRevealed(humanFaction, (Vector3)position);
+                        }
                     }
 
-                    // Enemy/neutral static entities (buildings, deposits, border
-                    // structures - anything without UnitTag). Three-state visibility:
-                    //   currently visible              -> show normally
-                    //   previously revealed, not visible -> show as ghost (last-seen)
-                    //   never revealed                 -> hide entirely
-                    // Previously the ghost branch required isBuilding, which made
-                    // iron / veilstone deposits and any non-BuildingTag static entity
-                    // vanish for good once they left vision - fixed here.
-                    bool show = isVisible || mgr.IsRevealed(humanFaction, (Vector3)position);
+                    // Unchanged since it was last applied: nothing to do.
+                    int slot = entity.Index;
+                    EnsureCache(slot);
+                    if (!verify && _appliedVersion[slot] == entity.Version
+                        && (_appliedShow[slot] != 0) == show)
+                        continue;
+
+                    if (!entityViewManager.TryGetView(entity, out var gameObject) || gameObject == null)
+                    {
+                        _appliedVersion[slot] = 0;   // no view yet: its landing re-verifies the chunk
+                        continue;
+                    }
                     if (gameObject.activeSelf != show) gameObject.SetActive(show);
+                    _appliedVersion[slot] = entity.Version;
+                    _appliedShow[slot] = (byte)(show ? 1 : 0);
                 }
             }
 

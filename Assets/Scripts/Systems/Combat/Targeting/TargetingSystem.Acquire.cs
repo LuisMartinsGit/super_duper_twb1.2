@@ -401,11 +401,12 @@ namespace TheWaningBorder.Systems.Combat
                     for (int dy = -radius; dy <= radius; dy++)
                     {
                         var key = new int3(myCell.x + dx, myCell.y + dy, f);
-                        if (!scan.Map.TryGetFirstValue(key, out int i, out var it)) continue;
-                        do
+                        if (!scan.Grid.Range(key, out int k0, out int k1)) continue;
+                        for (int k = k0; k < k1; k++)
                         {
-                            if (scan.Health[i].Value <= 0) continue;
-                            byte flags = scan.Flags[i];
+                            var ec = scan.Grid.Cands[k];
+                            if (ec.Health <= 0) continue;
+                            byte flags = ec.Flags;
 
                             // Buildings-only siege: units are invisible to
                             // the ram's target scan.
@@ -415,12 +416,12 @@ namespace TheWaningBorder.Systems.Combat
                             // non-siege target scans.
                             if (rules.NonSiege != 0 && (flags & FlagWall) != 0) continue;
 
-                            var enemyPos = scan.Transforms[i].Position;
+                            var enemyPos = ec.Pos;
                             float px = enemyPos.x - myPos.x, pz = enemyPos.z - myPos.z;
-                            float rejectR = rejectBase + scan.Pad[i];
+                            float rejectR = rejectBase + ec.Pad;
                             if (px * px + pz * pz > rejectR * rejectR) continue;
 
-                            var cand = scan.Entities[i];
+                            var cand = ec.E;
                             // SURFACE distance, so a big building is judged by
                             // where its walls are, not where its pivot is. A
                             // 7x7 temple's pivot sits 3.5 m inside itself; on
@@ -430,7 +431,7 @@ namespace TheWaningBorder.Systems.Combat
                             // literally touching. Read from the per-tick
                             // footprint arrays — the same arithmetic as
                             // TargetGeometry.SurfaceDistXZ, no EntityManager.
-                            var dist = scan.SurfaceDist(i, myPos, enemyPos);
+                            var dist = ec.SurfaceDist(myPos);
                             if (dist > rules.ScanRadius) continue;
 
                             if ((flags & FlagFlying) != 0 && !hitsAir) continue;
@@ -491,11 +492,11 @@ namespace TheWaningBorder.Systems.Combat
                             if (rules.HasPref != 0 && dist <= rules.PreferReach
                                 && (flags & FlagBuilding) == 0
                                 && (!rules.Pref.HasRules
-                                    || rules.Pref.Matches(scan.Tags[i], (flags & FlagHero) != 0)))
+                                    || rules.Pref.Matches(ec.Tags, (flags & FlagHero) != 0)))
                             {
                                 int density = 0;
                                 if (rules.Pref.Massed != 0)
-                                    density = scan.Map.CountValuesForKey(new int3(
+                                    density = scan.Grid.Count(new int3(
                                         (int)math.floor(enemyPos.x / TargetingCellSize),
                                         (int)math.floor(enemyPos.z / TargetingCellSize), f));
                                 if (density > prefBestDensity
@@ -507,7 +508,7 @@ namespace TheWaningBorder.Systems.Combat
                                 }
                             }
 
-                            byte prio = scan.Priority[i];
+                            byte prio = ec.Prio;
                             if (dist < anyBestDist) { anyBest = cand; anyBestDist = dist; anyBestPrio = prio; }
                             if (prio > prioBestPrio || (prio == prioBestPrio && dist < prioBestDist))
                             {
@@ -524,7 +525,7 @@ namespace TheWaningBorder.Systems.Combat
                                     underBestDist = dist;
                                 }
                             }
-                        } while (scan.Map.TryGetNextValue(out i, ref it));
+                        }
                     }
                 }
             }

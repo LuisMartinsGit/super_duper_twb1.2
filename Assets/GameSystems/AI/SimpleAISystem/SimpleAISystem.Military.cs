@@ -577,17 +577,13 @@ namespace TheWaningBorder.AI
             var idle = _raidScratch;
             idle.Clear();
             int standing = 0;
-            var q = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using (var ents = q.ToEntityArray(Allocator.Temp))
-            using (var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp))
-            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            var roster = OwnCombatRoster(em, faction);
             {
-                for (int i = 0; i < ents.Length; i++)
+                for (int i = 0; i < roster.Count; i++)
                 {
-                    if (facs[i].Value != faction || !IsCombatClass(tags[i].Class)) continue;
-                    Entity e = ents[i];
-                    if (em.HasComponent<UnderConstruction>(e) || IsVerbUnit(em, e)) continue;
-                    if (IsClaimSquadMember(e) || em.HasComponent<NotControllableTag>(e)) continue;
+                    Entity e = roster.E[i];
+                    if (roster.UnderConstruction(i) || roster.Verb(i)) continue;
+                    if (IsClaimSquadMember(e) || roster.NoControl(i)) continue;
                     if (enrolled.Contains(e)) continue;
                     standing++;
                     if (TransientState.Active<AttackCommand>(em, e)) continue;
@@ -1283,10 +1279,7 @@ namespace TheWaningBorder.AI
             // Find idle military: any UnitTag with a combat class, this faction,
             // no active commands, not currently a battalion *member* (members
             // follow their leader; we issue to the leader only).
-            var militaryQuery = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using var ents = militaryQuery.ToEntityArray(Allocator.Temp);
-            using var tags = militaryQuery.ToComponentDataArray<UnitTag>(Allocator.Temp);
-            using var facs = militaryQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var roster = OwnCombatRoster(em, faction);
 
             // Units already enrolled in a living mission are never re-drafted.
             var enrolled = _scratchEnrolled;   // pooled, cleared per use
@@ -1300,19 +1293,17 @@ namespace TheWaningBorder.AI
             // already serving a mission — fighting at home and walking
             // included. The tier's standing floor is kept out of it.
             int standing = 0;
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = 0; i < roster.Count; i++)
             {
-                if (facs[i].Value != faction) continue;
-                if (!IsCombatClass(tags[i].Class)) continue;
-                Entity e = ents[i];
-                if (em.HasComponent<UnderConstruction>(e)) continue;
-                if (IsVerbUnit(em, e)) continue;   // ritualists are not army
+                Entity e = roster.E[i];
+                if (roster.UnderConstruction(i)) continue;
+                if (roster.Verb(i)) continue;   // ritualists are not army
                 if (IsClaimSquadMember(e)) continue;   // holding ground for a claim
                 // Uncommandable bodies (Feraldis House Raiders) cannot be sent
                 // anywhere — FeraldisRaiderPatrolSystem owns them and
                 // overrides any order the same frame. Drafting them inflates
                 // the wave's apparent strength with units that never march.
-                if (em.HasComponent<NotControllableTag>(e)) continue;
+                if (roster.NoControl(i)) continue;
                 // THE MISSION ROSTER IS THE AUTHORITY ON WHO IS BUSY
                 // (2026-09-12). This used to exclude anything carrying a move
                 // order of any kind, and that quietly starved every wave:
@@ -2031,11 +2022,7 @@ namespace TheWaningBorder.AI
                 return;
             }
 
-            var q = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var roster = OwnCombatRoster(em, faction);
 
             // Collected, then sent as ONE formation. Issuing an attack-move
             // per unit made every reinforcement its own little war: each walked
@@ -2060,20 +2047,18 @@ namespace TheWaningBorder.AI
                     serving.Add(mission.Members[mi]);
 
             int committed = 0, sent = 0, arrived = 0, standing = 0;
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = 0; i < roster.Count; i++)
             {
-                if (facs[i].Value != faction) continue;
-                if (!IsCombatClass(tags[i].Class)) continue;
-                var e = ents[i];
-                if (em.HasComponent<UnderConstruction>(e)) continue;
+                var e = roster.E[i];
+                if (roster.UnderConstruction(i)) continue;
                 // Free bodies are not the standing army (see CountAliveMilitary).
-                if (em.HasComponent<PlundererTag>(e)) continue;
+                if (roster.Plunderer(i)) continue;
                 // Ritualists carry the culture verb — never draft them.
-                if (IsVerbUnit(em, e)) continue;
+                if (roster.Verb(i)) continue;
                 if (IsClaimSquadMember(e)) continue;   // holding ground for a claim
                 // Nor uncommandable raiders: ordering them is a no-op that
                 // still counts as "sent", which kept spent waves alive.
-                if (em.HasComponent<NotControllableTag>(e)) continue;
+                if (roster.NoControl(i)) continue;
 
                 // ARRIVAL IS A PLACE, NOT A MOOD (2026-09-12). This test used
                 // to sit BELOW the busy check, so a unit that marched in on an
@@ -2082,8 +2067,8 @@ namespace TheWaningBorder.AI
                 // counted bodies standing on the target with nothing left to
                 // do. Whole matches reported "0 on the objective" while the
                 // battle was happening there. Count the ground first.
-                float dx = xfs[i].Position.x - aiState.WaveTarget.x;
-                float dz = xfs[i].Position.z - aiState.WaveTarget.z;
+                float dx = roster.P[i].x - aiState.WaveTarget.x;
+                float dz = roster.P[i].z - aiState.WaveTarget.z;
                 bool atObjective =
                     dx * dx + dz * dz <= Cfg.waveArrivedRadius * Cfg.waveArrivedRadius;
                 if (atObjective) arrived++;
@@ -2185,7 +2170,7 @@ namespace TheWaningBorder.AI
                 Entity myHall = FindFactionBuilding<HallTag>(em, faction);
                 float3 from = myHall != Entity.Null && em.HasComponent<LocalTransform>(myHall)
                     ? em.GetComponentData<LocalTransform>(myHall).Position
-                    : xfs[0].Position;
+                    : roster.P[0];   // reinforcements were drawn from it, so it is not empty
                 float3 fromTarget = from - aiState.WaveTarget;
                 fromTarget.y = 0f;
                 float approachDist = math.length(fromTarget);
@@ -2928,25 +2913,20 @@ namespace TheWaningBorder.AI
 
             // Free combat units (the reclaim squad's eligibility rules).
             _religionHuntArmy.Clear();
-            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using (var ents = mq.ToEntityArray(Allocator.Temp))
-            using (var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp))
-            using (var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp))
-                for (int i = 0; i < ents.Length; i++)
-                {
-                    if (facs[i].Value != faction) continue;
-                    if (!IsCombatClass(tags[i].Class)) continue;
-                    Entity e = ents[i];
-                    if (em.HasComponent<UnderConstruction>(e)) continue;
-                    if (IsVerbUnit(em, e)) continue;
-                    if (IsClaimSquadMember(e)) continue;
-                    if (TransientState.Active<AttackMoveTag>(em, e)) continue;
-                    if (TransientState.Active<MoveCommand>(em, e)) continue;
-                    if (TransientState.Active<AttackCommand>(em, e)) continue;
-                    if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                    if (_religionHuntRoster.TryGetValue(key, out var onHunt) && onHunt.Contains(e)) continue;
-                    _religionHuntArmy.Add(e);
-                }
+            var own = OwnCombatRoster(em, faction);
+            for (int i = 0; i < own.Count; i++)
+            {
+                Entity e = own.E[i];
+                if (own.UnderConstruction(i)) continue;
+                if (own.Verb(i)) continue;
+                if (IsClaimSquadMember(e)) continue;
+                if (TransientState.Active<AttackMoveTag>(em, e)) continue;
+                if (TransientState.Active<MoveCommand>(em, e)) continue;
+                if (TransientState.Active<AttackCommand>(em, e)) continue;
+                if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                if (_religionHuntRoster.TryGetValue(key, out var onHunt) && onHunt.Contains(e)) continue;
+                _religionHuntArmy.Add(e);
+            }
 
             // A hunt already under way on this node: reinforce it, no gate.
             // Only the units freed since the last think are in the list (the
@@ -3125,26 +3105,21 @@ namespace TheWaningBorder.AI
 
             // Draft a small squad of uncommitted military (same eligibility
             // rules as the attack waves).
-            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using var ents = mq.ToEntityArray(Allocator.Temp);
-            using var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp);
-            using var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            var roster = OwnCombatRoster(em, faction);
             var squad = _reclaimSquad;
             squad.Clear();
             _reclaimExtra.Clear();
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = 0; i < roster.Count; i++)
             {
-                if (facs[i].Value != faction) continue;
-                if (!IsCombatClass(tags[i].Class)) continue;
-                Entity e = ents[i];
-                if (em.HasComponent<UnderConstruction>(e)) continue;
-                if (IsVerbUnit(em, e)) continue;   // ritualists are not army
+                Entity e = roster.E[i];
+                if (roster.UnderConstruction(i)) continue;
+                if (roster.Verb(i)) continue;   // ritualists are not army
                 if (IsClaimSquadMember(e)) continue;   // holding ground for a claim
                 if (TransientState.Active<AttackMoveTag>(em, e)) continue;
                 if (TransientState.Active<MoveCommand>(em, e)) continue;
                 if (TransientState.Active<AttackCommand>(em, e)) continue;
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                if (em.HasComponent<NotControllableTag>(e)) continue;
+                if (roster.NoControl(i)) continue;
                 // The first reclaimSquadSize free soldiers are the squad; the
                 // rest are the reserve the margin may call on (below).
                 if (squad.Count < Cfg.reclaimSquadSize) squad.Add(e);

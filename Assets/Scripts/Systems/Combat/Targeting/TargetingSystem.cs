@@ -169,6 +169,16 @@ namespace TheWaningBorder.Systems.Combat
         /// members move. See RefreshEnemyCache.</summary>
         private int _cacheNetworkedCount;
 
+        // ── Flat (cell, faction) enemy grid (perf pass 2026-10-16) ──────
+        // Replaces the per-tick NativeParallelMultiHashMap: one contiguous
+        // EnemyCand record per enemy, counting-sorted into its bucket, in
+        // persistent lists. See BuildEnemyGrid for the visit-order contract.
+        private NativeList<EnemyCand> _gridCands;
+        private NativeList<int> _gridStart;
+        private NativeList<int> _gridCursor;
+        private NativeList<int> _gridBucketOf;
+        private NativeHashMap<int3, int> _gridSparse;
+
         // ── Own clock (seconds since the match epoch began) ──────────────
         // UnitEngagement's HitAt / NextAcquireAt are stamped against it.
         // SystemAPI.Time.ElapsedTime differs per peer (pre-match
@@ -192,6 +202,12 @@ namespace TheWaningBorder.Systems.Combat
             _cachePrio = new NativeList<byte>(256, Allocator.Persistent);
             _cacheTags = new NativeList<uint>(256, Allocator.Persistent);
             _cacheValid = 0;
+
+            _gridCands = new NativeList<EnemyCand>(256, Allocator.Persistent);
+            _gridStart = new NativeList<int>(1024, Allocator.Persistent);
+            _gridCursor = new NativeList<int>(1024, Allocator.Persistent);
+            _gridBucketOf = new NativeList<int>(256, Allocator.Persistent);
+            _gridSparse = new NativeHashMap<int3, int>(256, Allocator.Persistent);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -201,6 +217,11 @@ namespace TheWaningBorder.Systems.Combat
             if (_cacheFlags.IsCreated) _cacheFlags.Dispose();
             if (_cachePrio.IsCreated) _cachePrio.Dispose();
             if (_cacheTags.IsCreated) _cacheTags.Dispose();
+            if (_gridCands.IsCreated) _gridCands.Dispose();
+            if (_gridStart.IsCreated) _gridStart.Dispose();
+            if (_gridCursor.IsCreated) _gridCursor.Dispose();
+            if (_gridBucketOf.IsCreated) _gridBucketOf.Dispose();
+            if (_gridSparse.IsCreated) _gridSparse.Dispose();
         }
 
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
@@ -297,37 +318,10 @@ namespace TheWaningBorder.Systems.Combat
             // every tick, not cached with the flags: a value can change
             // without the enemy set changing. Pad is the footprint's farthest
             // reach from the pivot — the box's half-diagonal, the circle's
-            // radius — for the cheap reject in FindAutoTarget.
+            // radius — for the cheap reject in FindAutoTarget. Folded into
+            // the grid build below (one EnemyCand per enemy).
             var sizeLookup = SystemAPI.GetComponentLookup<BuildingSize>(true);
             var radiusLookup = SystemAPI.GetComponentLookup<Radius>(true);
-            int enemyCount = allEnemies.Length;
-            var enemyIsBox = new NativeArray<byte>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            var enemyHalfW = new NativeArray<float>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            var enemyHalfH = new NativeArray<float>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            var enemyRadius = new NativeArray<float>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            var enemyPad = new NativeArray<float>(enemyCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            for (int i = 0; i < enemyCount; i++)
-            {
-                var e = allEnemies[i];
-                if (sizeLookup.TryGetComponent(e, out var bs))
-                {
-                    float hw = bs.Width * 0.5f, hh = bs.Height * 0.5f;
-                    enemyIsBox[i] = 1;
-                    enemyHalfW[i] = hw;
-                    enemyHalfH[i] = hh;
-                    enemyRadius[i] = 0f;
-                    enemyPad[i] = math.sqrt(hw * hw + hh * hh);
-                }
-                else
-                {
-                    float r = radiusLookup.TryGetComponent(e, out var rad) ? rad.Value : 0f;
-                    enemyIsBox[i] = 0;
-                    enemyHalfW[i] = 0f;
-                    enemyHalfH[i] = 0f;
-                    enemyRadius[i] = r;
-                    enemyPad[i] = r;
-                }
-            }
 
             // Hostility table, once per tick instead of a team lookup per
             // candidate. Burst-safe variant (SharedStatic team table).
@@ -336,40 +330,34 @@ namespace TheWaningBorder.Systems.Combat
                 for (int b = 0; b < FactionSlots; b++)
                     hostile[a * FactionSlots + b] = (byte)(Alliances.AreHostileBurst((Faction)a, (Faction)b) ? 1 : 0);
 
-            // Fix #207 spatial hash, now keyed PER FACTION as well as per cell:
+            // Fix #207 spatial index, keyed PER FACTION as well as per cell:
             // a unit's neighbourhood is mostly its own army, and bucketing by
             // owner lets the scan skip every friendly entry outright instead
             // of rejecting them one at a time.
-            using var spatialMap = new NativeParallelMultiHashMap<int3, int>(
-                math.max(16, allEnemies.Length * 2), Allocator.TempJob);
-            var factionPresent = new NativeArray<byte>(FactionSlots, Allocator.TempJob);
-
+            //
             // PEER-STABLE INSERT ORDER (2026-09-05, MP harness catch #14 —
             // the same disease and cure as the nav spatial hash, catch #4).
             // ToEntityArray arrives in CHUNK-WALK order, which legitimately
             // differs between lockstep peers (host-only AI structural changes
-            // reshuffle the host's chunks), and a multimap's per-cell chain
-            // order IS the insert order — the order the acquire scan visits
-            // candidates in. Against a grid-snapped base two buildings sit at
-            // EXACTLY equal surface distance, the strict '<' keeps the
-            // first-seen one, and twelve besiegers picked different targets
-            // per peer (tick 43790 fork, the first finisher-driven deep base
-            // assault). Insert by NetworkId — the one identity every peer
-            // agrees on — with position bits as the tiebreak for anything
-            // unnetworked. (Order held in _cacheOrder; see RefreshEnemyCache.)
-            for (int o = 0; o < _cacheOrder.Length; o++)
-            {
-                int i = _cacheOrder[o];
-                int f = (int)allEnemyFactions[i].Value;
-                if (f < 0 || f >= FactionSlots) continue;
-                var pos = allEnemyTransforms[i].Position;
-                var key = new int3(
-                    (int)math.floor(pos.x / TargetingCellSize),
-                    (int)math.floor(pos.z / TargetingCellSize),
-                    f);
-                spatialMap.Add(key, i);
-                factionPresent[f] = 1;
-            }
+            // reshuffle the host's chunks), and a bucket's visit order IS the
+            // order the acquire scan sees candidates in. Against a grid-snapped
+            // base two buildings sit at EXACTLY equal surface distance, the
+            // strict '<' keeps the first-seen one, and twelve besiegers picked
+            // different targets per peer (tick 43790 fork). Entries go in by
+            // NetworkId — the one identity every peer agrees on — with position
+            // bits as the tiebreak for anything unnetworked. (Order held in
+            // _cacheOrder; see RefreshEnemyCache.)
+            //
+            // FLAT GRID (perf pass 2026-10-16). This used to be a per-tick
+            // NativeParallelMultiHashMap. Its per-key visit order was the
+            // REVERSE of insertion (Add pushes onto the bucket chain's head);
+            // BuildEnemyGrid lays every bucket out in exactly that order, so
+            // every scan visits the same candidates in the same order as
+            // before and every pick is unchanged — it just walks one
+            // contiguous record per candidate instead of a hash chain.
+            var factionPresent = new NativeArray<byte>(FactionSlots, Allocator.TempJob);
+            var grid = BuildEnemyGrid(allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth,
+                in sizeLookup, in radiusLookup, factionPresent);
 
             // Per-target attacker count — spreads attackers across multiple
             // enemies so rank 2 of a melee column picks a different enemy than
@@ -395,21 +383,9 @@ namespace TheWaningBorder.Systems.Combat
 
             var scan = new EnemyScan
             {
-                Entities = allEnemies,
-                Transforms = allEnemyTransforms,
-                Factions = allEnemyFactions,
-                Health = allEnemyHealth,
-                Flags = _cacheFlags.AsArray(),
-                Priority = _cachePrio.AsArray(),
-                Tags = _cacheTags.AsArray(),
-                Map = spatialMap,
+                Grid = grid,
                 Hostile = hostile,
                 FactionPresent = factionPresent,
-                IsBox = enemyIsBox,
-                HalfW = enemyHalfW,
-                HalfH = enemyHalfH,
-                Radius = enemyRadius,
-                Pad = enemyPad,
                 Stealth = SystemAPI.GetComponentLookup<StealthTag>(true),
                 StealthRevealed = SystemAPI.GetComponentLookup<StealthRevealed>(true),
                 Targets = SystemAPI.GetComponentLookup<Target>(true),
@@ -425,11 +401,6 @@ namespace TheWaningBorder.Systems.Combat
             attackerCount.Dispose();
             hostile.Dispose();
             factionPresent.Dispose();
-            enemyIsBox.Dispose();
-            enemyHalfW.Dispose();
-            enemyHalfH.Dispose();
-            enemyRadius.Dispose();
-            enemyPad.Dispose();
 
             // =============================================================================
             // PHASE 4: Clean up stale AttackCommand components
@@ -565,23 +536,10 @@ namespace TheWaningBorder.Systems.Combat
         /// callers (acquire, return-to-guard) share one scan.</summary>
         private struct EnemyScan
         {
-            [ReadOnly] public NativeArray<Entity> Entities;
-            [ReadOnly] public NativeArray<LocalTransform> Transforms;
-            [ReadOnly] public NativeArray<FactionTag> Factions;
-            [ReadOnly] public NativeArray<Health> Health;
-            [ReadOnly] public NativeArray<byte> Flags;
-            [ReadOnly] public NativeArray<byte> Priority;
-            [ReadOnly] public NativeArray<uint> Tags;
-            [ReadOnly] public NativeParallelMultiHashMap<int3, int> Map;
+            /// <summary>The (cell, faction) buckets and their candidates.</summary>
+            public EnemyGrid Grid;
             [ReadOnly] public NativeArray<byte> Hostile;
             [ReadOnly] public NativeArray<byte> FactionPresent;
-
-            // Per-enemy footprint, filled once per tick (see OnUpdate).
-            [ReadOnly] public NativeArray<byte> IsBox;
-            [ReadOnly] public NativeArray<float> HalfW;
-            [ReadOnly] public NativeArray<float> HalfH;
-            [ReadOnly] public NativeArray<float> Radius;
-            [ReadOnly] public NativeArray<float> Pad;
 
             // Live per-candidate reads for the candidates that survive the
             // range test.
@@ -589,27 +547,225 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public ComponentLookup<StealthRevealed> StealthRevealed;
             [ReadOnly] public ComponentLookup<Target> Targets;
 
-            /// <summary>
-            /// TargetGeometry.SurfaceDistXZ for enemy <paramref name="i"/>, from
-            /// the per-tick arrays: the same arithmetic on the same values, so
-            /// the same float.
-            /// </summary>
-            public float SurfaceDist(int i, float3 fromPos, float3 enemyPos)
-            {
-                if (IsBox[i] != 0)
-                {
-                    float dx = math.max(math.abs(fromPos.x - enemyPos.x) - HalfW[i], 0f);
-                    float dz = math.max(math.abs(fromPos.z - enemyPos.z) - HalfH[i], 0f);
-                    return math.sqrt(dx * dx + dz * dz);
-                }
-                return math.max(DistXZ(fromPos, enemyPos) - Radius[i], 0f);
-            }
-
             /// <summary>Stealthed and not exposed — the two
             /// TransientState.Active tests, through lookups.</summary>
             public bool IsHidden(Entity e)
                 => Stealth.HasComponent(e) && Stealth.IsComponentEnabled(e)
                    && !(StealthRevealed.HasComponent(e) && StealthRevealed.IsComponentEnabled(e));
+        }
+
+        /// <summary>One enemy as the scan reads it — every per-candidate
+        /// value the old parallel arrays held, side by side, so a bucket walk
+        /// is one contiguous read. Values are this tick's snapshot.</summary>
+        private struct EnemyCand
+        {
+            public float3 Pos;
+            public float Pad;
+            public float HalfW;
+            public float HalfH;
+            public float Radius;
+            public int Health;
+            public Entity E;
+            public uint Tags;
+            public byte Flags;
+            public byte Prio;
+            public byte IsBox;
+
+            /// <summary>TargetGeometry.SurfaceDistXZ for this enemy: the same
+            /// arithmetic on the same values as the old per-tick arrays, so the
+            /// same float.</summary>
+            public float SurfaceDist(float3 fromPos)
+            {
+                if (IsBox != 0)
+                {
+                    float dx = math.max(math.abs(fromPos.x - Pos.x) - HalfW, 0f);
+                    float dz = math.max(math.abs(fromPos.z - Pos.z) - HalfH, 0f);
+                    return math.sqrt(dx * dx + dz * dz);
+                }
+                return math.max(DistXZ(fromPos, Pos) - Radius, 0f);
+            }
+        }
+
+        /// <summary>
+        /// The enemy index: candidates counting-sorted into (cell, faction)
+        /// buckets. Dense table over the occupied cell rectangle; a sparse
+        /// key → bucket map only when that rectangle would be huge (a stray
+        /// entity far off the map). Either way a bucket holds its enemies in
+        /// the order the old multimap visited them (see BuildEnemyGrid).
+        /// </summary>
+        private struct EnemyGrid
+        {
+            [ReadOnly] public NativeArray<EnemyCand> Cands;
+            /// <summary>Bucket b's candidates are Cands[Start[b] .. Start[b+1]).</summary>
+            [ReadOnly] public NativeArray<int> Start;
+            [ReadOnly] public NativeHashMap<int3, int> Sparse;
+            public byte Dense;
+            public int MinCx, MinCz, CellsX, CellsZ;
+
+            /// <summary>The candidate range of one (cellX, cellZ, faction)
+            /// key; false when the key holds nobody.</summary>
+            public bool Range(int3 key, out int k0, out int k1)
+            {
+                k0 = 0; k1 = 0;
+                int b;
+                if (Dense != 0)
+                {
+                    long cx = (long)key.x - MinCx, cz = (long)key.y - MinCz;
+                    if (cx < 0 || cx >= CellsX || cz < 0 || cz >= CellsZ
+                        || key.z < 0 || key.z >= FactionSlots) return false;
+                    b = ((int)cz * CellsX + (int)cx) * FactionSlots + key.z;
+                }
+                else if (!Sparse.TryGetValue(key, out b)) return false;
+                k0 = Start[b];
+                k1 = Start[b + 1];
+                return k1 > k0;
+            }
+
+            /// <summary>How many enemies one key holds (the old CountValuesForKey).</summary>
+            public int Count(int3 key) => Range(key, out int k0, out int k1) ? k1 - k0 : 0;
+        }
+
+        /// <summary>Above this many (cell x faction) buckets the index goes
+        /// sparse. Loop resolution, not a tunable.</summary>
+        private const long MaxDenseBuckets = 1L << 20;
+
+        /// <summary>
+        /// Build the enemy index for this tick into the persistent lists.
+        ///
+        /// VISIT-ORDER CONTRACT. The old NativeParallelMultiHashMap received
+        /// the enemies in _cacheOrder order and its per-key walk returned them
+        /// newest-first (Add links each entry at the head of its bucket chain;
+        /// the map never grew, so nothing re-linked). Every bucket here is laid
+        /// out in exactly that order — descending _cacheOrder position — so
+        /// each scan meets the same candidates in the same sequence and every
+        /// strict-'&lt;' tie resolves as it did. Enemies with an out-of-table
+        /// faction are left out, as before.
+        /// </summary>
+        private EnemyGrid BuildEnemyGrid(NativeArray<Entity> ents, NativeArray<LocalTransform> xf,
+            NativeArray<FactionTag> fac, NativeArray<Health> hp,
+            in ComponentLookup<BuildingSize> sizeLk, in ComponentLookup<Radius> radLk,
+            NativeArray<byte> factionPresent)
+        {
+            int n = _cacheOrder.Length;
+            _gridBucketOf.ResizeUninitialized(math.max(1, n));
+
+            // Pass 1: cell bounds of the inserted enemies.
+            int minCx = int.MaxValue, minCz = int.MaxValue, maxCx = int.MinValue, maxCz = int.MinValue;
+            int inserted = 0;
+            for (int o = 0; o < n; o++)
+            {
+                int i = _cacheOrder[o];
+                int f = (int)fac[i].Value;
+                if (f < 0 || f >= FactionSlots) continue;
+                var pos = xf[i].Position;
+                int cx = (int)math.floor(pos.x / TargetingCellSize);
+                int cz = (int)math.floor(pos.z / TargetingCellSize);
+                minCx = math.min(minCx, cx); maxCx = math.max(maxCx, cx);
+                minCz = math.min(minCz, cz); maxCz = math.max(maxCz, cz);
+                factionPresent[f] = 1;
+                inserted++;
+            }
+
+            long cellsX = inserted > 0 ? (long)maxCx - minCx + 1 : 0;
+            long cellsZ = inserted > 0 ? (long)maxCz - minCz + 1 : 0;
+            long denseBuckets = cellsX * cellsZ * FactionSlots;
+            bool dense = denseBuckets <= MaxDenseBuckets;
+
+            // Pass 2: each inserted enemy's bucket.
+            int bucketCount = 0;
+            if (dense) bucketCount = (int)denseBuckets;
+            else _gridSparse.Clear();
+            for (int o = 0; o < n; o++)
+            {
+                int i = _cacheOrder[o];
+                int f = (int)fac[i].Value;
+                if (f < 0 || f >= FactionSlots) { _gridBucketOf[o] = -1; continue; }
+                var pos = xf[i].Position;
+                int cx = (int)math.floor(pos.x / TargetingCellSize);
+                int cz = (int)math.floor(pos.z / TargetingCellSize);
+                int b;
+                if (dense)
+                {
+                    b = ((cz - minCz) * (int)cellsX + (cx - minCx)) * FactionSlots + f;
+                }
+                else
+                {
+                    var key = new int3(cx, cz, f);
+                    if (!_gridSparse.TryGetValue(key, out b))
+                    {
+                        b = bucketCount++;
+                        _gridSparse.Add(key, b);
+                    }
+                }
+                _gridBucketOf[o] = b;
+            }
+
+            // Counting sort: sizes, prefix sums, then fill each bucket from
+            // its END while walking the order forwards — the bucket ends up
+            // newest-first, the multimap's order.
+            _gridStart.ResizeUninitialized(bucketCount + 1);
+            for (int b = 0; b <= bucketCount; b++) _gridStart[b] = 0;
+            for (int o = 0; o < n; o++)
+            {
+                int b = _gridBucketOf[o];
+                if (b >= 0) _gridStart[b + 1] = _gridStart[b + 1] + 1;
+            }
+            for (int b = 0; b < bucketCount; b++) _gridStart[b + 1] = _gridStart[b + 1] + _gridStart[b];
+            _gridCursor.ResizeUninitialized(math.max(1, bucketCount));
+            for (int b = 0; b < bucketCount; b++) _gridCursor[b] = _gridStart[b + 1];
+
+            _gridCands.ResizeUninitialized(math.max(1, inserted));
+            for (int o = 0; o < n; o++)
+            {
+                int b = _gridBucketOf[o];
+                if (b < 0) continue;
+                int at = _gridCursor[b] - 1;
+                _gridCursor[b] = at;
+
+                int i = _cacheOrder[o];
+                var e = ents[i];
+                var c = new EnemyCand
+                {
+                    Pos = xf[i].Position,
+                    Health = hp[i].Value,
+                    E = e,
+                    Tags = _cacheTags[i],
+                    Flags = _cacheFlags[i],
+                    Prio = _cachePrio[i],
+                };
+                // The footprint, exactly as the old per-tick arrays held it.
+                if (sizeLk.TryGetComponent(e, out var bs))
+                {
+                    float hw = bs.Width * 0.5f, hh = bs.Height * 0.5f;
+                    c.IsBox = 1;
+                    c.HalfW = hw;
+                    c.HalfH = hh;
+                    c.Radius = 0f;
+                    c.Pad = math.sqrt(hw * hw + hh * hh);
+                }
+                else
+                {
+                    float r = radLk.TryGetComponent(e, out var rad) ? rad.Value : 0f;
+                    c.IsBox = 0;
+                    c.HalfW = 0f;
+                    c.HalfH = 0f;
+                    c.Radius = r;
+                    c.Pad = r;
+                }
+                _gridCands[at] = c;
+            }
+
+            return new EnemyGrid
+            {
+                Cands = _gridCands.AsArray(),
+                Start = _gridStart.AsArray(),
+                Sparse = _gridSparse,
+                Dense = (byte)(dense ? 1 : 0),
+                MinCx = minCx,
+                MinCz = minCz,
+                CellsX = (int)cellsX,
+                CellsZ = (int)cellsZ,
+            };
         }
 
         /// <summary>The flag lookups RefreshEnemyCache reads, built in OnUpdate.</summary>

@@ -402,25 +402,19 @@ namespace TheWaningBorder.AI
                     _econEnrolled.Add(member);
 
             float r2 = Cfg.economyDefenceDraftRadius * Cfg.economyDefenceDraftRadius;
-            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using var ents = mq.ToEntityArray(Allocator.Temp);
-            using var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp);
-            using var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = mq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
+            var roster = OwnCombatRoster(em, faction);
+            for (int i = 0; i < roster.Count; i++)
             {
-                if (facs[i].Value != faction) continue;
-                if (!IsCombatClass(tags[i].Class)) continue;
-                Entity e = ents[i];
-                if (em.HasComponent<UnderConstruction>(e)) continue;
-                if (IsVerbUnit(em, e)) continue;
+                Entity e = roster.E[i];
+                if (roster.UnderConstruction(i)) continue;
+                if (roster.Verb(i)) continue;
                 if (IsClaimSquadMember(e)) continue;          // claims, responses, curse sorties
                 if (_econEnrolled.Contains(e)) continue;      // a wave or a defence mission
-                if (em.HasComponent<NotControllableTag>(e)) continue;
+                if (roster.NoControl(i)) continue;
                 if (TransientState.Active<AttackCommand>(em, e)) continue;
                 if (TransientState.Active<AttackMoveTag>(em, e)) continue;
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                float d2 = math.distancesq(xfs[i].Position.xz, at.xz);
+                float d2 = math.distancesq(roster.P[i].xz, at.xz);
                 if (d2 > r2) continue;
                 _econPool.Add((e, d2));
             }

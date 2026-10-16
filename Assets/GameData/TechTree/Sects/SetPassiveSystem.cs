@@ -83,32 +83,76 @@ namespace TheWaningBorder.Systems.Sect
             if (sovereign != 0) SovereignHour(em, sovereign);
         }
 
-        private static void SovereignHour(EntityManager em, uint sovereign)
+        // PERF (2026-10-16): Sovereign Hour touched every unit in its
+        // holder's territory twice a second through the EntityManager - an
+        // Active test, a read, a HasComponent, a write and an enable per unit,
+        // ~3,000 units. SectHaste and SpellDebuff are pre-added (disabled) on
+        // every unit, so the refresh is now a ComponentLookup read-modify-write
+        // with the same max() merge and the same enable. A unit that lacks the
+        // component (spawned outside the factory) takes the old EntityManager
+        // path after the loop - its add is a structural change, which a live
+        // lookup cannot survive; each refresh touches only its own unit, so
+        // deferring it changes nothing. Result-identical.
+        private void SovereignHour(EntityManager em, uint sovereign)
         {
             var q = QC_Units.Get(em, QT_Units);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var tr = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var fa = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hp = q.ToComponentDataArray<Health>(Allocator.Temp);
+
+            em.CompleteDependencyBeforeRW<SectHaste>();
+            em.CompleteDependencyBeforeRW<SpellDebuff>();
+            var haste = GetComponentLookup<SectHaste>(false);
+            var slow = GetComponentLookup<SpellDebuff>(false);
+            var lateHaste = new NativeList<Entity>(Allocator.Temp);
+            var lateSlow = new NativeList<Entity>(Allocator.Temp);
+
             for (int i = 0; i < ents.Length; i++)
             {
                 if (hp[i].Value <= 0) continue;
                 int owner = TerritoryOwnership.OwnerAt(tr[i].Position.x, tr[i].Position.z);
                 if (owner < 0 || owner > 31 || (sovereign & (1u << owner)) == 0) continue;
                 var unitFaction = fa[i].Value;
+                var e = ents[i];
                 if ((int)unitFaction == owner)
-                    Haste(em, ents[i], SovereignHaste, PulseHold);
+                {
+                    if (!haste.HasComponent(e)) { lateHaste.Add(e); continue; }
+                    var h = haste.IsComponentEnabled(e) ? haste[e] : default;
+                    h.Multiplier = math.max(h.Multiplier, SovereignHaste);
+                    h.TimeRemaining = math.max(h.TimeRemaining, PulseHold);
+                    haste[e] = h;
+                    haste.SetComponentEnabled(e, true);
+                }
                 else if (Alliances.AreHostile((Faction)owner, unitFaction))
-                    Slow(em, ents[i], SovereignSlow, PulseHold);
+                {
+                    if (!slow.HasComponent(e)) { lateSlow.Add(e); continue; }
+                    var d = slow.IsComponentEnabled(e) ? slow[e] : default;
+                    d.SpeedReduction = math.max(d.SpeedReduction, SovereignSlow);
+                    d.TimeRemaining = math.max(d.TimeRemaining, PulseHold);
+                    slow[e] = d;
+                    slow.SetComponentEnabled(e, true);
+                }
             }
+
+            for (int i = 0; i < lateHaste.Length; i++) Haste(em, lateHaste[i], SovereignHaste, PulseHold);
+            for (int i = 0; i < lateSlow.Length; i++) Slow(em, lateSlow[i], SovereignSlow, PulseHold);
+            lateHaste.Dispose();
+            lateSlow.Dispose();
         }
 
         private static void BreakingHour(EntityManager em, uint breaking)
         {
             var q = QC_DeadBuildings.Get(em, QT_DeadBuildings);
             if (q.IsEmpty) return;
-            using var ents = q.ToEntityArray(Allocator.Temp);
+            // The query is every standing building; only one at 0 HP matters.
+            // Health alone first, the other columns only on a tick something
+            // fell (2026-10-16). Same rows, same order: result-identical.
             using var hp = q.ToComponentDataArray<Health>(Allocator.Temp);
+            bool anyDown = false;
+            for (int i = 0; i < hp.Length && !anyDown; i++) anyDown = hp[i].Value <= 0;
+            if (!anyDown) return;
+            using var ents = q.ToEntityArray(Allocator.Temp);
             using var fa = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var tr = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)

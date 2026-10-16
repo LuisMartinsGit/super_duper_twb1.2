@@ -63,6 +63,55 @@ namespace TheWaningBorder.Systems.Economy
         };
         static CachedEntityQuery QC_TempleOfRidanTagFactionTagLocalTransformHealth;
 
+        // PERF (2026-10-16): the claim pass below snapshotted every unit
+        // (four full columns, ~3,000 rows) on EVERY tick, although it only
+        // has work to do while a pickup lies on the ground. While the
+        // Shardroot is carried, enshrined or embedded there is no pickup, and
+        // the snapshot is now skipped. The hero right-of-way scan reads only
+        // heroes with a destination (a narrower query, same rows in the same
+        // relative order, an order-free bitmask) instead of a HasComponent +
+        // GetComponentData per unit per pickup. Result-identical.
+        static readonly ComponentType[] QT_Pickups =
+        {
+            ComponentType.ReadOnly<ShardrootPickupTag>(),
+            ComponentType.ReadOnly<ShardrootPickupState>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_Pickups;
+
+        static readonly ComponentType[] QT_HeroesWithDestination =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<TheWaningBorder.Abilities.UniqueUnitTag>(),
+            ComponentType.ReadOnly<DesiredDestination>(),
+        };
+        static CachedEntityQuery QC_HeroesWithDestination;
+
+        // Phase 3's and phase 5's own queries, for an emptiness test before
+        // their foreach (which completes LocalTransform writers even when it
+        // then finds nothing).
+        static readonly ComponentType[] QT_Couriers =
+        {
+            ComponentType.ReadOnly<ShardrootBearer>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.Exclude<ShardboundHeroTag>(),
+        };
+        static CachedEntityQuery QC_Couriers;
+
+        static readonly ComponentType[] QT_TaggedBearers =
+        {
+            ComponentType.ReadOnly<ShardrootBearer>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<ShardrootTag>(),
+        };
+        static CachedEntityQuery QC_TaggedBearers;
+
         #endregion
 
         protected override void OnUpdate()
@@ -108,81 +157,17 @@ namespace TheWaningBorder.Systems.Economy
             // Snapshot order is chunk order, which every peer shares.
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            // Snapshot units so the per-pickup loop doesn't re-query.
-            var unitSnapshotQuery = QC_UnitTagFactionTagLocalTransformHealth.Get(em, QT_UnitTagFactionTagLocalTransformHealth);
-            using var unitEnts = unitSnapshotQuery.ToEntityArray(Allocator.Temp);
-            using var unitFactions = unitSnapshotQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var unitTransforms = unitSnapshotQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var unitHealths = unitSnapshotQuery.ToComponentDataArray<Health>(Allocator.Temp);
-
             var claimedPickups = new NativeList<Entity>(2, Allocator.Temp);
             var claimers = new NativeList<Entity>(2, Allocator.Temp);
             var claimedAmounts = new NativeList<int>(2, Allocator.Temp);
             var claimedSources = new NativeList<RitualKind>(2, Allocator.Temp);
 
-            foreach (var (stateRW, pickupTransform, pickupEntity) in SystemAPI
-                .Query<RefRW<ShardrootPickupState>, RefRO<LocalTransform>>()
-                .WithAll<ShardrootPickupTag>()
-                .WithEntityAccess())
-            {
-                ref var state = ref stateRW.ValueRW;
-                var pickupPos = pickupTransform.ValueRO.Position;
-                var pickupXZ = new float2(pickupPos.x, pickupPos.z);
-
-                // No channel any more: nothing is ever mid-attunement.
-                state.Attuner = Entity.Null;
-                state.AttunementProgress = 0f;
-
-                // Factions with a living hero ordered onto this pickup.
-                uint heroBound = 0u;
-                for (int i = 0; i < unitEnts.Length; i++)
-                {
-                    if (unitHealths[i].Value <= 0) continue;
-                    int fi = (int)unitFactions[i].Value;
-                    if (fi < 0 || fi >= 32) continue;
-                    if (!em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(unitEnts[i])) continue;
-                    if (!em.HasComponent<DesiredDestination>(unitEnts[i])) continue;
-                    var dd = em.GetComponentData<DesiredDestination>(unitEnts[i]);
-                    if (dd.Has == 0) continue;
-                    if (math.distance(new float2(dd.Position.x, dd.Position.z), pickupXZ)
-                        <= ShardrootPickupRadius)
-                        heroBound |= 1u << fi;
-                }
-
-                int chosen = -1;
-                bool chosenIsHero = false;
-                for (int i = 0; i < unitEnts.Length; i++)
-                {
-                    if (unitHealths[i].Value <= 0) continue;
-                    if (unitFactions[i].Value == Faction.Border) continue;
-
-                    var uPos = unitTransforms[i].Position;
-                    if (math.distance(new float2(uPos.x, uPos.z), pickupXZ) > ShardrootPickupRadius)
-                        continue;
-
-                    bool hero = em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(unitEnts[i]);
-                    if (hero)
-                    {
-                        chosen = i;
-                        chosenIsHero = true;
-                        break;
-                    }
-                    if (chosen >= 0) continue;
-
-                    int fi = (int)unitFactions[i].Value;
-                    if (fi >= 0 && fi < 32 && (heroBound & (1u << fi)) != 0) continue;
-                    chosen = i;
-                }
-
-                if (chosen >= 0)
-                {
-                    claimedPickups.Add(pickupEntity);
-                    claimers.Add(unitEnts[chosen]);
-                    claimedAmounts.Add(state.Amount);
-                    claimedSources.Add(state.Source);
-                    TWBLog.Log($"[Shardroot] {unitFactions[chosen].Value} {(chosenIsHero ? "hero" : "unit")} takes the pickup");
-                }
-            }
+            // No pickup on the ground (the Shardroot is carried, enshrined or
+            // embedded): the claim pass has nothing to do — and nothing it
+            // would have written (Attuner / AttunementProgress live on the
+            // pickup) exists. See the PERF note on QT_Pickups.
+            if (!QC_Pickups.Get(em, QT_Pickups).IsEmpty)
+                ClaimPickups(em, claimedPickups, claimers, claimedAmounts, claimedSources);
 
             // Apply claims after the loop.
             for (int i = 0; i < claimedPickups.Length; i++)
@@ -239,6 +224,11 @@ namespace TheWaningBorder.Systems.Economy
             // does NOT flush into the faction bank. Stored Shardroot is consumed
             // directly by spending paths (Shardroot weapon upgrades, god powers
             // when those reach refinement #6 wiring).
+            // Only with a depositing courier about (a Shardbound hero never
+            // deposits): otherwise the temple snapshot is skipped, and with it
+            // a main-thread read of LocalTransform every tick.
+            if (!QC_Couriers.Get(em, QT_Couriers).IsEmpty)
+            {
             var templeQuery = QC_TempleOfRidanTagFactionTagLocalTransformHealth.Get(em, QT_TempleOfRidanTagFactionTagLocalTransformHealth);
             using var templeEnts = templeQuery.ToEntityArray(Allocator.Temp);
             using var templeFactions = templeQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -311,6 +301,7 @@ namespace TheWaningBorder.Systems.Economy
                     }
                 }
             }
+            }
 
             // ── Phase 5: carrier-dies → respawn pickup ─────────────────
             // Runs before DeathSystem so the carrier still exists. DeathSystem
@@ -326,6 +317,7 @@ namespace TheWaningBorder.Systems.Economy
             // credited straight to the bank, the way gathering is. Gated by
             // ShardrootTag rather than by a carried amount, so a courier or
             // the Shardbound Hero drops the artifact and nobody drops loot.
+            if (!QC_TaggedBearers.Get(em, QT_TaggedBearers).IsEmpty)
             foreach (var (carrier, health, transform, entity) in SystemAPI
                 .Query<RefRO<ShardrootBearer>, RefRO<Health>, RefRO<LocalTransform>>()
                 .WithAll<ShardrootTag>()
@@ -374,6 +366,89 @@ namespace TheWaningBorder.Systems.Economy
 
             ecb.Playback(em);
             ecb.Dispose();
+        }
+
+        /// <summary>Phase 2, the instant claim — run only while a pickup
+        /// exists. Same rules and the same snapshot order as before.</summary>
+        private void ClaimPickups(EntityManager em,
+            NativeList<Entity> claimedPickups, NativeList<Entity> claimers,
+            NativeList<int> claimedAmounts, NativeList<RitualKind> claimedSources)
+        {
+            // Snapshot units so the per-pickup loop doesn't re-query.
+            var unitSnapshotQuery = QC_UnitTagFactionTagLocalTransformHealth.Get(em, QT_UnitTagFactionTagLocalTransformHealth);
+            using var unitEnts = unitSnapshotQuery.ToEntityArray(Allocator.Temp);
+            using var unitFactions = unitSnapshotQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var unitTransforms = unitSnapshotQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var unitHealths = unitSnapshotQuery.ToComponentDataArray<Health>(Allocator.Temp);
+
+            // Heroes with a destination — the only units that can hold a
+            // faction's right of way (was: a HasComponent pair per unit).
+            var heroQuery = QC_HeroesWithDestination.Get(em, QT_HeroesWithDestination);
+            using var heroFactions = heroQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var heroHealths = heroQuery.ToComponentDataArray<Health>(Allocator.Temp);
+            using var heroDests = heroQuery.ToComponentDataArray<DesiredDestination>(Allocator.Temp);
+
+            foreach (var (stateRW, pickupTransform, pickupEntity) in SystemAPI
+                .Query<RefRW<ShardrootPickupState>, RefRO<LocalTransform>>()
+                .WithAll<ShardrootPickupTag>()
+                .WithEntityAccess())
+            {
+                ref var state = ref stateRW.ValueRW;
+                var pickupPos = pickupTransform.ValueRO.Position;
+                var pickupXZ = new float2(pickupPos.x, pickupPos.z);
+
+                // No channel any more: nothing is ever mid-attunement.
+                state.Attuner = Entity.Null;
+                state.AttunementProgress = 0f;
+
+                // Factions with a living hero ordered onto this pickup.
+                uint heroBound = 0u;
+                for (int i = 0; i < heroFactions.Length; i++)
+                {
+                    if (heroHealths[i].Value <= 0) continue;
+                    int fi = (int)heroFactions[i].Value;
+                    if (fi < 0 || fi >= 32) continue;
+                    var dd = heroDests[i];
+                    if (dd.Has == 0) continue;
+                    if (math.distance(new float2(dd.Position.x, dd.Position.z), pickupXZ)
+                        <= ShardrootPickupRadius)
+                        heroBound |= 1u << fi;
+                }
+
+                int chosen = -1;
+                bool chosenIsHero = false;
+                for (int i = 0; i < unitEnts.Length; i++)
+                {
+                    if (unitHealths[i].Value <= 0) continue;
+                    if (unitFactions[i].Value == Faction.Border) continue;
+
+                    var uPos = unitTransforms[i].Position;
+                    if (math.distance(new float2(uPos.x, uPos.z), pickupXZ) > ShardrootPickupRadius)
+                        continue;
+
+                    bool hero = em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(unitEnts[i]);
+                    if (hero)
+                    {
+                        chosen = i;
+                        chosenIsHero = true;
+                        break;
+                    }
+                    if (chosen >= 0) continue;
+
+                    int fi = (int)unitFactions[i].Value;
+                    if (fi >= 0 && fi < 32 && (heroBound & (1u << fi)) != 0) continue;
+                    chosen = i;
+                }
+
+                if (chosen >= 0)
+                {
+                    claimedPickups.Add(pickupEntity);
+                    claimers.Add(unitEnts[chosen]);
+                    claimedAmounts.Add(state.Amount);
+                    claimedSources.Add(state.Source);
+                    TWBLog.Log($"[Shardroot] {unitFactions[chosen].Value} {(chosenIsHero ? "hero" : "unit")} takes the pickup");
+                }
+            }
         }
     }
 }

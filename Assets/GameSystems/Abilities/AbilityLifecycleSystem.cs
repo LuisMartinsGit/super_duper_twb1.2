@@ -46,6 +46,31 @@ namespace TheWaningBorder.Abilities
 
         #endregion
 
+        // PERF (2026-10-16): emptiness guards for the seven timed-marker
+        // countdowns (and the three managed passes over enableable state).
+        // Each marker is pre-added DISABLED on every unit, so each Run() walked
+        // every unit chunk (and stamped it changed) on every tick although a
+        // live marker is rare. IsEmpty honours enable bits: a guard reading
+        // "empty" means the job would have found every bit off and done
+        // nothing. Result-identical.
+        private EntityQuery _anyLifeCling, _anyAutoYield, _anyUnderAutomation, _anyCharging,
+                            _anyChargeBonus, _anyNextCharge, _anyTempDisarm,
+                            _anyCasting, _anyAftermath, _anySelfDoT;
+
+        protected override void OnCreate()
+        {
+            _anyLifeCling = GetEntityQuery(ComponentType.ReadOnly<LifeCling>());
+            _anyAutoYield = GetEntityQuery(ComponentType.ReadOnly<AutoYieldBoost>());
+            _anyUnderAutomation = GetEntityQuery(ComponentType.ReadOnly<UnderAutomation>());
+            _anyCharging = GetEntityQuery(ComponentType.ReadOnly<Charging>());
+            _anyChargeBonus = GetEntityQuery(ComponentType.ReadOnly<ChargeDamageBonus>());
+            _anyNextCharge = GetEntityQuery(ComponentType.ReadOnly<NextChargePct>());
+            _anyTempDisarm = GetEntityQuery(ComponentType.ReadOnly<TempDisarm>());
+            _anyCasting = GetEntityQuery(ComponentType.ReadOnly<AbilityCastState>());
+            _anyAftermath = GetEntityQuery(ComponentType.ReadOnly<AbilityAftermath>());
+            _anySelfDoT = GetEntityQuery(ComponentType.ReadOnly<SelfDoT>());
+        }
+
         protected override void OnUpdate()
         {
             float dt = SystemAPI.Time.DeltaTime;
@@ -131,6 +156,7 @@ namespace TheWaningBorder.Abilities
             // break a channel already in flight (they only stop new casts).
             var castDone = new NativeList<Entity>(Allocator.Temp);
             var castBroken = new NativeList<Entity>(Allocator.Temp);
+            if (!_anyCasting.IsEmpty)
             foreach (var (cast, e) in SystemAPI.Query<RefRW<AbilityCastState>>().WithEntityAccess())
             {
                 var c = cast.ValueRO;
@@ -154,6 +180,7 @@ namespace TheWaningBorder.Abilities
 
             // ---- 4. Aftermath chain ----
             var afterDone = new NativeList<Entity>(Allocator.Temp);
+            if (!_anyAftermath.IsEmpty)
             foreach (var (aft, e) in SystemAPI.Query<RefRW<AbilityAftermath>>().WithEntityAccess())
             {
                 var a = aft.ValueRO;
@@ -177,6 +204,9 @@ namespace TheWaningBorder.Abilities
 
             // ---- 5. Self DoT ----
             var dotDone = new NativeList<Entity>(Allocator.Temp);
+            // (Guarded: its RefRW<Health> otherwise completed every job
+            // writing Health on every tick, with no SelfDoT live.)
+            if (!_anySelfDoT.IsEmpty)
             foreach (var (dot, hp, e) in SystemAPI.Query<RefRW<SelfDoT>, RefRW<Health>>().WithEntityAccess())
             {
                 var d = dot.ValueRO;
@@ -201,13 +231,13 @@ namespace TheWaningBorder.Abilities
             // (War Horn's NextChargePct window is normally consumed by the
             // charge that lands — this is the timeout for cavalry that never
             // connected; TempDisarm is Full Gallop's sprint lockout.)
-            new LifeClingTimerJob { Dt = dt }.Run();
-            new AutoYieldBoostTimerJob { Dt = dt }.Run();
-            new UnderAutomationTimerJob { Dt = dt }.Run();
-            new ChargingTimerJob { Dt = dt }.Run();
-            new ChargeDamageBonusTimerJob { Dt = dt }.Run();
-            new NextChargePctTimerJob { Dt = dt }.Run();
-            new TempDisarmTimerJob { Dt = dt }.Run();
+            if (!_anyLifeCling.IsEmpty) new LifeClingTimerJob { Dt = dt }.Run();
+            if (!_anyAutoYield.IsEmpty) new AutoYieldBoostTimerJob { Dt = dt }.Run();
+            if (!_anyUnderAutomation.IsEmpty) new UnderAutomationTimerJob { Dt = dt }.Run();
+            if (!_anyCharging.IsEmpty) new ChargingTimerJob { Dt = dt }.Run();
+            if (!_anyChargeBonus.IsEmpty) new ChargeDamageBonusTimerJob { Dt = dt }.Run();
+            if (!_anyNextCharge.IsEmpty) new NextChargePctTimerJob { Dt = dt }.Run();
+            if (!_anyTempDisarm.IsEmpty) new TempDisarmTimerJob { Dt = dt }.Run();
 
             // (Use Celestar's fog reveal reuses the sect RevealCircle power — the
             // reveal entity is created + ticked by SectActivePowerSystem /

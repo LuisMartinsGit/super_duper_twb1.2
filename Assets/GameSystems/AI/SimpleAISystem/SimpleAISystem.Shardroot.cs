@@ -106,24 +106,19 @@ namespace TheWaningBorder.AI
 
             // Free combat units, as for the first-RP hunt.
             _shardrootFree.Clear();
-            var mq = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using (var ents = mq.ToEntityArray(Allocator.Temp))
-            using (var tags = mq.ToComponentDataArray<UnitTag>(Allocator.Temp))
-            using (var facs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp))
-                for (int i = 0; i < ents.Length; i++)
-                {
-                    if (facs[i].Value != faction) continue;
-                    if (!IsCombatClass(tags[i].Class)) continue;
-                    Entity e = ents[i];
-                    if (e == king) continue;
-                    if (IsVerbUnit(em, e) || IsClaimSquadMember(e)) continue;
-                    if (TransientState.Active<AttackMoveTag>(em, e)) continue;
-                    if (TransientState.Active<MoveCommand>(em, e)) continue;
-                    if (TransientState.Active<AttackCommand>(em, e)) continue;
-                    if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                    if (s.Roster.Contains(e)) continue;
-                    _shardrootFree.Add(e);
-                }
+            var roster = OwnCombatRoster(em, faction);
+            for (int i = 0; i < roster.Count; i++)
+            {
+                Entity e = roster.E[i];
+                if (e == king) continue;
+                if (roster.Verb(i) || IsClaimSquadMember(e)) continue;
+                if (TransientState.Active<AttackMoveTag>(em, e)) continue;
+                if (TransientState.Active<MoveCommand>(em, e)) continue;
+                if (TransientState.Active<AttackCommand>(em, e)) continue;
+                if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                if (s.Roster.Contains(e)) continue;
+                _shardrootFree.Add(e);
+            }
 
             // A strike on the way: reinforce while it is fresh and still winning.
             bool fresh = s.LaunchedAt >= 0f && now - s.LaunchedAt < cfg.reinforceSeconds

@@ -24,6 +24,17 @@
 // per-unit tech lookups are read once per faction per pass, and the Road
 // Warden test compares the FixedString instead of allocating a string per
 // unit per pass.
+//
+// PERF (2026-10-16). The eight clocks are phased 1/16 s apart, so a pass ran
+// on about every other tick, and each one made ~10 EntityManager calls per
+// unit of the due faction plus a scan of EVERY faction's Waystations and
+// caravans per unit. Now: a pass whose due factions own no Runai unit stops
+// after one bulk copy; the per-unit reads and writes go through
+// ComponentLookups; the Waystation / caravan proximity tests scan only the
+// unit's own faction's sites (Near only ever matched its own faction, and
+// "any within radius" does not depend on order); and the rare SpellBuff add
+// on an entity that never carried one is queued with the FiresOnMove adds.
+// Result-identical.
 
 using TheWaningBorder.Core;
 using TheWaningBorder.Core.Settings;
@@ -44,6 +55,16 @@ namespace TheWaningBorder.Runai
             // elsewhere: its configs are stripped from A/B builds, and running
             // it there threw every tick, in the menu and in every match.
             if (!GameEdition.Allows(Cultures.Runai)) { Enabled = false; return; }
+            _lkHealth = GetComponentLookup<Health>();
+            _lkClock = GetComponentLookup<RunaiUnitClock>();
+            _lkXf = GetComponentLookup<LocalTransform>(true);
+            _lkBuff = GetComponentLookup<SpellBuff>();
+            _lkCavalry = GetComponentLookup<CavalryTag>(true);
+            _lkCaravan = GetComponentLookup<CaravanTag>(true);
+            _lkHorseArcher = GetComponentLookup<HorseArcherTag>(true);
+            _lkFires = GetComponentLookup<FiresOnMove>(true);
+            _lkTypeId = GetComponentLookup<UnitTypeId>(true);
+            _lkWagon = GetComponentLookup<WarWagonTag>(true);
         }
 
         private static RunaiCombatConfig _cfg;
@@ -128,15 +149,26 @@ namespace TheWaningBorder.Runai
                 };
             }
 
-            var trade = RunaiTradeSystem.Cfg;
-            using var ws = QC_Waystations.Get(em, QT_Waystations).ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var wsf = QC_Waystations.Get(em, QT_Waystations).ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var cv = QC_Caravans.Get(em, QT_Caravans).ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var cvf = QC_Caravans.Get(em, QT_Caravans).ToComponentDataArray<FactionTag>(Allocator.Temp);
-
             using var ents = uq.ToEntityArray(Allocator.Temp);
             using var ufacs = uq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            uint present = 0;
+            for (int i = 0; i < ufacs.Length; i++)
+            {
+                int fi = (int)ufacs[i].Value;
+                if (fi >= 0 && fi < Factions && _step[fi] > 0f) present |= 1u << fi;
+            }
+            if (present == 0) return;   // no due faction has a Runai unit
+
+            var trade = RunaiTradeSystem.Cfg;
+            CollectSites(em, present);
+
+            CompleteDependency();
+            _lkHealth.Update(this); _lkClock.Update(this); _lkXf.Update(this); _lkBuff.Update(this);
+            _lkCavalry.Update(this); _lkCaravan.Update(this); _lkHorseArcher.Update(this);
+            _lkFires.Update(this); _lkTypeId.Update(this); _lkWagon.Update(this);
+
             var addFires = new NativeList<Entity>(Allocator.Temp);
+            _deferBuff.Clear();
             for (int i = 0; i < ents.Length; i++)
             {
                 var f = ufacs[i].Value;
@@ -146,68 +178,115 @@ namespace TheWaningBorder.Runai
                 float life = step + 0.25f;
                 ref readonly var tech = ref _techs[fi];
                 var e = ents[i];
-                var hp = em.GetComponentData<Health>(e);
+                var hp = _lkHealth[e];
                 if (hp.Value <= 0) continue;
-                var p = em.GetComponentData<LocalTransform>(e).Position;
-                var clock = em.GetComponentData<RunaiUnitClock>(e);
+                var p = _lkXf[e].Position;
+                var clock = _lkClock[e];
 
                 clock.Still = math.distancesq(p.xz, clock.LastPos.xz) < 0.04f ? clock.Still + step : 0f;
                 clock.Calm = hp.Value < clock.LastHp ? 0f : clock.Calm + step;
                 clock.LastPos = p;
 
-                bool cavalry = em.HasComponent<CavalryTag>(e);
+                bool cavalry = _lkCavalry.HasComponent(e);
                 float speed = 1f, taken = 1f, armor = 0f;
 
                 // Road March — caravans get the Waystation bonus in RunaiTradeSystem.
-                if (tech.RoadMarch && !em.HasComponent<CaravanTag>(e)
-                    && Near(ws, wsf, f, p, trade.waystationRadius))
+                if (tech.RoadMarch && !_lkCaravan.HasComponent(e)
+                    && Near(_ws[fi], p, trade.waystationRadius))
                     speed *= 1f + trade.waystationSpeedPct / 100f;
 
                 if (cavalry && tech.Remounts
                     && clock.Calm >= Cfg.remountCalmSeconds && hp.Value < hp.Max)
                 {
                     hp.Value = math.min(hp.Max, hp.Value + math.max(1, (int)math.round(Cfg.remountHealPerSecond * step)));
-                    em.SetComponentData(e, hp);
+                    _lkHealth[e] = hp;
                 }
 
                 if (cavalry && tech.FeignedRetreat
                     && hp.Value < hp.Max * Cfg.feignedRetreatHpFraction)
                     speed *= Cfg.feignedRetreatSpeedMultiplier;
 
-                if (tech.ParthianShot && em.HasComponent<HorseArcherTag>(e) && !em.HasComponent<FiresOnMove>(e))
+                if (tech.ParthianShot && _lkHorseArcher.HasComponent(e) && !_lkFires.HasComponent(e))
                     addFires.Add(e);
 
-                if (tech.EscortDuty && em.HasComponent<UnitTypeId>(e)
-                    && em.GetComponentData<UnitTypeId>(e).Value == RoadWardenId
-                    && Near(cv, cvf, f, p, Cfg.escortDutyRadius))
+                if (tech.EscortDuty && _lkTypeId.TryGetComponent(e, out var tid)
+                    && tid.Value == RoadWardenId
+                    && Near(_cv[fi], p, Cfg.escortDutyRadius))
                     taken = Cfg.escortDutyDamageTaken;
 
-                if (tech.WagonLaager && em.HasComponent<WarWagonTag>(e)
+                if (tech.WagonLaager && _lkWagon.HasComponent(e)
                     && clock.Still >= Cfg.laagerStillSeconds)
                     armor = Cfg.laagerArmorBonus;
 
                 clock.LastHp = hp.Value;
-                em.SetComponentData(e, clock);
+                _lkClock[e] = clock;
 
                 if (speed == 1f && taken == 1f && armor == 0f) continue;
-                var b = TransientState.Active<SpellBuff>(em, e) ? em.GetComponentData<SpellBuff>(e) : default;
+                var b = TransientState.Active(ref _lkBuff, e) ? _lkBuff[e] : default;
                 if (speed != 1f) b.SpeedMultiplier = math.max(b.SpeedMultiplier, speed);
                 if (taken != 1f) b.DamageTakenMultiplier = b.DamageTakenMultiplier > 0f
                     ? math.min(b.DamageTakenMultiplier, taken) : taken;
                 if (armor != 0f) b.ArmorBonus = math.max(b.ArmorBonus, armor);
                 b.TimeRemaining = math.max(b.TimeRemaining, life);
-                TransientState.Set(em, e, b);
+                if (_lkBuff.HasComponent(e)) { _lkBuff[e] = b; _lkBuff.SetComponentEnabled(e, true); }
+                else _deferBuff.Add((e, b));
             }
+            for (int i = 0; i < _deferBuff.Count; i++) TransientState.Set(em, _deferBuff[i].e, _deferBuff[i].b);
+            _deferBuff.Clear();
             for (int i = 0; i < addFires.Length; i++) em.AddComponent<FiresOnMove>(addFires[i]);
             addFires.Dispose();
         }
 
-        private static bool Near(NativeArray<LocalTransform> at, NativeArray<FactionTag> facs, Faction f,
-                                 float3 p, float radius)
+        // ── per-pass state (2026-10-16 perf) ───────────────────────────
+        private ComponentLookup<Health> _lkHealth;
+        private ComponentLookup<RunaiUnitClock> _lkClock;
+        private ComponentLookup<LocalTransform> _lkXf;
+        private ComponentLookup<SpellBuff> _lkBuff;
+        private ComponentLookup<CavalryTag> _lkCavalry;
+        private ComponentLookup<CaravanTag> _lkCaravan;
+        private ComponentLookup<HorseArcherTag> _lkHorseArcher;
+        private ComponentLookup<FiresOnMove> _lkFires;
+        private ComponentLookup<UnitTypeId> _lkTypeId;
+        private ComponentLookup<WarWagonTag> _lkWagon;
+        private readonly System.Collections.Generic.List<(Entity e, SpellBuff b)> _deferBuff = new();
+
+        /// <summary>Waystation / caravan positions (XZ) per faction, filled
+        /// for the due factions of this pass only.</summary>
+        private readonly System.Collections.Generic.List<float2>[] _ws = NewLists();
+        private readonly System.Collections.Generic.List<float2>[] _cv = NewLists();
+
+        private static System.Collections.Generic.List<float2>[] NewLists()
+        {
+            var a = new System.Collections.Generic.List<float2>[Factions];
+            for (int i = 0; i < Factions; i++) a[i] = new System.Collections.Generic.List<float2>();
+            return a;
+        }
+
+        private void CollectSites(EntityManager em, uint due)
+        {
+            for (int i = 0; i < Factions; i++) { _ws[i].Clear(); _cv[i].Clear(); }
+            Fill(QC_Waystations.Get(em, QT_Waystations), _ws, due);
+            Fill(QC_Caravans.Get(em, QT_Caravans), _cv, due);
+        }
+
+        private static void Fill(EntityQuery q, System.Collections.Generic.List<float2>[] into, uint due)
+        {
+            if (q.IsEmptyIgnoreFilter) return;
+            using var at = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < at.Length; i++)
+            {
+                int fi = (int)facs[i].Value;
+                if (fi < 0 || fi >= Factions || (due & (1u << fi)) == 0) continue;
+                into[fi].Add(at[i].Position.xz);
+            }
+        }
+
+        private static bool Near(System.Collections.Generic.List<float2> at, float3 p, float radius)
         {
             float r2 = radius * radius;
-            for (int i = 0; i < at.Length; i++)
-                if (facs[i].Value == f && math.distancesq(at[i].Position.xz, p.xz) <= r2) return true;
+            for (int i = 0; i < at.Count; i++)
+                if (math.distancesq(at[i], p.xz) <= r2) return true;
             return false;
         }
     }

@@ -454,17 +454,13 @@ namespace TheWaningBorder.AI
                 foreach (var member in m.Members)
                     enrolled.Add(member);
             _guardIdle.Clear();
-            var q = QC_UnitTagFactionTagLocalTransform.Get(em, QT_UnitTagFactionTagLocalTransform);
-            using (var ents = q.ToEntityArray(Allocator.Temp))
-            using (var tags = q.ToComponentDataArray<UnitTag>(Allocator.Temp))
-            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            var roster = OwnCombatRoster(em, faction);
             {
-                for (int i = 0; i < ents.Length; i++)
+                for (int i = 0; i < roster.Count; i++)
                 {
-                    if (facs[i].Value != faction || !IsCombatClass(tags[i].Class)) continue;
-                    Entity e = ents[i];
-                    if (em.HasComponent<UnderConstruction>(e) || IsVerbUnit(em, e)) continue;
-                    if (IsClaimSquadMember(e) || em.HasComponent<NotControllableTag>(e)) continue;
+                    Entity e = roster.E[i];
+                    if (roster.UnderConstruction(i) || roster.Verb(i)) continue;
+                    if (IsClaimSquadMember(e) || roster.NoControl(i)) continue;
                     if (enrolled.Contains(e)) continue;
                     if (TransientState.Active<AttackCommand>(em, e)) continue;
                     if (TransientState.Active<UserMoveOrder>(em, e)) continue;

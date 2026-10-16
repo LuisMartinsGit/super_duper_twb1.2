@@ -45,30 +45,18 @@ namespace TheWaningBorder.Systems.Combat
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             float dt = SystemAPI.Time.DeltaTime;
 
+            // The per-entity passes below are Burst IJobEntity jobs Run() on
+            // the main thread (perf pass 2026-10-16): the same queries in the
+            // same chunk order as the managed foreach loops they replace, so
+            // every list comes out in the old order. Only the handful of
+            // entities a pass selects reach the managed code after it.
+
             // Phase 0a: Tick death animation timers and collect expired entities
-            var expiredEntities = new NativeList<Entity>(Allocator.Temp);
-            foreach (var (deathAnim, entity) in SystemAPI
-                         .Query<RefRW<DeathAnimationState>>()
-                         .WithEntityAccess())
-            {
-                deathAnim.ValueRW.Timer -= dt;
-                if (deathAnim.ValueRO.Timer <= 0f)
-                {
-                    expiredEntities.Add(entity);
-                }
-            }
+            var expiredEntities = new NativeList<Entity>(16, Allocator.TempJob);
+            new TickDeathAnimJob { Dt = dt, Expired = expiredEntities }.Run();
 
             // Phase 0b: Tick building collapse timers and collect expired buildings
-            foreach (var (collapse, entity) in SystemAPI
-                         .Query<RefRW<BuildingCollapseState>>()
-                         .WithEntityAccess())
-            {
-                collapse.ValueRW.Timer -= dt;
-                if (collapse.ValueRO.Timer <= 0f)
-                {
-                    expiredEntities.Add(entity);
-                }
-            }
+            new TickCollapseJob { Dt = dt, Expired = expiredEntities }.Run();
 
             for (int i = 0; i < expiredEntities.Length; i++)
                 ecb.DestroyEntity(expiredEntities[i]);
@@ -96,22 +84,21 @@ namespace TheWaningBorder.Systems.Combat
             // See FeraldisDeathInterceptor for why a separate
             // [UpdateBefore(DeathSystem)] system was not order-safe.
             var feraldisIntercept = new NativeList<Entity>(Allocator.Temp);
-            foreach (var (health, entity) in SystemAPI
-                         .Query<RefRO<Health>>()
-                         .WithNone<DeathAnimationState, BuildingCollapseState>()
-                         .WithNone<NodeDormant>()
-                         .WithEntityAccess())
+            // Every entity at 0 HP, in query order (Burst); the classification
+            // below walks them in that same order.
+            var atZero = new NativeList<Entity>(16, Allocator.TempJob);
+            new CollectZeroHealthJob { Out = atZero }.Run();
+            for (int zi = 0; zi < atZero.Length; zi++)
             {
-                if (health.ValueRO.Value <= 0)
-                {
-                    if (TransientState.Active<TheWaningBorder.Abilities.LifeCling>(state.EntityManager, entity))
-                        lifeClinged.Add(entity);
-                    else if (FeraldisDeathInterceptor.WantsIntercept(state.EntityManager, entity))
-                        feraldisIntercept.Add(entity);
-                    else
-                        deadEntities.Add(entity);
-                }
+                var entity = atZero[zi];
+                if (TransientState.Active<TheWaningBorder.Abilities.LifeCling>(state.EntityManager, entity))
+                    lifeClinged.Add(entity);
+                else if (FeraldisDeathInterceptor.WantsIntercept(state.EntityManager, entity))
+                    feraldisIntercept.Add(entity);
+                else
+                    deadEntities.Add(entity);
             }
+            atZero.Dispose();
             // Post-loop: Apply makes structural changes, so it must not run
             // inside the iteration above.
             for (int i = 0; i < feraldisIntercept.Length; i++)
@@ -133,7 +120,7 @@ namespace TheWaningBorder.Systems.Combat
             if (deadEntities.Length > 0)
             {
                 // Build O(1) lookup set from dead entities list
-                var deadSet = new NativeHashSet<Entity>(deadEntities.Length, Allocator.Temp);
+                var deadSet = new NativeHashSet<Entity>(deadEntities.Length, Allocator.TempJob);
                 for (int i = 0; i < deadEntities.Length; i++)
                     deadSet.Add(deadEntities[i]);
 
@@ -142,26 +129,17 @@ namespace TheWaningBorder.Systems.Combat
                 // on an entity this same buffer destroys earlier in playback (an
                 // expiring corpse that still holds a Target) and throws "entity
                 // does not exist", which aborts playback and corrupts the world.
-                foreach (var target in SystemAPI.Query<RefRW<Target>>())
-                {
-                    if (deadSet.Contains(target.ValueRO.Value))
-                        target.ValueRW.Value = Entity.Null;
-                }
+                new ClearDeadTargetsJob { Dead = deadSet }.Run();
 
                 // Phase 3: Clean up AttackCommand references pointing to dead
                 // entities. Corpses are excluded — phase 0 may have recorded
                 // their DestroyEntity into this same buffer, and a
                 // RemoveComponent after that destroy throws at playback.
-                foreach (var (attackCmd, entity) in SystemAPI
-                             .Query<RefRO<AttackCommand>>()
-                             .WithNone<DeathAnimationState, BuildingCollapseState>()
-                             .WithEntityAccess())
-                {
-                    if (deadSet.Contains(attackCmd.ValueRO.Target))
-                    {
-                        TransientState.Clear<AttackCommand>(state.EntityManager, ecb, entity);
-                    }
-                }
+                var staleCmds = new NativeList<Entity>(16, Allocator.TempJob);
+                new CollectDeadAttackCommandsJob { Dead = deadSet, Out = staleCmds }.Run();
+                for (int si = 0; si < staleCmds.Length; si++)
+                    TransientState.Clear<AttackCommand>(state.EntityManager, ecb, staleCmds[si]);
+                staleCmds.Dispose();
 
                 deadSet.Dispose();
 
@@ -301,6 +279,77 @@ namespace TheWaningBorder.Systems.Combat
             }
 
             deadEntities.Dispose();
+        }
+    }
+
+    // ── DeathSystem's per-entity passes (Burst, Run() on the main thread) ──
+
+    /// <summary>Phase 0a: tick every death animation; collect the expired.</summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal partial struct TickDeathAnimJob : IJobEntity
+    {
+        public float Dt;
+        public NativeList<Entity> Expired;
+
+        private void Execute(Entity entity, ref DeathAnimationState deathAnim)
+        {
+            deathAnim.Timer -= Dt;
+            if (deathAnim.Timer <= 0f) Expired.Add(entity);
+        }
+    }
+
+    /// <summary>Phase 0b: tick every building collapse; collect the expired.</summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal partial struct TickCollapseJob : IJobEntity
+    {
+        public float Dt;
+        public NativeList<Entity> Expired;
+
+        private void Execute(Entity entity, ref BuildingCollapseState collapse)
+        {
+            collapse.Timer -= Dt;
+            if (collapse.Timer <= 0f) Expired.Add(entity);
+        }
+    }
+
+    /// <summary>Phase 1: every living-state entity at 0 HP, in query order.</summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    [WithNone(typeof(DeathAnimationState), typeof(BuildingCollapseState), typeof(NodeDormant))]
+    internal partial struct CollectZeroHealthJob : IJobEntity
+    {
+        public NativeList<Entity> Out;
+
+        private void Execute(Entity entity, in Health health)
+        {
+            if (health.Value <= 0) Out.Add(entity);
+        }
+    }
+
+    /// <summary>Phase 2: drop every Target that points at a dead entity.
+    /// Written directly, never through the ECB (see the call site).</summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal partial struct ClearDeadTargetsJob : IJobEntity
+    {
+        [ReadOnly] public NativeHashSet<Entity> Dead;
+
+        private void Execute(ref Target target)
+        {
+            if (Dead.Contains(target.Value)) target.Value = Entity.Null;
+        }
+    }
+
+    /// <summary>Phase 3: the live (non-corpse) AttackCommands aimed at a dead
+    /// entity, in query order.</summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    [WithNone(typeof(DeathAnimationState), typeof(BuildingCollapseState))]
+    internal partial struct CollectDeadAttackCommandsJob : IJobEntity
+    {
+        [ReadOnly] public NativeHashSet<Entity> Dead;
+        public NativeList<Entity> Out;
+
+        private void Execute(Entity entity, in AttackCommand attackCmd)
+        {
+            if (Dead.Contains(attackCmd.Target)) Out.Add(entity);
         }
     }
 }

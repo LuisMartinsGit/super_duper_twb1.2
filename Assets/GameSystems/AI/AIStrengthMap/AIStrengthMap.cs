@@ -427,6 +427,37 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
+        /// Would <see cref="HostileUnitCandidates"/> return anything here?
+        /// The same snapshot, reach and hostility test, stopping at the first
+        /// hit and filling no list — the tactics micro's "is there anyone to
+        /// use this on at all" gate before its per-candidate live reads
+        /// (2026-10-16).
+        /// </summary>
+        public static bool AnyHostileUnitCandidate(EntityManager em, Faction faction,
+            float3 pos, float radius)
+        {
+            var s = EnsureReadable(em);
+            float reach = radius + math.max(0f, Cfg.candidateMargin);
+            float r2 = reach * reach;
+            s.Range(pos, reach, out int x0, out int z0, out int x1, out int z1);
+            for (int z = z0; z <= z1; z++)
+                for (int x = x0; x <= x1; x++)
+                {
+                    int c = z * s.W + x;
+                    for (int k = s.CellStart[c]; k < s.CellStart[c + 1]; k++)
+                    {
+                        ref readonly var r = ref s.Recs[s.CellItems[k]];
+                        if (r.Kind != KindUnit) continue;
+                        if (!Alliances.AreHostile(faction, r.F)) continue;
+                        float dx = r.X - pos.x, dz = r.Z - pos.z;
+                        if (dx * dx + dz * dz > r2) continue;
+                        return true;
+                    }
+                }
+            return false;
+        }
+
+        /// <summary>
         /// <see cref="HostileUnitCandidates"/> for the OTHER side: units of
         /// <paramref name="faction"/> and its allies. Candidates only, same
         /// margin and staleness — the caller re-reads live state. Used by the

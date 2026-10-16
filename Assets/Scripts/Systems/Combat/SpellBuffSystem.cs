@@ -1,6 +1,7 @@
 // SpellBuffSystem.cs
 // Ticks SpellBuff, SpellDebuff, and Invulnerable timers, removing expired components
 
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 
@@ -15,8 +16,12 @@ namespace TheWaningBorder.Systems.Combat
     /// - SpellDebuff: speed reduction, supplies drain
     /// - Invulnerable: building invulnerability
     ///
-    /// NOTE: Not BurstCompiled because it uses structural changes (remove component).
+    /// Burst-compiled (perf pass 2026-10-16): the old note said it could not
+    /// be because it removed components — it has not done that since the
+    /// TransientState pre-add (an expiry is an ECB enable-bit flip), and every
+    /// call it makes is Burst-safe. Same loops, same order, same results.
     /// </summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct SpellBuffSystem : ISystem
     {
@@ -25,6 +30,7 @@ namespace TheWaningBorder.Systems.Combat
             state.RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
         }
 
+        [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnUpdate(ref SystemState state)
         {
             float dt = SystemAPI.Time.DeltaTime;

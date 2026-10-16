@@ -10,16 +10,25 @@ namespace TheWaningBorder.Systems.Training
     ///
     /// Max  = sum of PopulationProvider.Amount from completed buildings (no UnderConstruction)
     /// Current = sum of PopulationCost.Amount from all living units
+    ///
+    /// PERF (2026-10-16): Burst-compiled. Everything here was already
+    /// Burst-safe (unmanaged components, a NativeHashMap, HasComponent), but
+    /// the class carried no [BurstCompile], so two managed loops summed every
+    /// building and every unit on every tick. Integer sums in the same order:
+    /// result-identical.
     /// </summary>
+    [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(TrainingSystem))]
     public partial struct PopulationSyncSystem : ISystem
     {
+        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<FactionPopulation>();
         }
 
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;

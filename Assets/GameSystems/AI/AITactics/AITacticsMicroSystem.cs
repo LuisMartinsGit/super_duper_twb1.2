@@ -94,9 +94,38 @@ namespace TheWaningBorder.AI
         private readonly Dictionary<(int, string), float4> _recentArea = new Dictionary<(int, string), float4>();
         private double _now;
 
+        // ── Time-sliced passes (2026-10-16 perf) ─────────────────────────
+        // The micro measured ~5 ms per frame late game: with eight factions
+        // phase-staggered over a 0.3 s window SOME faction was due on every
+        // sim tick (three a frame), and each pass walked every shooter and
+        // read a full context (two spatial scans plus a live read per
+        // candidate) for every caster with a card off cooldown — every Runai
+        // Worker carries The Call. Now: at most one slice per rendered frame,
+        // bounded by microFrameBudgetMs; a pass that runs out keeps its
+        // cursor and its due factions and resumes next frame; and a caster
+        // with nobody hostile in reach skips the context read entirely.
+        private int _lastFrame = -1;
+        private bool _kitePass, _abilityPass;
+        private int _kiteCursor, _unitCursor, _sectCursor;
+        private long _sliceStart;
+        private int _sliceWork;
+
         protected override void OnUpdate()
         {
             if (!GameSettings.ShouldRunAIBrains()) return;
+            // One slice per RENDERED frame: lockstep catch-up ticks inside a
+            // frame would only repeat the same reads (host-only, so wall
+            // clock and frame count are safe here).
+            int frame = UnityEngine.Time.frameCount;
+            if (frame == _lastFrame) return;
+            _lastFrame = frame;
+            AIFrameBudget.Enter();
+            try { Tick(); }
+            finally { AIFrameBudget.Exit(); }
+        }
+
+        private void Tick()
+        {
             var em = EntityManager;
             double now = AITactics.Now(em);
             _now = now;
@@ -111,6 +140,7 @@ namespace TheWaningBorder.AI
                 _recentArea.Clear();
                 _heldNext.Clear();
                 _sectHeldNext.Clear();
+                _kitePass = _abilityPass = false;
                 for (int f = 0; f < MaxF; f++)
                 {
                     _nextKite[f] = now + Cfg.microInterval * f / MaxF;
@@ -118,27 +148,63 @@ namespace TheWaningBorder.AI
                 }
             }
 
-            bool anyKite = false, anyAbility = false;
-            for (int f = 0; f < MaxF; f++)
+            // A pass in progress keeps its due factions; timers are read
+            // only between passes (a faction due meanwhile joins the next).
+            if (!_kitePass)
             {
-                _kiteDue[f] = false; _abilityDue[f] = false;
-                bool kiteTime = now >= _nextKite[f];
-                bool abilityTime = now >= _nextAbility[f];
-                if (!kiteTime && !abilityTime) continue;
-                if (kiteTime) _nextKite[f] = now + Cfg.microInterval;
-                if (abilityTime) _nextAbility[f] = now + Cfg.abilityInterval;
-                if (!AITactics.TryGetSkill(em, (Faction)f, out var skill)) continue;
-                _skills[f] = skill;
-                if (kiteTime && skill.kiting) { _kiteDue[f] = true; anyKite = true; }
-                if (abilityTime && skill.castUnitAbilities) { _abilityDue[f] = true; anyAbility = true; }
+                bool anyKite = false;
+                for (int f = 0; f < MaxF; f++)
+                {
+                    _kiteDue[f] = false;
+                    if (now < _nextKite[f]) continue;
+                    _nextKite[f] = now + Cfg.microInterval;
+                    if (!AITactics.TryGetSkill(em, (Faction)f, out var skill)) continue;
+                    _skills[f] = skill;
+                    if (skill.kiting) { _kiteDue[f] = true; anyKite = true; }
+                }
+                if (anyKite)
+                {
+                    _kitePass = true;
+                    _kiteCursor = 0;
+                    System.Array.Clear(_issued, 0, MaxF);
+                }
+            }
+            if (!_abilityPass)
+            {
+                bool anyAbility = false;
+                for (int f = 0; f < MaxF; f++)
+                {
+                    _abilityDue[f] = false;
+                    if (now < _nextAbility[f]) continue;
+                    _nextAbility[f] = now + Cfg.abilityInterval;
+                    if (!AITactics.TryGetSkill(em, (Faction)f, out var skill)) continue;
+                    _skills[f] = skill;
+                    if (skill.castUnitAbilities) { _abilityDue[f] = true; anyAbility = true; }
+                }
+                if (anyAbility)
+                {
+                    _abilityPass = true;
+                    _unitCursor = 0;
+                    _sectCursor = 0;
+                    for (int f = 0; f < MaxF; f++) _callable[f] = -1;
+                }
             }
 
-            if (anyKite) TickKiting(em, now);
-            if (anyAbility)
-            {
-                TickUnitAbilities(em);
-                TickSectUnitAbilities(em);
-            }
+            _sliceStart = System.Diagnostics.Stopwatch.GetTimestamp();
+            _sliceWork = 0;
+            if (_kitePass && TickKiting(em, now)) _kitePass = false;
+            if (_abilityPass && TickUnitAbilities(em) && TickSectUnitAbilities(em)) _abilityPass = false;
+        }
+
+        /// <summary>Count one unit's full evaluation; true once this frame's
+        /// slice is spent (never before microMinUnitsPerFrame units).</summary>
+        private bool SliceSpent()
+        {
+            _sliceWork++;
+            if (_sliceWork <= Cfg.microMinUnitsPerFrame || (_sliceWork & 7) != 0) return false;
+            double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - _sliceStart) * 1000.0
+                        / System.Diagnostics.Stopwatch.Frequency;
+            return ms >= Cfg.microFrameBudgetMs;
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -153,7 +219,9 @@ namespace TheWaningBorder.AI
         /// by kiteMaxDrift from where it started kiting in this fight, so the
         /// stance leash and the army's cohesion still own the big picture.
         /// </summary>
-        private void TickKiting(EntityManager em, double now)
+        /// <summary>One slice of the kiting pass; true when the pass is done
+        /// (false = out of time, resumes at <see cref="_kiteCursor"/>).</summary>
+        private bool TickKiting(EntityManager em, double now)
         {
             var q = QC_Shooters.Get(em, QT_Shooters);
             using var ents = q.ToEntityArray(Allocator.Temp);
@@ -165,9 +233,11 @@ namespace TheWaningBorder.AI
             using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
             using var archers = q.ToComponentDataArray<ArcherState>(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            System.Array.Clear(_issued, 0, MaxF);
 
-            for (int i = 0; i < ents.Length; i++)
+            // Resumed by index: the query order can shift between frames, so
+            // a resumed pass may skip or revisit a few shooters — harmless
+            // for a host-side heuristic that runs again in microInterval.
+            for (int i = _kiteCursor; i < ents.Length; i++)
             {
                 int fi = (int)facs[i].Value;
                 if (fi < 0 || fi >= MaxF || !_kiteDue[fi]) continue;
@@ -183,7 +253,13 @@ namespace TheWaningBorder.AI
                 if (TransientState.Active<AbilityCastState>(em, e) || em.HasComponent<Launched>(e)) continue;
                 if (AITactics.IsKiting(em, e)) continue;
 
+                if (SliceSpent()) { _kiteCursor = i; return false; }
+
                 float3 myPos = xfs[i].Position;
+                var faction0 = facs[i].Value;
+                // Nobody hostile in the trigger band at all (snapshot): no
+                // per-candidate live reads.
+                if (!AIStrengthMap.AnyHostileUnitCandidate(em, faction0, myPos, Cfg.kiteTriggerDistance)) continue;
                 float myRadius = AITactics.RadiusOf(em, e);
                 var faction = facs[i].Value;
 
@@ -234,6 +310,7 @@ namespace TheWaningBorder.AI
                     AILogger.Log((Faction)f, "TACTICS",
                         $"kite {n} units (last {Cfg.logIntervalSeconds:F0}s)");
             }
+            return true;
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -356,7 +433,9 @@ namespace TheWaningBorder.AI
             return _callable[fi];
         }
 
-        private void TickUnitAbilities(EntityManager em)
+        /// <summary>One slice of the ability pass; true when done (false =
+        /// out of time, resumes at <see cref="_unitCursor"/>).</summary>
+        private bool TickUnitAbilities(EntityManager em)
         {
             var q = QC_Casters.Get(em, QT_Casters);
             using var ents = q.ToEntityArray(Allocator.Temp);
@@ -364,9 +443,9 @@ namespace TheWaningBorder.AI
             // Bulk Health, and the cheap host-side tests first (2026-10-15
             // perf) — AND-joined, side-effect-free filters: same answers.
             using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
-            for (int f = 0; f < MaxF; f++) _callable[f] = -1;
+            // (_callable is reset when the pass starts, not per slice.)
 
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = _unitCursor; i < ents.Length; i++)
             {
                 int fi = (int)facs[i].Value;
                 if (fi < 0 || fi >= MaxF || !_abilityDue[fi]) continue;
@@ -379,10 +458,12 @@ namespace TheWaningBorder.AI
 
                 int nSlots = AbilityQuery.ActiveSlots(em, e, _slots);
                 if (nSlots == 0) continue;
+                if (SliceSpent()) { _unitCursor = i; return false; }
 
                 var faction = facs[i].Value;
                 ref readonly var skill = ref _skills[fi];
                 bool haveCtx = false, havePos = false;
+                int hostileNear = -1;   // -1 unknown, 0 none in reach, 1 some
                 Ctx ctx = default;
                 float3 pos = default;
                 var abil = em.GetComponentData<UnitAbilities>(e);
@@ -402,6 +483,21 @@ namespace TheWaningBorder.AI
                     {
                         LogHeld(fi, faction, card.Name, "another cast already covers this ground");
                         continue;
+                    }
+                    // Every rule but the heal needs an enemy in the scan
+                    // (in combat, or caught inside the card's reach), and the
+                    // scan's candidates come from the same snapshot this
+                    // asks: none there = Hold, without the context read.
+                    if (kind != CardKind.Hospital)
+                    {
+                        if (hostileNear < 0)
+                            hostileNear = AIStrengthMap.AnyHostileUnitCandidate(em, faction, pos,
+                                Cfg.abilityScanRadius) ? 1 : 0;
+                        if (hostileNear == 0)
+                        {
+                            if (HeldLogDue(fi, card.Name)) LogHeld(fi, faction, card.Name, "no enemy in reach");
+                            continue;
+                        }
                     }
                     if (!haveCtx) { ctx = ReadContext(em, e, faction); haveCtx = true; }
 
@@ -427,6 +523,7 @@ namespace TheWaningBorder.AI
                     }
                 }
             }
+            return true;
         }
 
         private enum Verdict : byte { Ignore, Hold, Cast }
@@ -648,13 +745,15 @@ namespace TheWaningBorder.AI
         // SECT-UNIT ACTIVES (legacy UnitAbility, UnitAbilitySystem)
         // ─────────────────────────────────────────────────────────────────
 
-        private void TickSectUnitAbilities(EntityManager em)
+        /// <summary>One slice of the sect-unit pass; true when done (false =
+        /// out of time, resumes at <see cref="_sectCursor"/>).</summary>
+        private bool TickSectUnitAbilities(EntityManager em)
         {
             var q = QC_SectCasters.Get(em, QT_SectCasters);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
 
-            for (int i = 0; i < ents.Length; i++)
+            for (int i = _sectCursor; i < ents.Length; i++)
             {
                 int fi = (int)facs[i].Value;
                 if (fi < 0 || fi >= MaxF || !_abilityDue[fi]) continue;
@@ -664,8 +763,19 @@ namespace TheWaningBorder.AI
                 var ab = em.GetComponentData<UnitAbility>(e);
                 if (ab.Id == AbilityId.None || ab.CooldownRemaining > 0f) continue;
                 if (CastPending(e)) continue;
+                if (SliceSpent()) { _sectCursor = i; return false; }
 
                 var faction = facs[i].Value;
+                // Every rule but Condemn (which reads only the unit's own
+                // target) needs an enemy among the scan's candidates — none
+                // in the snapshot = hold, without the context read.
+                if (ab.Id != AbilityId.Condemn
+                    && !AIStrengthMap.AnyHostileUnitCandidate(em, faction,
+                        em.GetComponentData<LocalTransform>(e).Position, Cfg.abilityScanRadius))
+                {
+                    if (SectHeldLogDue(fi, ab.Id)) LogSectHeld(fi, faction, ab.Id, "not in combat");
+                    continue;
+                }
                 ref readonly var skill = ref _skills[fi];
                 var ctx = ReadContext(em, e, faction);
                 int aoeMin = math.max(1, skill.aoeMinEnemies);
@@ -745,6 +855,7 @@ namespace TheWaningBorder.AI
                 AILogger.Log(faction, "ABILITY",
                     $"{ab.Id} cast ({caught} enemies, {AITactics.IdOf(em, e)} at {ctx.HpFrac * 100f:F0}% hp)");
             }
+            return true;
         }
 
         private static float HpFrac(EntityManager em, Entity e)

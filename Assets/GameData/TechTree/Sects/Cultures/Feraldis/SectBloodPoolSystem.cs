@@ -31,6 +31,7 @@
 // largest radius, so a unit tests only the pools in its 3x3 cells. The
 // answer is an any() test, so the result is identical to the full scan.
 
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -44,6 +45,68 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateBefore(typeof(DeathSystem))]
     public partial struct SectBloodPoolSystem : ISystem
     {
+        /// <summary>Units at or below 0 HP not yet handed to the death
+        /// animation, in chunk order (the old foreach's rows).</summary>
+        [BurstCompile]
+        [WithAll(typeof(UnitTag))]
+        [WithNone(typeof(DeathAnimationState))]
+        private partial struct DyingScanJob : IJobEntity
+        {
+            public NativeList<float3> Positions;
+
+            void Execute(in Health health, in LocalTransform transform)
+            {
+                if (health.Value > 0) return;
+                Positions.Add(transform.Position);
+            }
+        }
+
+        [BurstCompile]
+        [WithAll(typeof(UnitTag))]
+        private partial struct SweepJob : IJobEntity
+        {
+            [ReadOnly] public NativeArray<bool> Gate;
+            [ReadOnly] public NativeArray<float3> PoolPositions;
+            [ReadOnly] public NativeArray<float> PoolRadii;
+            [ReadOnly] public NativeParallelMultiHashMap<int, int> Buckets;
+            public float InvCell;
+            [ReadOnly] public ComponentLookup<InBloodPool> InPool;
+            public NativeList<Entity> ToStamp;
+            public NativeList<Entity> ToClear;
+
+            void Execute(Entity entity, in FactionTag faction, in LocalTransform transform)
+            {
+                bool gated = (byte)faction.Value < FactionCount && Gate[(byte)faction.Value];
+                bool inAnyPool = false;
+                if (gated && PoolPositions.Length > 0)
+                {
+                    var p = transform.Position;
+                    int cx = (int)math.floor(p.x * InvCell);
+                    int cz = (int)math.floor(p.z * InvCell);
+                    for (int oz = -1; oz <= 1 && !inAnyPool; oz++)
+                    for (int ox = -1; ox <= 1 && !inAnyPool; ox++)
+                    {
+                        if (!Buckets.TryGetFirstValue(CellKey(cx + ox, cz + oz), out int i, out var it))
+                            continue;
+                        do
+                        {
+                            float dx = p.x - PoolPositions[i].x;
+                            float dz = p.z - PoolPositions[i].z;
+                            if (dx * dx + dz * dz <= PoolRadii[i] * PoolRadii[i])
+                            {
+                                inAnyPool = true;
+                                break;
+                            }
+                        } while (Buckets.TryGetNextValue(out i, ref it));
+                    }
+                }
+
+                bool stamped = InPool.HasComponent(entity);
+                if (inAnyPool && !stamped) ToStamp.Add(entity);
+                else if (!inAnyPool && stamped) ToClear.Add(entity);
+            }
+        }
+
         private const float PoolRadius   = 2.5f;
         private const float PoolDuration = 10f;
         // Faction enum is byte (0..7). We size cache arrays accordingly.
@@ -86,14 +149,7 @@ namespace TheWaningBorder.Systems.Sect
             if (anyFeraldisAge2Plus)
             {
                 var spawnPositions = new NativeList<float3>(Allocator.Temp);
-                foreach (var (health, transform) in SystemAPI
-                    .Query<RefRO<Health>, RefRO<LocalTransform>>()
-                    .WithAll<UnitTag>()
-                    .WithNone<DeathAnimationState>())
-                {
-                    if (health.ValueRO.Value > 0) continue;
-                    spawnPositions.Add(transform.ValueRO.Position);
-                }
+                new DyingScanJob { Positions = spawnPositions }.Run();
                 for (int i = 0; i < spawnPositions.Length; i++)
                 {
                     var pool = em.CreateEntity(
@@ -160,41 +216,22 @@ namespace TheWaningBorder.Systems.Sect
                                         (int)math.floor(poolPositions[i].z * invCell)), i);
 
                 _inPool.Update(ref state);
-                foreach (var (faction, transform, entity) in SystemAPI
-                    .Query<RefRO<FactionTag>, RefRO<LocalTransform>>()
-                    .WithAll<UnitTag>()
-                    .WithEntityAccess())
+                // Burst (2026-10-16): the same per-unit test, in the same
+                // chunk order, compiled - it was a managed loop over every
+                // unit on every tick a pool was down. Result-identical: an
+                // any() test over the same pools, lists filled in the same
+                // order.
+                new SweepJob
                 {
-                    bool gated = (byte)faction.ValueRO.Value < FactionCount
-                              && feraldisAge2Plus[(byte)faction.ValueRO.Value];
-                    bool inAnyPool = false;
-                    if (gated && poolPositions.Length > 0)
-                    {
-                        var p = transform.ValueRO.Position;
-                        int cx = (int)math.floor(p.x * invCell);
-                        int cz = (int)math.floor(p.z * invCell);
-                        for (int oz = -1; oz <= 1 && !inAnyPool; oz++)
-                        for (int ox = -1; ox <= 1 && !inAnyPool; ox++)
-                        {
-                            if (!buckets.TryGetFirstValue(CellKey(cx + ox, cz + oz), out int i, out var it))
-                                continue;
-                            do
-                            {
-                                float dx = p.x - poolPositions[i].x;
-                                float dz = p.z - poolPositions[i].z;
-                                if (dx * dx + dz * dz <= poolRadii[i] * poolRadii[i])
-                                {
-                                    inAnyPool = true;
-                                    break;
-                                }
-                            } while (buckets.TryGetNextValue(out i, ref it));
-                        }
-                    }
-
-                    bool stamped = _inPool.HasComponent(entity);
-                    if (inAnyPool && !stamped) toStamp.Add(entity);
-                    else if (!inAnyPool && stamped) toClear.Add(entity);
-                }
+                    Gate = feraldisAge2Plus,
+                    PoolPositions = poolPositions.AsArray(),
+                    PoolRadii = poolRadii.AsArray(),
+                    Buckets = buckets,
+                    InvCell = invCell,
+                    InPool = _inPool,
+                    ToStamp = toStamp,
+                    ToClear = toClear,
+                }.Run();
                 buckets.Dispose();
             }
 

@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   microInterval: 0.3
   abilityInterval: 0.5
+  microFrameBudgetMs: 1
+  microMinUnitsPerFrame: 16
   kiteTriggerDistance: 4
   kiteStepDistance: 4.5
   kiteMinReloadSeconds: 0.35
