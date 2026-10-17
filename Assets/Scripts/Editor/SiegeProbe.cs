@@ -293,6 +293,43 @@ namespace TheWaningBorder.EditorTools
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 
+        /// <summary>Fiendstone Pass test (2026-10-17): six Hard AIs, fog off,
+        /// so the climb out of the starts and the fight over the ramps can be
+        /// watched from anywhere.</summary>
+        [MenuItem("Waning Border/Debug/Launch Fiendstone Pass Test (6 AI, no fog)")]
+        public static void LaunchFiendstoneTest()
+        {
+            if (!EditorApplication.isPlaying)
+            {
+                Debug.LogWarning("[FiendstoneTest] enter play mode (any scene) first");
+                return;
+            }
+            GameSettings.IsMultiplayer = false;
+            GameSettings.NetworkRole = NetworkRole.None;
+            GameSettings.Mode = GameMode.FreeForAll;
+            GameSettings.TotalPlayers = 6;
+            LobbyConfig.SetupSinglePlayer(6);
+            for (int i = 0; i < 6; i++)
+            {
+                var slot = LobbyConfig.Slots[i];
+                slot.Type = SlotType.AI;
+                slot.AIDifficulty = LobbyAIDifficulty.Hard;
+                slot.TeamIndex = Alliances.NoTeam;
+                slot.StartIndex = PlayerSlot.AutoStart;
+            }
+            GameSettings.SelectedMapScene = "FiendstonePass";
+            GameSettings.SpawnSeed = 20261017;
+            GameSettings.FogOfWarEnabled = false;
+            GameSettings.BorderEnabled = true;
+            GameSettings.StartingResources = StartingResourcesLevel.High;
+            GameSettings.IsObserver = false;
+            GameSettings.LocalPlayerFaction = Faction.Blue;
+            GameSettings.TutorialActive = false;
+            LobbyConfig.ApplyColorSelections();
+            Debug.Log("[FiendstoneTest] launching Fiendstone Pass, 6 AI, seed " + GameSettings.SpawnSeed);
+            LoadingScreen.Show(GameSettings.SelectedMapScene);
+        }
+
         // ── FFA watch ──────────────────────────────────────────────────────
         // Runs until the simulation decides a winner. One table per interval
         // into FFA.log beside the match logs: what each faction holds, what it

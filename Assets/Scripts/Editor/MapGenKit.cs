@@ -599,7 +599,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 // Quantise to the containing build cell's centre.
                 int cellX = Mathf.FloorToInt(rawX / GridCellSize);
                 int cellZ = Mathf.FloorToInt(rawZ / GridCellSize);
-                if (!occupiedCells.Add((cellX, cellZ))) continue;   // one per cell
+                if (occupiedCells.Contains((cellX, cellZ))) continue;   // one per cell
 
                 float wx = cellX * GridCellSize + GridCellSize * 0.5f;
                 float wz = cellZ * GridCellSize + GridCellSize * 0.5f;
@@ -609,6 +609,11 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 // objective the spec means to keep clear.
                 if (wx < -half || wx > half || wz < -half || wz > half) continue;
                 if (spec.CanPlant != null && !spec.CanPlant(wx, wz)) continue;
+                // Only a cell that really gets a prop is occupied (2026-10-17):
+                // it used to be claimed BEFORE the plant test, so every rejected
+                // attempt still had NoWalk painted under it — on a map with a
+                // narrow CanPlant, random walls over much of the field.
+                occupiedCells.Add((cellX, cellZ));
 
                 Sample(data, spec.Size, wx, wz, out float steep, out float height);
 

@@ -33,10 +33,18 @@ same way and drawn the same way, distinguished only by a **kind** tag:
 |---|---|---|---|
 | **Normal** | yes | yes | randomized resource nodes |
 | **PlayerStart** | yes | yes | a richer node set — the opening economy |
-| **Forest** | **no** | **no** | trees planted solid to the region SHAPE — an obstacle territory that is wooded (2026-10-06; was claimable and passable) |
+| ~~**Forest**~~ | **no** | **no** | ~~trees planted solid to the region SHAPE — an obstacle territory that is wooded (2026-10-06; was claimable and passable)~~ **Superseded 2026-10-16, see below** — kept only so older maps load |
 | **Water** | no | no | terrain excavated to the region shape |
 | **Mountain** | no | no | terrain raised, then a noise / erosion pass; trees scattered sparsely on its lower slopes (2026-10-06) |
 | **Obstacle** | no | no | nothing generated; it simply blocks |
+
+**Forests are not territories (2026-10-16).** A forest is a patch of trees on
+walkable ground, sitting *inside* a territory or *across* the border between
+two. It is impassable and unclaimable (nothing walks or builds there), but it
+is never a region: it has no outline in the region list, does not change any
+territory's outline, and is not counted, owned or named. On the map it is
+terrain trees plus NoWalk paint (MapGenKit). New maps do not use the Forest
+region kind; the first is [Fiendstone Pass](Maps/Fiendstone_Pass.md).
 
 **The authoring direction is inverted.** Claimability and passability used to be
 INFERRED from terrain height — `RegionMap.IsClaimable` read the heightmap and

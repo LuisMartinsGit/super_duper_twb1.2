@@ -118,6 +118,9 @@ namespace TheWaningBorder.Core.Maps
             "MirrorMarches",   // 4P, 512 m, mirrored on both axes: corner
                                // homes, square territories, curse in the
                                // centre four — the fair test map (2026-10-05)
+            "FiendstonePass",  // 6P, 1024 m, cliff shelves over a river with
+                               // three fords; ramps are the chokes, 14 rich
+                               // pockets (2026-10-16)
         };
 
         /// <summary>

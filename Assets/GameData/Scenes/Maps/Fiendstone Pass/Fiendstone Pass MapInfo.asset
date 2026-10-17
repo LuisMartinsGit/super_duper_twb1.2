@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d2f9c81a6e34b0f8d1c5a7e2b9f6034, type: 3}
+  m_Name: Fiendstone Pass MapInfo
+  m_EditorClassIdentifier: 
+  SceneName: FiendstonePass
+  DisplayName: Fiendstone Pass
+  PlayerCount: 6
+  SizeTag: OPEN
+  Description: 
+  Thumbnail: {fileID: 2800000, guid: 7f800880169ff7d439f1004fafac7237, type: 3}
+  PlayerStarts:
+  - {x: 0.10253906, y: 0.90722656}
+  - {x: 0.54785156, y: 0.890625}
+  - {x: 0.84765625, y: 0.9248047}
+  - {x: 0.89746094, y: 0.09277344}
+  - {x: 0.45214844, y: 0.109375}
+  - {x: 0.15234375, y: 0.07519531}
+  PlayerStartFactions: 000102030405
+  PlayerStartTeams: 
+  IronDeposits: []
+  VeilstoneNodes: []
+  VeilsteelNodes: []
+  CurseNodes: []
+  SupplyNodes: []
+  RegionStamp: 45FDDE309B0D13C1

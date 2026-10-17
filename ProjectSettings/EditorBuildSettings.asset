@@ -146,6 +146,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/GameData/Scenes/Maps/Mirror Marches/MirrorMarches.unity
     guid: 450d128ae423e0b418998def2e2eb84d
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Fiendstone Pass/FiendstonePass.unity
+    guid: de45e0955a0aa2b4dad1d71d43166362
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
