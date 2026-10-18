@@ -43,9 +43,11 @@ namespace TheWaningBorder.Core.Config
             public int Fullscreen = -1;           // -1 = leave whatever the player has
             public float MasterVolume = 100f;
             public float MusicVolume = 50f;
-            /// <summary>Simulation rate. 0.75 by default — the pace the
-            /// game was found to read best at.</summary>
-            public float GameSpeed = 0.75f;
+            /// <summary>Simulation rate. 1.0 by default (2026-10-16): game
+            /// time is real time, and single-player runs at the same pace as
+            /// multiplayer (which is always 1.0). It was 0.75, which ran every
+            /// skirmish a third slower than the clock on the wall.</summary>
+            public float GameSpeed = 1f;
 
             /// <summary>Whose floating health bars are drawn unprompted.
             /// Stored as the HealthBarMode ordinal; Smart (3) by default.</summary>
@@ -225,6 +227,13 @@ namespace TheWaningBorder.Core.Config
                     // on the strength of a field they never had.
                     if (raw.IndexOf("NameConfirmed", StringComparison.Ordinal) < 0)
                         _data.NameConfirmed = true;
+
+                    // The old 0.75 default was saved into every settings file,
+                    // and no menu ever let a player choose a speed — so a
+                    // stored 0.75 is that default, not a choice. Move it to
+                    // the new default (2026-10-16).
+                    if (Mathf.Approximately(_data.GameSpeed, 0.75f))
+                        _data.GameSpeed = 1f;
                 }
                 catch (Exception e)
                 {

@@ -94,11 +94,18 @@ namespace TheWaningBorder.AI
                 var mission = missions[m];
                 if (mission.Members.Count == 0) continue;
 
-                // Staging armies are still forming up. Interrupting that with
-                // target orders is what forward staging exists to prevent —
-                // the army would trickle into the fight instead of arriving.
-                if (mission.Phase == MissionPhase.Staging
-                    || mission.Phase == MissionPhase.Mustering) continue;
+                // A MARCHING ARMY DEFENDS ITSELF (2026-10-17). Mustering and
+                // staging armies used to be skipped here, so they could form up
+                // without being pulled into skirmishes. But they march under a
+                // formation MOVE, which turns auto-acquire off, so an army on
+                // its way to the stage point walked past a standing enemy army
+                // that picked it off from the rear, and never turned to fight.
+                // Now they run the same contact test as a striking army; out of
+                // contact this layer still does nothing, so the march is
+                // untouched until something hostile is actually in reach, and
+                // when the fight ends the army resumes ITS leg (see below).
+                bool marching = mission.Phase == MissionPhase.Staging
+                                || mission.Phase == MissionPhase.Mustering;
 
                 if (now < mission.NextTacticsTime) continue;
                 mission.NextTacticsTime = now + Cfg.tacticsInterval;
@@ -126,6 +133,10 @@ namespace TheWaningBorder.AI
                 // Hysteresis: engage on a target within FocusRadius, stay
                 // engaged while one is within the wider ContactRadius.
                 float reach = mission.Engaged ? Cfg.contactRadius : Cfg.focusRadius;
+                // A long column is attacked at its TAIL first: measure contact
+                // from the centre out to the army's own spread, so an enemy on
+                // the rear rank counts as contact, not just one at the centroid.
+                reach += math.min(ArmySpread(em, mission, centroid), Cfg.contactRadius * 2f);
                 var focus = AIEngagement.PickPriorityTarget(em, faction, centroid, reach);
 
                 if (focus == Entity.Null)
@@ -139,12 +150,50 @@ namespace TheWaningBorder.AI
                         mission.Engaged = false;
                         mission.Focus = Entity.Null;
                         EndFlank(mission);
-                        March(em, faction, mission, mission.TargetPos, true, centroid);
+                        // Resume THIS army's leg: a mustering army goes back to
+                        // its muster point, a staging one on to its stage point
+                        // (a move: the strike still waits for the whole army),
+                        // a striking one onto the objective.
+                        float3 resume = mission.Phase == MissionPhase.Mustering ? mission.MusterPos
+                                      : mission.Phase == MissionPhase.Staging ? mission.StagePos
+                                      : mission.TargetPos;
+                        if (mission.Phase == MissionPhase.Mustering)
+                            CommandRouter.IssueFormationMove(em, mission.Members, resume, FormationShape.Box, CommandSource.AI);
+                        else
+                            March(em, faction, mission, resume, !marching, centroid);
                         AILogger.Log(faction, "TACTICS",
                             $"army disengaged ({mission.Members.Count} left), " +
-                            $"resuming march on ({mission.TargetPos.x:F0},{mission.TargetPos.z:F0})");
+                            $"resuming {(marching ? mission.Phase.ToString().ToLowerInvariant() : "march")} on ({resume.x:F0},{resume.z:F0})");
                     }
                     continue;
+                }
+
+                // ── IS IT WORTH A FIGHT? (2026-10-17) ──
+                // A scout walking ahead of an army must not be able to kite
+                // the whole army off its objective. An army that is not
+                // already fighting engages only when the hostile strength in
+                // reach is at least engageMinThreatFraction of its own (live
+                // strength, the same measure as the fall-back odds); below
+                // that it keeps its march. A body of armed scouts adds up and
+                // is fought.
+                if (!mission.Engaged && Cfg.engageMinThreatFraction > 0f)
+                {
+                    AITactics.LivePowerAround(em, faction, centroid, reach, _tacticsScratch,
+                        out int threat, out _, out _, out int threatCount);
+                    int own = 0;
+                    for (int i = 0; i < mission.Members.Count; i++)
+                        own += AITactics.LiveStrength(em, mission.Members[i]);
+                    if (threat < own * Cfg.engageMinThreatFraction)
+                    {
+                        if (now >= mission.IgnoreLogAt)
+                        {
+                            mission.IgnoreLogAt = now + 30f;
+                            AILogger.Log(faction, "TACTICS",
+                                $"ignoring {threatCount} hostile(s) in reach (power {threat} vs {own}) — " +
+                                "not worth leaving the march for");
+                        }
+                        continue;
+                    }
                 }
 
                 // ── COHESION. ──
@@ -246,6 +295,21 @@ namespace TheWaningBorder.AI
             new System.Collections.Generic.List<Entity>(16);
         private readonly System.Collections.Generic.List<Entity> _tacticsScratch =
             new System.Collections.Generic.List<Entity>(64);
+
+        /// <summary>Distance from the centre to the farthest living member.</summary>
+        private static float ArmySpread(EntityManager em, Mission mission, float3 centroid)
+        {
+            float best = 0f;
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (!em.HasComponent<LocalTransform>(u)) continue;
+                float3 p = em.GetComponentData<LocalTransform>(u).Position;
+                float d = math.distance(p.xz, centroid.xz);
+                if (d > best) best = d;
+            }
+            return best;
+        }
 
         /// <summary>Mean position of a mission's living members.</summary>
         private static float3 ArmyCentroid(EntityManager em, Mission mission, out int counted)

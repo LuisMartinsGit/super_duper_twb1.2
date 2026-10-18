@@ -74,6 +74,8 @@ namespace TheWaningBorder.UI.Ingame
             public Sprite religionRing;
             public Sprite claimBarFrame;
             public Sprite claimBarFill;
+            /// <summary>The Delete button's glyph (the Synty skull, 2026-10-16).</summary>
+            public Sprite deleteIcon;
         }
 
         [System.Serializable]

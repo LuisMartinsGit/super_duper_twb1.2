@@ -143,6 +143,14 @@ MonoBehaviour:
   initialNodes: 0
   reseedSeconds: 180
   nodeAuraRadius: 20
+  groundCreepSeconds: 2
+  groundCreepChance: 0.08
+  groundCreepMaxDistance: 40
+  groundStainRadius: 3
+  groundStainChance: 0.35
+  groundRecedeChance: 0.1
+  sacrificeShare: 0.5
+  sacrificeIntervalSeconds: 6
   shardrootGuaranteeSeconds: 0
   shardrootDescentReligionPoints: 30
   shardrootRevealRadius: 6

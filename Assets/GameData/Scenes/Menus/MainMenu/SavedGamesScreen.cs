@@ -23,7 +23,8 @@ namespace TheWaningBorder.UI.Menus
     {
         private const float PanelWidth = 2100f;
         private const float PanelHeight = 1500f;
-        private const float RowHeight = 150f;
+        private const float RowHeight = 176f;
+        private const float ChipSize = 26f;
 
         private static SavedGamesScreen _instance;
 
@@ -33,6 +34,9 @@ namespace TheWaningBorder.UI.Menus
         private TMP_Text _empty;
         private (Image bg, TMP_Text text) _tabSaves, _tabReplays;
         private string _armedDelete;
+        /// <summary>Preview textures of the rows on screen, freed on every
+        /// refresh and on close.</summary>
+        private readonly List<Texture2D> _thumbs = new List<Texture2D>();
 
         /// <summary>Open the screen (on the replays tab when <paramref name="replays"/>).</summary>
         public static void Open(bool replays = false)
@@ -173,6 +177,7 @@ namespace TheWaningBorder.UI.Menus
             _tabSaves.text.color = _showReplays ? GameUIKit.TextMain : GameUIKit.Gold;
             _tabReplays.text.color = _showReplays ? GameUIKit.Gold : GameUIKit.TextMain;
 
+            FreeThumbs();
             for (int i = _list.childCount - 1; i >= 0; i--)
             {
                 var c = _list.GetChild(i).gameObject;
@@ -203,6 +208,8 @@ namespace TheWaningBorder.UI.Menus
             h.childForceExpandWidth = false;
             h.childForceExpandHeight = true;
 
+            AddThumb(row, info);
+
             var textCol = GameUIKit.Rect(row, "text");
             textCol.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
             var tv = GameUIKit.VStack(textCol, 0f, 4f);
@@ -222,6 +229,8 @@ namespace TheWaningBorder.UI.Menus
             var t2 = GameUIKit.Text(textCol, "detail", detail, 28f, GameUIKit.TextMain,
                 TextAlignmentOptions.Left, wrap: false);
             GameUIKit.FixHeight(t2.gameObject, 38f);
+
+            AddPlayers(textCol, info.Header);
 
             if (!info.Compatible)
             {
@@ -249,6 +258,83 @@ namespace TheWaningBorder.UI.Menus
                 Refresh();
             });
         }
+
+        /// <summary>The save's minimap bake on the left of the row (2026-10-16);
+        /// an empty frame for a replay or an older save that carries none.</summary>
+        private void AddThumb(RectTransform row, SavedGameInfo info)
+        {
+            float side = RowHeight - 28f;
+            var frame = GameUIKit.Image(row, "thumb", new Color(0.05f, 0.06f, 0.12f, 1f));
+            var le = frame.gameObject.AddComponent<LayoutElement>();
+            le.preferredWidth = le.minWidth = side;
+            if (info.Preview == null || info.Preview.Length == 0) return;
+
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!tex.LoadImage(info.Preview)) { Destroy(tex); return; }
+            tex.wrapMode = TextureWrapMode.Clamp;
+            _thumbs.Add(tex);
+
+            var raw = new GameObject("map", typeof(RectTransform), typeof(RawImage));
+            raw.transform.SetParent(frame.transform, false);
+            var img = raw.GetComponent<RawImage>();
+            img.texture = tex;
+            img.raycastTarget = false;
+            // Fit inside the square, keeping the map's aspect.
+            var rt = (RectTransform)raw.transform;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            float aspect = (float)tex.width / Mathf.Max(1, tex.height);
+            rt.sizeDelta = aspect >= 1f ? new Vector2(side, side / aspect) : new Vector2(side * aspect, side);
+        }
+
+        /// <summary>One colour chip + name per player in the match; the local
+        /// player's name in gold (2026-10-16).</summary>
+        private static void AddPlayers(RectTransform parent, ReplayHeader header)
+        {
+            if (header?.Slots == null || header.Slots.Count == 0) return;
+
+            var line = GameUIKit.Rect(parent, "players");
+            GameUIKit.FixHeight(line.gameObject, 36f);
+            var h = line.gameObject.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 8f;
+            h.childAlignment = TextAnchor.MiddleLeft;
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = false;
+            h.childForceExpandHeight = false;
+
+            foreach (var slot in header.Slots)
+            {
+                if (slot.Type != 1 && slot.Type != 2) continue;   // only Human (1) / AI (2) seats play
+                if (header.ActiveSlots > 0 && slot.Index >= header.ActiveSlots) continue;
+
+                var chip = GameUIKit.Image(line, "chip", ColorOf(slot.Color));
+                var cle = chip.gameObject.AddComponent<LayoutElement>();
+                cle.preferredWidth = cle.minWidth = ChipSize;
+                cle.preferredHeight = cle.minHeight = ChipSize;
+
+                bool local = slot.Faction == header.LocalFaction && slot.Type == 1;   // 1 = human seat
+                string name = !string.IsNullOrEmpty(slot.Name) ? slot.Name : ColorName(slot.Color);
+                var t = GameUIKit.Text(line, "name", name, 24f, local ? GameUIKit.Gold : GameUIKit.TextDim,
+                    TextAlignmentOptions.Left, wrap: false);
+                if (local) t.fontStyle = FontStyles.Bold;
+                var tle = t.gameObject.AddComponent<LayoutElement>();
+                tle.preferredWidth = Mathf.Min(220f, t.preferredWidth + 14f);
+            }
+        }
+
+        private static Color ColorOf(int idx)
+            => idx >= 0 && idx < FactionColors.ColorPool.Length ? FactionColors.ColorPool[idx] : Color.gray;
+
+        private static string ColorName(int idx)
+            => idx >= 0 && idx < FactionColors.ColorNames.Length ? Loc.T(FactionColors.ColorNames[idx]) : "?";
+
+        private void FreeThumbs()
+        {
+            foreach (var t in _thumbs) if (t != null) Destroy(t);
+            _thumbs.Clear();
+        }
+
+        private void OnDestroy() => FreeThumbs();
 
         private static (Image bg, TMP_Text text) RowButton(Transform parent, string label, float width,
             System.Action click)

@@ -179,8 +179,8 @@ in the demo before editions.
 (`EditionBuildGate` refuses the Build Settings window, which would carry no
 edition and no strip):
 1. `tools/Launcher/publish.ps1 -Edition <X>` — each edition has its own
-   launcher (own install folder `…\Shardroot Entertainment\The Waning Border
-   [B|C]`, own settings file, own Start Menu entry), published to
+   launcher (own install folder, chosen on first install and suggested as
+   `…\Shardroot Entertainment\The Waning Border [B|C]`, own settings file, own Start Menu entry), published to
    `tools/Launcher/publish/<X>/`. A build carries the launcher of its own
    edition.
 2. Build: bridge `build <dir>` (A) / `build-edition <X> <dir>`, or batch

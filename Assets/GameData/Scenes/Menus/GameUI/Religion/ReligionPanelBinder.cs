@@ -14,6 +14,9 @@
 // Every purchase and cast goes through CommandRouter, which re-validates on
 // every lockstep peer; the menu only decides what to offer and what to say.
 //
+// The whole menu (panel, side tab, hotkeys) appears only once the player
+// has FINISHED a Temple of Ridan, and stays once a sect is adopted.
+//
 // Hotkeys: R shows / hides the menu, T opens the tree, F1-F6 cast power A of
 // that row, Shift+F1-F6 power B, Ctrl+F1-F6 the wildcard (digits are control
 // groups, so the rows use the F keys).
@@ -87,12 +90,13 @@ namespace TheWaningBorder.UI.Ingame
         private readonly Image[] _slotDots = new Image[SectConfig.MaxAdoptedSects];
         private readonly TMP_Text[] _setText = new TMP_Text[4];
         private readonly Image[] _setRing = new Image[4];
-        private RectTransform _banner, _noTemple;
+        private RectTransform _banner;
         private readonly List<Row> _rows = new List<Row>();
 
         private EntityManager _em;
         private Faction _faction;
         private bool _templeStanding, _hasTemple;
+        private bool _unlocked;   // a Temple has been finished (see Refresh)
         private Entity _temple;
         private int _rpBalance;
         private SectAdoptionState _state;
@@ -149,6 +153,11 @@ namespace TheWaningBorder.UI.Ingame
             BuildSlideTab();
             BuildTree();
             Layout(6);
+
+            // Hidden until the first Refresh finds a finished Temple, so the
+            // menu never flashes up at match start.
+            _body.gameObject.SetActive(false);
+            _tab.gameObject.SetActive(false);
         }
 
         private void Update()
@@ -259,7 +268,8 @@ namespace TheWaningBorder.UI.Ingame
                 UITooltip.Bind(_setRing[i].gameObject, () => Loc.T(SetPassives.Name(set)) + "\n" + Loc.T(SetPassives.Description(set)));
             }
 
-            // Temple-down banner and the no-Temple block (hidden until needed).
+            // Temple-down banner (hidden until needed). There is no no-Temple
+            // block: the menu does not exist until a Temple is finished.
             _banner = GameUIKit.Rect(_body, "Banner");
             GameUIKit.Image(_banner, "Bg", Danger).rectTransform.anchorMin = Vector2.zero;
             var bbg = _banner.GetChild(0) as RectTransform; GameUIKit.Stretch(bbg);
@@ -274,20 +284,6 @@ namespace TheWaningBorder.UI.Ingame
             rrt.anchoredPosition = new Vector2(-12f, 0f); rrt.sizeDelta = new Vector2(150f, 60f);
             Label(rebuild.transform, "Text", Loc.T("Rebuild"), 24f, new Color(0.1f, 0.08f, 0.02f), TextAlignmentOptions.Center);
             _banner.gameObject.SetActive(false);
-
-            _noTemple = GameUIKit.Rect(_body, "NoTemple");
-            var nt = GameUIKit.Text(_noTemple, "Text",
-                Loc.T("Build a Temple of Ridan to adopt sects, raise sect buildings and cast their powers."),
-                28f, GameUIKit.TextMain, TextAlignmentOptions.Center);
-            nt.rectTransform.anchorMin = new Vector2(0f, 0.45f); nt.rectTransform.anchorMax = Vector2.one;
-            nt.rectTransform.offsetMin = new Vector2(12f, 0f); nt.rectTransform.offsetMax = new Vector2(-12f, -12f);
-            var build = MakeButton(_noTemple, "BuildTemple", out var btbg, () => WorkerCommandPanel.TriggerBuildingPlacement("TempleOfRidan"));
-            btbg.color = GoldBadge;
-            var brt = (RectTransform)build.transform;
-            brt.anchorMin = brt.anchorMax = new Vector2(0.5f, 0.2f); brt.pivot = new Vector2(0.5f, 0.5f);
-            brt.sizeDelta = new Vector2(260f, 72f);
-            Label(build.transform, "Text", Loc.T("Build Temple"), 28f, new Color(0.1f, 0.08f, 0.02f), TextAlignmentOptions.Center);
-            _noTemple.gameObject.SetActive(false);
         }
 
         private const float RowsTop = 320f;
@@ -378,11 +374,9 @@ namespace TheWaningBorder.UI.Ingame
         {
             float h = RowsTop + rowsShown * RowHeight + 20f;
             if (_banner.gameObject.activeSelf) h += 104f;
-            if (_noTemple.gameObject.activeSelf) h = RowsTop + 260f;
             _root.sizeDelta = new Vector2(Width, h);
             float bannerShift = _banner.gameObject.activeSelf ? 104f : 0f;
             if (_banner.gameObject.activeSelf) Place(_banner, Pad, RowsTop, Width - 2f * Pad, 92f);
-            if (_noTemple.gameObject.activeSelf) Place(_noTemple, Pad, RowsTop, Width - 2f * Pad, 240f);
             for (int i = 0; i < _rows.Count; i++)
                 Place(_rows[i].Root, Pad, RowsTop + bannerShift + i * RowHeight, Width - 2f * Pad, RowHeight - 10f);
         }
@@ -432,14 +426,30 @@ namespace TheWaningBorder.UI.Ingame
         {
             bool live = TryWorld() && !GameSettings.IsSpectating;
             _root.gameObject.SetActive(true);
-            if (!live) { _body.gameObject.SetActive(false); _tab.gameObject.SetActive(false); return; }
+            if (live)
+            {
+                _hasTemple = TryGetTemple(out _temple);
+                _templeStanding = SectQuery.HasStandingTemple(_em, _faction);
+                _hasState = SectQuery.TryGetAdoptionState(_em, _faction, out _state);
+            }
+
+            // The menu exists only once a Temple is FINISHED (a site under
+            // construction does not count) — or once a sect is adopted, so
+            // losing the Temple later keeps the menu and shows the Rebuild
+            // banner instead of taking the adopted sects' powers away.
+            _unlocked = live && (_templeStanding || AnyAdopted());
+            if (!_unlocked)
+            {
+                _body.gameObject.SetActive(false);
+                _tab.gameObject.SetActive(false);
+                if (_treeOpen) SetTreeOpen(false);
+                ClosePopups();
+                return;
+            }
             _body.gameObject.SetActive(true);
             _tab.gameObject.SetActive(true);
 
-            _hasTemple = TryGetTemple(out _temple);
-            _templeStanding = SectQuery.HasStandingTemple(_em, _faction);
             _rpBalance = FactionReligionPointsHelper.GetBalance(_em, _faction);
-            _hasState = SectQuery.TryGetAdoptionState(_em, _faction, out _state);
 
             // Header
             _rp.text = _rpBalance + " <size=60%>" + Loc.T("RP") + "</size>";
@@ -481,10 +491,8 @@ namespace TheWaningBorder.UI.Ingame
                 _setRing[i].color = done ? new Color(0.96f, 0.77f, 0.32f, 0.25f) : DimCell;
             }
 
-            // Temple states
-            bool noTemple = !_hasTemple && !AnyAdopted();
-            _noTemple.gameObject.SetActive(noTemple);
-            _banner.gameObject.SetActive(!noTemple && !_templeStanding);
+            // Temple state: unlocked without a standing Temple = it was lost.
+            _banner.gameObject.SetActive(!_templeStanding);
 
             // Rows: adopted sects in fixed sect order, then one empty row.
             int r = 0;
@@ -493,7 +501,7 @@ namespace TheWaningBorder.UI.Ingame
             int adoptedRows = r;
             for (; r < _rowSect.Length; r++) _rowSect[r] = null;
 
-            int shown = noTemple ? 0 : math.min(SectConfig.MaxAdoptedSects, adoptedRows + (adoptedRows < SectConfig.MaxAdoptedSects ? 1 : 0));
+            int shown = math.min(SectConfig.MaxAdoptedSects, adoptedRows + (adoptedRows < SectConfig.MaxAdoptedSects ? 1 : 0));
             for (int i = 0; i < _rows.Count; i++)
             {
                 bool visible = i < shown;
@@ -853,7 +861,7 @@ namespace TheWaningBorder.UI.Ingame
 
         private void HandleHotkeys()
         {
-            if (GameSettings.IsSpectating) return;
+            if (GameSettings.IsSpectating || !_unlocked) return;
             if (UnityEngine.EventSystems.EventSystem.current != null
                 && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != null
                 && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject.GetComponent<TMP_InputField>() != null)

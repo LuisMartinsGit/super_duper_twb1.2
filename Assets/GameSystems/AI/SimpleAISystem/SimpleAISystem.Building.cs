@@ -1049,7 +1049,12 @@ namespace TheWaningBorder.AI
                             // Thessara's Crossing ignores the wall ring: the
                             // Runai never build it (Age_1_Runai.md §1), and a
                             // full ring interior refused every candidate.
-                            bool wallless = buildingId == "ThessarasCrossing";
+                            // So does the Fiendstone Keep (Feraldis build no
+                            // walls either), and any landmark whose last search
+                            // the corridor refused: the age-up building must
+                            // always find a place (2026-10-17).
+                            bool wallless = buildingId == "ThessarasCrossing" || buildingId == "FiendstoneKeep"
+                                || _landmarkCorridorRefused.Contains((faction, buildingId));
                             if (!wallless && !AIWallCorridor.FootprintClear(em, faction, candidate, size, lostTrainerCore))
                             {
                                 nCorridor++;
@@ -1197,6 +1202,8 @@ namespace TheWaningBorder.AI
             if (firstSeal != null)
                 AIBaseLayout.LogSeal(faction, buildingId, firstSealAt, firstSeal, _thinkNow);
             AIWallCorridor.NoteRejected(faction, buildingId, nCorridor);
+            if (nCorridor > 0 && BuildingFactory.IsChoiceBuilding(buildingId))
+                _landmarkCorridorRefused.Add((faction, buildingId));
             pos = default;
             return false;
         }

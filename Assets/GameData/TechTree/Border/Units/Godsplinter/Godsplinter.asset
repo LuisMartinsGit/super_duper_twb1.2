@@ -50,4 +50,6 @@ MonoBehaviour:
   bonusVsTags:
   - vsTag: 'Building'
     amount: 30
+  abilities:
+  - Veil Offering
   presentationId: 322

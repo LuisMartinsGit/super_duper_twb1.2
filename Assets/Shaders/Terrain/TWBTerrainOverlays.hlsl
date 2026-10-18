@@ -55,18 +55,35 @@ half4  _RunaiTint;
 half4  _RegionEdgeTint;
 half   _RegionEdgeStrength;
 
+// Blood and curse looks: set by Resources/Blood.mat / Curse.mat through
+// TerrainOverlayMaterialBinder; drawn by TWBGroundLooks.hlsl.
 TEXTURE2D(_BloodAlbedo);        SAMPLER(sampler_BloodAlbedo);
+TEXTURE2D(_BloodHeight);
 half4  _BloodTint;
+half4  _BloodDriedTint;
+half4  _BloodGutsTint;
 float  _BloodTiling;
+float  _BloodHeightScale;
+float  _BloodNormalStrength;
 float  _BloodSmoothness;
+float  _BloodDrySmoothness;
+float  _BloodDryness;
+float  _BloodPatchScale;
 float  _BloodNoiseScale;
 
 TEXTURE2D(_CurseAlbedo);        SAMPLER(sampler_CurseAlbedo);
 TEXTURE2D(_CurseNormal);
+TEXTURE2D(_CurseHeight);
+TEXTURE2D(_CurseRoughness);
+TEXTURE2D(_CurseOcclusion);
 float  _CurseTiling;
 half4  _CurseTint;              // purple pole
 half4  _CurseTint2;             // greenish pole
+float  _CurseHeightScale;
+float  _CurseNormalStrength;
 float  _CurseSmoothness;
+float  _CurseMetallic;
+float  _CurseJaggedness;
 float  _CurseSparkleScale;
 
 float  _OverlayNoiseScale;      // edge-erosion noise frequency (cycles/m)
@@ -92,46 +109,9 @@ float  _TWB_RutWidth;           // rut half-width in lateral units
 float  _TWB_RutDepth;           // rut floor darkening, 0..1
 float  _TWB_RoadCentreStrip;    // original ground showing between the ruts, 0..1
 
-// ── Cheap hash value noise (no texture needed) ─────────────────────────
-// NOTE: the classic frac(sin(dot)) hash DEGENERATES at world-scale
-// coordinates (fp32 sin precision collapses for large inputs), turning the
-// noise into a regular grid of constant cells — which rendered as gray
-// checkered tiles across the overlays. This sin-free hash (Dave Hoskins'
-// hash12) stays uniform at any world position.
-float TWB_Hash(float2 p)
-{
-    float3 p3 = frac(p.xyx * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return frac((p3.x + p3.y) * p3.z);
-}
-
-float TWB_ValueNoise(float2 p)
-{
-    float2 i = floor(p);
-    float2 f = frac(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = TWB_Hash(i);
-    float b = TWB_Hash(i + float2(1, 0));
-    float c = TWB_Hash(i + float2(0, 1));
-    float d = TWB_Hash(i + float2(1, 1));
-    return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
-}
-
-// Organic front: the boundary erodes through two octaves of noise as
-// coverage rises. coverage 0 → 0 everywhere, 1 → 1 everywhere; in between
-// the edge is fingered, and because coverage is eased on the CPU the front
-// creeps continuously.
-half TWB_Edge(half coverage, float2 wpos, half feather)
-{
-    float n = TWB_ValueNoise(wpos * _OverlayNoiseScale) * 0.65
-            + TWB_ValueNoise(wpos * _OverlayNoiseScale * 3.7) * 0.35;
-    // Keep the threshold band strictly inside (0, 1): n - feather must stay
-    // positive so ZERO coverage is exactly zero everywhere (no ghost
-    // patches where the noise dips), and coverage is over-driven slightly
-    // so FULL coverage saturates past n + feather.
-    n = lerp(0.25, 0.85, n);
-    return smoothstep(n - feather, n + feather, coverage * 1.15h);
-}
+// Noise helpers + the blood and curse looks live in TWBGroundLooks.hlsl,
+// shared with the Blood / Curse look materials' previews (2026-10-16).
+#include "TWBGroundLooks.hlsl"
 
 void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
     inout half3 albedo, inout half3 normalTS, inout half smoothness,
@@ -276,45 +256,11 @@ void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
     }
 
     // ── Blood: spatters at the rim, merged puddles at the core ─────────
-    // High-frequency noise erodes the coverage so low blood reads as
-    // scattered droplets and heavy blood pools into connected puddles.
-    if (blood > 0.003h)
-    {
-        float spatN = TWB_ValueNoise(positionWS.xz * _BloodNoiseScale) * 0.7
-                    + TWB_ValueNoise(positionWS.xz * _BloodNoiseScale * 3.1) * 0.3;
-        half spat = smoothstep(spatN - 0.08, spatN + 0.08, blood * 1.25h);
-        if (spat > 0.003h)
-        {
-            float2 bUV = positionWS.xz / max(_BloodTiling, 0.01);
-            half3 bAlb = SAMPLE_TEXTURE2D(_BloodAlbedo, sampler_BloodAlbedo, bUV).rgb * _BloodTint.rgb;
-            albedo = lerp(albedo, bAlb, spat);
-            smoothness = lerp(smoothness, _BloodSmoothness, spat); // wet sheen
-        }
-    }
+    half3 lookViewWS = (half3)GetWorldSpaceNormalizeViewDir(positionWS);
+    TWB_ApplyBloodLook(positionWS, blood, lookViewWS, albedo, normalTS, smoothness, occlusion);
 
     // ── Curse: crystallized rock (always on top) ───────────────────────
-    // The authored ground is fully REPLACED by the rocky substance
-    // textures, tinted between the purple and greenish crystal poles by
-    // slow noise, with sparse sharp glints and a glassy smoothness.
-    half cBlend = TWB_Edge(m.a, positionWS.xz, 0.22h);
-    if (cBlend > 0.003h)
-    {
-        float2 cUV = positionWS.xz / max(_CurseTiling, 0.01);
-        half3 rock = SAMPLE_TEXTURE2D(_CurseAlbedo, sampler_CurseAlbedo, cUV).rgb;
-        float tone = TWB_ValueNoise(positionWS.xz * _OverlayNoiseScale * 0.6);
-        half3 tint = lerp(_CurseTint.rgb, _CurseTint2.rgb, (half)tone);
-        half3 cursed = rock * tint * 1.5h;
-        float glint = TWB_ValueNoise(positionWS.xz * _CurseSparkleScale);
-        glint = pow(saturate(glint), 12.0) * 3.0;
-        cursed += (half)glint * tint;
-        albedo = lerp(albedo, cursed, cBlend);
-        smoothness = lerp(smoothness, _CurseSmoothness, cBlend);
-        metallic = lerp(metallic, 0.25h, cBlend);
-        #if defined(_NORMALMAP)
-            half3 cNrm = UnpackNormal(SAMPLE_TEXTURE2D(_CurseNormal, sampler_CurseAlbedo, cUV));
-            normalTS = normalize(lerp(normalTS, cNrm, cBlend));
-        #endif
-    }
+    TWB_ApplyCurseLook(positionWS, m.a, lookViewWS, albedo, normalTS, smoothness, metallic, occlusion);
 
     // ── Region boundaries (docs/Design/Regions.md) ────────────────────────
     // Drawn LAST so a boundary stays readable across cursed, bloodied and

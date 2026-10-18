@@ -66,7 +66,14 @@ namespace TheWaningBorder.UI.Ingame
             // overlay uses, read from there so the minimap and the world cannot
             // disagree about which territory has fallen.
             int res = TheWaningBorder.Influence.PlayerInfluenceMap.Resolution;
-            if (TheWaningBorder.Influence.PlayerInfluenceMap.Ready)
+            if (TheWaningBorder.Systems.Border.CurseGroundSystem.Ready)
+            {
+                // CURSED GROUND IS A FIELD (Territory_Claims.md §6.9,
+                // 2026-10-16): no territory reads as cursed; the curse is
+                // painted per pixel in the shape it has on the terrain.
+                for (int r = 0; r < regions; r++) _cursedRegion[r] = false;
+            }
+            else if (TheWaningBorder.Influence.PlayerInfluenceMap.Ready)
             {
                 var cursed = new int[regions];
                 var total = new int[regions];
@@ -118,6 +125,7 @@ namespace TheWaningBorder.UI.Ingame
         private int[] _layerOwners;         // _ownerOfRegion the layer was built from
         private bool[] _layerCursed;        // _cursedRegion the layer was built from
         private int _layerPartition = -1;   // _regionEdgeSeeds the layer was built from
+        private int _layerCurseVersion = -1; // CurseGroundSystem.Version the layer was built from
         private bool _layerAnyOwned;
         /// <summary>Bumped on every territory layer rebuild (see Update).</summary>
         private int _territoryLayerVersion;
@@ -125,6 +133,9 @@ namespace TheWaningBorder.UI.Ingame
 
         private const byte TintCurse = 9;
         private static readonly Color32 LatticeLine = new Color32(18, 18, 22, 255);
+        // Alpha of the owner / curse wash over unfogged terrain.
+        private const byte TerritoryWashAlpha = 110;
+        private const byte CurseWashAlpha = 140;
 
         /// <summary>
         /// The territory layer over the fog: tint, region lattice, ownership
@@ -151,7 +162,8 @@ namespace TheWaningBorder.UI.Ingame
             bool dirty = _tintIdx == null || _tintIdx.Length != n
                 || _territoryEdge == null || _territoryEdge.Length != n
                 || _layerPartition != _regionEdgeSeeds
-                || _layerOwners == null || _layerOwners.Length != regions;
+                || _layerOwners == null || _layerOwners.Length != regions
+                || _layerCurseVersion != TheWaningBorder.Systems.Border.CurseGroundSystem.Version;
             if (!dirty)
             {
                 for (int r = 0; r < regions; r++)
@@ -173,6 +185,7 @@ namespace TheWaningBorder.UI.Ingame
             System.Array.Copy(_ownerOfRegion, _layerOwners, regions);
             System.Array.Copy(_cursedRegion, _layerCursed, regions);
             _layerPartition = _regionEdgeSeeds;
+            _layerCurseVersion = TheWaningBorder.Systems.Border.CurseGroundSystem.Version;
             _territoryLayerVersion++;
 
             for (int f = 0; f < 8; f++) _tintColor[f + 1] = FactionColors.Get((Faction)f);
@@ -187,8 +200,19 @@ namespace TheWaningBorder.UI.Ingame
             // stops exactly where the outline does. A cursed territory reads
             // as cursed whoever nominally holds it: the curse is what is
             // standing on the ground.
+            bool field = TheWaningBorder.Systems.Border.CurseGroundSystem.Ready;
+            float bw = Mathf.Max(0.001f, _boundsMax.x - _boundsMin.x);
+            float bh = Mathf.Max(0.001f, _boundsMax.y - _boundsMin.y);
             for (int i = 0; i < n; i++)
             {
+                // Cursed ground first, per pixel, wherever it has reached.
+                if (field)
+                {
+                    float wx = _boundsMin.x + ((i % _ovW) + 0.5f) / _ovW * bw;
+                    float wz = _boundsMin.y + ((i / _ovW) + 0.5f) / _ovH * bh;
+                    if (TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(wx, wz))
+                    { _tintIdx[i] = TintCurse; continue; }
+                }
                 int region = _regionAtPixel[i];
                 if (region < 0 || region >= regions) { _tintIdx[i] = 0; continue; }
                 int owner = _ownerOfRegion[region];
@@ -250,11 +274,23 @@ namespace TheWaningBorder.UI.Ingame
                 if (t != 0 && revealed)
                 {
                     Color32 tint = _tintColor[t];
-                    float blend = t == TintCurse ? 0.6f : 0.55f;
-                    p.r = (byte)(p.r + (tint.r - p.r) * blend);
-                    p.g = (byte)(p.g + (tint.g - p.g) * blend);
-                    p.b = (byte)(p.b + (tint.b - p.b) * blend);
-                    if (p.a < 165) p.a = 165; // reads solidly over the terrain image
+                    if (p.a < 8)
+                    {
+                        // No fog on this pixel: a pure, see-through wash of
+                        // the owner's colour over the terrain. Blending toward
+                        // the clear pixel's black (the old path) darkened it.
+                        p = new Color32(tint.r, tint.g, tint.b,
+                                        t == TintCurse ? CurseWashAlpha : TerritoryWashAlpha);
+                    }
+                    else
+                    {
+                        // Under remembered fog: tint the fog itself.
+                        float blend = t == TintCurse ? 0.6f : 0.55f;
+                        p.r = (byte)(p.r + (tint.r - p.r) * blend);
+                        p.g = (byte)(p.g + (tint.g - p.g) * blend);
+                        p.b = (byte)(p.b + (tint.b - p.b) * blend);
+                        if (p.a < 165) p.a = 165; // reads solidly over the terrain image
+                    }
                 }
 
                 if (haveLattice)

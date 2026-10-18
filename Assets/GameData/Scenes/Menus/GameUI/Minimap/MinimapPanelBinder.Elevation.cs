@@ -102,6 +102,8 @@ namespace TheWaningBorder.UI.Ingame
             float stepZ = sizeZ / texH;
             var pixels = new Color32[texW * texH];
             var clear = new Color32(0, 0, 0, 0);
+            var waterPlane = WaterPlane.Instance;
+            float waterLevel = waterPlane != null ? waterPlane.waterLevel : float.MinValue;
 
             for (int py = 0; py < texH; py++)
             {
@@ -110,6 +112,16 @@ namespace TheWaningBorder.UI.Ingame
                     int i = py * texW + px;
                     float h = heights[i];
                     if (float.IsNaN(h)) { pixels[i] = clear; continue; }
+                    if (h < waterLevel)
+                    {
+                        // Under the surface: depth decides the blue, and no
+                        // cliff mark (the steep banks are hidden by water).
+                        Color w = Color.Lerp(ShallowWaterColor, DeepWaterColor,
+                            Mathf.Clamp01((waterLevel - h) / WaterFullDepth));
+                        pixels[i] = new Color32((byte)(w.r * 255f), (byte)(w.g * 255f),
+                                                (byte)(w.b * 255f), (byte)(WaterAlpha * 255f));
+                        continue;
+                    }
 
                     float hl = SampleOr(heights, texW, texH, px - 1, py, h);
                     float hr = SampleOr(heights, texW, texH, px + 1, py, h);
@@ -118,7 +130,7 @@ namespace TheWaningBorder.UI.Ingame
                     float dx = (hr - hl) / (2f * stepX);
                     float dz = (hu - hd) / (2f * stepZ);
                     var normal = new Vector3(-dx, 1f, -dz).normalized;
-                    float shade = Mathf.Lerp(0.6f, 1.05f,
+                    float shade = Mathf.Lerp(ShadeMin, ShadeMax,
                         Mathf.Clamp01(Vector3.Dot(normal, LightDir)));
 
                     float t = (h - minH) / (maxH - minH);
@@ -156,6 +168,9 @@ namespace TheWaningBorder.UI.Ingame
             };
             tex.SetPixels32(pixels);
             tex.Apply(false, true);
+            // Kept for the save preview (MinimapPanelBinder.Preview.cs): the
+            // texture itself is non-readable once applied.
+            _elevationPixels = pixels; _elevW = texW; _elevH = texH;
 
             _mapImage.sprite = Sprite.Create(tex, new Rect(0, 0, texW, texH),
                 new Vector2(0.5f, 0.5f), 100f);

@@ -148,6 +148,15 @@ namespace TheWaningBorder.AI
                 Clear(ring, 0u);
                 return ring;
             }
+            // FERALDIS BUILD NO WALLS (2026-10-17): no corridor is reserved for
+            // a faction that is, or is heading to be, Feraldis -- reserved
+            // lanes it would never wall only squeezed its 12 m Fiendstone Keep
+            // out of every candidate site in a small start pocket.
+            if (culture == Cultures.Feraldis || SimpleAISystem.IntendsFeraldis(faction))
+            {
+                Clear(ring, 0u);
+                return ring;
+            }
 
             // Source 1: the frozen plan on the brain.
             Entity brain = FindBrain(em, faction);

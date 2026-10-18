@@ -40,5 +40,21 @@ namespace TheWaningBorder.AI
 
         /// <summary>The army a healer follows has at least this many members.</summary>
         public int minArmyToFollow;
+
+        /// <summary>Off: the AI's Litharchs never cast Cleanse
+        /// (Territory_Claims.md §6.9.7, Game_AI.md § 6n).</summary>
+        public bool cleanseEnabled;
+
+        /// <summary>How far from itself a free Litharch looks for cursed
+        /// ground to cleanse, metres.</summary>
+        public float cleanseSearchRadius;
+
+        /// <summary>No Cleanse aimed where an armed hostile (the curse
+        /// included) stands within this distance of the spot, metres.</summary>
+        public float cleanseThreatRadius;
+
+        /// <summary>Seconds a Litharch sent on a cleanse errand is left out of
+        /// the army-follow step, so the two do not pull it back and forth.</summary>
+        public float cleanseErrandSeconds;
     }
 }

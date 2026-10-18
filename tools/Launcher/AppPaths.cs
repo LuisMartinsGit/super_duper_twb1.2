@@ -4,7 +4,9 @@ namespace TheWaningBorder.Launcher;
 /// The on-disk layout the updater maintains.
 ///
 /// <code>
-/// %LOCALAPPDATA%\Programs\Shardroot Entertainment\The Waning Border\
+/// ROOT\                 chosen by the tester on the first install (InstallLocation);
+///                       %LOCALAPPDATA%\Programs\Shardroot Entertainment\The Waning Border\
+///                       is only the suggestion
 ///   TWBLauncher.exe     the launcher; the GAME keeps it current (LauncherSelfUpdate)
 ///   version.txt         the installed build's version
 ///   launcher.log        one line per decision the updater took
@@ -13,15 +15,17 @@ namespace TheWaningBorder.Launcher;
 ///   game.new\           staging, transient
 /// </code>
 ///
-/// THE ROOT IS FIXED, NOT "WHEREVER THE EXE IS" (2026-09-23). It used to be
+/// THE ROOT IS ONE REMEMBERED FOLDER, NOT "WHEREVER THE EXE IS" (2026-09-23;
+/// chosen rather than fixed since 2026-10-16). It used to be
 /// the launcher's own folder, which made every copy of the launcher a valid
 /// install root — and every build carries a copy at game\TWBLauncher.exe so
 /// the game can upgrade the real one. A tester who ran THAT copy (the folder
 /// they see the game in, so the natural one to pin) installed a second full
 /// build at game\game\, and every real update moved it into game.old and
 /// left the inner launcher to install it again. Now every launcher, wherever
-/// it is run from — Downloads, the desktop, inside game\ — resolves to this
-/// one root, and InstallRoot.Prepare puts a launcher there on first run.
+/// it is run from — Downloads, the desktop, inside game\ — resolves to the
+/// one root remembered in the settings file, and InstallRoot.Prepare puts a
+/// launcher there on first run.
 ///
 /// The launcher lives OUTSIDE <c>game\</c> on purpose: Windows locks a running
 /// executable and its loaded DLLs, so an updater that sat beside the files it
@@ -41,9 +45,15 @@ internal static class AppPaths
     /// </summary>
     public static string InstallName => Product + Edition.Suffix;
 
-    public static string Root { get; } = Path.Combine(
+    /// <summary>What the first install suggests, and where every install before 2026-10-16 lives.</summary>
+    public static string DefaultRoot { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Programs", Company, InstallName);
+
+    /// <summary>The install root. Set once per run by InstallLocation.Resolve, before anything reads it.</summary>
+    public static string Root { get; private set; } = DefaultRoot;
+
+    public static void UseRoot(string folder) => Root = Path.GetFullPath(folder).TrimEnd('\\');
 
     public static string Game => Path.Combine(Root, "game");
     public static string Staging => Path.Combine(Root, "game.new");
@@ -81,7 +91,11 @@ internal static class AppPaths
         "TheWaningBorder",
         Edition.IsDemo ? "launcher.json" : $"launcher-{Edition.Id}.json");
 
-    public static string DownloadCache => Path.Combine(Path.GetTempPath(), "TheWaningBorder");
+    /// <summary>
+    /// Inside the root, not %TEMP%: a tester who installs on another drive
+    /// because C: is full must not need the ~0.5 GB download to fit on C:.
+    /// </summary>
+    public static string DownloadCache => Path.Combine(Root, "download");
 
     /// <summary>
     /// Finds the game executable without hardcoding a filename, so renaming

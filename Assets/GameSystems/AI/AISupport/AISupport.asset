@@ -19,3 +19,7 @@ MonoBehaviour:
   followDistance: 18
   followBehind: 6
   minArmyToFollow: 8
+  cleanseEnabled: 1
+  cleanseSearchRadius: 90
+  cleanseThreatRadius: 16
+  cleanseErrandSeconds: 40

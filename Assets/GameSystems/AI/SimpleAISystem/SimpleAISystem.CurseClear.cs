@@ -76,7 +76,7 @@ namespace TheWaningBorder.AI
             _curseClearCands.Clear();
             for (int r = 0; r < RegionMap.Count; r++)
             {
-                if (TerritoryOwnership.OwnerOf(r) != TerritoryOwnership.Curse) continue;
+                if (!TerritoryOwnership.IsCurseHeld(r)) continue;
                 if (RegionMap.KindBlocks(RegionMap.KindOf(r))) continue;
                 if (!BordersFortressGround(faction, r, mine)) continue;
                 if (_siteBlocked.TryGetValue((key, r), out float until) && now < until) continue;

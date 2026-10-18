@@ -116,6 +116,7 @@ namespace TheWaningBorder.UI.Ingame
         private RectTransform _hostCanvasRect;
         private RectTransform _bottomLeftDock;
         private GameObject _resourcePanel;
+        private ResourcePanelExpander _resourceExpander;
         private TMP_Text _supplies, _iron, _veilstone, _veilsteel, _housing;
 
         // ── Religion Points as a resource (Religion.md §1) ──
@@ -268,6 +269,9 @@ namespace TheWaningBorder.UI.Ingame
                 BuildReligionRow(_resourcePanel.transform, catalog.hud);
                 RegisterResourceIcons(_resourcePanel.transform);
                 BindIncomeTooltips(_resourcePanel.transform);
+                // Idle builders sit beside housing, inside the panel (2026-10-16).
+                if (GameUIKit.FindDeep(_resourcePanel.transform, "Housing") is RectTransform housingRow)
+                    IdleBuilderButton.Instance?.DockInto(housingRow);
                 if (_supplies == null)
                     TWBLog.Log("[GameUI] ResourcePanel: no Supplies/amount label found — " +
                         "row names changed?");
@@ -434,8 +438,16 @@ namespace TheWaningBorder.UI.Ingame
                     TWBLog.Log("[GameUI] SelectionHeader: no TMP label found.");
 
                 BuildUpgradeButton();
-                BuildDeleteButton();
+                BuildDeleteButton(catalog.hud != null ? catalog.hud.deleteIcon : null);
                 _selectionHeader.SetActive(false);
+            }
+
+            // The resource panel's widen toggle — last, so every other dock
+            // panel exists and is pushed along when it widens (2026-10-16).
+            if (_resourcePanel != null)
+            {
+                _resourceExpander = _resourcePanel.AddComponent<ResourcePanelExpander>();
+                _resourceExpander.Init(_supplies, _iron, _veilstone, _veilsteel);
             }
 
             RefreshNow();
@@ -885,6 +897,15 @@ namespace TheWaningBorder.UI.Ingame
             int rate = Mathf.RoundToInt(netPerMinute);
             string colour = rate > 0 ? "#9FE08A" : rate < 0 ? "#FF6A5E" : "#B8B8B8";
             label.textWrappingMode = TextWrappingModes.NoWrap;
+            // The rate has its own column now, shown only while the panel is
+            // expanded (ResourcePanelExpander); without the expander (no
+            // dock) it stays inline as before.
+            if (_resourceExpander != null)
+            {
+                label.text = amount.ToString();
+                _resourceExpander.SetRate(label, rate);
+                return;
+            }
             label.text = amount + " <size=50%><color=" + colour + ">"
                 + (rate > 0 ? "+" : "") + rate + Loc.T("/min") + "</color></size>";
         }
@@ -970,11 +991,17 @@ namespace TheWaningBorder.UI.Ingame
 
         /// <summary>A building as this culture calls it: its level-1 level
         /// asset's name (the Alanthor Gatherer's Hut is the Guild, the
-        /// capital the Fortress), else the catalog name (the Age 0 Shelter).</summary>
+        /// capital the Fortress), else the catalog name (the Age 0 Shelter).
+        /// The QUIET catalog lookup, not BuildingUpgradeConfig.LevelDef: that
+        /// one logs an ERROR for an Alanthor ladder with no level asset, and
+        /// the Veilstone Mine has none on purpose (it becomes a Trading
+        /// Outpost at age-up) — so merely hovering the veilstone figure put
+        /// a false "[BuildingLevels] … VeilstoneMine" error in every Alanthor
+        /// match log (2026-10-16).</summary>
         private static string CulturedName(byte culture, string buildingId)
         {
-            var lvl = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.LevelDef(culture, buildingId, 1);
-            if (lvl != null && !string.IsNullOrEmpty(lvl.displayName)) return Loc.T(lvl.displayName);
+            if (TechCatalog.TryGetBuildingLevel(culture, buildingId, 1, out var lvl)
+                && !string.IsNullOrEmpty(lvl.displayName)) return Loc.T(lvl.displayName);
             return Loc.T(TheWaningBorder.Core.DisplayNames.ForBuilding(buildingId));
         }
 
@@ -1051,9 +1078,10 @@ namespace TheWaningBorder.UI.Ingame
         // docs/Design/Planned_Buildings.md §4. One button for all of it, in
         // the selection header's top-right corner, Synty-framed.
 
-        private const float DeleteButtonSize = 34f;
+        private const float DeleteButtonSize = 44f;
+        private const float DeleteIconInset = 7f;
 
-        private void BuildDeleteButton()
+        private void BuildDeleteButton(Sprite icon)
         {
             var go = new GameObject("DeleteButton", typeof(RectTransform), typeof(Button));
             var rt = (RectTransform)go.transform;
@@ -1064,13 +1092,29 @@ namespace TheWaningBorder.UI.Ingame
             rt.sizeDelta = new Vector2(DeleteButtonSize, DeleteButtonSize);
             GameUIKit.IgnoreLayout(go);
             var bg = GameUIKit.ButtonChrome(rt, raycast: true);
-            bg.color = new Color(0.45f, 0.10f, 0.08f, 1f);
-            var label = GameUIKit.Text(rt, "Label", "X", 20f, Color.white, TextAlignmentOptions.Center, wrap: false);
-            label.fontStyle = FontStyles.Bold;
-            label.raycastTarget = false;
-            var lrt = label.rectTransform;
-            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
-            lrt.offsetMin = lrt.offsetMax = Vector2.zero;
+            bg.color = GameUIKit.Danger;
+            // The skull, centred with an even inset (2026-10-16; was a bold
+            // "X" glyph that sat off-centre in the frame). The text X stays
+            // only as the fallback when the catalog has no icon.
+            if (icon != null)
+            {
+                var img = GameUIKit.Image(rt, "Icon", Color.white);
+                img.sprite = icon;
+                img.preserveAspect = true;
+                img.raycastTarget = false;
+                var irt = img.rectTransform;
+                irt.anchorMin = Vector2.zero; irt.anchorMax = Vector2.one;
+                irt.pivot = new Vector2(0.5f, 0.5f);
+                irt.offsetMin = new Vector2(DeleteIconInset, DeleteIconInset);
+                irt.offsetMax = new Vector2(-DeleteIconInset, -DeleteIconInset);
+            }
+            else
+            {
+                var label = GameUIKit.Text(rt, "Label", "X", 20f, Color.white, TextAlignmentOptions.Center, wrap: false);
+                label.fontStyle = FontStyles.Bold;
+                label.raycastTarget = false;
+                GameUIKit.Stretch(label.rectTransform);
+            }
             var button = go.GetComponent<Button>();
             button.targetGraphic = bg;
             button.onClick.AddListener(DeleteSelection);

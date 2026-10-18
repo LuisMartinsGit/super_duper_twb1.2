@@ -215,3 +215,4 @@ MonoBehaviour:
     religionRing: {fileID: 21300000, guid: aa4ccfb5db9e49f4f95d3f3871c799a6, type: 3}
     claimBarFrame: {fileID: 21300000, guid: c49a714c18b1cc246b77cef266bd8235, type: 3}
     claimBarFill: {fileID: 21300000, guid: 4da15d8b9199c754bb2678e34b7658c7, type: 3}
+    deleteIcon: {fileID: 21300000, guid: e8ad9fd6ef0d0504c85b1d3a7fe11232, type: 3}

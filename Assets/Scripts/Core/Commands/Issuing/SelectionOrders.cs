@@ -58,19 +58,28 @@ namespace TheWaningBorder.Core.Commands.Issuing
         /// layer uses. What counts as "a unit I may order" is decided here,
         /// not in the panel that was clicked.
         /// </summary>
+        /// The move is a FORMATION move in the player's current shape, the same
+        /// order a right-click on the ground gives (2026-10-16: it used to be
+        /// one loose IssueMove per unit, so a minimap order scattered the
+        /// group into a blob).
         public static void IssueMoveToOwnedUnits(EntityManager em, List<Entity> selection,
-                                                 float3 destination, Faction faction)
+                                                 float3 destination, Faction faction,
+                                                 FormationShape shape)
         {
             if (selection == null) return;
 
+            var units = new List<Entity>(selection.Count);
             foreach (var entity in selection)
             {
                 if (!em.Exists(entity)) continue;
                 if (!em.HasComponent<UnitTag>(entity)) continue;
                 if (!em.HasComponent<FactionTag>(entity)) continue;
                 if (em.GetComponentData<FactionTag>(entity).Value != faction) continue;
-                CommandRouter.IssueMove(em, entity, destination);
+                units.Add(entity);
             }
+            if (units.Count == 0) return;
+
+            CommandRouter.IssueFormationMove(em, units, destination, shape, CommandSource.LocalPlayer);
         }
 
         public bool CanGarrisonWall(Entity e)
@@ -353,9 +362,31 @@ namespace TheWaningBorder.Core.Commands.Issuing
                 if (!_em.Exists(e)) continue;
                 if (!IsOwnedByLocalPlayer(e)) continue;
                 if (!_em.HasComponent<BuildingTag>(e)) continue;
+                if (!CanHoldRally(_em, e)) continue;
 
                 CommandRouter.SetRallyPoint(_em, e, position, targetEntity, CommandSource.LocalPlayer);
             }
+        }
+
+        /// <summary>
+        /// A rally point only means something on a building that sends units
+        /// out: one that TRAINS them (its SO's trains list; a Chapel's sect
+        /// unit; a Fiendstone Keep's wings) or GARRISONS them (a wall). A
+        /// house, mine or outpost has no rally (2026-10-16) — right-clicking
+        /// with one selected used to create a rally on it, because the sim
+        /// adds the component on demand.
+        /// </summary>
+        public static bool CanHoldRally(EntityManager em, Entity building)
+        {
+            if (em.HasComponent<RallyPoint>(building)) return true;   // authored at spawn
+            if (em.HasComponent<ChapelTag>(building)) return true;
+            if (em.HasComponent<KeepWings>(building)) return true;
+            if (em.HasBuffer<WallGarrisonSlot>(building)) return true;
+
+            string id = BuildingIds.Of(building, em);
+            return !string.IsNullOrEmpty(id)
+                && TechCatalog.TryGetBuilding(id, out var def)
+                && def?.trains != null && def.trains.Length > 0;
         }
 
         public void IssueAttackCommands(Entity target)

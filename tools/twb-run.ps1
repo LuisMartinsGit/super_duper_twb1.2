@@ -138,6 +138,8 @@ $MapPlayers = @{
     "TwinSpans"     = 6
     "Veilmarch"     = 8
     "MirrorMarches" = 8
+    "FiendstonePass" = 6
+    "YielLymwerra"  = 2
 }
 
 function PlayersFor([string]$m) {

@@ -207,7 +207,13 @@ namespace TheWaningBorder.UI.World
                 lColor = attackLineColor;
                 mColor = attackMarkerColor;
             }
-            else if (TransientState.Active<BuildOrder>(_em, entity)
+            // Build / repair / heal are all support (green), including a
+            // worker still WALKING to its site: that leg carries BuildCommand,
+            // and BuildOrder only appears once it is constructing — so the
+            // walk used to draw as a yellow move line (2026-10-16).
+            else if (TransientState.Active<BuildCommand>(_em, entity)
+                  || TransientState.Active<BuildOrder>(_em, entity)
+                  || TransientState.Active<RepairOrder>(_em, entity)
                   || _em.HasComponent<HealCommand>(entity))
             {
                 lColor = supportLineColor;

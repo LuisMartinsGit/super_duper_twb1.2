@@ -76,6 +76,14 @@ namespace TheWaningBorder.World.Roads
     public struct RoadRasterJob : IJob
     {
         public int Res;
+        /// <summary>How many x-texels one y-texel spans: the map's z extent
+        /// over its x extent (1 on a square map). The mask is Res x Res over
+        /// the map's rectangle, so on a rectangular map (Yiel Lymwérra,
+        /// 256 x 128, 2026-10-17) a texel is not square; discs and strokes
+        /// measure distance with y scaled by this, in x-texel units, so a
+        /// plaza stays round and a road keeps its width in every direction.
+        /// Radius and HalfWidth are in x-texels.</summary>
+        public float YScale;
         public NativeArray<Color32> Mask;
         public NativeArray<Color32> Dir;
         public NativeArray<float> Nearest;
@@ -103,14 +111,15 @@ namespace TheWaningBorder.World.Roads
         {
             if (c.Strength <= 0f) return;
             float rMax = c.Radius * (1f + c.EdgeNoise);
+            float rMaxY = rMax / YScale;
             int x0 = math.max(0, (int)math.floor(c.Centre.x - rMax - 1));
             int x1 = math.min(Res - 1, (int)math.ceil(c.Centre.x + rMax + 1));
-            int y0 = math.max(0, (int)math.floor(c.Centre.y - rMax - 1));
-            int y1 = math.min(Res - 1, (int)math.ceil(c.Centre.y + rMax + 1));
+            int y0 = math.max(0, (int)math.floor(c.Centre.y - rMaxY - 1));
+            int y1 = math.min(Res - 1, (int)math.ceil(c.Centre.y + rMaxY + 1));
             float sx = (c.Seed & 0xFFFF) * 0.37f, sy = ((c.Seed >> 8) & 0xFFFF) * 0.53f;
             for (int y = y0; y <= y1; y++)
             {
-                float dy = (y + 0.5f) - c.Centre.y;
+                float dy = ((y + 0.5f) - c.Centre.y) * YScale;
                 for (int x = x0; x <= x1; x++)
                 {
                     float dx = (x + 0.5f) - c.Centre.x;
@@ -157,9 +166,10 @@ namespace TheWaningBorder.World.Roads
             if (c.Strength <= 0f || c.Count < 2) return;
             float r1 = c.HalfWidth, r0 = c.HalfWidth * math.saturate(c.EdgeFade);
             float claimScale = 1f / math.max(c.Strength, 0.05f);
+            float2 iso = new float2(1f, YScale);      // texel -> x-texel units
             for (int i = c.Start; i < c.Start + c.Count - 1; i++)
             {
-                float2 a = Points[i], b = Points[i + 1];
+                float2 a = Points[i] * iso, b = Points[i + 1] * iso;
                 float2 ab = b - a;
                 float len2 = math.lengthsq(ab);
                 if (len2 < 1e-6f) continue;
@@ -169,13 +179,13 @@ namespace TheWaningBorder.World.Roads
 
                 int x0 = math.max(0, (int)math.floor(math.min(a.x, b.x) - r1 - 1));
                 int x1 = math.min(Res - 1, (int)math.ceil(math.max(a.x, b.x) + r1 + 1));
-                int y0 = math.max(0, (int)math.floor(math.min(a.y, b.y) - r1 - 1));
-                int y1 = math.min(Res - 1, (int)math.ceil(math.max(a.y, b.y) + r1 + 1));
+                int y0 = math.max(0, (int)math.floor((math.min(a.y, b.y) - r1) / YScale - 1));
+                int y1 = math.min(Res - 1, (int)math.ceil((math.max(a.y, b.y) + r1) / YScale + 1));
                 for (int y = y0; y <= y1; y++)
                 {
                     for (int x = x0; x <= x1; x++)
                     {
-                        float2 p = new float2(x + 0.5f, y + 0.5f);
+                        float2 p = new float2(x + 0.5f, (y + 0.5f) * YScale);
                         float t = math.saturate(math.dot(p - a, ab) / len2);
                         float2 rel = p - (a + ab * t);
                         float d = math.length(rel);

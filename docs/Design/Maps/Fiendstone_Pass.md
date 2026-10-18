@@ -31,7 +31,7 @@ From the river up, per bank:
 both plateaus are reachable from them and they from both — riskier and richer
 than the corners.
 
-## Rules the map uses (none new)
+## Rules the map uses
 
 - **Cliffs** are height steps steeper than the walk limit
   (`PassabilityGrid.MaxWalkableSlope`); they need no paint. **Ramps** are
@@ -39,13 +39,51 @@ than the corners.
   under each ramp; the plan marks it.
 - **Mountains** and **the river** are covered by no territory outline, which
   makes them unclaimable (a fully authored map's uncovered ground is no
-  region). Mountains also carry NoWalk paint; nothing walks below the water.
-- **Fords** are bars raised just above the water line: walkable, but in the
-  river, so unclaimable.
+  region). Mountains also carry NoWalk paint; nothing walks deeper than the
+  water's wade depth.
+- **Fords are waded, under water (2026-10-17).** They are bars in the
+  riverbed that stop just *below* the surface, so they read as shallow water
+  that armies walk through, not as dry land. This needs the one new rule this
+  map brings: **`WaterPlane.wadeDepth`**, set per map on the scene's water
+  (`layout.json` `wadeDepth`). Ground less than that far below the surface
+  stays walkable (`PassabilityGrid`, and the move-click snap in
+  `WorldClickInput`); deeper is blocked as before. Building in water stays
+  forbidden at any depth. Every other map has a wade depth of 0, which is
+  the old rule. The water level, the wade depth and the ford height are in
+  `layout.py`. The sloped banks also pass through the wade band, which leaves
+  a strip about a metre wide along each bank where units can step into the
+  water. Only the fords cross; the riverbed between them is too deep.
+  They are in the river, so unclaimable.
+- **The river's look** is the Houidisoft "One Click Add Water" ocean Shader
+  Graph (`Assets/Tools/Houidisoft technology/`), on the WaterPlane's mesh as
+  `River Water.mat` in the map folder. The material is data: the builder
+  copies it from the tool's `water.mat` only if it is missing, and after that
+  it is tuned by hand (deep blue-teal, not cyan, because cyan means veilstone
+  in [Art_Direction.md](../Art_Direction.md); waves off; small caustics).
 - **Forest** is decoration, not territory ([Regions.md](../Regions.md) §
   Region kinds, 2026-10-16): patches of trees inside or across territories,
   at the feet of mountains and cliffs and along the banks — never on a ramp's
   approach, a ford, a pocket, a start or the pass.
+
+## Ground shape and look (2026-10-17)
+
+All authored in `layout.py`, mirrored between banks like everything else:
+
+- **The river's edge is ragged**: its half-width wobbles by several metres,
+  and each bank's slope varies in width (about 4.5 to 11.5 m) and is roughened.
+- **The fords are organic**: their centre line swings and their width breathes
+  across the river, their top is bumpy but always inside the wading band, and
+  their sides slope into the riverbed instead of dropping off.
+- **Rolling ground**: gentle rises on the flats, up to 5 m on the low ground
+  and 4 m on the plateaus (less on shelves, pockets and starts; the per-level
+  amounts are written to `layout.json` as `rollHeights`). The rises never dip
+  (no land sinks under the water) and fade out near cliffs, ramps and the shore,
+  so a cliff keeps its full step and a ramp its slope.
+- **Ground texture variation**: the map's second ground layer is moss
+  (`PaintSpec.MeadowSubstance`), painted from `meadow.png` into the hollows,
+  along forest edges and cliff feet, and in loose patches; `bare.png` adds
+  worn bare-earth patches to the dirt layer. Both stay within the terrain
+  shader's four main layers.
 
 ## Resources (territory types, [Territory_Claims.md](../Territory_Claims.md) §11)
 
@@ -82,7 +120,5 @@ pocket's place. The map must have at least one (Territory_Claims.md §9).
   (Hollow Table fails the same way), so it is a save-system issue and not this
   map's.
 - **Look, in the Editor:** cliffs and ramps read clearly from the player camera;
-  the river is water and the fords are muddy bars across it. Known cosmetic
-  flaw: a small patch of water draws over the north end of the centre ford,
-  where the ground is 4.2 m against the 3.6 m water line. The ground there
-  is walkable; only the drawing is wrong.
+  the river is deep blue water and each ford is a shallow under it, its bed
+  visible through the caustics. The fords' edges are straight-cut.

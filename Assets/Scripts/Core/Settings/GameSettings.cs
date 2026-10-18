@@ -208,6 +208,19 @@ public enum NetworkRole
 /// <see cref="GameSettings.StartAge"/> and <c>StartAgePromoter</c>.
 /// </summary>
 /// <summary>
+/// Lobby starting-resources level, index-parallel with
+/// LobbyOptions.ResourceNames. The amounts per level (supplies, iron,
+/// veilstone, veilsteel, religion points) are EconomyBootstrap.asset.
+/// </summary>
+public enum StartingResourcesLevel : byte
+{
+    Low = 0,
+    Normal = 1,
+    High = 2,
+    Max = 3,
+}
+
+/// <summary>
 /// Lobby start-age selector. The value is the starting capital level (capped
 /// at the building ladder's top, L3), and the era runs one ahead of it:
 ///   Age0 → no promotion   Age1 → Era 2   Age2 → Era 3   Age3 → Era 4
@@ -311,8 +324,20 @@ public static class GameSettings
 
     // ==================== Economy Settings ====================
 
-    /// <summary>Start every faction with 100,000 of each resource (debug / sandbox).</summary>
-    public static bool MaxStartingResources = false;
+    /// <summary>
+    /// The lobby's starting-resources level (2026-10-16: was a NORMAL / MAX
+    /// bool). The bank and religion points each level starts with are data,
+    /// on EconomyBootstrap.asset (Scripts/Bootstrap/).
+    /// </summary>
+    public static StartingResourcesLevel StartingResources = StartingResourcesLevel.Normal;
+
+    /// <summary>The old bool, kept for the scenario, tutorial, headless and
+    /// probe call sites: true is MAX, false is NORMAL.</summary>
+    public static bool MaxStartingResources
+    {
+        get => StartingResources == StartingResourcesLevel.Max;
+        set => StartingResources = value ? StartingResourcesLevel.Max : StartingResourcesLevel.Normal;
+    }
 
     /// <summary>
     /// Skirmish start-age dropdown. Lets the lobby pre-promote every faction

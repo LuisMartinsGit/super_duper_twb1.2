@@ -212,7 +212,7 @@ namespace TheWaningBorder.AI
         /// is 0 when terrain closes every approach.
         /// </summary>
         public static bool TryAssess(float3 hallPos, Corridor[] corridors,
-            out int corridorCount, out float openFraction, out string verdict)
+            out int corridorCount, out float openFraction, out string verdict, int homeRegion = -1)
         {
             corridorCount = 0;
             openFraction = 1f;
@@ -299,7 +299,7 @@ namespace TheWaningBorder.AI
                             ArcFraction = runLen / (float)Bearings,
                         };
                         c.Sealable = TryFindChokeCrossSection(hallPos, c.Approach,
-                            out c.ChokePos, out c.ChokeAxis, out c.ChokeWidth);
+                            out c.ChokePos, out c.ChokeAxis, out c.ChokeWidth, homeRegion);
                         corridors[corridorCount++] = c;
                     }
                     runLen = 0;
@@ -346,7 +346,7 @@ namespace TheWaningBorder.AI
         /// of across the gap (2026-08-11 game, Yellow).
         /// </summary>
         private static bool TryFindChokeCrossSection(float3 hallPos, float3 dir,
-            out float3 chokePos, out float3 chokeAxis, out float chokeWidth)
+            out float3 chokePos, out float3 chokeAxis, out float chokeWidth, int homeRegion = -1)
         {
             chokePos = default;
             chokeAxis = default;
@@ -368,6 +368,17 @@ namespace TheWaningBorder.AI
                     float width = left + right;
                     if (width > Cfg.maxSealableWidth) continue;
                     if (width >= chokeWidth) continue;
+                    // On a partitioned map a wall stands only on its owner's
+                    // ground: the line (centre and both flank ends) must lie in
+                    // the home territory -- the UPPER half of a ramp, where the
+                    // cliff faces still flank it (2026-10-17).
+                    if (homeRegion >= 0)
+                    {
+                        float3 l = p + axis * left, rr = p - axis * right, m = p + axis * (left - right) * 0.5f;
+                        if (TheWaningBorder.World.Regions.RegionMap.RegionAt(l.x, l.z) != homeRegion
+                            || TheWaningBorder.World.Regions.RegionMap.RegionAt(rr.x, rr.z) != homeRegion
+                            || TheWaningBorder.World.Regions.RegionMap.RegionAt(m.x, m.z) != homeRegion) continue;
+                    }
                     chokeWidth = width;
                     chokePos = p + axis * (left - right) * 0.5f;
                     chokePos.y = TerrainUtility.GetHeight(chokePos.x, chokePos.z);
@@ -433,6 +444,28 @@ namespace TheWaningBorder.AI
                     return ModeBorder;
                 }
                 int home = HomeRegion(hallPos);
+
+                // A SHELTERED HOME IS DEFENDED AT ITS CHOKEPOINTS (2026-10-17,
+                // Game_AI.md § Walls). Where terrain (cliffs, mountains) closes
+                // the home except for a few narrow ways in -- a start on a
+                // cliff shelf with a ramp down -- the AI walls those ways in,
+                // wall-to-wall across each, instead of a ring along the
+                // border. Same shelter test as the unpartitioned fallback,
+                // with every wall line held inside the home territory.
+                string chokeVerdict = null;
+                if (Cfg.chokepointsOnPartitionedMaps && home >= 0)
+                {
+                    var homeCorridors = new Corridor[MaxCorridors];
+                    if (TryAssessOpenings(hallPos, home, homeCorridors, out int hc, out string verdict))
+                    {
+                        if (hc == 0) { why = "home sheltered by terrain on every side: " + verdict; return ModeNone; }
+                        for (int c = 0; c < hc; c++)
+                            EmitChokeLine(em, homeCorridors[c], (byte)c, slots);
+                        why = $"home sheltered by terrain — sealing {hc} chokepoint(s): {verdict}";
+                        return ModeChokepoints;
+                    }
+                    chokeVerdict = verdict;
+                }
                 var sb = new System.Text.StringBuilder(96);
                 for (int i = 0; i < regions.Count && i < 255; i++)
                 {
@@ -455,6 +488,7 @@ namespace TheWaningBorder.AI
                     sb.Append(regions[i] == home ? "home: " : $"territory {regions[i]}: ");
                     sb.Append(part);
                 }
+                if (chokeVerdict != null) sb.Append($" (chokepoints refused: {chokeVerdict})");
                 why = sb.ToString();
                 return ModeBorder;
             }
@@ -470,6 +504,136 @@ namespace TheWaningBorder.AI
 
             EmitPerimeter(em, faction, hallPos, slots);
             return ModePerimeter;
+        }
+
+        /// <summary>
+        /// THE HOME'S WAYS IN, on a partitioned map (2026-10-17). Every 2 m
+        /// cell of the home territory (flooded from the capital) that is
+        /// walkable and borders walkable FOREIGN ground is an opening cell;
+        /// cliffs, mountains and water between territories are not. Opening
+        /// cells are grouped into openings; the home is "sheltered" when it
+        /// has at most MaxCorridors openings, each at most maxSealableWidth
+        /// across. Each becomes a corridor whose wall line runs along the
+        /// opening, borderInset inside the home (on own ground, still flanked
+        /// by the terrain that closes the rest of the border). The ray test
+        /// (TryAssess) misjudges a large start closed by cliffs beyond its scan
+        /// range; this asks the real question -- where can an enemy walk in.
+        /// Deterministic: fixed grid, fixed order.
+        /// </summary>
+        public static bool TryAssessOpenings(float3 hallPos, int home, Corridor[] corridors,
+            out int corridorCount, out string verdict)
+        {
+            corridorCount = 0;
+            verdict = "no passability grid";
+            if (PassabilityGrid.Instance == null) return false;
+            const float cell = 2f;
+            const int half = 140;                       // a 280 m window
+            int n = half * 2 + 1;
+            float ox = math.floor(hallPos.x / cell) * cell - half * cell;
+            float oz = math.floor(hallPos.z / cell) * cell - half * cell;
+
+            var inHome = new bool[n * n];
+            var queue = new System.Collections.Generic.Queue<int>(4096);
+            int c0 = half * n + half;
+            if (TheWaningBorder.World.Regions.RegionMap.RegionAt(ox + (half + 0.5f) * cell, oz + (half + 0.5f) * cell) != home)
+            { verdict = "capital not in the home territory"; return false; }
+            inHome[c0] = true; queue.Enqueue(c0);
+            while (queue.Count > 0)
+            {
+                int k = queue.Dequeue(); int i = k % n, j = k / n;
+                for (int d = 0; d < 4; d++)
+                {
+                    int ni = i + (d == 0 ? 1 : d == 1 ? -1 : 0), nj = j + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                    if (ni < 0 || nj < 0 || ni >= n || nj >= n) { verdict = "home larger than the scan window"; return false; }
+                    int nk = nj * n + ni;
+                    if (inHome[nk]) continue;
+                    if (TheWaningBorder.World.Regions.RegionMap.RegionAt(ox + (ni + 0.5f) * cell, oz + (nj + 0.5f) * cell) != home) continue;
+                    inHome[nk] = true; queue.Enqueue(nk);
+                }
+            }
+
+            var open = new bool[n * n];
+            var outward = new float2[n * n];
+            for (int j = 1; j < n - 1; j++)
+                for (int i = 1; i < n - 1; i++)
+                {
+                    int k = j * n + i;
+                    if (!inHome[k] || TerrainBlockedAt(ox + (i + 0.5f) * cell, oz + (j + 0.5f) * cell)) continue;
+                    float2 o = float2.zero;
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int di = d == 0 ? 1 : d == 1 ? -1 : 0, dj = d == 2 ? 1 : d == 3 ? -1 : 0;
+                        int nk = (j + dj) * n + (i + di);
+                        if (inHome[nk] || TerrainBlockedAt(ox + (i + di + 0.5f) * cell, oz + (j + dj + 0.5f) * cell)) continue;
+                        o += new float2(di, dj);
+                    }
+                    if (math.lengthsq(o) > 0f) { open[k] = true; outward[k] = o; }
+                }
+
+            var seen = new bool[n * n];
+            var members = new System.Collections.Generic.List<int>(256);
+            int total = 0;
+            var sb = new System.Text.StringBuilder(96);
+            bool ok = true;
+            for (int k0 = 0; k0 < n * n; k0++)
+            {
+                if (!open[k0] || seen[k0]) continue;
+                members.Clear();
+                seen[k0] = true; queue.Enqueue(k0);
+                while (queue.Count > 0)
+                {
+                    int k = queue.Dequeue(); members.Add(k);
+                    int i = k % n, j = k / n;
+                    for (int dj = -1; dj <= 1; dj++)
+                        for (int di = -1; di <= 1; di++)
+                        {
+                            int ni = i + di, nj = j + dj;
+                            if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue;
+                            int nk = nj * n + ni;
+                            if (!open[nk] || seen[nk]) continue;
+                            seen[nk] = true; queue.Enqueue(nk);
+                        }
+                }
+                if (members.Count < 2) continue;              // a one-cell speck
+                total++;
+                int a = members[0], b = a;
+                float best = -1f;
+                for (int m = 0; m < members.Count; m++)
+                {
+                    int k = members[m];
+                    float dd = math.distancesq(new float2(k % n, k / n), new float2(members[0] % n, members[0] / n));
+                    if (dd > best) { best = dd; a = k; }
+                }
+                best = -1f;
+                float2 outSum = float2.zero;
+                for (int m = 0; m < members.Count; m++)
+                {
+                    int k = members[m];
+                    outSum += outward[k];
+                    float dd = math.distancesq(new float2(k % n, k / n), new float2(a % n, a / n));
+                    if (dd > best) { best = dd; b = k; }
+                }
+                float3 pa = new float3(ox + (a % n + 0.5f) * cell, 0f, oz + (a / n + 0.5f) * cell);
+                float3 pb = new float3(ox + (b % n + 0.5f) * cell, 0f, oz + (b / n + 0.5f) * cell);
+                float width = math.distance(pa.xz, pb.xz) + cell;
+                float2 o2 = math.normalizesafe(outSum, new float2(1f, 0f));
+                float3 outDir = new float3(o2.x, 0f, o2.y);
+                float3 axis = math.normalizesafe(pb - pa, new float3(-o2.y, 0f, o2.x));
+                float3 mid = (pa + pb) * 0.5f - outDir * Cfg.borderInset;
+                mid.y = TerrainUtility.GetHeight(mid.x, mid.z);
+                bool sealable = width <= Cfg.maxSealableWidth;
+                sb.Append(total == 1 ? "" : ", ").Append(sealable ? $"w={width:F0}" : $"w={width:F0} unsealable");
+                if (!sealable) ok = false;
+                if (corridorCount < MaxCorridors)
+                    corridors[corridorCount++] = new Corridor
+                    {
+                        ChokePos = mid, ChokeAxis = axis, Approach = outDir,
+                        ChokeWidth = width, ArcFraction = 0f, Sealable = sealable,
+                    };
+            }
+            verdict = $"{total} way(s) into the home" + (total > 0 ? ": " + sb : "");
+            if (total > MaxCorridors) { verdict += " - too many"; return false; }
+            return ok;
         }
 
         /// <summary>Hub line spanning a corridor wall-to-wall. The END hubs
@@ -805,7 +969,7 @@ namespace TheWaningBorder.AI
                 {
                     if (o == r || !TheWaningBorder.World.Regions.RegionMap.AreAdjacent(r, o)) continue;
                     int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(o);
-                    hostile = owner == TheWaningBorder.World.Regions.TerritoryOwnership.Curse
+                    hostile = TheWaningBorder.World.Regions.TerritoryOwnership.IsCurseHeld(o)
                               || (owner >= 0 && owner != (int)faction
                                   && Alliances.AreHostile(faction, (Faction)owner));
                 }

@@ -16,6 +16,12 @@
 // leaves it, or its objective stands in it); everything between is not.
 // Host-side decision helper; the waypoints reach the simulation as ordinary
 // formation moves through CommandRouter.
+//
+// 2026-10-16 (Territory_Claims.md §6.9): cursed ground is a FIELD that
+// creeps from the nodes, so once CurseGroundSystem is running the planner
+// reads it — a cell is blocked when cursed ground lies within marginMeters
+// of it, a leg is clear when no sample along it is — and the node circles
+// are only the fallback before the field exists.
 
 using System.Collections.Generic;
 using Unity.Collections;
@@ -65,6 +71,7 @@ namespace TheWaningBorder.AI
         public static bool InCurse(EntityManager em, float3 p)
         {
             if (!Cfg.enabled) return false;
+            if (Field) return CursedNear(p.xz);
             LoadNodes(em);
             float r2 = _radius * _radius;
             for (int i = 0; i < _nodes.Count; i++)
@@ -79,6 +86,20 @@ namespace TheWaningBorder.AI
         public static float3 OutOfCurse(EntityManager em, float3 p)
         {
             if (!Cfg.enabled) return p;
+            if (Field)
+            {
+                // The nearest clean ground on rings outward, eight bearings each.
+                if (!CursedNear(p.xz)) return p;
+                for (float r = 4f; r <= 120f; r += 4f)
+                    for (int k = 0; k < 8; k++)
+                    {
+                        float a = k * (math.PI / 4f);
+                        float2 q = p.xz + new float2(math.cos(a), math.sin(a)) * r;
+                        if (CursedNear(q)) continue;
+                        return new float3(q.x, TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(q.x, q.y), q.y);
+                    }
+                return p;
+            }
             LoadNodes(em);
             for (int pass = 0; pass < 3; pass++)
             {
@@ -99,8 +120,37 @@ namespace TheWaningBorder.AI
             return p;
         }
 
+        static bool Field => TheWaningBorder.Systems.Border.CurseGroundSystem.Ready;
+
+        /// <summary>Cursed ground at <paramref name="p"/> or within
+        /// marginMeters of it (five samples: the point and four offsets).</summary>
+        static bool CursedNear(float2 p)
+        {
+            float m = math.max(0f, Cfg.marginMeters);
+            return TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(p.x, p.y)
+                || (m > 0f && (TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(p.x + m, p.y)
+                            || TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(p.x - m, p.y)
+                            || TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(p.x, p.y + m)
+                            || TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(p.x, p.y - m)));
+        }
+
+        /// <summary>Field leg test: clean every 2 m along it, except the
+        /// cursed stretch the leg starts or ends in.</summary>
+        static bool FieldSegmentClear(float2 a, float2 b)
+        {
+            float len = math.distance(a, b);
+            int steps = math.max(1, (int)math.ceil(len / 2f));
+            int first = 0, last = steps;
+            while (first <= steps && CursedNear(math.lerp(a, b, (float)first / steps))) first++;
+            while (last >= first && CursedNear(math.lerp(a, b, (float)last / steps))) last--;
+            for (int i = first; i <= last; i++)
+                if (CursedNear(math.lerp(a, b, (float)i / steps))) return false;
+            return true;
+        }
+
         static bool SegmentClear(float2 a, float2 b)
         {
+            if (Field) return FieldSegmentClear(a, b);
             float r2 = _radius * _radius;
             float2 ab = b - a;
             float l2 = math.lengthsq(ab);
@@ -125,8 +175,9 @@ namespace TheWaningBorder.AI
         {
             into.Clear();
             if (!Cfg.enabled) return false;
-            LoadNodes(em);
-            if (_nodes.Count == 0 || SegmentClear(from.xz, to.xz)) return false;
+            bool field = Field;
+            if (!field) LoadNodes(em);
+            if ((!field && _nodes.Count == 0) || SegmentClear(from.xz, to.xz)) return false;
 
             TheWaningBorder.World.Terrain.TerrainUtility.GetPlayableBounds(out var bmin, out var bmax);
             float cs = math.max(2f, Cfg.cellMeters);
@@ -144,14 +195,33 @@ namespace TheWaningBorder.AI
                 for (int x = 0; x < W; x++)
                 {
                     float2 c = Centre(x, z);
+                    if (field) { blocked[z * W + x] = CursedNear(c); continue; }
                     for (int i = 0; i < _nodes.Count; i++)
                         if (math.distancesq(c, _nodes[i]) <= r2) { blocked[z * W + x] = true; break; }
                 }
             int2 s = Cell(from.xz), g = Cell(to.xz);
             // The start and goal may stand in cursed ground; free their cells
-            // and the cursed circles they stand in, or there is no way out.
+            // and the cursed ground they stand in, or there is no way out.
             void FreeAround(float2 p)
             {
+                if (field)
+                {
+                    // Flood the blocked patch the point stands in.
+                    int2 c0 = Cell(p);
+                    if (!blocked[c0.y * W + c0.x]) return;
+                    var stack = new Stack<int>();
+                    stack.Push(c0.y * W + c0.x);
+                    blocked[c0.y * W + c0.x] = false;
+                    while (stack.Count > 0)
+                    {
+                        int ci = stack.Pop(), cx = ci % W, cz = ci / W;
+                        if (cx > 0 && blocked[ci - 1]) { blocked[ci - 1] = false; stack.Push(ci - 1); }
+                        if (cx < W - 1 && blocked[ci + 1]) { blocked[ci + 1] = false; stack.Push(ci + 1); }
+                        if (cz > 0 && blocked[ci - W]) { blocked[ci - W] = false; stack.Push(ci - W); }
+                        if (cz < H - 1 && blocked[ci + W]) { blocked[ci + W] = false; stack.Push(ci + W); }
+                    }
+                    return;
+                }
                 for (int i = 0; i < _nodes.Count; i++)
                 {
                     if (math.distancesq(p, _nodes[i]) > r2) continue;

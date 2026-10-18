@@ -970,6 +970,7 @@ namespace TheWaningBorder.World.Roads
             var job = new RoadRasterJob
             {
                 Res = _res,
+                YScale = _worldSize.y / Mathf.Max(1f, _worldSize.x),
                 Mask = _maskBuf,
                 Dir = _dirBuf,
                 Nearest = _nearest,

@@ -107,6 +107,13 @@ namespace TheWaningBorder.UI.Ingame
 
             _thumb.texture = rec.MapThumbnail;
             _thumb.enabled = rec.MapThumbnail != null;   // a null RawImage draws white
+            // The baked thumbnail is a centred square of the map's LONGEST
+            // side (MapInfoBaker): a rectangular map sits letterboxed in it.
+            // Show only the map's own rectangle, so the picture lines up with
+            // the territory raster and markers drawn over it in world space.
+            float side = Mathf.Max(_span.x, _span.y);
+            float uw = _span.x / side, uh = _span.y / side;
+            _thumb.uvRect = new Rect(0.5f - uw * 0.5f, 0.5f - uh * 0.5f, uw, uh);
             _thumb.color = new Color(1f, 1f, 1f, cfg != null ? cfg.thumbnailAlpha : 0.85f);
 
             BuildTerritory();

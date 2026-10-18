@@ -61,6 +61,10 @@ namespace TheWaningBorder.World.FogOfWar
         /// </summary>
         [Range(0, 1)] public float HiddenAlpha = 1f;      // never seen
         public float TextureUpdateInterval = 0.1f;
+        /// <summary>Seconds between catch-up uploads of the explored map once
+        /// the live layer carries the moving sight (see EndFrameAndBuild).</summary>
+        public float RevealedPushInterval = 2f;
+        int _staticVersion, _pushedStaticVersion = -1;
 
         // Internal. NativeArrays, not managed arrays (2026-09-03): the
         // stamp/push work runs in Burst jobs — as managed loops the 4 Hz
@@ -153,6 +157,8 @@ namespace TheWaningBorder.World.FogOfWar
             if (_pushedRev.IsCreated) _pushedRev.Dispose();
             if (_prevVis.IsCreated) _prevVis.Dispose();
             if (_prevRev.IsCreated) _prevRev.Dispose();
+            if (_dispStatic.IsCreated) _dispStatic.Dispose();
+            ReleaseLive();
         }
 
         /// <summary>Ensures FogMaterial, FogRenderer and shader params are bound to _tex.</summary>
@@ -337,6 +343,10 @@ namespace TheWaningBorder.World.FogOfWar
             public Vector3 Position;
             public float Radius;
             public Faction Faction;
+            /// <summary>The sighted entity (Entity.Null for the Shardroot's
+            /// reveal): the live layer interpolates each source's circle
+            /// between ticks, as the renderer does its model.</summary>
+            public Unity.Entities.Entity Source;
         }
 
         /// <summary>
@@ -425,6 +435,7 @@ namespace TheWaningBorder.World.FogOfWar
             _staticHash = hash;
             _staticCount = count;
             _staticValid = true;
+            _staticVersion++;   // the overlay re-uploads the building sight now
         }
 
         unsafe void RunFactionPass(NativeArray<StampCommand> mobiles, int count, bool clearFirst)
@@ -669,8 +680,20 @@ namespace TheWaningBorder.World.FogOfWar
                 _nextTextureTime = 0f; // repaint NOW — stale fog is the old player's vision
             }
 
-            if (Time.unscaledTime < _nextTextureTime) return;
-            _nextTextureTime = Time.unscaledTime + Mathf.Max(0f, TextureUpdateInterval);
+            // UPLOAD CADENCE (2026-10-16, measured on Veilmarch): the texture
+            // push — a 4 MB upload on a big map — was ~2.2 ms of every 4 Hz
+            // fog pass, and it existed to keep the explored channel up with
+            // moving units. The live layer now draws units' sight AND keeps
+            // its own explored copy every tick, so the texture only carries
+            // building sight (re-pushed the moment that layer changes) and
+            // the explored map, which is caught up every
+            // RevealedPushInterval. Until a static layer exists the texture
+            // still carries everything, at the old cadence.
+            float now = Time.unscaledTime;
+            bool staticChanged = _staticValid && _staticVersion != _pushedStaticVersion;
+            if (!staticChanged && now < _nextTextureTime) return;
+            _nextTextureTime = now + Mathf.Max(0f, _staticValid ? RevealedPushInterval : TextureUpdateInterval);
+            _pushedStaticVersion = _staticVersion;
             EnsureMaterialBound();
             PushHumanTexture();
         }
@@ -780,8 +803,13 @@ namespace TheWaningBorder.World.FogOfWar
             // a 2 MB memcmp is not. Skipping also lets an in-flight crossfade
             // finish on its own clock, which is what a same-data push would
             // have converged to anyway.
+            // The VISIBLE channel is the static (building) sight only — units
+            // are the live GPU layer's (see SetLiveSight). Falls back to the
+            // whole grid until the first stamp pass has built a static layer.
+            var visSrc = DisplayVisible(cells, ofs, out int visOfs);
+
             if (!reinit && _pushedVis.IsCreated && _pushedVis.Length == cells
-                && SliceEquals(_visible, ofs, _pushedVis, cells)
+                && SliceEquals(visSrc, visOfs, _pushedVis, cells)
                 && SliceEquals(_revealed, ofs, _pushedRev, cells))
                 return;
 
@@ -814,7 +842,8 @@ namespace TheWaningBorder.World.FogOfWar
 
             new PushJob
             {
-                Visible = _visible,
+                Visible = visSrc,
+                VisOfs = visOfs,
                 Revealed = _revealed,
                 Ofs = ofs,
                 Cells = cells,
@@ -843,6 +872,66 @@ namespace TheWaningBorder.World.FogOfWar
             if (FogMaterial != null) FogMaterial.SetFloat("_Blend", 0f);
         }
 
+        /// <summary>
+        /// What the overlay shows as VISIBLE from the CPU grid: the static
+        /// (building) sight of the viewer and their team-mates, max-merged —
+        /// the moving sight is drawn live on the GPU. Before the first stamp
+        /// pass has built a static layer it is the whole visible grid, which
+        /// is what the overlay showed before the live layer existed.
+        /// </summary>
+        NativeArray<byte> DisplayVisible(int cells, int humanOfs, out int ofs)
+        {
+            if (!_staticValid || !_static.IsCreated || _static.Length != MaxFactions * cells)
+            {
+                ofs = humanOfs;
+                return _visible;
+            }
+            if (!_dispStatic.IsCreated || _dispStatic.Length != cells)
+            {
+                if (_dispStatic.IsCreated) _dispStatic.Dispose();
+                _dispStatic = new NativeArray<byte>(cells, Allocator.Persistent);
+            }
+
+            var offsets = new NativeArray<int>(MaxFactions, Allocator.TempJob);
+            int n = 0;
+            for (int f = 0; f < MaxFactions; f++)
+                if (SharesSight((Faction)f, HumanFaction)) offsets[n++] = f * cells;
+
+            new StaticMaxJob
+            {
+                Static = _static,
+                Offsets = offsets,
+                Count = n,
+                Out = _dispStatic,
+            }.Schedule(cells, 16384).Complete();
+            offsets.Dispose();
+
+            ofs = 0;
+            return _dispStatic;
+        }
+
+        NativeArray<byte> _dispStatic;
+
+        [BurstCompile]
+        struct StaticMaxJob : IJobParallelFor
+        {
+            [ReadOnly] public NativeArray<byte> Static;
+            [ReadOnly] public NativeArray<int> Offsets;
+            public int Count;
+            public NativeArray<byte> Out;
+
+            public void Execute(int i)
+            {
+                byte v = 0;
+                for (int m = 0; m < Count; m++)
+                {
+                    byte s = Static[Offsets[m] + i];
+                    if (s > v) v = s;
+                }
+                Out[i] = v;
+            }
+        }
+
         // Snapshot of the last pushed coverage (human faction) plus the
         // crossfade-source channels as last written — needed to compute the
         // DISPLAYED field when a push lands mid-fade.
@@ -865,7 +954,8 @@ namespace TheWaningBorder.World.FogOfWar
         {
             [ReadOnly] public NativeArray<byte> Visible;
             [ReadOnly] public NativeArray<byte> Revealed;
-            public int Ofs;
+            public int VisOfs;   // into Visible (the display source)
+            public int Ofs;      // into Revealed (the human faction's slice)
             public int Cells;
             public NativeArray<byte> PrevVis;
             public NativeArray<byte> PrevRev;
@@ -879,7 +969,7 @@ namespace TheWaningBorder.World.FogOfWar
             public void Execute(int i)
             {
                 {
-                    byte vis = Visible[Ofs + i];
+                    byte vis = Visible[VisOfs + i];
                     byte rev = Revealed[Ofs + i];
 
                     byte dispV, dispR;
@@ -911,6 +1001,256 @@ namespace TheWaningBorder.World.FogOfWar
         }
         float _lastPushTime;
         float _blendDuration = 0.25f;
+
+        // ── Live sight layer (2026-10-16) ──────────────────────────────────
+        // The CPU grid is stamped at 4 Hz and the overlay crossfades between
+        // pushes, so the DISPLAYED fog edge trailed a moving unit by 0.25 to
+        // 0.5 s. Moving sight sources (units, eagles, the Shardroot) are now
+        // ALSO drawn on the GPU every sim tick, from FogOfWarSystem's
+        // per-tick list, into _liveVis; the fog shader shows ground as seen
+        // where either layer does. The CPU texture's visible channel carries
+        // only the STATIC (building) sight, so the units' lagging CPU stamps
+        // cannot leave a trail. Gameplay is untouched: IsVisible, the AI and
+        // lockstep still read the CPU grid.
+        const int LiveBatch = 1023;   // DrawMeshInstanced's limit per call
+        NativeList<StampCommand> _live;
+        RenderTexture _liveVis, _liveRev;
+        Material _liveMat;
+        Mesh _liveQuad;
+        UnityEngine.Rendering.CommandBuffer _liveCb;
+        MaterialPropertyBlock _liveProps;
+        Matrix4x4[] _liveMats = new Matrix4x4[LiveBatch];
+        float[] _liveRadii = new float[LiveBatch];
+        readonly System.Collections.Generic.List<Matrix4x4> _liveAllMats = new System.Collections.Generic.List<Matrix4x4>(256);
+        readonly System.Collections.Generic.List<float> _liveAllRadii = new System.Collections.Generic.List<float>(256);
+        int _liveRevFaction = -1;
+        Camera _depthCamera;
+        const string LiveShaderResource = "FogLiveSight";
+
+        /// <summary>
+        /// The moving sight sources of every faction, as of this sim tick.
+        /// Called by FogOfWarSystem every tick (the CPU stamp stays 4 Hz).
+        /// </summary>
+        public void SetLiveSight(NativeArray<StampCommand> commands, int count)
+        {
+            if (!_live.IsCreated) _live = new NativeList<StampCommand>(256, Allocator.Persistent);
+            _live.Clear();
+            count = Mathf.Min(count, commands.Length);
+            if (count > 0) _live.AddRange(commands.GetSubArray(0, count));
+        }
+
+        void LateUpdate()
+        {
+            EnsureCameraDepth();
+            RenderLiveSight();
+        }
+
+        /// <summary>
+        /// The fog reads the camera DEPTH texture to find each pixel's world
+        /// position. The PC pipeline asset has it on; the Mobile one (quality
+        /// level 0) does not — so the game camera requests it itself.
+        /// </summary>
+        void EnsureCameraDepth()
+        {
+            var cam = Camera.main;
+            if (cam == null || cam == _depthCamera) return;
+            var data = UnityEngine.Rendering.Universal.CameraExtensions.GetUniversalAdditionalCameraData(cam);
+            if (data != null)
+                data.requiresDepthOption = UnityEngine.Rendering.Universal.CameraOverrideOption.On;
+            _depthCamera = cam;
+        }
+
+        /// <summary>Do <paramref name="source"/>'s units give sight to
+        /// <paramref name="viewer"/>? Itself, or a team-mate — the same rule
+        /// MergeTeamVision applies to the CPU grid. docs/Design/Teams.md</summary>
+        static bool SharesSight(Faction source, Faction viewer)
+        {
+            if (source == viewer) return true;
+            byte team = Alliances.TeamOf(viewer);
+            return team != 0 && Alliances.TeamOf(source) == team;
+        }
+
+        void RenderLiveSight()
+        {
+            if (FogMaterial == null || _w <= 0 || _h <= 0) return;
+            if (!GameSettings.ViewFaction.HasValue) return;   // overlay off (full reveal)
+            if (!EnsureLiveResources()) return;
+
+            var viewer = HumanFaction;
+            float cell = CellSize;
+            float pad = 0.75f * cell + cell;   // the ramp's outer edge, plus a texel
+
+            _liveAllMats.Clear();
+            _liveAllRadii.Clear();
+            _liveFrame++;
+            float step = Mathf.Max(0.0001f, TheWaningBorder.Core.Multiplayer.LockstepTiming.TickDuration);
+            float dt = Time.deltaTime / step;
+            if (_live.IsCreated)
+            {
+                for (int i = 0; i < _live.Length; i++)
+                {
+                    var c = _live[i];
+                    if (!SharesSight(c.Faction, viewer)) continue;
+                    float r = Mathf.Max(0.01f, c.Radius);
+                    float size = 2f * (r + pad);
+                    Vector2 at = SmoothedSightPos(c, dt);
+                    _liveAllMats.Add(Matrix4x4.TRS(new Vector3(at.x, at.y, 0f),
+                        Quaternion.identity, new Vector3(size, size, 1f)));
+                    _liveAllRadii.Add(r);
+                }
+            }
+            // Forget sources that are gone (dead, out of the shared set) —
+            // swept every so often rather than every frame.
+            if ((_liveFrame & 63) == 0) SweepLiveViews();
+
+            _liveMat.SetFloat("_Cell", cell);
+            var cb = _liveCb;
+            cb.Clear();
+            cb.SetViewProjectionMatrices(Matrix4x4.identity,
+                Matrix4x4.Ortho(WorldMin.x, WorldMax.x, WorldMin.y, WorldMax.y, -1f, 1f));
+
+            // The live explored layer belongs to ONE viewer: a change of
+            // perspective (observer following another player) starts it over.
+            if (_liveRevFaction != (int)viewer)
+            {
+                cb.SetRenderTarget(_liveRev);
+                cb.ClearRenderTarget(false, true, Color.clear);
+                _liveRevFaction = (int)viewer;
+            }
+
+            cb.SetRenderTarget(_liveVis);
+            cb.ClearRenderTarget(false, true, Color.clear);
+            DrawLiveCircles(cb);
+            cb.SetRenderTarget(_liveRev);
+            DrawLiveCircles(cb);
+
+            Graphics.ExecuteCommandBuffer(cb);
+        }
+
+        // Per-source smoothing, the same scheme PresentationSpawnSystem uses
+        // for the unit MODELS: a new simulated position opens a segment from
+        // where the circle is DRAWN now, played out over one tick of real
+        // time. Without it the circles stepped at the 30 Hz tick while the
+        // models glided, and the fog edge jittered against its own unit.
+        struct LiveView { public Vector2 From, To, Render; public float T; public int Seen; }
+        readonly System.Collections.Generic.Dictionary<Unity.Entities.Entity, LiveView> _liveViews =
+            new System.Collections.Generic.Dictionary<Unity.Entities.Entity, LiveView>(256);
+        readonly System.Collections.Generic.List<Unity.Entities.Entity> _liveStale =
+            new System.Collections.Generic.List<Unity.Entities.Entity>(32);
+        int _liveFrame;
+        const float LiveTeleportSq = 8f * 8f;   // = the renderer's teleport threshold
+
+        Vector2 SmoothedSightPos(in StampCommand c, float dt)
+        {
+            var sim = new Vector2(c.Position.x, c.Position.z);
+            if (c.Source == Unity.Entities.Entity.Null) return sim;
+
+            if (!_liveViews.TryGetValue(c.Source, out var v))
+                v = new LiveView { From = sim, To = sim, Render = sim, T = 1f };
+            else if (v.To != sim)
+            {
+                bool teleport = (v.Render - sim).sqrMagnitude > LiveTeleportSq;
+                v.From = teleport ? sim : v.Render;
+                v.To = sim;
+                v.T = teleport ? 1f : 0f;
+            }
+            v.T = Mathf.Min(1f, v.T + dt);
+            v.Render = Vector2.Lerp(v.From, v.To, v.T);
+            v.Seen = _liveFrame;
+            _liveViews[c.Source] = v;
+            return v.Render;
+        }
+
+        void SweepLiveViews()
+        {
+            _liveStale.Clear();
+            foreach (var kv in _liveViews)
+                if (_liveFrame - kv.Value.Seen > 8) _liveStale.Add(kv.Key);
+            foreach (var e in _liveStale) _liveViews.Remove(e);
+        }
+
+        void DrawLiveCircles(UnityEngine.Rendering.CommandBuffer cb)
+        {
+            // A -nographics process (headless batches, lockstep peers) has no
+            // instancing: the call throws every frame. Nothing is seen there.
+            if (!SystemInfo.supportsInstancing) return;
+            int total = _liveAllMats.Count;
+            for (int start = 0; start < total; start += LiveBatch)
+            {
+                int n = Mathf.Min(LiveBatch, total - start);
+                _liveAllMats.CopyTo(start, _liveMats, 0, n);
+                _liveAllRadii.CopyTo(start, _liveRadii, 0, n);
+                _liveProps.Clear();
+                _liveProps.SetFloatArray("_Radius", _liveRadii);
+                cb.DrawMeshInstanced(_liveQuad, 0, _liveMat, 0, _liveMats, n, _liveProps);
+            }
+        }
+
+        bool EnsureLiveResources()
+        {
+            if (_liveMat == null)
+            {
+                var shader = Resources.Load<Shader>(LiveShaderResource) ?? Shader.Find("Hidden/TWB/FogLiveSight");
+                if (shader == null) return false;
+                _liveMat = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.DontSave };
+            }
+            if (_liveQuad == null)
+            {
+                _liveQuad = new Mesh { name = "FogLiveQuad", hideFlags = HideFlags.DontSave };
+                _liveQuad.vertices = new[]
+                {
+                    new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f),
+                    new Vector3(0.5f, 0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f),
+                };
+                _liveQuad.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            }
+            if (_liveCb == null) _liveCb = new UnityEngine.Rendering.CommandBuffer { name = "FogLiveSight" };
+            if (_liveProps == null) _liveProps = new MaterialPropertyBlock();
+
+            if (_liveVis == null || _liveVis.width != _w || _liveVis.height != _h)
+            {
+                ReleaseLiveTargets();
+                _liveVis = MakeLiveTarget("FogLiveVis");
+                _liveRev = MakeLiveTarget("FogLiveRev");
+                _liveRevFaction = -1;   // a fresh target holds garbage: clear it
+            }
+            FogMaterial.SetTexture("_LiveVis", _liveVis);
+            FogMaterial.SetTexture("_LiveRev", _liveRev);
+            return true;
+        }
+
+        RenderTexture MakeLiveTarget(string name)
+        {
+            var format = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.R8)
+                ? RenderTextureFormat.R8 : RenderTextureFormat.ARGB32;
+            var rt = new RenderTexture(_w, _h, 0, format, RenderTextureReadWrite.Linear)
+            {
+                name = name,
+                filterMode = FilterMode.Bilinear,   // the same smooth frontier as the CPU texture
+                wrapMode = TextureWrapMode.Clamp,
+                useMipMap = false,
+                autoGenerateMips = false,
+                hideFlags = HideFlags.DontSave,
+            };
+            rt.Create();
+            return rt;
+        }
+
+        void ReleaseLiveTargets()
+        {
+            if (_liveVis != null) { _liveVis.Release(); Destroy(_liveVis); _liveVis = null; }
+            if (_liveRev != null) { _liveRev.Release(); Destroy(_liveRev); _liveRev = null; }
+        }
+
+        void ReleaseLive()
+        {
+            ReleaseLiveTargets();
+            if (_live.IsCreated) _live.Dispose();
+            if (_liveMat != null) Destroy(_liveMat);
+            if (_liveQuad != null) Destroy(_liveQuad);
+            _liveCb?.Release();
+            _liveCb = null;
+        }
 
         void Update()
         {
@@ -1057,7 +1397,7 @@ namespace TheWaningBorder.World.FogOfWar
                 mat = new Material(fogShader);
             }
 
-            GameObject surface = FogOfWarConformingMesh.Create(WorldMin, WorldMax, surfaceGrid, mat);
+            GameObject surface = FogFullscreenSurface.Create(mat);
             surface.name = "FogSurface";
             surface.transform.SetParent(transform, false);
             FogRenderer = surface.GetComponent<MeshRenderer>();
@@ -1231,96 +1571,40 @@ namespace TheWaningBorder.World.FogOfWar
     }
 
     /// <summary>
-    /// Creates a terrain-conforming mesh for the fog overlay to avoid z-fighting.
+    /// The fog's draw surface (2026-10-16): one quad already in CLIP space,
+    /// covering the whole screen for every camera. The fog shader rebuilds
+    /// each pixel's world position from the depth texture, so nothing about
+    /// the surface depends on the terrain. It replaced a terrain-conforming
+    /// sheet, which fogged everything by the ground BEHIND it — tree tops
+    /// slid in and out of the fog as the camera moved.
     /// </summary>
-    public static class FogOfWarConformingMesh
+    public static class FogFullscreenSurface
     {
-        public static GameObject Create(Vector2 worldMin, Vector2 worldMax, int grid = 128, Material mat = null)
+        public static GameObject Create(Material mat)
         {
-            var terrain = UnityEngine.Terrain.activeTerrain;
-            // MapMagic tiles load with a Terrain whose TerrainData is null
-            // until the graph regenerates — treat that as no terrain at all.
-            if (terrain == null || terrain.terrainData == null)
-                return CreateFlatQuad(worldMin, worldMax, mat);
-
-            var td = terrain.terrainData;
-            var tpos = terrain.transform.position;
-            var tsize = td.size;
-
-            int vertsX = Mathf.Max(2, grid + 1);
-            int vertsZ = Mathf.Max(2, grid + 1);
-
-            var verts = new Vector3[vertsX * vertsZ];
-            var uvs = new Vector2[verts.Length];
-            var tris = new int[(vertsX - 1) * (vertsZ - 1) * 6];
-
-            for (int z = 0; z < vertsZ; z++)
+            var mesh = new Mesh { name = "FogFullscreen" };
+            mesh.vertices = new[]
             {
-                float vz = Mathf.Lerp(worldMin.y, worldMax.y, z / (float)(vertsZ - 1));
-                float vT = Mathf.InverseLerp(tpos.z, tpos.z + tsize.z, vz);
-                for (int x = 0; x < vertsX; x++)
-                {
-                    float vx = Mathf.Lerp(worldMin.x, worldMax.x, x / (float)(vertsX - 1));
-                    float uT = Mathf.InverseLerp(tpos.x, tpos.x + tsize.x, vx);
+                new Vector3(-1f, -1f, 0f), new Vector3(1f, -1f, 0f),
+                new Vector3(1f, 1f, 0f), new Vector3(-1f, 1f, 0f),
+            };
+            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            // The vertices are clip-space, not world: bounds that can never
+            // be frustum-culled.
+            mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 1e6f);
 
-                    float y = td.GetInterpolatedHeight(uT, vT) + 0.03f;
-                    int i = z * vertsX + x;
-                    verts[i] = new Vector3(vx, y, vz);
-
-                    float u = Mathf.InverseLerp(worldMin.x, worldMax.x, vx);
-                    float v = Mathf.InverseLerp(worldMin.y, worldMax.y, vz);
-                    uvs[i] = new Vector2(u, v);
-                }
-            }
-
-            int ti = 0;
-            for (int z = 0; z < vertsZ - 1; z++)
-            {
-                for (int x = 0; x < vertsX - 1; x++)
-                {
-                    int i0 = z * vertsX + x;
-                    int i1 = i0 + 1;
-                    int i2 = i0 + vertsX;
-                    int i3 = i2 + 1;
-
-                    tris[ti++] = i0; tris[ti++] = i2; tris[ti++] = i1;
-                    tris[ti++] = i1; tris[ti++] = i2; tris[ti++] = i3;
-                }
-            }
-
-            var mesh = new Mesh { name = "FogConformMesh" };
-            mesh.indexFormat = (verts.Length > 65000)
-                ? UnityEngine.Rendering.IndexFormat.UInt32
-                : UnityEngine.Rendering.IndexFormat.UInt16;
-            mesh.vertices = verts;
-            mesh.uv = uvs;
-            mesh.triangles = tris;
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-
-            var go = new GameObject("FogConforming");
-            var mf = go.AddComponent<MeshFilter>();
+            var go = new GameObject("FogFullscreen");
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var mr = go.AddComponent<MeshRenderer>();
-            mf.sharedMesh = mesh;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            mr.allowOcclusionWhenDynamic = false;
 
             if (mat == null) mat = new Material(Shader.Find("Unlit/FogOfWar"));
             mat.renderQueue = 3000;
             mr.sharedMaterial = mat;
-            return go;
-        }
-
-        static GameObject CreateFlatQuad(Vector2 min, Vector2 max, Material mat)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            go.name = "FogOfWar";
-            go.transform.rotation = Quaternion.Euler(90, 0, 0);
-            go.transform.position = new Vector3(0, 0.2f, 0);
-            go.transform.localScale = new Vector3(max.x - min.x, max.y - min.y, 1);
-            var mr = go.GetComponent<MeshRenderer>();
-            if (mat == null) mat = new Material(Shader.Find("Unlit/FogOfWar"));
-            mr.sharedMaterial = mat;
-            var col = go.GetComponent<Collider>();
-            if (col) UnityEngine.Object.Destroy(col);
             return go;
         }
     }

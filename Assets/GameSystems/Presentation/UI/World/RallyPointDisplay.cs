@@ -1,4 +1,4 @@
-// Shows rally point marker when a building with a rally point is selected
+// Shows the rally point marker and line of EVERY selected building that has one
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -26,15 +26,19 @@ namespace TheWaningBorder.UI.World
 
         private EntityWorld _world;
         private EntityManager _em;
-
-        // Marker objects
-        private GameObject _markerObj;
-        private LineRenderer _lineRenderer;
         private Material _markerMat;
 
-        // Live instances, re-tinted per frame from the rally kind.
-        private Material _markerInstance;
-        private Material _lineInstance;
+        // One marker + line per selected building with a rally (2026-10-16:
+        // it used to draw only the FIRST, so selecting several barracks showed
+        // one rally while the right-click set all of them). Pooled, grown on
+        // demand, never shrunk; unused entries are hidden each frame.
+        private sealed class Rally
+        {
+            public GameObject Marker;
+            public LineRenderer Line;
+            public Material MarkerMat, LineMat;
+        }
+        private readonly List<Rally> _pool = new List<Rally>();
 
         void Awake()
         {
@@ -46,152 +50,158 @@ namespace TheWaningBorder.UI.World
             _markerMat = new Material(shader);
             if (_markerMat.HasProperty("_Surface")) _markerMat.SetFloat("_Surface", 1);
             _markerMat.renderQueue = 3000;
-
-            CreateMarker();
-            CreateLine();
         }
 
         void LateUpdate()
         {
-            if (_world == null || !_world.IsCreated)
+            int used = 0;
+            try
             {
-                _world = EntityWorld.DefaultGameObjectInjectionWorld;
-                if (_world == null || !_world.IsCreated) return;
-            }
-            _em = _world.EntityManager;
-
-            _markerObj.SetActive(false);
-            _lineRenderer.gameObject.SetActive(false);
-
-            var selection = SelectionSystem.CurrentSelection;
-            if (selection == null || selection.Count == 0) return;
-
-            // Find first selected building with an active rally point
-            foreach (var entity in selection)
-            {
-                if (!_em.Exists(entity)) continue;
-                if (!_em.HasComponent<BuildingTag>(entity)) continue;
-                if (!_em.HasComponent<RallyPoint>(entity)) continue;
-
-                var rally = _em.GetComponentData<RallyPoint>(entity);
-                if (rally.Has == 0) continue;
-
-                // GREEN = a gather rally: trainees mine this node on spawn
-                // rather than just walking to a spot. Distinct enough from the
-                // default blue to read at a glance which of the two a building
-                // is set to. rally.Position is already the node's cell centre
-                // (CommandRouter snaps it), so the marker sits dead centre on
-                // the cell and the guide line points at it.
-                bool gatherRally = ResourceNodeQuery.IsGatherable(_em, rally.TargetEntity);
-                Tint(gatherRally ? resourceMarkerColor : markerColor,
-                     gatherRally ? resourceLineColor : lineColor);
-
-                var buildingPos = _em.GetComponentData<LocalTransform>(entity).Position;
-                // A gather rally sits at the node's cell centre — which is
-                // INSIDE the node's mesh. Float the marker above it, or the
-                // colour change the player is meant to read is buried in the
-                // ore. Ground rallies keep hugging the terrain.
-                float rallyLift = gatherRally ? ResourceRallyLift : 0.2f;
-                float rallyY = TerrainUtility.GetHeight(rally.Position.x, rally.Position.z) + rallyLift;
-                float buildingY = TerrainUtility.GetHeight(buildingPos.x, buildingPos.z) + 0.5f;
-
-                Vector3 rallyWorld = new Vector3(rally.Position.x, rallyY, rally.Position.z);
-                Vector3 buildWorld = new Vector3(buildingPos.x, buildingY, buildingPos.z);
-
-                // Show marker at rally point
-                _markerObj.SetActive(true);
-                _markerObj.transform.position = rallyWorld;
-                _markerObj.transform.Rotate(Vector3.up, 90f * Time.deltaTime);
-
-                // Show terrain-hugging line from building to rally point
-                _lineRenderer.gameObject.SetActive(true);
-                const int segments = 10;
-                _lineRenderer.positionCount = segments + 1;
-                for (int s = 0; s <= segments; s++)
+                if (_world == null || !_world.IsCreated)
                 {
-                    float t = (float)s / segments;
-                    float x = Mathf.Lerp(buildWorld.x, rallyWorld.x, t);
-                    float z = Mathf.Lerp(buildWorld.z, rallyWorld.z, t);
-                    float y = TerrainUtility.GetHeight(x, z) + 0.3f;
-                    _lineRenderer.SetPosition(s, new Vector3(x, y, z));
+                    _world = EntityWorld.DefaultGameObjectInjectionWorld;
+                    if (_world == null || !_world.IsCreated) return;
                 }
+                _em = _world.EntityManager;
 
-                break; // Only show one rally point
+                var selection = SelectionSystem.CurrentSelection;
+                if (selection == null || selection.Count == 0) return;
+
+                foreach (var entity in selection)
+                {
+                    if (!_em.Exists(entity)) continue;
+                    if (!_em.HasComponent<BuildingTag>(entity)) continue;
+                    if (!_em.HasComponent<RallyPoint>(entity)) continue;
+
+                    var rally = _em.GetComponentData<RallyPoint>(entity);
+                    if (rally.Has == 0) continue;
+
+                    Draw(Get(used++), entity, rally);
+                }
             }
+            finally
+            {
+                for (int i = used; i < _pool.Count; i++)
+                {
+                    if (_pool[i].Marker.activeSelf) _pool[i].Marker.SetActive(false);
+                    if (_pool[i].Line.gameObject.activeSelf) _pool[i].Line.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        private void Draw(Rally r, Entity building, RallyPoint rally)
+        {
+            // GREEN = a gather rally: trainees mine this node on spawn
+            // rather than just walking to a spot. Distinct enough from the
+            // default blue to read at a glance which of the two a building
+            // is set to. rally.Position is already the node's cell centre
+            // (CommandRouter snaps it), so the marker sits dead centre on
+            // the cell and the guide line points at it.
+            bool gatherRally = ResourceNodeQuery.IsGatherable(_em, rally.TargetEntity);
+            Tint(r, gatherRally ? resourceMarkerColor : markerColor,
+                    gatherRally ? resourceLineColor : lineColor);
+
+            var buildingPos = _em.GetComponentData<LocalTransform>(building).Position;
+            // A gather rally sits at the node's cell centre — which is
+            // INSIDE the node's mesh. Float the marker above it, or the
+            // colour change the player is meant to read is buried in the
+            // ore. Ground rallies keep hugging the terrain.
+            float rallyLift = gatherRally ? ResourceRallyLift : 0.2f;
+            float rallyY = TerrainUtility.GetHeight(rally.Position.x, rally.Position.z) + rallyLift;
+            float buildingY = TerrainUtility.GetHeight(buildingPos.x, buildingPos.z) + 0.5f;
+
+            Vector3 rallyWorld = new Vector3(rally.Position.x, rallyY, rally.Position.z);
+            Vector3 buildWorld = new Vector3(buildingPos.x, buildingY, buildingPos.z);
+
+            r.Marker.SetActive(true);
+            r.Marker.transform.position = rallyWorld;
+            r.Marker.transform.Rotate(Vector3.up, 90f * Time.deltaTime);
+
+            // Terrain-hugging line from the building to its rally point.
+            r.Line.gameObject.SetActive(true);
+            const int segments = 10;
+            r.Line.positionCount = segments + 1;
+            for (int s = 0; s <= segments; s++)
+            {
+                float t = (float)s / segments;
+                float x = Mathf.Lerp(buildWorld.x, rallyWorld.x, t);
+                float z = Mathf.Lerp(buildWorld.z, rallyWorld.z, t);
+                float y = TerrainUtility.GetHeight(x, z) + 0.3f;
+                r.Line.SetPosition(s, new Vector3(x, y, z));
+            }
+        }
+
+        private Rally Get(int index)
+        {
+            while (_pool.Count <= index) _pool.Add(Create(_pool.Count));
+            return _pool[index];
         }
 
         /// <summary>Re-tint the existing material instances. Cheap: setting a
         /// colour that is already set is a no-op upload, and this avoids
         /// allocating a Material per frame.</summary>
-        private void Tint(Color marker, Color line)
+        private static void Tint(Rally r, Color marker, Color line)
         {
-            if (_markerInstance != null)
-            {
-                if (_markerInstance.HasProperty("_BaseColor")) _markerInstance.SetColor("_BaseColor", marker);
-                if (_markerInstance.HasProperty("_Color")) _markerInstance.SetColor("_Color", marker);
-            }
-            if (_lineInstance != null)
-            {
-                if (_lineInstance.HasProperty("_BaseColor")) _lineInstance.SetColor("_BaseColor", line);
-                if (_lineInstance.HasProperty("_Color")) _lineInstance.SetColor("_Color", line);
-            }
-            if (_lineRenderer != null)
-            {
-                _lineRenderer.startColor = line;
-                _lineRenderer.endColor = line;
-            }
+            SetColor(r.MarkerMat, marker);
+            SetColor(r.LineMat, line);
+            r.Line.startColor = line;
+            r.Line.endColor = line;
         }
 
-        private void CreateMarker()
+        private static void SetColor(Material m, Color c)
         {
-            _markerObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            _markerObj.name = "RallyPointMarker";
-            _markerObj.transform.SetParent(transform);
-            _markerObj.transform.localScale = new Vector3(markerSize, markerSize * 2f, markerSize);
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+            if (m.HasProperty("_Color")) m.SetColor("_Color", c);
+        }
 
-            var renderer = _markerObj.GetComponent<Renderer>();
-            var mat = new Material(_markerMat);
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", markerColor);
-            if (mat.HasProperty("_Color")) mat.SetColor("_Color", markerColor);
-            renderer.material = mat;
-            _markerInstance = mat;
+        private Rally Create(int index)
+        {
+            var r = new Rally();
+
+            r.Marker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            r.Marker.name = "RallyPointMarker_" + index;
+            r.Marker.transform.SetParent(transform);
+            r.Marker.transform.localScale = new Vector3(markerSize, markerSize * 2f, markerSize);
+            var renderer = r.Marker.GetComponent<Renderer>();
+            r.MarkerMat = new Material(_markerMat);
+            SetColor(r.MarkerMat, markerColor);
+            renderer.material = r.MarkerMat;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
-
             // Remove collider so it doesn't interfere with raycasts
-            var col = _markerObj.GetComponent<Collider>();
+            var col = r.Marker.GetComponent<Collider>();
             if (col != null) Destroy(col);
+            r.Marker.SetActive(false);
 
-            _markerObj.SetActive(false);
-        }
-
-        private void CreateLine()
-        {
-            var lineGO = new GameObject("RallyPointLine");
+            var lineGO = new GameObject("RallyPointLine_" + index);
             lineGO.transform.SetParent(transform);
-            _lineRenderer = lineGO.AddComponent<LineRenderer>();
-
-            var mat = new Material(_markerMat);
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", lineColor);
-            if (mat.HasProperty("_Color")) mat.SetColor("_Color", lineColor);
-            _lineRenderer.material = mat;
-            _lineInstance = mat;
-            _lineRenderer.startColor = lineColor;
-            _lineRenderer.endColor = lineColor;
-            _lineRenderer.startWidth = lineWidth;
-            _lineRenderer.endWidth = lineWidth;
-            _lineRenderer.useWorldSpace = true;
-            _lineRenderer.positionCount = 2;
-            _lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            _lineRenderer.receiveShadows = false;
-
+            r.Line = lineGO.AddComponent<LineRenderer>();
+            r.LineMat = new Material(_markerMat);
+            SetColor(r.LineMat, lineColor);
+            r.Line.material = r.LineMat;
+            r.Line.startColor = lineColor;
+            r.Line.endColor = lineColor;
+            r.Line.startWidth = lineWidth;
+            r.Line.endWidth = lineWidth;
+            r.Line.useWorldSpace = true;
+            r.Line.positionCount = 2;
+            r.Line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.Line.receiveShadows = false;
             lineGO.SetActive(false);
+
+            return r;
         }
 
         void OnDestroy()
         {
-            if (_markerObj != null) Destroy(_markerObj);
-            if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
+            foreach (var r in _pool)
+            {
+                if (r.Marker != null) Destroy(r.Marker);
+                if (r.Line != null) Destroy(r.Line.gameObject);
+                if (r.MarkerMat != null) Destroy(r.MarkerMat);
+                if (r.LineMat != null) Destroy(r.LineMat);
+            }
+            _pool.Clear();
             if (_markerMat != null) Destroy(_markerMat);
         }
     }

@@ -212,6 +212,16 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             {
                 min = terrain.GetPosition();
                 size = terrain.terrainData.size;
+                // A RECTANGULAR map (Yiel Lymwérra, 256 x 128, 2026-10-17):
+                // the thumbnail is square and the capture frames the longest
+                // side, letterboxing the short one. Bake against that same
+                // centred square, so the outlines drawn over the capture and
+                // the normalised start / node positions the lobby pins on it
+                // land where the map actually is.
+                float side = Mathf.Max(size.x, size.z);
+                min.x -= (side - size.x) * 0.5f;
+                min.z -= (side - size.z) * 0.5f;
+                size.x = side; size.z = side;
                 return;
             }
 

@@ -88,7 +88,14 @@ namespace TheWaningBorder.Systems.Border
 
             public byte SaturationAt(float3 p)
             {
-                if (!Nodes.IsCreated || Nodes.Length == 0 || Radius <= 0f) return 0;
+                // §6.9.6 (2026-10-16): the debuff follows the cursed-ground
+                // FIELD — any cursed cell is at least crust, clean ground is
+                // nothing — and the node distance only lifts it to deep near
+                // a living node.
+                bool field = CurseGroundSystem.Ready;
+                if (field && !CurseGroundSystem.IsCursed(p.x, p.z)) return 0;
+                byte floor = field ? VeilField.CrustThreshold : (byte)0;
+                if (!Nodes.IsCreated || Nodes.Length == 0 || Radius <= 0f) return floor;
                 float best = float.MaxValue;
                 int cx = (int)math.floor(p.x * InvCell);
                 int cz = (int)math.floor(p.z * InvCell);
@@ -102,9 +109,9 @@ namespace TheWaningBorder.Systems.Border
                         best = math.min(best, dx * dx + dz * dz);
                     } while (Grid.TryGetNextValue(out i, ref it));
                 }
-                if (best == float.MaxValue) return 0;   // nothing within reach
+                if (best == float.MaxValue) return floor;   // nothing within reach
                 float d = math.sqrt(best);
-                if (d > Radius) return 0;
+                if (d > Radius) return floor;
                 float t = 1f - d / Radius;
                 return (byte)math.clamp(
                     VeilField.CrustThreshold + t * (255 - VeilField.CrustThreshold), 0f, 255f);

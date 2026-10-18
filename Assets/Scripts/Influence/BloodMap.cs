@@ -5,7 +5,8 @@
 // battlefields stay stained for minutes.
 //
 // Configured/decayed alongside PlayerInfluenceMap by InfluenceMapSystem;
-// visualized by InfluenceTerrainPainter (terrain layer named "Blood") —
+// drawn by the terrain shader (TWBTerrainOverlays.hlsl), its look set by
+// Resources/Blood.mat (2026-10-16) —
 // and available for future Feraldis mechanics (blood-fueled claims).
 
 using UnityEngine;

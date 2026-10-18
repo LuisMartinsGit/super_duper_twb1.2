@@ -204,6 +204,14 @@ namespace TheWaningBorder.Abilities
                     case AbilityEffectKind.FeraldisBloodOath:
                         TheWaningBorder.Feraldis.HarkonAbilities.BloodOath(em, caster, card, dur);
                         break;
+                    case AbilityEffectKind.CurseVeilOffering:
+                        TheWaningBorder.Systems.Border.VeilOffering.Offer(em, caster, card);
+                        break;
+                    // The Litharch's Cleanse (Territory_Claims.md §6.9.7): starts the
+                    // channel; CleanseFalloff / MaxRadius / Heal are its parameters.
+                    case AbilityEffectKind.CleanseGround:
+                        LitharchCleanse.Begin(em, caster, card, e.Value);
+                        break;
                     case AbilityEffectKind.FeraldisFieldSacrifice:
                         TheWaningBorder.Feraldis.FeraldisSacrifice.FieldSacrifice(em, caster);
                         break;

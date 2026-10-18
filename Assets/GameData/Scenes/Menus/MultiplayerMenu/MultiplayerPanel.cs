@@ -209,7 +209,7 @@ namespace TheWaningBorder.UI.Menus.Panels
         private bool _fogOfWar;
         private int _mapHalfSize;                // protocol compat, no UI
         private bool _borderEnabled;
-        private bool _maxResources;
+        private StartingResourcesLevel _startResources;
         // START WITH CULTURE (StartCultureOption) — replaced the STARTING AGE
         // dropdown. Host-owned; rides TWB_LOBBY in the old StartAge field.
         private bool _startWithCulture;
@@ -270,6 +270,8 @@ namespace TheWaningBorder.UI.Menus.Panels
 
         private void OnEnable()
         {
+            MenuBackgroundFit.Apply();
+            MenuBackgroundFit.StretchPlateBackgrounds(transform.root, MenuBackgroundFit.LobbyPlates);
             GameSettings.IsMultiplayer = true;
             GameSettings.TutorialActive = false;   // sticky static; see TutorialMenuItem
             LobbyConfig.SetupMultiplayer(GameSettings.TotalPlayers);
@@ -284,7 +286,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             _fogOfWar = GameSettings.FogOfWarEnabled;
             _mapHalfSize = GameSettings.MapHalfSize;
             _borderEnabled = GameSettings.BorderEnabled;
-            _maxResources = GameSettings.MaxStartingResources;
+            _startResources = GameSettings.StartingResources;
             _startWithCulture = GameSettings.PerFactionStartCulture;
             _playerName = PlayerProfile.PlayerName;
             _error = null;
@@ -400,7 +402,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                 ResourcesDropdown.onValueChanged.AddListener(v =>
                 {
                     if (!_isHost) return;
-                    _maxResources = v == 1;
+                    _startResources = (StartingResourcesLevel)v;
                     SyncLobbyState();
                 });
             }
@@ -874,7 +876,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             // would have the client write the value straight back over the
             // host's. Same reason the skirmish lobby restores with it.
             if (ResourcesDropdown != null)
-                ResourcesDropdown.SetValueWithoutNotify(_maxResources ? 1 : 0);
+                ResourcesDropdown.SetValueWithoutNotify((int)_startResources);
             SyncPill(_cultureToggle, _cultureState, _startWithCulture);
 
             // Only the host owns the match settings; a client reads them.
@@ -2131,7 +2133,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             // both ends move together, and a build with a different field list
             // is refused at the door by MatchSettingsSync.Fingerprint on JOIN.
             // The old StartAge field now carries START WITH CULTURE (0 / 1).
-            sb.Append($"|{(_maxResources ? 1 : 0)}|{(_startWithCulture ? 1 : 0)}|{Field(_gameName)}");
+            sb.Append($"|{(int)_startResources}|{(_startWithCulture ? 1 : 0)}|{Field(_gameName)}");
 
             for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
             {
@@ -2168,7 +2170,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             if (parts.Length > 5) _borderEnabled = int.Parse(parts[5]) != 0;
             if (parts.Length > 6)
                 _selectedMapIndex = MapRegistry.IndexOf(parts[6]);
-            if (parts.Length > 7) _maxResources = int.Parse(parts[7]) != 0;
+            if (parts.Length > 7) _startResources = (StartingResourcesLevel)int.Parse(parts[7]);
             if (parts.Length > 8 && int.TryParse(parts[8], out int cultureOn))
                 _startWithCulture = cultureOn != 0;
             if (parts.Length > 9) _gameName = parts[9];
@@ -2284,7 +2286,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             // TWB_START, so setting them here is the whole job — StartCulture
             // is DERIVED from the age, never stored, for the reason spelled
             // out on LobbyOptions.CultureForAge.
-            GameSettings.MaxStartingResources = _maxResources;
+            GameSettings.StartingResources = _startResources;
             StartCultureOption.Apply(_startWithCulture);
             GameSettings.IsMultiplayer = true;
             GameSettings.NetworkRole = NetworkRole.Server;

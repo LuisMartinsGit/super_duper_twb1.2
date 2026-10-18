@@ -708,7 +708,7 @@ namespace TheWaningBorder.AI
             // A curse lock with no live curse node left in the territory is
             // the claim system's last-tick reading of a node that just died.
             bool lockedAgainst = !owned && TerritoryOwnership.IsLocked(t) && !squad.CurseAssault && !squad.HostileAssault
-                && !(TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Curse
+                && !(TerritoryOwnership.IsCurseHeld(t)
                      && !TryNearestCurseNodeIn(em, t, false, faction, squad.Point, out _));
 
             if (done || wiped || timedOut || lockedAgainst)
@@ -849,7 +849,18 @@ namespace TheWaningBorder.AI
                 // Locked ground is off the table — unless it is the curse's,
                 // the army wants veilstone, and outcrops are known there.
                 bool curseTarget = false, hostileTarget = false;
-                if (TerritoryOwnership.IsLocked(r))
+                if (TheWaningBorder.Systems.Border.CurseGroundSystem.TerritoryHasCurse(r))
+                {
+                    // Territory_Claims.md §6.9.4: ground with cursed cells in
+                    // it gains for nobody. A territory with a curse node is
+                    // still worth an assault on the node (its ground recedes
+                    // once the node dies); ground the curse merely crept onto
+                    // waits until it is clean.
+                    if (!wantOutcrops || !TerritoryOwnership.IsCurseHeld(r)) continue;
+                    if (CountIn(_claimAllOutcrops, r) == 0) continue;
+                    curseTarget = true;
+                }
+                else if (TerritoryOwnership.IsLocked(r))
                 {
                     if (owner >= 0 && owner != (int)faction && Alliances.AreHostile(faction, (Faction)owner))
                     {
@@ -867,9 +878,7 @@ namespace TheWaningBorder.AI
                     }
                     else
                     {
-                        if (!wantOutcrops || owner != TerritoryOwnership.Curse) continue;
-                        if (CountIn(_claimAllOutcrops, r) == 0) continue;
-                        curseTarget = true;
+                        continue;   // an ally's lock
                     }
                 }
 
@@ -1343,7 +1352,7 @@ namespace TheWaningBorder.AI
                     if (owner == (int)faction) continue;
                     if (RegionMap.KindBlocks(RegionMap.KindOf(o))) continue;
                     frontier += CountIn(_fortressOutcrops, o);
-                    if (owner == TerritoryOwnership.Curse
+                    if (TerritoryOwnership.IsCurseHeld(o)
                         || (owner >= 0 && Alliances.AreHostile(faction, (Faction)owner)))
                         hostileBorder = true;
                 }

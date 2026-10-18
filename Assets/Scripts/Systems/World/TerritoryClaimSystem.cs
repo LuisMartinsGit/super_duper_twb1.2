@@ -305,6 +305,14 @@ namespace TheWaningBorder.Systems.World
                     // (Territory_Claims.md §10): aged up and bordering its
                     // Fortress-connected ground. The holder
                     // filling its own ground is always allowed.
+                    // §6.9.4: ground with ANY cursed cell in it gains for
+                    // nobody — the holder's meter only holds.
+                    if (TheWaningBorder.Systems.Border.CurseGroundSystem.TerritoryHasCurse(t))
+                    {
+                        TerritoryOwnership.SetMeter(t, holder, value, claimed, locked, false,
+                            TerritoryOwnership.Natural);
+                        continue;
+                    }
                     int gainer = -1;
                     if (holderSide >= 0 && weight[holderSide] > 0f) gainer = holderSide;
                     else
@@ -575,7 +583,9 @@ namespace TheWaningBorder.Systems.World
                     int t = RegionMap.RegionAt(p.x, p.z);
                     if (t == RegionMap.None) continue;
 
-                    if (side == CurseSide && !IsStanding(em, e, t)) continue;
+                    // §6.9.4 (2026-10-16): the curse owns no territory and
+                    // adds nothing to any meter.
+                    if (side == CurseSide) continue;
 
                     // PopOf(): the population cost, else the curse tier, else 1.
                     int pop = hasPop ? pops[i].Amount
@@ -728,7 +738,7 @@ namespace TheWaningBorder.Systems.World
                 if (hps[i].Value <= 0) continue;                    // collapsing
                 if (em.HasComponent<UnderConstruction>(e)) continue; // a foundation grants nothing
                 int side = (int)facs[i].Value;
-                if (side < 0 || side >= Sides) continue;
+                if (side < 0 || side >= CurseSide) continue;   // §6.9.4: the curse claims nothing
                 var p = xfs[i].Position;
                 int t = RegionMap.NearestRegion(p.x, p.z);
                 if (t == RegionMap.None) continue;

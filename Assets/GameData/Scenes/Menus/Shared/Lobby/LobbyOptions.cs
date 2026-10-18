@@ -16,7 +16,9 @@ namespace TheWaningBorder.UI.Menus.Panels
 {
     public static class LobbyOptions
     {
-        public static readonly string[] ResourceNames = { "NORMAL", "MAX" };
+        /// <summary>Starting-resources levels, index-parallel with
+        /// StartingResourcesLevel (2026-10-16: was NORMAL / MAX).</summary>
+        public static readonly string[] ResourceNames = { "LOW", "NORMAL", "HIGH", "MAX" };
 
         /// <summary>AI personalities, index-parallel with LobbyAIStrategy.</summary>
         public static readonly string[] StrategyNames =

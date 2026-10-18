@@ -7,6 +7,7 @@ internal sealed class MainForm : Form
 {
     private readonly Label _status;
     private readonly Label _detail;
+    private readonly LinkLabel _folder;
     private readonly TextBox _notes;
     private readonly ProgressBar _progress;
     private readonly Button _play;
@@ -48,6 +49,23 @@ internal sealed class MainForm : Form
         var title = Theme.Label("The Waning Border", Theme.Title, Theme.Accent);
         title.Margin = new Padding(0, 0, 0, 10);
         layout.Controls.Add(title);
+
+        // Where the game is, filled in once InstallLocation has resolved it.
+        // A link, so a tester asked for a log or a file can open the folder.
+        _folder = new LinkLabel
+        {
+            Font = Theme.Small,
+            AutoSize = true,
+            MaximumSize = new Size(Theme.ContentWidth, 0),
+            Margin = new Padding(0, 0, 0, 10),
+            LinkColor = Theme.Muted,
+            ActiveLinkColor = Theme.Accent,
+            VisitedLinkColor = Theme.Muted,
+            LinkBehavior = LinkBehavior.HoverUnderline,
+            Visible = false,
+        };
+        _folder.LinkClicked += (_, _) => OpenFolder();
+        layout.Controls.Add(_folder);
 
         _status = Theme.Label("Starting up...", Theme.Body, Theme.Text);
         layout.Controls.Add(_status);
@@ -104,10 +122,19 @@ internal sealed class MainForm : Form
 
     private async Task RunAsync()
     {
-        // The fixed root, before anything reads or writes it: creates it,
-        // adopts an install from the old beside-the-exe layout, places a
-        // launcher in it and adds the Start Menu entry. Only an uncreatable
-        // root is fatal.
+        // Where the install lives: remembered, or asked on the first install.
+        if (!InstallLocation.Resolve(_settings, this))
+        {
+            Close();
+            return;
+        }
+
+        ShowFolder();
+
+        // The root, before anything reads or writes it: creates it, adopts
+        // an install from the old beside-the-exe layout, places a launcher
+        // in it and adds the Start Menu entry. Only an uncreatable root is
+        // fatal.
         try
         {
             var notes = InstallRoot.Prepare();
@@ -523,6 +550,29 @@ internal sealed class MainForm : Form
         }
 
         Close();
+    }
+
+    private void ShowFolder()
+    {
+        var verb = InstallLocation.LooksLikeInstall(AppPaths.Root) ? "Installed in" : "Installing into";
+        var prefix = verb + " ";
+
+        _folder.Text = prefix + AppPaths.Root;
+        _folder.LinkArea = new LinkArea(prefix.Length, AppPaths.Root.Length);
+        _folder.Visible = true;
+        _folder.Refresh();
+    }
+
+    private void OpenFolder()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{AppPaths.Root}\"") { UseShellExecute = true });
+        }
+        catch (Exception)
+        {
+            // Opening Explorer is a convenience; the path is on screen anyway.
+        }
     }
 
     private void Fail(string message, string hint)

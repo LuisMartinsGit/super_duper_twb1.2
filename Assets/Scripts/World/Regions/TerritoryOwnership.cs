@@ -87,7 +87,10 @@ namespace TheWaningBorder.World.Regions
         /// <summary>Unowned. Natural ground -- claimable by anyone.</summary>
         public const int Natural = -1;
 
-        /// <summary>Held by the curse (Territory_Claims.md §6).</summary>
+        /// <summary>Held by the curse — RETIRED as an owner 2026-10-16
+        /// (Territory_Claims.md §6.9.4): no territory is owned by the curse
+        /// any more; ask <see cref="IsCurseHeld"/>. Kept as a value for the
+        /// match recorder and old replays.</summary>
         public const int Curse = -2;
 
         /// <summary>The meter's full scale, in thousandths of a point. Stored
@@ -154,6 +157,7 @@ namespace TheWaningBorder.World.Regions
         internal static void ResetMeter()
         {
             if (!EnsureMeter()) return;
+            System.Array.Clear(_curseHeld, 0, _curseHeld.Length);
             for (int i = 0; i < _holder.Length; i++)
             {
                 _holder[i] = Natural;
@@ -194,25 +198,39 @@ namespace TheWaningBorder.World.Regions
             Publish();
         }
 
-        /// <summary>
-        /// Legacy hook of the Hall-claim era. The curse now claims on the
-        /// meter like everyone else (Territory_Claims.md §6): an explicit
-        /// "held" is a <see cref="ForceClaim"/>, and a release is left to the
-        /// meter, which decays or is drained like any other claim.
-        /// </summary>
-        public static void MarkCurseHeld(int territory, bool held)
+        // ── Curse holdings (Territory_Claims.md §6.9.4, 2026-10-16). The
+        //    curse owns no territory on the meter; it HOLDS every territory
+        //    with a living curse node in it. Written only by
+        //    CurseTerritorySystem's sync, on the lockstep clock. ──
+        private static byte[] _curseHeld = System.Array.Empty<byte>();
+
+        /// <summary>Set whether territory <paramref name="t"/> has a living
+        /// curse node in it.</summary>
+        public static void SetCurseHeld(int t, bool held)
         {
-            if (held) ForceClaim(territory, Curse);
+            int count = RegionMap.Count;
+            if (t < 0 || t >= count) return;
+            if (_curseHeld.Length != count) _curseHeld = new byte[count];
+            byte v = (byte)(held ? 1 : 0);
+            if (_curseHeld[t] == v) return;
+            _curseHeld[t] = v;
+            Version++;
         }
 
-        public static bool IsCurseHeld(int territory) => OwnerOf(territory) == Curse;
+        /// <summary>Legacy name for <see cref="SetCurseHeld"/>.</summary>
+        public static void MarkCurseHeld(int territory, bool held) => SetCurseHeld(territory, held);
+
+        /// <summary>Does territory <paramref name="territory"/> have a living
+        /// curse node in it? (Its ground can still belong to a player.)</summary>
+        public static bool IsCurseHeld(int territory) =>
+            territory >= 0 && territory < _curseHeld.Length && _curseHeld[territory] != 0;
 
         public static int CurseHeldCount
         {
             get
             {
                 int n = 0;
-                for (int i = 0; i < _owner.Length; i++) if (_owner[i] == Curse) n++;
+                for (int i = 0; i < _curseHeld.Length; i++) if (_curseHeld[i] != 0) n++;
                 return n;
             }
         }
@@ -273,6 +291,7 @@ namespace TheWaningBorder.World.Regions
             _locked = System.Array.Empty<byte>();
             _contested = System.Array.Empty<byte>();
             _challenger = System.Array.Empty<int>();
+            _curseHeld = System.Array.Empty<byte>();
             Version++;
         }
 

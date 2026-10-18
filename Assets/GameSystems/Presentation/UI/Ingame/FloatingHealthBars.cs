@@ -392,9 +392,12 @@ namespace TheWaningBorder.UI.Ingame
             if (screenPos.z < 0) return;  // behind camera
 
             float ratio = Mathf.Clamp01((float)hp.Value / hp.Max);
-            Color fillColor = ratio > 0.5f  ? WorldOverlayPalette.HealthFull :
-                              ratio > 0.25f ? WorldOverlayPalette.HealthMid  :
-                                              WorldOverlayPalette.HealthLow;
+            // The OWNER's colour, at every HP (2026-10-16): the bar says whose
+            // it is; its length says how hurt. It used to run green / gold /
+            // red with the HP ratio, so a bar told you nothing about the owner.
+            Color fillColor = _em.HasComponent<FactionTag>(e)
+                ? FactionColors.Get(_em.GetComponentData<FactionTag>(e).Value)
+                : WorldOverlayPalette.HealthFull;
 
             // Shield points are hit points spent first (Combat_Pacing.md), so
             // the shield is drawn as a cyan segment continuing the HP fill.

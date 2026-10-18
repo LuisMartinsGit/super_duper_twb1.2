@@ -9,6 +9,7 @@
 //                it, so a loaded game still produces a whole-match replay
 //   world.bin    WorldSnapshot: every simulation entity and component
 //   state.bin    SnapshotState: statics and system fields
+//   preview.png  the minimap as the player saw it (optional; 2026-10-16)
 //   pending.txt  commands already issued for ticks after the save (one tick of
 //                input delay), so the first tick after a load runs them
 //
@@ -40,6 +41,8 @@ namespace TheWaningBorder.Core.Save
         public string ReplayText = "";
         public byte[] World;
         public byte[] State;
+        /// <summary>Minimap bake (PNG) for the Load Game list; optional.</summary>
+        public byte[] Preview;
         public readonly List<LockstepCommand> Pending = new List<LockstepCommand>();
 
         /// <summary>The replay header (and, for the oracle test, the commands).</summary>
@@ -68,6 +71,8 @@ namespace TheWaningBorder.Core.Save
                     sb.Append("c\t").Append(cmd.Tick.ToString(c)).Append('\t')
                       .Append(cmd.PlayerIndex.ToString(c)).Append('\t').Append(cmd.Serialize()).Append('\n');
                 Text(zip, "pending.txt", sb.ToString());
+                if (Preview != null && Preview.Length > 0)
+                    Bytes(zip, "preview.png", Preview, CompressionLevel.NoCompression);   // PNG is already compressed
             }
             if (File.Exists(path)) File.Delete(path);
             File.Move(tmp, path);   // atomic: a crash mid-write never leaves a half save in the list
@@ -80,9 +85,10 @@ namespace TheWaningBorder.Core.Save
             w.Write(text ?? "");
         }
 
-        static void Bytes(ZipArchive zip, string name, byte[] data)
+        static void Bytes(ZipArchive zip, string name, byte[] data,
+            CompressionLevel level = CompressionLevel.Optimal)
         {
-            var e = zip.CreateEntry(name, CompressionLevel.Optimal);
+            var e = zip.CreateEntry(name, level);
             using var s = e.Open();
             if (data != null) s.Write(data, 0, data.Length);
         }
@@ -167,9 +173,16 @@ namespace TheWaningBorder.Core.Save
                     Seconds = save.Seconds,
                     Label = save.Label,
                     Written = File.GetLastWriteTime(path),
+                    Preview = ReadBytes(zip, "preview.png"),
                 };
             }
-            catch { return null; }
+            catch (Exception e)
+            {
+                // Used to be swallowed silently: a corrupt save just vanished
+                // from the list with nothing in the log to say why.
+                UnityEngine.Debug.LogWarning($"[SaveGameFile] Could not read {Path.GetFileName(path)}: {e.Message}");
+                return null;
+            }
         }
 
         static bool ReadMeta(ZipArchive zip, SaveGameFile save, out string error)

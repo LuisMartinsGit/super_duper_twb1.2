@@ -279,6 +279,12 @@ wired this way. `_FeraldisTint` and `_RunaiTint` are explicitly marked
 *"placeholder"* / *"not in demo"* — those two cultures are missing **art**, not
 missing layer slots.
 
+**Where to tweak a look (2026-10-16):** blood and cursed ground each have ONE
+material — `Assets/Resources/Blood.mat` and `Assets/Resources/Curse.mat`
+(shaders `TWB/Terrain/Blood Look` / `Curse Look`). `TerrainOverlayMaterialBinder`
+copies them onto the terrain at load, and live in the Editor's Play mode. Their
+properties are hidden on `TWBTerrain.mat`, so there is no second place to edit.
+
 ### Substitution in the mask model
 
 The mint-state-once principle (§8 opening) is unchanged and gets *easier* here.

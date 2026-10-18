@@ -16,6 +16,15 @@
 //
 // The shader is a faithful copy of URP Terrain/Lit, so the terrain's own
 // authored splats render identically — only the overlays are added.
+//
+// LOOK MATERIALS (2026-10-16): each ground overlay's look is ONE material,
+// copied onto the terrain here — at load, and every frame in the Editor so a
+// tweak shows live:
+//   Resources/Blood.mat  (TWB/Terrain/Blood Look)  — blood on the ground
+//   Resources/Curse.mat  (TWB/Terrain/Curse Look)  — cursed ground
+// Every property of a look material is copied by name, so adding one to its
+// shader (and to TWBTerrainLit's) needs no code. The terrain uses a runtime
+// COPY of TWBTerrain.mat, so no asset is written in Play mode.
 
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -28,8 +37,11 @@ namespace TheWaningBorder.Influence
     {
         private const float CheckInterval = 1f;
 
-        private Material _material;
+        private Material _material;   // runtime copy of Resources/TWBTerrain
+        private Material[] _looks;    // Resources/Blood, Resources/Curse
         private float _nextCheck;
+
+        private static readonly string[] LookMaterials = { "Blood", "Curse" };
 
         // ─── Auto-mount on gameplay scenes ────────────────────────────────
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -54,15 +66,80 @@ namespace TheWaningBorder.Influence
 
         private void Awake()
         {
-            _material = Resources.Load<Material>("TWBTerrain");
-            if (_material == null)
+            var template = Resources.Load<Material>("TWBTerrain");
+            if (template == null)
+            {
                 Debug.LogWarning("[TerrainOverlayMaterialBinder] Resources/TWBTerrain.mat missing — " +
                                  "ground overlays (curse/blood/territory) will not render.");
+                return;
+            }
+            _material = new Material(template) { name = "TWBTerrain (runtime)" };
+            Current = _material;
+
+            _looks = new Material[LookMaterials.Length];
+            for (int i = 0; i < LookMaterials.Length; i++)
+            {
+                _looks[i] = Resources.Load<Material>(LookMaterials[i]);
+                if (_looks[i] == null)
+                    Debug.LogError($"[TerrainOverlayMaterialBinder] Resources/{LookMaterials[i]}.mat missing — " +
+                                   "that overlay keeps the terrain material's built-in look.");
+            }
+            ApplyLooks();
+        }
+
+        private void OnDestroy()
+        {
+            if (Current == _material) Current = null;
+            if (_material != null) Destroy(_material);
+        }
+
+        /// <summary>The terrain material in use this match (the runtime copy),
+        /// or null. Read by CurseShelfRenderer for the shared edge noise.</summary>
+        public static Material Current { get; private set; }
+
+        /// <summary>Copy every property of each look material onto the terrain.</summary>
+        private void ApplyLooks()
+        {
+            if (_looks == null || _material == null) return;
+            foreach (var look in _looks) CopyProperties(look, _material);
+        }
+
+        /// <summary>
+        /// Copy every property <paramref name="from"/>'s shader declares onto
+        /// <paramref name="to"/>, by name — the ones <paramref name="to"/>
+        /// has. Shared with CurseShelfRenderer.
+        /// </summary>
+        public static void CopyProperties(Material from, Material to)
+        {
+            if (from == null || to == null) return;
+            var shader = from.shader;
+            int count = shader.GetPropertyCount();
+            for (int p = 0; p < count; p++)
+            {
+                int id = shader.GetPropertyNameId(p);
+                if (!to.HasProperty(id)) continue;
+                switch (shader.GetPropertyType(p))
+                {
+                    case UnityEngine.Rendering.ShaderPropertyType.Texture:
+                        to.SetTexture(id, from.GetTexture(id)); break;
+                    case UnityEngine.Rendering.ShaderPropertyType.Color:
+                        to.SetColor(id, from.GetColor(id)); break;
+                    case UnityEngine.Rendering.ShaderPropertyType.Vector:
+                        to.SetVector(id, from.GetVector(id)); break;
+                    case UnityEngine.Rendering.ShaderPropertyType.Int:
+                        to.SetInteger(id, from.GetInteger(id)); break;
+                    default:   // Float, Range
+                        to.SetFloat(id, from.GetFloat(id)); break;
+                }
+            }
         }
 
         private void Update()
         {
             if (_material == null) return;
+#if UNITY_EDITOR
+            ApplyLooks();   // live: tweak Blood.mat / Curse.mat in Play mode and see it
+#endif
             if (Time.time < _nextCheck) return;
             _nextCheck = Time.time + CheckInterval;
 

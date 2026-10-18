@@ -130,7 +130,7 @@ namespace TheWaningBorder.Systems.Sect
             float dt = SystemAPI.Time.DeltaTime;
 
             // Per-faction "is Feraldis Age II+" cache — built once per tick.
-            var feraldisAge2Plus = new NativeArray<bool>(FactionCount, Allocator.Temp);
+            var feraldisAge2Plus = new NativeArray<bool>(FactionCount, Allocator.TempJob);
             bool anyFeraldisAge2Plus = false;
             for (byte f = 0; f < FactionCount; f++)
             {
@@ -148,7 +148,7 @@ namespace TheWaningBorder.Systems.Sect
             // pools are useless and would just leak entities for 10s each.
             if (anyFeraldisAge2Plus)
             {
-                var spawnPositions = new NativeList<float3>(Allocator.Temp);
+                var spawnPositions = new NativeList<float3>(Allocator.TempJob);
                 new DyingScanJob { Positions = spawnPositions }.Run();
                 for (int i = 0; i < spawnPositions.Length; i++)
                 {
@@ -184,8 +184,8 @@ namespace TheWaningBorder.Systems.Sect
 
             // ───── 3. SWEEP ─────────────────────────────────────────────────
             // Collect surviving pool positions/radii for the proximity test.
-            var poolPositions = new NativeList<float3>(Allocator.Temp);
-            var poolRadii = new NativeList<float>(Allocator.Temp);
+            var poolPositions = new NativeList<float3>(Allocator.TempJob);   // TempJob: read by SweepJob (Temp is refused even for .Run)
+            var poolRadii = new NativeList<float>(Allocator.TempJob);
             float maxRadius = 0.5f;
             foreach (var (pool, transform) in SystemAPI
                 .Query<RefRO<BloodPool>, RefRO<LocalTransform>>())
@@ -197,8 +197,8 @@ namespace TheWaningBorder.Systems.Sect
             }
 
             // Stamp / clear InBloodPool on Feraldis Age II+ units.
-            var toStamp = new NativeList<Entity>(Allocator.Temp);
-            var toClear = new NativeList<Entity>(Allocator.Temp);
+            var toStamp = new NativeList<Entity>(Allocator.TempJob);
+            var toClear = new NativeList<Entity>(Allocator.TempJob);
 
             // Nothing can be in a pool and nobody carries the marker: the
             // sweep below would change nothing, so it is not run.
@@ -210,7 +210,7 @@ namespace TheWaningBorder.Systems.Sect
                 // ever putting a reaching pool two cells away), so every pool
                 // that can reach a point is in its 3x3 cells.
                 float invCell = 1f / (maxRadius * 1.01f);
-                var buckets = new NativeParallelMultiHashMap<int, int>(math.max(1, poolPositions.Length), Allocator.Temp);
+                var buckets = new NativeParallelMultiHashMap<int, int>(math.max(1, poolPositions.Length), Allocator.TempJob);
                 for (int i = 0; i < poolPositions.Length; i++)
                     buckets.Add(CellKey((int)math.floor(poolPositions[i].x * invCell),
                                         (int)math.floor(poolPositions[i].z * invCell)), i);

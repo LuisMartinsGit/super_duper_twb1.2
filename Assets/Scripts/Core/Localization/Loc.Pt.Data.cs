@@ -117,6 +117,7 @@ namespace TheWaningBorder.Core.Localization
             t["Veteran Cavalry"] = "Cavalaria Veterana";
             t["Elite Cavalry"] = "Cavalaria de Elite";
             t["War Horn"] = "Corno de Guerra";
+            t["Cleanse"] = "Purificar";
             t["Full Gallop"] = "A Todo o Galope";
             t["Reinforced Bolts"] = "Virotes Reforçados";
             t["Iron-Shod Ram"] = "Aríete Ferrado";

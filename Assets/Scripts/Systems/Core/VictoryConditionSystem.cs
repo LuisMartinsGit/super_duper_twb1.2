@@ -73,6 +73,7 @@ namespace TheWaningBorder.Systems.Core
             // anything reading the lifecycle flag.
             TheWaningBorder.Core.MatchLifecycle.MatchDecided = false;
             TheWaningBorder.Core.MatchLifecycle.MatchWinner = "";
+            TheWaningBorder.Core.MatchLifecycle.DefeatedFaction = "";
         }
 
         void Start()
@@ -188,7 +189,7 @@ namespace TheWaningBorder.Systems.Core
             var verdict = _em.GetComponentData<MatchVerdictState>(verdictEntity);
             if (localEliminated && verdict.Decided == 0)
             {
-                TriggerGameEnd(GameSettings.LocalPlayerFaction, true);
+                TriggerGameEnd(null, true);   // out, but nobody has won yet
                 return;
             }
             if (verdict.Decided != 0)
@@ -336,7 +337,7 @@ namespace TheWaningBorder.Systems.Core
             if (localEliminated)
             {
                 Faction winner = OnlyRemainingSideWinner(out bool decided);
-                TriggerGameEnd(decided ? winner : GameSettings.LocalPlayerFaction, true);
+                TriggerGameEnd(decided ? winner : null, true);
                 return;
             }
 
@@ -346,7 +347,7 @@ namespace TheWaningBorder.Systems.Core
             if (OnlyOneSideRemains())
             {
                 Faction winner = OnlyRemainingSideWinner(out bool decided);
-                TriggerGameEnd(decided ? winner : GameSettings.LocalPlayerFaction);
+                TriggerGameEnd(decided ? winner : null);
             }
         }
 
@@ -398,7 +399,12 @@ namespace TheWaningBorder.Systems.Core
             return haveAny ? any : default;
         }
 
-        private void TriggerGameEnd(Faction winner, bool localPlayerDefeated = false)
+        /// <param name="winner">The winning side's representative, or null
+        /// when the match is not decided: the local player is out while
+        /// others fight on. Never the defeated player's own faction as a
+        /// placeholder — that told an eliminated Blue "DEFEAT, winner: Blue"
+        /// on screen, in Summary.txt and in the replay (2026-10-16).</param>
+        private void TriggerGameEnd(Faction? winner, bool localPlayerDefeated = false)
         {
             if (_gameOver) return;
             _gameOver = true;
@@ -408,7 +414,10 @@ namespace TheWaningBorder.Systems.Core
             // instead of burning the rest of its time budget on a decided
             // board.
             TheWaningBorder.Core.MatchLifecycle.MatchDecided = true;
-            TheWaningBorder.Core.MatchLifecycle.MatchWinner = winner.ToString();
+            TheWaningBorder.Core.MatchLifecycle.MatchWinner = winner?.ToString() ?? "";
+            TheWaningBorder.Core.MatchLifecycle.DefeatedFaction =
+                winner is null && localPlayerDefeated ? GameSettings.LocalPlayerFaction.ToString() : "";
+            string winnerName = winner?.ToString() ?? "none";
 
             if (GameStatsTracker.Instance != null)
             {
@@ -422,7 +431,7 @@ namespace TheWaningBorder.Systems.Core
             string result;
             if (GameSettings.IsObserver)
             {
-                result = $"{winner} WINS";
+                result = $"{winnerName} WINS";
             }
             else if (localPlayerDefeated)
             {
@@ -438,12 +447,12 @@ namespace TheWaningBorder.Systems.Core
             // unanswerable after the fact.
             for (int i = 0; i < GameSettings.TotalPlayers; i++)
                 TheWaningBorder.AI.AILogger.Log((Faction)i, "VICTORY",
-                    $"GAME OVER: {result} (winner={winner})");
-            TWBLog.Log($"[Victory] Game over: {result} (winner={winner})");
+                    $"GAME OVER: {result} (winner={winnerName})");
+            TWBLog.Log($"[Victory] Game over: {result} (winner={winnerName})");
 
             // Name the outcome in this match's log Summary.txt.
             TheWaningBorder.Core.Diagnostics.MatchLogSession.RecordOutcome(
-                $"{result} (winner={winner})");
+                $"{result} (winner={winnerName})");
 
             // End-of-match flow: full-screen victory/defeat panel with a
             // Return to Main Menu button; the player leaves when they choose.
@@ -451,13 +460,15 @@ namespace TheWaningBorder.Systems.Core
             // `result` stays English for the logs above; the on-screen copy
             // is built from templates so it renders in the active language.
             string displayResult = GameSettings.IsObserver
-                ? string.Format(Loc.T("{0} WINS"), Loc.T(winner.ToString()))
+                ? string.Format(Loc.T("{0} WINS"), Loc.T(winnerName))
                 : Loc.T(result);
-            bool localWon = !localPlayerDefeated
+            bool localWon = !localPlayerDefeated && winner is not null
                 && (GameSettings.IsObserver || winner == GameSettings.LocalPlayerFaction);
             SimSignals.MatchEnded(
                 displayResult,
-                string.Format(Loc.T("Winner: {0}"), Loc.T(winner.ToString())),
+                winner is { } w
+                    ? string.Format(Loc.T("Winner: {0}"), Loc.T(w.ToString()))
+                    : Loc.T("The match goes on without you."),
                 localWon);
         }
 
@@ -562,9 +573,9 @@ namespace TheWaningBorder.Systems.Core
             }
 
 
-            Faction winner = _aliveFactions.Count == 1
+            Faction? winner = _aliveFactions.Count == 1
                 ? GetSingleFaction(_aliveFactions)
-                : GameSettings.LocalPlayerFaction; // No clear winner
+                : null; // no clear winner — the others fight on
             TriggerGameEnd(winner, true);
         }
 

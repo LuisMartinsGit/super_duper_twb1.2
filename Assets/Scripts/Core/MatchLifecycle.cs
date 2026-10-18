@@ -56,5 +56,28 @@ namespace TheWaningBorder.Core
         /// for the headless runner's log line; the authoritative record is
         /// MatchLogSession's Summary.txt outcome.</summary>
         public static string MatchWinner = "";
+
+        /// <summary>
+        /// The local player's faction when THEY are out but the match is not
+        /// decided (eliminated or surrendered while others fight on). Their
+        /// match is over and nobody has won it, so <see cref="MatchWinner"/>
+        /// stays empty — it used to be filled with the loser's own name, and
+        /// a player eliminated in a free-for-all was told "Winner: Blue" on
+        /// the defeat screen, in Summary.txt and in the replay (2026-10-16).
+        /// </summary>
+        public static string DefeatedFaction = "";
+
+        /// <summary>
+        /// The one outcome line every end-of-match record writes (the replay's
+        /// <c>end</c> line, the lockstep log, the match summary fallback):
+        /// "Red wins", "Blue defeated", or "quit".
+        /// </summary>
+        public static string OutcomeLine()
+        {
+            if (!MatchDecided) return "quit";
+            if (!string.IsNullOrEmpty(MatchWinner)) return MatchWinner + " wins";
+            if (!string.IsNullOrEmpty(DefeatedFaction)) return DefeatedFaction + " defeated";
+            return "quit";
+        }
     }
 }

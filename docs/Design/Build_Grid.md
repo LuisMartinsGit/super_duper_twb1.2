@@ -105,6 +105,13 @@ Outpost stands on one of them:
 - **A slot is legal only when the ordinary placement rules pass there** —
   terrain, slope, water, passability, no other node, no building, no wall —
   so a side against a cliff or another node is simply not offered.
+- **Map generation keeps all four sides open** (2026-10-18). The territory
+  generator (`TerritoryResources`) lays an outcrop only where all four slots
+  pass that same test inside the outcrop's own territory, then reserves the
+  four footprints so no later node lands on them. A territory too tight for
+  that first gives up its AI-wall border band and a home's edge band, then is
+  scanned cell by cell; only if no site exists at all is the outcrop laid
+  without room, with a warning naming the territory (a map to widen).
 - **The ghost snaps to the nearest free, legal side** of any uncursed outcrop
   near the cursor (`TradingOutpostSystem.asset` `nodeReach`), and reads red
   with the node rule when no side is left.

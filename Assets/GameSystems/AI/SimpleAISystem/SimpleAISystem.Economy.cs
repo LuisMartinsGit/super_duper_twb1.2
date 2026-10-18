@@ -501,6 +501,9 @@ namespace TheWaningBorder.AI
             ref SimpleAIState aiState, AISettingsSO.PersonalityBlock personality,
             AIDifficultyProfile profile, float now)
         {
+            // A crew wedged on an order that goes nowhere is freed first.
+            TickWorkerWatchdog(em, faction, now);
+
             // (2) Hut pipeline — one in flight at all times. The first few
             // huts are unconditional bootstrap; past that the ECONOMY WALLET
             // is the constraint (replaces the flat supplies reserve AND the

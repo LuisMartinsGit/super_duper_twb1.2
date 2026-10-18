@@ -552,7 +552,7 @@ namespace TheWaningBorder.World.Terrain
             // phantom water across low ground and the inclines out of it).
             float waterLevel;
             if (WaterPlane.Instance != null)
-                waterLevel = WaterPlane.Instance.waterLevel;
+                waterLevel = WaterPlane.Instance.WalkLine;   // shallows wade (wadeDepth)
             else if (ProceduralTerrain.Instance != null)
                 waterLevel = WaterHeight;
             else

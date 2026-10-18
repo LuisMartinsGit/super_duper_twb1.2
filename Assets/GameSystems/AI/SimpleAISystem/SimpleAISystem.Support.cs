@@ -8,6 +8,8 @@
 // This pass, every AISupport.thinkInterval:
 //   * TRAIN — with a finished Temple, keep one healer per
 //     combatUnitsPerHealer combat units (up to maxHealers), one at a time.
+//   * CLEANSE — a free healer clears cursed ground in held or wanted
+//     territory (SimpleAISystem.Cleanse.cs, Game_AI.md § 6n).
 //   * FOLLOW — a healer more than followDistance from the army's biggest
 //     mission is walked to just behind its centre. Inside that distance it
 //     is left alone: its own auto-heal search (LitharchHealingSystem) does
@@ -51,6 +53,9 @@ namespace TheWaningBorder.AI
                     AILogger.Log(faction, "SUPPORT", $"Litharch not trained: {why}");
             }
 
+            // ── Cleanse ──
+            TickCleanse(em, faction, _healers, now);
+
             // ── Follow ──
             if (_healers.Count == 0) return;
             Mission best = null;
@@ -67,6 +72,7 @@ namespace TheWaningBorder.AI
             {
                 if (!em.HasComponent<LocalTransform>(h)) continue;
                 if (TransientState.Active<UserMoveOrder>(em, h)) continue;   // already on the way
+                if (OnCleanseErrand(em, h, now)) continue;                    // cleansing: a move would end it
                 float3 p = em.GetComponentData<LocalTransform>(h).Position;
                 if (math.distance(p.xz, c.xz) <= cfg.followDistance) continue;
                 CommandRouter.IssueMove(em, h, spot, CommandSource.AI);

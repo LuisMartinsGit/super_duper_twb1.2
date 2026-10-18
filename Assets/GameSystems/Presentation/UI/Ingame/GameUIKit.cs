@@ -58,6 +58,23 @@ namespace TheWaningBorder.UI.Ingame
         public static readonly Color BarBg        = new Color(0.04f, 0.05f, 0.12f, 1f);
         public static readonly Color BarGold      = new Color(0.83f, 0.66f, 0.26f, 1f);
         public static readonly Color BarBlue      = new Color(0.30f, 0.55f, 0.85f, 1f);
+        /// <summary>The fill of every Cancel button and of Delete (2026-10-16:
+        /// "Cancel buttons should all be red"), and its hover.</summary>
+        public static readonly Color Danger       = new Color(0.45f, 0.10f, 0.08f, 1f);
+        public static readonly Color DangerHover  = new Color(0.62f, 0.16f, 0.12f, 1f);
+
+        /// <summary>Paint a button fill (from <see cref="ButtonChrome"/>) as a
+        /// Cancel / destructive button, with a hover that stays red.</summary>
+        public static void StyleDanger(Image fill)
+        {
+            if (fill == null) return;
+            fill.color = Danger;
+            // Chained AFTER any hover styling the caller already set, so the
+            // fill stays red whatever else that hover recolours.
+            var relay = UITooltip.Relay(fill.gameObject);
+            relay.OnEnter += () => fill.color = DangerHover;
+            relay.OnExit += () => fill.color = Danger;
+        }
 
         public static RectTransform Rect(Transform parent, string name)
         {

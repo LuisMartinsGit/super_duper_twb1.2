@@ -112,6 +112,15 @@ namespace TheWaningBorder.Abilities
         SectCalledIn = 42,         // aura: wounded enemies in Radius are slowed Value% (Guildmaster L1)
         SectStake = 43,            // channel: the extractor under the caster pays double (Guildmaster L3)
         SectLiquidate = 44,        // demolish the aimed own building for Value% of its worth (Guildmaster L6)
+        // The curse (Territory_Claims.md §6.9.5, 2026-10-16) — VeilOffering.
+        CurseVeilOffering = 45,    // the creature dies; ground within Radius x its claim size turns cursed
+        // The Litharch's Cleanse (Territory_Claims.md §6.9.7, 2026-10-18) —
+        // LitharchCleanse. CleanseGround starts the channel; the other three
+        // are its parameters, read off the card, and do nothing on their own.
+        CleanseGround = 46,        // channel: the aimed Radius circle is cleared, then grows by Value m² a second
+        CleanseFalloff = 47,       // width (m) of the falloff band outside the cleared circle
+        CleanseMaxRadius = 48,     // the cleared circle stops growing at this radius (m)
+        CleanseHeal = 49,          // HP a second healed on allies inside the starting circle while it channels
     }
 
     /// <summary>

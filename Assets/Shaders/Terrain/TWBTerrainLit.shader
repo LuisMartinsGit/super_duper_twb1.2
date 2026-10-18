@@ -29,18 +29,36 @@ Shader "TWB/Terrain/Lit"
         _TerraceSlopeFull("Terrace Slope Full", Range(0,1)) = 0.45
         _FeraldisTint("Feraldis Tint (placeholder)", Color) = (0.78, 0.45, 0.32, 1)
         _RunaiTint("Runai Tint (placeholder)", Color) = (0.88, 0.82, 0.55, 1)
-        _BloodAlbedo("Blood Albedo", 2D) = "white" {}
-        _BloodTint("Blood Tint", Color) = (0.42, 0.04, 0.04, 1)
-        _BloodTiling("Blood Tiling (m)", Float) = 4.0
-        _BloodSmoothness("Blood Wet Smoothness", Range(0,1)) = 0.75
-        _BloodNoiseScale("Blood Spatter Noise Scale", Float) = 0.9
-        _CurseAlbedo("Curse Rock Albedo", 2D) = "white" {}
-        _CurseNormal("Curse Rock Normal", 2D) = "bump" {}
-        _CurseTiling("Curse Tiling (m)", Float) = 12.0
-        _CurseTint("Curse Tint (purple pole)", Color) = (0.62, 0.35, 0.9, 1)
-        _CurseTint2("Curse Tint (greenish pole)", Color) = (0.45, 0.85, 0.55, 1)
-        _CurseSmoothness("Curse Smoothness", Range(0,1)) = 0.65
-        _CurseSparkleScale("Curse Sparkle Scale", Float) = 3.0
+        // Blood's look is NOT edited here: Resources/Blood.mat owns it and
+        // TerrainOverlayMaterialBinder copies it onto the terrain (2026-10-16).
+        [HideInInspector] _BloodAlbedo("Blood Albedo", 2D) = "white" {}
+        [HideInInspector] _BloodTint("Blood Tint", Color) = (0.42, 0.04, 0.04, 1)
+        [HideInInspector] _BloodTiling("Blood Tiling (m)", Float) = 4.0
+        [HideInInspector] _BloodSmoothness("Blood Wet Smoothness", Range(0,1)) = 0.75
+        [HideInInspector] _BloodNoiseScale("Blood Spatter Noise Scale", Float) = 0.9
+        [HideInInspector] _BloodHeight("Blood Height", 2D) = "gray" {}
+        [HideInInspector] _BloodDriedTint("Blood Dried Tint", Color) = (0.14, 0.03, 0.02, 1)
+        [HideInInspector] _BloodGutsTint("Blood Guts Tint", Color) = (0.55, 0.18, 0.16, 1)
+        [HideInInspector] _BloodHeightScale("Blood Relief Depth (m)", Float) = 0.05
+        [HideInInspector] _BloodNormalStrength("Blood Normal Strength", Float) = 6
+        [HideInInspector] _BloodDrySmoothness("Blood Dry Smoothness", Range(0,1)) = 0.2
+        [HideInInspector] _BloodDryness("Blood Dryness", Range(0,1)) = 0.5
+        [HideInInspector] _BloodPatchScale("Blood Wet/Dry Patch Scale", Float) = 0.35
+        // Curse ground's look: Resources/Curse.mat owns it (2026-10-16).
+        [HideInInspector] _CurseAlbedo("Curse Rock Albedo", 2D) = "white" {}
+        [HideInInspector] _CurseNormal("Curse Rock Normal", 2D) = "bump" {}
+        [HideInInspector] _CurseTiling("Curse Tiling (m)", Float) = 12.0
+        [HideInInspector] _CurseTint("Curse Tint (purple pole)", Color) = (0.62, 0.35, 0.9, 1)
+        [HideInInspector] _CurseTint2("Curse Tint (greenish pole)", Color) = (0.45, 0.85, 0.55, 1)
+        [HideInInspector] _CurseSmoothness("Curse Smoothness", Range(0,1)) = 0.65
+        [HideInInspector] _CurseSparkleScale("Curse Sparkle Scale", Float) = 3.0
+        [HideInInspector] _CurseHeight("Curse Height", 2D) = "gray" {}
+        [HideInInspector] _CurseRoughness("Curse Roughness", 2D) = "gray" {}
+        [HideInInspector] _CurseOcclusion("Curse Occlusion", 2D) = "white" {}
+        [HideInInspector] _CurseHeightScale("Curse Relief Depth (m)", Float) = 0.12
+        [HideInInspector] _CurseNormalStrength("Curse Normal Strength", Float) = 1.5
+        [HideInInspector] _CurseMetallic("Curse Metallic", Range(0,1)) = 0.35
+        [HideInInspector] _CurseJaggedness("Curse Front Jaggedness", Float) = 0.6
         _OverlayNoiseScale("Overlay Edge Noise Scale", Float) = 0.15
 
         [Header(Region Boundaries)]

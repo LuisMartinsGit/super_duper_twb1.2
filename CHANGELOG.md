@@ -9,7 +9,125 @@ build always name the same number.
 
 ---
 
-## [Unreleased]
+## [0.0.45] — 2026-10-18
+
+### Added
+- **New map: Fiendstone Pass** (6 players, 1024 m). Cliff shelves over a
+  river with three fords; the ramps are the chokepoints, with rich pockets
+  each reached by one ramp.
+- **New map: Yiel Lymwérra** (2 players, 384 × 192 m — the first
+  rectangular map). A coast with a cliff-ringed bay of shallows you can wade
+  but not build on, and the cursed island Yiel in the middle, where the curse
+  always starts. The beaches are reached only through the bay.
+- **Litharch: Cleanse.** Aim it at cursed ground: the Litharch clears a
+  6 m circle at once, then keeps channelling and pushes the curse back at a
+  steady rate, with a fading edge outside the circle. Allies inside the
+  starting circle heal slowly while it lasts. A hit or any new order ends
+  the channel, and the cooldown starts when it ends. The AI uses it on cursed
+  ground in its own territories and in territories it wants to claim.
+
+### Changed
+- **Cursed ground fades in owned territory.** Once the owner has chosen
+  Alanthor or Feraldis, the curse in their territories wears away from its
+  edges inward (never inside a living curse node's circle).
+- **Every veilstone outcrop has room for its four Trading Outposts.** Maps
+  now place outcrops only where all four sides are buildable ground in the
+  same territory, and keep that ground free of other resource nodes.
+- **Brighter minimap.** The terrain is drawn opaque with lighter, more
+  saturated colours, and territory colours no longer darken the ground under
+  them.
+- **Cursed ground no longer shows a repeating pattern**: its texture is laid
+  in randomly turned and shifted hexagonal tiles.
+
+### Changed (earlier in this release)
+- **Cursed ground is a field that spreads** (Territory_Claims.md §6.9).
+  A curse node curses its circle as soon as it rises. From there the ground
+  creeps outward in uneven fingers, curse units standing on clean ground
+  stain it, and when a node dies its ground recedes.
+  - **Debuff:** any unit standing on cursed ground takes the hostile-ground
+    debuff (the deep tier near a living node). The whole territory no longer
+    counts.
+  - **Territories:** the curse no longer owns territories. A territory with
+    any cursed ground in it can't gain claim for anyone. The terrain crystal,
+    the shelf, the minimap and the AI's march routes all follow the real
+    shape of the curse.
+- **Veil Offering:** every curse creature can channel for 15 s and then die.
+  The ground around where it died turns cursed (5 m × its size: 1, 2 or 3).
+  Only death or a stun breaks the channel, and the death pays nobody. Curse
+  merge parties use it while they stand in their target.
+- **Launcher: choose where the game is installed.** The first install asks
+  for a folder (suggesting the old per-user one); the choice is remembered,
+  and existing installs are left where they are without asking. If the
+  remembered folder is moved or deleted, the launcher asks again. Downloads
+  now go into the install folder instead of the temp folder on C:.
+
+- **Starting resources has four levels: Low / Normal / High / Max.** Low is
+  half the normal bank, High three times it plus some veilstone. Every level
+  but Low now starts with religion points (Normal 5, High 15, Max 100).
+- **Saving asks for a name** and stores a picture of your minimap with the
+  save. The Load Game list shows that picture and every player's colour.
+- **Menu button** at the top left opens the pause menu.
+- **Pause menu confirmations** (restart, quit) open their own page instead of
+  adding buttons under the menu. Cancel buttons are red everywhere.
+- **Resources panel toggle** (on the line under housing): widens the panel to
+  the right and shows income per minute in its own column; collapsed, it shows
+  the amounts only.
+- **Idle builders** count sits inside the resources panel, beside housing.
+- **Delete button** shows a skull.
+- **Rally points:** every selected building shows its rally point, not only
+  the first. Houses, mines and other buildings that neither train nor
+  garrison units no longer take a rally point.
+- Build, repair and heal order lines are green, including a builder still
+  walking to its site.
+
+- **Fog of war redrawn.** It is now worked out per pixel from what is
+  actually there, so tree tops, units and buildings are fogged where they
+  stand and no longer slide in and out of the fog as the camera moves. Your
+  units' sight follows them with no delay; it used to trail them by up to half
+  a second. The fog also costs less: its texture is now re-sent only when a
+  building's sight changes (plus a catch-up every 2 s), instead of four times
+  a second.
+
+- **Buildings see only once finished.** A construction site sees just its
+  own ground (a circle just round its corners: a Hut about 2.8 m);
+  its full line of sight switches on when it is completed.
+
+- **Single-player now runs at normal speed (1.0x).** It ran at 0.75x by
+  default with no setting to change it, so ten seconds on the game clock took
+  about thirteen real seconds, and single-player played a third slower than
+  multiplayer. Settings files carrying the old 0.75 are moved to 1.0.
+
+- **Blood and cursed ground each have one material to edit:**
+  `Assets/Resources/Blood.mat` and `Assets/Resources/Curse.mat`. Changes show
+  live in Play mode, and **Waning Border > Art > Ground Look Preview** opens a
+  scene showing both (none to full coverage) as the terrain draws them — the
+  materials run the terrain's own blood / curse code.
+- **Blood and cursed ground redrawn as real surfaces.** Both now have relief
+  (parallax depth from a height map), normals and proper shine. Blood is wet
+  and glossy in pools and hollows, dark, matte and cracked where it has dried,
+  with lighter guts and darker streaks. The curse is faceted crystal that
+  reflects, with a jagged front where tall crystals break through first. The unused Blood / CurseInfluence terrain layers and the
+  BloodSplat shader are removed.
+
+### Fixed
+- **Fog of war, Feraldis blood pools, the Ash Pyre and Witness scouts did
+  nothing in the Editor**, and flooded its log with errors: five jobs from the
+  0.0.44 speed pass were handed temporary memory Unity refuses to give a job.
+  The auto-targeting jobs also logged an error every tick.
+- **Loading a saved game threw an error every half second** and switched off
+  passive auras (King's Call, sect auras) for the rest of the match.
+- **Move orders given on the minimap ignored formations**; they now move the
+  group in your current formation, like a right-click on the ground.
+- Skirmish and Multiplayer menu backgrounds now fill the window at any aspect
+  ratio instead of leaving bars on wide screens.
+- **Being eliminated while others fight on named you the winner.** The
+  defeat screen said "Winner: Blue" to an eliminated Blue, and Summary.txt
+  ("DEFEAT (winner=Blue)"), the replay's last line ("Blue wins") and the
+  Muster Rolls said the same. Now the screen says the match goes on without
+  you, and the records say "Blue defeated" with no winner.
+- A false "[BuildingLevels] Alanthor has no BuildingLevelDefSO for
+  VeilstoneMine" error in Alanthor match logs, caused just by hovering the
+  veilstone figure in the resource bar.
 
 ---
 

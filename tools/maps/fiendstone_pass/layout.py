@@ -166,11 +166,24 @@ def south_name(n):
 names = names + [south_name(n) for n in names]
 levels = levels + levels
 lvl_arr = np.array(levels)
-river = np.abs(wz - river_y(wx)) < RIVER_HALF
+# The river's edge is ragged (2026-10-17): its half-width wobbles by a few
+# metres, authored on the north bank and turned 180 degrees for the south so
+# both banks stay identical.
+bank_wob = np.tanh(noise(40, 81) * 1.2) * 5.0 + noise(11, 82) * 1.6
+bank_wob = np.where(side > 0, bank_wob, np.rot90(bank_wob, 2))
+river_half = RIVER_HALF + bank_wob
+river = np.abs(wz - river_y(wx)) < river_half
 region[river] = -1
+# Fords meander: the crossing's centre line swings and its width breathes
+# with the distance across the river (rd). Both are 0-phase at the centre
+# line, so the mirrored halves meet without a seam.
+rd = wz - river_y(wx)
 ford = np.zeros((N, N), bool)
-for fx in FORDS:
-    ford |= river & (np.abs(wx - fx) < FORD_HALF)
+for k, fx in enumerate(FORDS):
+    swing = 7.0 * np.sin(np.abs(rd) / 11.0) * (1 if k % 2 == 0 else -1)
+    half = FORD_HALF * (1 + 0.2 * np.cos(rd / 6.0)) + edge * 3.0
+    ford |= river & (np.abs(wx - fx - swing) < half)
+ford = np.where(side > 0, ford, np.rot90(ford, 2))
 valid = region >= 0
 level = np.where(valid, lvl_arr[np.maximum(region, 0)], -1)
 
@@ -399,9 +412,10 @@ from skimage import measure
 
 MAX_H = 60.0                 # TerrainData height for a normalized 1.0
 LEVEL_H = np.array([5.0, 9.5, 14.0, 18.5, 23.0])   # per level; 4.5 m = a cliff
-WATER = 3.6                  # WaterPlane level: below it nothing walks
+WATER = 3.6                  # WaterPlane level: more than WADE below it nothing walks
 BED = 1.2                    # river bed
-FORD_H = 4.2                 # the shallows: just above the water line
+WADE = 0.5                   # WaterPlane.wadeDepth: ground this shallow is still walked
+FORD_H = 3.25                # the fords: 0.35 m UNDER the surface, waded (2026-10-17)
 MTN_BASE = 29.0              # mountains start well above the top shelf: a wall
 RAMP_DEPTH = 12              # m a ramp reaches into each side (24 m long)
 
@@ -411,13 +425,30 @@ h[valid] = LEVEL_H[level[valid]]
 d_in = ndimage.distance_transform_edt(mtn)
 h[mtn] = (MTN_BASE + np.minimum(d_in, 40) * 0.4 + ridge * 8 + ridge2 * 3)[mtn]
 
-# River: flat bed, an 8 m bank up to the low ground; the fords are raised bars.
+# River: a bed, then a bank of varying width and rough slope up to the low
+# ground (2026-10-17: was a straight 8 m smoothstep).
 rdist = np.abs(wz - river_y(wx))
-bank_t = np.clip((rdist - (RIVER_HALF - 8)) / 8.0, 0, 1)
+bank_w = 8.0 + 3.5 * np.tanh(noise(26, 83))
+bank_t = np.clip((rdist - (river_half - bank_w)) / bank_w, 0, 1)
 h_river = BED + (LEVEL_H[0] - BED) * (bank_t * bank_t * (3 - 2 * bank_t))
+h_river += (noise(7, 84) * 0.35 + noise(3, 85) * 0.15) * bank_t * (1 - bank_t) * 4
 h[river] = h_river[river]
-ford_soft = ndimage.gaussian_filter(ford.astype(np.float32), 2.0)
-h = np.where(river & (ford_soft > 0.5), np.maximum(h, FORD_H), h)
+# Fords: a bumpy top just under the surface, its sides sloping into the bed
+# instead of a straight-cut bar. The top stays inside (WATER - WADE, WATER):
+# wadeable everywhere, dry nowhere.
+d_core = ndimage.distance_transform_edt(~ford)
+ford_top = np.clip(FORD_H + noise(9, 86) * 0.07 + noise(30, 87) * 0.05,
+                   WATER - WADE + 0.07, WATER - 0.18)
+h = np.where(river, np.maximum(h, ford_top - d_core * 0.45), h)
+
+# Rolling ground (2026-10-17): gentle rises on the flats, never dips (so no
+# land sinks under the water), fading out near cliffs and ramps (so a cliff
+# keeps its full step and a ramp its slope) and toward the shore.
+roll = 0.5 + 0.5 * np.tanh(noise(90, 88) * 1.0 + noise(36, 89) * 0.55 + noise(14, 90) * 0.18)
+fade = np.clip((np.minimum(d_cliff, d_ramp) - 6.0) / 30.0, 0, 1)
+fade_shore = np.clip((d_river - 2.0) / 40.0, 0, 1)
+ROLL_AMP = np.array([5.0, 1.5, 4.0, 2.0, 1.2])    # m, per level
+h = np.where(valid, h + ROLL_AMP[np.maximum(level, 0)] * roll * fade * fade_shore, h)
 
 # Ramps (north authored, mirrored with everything else below): a straight
 # slope from the low side to the high one, RAMP_HALF either side of the ramp
@@ -468,9 +499,29 @@ def save_mask(name, m):
 save_mask("nowalk.png", mtn | forest)
 save_mask("forest.png", forest)
 rampish = ramp_mask & (ndimage.binary_dilation(cliff, iterations=RAMP_DEPTH))
-bankish = (rdist > RIVER_HALF - 9) & (rdist < RIVER_HALF + 3)
-save_mask("dirt.png", rampish | ford | bankish)
+bankish = ndimage.binary_dilation(river, iterations=3) & ~ndimage.binary_erosion(river, iterations=9)
+# the ford's sloping sides are riverbed too, not grass under the water
+ford_bed = ndimage.binary_dilation(ford, iterations=7) & river
+save_mask("dirt.png", rampish | ford_bed | bankish)
 save_mask("fringe.png", mtn & (d_in < 7))
+# Ground variation (2026-10-17), two soft 0..1 masks, mirrored like the
+# heights they follow:
+#   meadow.png -> the Meadow layer, which on this map is MOSS (darker, mottled):
+#     the hollows between the rises, the feet of forests and cliffs, and loose
+#     patches, so bright grass on the crests against dark moss in the dips
+#     makes the rolling ground read from the RTS camera.
+#   bare.png   -> extra Dirt weight: small worn patches of bare earth.
+d_forest = ndimage.distance_transform_edt(~forest)
+hollow = np.clip((0.5 - roll) * 2.4, 0, 1) * fade
+moss = np.maximum(hollow, np.clip(1 - d_forest / 14.0, 0, 1) * 0.8)
+moss = np.maximum(moss, np.clip(1 - np.minimum(d_cliff, d_mtn) / 10.0, 0, 1) * 0.6)
+moss = np.maximum(moss, np.clip(noise(22, 96) * 1.3 - 0.6, 0, 0.75))
+moss = moss * (1 - np.clip(noise(6, 97) * 0.5 + 0.1, 0, 0.45)) * valid    # mottled, never solid
+bare = np.clip(noise(26, 98) * 1.5 - 1.25, 0, 0.6) * valid * (d_ramp > 14)
+bare = np.maximum(bare, np.clip(noise(9, 99) * 1.2 - 1.3, 0, 0.45) * valid)
+for name_, m_ in (("meadow.png", moss), ("bare.png", bare)):
+    m_ = np.where(side > 0, m_, np.rot90(m_, 2))
+    Image.fromarray((ndimage.gaussian_filter(m_, 1.5) * 255).astype(np.uint8)).save(os.path.join(HERE, name_))
 
 # ── territories: outlines, kinds, resource types ─────────────────────────────
 DISPLAY = {
@@ -543,16 +594,17 @@ for i in range(6):
 
 layout = {
     "mapName": "Fiendstone Pass", "size": 1024, "heightRes": N, "maxHeight": MAX_H,
-    "levelHeights": LEVEL_H.tolist(), "waterLevel": WATER,
-    "waterMinZ": -float(np.max(np.abs(river_y(np.arange(-R, R + 1)))) + RIVER_HALF + 6),
-    "waterMaxZ": float(np.max(np.abs(river_y(np.arange(-R, R + 1)))) + RIVER_HALF + 6),
+    "levelHeights": LEVEL_H.tolist(), "rollHeights": ROLL_AMP.tolist(),
+    "waterLevel": WATER, "wadeDepth": WADE,
+    "waterMinZ": -float(np.max(np.abs(river_y(np.arange(-R, R + 1)))) + RIVER_HALF + 16),
+    "waterMaxZ": float(np.max(np.abs(river_y(np.arange(-R, R + 1)))) + RIVER_HALF + 16),
     "regions": regions_out, "starts": starts_out,
 }
 json.dump(layout, open(os.path.join(HERE, "layout.json"), "w"), indent=1)
 print("exported", len(regions_out), "territories, heights", float(h.min()), "..", float(h.max()))
 
 # ── Verify on the REAL heights with the game's walk rule ─────────────────────
-walk = (h > WATER) & ~blk & ~mtn & ~forest
+walk = (h > WATER - WADE) & ~blk & ~mtn & ~forest
 lab_w, _ = ndimage.label(walk)
 sy0, sx0 = cent[start_ids[0]]
 root_w = lab_w[sy0, sx0]

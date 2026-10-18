@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f3a1c52d9e84b60a1c2e3f4a5b6c701, type: 3}
   m_Name: FormationGroupSystem
   m_EditorClassIdentifier:
-  settleTimeoutSeconds: 4
+  settleTimeoutSeconds: 2
   tetherProgressEpsilon: 0.1
   engagedHoldFraction: 0.34
   stallHeadingToleranceRadians: 0.35

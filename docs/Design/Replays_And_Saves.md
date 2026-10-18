@@ -84,9 +84,16 @@ resource nodes, territory types), and starts the clock at the saved tick.
 
 - **Saving:** pause menu (Esc) → **Save Game**. Shown only in a single-player
   lockstep match that is being played — not in multiplayer, not while watching
-  a replay, not after the match is decided.
+  a replay, not after the match is decided. **The player names the save**
+  (2026-10-16): the menu switches to a Save page with a name field (pre-filled
+  "<map> <min>-<sec>"); the name is the save's label AND its file name
+  (`<name>.twbsave`; a name already taken gets `-2`, never an overwrite).
+  The save carries a **preview**: the minimap as the player saw it at that
+  moment, fog included, so a save never shows more than its owner had seen.
 - **Loading:** main menu → **Load Game** → **Saved Games** → Load. Saves live
   in `Saves/` beside the executable and are never deleted automatically.
+  Each row shows the preview and every player's colour and name, the local
+  player's in gold.
 - **Exact for gameplay, warm-up for pathing.** Every gameplay value comes back
   exactly — positions, health, banks, research, territory, the curse, every
   RNG stream. What is rebuilt rather than restored are the navigation caches
@@ -116,7 +123,9 @@ delay), then `c` (command, lossless wire form), `h` (state hash), `snap`
 
 **Saved game** (`.twbsave`): a zip, documented in the header of
 `Assets/Scripts/Core/Save/SaveGameFile.cs` — `save.txt` (tick, match time,
-label, world clock), `replay.twbr`, `world.bin`, `state.bin`, `pending.txt`.
+label, world clock), `replay.twbr`, `world.bin`, `state.bin`, `pending.txt`,
+and the optional `preview.png` (the minimap bake; older saves have none and
+still load).
 
 ## 5. Code
 

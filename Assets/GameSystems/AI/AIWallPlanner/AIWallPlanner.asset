@@ -17,6 +17,7 @@ MonoBehaviour:
   scanStep: 2
   maxOpenFraction: 0.45
   maxSealableWidth: 60
+  chokepointsOnPartitionedMaps: 1
   chokeProbeCap: 34
   hubSpacing: 30
   perimeterPad: 12

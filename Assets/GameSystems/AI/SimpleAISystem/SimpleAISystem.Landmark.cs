@@ -33,6 +33,7 @@ namespace TheWaningBorder.AI
             {
                 _landmarkEpoch = SimCadence.Epoch;
                 _landmarkPick.Clear();
+                _landmarkCorridorRefused.Clear();
             }
             if (_landmarkPick.TryGetValue(faction, out var id)) return id;
 
@@ -52,6 +53,19 @@ namespace TheWaningBorder.AI
                 $"age-up landmark = {id} ({CultureConfig.GetName(culture)})");
             return id;
         }
+
+        /// <summary>This faction's AI has picked the Feraldis landmark (this
+        /// match): it builds no walls, so nothing should reserve wall ground
+        /// for it (AIWallCorridor).</summary>
+        public static bool IntendsFeraldis(Faction faction)
+            => _landmarkEpoch == SimCadence.Epoch
+               && _landmarkPick.TryGetValue(faction, out var id) && id == "FiendstoneKeep";
+
+        /// <summary>Landmarks whose last site search was refused on wall-corridor
+        /// grounds; their next search ignores the corridor (the age-up
+        /// building must always find a place).</summary>
+        private static readonly HashSet<(Faction, string)> _landmarkCorridorRefused =
+            new HashSet<(Faction, string)>();
 
         /// <summary>A landmark placed — finished or still being built.</summary>
         private static bool FactionHasLandmark(EntityManager em, Faction faction)

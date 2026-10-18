@@ -9,13 +9,21 @@
 // hotkeys whenever the pointer is over a uGUI element, which is most of the
 // screen with the HUD up and all of it with this menu open.
 //
-//   Esc  →  menu open?          close it
+//   Esc  →  menu open?          step back (save / confirm page → menu → closed)
 //        →  placing a building / aiming a ground ability?   their own
 //           handlers cancel; do nothing here
 //        →  planning mode?      cancel it
 //        →  culture menu open?  close it
 //        →  attack-move / patrol armed, or units selected?  cancel / deselect
 //        →  otherwise           open the menu
+//
+// THREE PAGES on one scrim (2026-10-16), only one shown at a time: the menu
+// itself, a confirm page (Restart / Quit to Main Menu / Quit to Desktop) and
+// the save page, where the player names the save. The confirm used to be a
+// row ADDED under the menu with every button still showing above it, which
+// read as two menus at once. Every Cancel is red (GameUIKit.StyleDanger).
+// The top-left "Menu" button opens it too — it was authored in the GameUI
+// staging scene but never built in a match.
 //
 // Pausing is Time.timeScale = 0. Every HUD binder already ticks on
 // unscaledDeltaTime, so panels keep repainting while the simulation is
@@ -38,13 +46,19 @@ namespace TheWaningBorder.UI.Ingame
         private const float PanelWidth = 760f;
         private const float ButtonHeight = 92f;
         private const string MainMenuScene = "MainMenu";
+        private const int SaveNameLimit = 40;
+        private static readonly Vector2 MenuButtonSize = new Vector2(190f, 72f);
+        private static readonly Vector2 MenuButtonMargin = new Vector2(24f, 24f);
 
         public static bool IsOpen { get; private set; }
 
         private RectTransform _root;
-        private GameObject _confirmRow;
+        private GameObject _menuPage, _confirmPage, _savePage;
         private TMP_Text _confirmLabel;
         private System.Action _confirmAction;
+        private TMP_InputField _saveName;
+        private TMP_Text _saveError;
+        private GameObject _menuButton;
 
         /// <summary>Restored on close — never assume it was 1.</summary>
         private float _resumeTimeScale = 1f;
@@ -56,6 +70,7 @@ namespace TheWaningBorder.UI.Ingame
         private void Awake()
         {
             IsOpen = false;
+            BuildMenuButton();
             Build();
         }
 
@@ -71,6 +86,27 @@ namespace TheWaningBorder.UI.Ingame
 
         // ── Construction ───────────────────────────────────────────────────
 
+        /// <summary>The always-visible top-left "Menu" button.</summary>
+        private void BuildMenuButton()
+        {
+            var rt = GameUIKit.Rect(transform, "MenuButton");
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(MenuButtonMargin.x, -MenuButtonMargin.y);
+            rt.sizeDelta = MenuButtonSize;
+
+            var bg = GameUIKit.ButtonChrome(rt, raycast: true);
+            var text = GameUIKit.Text(rt, "label", Loc.T("Menu"), 30f, GameUIKit.TextMain,
+                TextAlignmentOptions.Center, wrap: false);
+            GameUIKit.Stretch(text.rectTransform);
+            var relay = UITooltip.Relay(bg.gameObject);
+            relay.OnLeftClick = Open;
+            relay.OnEnter = () => { bg.color = GameUIKit.BarBlue * 0.5f; text.color = GameUIKit.Gold; };
+            relay.OnExit = () => { bg.color = GameUIKit.ButtonBg; text.color = GameUIKit.TextMain; };
+            UITooltip.Bind(bg.gameObject, Loc.T("Menu (Esc): pause, save, restart or quit."));
+            _menuButton = rt.gameObject;
+        }
+
         private void Build()
         {
             // Full-screen dimmer; also swallows clicks aimed at the map.
@@ -80,7 +116,17 @@ namespace TheWaningBorder.UI.Ingame
                 raycast: true);
             GameUIKit.Stretch(scrim.rectTransform);
 
-            var panel = GameUIKit.Rect(_root, "panel");
+            BuildMenuPage();
+            BuildConfirmPage();
+            BuildSavePage();
+
+            _root.gameObject.SetActive(false);
+        }
+
+        /// <summary>A centred, chrome-framed page that sizes to its content.</summary>
+        private RectTransform Page(string name, string title)
+        {
+            var panel = GameUIKit.Rect(_root, name);
             panel.anchorMin = new Vector2(0.5f, 0.5f);
             panel.anchorMax = new Vector2(0.5f, 0.5f);
             panel.pivot = new Vector2(0.5f, 0.5f);
@@ -92,17 +138,23 @@ namespace TheWaningBorder.UI.Ingame
             var fitter = panel.gameObject.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var title = GameUIKit.Text(panel, "title", Loc.T("PAUSED"), 52f, GameUIKit.Gold,
+            var t = GameUIKit.Text(panel, "title", Loc.T(title), 52f, GameUIKit.Gold,
                 TextAlignmentOptions.Center, wrap: false);
-            title.fontStyle = FontStyles.Bold;
-            title.characterSpacing = 8f;
-            GameUIKit.FixHeight(title.gameObject, 70f);
+            t.fontStyle = FontStyles.Bold;
+            t.characterSpacing = 8f;
+            GameUIKit.FixHeight(t.gameObject, 70f);
+            return panel;
+        }
+
+        private void BuildMenuPage()
+        {
+            var panel = Page("menu", "PAUSED");
 
             MakeButton(panel, "resume", "Resume", "Close this menu and carry on (Esc).",
                 Close);
             _saveButton = MakeButton(panel, "save", "Save Game",
-                "Save this match. Load it again from Load Game on the main menu.",
-                SaveGame);
+                "Name this save and write it. Load it again from Load Game on the main menu.",
+                ShowSavePage);
             _saveLabel = _saveButton.GetComponentInChildren<TMP_Text>(true);
             MakeButton(panel, "restart", "Restart Match",
                 "Reload this map from the beginning. All progress in the current " +
@@ -115,9 +167,92 @@ namespace TheWaningBorder.UI.Ingame
                 "Close the game.",
                 () => Confirm("Quit to desktop?", QuitGame));
 
-            BuildConfirmRow(panel);
+            _menuPage = panel.gameObject;
+        }
 
-            _root.gameObject.SetActive(false);
+        /// <summary>The confirm page for the three destructive entries — a
+        /// misclick on "Quit to Desktop" should not end the session.</summary>
+        private void BuildConfirmPage()
+        {
+            var panel = Page("confirm", "ARE YOU SURE?");
+
+            _confirmLabel = GameUIKit.Text(panel, "question", "", 32f, GameUIKit.TextMain,
+                TextAlignmentOptions.Center);
+            GameUIKit.FixHeight(_confirmLabel.gameObject, 90f);
+
+            var row = ButtonRow(panel);
+            MakeSmall(row, "yes", "Confirm", GameUIKit.Gold, danger: false, () =>
+            {
+                var action = _confirmAction;
+                _confirmAction = null;
+                action?.Invoke();
+            });
+            MakeSmall(row, "no", "Cancel", GameUIKit.TextMain, danger: true, ShowMenuPage);
+
+            _confirmPage = panel.gameObject;
+        }
+
+        /// <summary>The save page: the player names the save; the minimap is
+        /// baked into it as the Load Game preview.</summary>
+        private void BuildSavePage()
+        {
+            var panel = Page("savepage", "SAVE GAME");
+
+            var hint = GameUIKit.Text(panel, "hint", Loc.T("Name this save:"), 28f, GameUIKit.TextDim,
+                TextAlignmentOptions.Left, wrap: false);
+            GameUIKit.FixHeight(hint.gameObject, 40f);
+
+            _saveName = NameField(panel);
+
+            _saveError = GameUIKit.Text(panel, "error", "", 24f, new Color(0.95f, 0.45f, 0.38f),
+                TextAlignmentOptions.Center);
+            GameUIKit.FixHeight(_saveError.gameObject, 34f);
+
+            var row = ButtonRow(panel);
+            MakeSmall(row, "save", "Save", GameUIKit.Gold, danger: false, SaveGame);
+            MakeSmall(row, "cancel", "Cancel", GameUIKit.TextMain, danger: true, ShowMenuPage);
+
+            _savePage = panel.gameObject;
+        }
+
+        private TMP_InputField NameField(RectTransform parent)
+        {
+            var rt = GameUIKit.Rect(parent, "name");
+            GameUIKit.FixHeight(rt.gameObject, 84f);
+            var bg = GameUIKit.Image(rt, "bg", GameUIKit.BarBg, raycast: true);
+            GameUIKit.Stretch(bg.rectTransform);
+
+            var area = GameUIKit.Rect(rt, "Text Area");
+            GameUIKit.Stretch(area);
+            area.offsetMin = new Vector2(20f, 6f);
+            area.offsetMax = new Vector2(-20f, -6f);
+            area.gameObject.AddComponent<RectMask2D>();
+
+            var text = GameUIKit.Text(area, "Text", "", 34f, GameUIKit.TextMain,
+                TextAlignmentOptions.MidlineLeft, wrap: false);
+            GameUIKit.Stretch(text.rectTransform);
+
+            var input = bg.gameObject.AddComponent<TMP_InputField>();
+            input.textViewport = area;
+            input.textComponent = text;
+            input.characterLimit = SaveNameLimit;
+            input.lineType = TMP_InputField.LineType.SingleLine;
+            input.targetGraphic = bg;
+            input.onSubmit.AddListener(_ => SaveGame());
+            input.onValueChanged.AddListener(_ => _saveError.text = "");
+            return input;
+        }
+
+        private static RectTransform ButtonRow(RectTransform parent)
+        {
+            var row = GameUIKit.Rect(parent, "buttons");
+            GameUIKit.FixHeight(row.gameObject, 80f);
+            var h = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 14f;
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = true;
+            return row;
         }
 
         private GameObject MakeButton(Transform parent, string name, string label, string tooltip,
@@ -149,70 +284,71 @@ namespace TheWaningBorder.UI.Ingame
             return rt.gameObject;
         }
 
-        /// <summary>Yes/no strip for the three destructive entries — a
-        /// misclick on "Quit to Desktop" should not end the session.</summary>
-        private void BuildConfirmRow(Transform parent)
-        {
-            var rt = GameUIKit.Rect(parent, "confirm");
-            GameUIKit.FixHeight(rt.gameObject, 150f);
-            var v = GameUIKit.VStack(rt, 0f, 10f);
-            v.childAlignment = TextAnchor.UpperCenter;
-
-            _confirmLabel = GameUIKit.Text(rt, "question", "", 28f, GameUIKit.TextMain,
-                TextAlignmentOptions.Center);
-            GameUIKit.FixHeight(_confirmLabel.gameObject, 60f);
-
-            var row = GameUIKit.Rect(rt, "buttons");
-            GameUIKit.FixHeight(row.gameObject, 72f);
-            var h = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-            h.spacing = 14f;
-            h.childControlWidth = true;
-            h.childControlHeight = true;
-            h.childForceExpandWidth = true;
-
-            MakeSmall(row, "yes", "Confirm", GameUIKit.Gold, () =>
-            {
-                var action = _confirmAction;
-                _confirmAction = null;
-                action?.Invoke();
-            });
-            MakeSmall(row, "no", "Cancel", GameUIKit.TextMain, () =>
-            {
-                _confirmAction = null;
-                _confirmRow.SetActive(false);
-            });
-
-            _confirmRow = rt.gameObject;
-            _confirmRow.SetActive(false);
-        }
-
         private static void MakeSmall(Transform parent, string name, string label, Color color,
-            System.Action click)
+            bool danger, System.Action click)
         {
             var rt = GameUIKit.Rect(parent, name);
             var bg = GameUIKit.ButtonChrome(rt, raycast: true);
-            var text = GameUIKit.Text(rt, "label", Loc.T(label), 28f, color,
+            var text = GameUIKit.Text(rt, "label", Loc.T(label), 30f, color,
                 TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(text.rectTransform);
             UITooltip.Relay(bg.gameObject).OnLeftClick = click;
+            if (danger) GameUIKit.StyleDanger(bg);
+        }
+
+        // ── Pages ──────────────────────────────────────────────────────────
+
+        private void ShowPage(GameObject page)
+        {
+            _menuPage.SetActive(page == _menuPage);
+            _confirmPage.SetActive(page == _confirmPage);
+            _savePage.SetActive(page == _savePage);
+        }
+
+        private void ShowMenuPage()
+        {
+            _confirmAction = null;
+            DeselectInput();
+            ShowPage(_menuPage);
         }
 
         private void Confirm(string question, System.Action action)
         {
             _confirmAction = action;
             _confirmLabel.text = Loc.T(question);
-            _confirmRow.SetActive(true);
+            ShowPage(_confirmPage);
+        }
+
+        private void ShowSavePage()
+        {
+            _saveName.text = DefaultSaveName();
+            _saveError.text = "";
+            ShowPage(_savePage);
+            _saveName.Select();
+            _saveName.ActivateInputField();
+        }
+
+        private void DeselectInput()
+        {
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            if (es != null && _saveName != null && es.currentSelectedGameObject == _saveName.gameObject)
+                es.SetSelectedGameObject(null);
         }
 
         // ── Escape cascade ─────────────────────────────────────────────────
 
         private void Update()
         {
+            // The Menu button is part of the HUD: gone while the menu (or the
+            // end-of-match screens) cover the screen.
+            bool showButton = !IsOpen && !MusterRollsPanel.IsOpen;
+            if (_menuButton.activeSelf != showButton) _menuButton.SetActive(showButton);
+
             if (!UnityEngine.Input.GetKeyDown(KeyCode.Escape)) return;
 
             if (IsOpen)
             {
-                if (_confirmRow.activeSelf) { _confirmAction = null; _confirmRow.SetActive(false); }
+                if (!_menuPage.activeSelf) ShowMenuPage();
                 else Close();
                 return;
             }
@@ -240,8 +376,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             if (IsOpen) return;
             IsOpen = true;
-            _confirmAction = null;
-            _confirmRow.SetActive(false);
+            ShowMenuPage();
             // Raise the HOST too — the menu is spawned before most panels, so
             // without this the scrim would sit under half the HUD.
             transform.SetAsLastSibling();
@@ -274,6 +409,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             if (!IsOpen) return;
             IsOpen = false;
+            DeselectInput();
             _root.gameObject.SetActive(false);
             if (!GameSettings.IsMultiplayer)
                 Time.timeScale = _resumeTimeScale > 0f
@@ -282,27 +418,41 @@ namespace TheWaningBorder.UI.Ingame
 
         // ── Actions ────────────────────────────────────────────────────────
 
-        private void SaveGame()
+        /// <summary>"Map — 12:34", what the name field starts with.</summary>
+        private static string DefaultSaveName()
         {
             var ls = TheWaningBorder.Core.Multiplayer.LockstepServiceLocator.Instance;
-            if (ls == null || !ls.IsSimulationRunning) return;
-
-            int tick = ls.CurrentTick;
+            int tick = ls != null ? ls.CurrentTick : 0;
             float seconds = tick * TheWaningBorder.Core.Multiplayer.LockstepTiming.TickDuration;
             var entry = TheWaningBorder.Core.Maps.MapRegistry.GetEntry(GameSettings.SelectedMapScene);
             string map = entry.SceneName == GameSettings.SelectedMapScene && !string.IsNullOrEmpty(entry.DisplayName)
                 ? entry.DisplayName : GameSettings.SelectedMapScene;
             int min = (int)(seconds / 60f), sec = (int)seconds % 60;
-            string label = $"{map} — {min}:{sec:00}";
+            return $"{map} {min}-{sec:00}";
+        }
 
-            if (TheWaningBorder.Core.Save.SaveGameWriter.Save(label, out _, out string error))
+        private void SaveGame()
+        {
+            if (!_savePage.activeSelf) return;   // onSubmit also fires on deselect
+            var ls = TheWaningBorder.Core.Multiplayer.LockstepServiceLocator.Instance;
+            if (ls == null || !ls.IsSimulationRunning) return;
+
+            string label = _saveName.text.Trim();
+            if (label.Length == 0) { _saveError.text = Loc.T("Give the save a name."); return; }
+
+            byte[] preview = null;
+            try { preview = MinimapPanelBinder.Active != null ? MinimapPanelBinder.Active.BakePreviewPng() : null; }
+            catch (System.Exception e) { Debug.LogWarning("[PauseMenu] Minimap preview failed: " + e.Message); }
+
+            if (TheWaningBorder.Core.Save.SaveGameWriter.Save(label, preview, out _, out string error))
             {
                 if (_saveLabel != null) _saveLabel.text = Loc.T("Game Saved");
                 TheWaningBorder.Core.SimSignals.Notify(Loc.T("Game saved") + ": " + label);
+                ShowMenuPage();
             }
             else
             {
-                if (_saveLabel != null) _saveLabel.text = Loc.T("Save Failed");
+                _saveError.text = error;
                 TheWaningBorder.Core.SimSignals.NotifyError(error);
             }
         }

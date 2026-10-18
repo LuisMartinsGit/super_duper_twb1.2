@@ -99,10 +99,35 @@ namespace TheWaningBorder.Systems.Visibility
             var mgr = FogOfWarManager.Instance;
             if (mgr == null) return;
 
-            if (UnityEngine.Time.unscaledTime < _nextReveal) return;
-            _nextReveal = UnityEngine.Time.unscaledTime + RevealInterval;
-
             double t0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
+
+            // LIVE SIGHT, EVERY TICK (2026-10-16): the moving sight sources
+            // (units, eagles, the Shardroot) go to the overlay's GPU layer on
+            // every tick, so the displayed fog edge keeps up with the unit.
+            // The grid below — what gameplay reads — is still stamped at the
+            // 4 Hz cadence, from this same list.
+            var mobiles = BuildCommands(_mobileQuery, unit: true, out _);
+            if (!_eagleQuery.IsEmptyIgnoreFilter)
+            {
+                var eagles = BuildCommands(_eagleQuery, unit: true, out _);
+                var grown = new NativeArray<FogOfWarManager.StampCommand>(
+                    mobiles.Length + eagles.Length, Allocator.TempJob);
+                NativeArray<FogOfWarManager.StampCommand>.Copy(mobiles, 0, grown, 0, mobiles.Length);
+                NativeArray<FogOfWarManager.StampCommand>.Copy(eagles, 0, grown, mobiles.Length, eagles.Length);
+                mobiles.Dispose();
+                eagles.Dispose();
+                mobiles = grown;
+            }
+            AppendShardrootReveal(ref mobiles);
+            mgr.SetLiveSight(mobiles, mobiles.Length);
+            int unitCount = mobiles.Length;
+
+            if (UnityEngine.Time.unscaledTime < _nextReveal)
+            {
+                mobiles.Dispose();
+                return;
+            }
+            _nextReveal = UnityEngine.Time.unscaledTime + RevealInterval;
 
             // task-063 phase 1: sect FogVisionBonus removed with the
             // FactionSectState bridge. Phase 2 reintroduces vision-related sect
@@ -118,12 +143,14 @@ namespace TheWaningBorder.Systems.Visibility
             // passed with no commands, and StampPass reuses the layer exactly
             // as it would have. Any doubt (a change, a fresh manager, an
             // invalidated layer) builds the commands as before.
+            double tStatic0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
             NativeArray<FogOfWarManager.StampCommand> statics;
             ulong staticHash;
             int staticCount;
-            if (_haveStatic && !StaticSetChanged() && mgr.StaticLayerMatches(_lastStaticHash, _lastStaticCount))
+            bool staticReused = _haveStatic && !StaticSetChanged() && mgr.StaticLayerMatches(_lastStaticHash, _lastStaticCount);
+            if (staticReused)
             {
-                statics = new NativeArray<FogOfWarManager.StampCommand>(0, Allocator.Temp);
+                statics = new NativeArray<FogOfWarManager.StampCommand>(0, Allocator.TempJob);
                 staticHash = _lastStaticHash;
                 staticCount = _lastStaticCount;
             }
@@ -137,22 +164,11 @@ namespace TheWaningBorder.Systems.Visibility
             _haveStatic = true;
             _staticSince = EntityManager.GlobalSystemVersion;
 
-            var mobiles = BuildCommands(_mobileQuery, unit: true, out _);
-            if (!_eagleQuery.IsEmptyIgnoreFilter)
-            {
-                var eagles = BuildCommands(_eagleQuery, unit: true, out _);
-                var grown = new NativeArray<FogOfWarManager.StampCommand>(
-                    mobiles.Length + eagles.Length, Allocator.Temp);
-                NativeArray<FogOfWarManager.StampCommand>.Copy(mobiles, 0, grown, 0, mobiles.Length);
-                NativeArray<FogOfWarManager.StampCommand>.Copy(eagles, 0, grown, mobiles.Length, eagles.Length);
-                mobiles.Dispose();
-                eagles.Dispose();
-                mobiles = grown;
-            }
-            AppendShardrootReveal(ref mobiles);
-
+            double tStamp0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
+            bool rebuilt = !mgr.StaticLayerMatches(staticHash, staticCount);
             // Clear + static layer + unit stamps, one Burst worker per faction.
             mgr.StampPass(statics, staticCount, staticHash, mobiles, mobiles.Length);
+            double tPush0 = UnityEngine.Time.realtimeSinceStartupAsDouble;
 
             statics.Dispose();
             mobiles.Dispose();
@@ -160,8 +176,13 @@ namespace TheWaningBorder.Systems.Visibility
             // Finalize frame - rebuilds the overlay texture (throttled inside)
             mgr.EndFrameAndBuild();
 
+            double tEnd = UnityEngine.Time.realtimeSinceStartupAsDouble;
             TheWaningBorder.Core.Diagnostics.PerfSpikeLog.Report("FogStamp",
-                (UnityEngine.Time.realtimeSinceStartupAsDouble - t0) * 1000.0);
+                (tEnd - t0) * 1000.0,
+                $"live {(tStatic0 - t0) * 1000.0:0.0} | statics {(tStamp0 - tStatic0) * 1000.0:0.0}"
+                + $" ({(staticReused ? "reused" : staticCount + " cmds")})"
+                + $" | stamp {(tPush0 - tStamp0) * 1000.0:0.0}{(rebuilt ? " +rebuild" : "")}"
+                + $" | push {(tEnd - tPush0) * 1000.0:0.0} | units {unitCount}");
         }
 
         /// <summary>
@@ -195,7 +216,7 @@ namespace TheWaningBorder.Systems.Visibility
 
             const int players = 8;   // Faction.Blue (0) .. Faction.White (7)
             var grown = new NativeArray<FogOfWarManager.StampCommand>(
-                mobiles.Length + _shardrootSpots.Count * players, Allocator.Temp);
+                mobiles.Length + _shardrootSpots.Count * players, Allocator.TempJob);
             NativeArray<FogOfWarManager.StampCommand>.Copy(mobiles, grown, mobiles.Length);
             int at = mobiles.Length;
             for (int s = 0; s < _shardrootSpots.Count; s++)
@@ -268,21 +289,22 @@ namespace TheWaningBorder.Systems.Visibility
         {
             q.CompleteDependency();
             var list = new NativeList<FogOfWarManager.StampCommand>(
-                q.CalculateEntityCount(), Allocator.Temp);
-            var acc = new NativeArray<ulong>(2, Allocator.Temp);
+                q.CalculateEntityCount(), Allocator.TempJob);   // TempJob: written by a job (Temp is refused even for .Run)
+            var acc = new NativeArray<ulong>(2, Allocator.TempJob);
             if (unit)
                 new MobileCommandsJob { Commands = list, Acc = acc }.Run(q);
             else
                 new StaticCommandsJob { Commands = list, Acc = acc }.Run(q);
             hash = acc[0] ^ (acc[1] * 0xBF58476D1CE4E5B9UL);
             acc.Dispose();
-            var commands = new NativeArray<FogOfWarManager.StampCommand>(list.AsArray(), Allocator.Temp);
+            var commands = new NativeArray<FogOfWarManager.StampCommand>(list.AsArray(), Allocator.TempJob);
             list.Dispose();
             return commands;
         }
 
         internal static void Append(ref NativeList<FogOfWarManager.StampCommand> commands,
-            ref NativeArray<ulong> acc, in LineOfSight los, in LocalTransform xf, in FactionTag fac)
+            ref NativeArray<ulong> acc, in LineOfSight los, in LocalTransform xf, in FactionTag fac,
+            Entity source)
         {
             float3 p = xf.Position;
             float r = 0.01f > los.Radius ? 0.01f : los.Radius;   // Mathf.Max(0.01f, r), exactly
@@ -292,6 +314,7 @@ namespace TheWaningBorder.Systems.Visibility
                 Position = new Vector3(p.x, p.y, p.z),
                 Radius = r,
                 Faction = f,
+                Source = source,   // the live layer smooths per entity; not hashed
             });
             ulong h = Mix(((ulong)math.asuint(p.x) << 32) | math.asuint(p.z));
             h = Mix(h ^ (((ulong)math.asuint(r) << 8) | (uint)(int)f));
@@ -306,8 +329,8 @@ namespace TheWaningBorder.Systems.Visibility
         {
             public NativeList<FogOfWarManager.StampCommand> Commands;
             public NativeArray<ulong> Acc;
-            void Execute(in LineOfSight los, in LocalTransform xf, in FactionTag fac)
-                => Append(ref Commands, ref Acc, in los, in xf, in fac);
+            void Execute(Entity e, in LineOfSight los, in LocalTransform xf, in FactionTag fac)
+                => Append(ref Commands, ref Acc, in los, in xf, in fac, e);
         }
 
         [BurstCompile]
@@ -316,8 +339,8 @@ namespace TheWaningBorder.Systems.Visibility
         {
             public NativeList<FogOfWarManager.StampCommand> Commands;
             public NativeArray<ulong> Acc;
-            void Execute(in LineOfSight los, in LocalTransform xf, in FactionTag fac)
-                => Append(ref Commands, ref Acc, in los, in xf, in fac);
+            void Execute(Entity e, in LineOfSight los, in LocalTransform xf, in FactionTag fac)
+                => Append(ref Commands, ref Acc, in los, in xf, in fac, e);
         }
 
         private static ulong Mix(ulong z)

@@ -361,6 +361,8 @@ namespace TheWaningBorder.AI
                         float f = math.saturate(Cfg.towerPeripheryFraction);
                         float ax = a.x + (b.x - a.x) * f, az = a.y + (b.y - a.y) * f;
                         var anchor = new float3(ax, TerrainUtility.GetHeight(ax, az), az);
+                        // On a cliff shelf, stand the tower on its edge (2026-10-17).
+                        anchor = SnapToShelfEdge(r, anchor);
                         if (TryBuildInTerritory(em, faction, TowerId, r, anchor, AIBudgetCategory.Military,
                                 true, out string why))
                         {

@@ -779,6 +779,17 @@ namespace TheWaningBorder.AI
         /// closes the distance to anything.</summary>
         public float tacticsInterval;
 
+        /// <summary>A worker holding a build order that neither moves nor adds
+        /// build progress for this many seconds is released (its orders
+        /// cleared) so the AI can dispatch it again. 0 = off.</summary>
+        public float workerStallSeconds;
+
+        /// <summary>An army not already fighting engages only when the hostile
+        /// strength in reach is at least this share of its own, so a scout
+        /// ahead of it cannot kite it off its objective (a body of armed scouts
+        /// still adds up). 0 = engage anything.</summary>
+        public float engageMinThreatFraction;
+
         /// <summary>
         /// Once engaged, the army stays engaged while a target is anywhere
         /// inside this. Wider than <see cref="FocusRadius"/> on purpose: with
@@ -1009,6 +1020,16 @@ namespace TheWaningBorder.AI
         /// neighbour's seed a tower's search is anchored (0 = seed, 1 = the
         /// neighbour's seed; the region lock keeps it inside).</summary>
         public float towerPeripheryFraction;
+
+        /// <summary>Towers along CLIFF SHELVES (2026-10-17): a coverage site on
+        /// a shelf edge -- the high side of a cliff, lower walkable ground
+        /// beyond -- has its gain multiplied by (1 + this), so towers stand
+        /// where they shoot down onto ramps and approaches. 0 = off.</summary>
+        public float towerShelfEdgeBonus;
+
+        /// <summary>A home periphery tower's anchor moves to the nearest
+        /// shelf-edge sample within this many metres, when there is one.</summary>
+        public float towerShelfSearchRadius;
 
         // ── PROVINCE TOWER COVERAGE (2026-10-04, Game_AI.md 5g) ──
 

@@ -160,7 +160,8 @@ namespace TheWaningBorder.Abilities
             foreach (var (cast, e) in SystemAPI.Query<RefRW<AbilityCastState>>().WithEntityAccess())
             {
                 var c = cast.ValueRO;
-                if (IsInterrupted(em, e) || HasNewOrder(em, e, c)) { castBroken.Add(e); continue; }
+                if (IsInterrupted(em, e) || (HasNewOrder(em, e, c) && !Unbreakable(c)))
+                { castBroken.Add(e); continue; }
                 c.CastRemaining -= dt;
                 cast.ValueRW = c;
                 if (c.CastRemaining <= 0f) castDone.Add(e);
@@ -255,6 +256,14 @@ namespace TheWaningBorder.Abilities
             if (TransientState.Active<DeathAnimationState>(em, e)) return true;
             if (em.HasComponent<TheWaningBorder.Entities.Launched>(e)) return true;
             return false;
+        }
+
+        /// <summary>The curse's Veil Offering (Territory_Claims.md §6.9.5):
+        /// only death or a stun breaks it, never an order.</summary>
+        private static bool Unbreakable(in AbilityCastState cast)
+        {
+            var card = AbilityCatalog.Get(cast.AbilityIndex);
+            return card != null && card.HasEffect(AbilityEffectKind.CurseVeilOffering);
         }
 
         /// <summary>Record the move / attack order live when the channel began,

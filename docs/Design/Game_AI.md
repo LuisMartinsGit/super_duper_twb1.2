@@ -364,6 +364,41 @@ Logs: `RAID: n fast unit(s) at <faction>'s <building> …`, `RAID: objective
 down — on to …`, `WALL GUARD: n unit(s) to the ring's k gate(s) …`, the wall
 plan line's `territory N: border trace (frontier): …`.
 
+### 3c. Fiendstone Pass fixes: chokepoint walls, shelf towers, wedged workers, the landmark (2026-10-17)
+
+From the Fiendstone Pass culture batches (a map of cliff-shelf starts reached by
+ramps):
+
+- **A sheltered home is walled at its chokepoints, not ringed.** On a
+  partitioned map the planner first asks where an enemy can WALK into the home
+  territory: every walkable home cell bordering walkable foreign ground is an
+  opening (cliffs, mountains and water are not), grouped into openings
+  (`AIWallPlanner.TryAssessOpenings`). With at most three openings, each at
+  most `maxSealableWidth` across, the home is sheltered: each opening gets a
+  wall line across it a few metres inside the home (on own ground, flanked by
+  the terrain that closes the rest), with a gate and towers at its ends, and
+  there is no border ring. Otherwise the border ring as before. On Fiendstone
+  Pass every start has two ways in -- the ramp to its shelf and the ramp to its
+  private pocket -- so it seals those two. (`AIWallPlanner.asset`
+  `chokepointsOnPartitionedMaps`.)
+- **Towers stand on the cliff shelves.** A SHELF EDGE is a spot 4-16 m back from a
+  cliff face with walkable ground at least 3 m lower beyond it
+  (`AIShelfEdge`): a tower there shoots down onto ramps and approaches. A home
+  walled at its chokepoints puts its towers on the shelf edges within 40 m of
+  each chokepoint first, then its drawn tower slots, which also move to the
+  nearest shelf edge (within 70 m); province coverage towers prefer shelf edges
+  (`towerShelfEdgeBonus`), and a home periphery tower snaps to one within
+  `towerShelfSearchRadius`. A wall-tower conversion the executor refuses is
+  retried at most three times per piece.
+- **A wedged worker is released.** A worker holding a build order that neither
+  moves nor adds build progress for `workerStallSeconds` (20) has its orders
+  cleared, so it counts as idle and is dispatched again. A whole crew once stood
+  on a finished hut for thirty minutes, and the faction never aged up.
+- **The age-up landmark always finds a place.** No wall corridor is reserved
+  for a faction that is, or is heading to be, Feraldis (they build no walls);
+  the Fiendstone Keep, like Thessara's Crossing, ignores the corridor; and any
+  landmark whose last site search the corridor refused searches without it.
+
 ## 4. Economy manager
 
 - **The worker rule** (2026-10-03, operator directive): **3 workers for
@@ -2166,6 +2201,43 @@ in §2). Shared geometry and weights: `AITactics.asset`. Code:
 `TACTICS: re-engage`, `TARGET: focus <unit> (counter|finish|high value|danger)`,
 `ABILITY: <id> cast (k enemies)`, `ABILITY: <id> held (reason)` (rate-limited).
 
+### 6e.1 A marching army defends itself (2026-10-17)
+
+Reported from the AI batches: an army marching to its stage point passed a
+standing enemy army, which picked it off from the rear one unit at a time,
+and the marching army never turned to fight. The march is a formation MOVE
+(so members do not peel off at the first thing they see), and a move turns
+auto-acquire off; the tactics layer above skipped mustering and staging armies
+entirely. Rules now:
+
+- **Mustering and staging armies run the contact test too.** Out of contact
+  nothing changes; the march keeps its formation move. Once hostile units are
+  in reach, the army is engaged and fights as in 6e.
+- **Contact is measured to the army's spread**, not only its centre: the
+  reach is the focus / contact radius plus the distance to the farthest
+  member, so an attack on the rear of a long column counts.
+- **While engaged, the dispatch layer leaves it alone**: no muster or staging
+  re-orders (they would march it past its attackers again), no departure, no
+  strike.
+- **Not every contact is worth a fight.** A scout walking ahead of an army
+  could kite the whole army off its objective. An army that is not already
+  fighting engages only when the hostile strength in reach is at least
+  `engageMinThreatFraction` (10 %) of its own live strength; below that it keeps
+  its march and ignores them. Scouts are not ignored as such: a body of armed
+  scouts adds up past the line and is fought.
+- **When the fight is won, the army resumes its own leg**: a mustering army
+  goes back to its muster point, a staging army on to its stage point (a
+  move; the strike still waits for the whole army), a striking army onto the
+  objective.
+
+Formation movement was tuned in the same pass, because an army that took ten
+seconds to come through a turn or to settle at its destination could not react
+in that window (constants in `FormationComponents` / `FormationGroupSystem`):
+turns past 60 degrees re-form instead of wheeling (was about 100), members have
+60 % catch-up headroom (was 40 %), the leader keeps three-quarter speed through
+a wheel (was half), members close on their slots twice as fast, and the settle
+timeout is 2 s (was 4).
+
 ## 6f. Many armies, many directions, the enemy's income (2026-10-05)
 
 **Operator directive:** "Harder levels should sport many coordinated armies
@@ -2629,6 +2701,29 @@ each other down instead of one beating the other.
   should win decisively and the archer player can fall; the cavalry player is
   then exposed to its own counter — Combat_Pacing.md § The triangle.
 - The doctrine table (names and class weights) is on `SimpleAISystem.asset`.
+
+## 6n. Litharchs cleanse cursed ground (2026-10-18)
+
+Cursed ground locks a territory (Territory_Claims.md §6.9.4) and creeps into
+held ground. The Litharch's **Cleanse** (§6.9.7) clears it, and the AI uses
+it on the support cadence (`AISupport.thinkInterval`,
+`SimpleAISystem.Cleanse.cs`):
+
+- **Where:** the nearest cursed cell within `cleanseSearchRadius` of a free
+  Litharch, in ground the faction **owns**, or in ground it **wants**: a
+  territory bordering its Fortress-linked ground, with no living curse node in
+  it, once claims are open (aged up). A node's own ground grows back while the
+  node lives; killing the node is the army's job (§ 5b, `CurseClear`).
+- **Not into a fight:** no Cleanse is aimed where an armed hostile (the curse
+  included) stands within `cleanseThreatRadius` of the spot.
+- **How:** the Litharch walks to just inside its reach, then casts and
+  channels. While it is on that errand (`cleanseErrandSeconds`) or
+  channelling, the army-follow step (§ 6m) leaves it alone, because a move
+  order would end the channel.
+- **Then:** a territory with no cursed ground left is an ordinary claim
+  candidate again, with no special handling.
+
+The numbers are on `AISupport.asset`.
 
 ## 7. Scouting
 

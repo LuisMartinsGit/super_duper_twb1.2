@@ -115,6 +115,37 @@ namespace TheWaningBorder.Systems.Border
             public byte Phase;
             public double StartedAt;
             public double NextThinkAt;
+            // Veil Offerings (§6.9.5): the party's size when it began, how
+            // many it has offered up, and when the next may go.
+            public int Size;
+            public int Offered;
+            public double NextOfferAt;
+        }
+
+        /// <summary>
+        /// §6.9.5: a party standing in its target offers members up — the
+        /// smallest creature first (lowest entity index on a tie), one every
+        /// sacrificeIntervalSeconds, sacrificeShare of the party at most, and
+        /// never its last standing member.
+        /// </summary>
+        private void TryOffer(EntityManager em, MergeState ms, BorderSettingsSO s, double now)
+        {
+            if (now < ms.NextOfferAt || _scratchWave.Count < 2) return;
+            int cap = (int)math.floor(ms.Size * math.clamp(s.sacrificeShare, 0f, 1f));
+            if (ms.Offered >= cap) return;
+            Entity pick = Entity.Null; int pickSize = int.MaxValue;
+            for (int i = 0; i < _scratchWave.Count; i++)
+            {
+                var e = _scratchWave[i];
+                int size = VeilOffering.SizeOf(em, e);
+                if (size < pickSize || (size == pickSize && e.Index < pick.Index)) { pick = e; pickSize = size; }
+            }
+            if (pick == Entity.Null || !VeilOffering.Begin(em, pick)) return;
+            ms.Offered++;
+            ms.NextOfferAt = now + math.max(1f, s.sacrificeIntervalSeconds);
+            UnityEngine.Debug.Log($"[CurseTerritory] OFFERING — a size-{pickSize} creature channels the Veil " +
+                $"Offering in territory {ms.Territory} ({ms.Offered}/{cap}).");
+            _scratchWave.Remove(pick);
         }
 
         private sealed class RaidState
@@ -190,11 +221,8 @@ namespace TheWaningBorder.Systems.Border
                 }
             if (CurseNodeSeeding.TryReseedOne(em, excluded, ref _rng, out float3 at))
             {
-                int t = RegionMap.NearestRegion(at.x, at.z);
-                // Ground under a fresh node is the curse's at once — the same
-                // grant a seeded node gets at tick 0.
-                if (t != RegionMap.None && TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Natural)
-                    TerritoryOwnership.ForceClaim(t, TerritoryOwnership.Curse);
+                // §6.9: the node curses its circle when CurseGroundSystem
+                // next sees it; the territory needs no grant.
                 SimSignals.Ping(at, SimPingKind.Curse, 15f, big: true);
                 SimSignals.Notify(Loc.T("The curse rises again!"));
                 UnityEngine.Debug.Log($"[CurseTerritory] RESEED — a curse node rises at ({at.x:F0},{at.z:F0}).");
@@ -1338,15 +1366,20 @@ namespace TheWaningBorder.Systems.Border
 
                 _scratchWave.Clear();
                 float3 centre = float3.zero;
-                int fighting = 0;
+                int fighting = 0, offering = 0;
                 for (int i = 0; i < ents.Length; i++)
                 {
                     if (members[i].Party != party || members[i].Role != RoleMerge) continue;
+                    // A creature channelling its Veil Offering takes no more
+                    // orders (§6.9.5): it is left out of every command below.
+                    if (VeilOffering.IsChannelling(em, ents[i])) { offering++; continue; }
                     _scratchWave.Add(ents[i]);
                     centre += xfs[i].Position;
                     if (em.HasComponent<Target>(ents[i]) && em.GetComponentData<Target>(ents[i]).Value != Entity.Null) fighting++;
                 }
                 bool nodeGone = ms.Node != Entity.Null && !em.Exists(ms.Node);
+                if (_scratchWave.Count == 0 && offering > 0 && !nodeGone) continue;   // the last are offering
+                if (ms.Size == 0) ms.Size = _scratchWave.Count + offering;
                 if (_scratchWave.Count == 0 || nodeGone)
                 {
                     // The party is dead (or the node is gone): the takeover stops.
@@ -1387,17 +1420,16 @@ namespace TheWaningBorder.Systems.Border
                                 em, _scratchWave, threat, FormationShape.Box, attackMove: true);
                             break;
                         }
-                        // Territory_Claims.md §6.5: the party CLAIMS by
-                        // standing (the ownership meter does the counting);
-                        // the node only rises on ground that is already the
-                        // curse's. Locked under it by a player's extractor or
-                        // Fortress: the claim is over (see below).
-                        if (TerritoryOwnership.OwnerOf(ms.Territory) != TerritoryOwnership.Curse)
+                        // Territory_Claims.md §6.9.4 (2026-10-16): no meter
+                        // for the curse — the party stands for mergeSeconds,
+                        // staining and sacrificing, and the bar fills while
+                        // nobody threatens it. Locked under it by a player's
+                        // extractor or Fortress: the claim is over and the
+                        // party goes home — the curse does not raid (§6.7).
+                        if (TerritoryOwnership.IsLocked(ms.Territory)
+                            && !TerritoryOwnership.IsCurseHeld(ms.Territory))
                         {
-                            // Locked: the claim is over and the party goes
-                            // home — the curse does not raid (§6.7, 2026-10-03).
-                            if (TerritoryOwnership.IsLocked(ms.Territory))
-                                SendMergeHome(em, party);
+                            SendMergeHome(em, party);
                             break;
                         }
                         if (ms.Node == Entity.Null)
@@ -1407,6 +1439,7 @@ namespace TheWaningBorder.Systems.Border
                             HoldWithoutNode(em, party, ms);
                             break;
                         }
+                        TryOffer(em, ms, s, now);
                         ms.Progress += (float)(WaveThinkSeconds / s.mergeSeconds);
                         if (ms.Progress >= 1f)
                             CompleteMerge(em, party, ms);

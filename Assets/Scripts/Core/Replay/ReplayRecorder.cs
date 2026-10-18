@@ -56,9 +56,7 @@ namespace TheWaningBorder.Core.Replay
                 Application.quitting += () =>
                 {
                     if (_w == null) return;
-                    bool decided = TheWaningBorder.Core.MatchLifecycle.MatchDecided
-                                   && !string.IsNullOrEmpty(TheWaningBorder.Core.MatchLifecycle.MatchWinner);
-                    End(_lastTick, decided ? TheWaningBorder.Core.MatchLifecycle.MatchWinner + " wins" : "quit");
+                    End(_lastTick, TheWaningBorder.Core.MatchLifecycle.OutcomeLine());
                 };
             }
 

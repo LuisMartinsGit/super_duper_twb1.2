@@ -265,7 +265,13 @@ namespace TheWaningBorder.Systems.Combat
                 Kinds = guardKinds,
             };
             var hG = jobG.Schedule(guardUnits.Length, 8, state.Dependency);
-            Unity.Jobs.JobHandle.CombineDependencies(hA, hG).Complete();
+            // Completed here, but the handle must still BE the system's
+            // Dependency: the safety system checks that every job which read
+            // a component (LineOfSight, via the lookups) was handed to it, and
+            // logged an error every tick otherwise (2026-10-16).
+            var plansDone = Unity.Jobs.JobHandle.CombineDependencies(hA, hG);
+            plansDone.Complete();
+            state.Dependency = plansDone;
 
             var engRW = SystemAPI.GetComponentLookup<UnitEngagement>(false);
 

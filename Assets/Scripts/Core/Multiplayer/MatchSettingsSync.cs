@@ -144,7 +144,7 @@ namespace TheWaningBorder.Core.Multiplayer
             Put("culture", GameSettings.StartCulture.ToString(c));
             Put("pfc", GameSettings.PerFactionStartCulture ? "1" : "0");
             Put("fcult", string.Join(".", GameSettings.FactionStartCulture));
-            Put("maxres", GameSettings.MaxStartingResources ? "1" : "0");
+            Put("startres", ((int)GameSettings.StartingResources).ToString());
 
             // ── Simulation shape ───────────────────────────────────────
             // PathfindingCellSize decides the nav grid's resolution. Two peers
@@ -231,7 +231,12 @@ namespace TheWaningBorder.Core.Multiplayer
                 for (int k = 0; k < bits.Length && k < GameSettings.FactionStartCulture.Length; k++)
                     if (byte.TryParse(bits[k], out byte cb)) GameSettings.FactionStartCulture[k] = cb;
             }
-            GameSettings.MaxStartingResources = B("maxres", GameSettings.MaxStartingResources);
+            // "startres" is the level (2026-10-16); replays and saves from before
+            // carry only the old "maxres" bool, which still maps to MAX / NORMAL.
+            if (kv.ContainsKey("startres"))
+                GameSettings.StartingResources = (StartingResourcesLevel)I("startres", (int)StartingResourcesLevel.Normal);
+            else
+                GameSettings.MaxStartingResources = B("maxres", false);
 
             GameSettings.PathfindingCellSize = F("cell", GameSettings.PathfindingCellSize);
             GameSettings.DeterministicLockstep = B("det", true);

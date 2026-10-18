@@ -38,19 +38,15 @@ namespace TheWaningBorder.Economy
         // CONFIGURATION
         // ═══════════════════════════════════════════════════════════════
 
-        /// <summary>Starting supplies for each faction</summary>
-        public const int StartingSupplies = 400;
+        // The starting bank and religion points per lobby level are DATA:
+        // EconomyBootstrap.asset (EconomyBootstrapConfig), read through
+        // StartFor(). The four Starting* constants that lived here (400 /
+        // 150 / 0 / 0, plus a hard-wired 100,000 for MAX) are gone
+        // (2026-10-16).
 
-        /// <summary>Starting iron for each faction</summary>
-        public const int StartingIron = 150;
-
-        /// <summary>Starting veilstone (advanced resource)</summary>
-        public const int StartingVeilstone = 0;
-
-        /// <summary>Starting veilsteel (advanced resource)</summary>
-        public const int StartingVeilsteel = 0;
-
-        /// <summary>Starting glow (advanced resource)</summary>
+        /// <summary>The starting bank + RP for the lobby's level.</summary>
+        public static EconomyBootstrapConfig.StartLevel StartFor()
+            => EconomyBootstrapConfig.I.For(GameSettings.StartingResources);
 
         // ═══════════════════════════════════════════════════════════════
         // PUBLIC API
@@ -186,15 +182,14 @@ namespace TheWaningBorder.Economy
 
                 if (TryGetFactionBank(em, faction, out var bank))
                 {
-                    bool max = GameSettings.MaxStartingResources;
-                    int cap = FactionResources.ResourceCap;
+                    var start = StartFor();
 
                     em.SetComponentData(bank, new FactionResources
                     {
-                        Supplies  = max ? cap : StartingSupplies,
-                        Iron      = max ? cap : StartingIron,
-                        Veilstone   = max ? cap : StartingVeilstone,
-                        Veilsteel = max ? cap : StartingVeilsteel
+                        Supplies  = start.supplies,
+                        Iron      = start.iron,
+                        Veilstone   = start.veilstone,
+                        Veilsteel = start.veilsteel
                     });
 
                     em.SetComponentData(bank, new FactionPopulation
@@ -211,9 +206,9 @@ namespace TheWaningBorder.Economy
 
                     // task-063: reset RP balance + Shrine-bonus latch + per-sect adoption state.
                     if (em.HasComponent<FactionReligionPoints>(bank))
-                        em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, CurrentAge = 1 });
+                        em.SetComponentData(bank, new FactionReligionPoints { Balance = start.religionPoints, CurrentAge = 1 });
                     else
-                        em.AddComponentData(bank, new FactionReligionPoints { Balance = 0, CurrentAge = 1 });
+                        em.AddComponentData(bank, new FactionReligionPoints { Balance = start.religionPoints, CurrentAge = 1 });
 
                     if (em.HasComponent<SectAdoptionState>(bank))
                         em.SetComponentData(bank, default(SectAdoptionState));
@@ -259,15 +254,14 @@ namespace TheWaningBorder.Economy
 
             em.SetComponentData(bank, new FactionTag { Value = faction });
 
-            bool max = GameSettings.MaxStartingResources;
-            int cap = FactionResources.ResourceCap;
+            var start = StartFor();
 
             em.SetComponentData(bank, new FactionResources
             {
-                Supplies  = max ? cap : StartingSupplies,
-                Iron      = max ? cap : StartingIron,
-                Veilstone   = max ? cap : StartingVeilstone,
-                Veilsteel = max ? cap : StartingVeilsteel
+                Supplies  = start.supplies,
+                Iron      = start.iron,
+                Veilstone   = start.veilstone,
+                Veilsteel = start.veilsteel
             });
 
             em.SetComponentData(bank, new FactionPopulation
@@ -282,7 +276,7 @@ namespace TheWaningBorder.Economy
             });
 
             em.SetComponentData(bank, new FactionEra { Value = 1 });
-            em.SetComponentData(bank, new FactionReligionPoints { Balance = 0, CurrentAge = 1 });
+            em.SetComponentData(bank, new FactionReligionPoints { Balance = start.religionPoints, CurrentAge = 1 });
             em.SetComponentData(bank, default(SectAdoptionState));
             em.SetComponentData(bank, default(FactionEquipmentTier));  // all classes start at Base
             em.SetComponentData(bank, new GodPowerState

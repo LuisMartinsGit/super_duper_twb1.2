@@ -51,6 +51,33 @@ namespace TheWaningBorder.AI
                 float3 p = AIBaseTemplate.SlotPosition(faction, region, layout, i, origin);
                 if (AIBaseTemplate.IsFilled(snap, faction, p, size)) continue;
 
+                // TOWERS ALONG THE CLIFF SHELVES (2026-10-17): in a home that
+                // terrain shelters (defended at its chokepoints), a drawn
+                // tower slot moves to the nearest shelf edge -- where a tower
+                // shoots down onto the ramps -- when that spot is legal.
+                if (buildingId == TowerId && HomeSheltered(em, faction))
+                {
+                    float3 edge = SnapToShelfEdge(region, p, ShelteredTowerShelfRadius);
+                    if (math.distancesq(edge.xz, p.xz) > 0.01f)
+                    {
+                        float3 c = BuildGrid.Snap(new float3(edge.x, 0f, edge.z), size);
+                        if (!AIBaseTemplate.IsFilled(snap, faction, c, size))
+                        {
+                            int sv = SlotLegal(em, faction, buildingId, region, c, size, i, layoutRules: true);
+                            if (sv == SlotBudgetSpent) return sv;
+                            if (sv == SlotFound)
+                            {
+                                AIBaseTemplate.MoveSlot(faction, region, i, c);
+                                AILogger.Log(faction, "BUILD",
+                                    $"base layout: tower slot {i} moved to the shelf edge at ({c.x:F0},{c.z:F0})");
+                                c.y = TerrainUtility.GetHeight(c.x, c.z);
+                                pos = c;
+                                return SlotFound;
+                            }
+                        }
+                    }
+                }
+
                 // As drawn (or where it was moved to): the layout already
                 // keeps its lanes, the wall line and the other slots clear, so
                 // only the game's own placement rules apply.

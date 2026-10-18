@@ -4,7 +4,7 @@
 > [Territory_Claims.md](Territory_Claims.md) is canon for curse territory,
 > curse nodes, the Shardroot's source and who the curse hunts; elimination is
 > the only victory. Still in force from this file: the hostile-ground effects
-> (§2.5b, now within a radius of each curse node), the army cadence and growth
+> (§2.5b, now on cursed ground — Territory_Claims.md §6.9), the army cadence and growth
 > (§2.13 rules 1-3) and the Shardroot carry / store / detonate rules (§3.1,
 > with Fortress in place of Hall). Rites, the Backlash (§2.9), the Waking and
 > the Wrath are gone.
@@ -278,6 +278,12 @@ consequence: a sealed unit needs a **worker to dig it out** or dies
   a severed lane or reclaim isolated ground.
 
 ### 2.5b The curse as HOSTILE GROUND — the exposure model (2026-08-03 rev.2, CURRENT)
+
+> **2026-10-16 — WHERE it applies:** on **cursed ground** as defined by
+> [Territory_Claims.md](Territory_Claims.md) §6.9 — a field that starts as
+> each node's circle and creeps, is stained by curse units and spread by
+> sacrifices — not within a fixed radius of each node. What the effect DOES
+> (below) is unchanged.
 
 **Latest decision — supersedes both extremes tested before it:** the
 §2.5 absolute wall (falsified in playtests: the reforming crust stranded

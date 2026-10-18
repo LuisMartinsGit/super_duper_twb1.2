@@ -19,6 +19,15 @@ A build order no longer drops a construction site on the map. It creates a
 A plan turns into a site **the moment a worker arrives and starts building**
 ("breaks ground").
 
+### 1.1 What a site sees (2026-10-16)
+
+A building's line of sight **switches on only when it is finished**. Until
+then every site — whatever it will become — sees only the ground it stands
+on: a circle whose radius is **half the diagonal of its footprint**,
+√(width² + depth²) / 2 — just round its corners. A Hut (2 × 2 tiles) sees
+√2 tiles ≈ 2.8 m; a 4 × 4 building 2√2 tiles. The finished building's own sight comes from its SO
+(`lineOfSight`, or its level SO's). A plan sees nothing at all (§2).
+
 ## 2. What a plan is not
 
 A plan has no footprint in the world:

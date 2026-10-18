@@ -134,7 +134,9 @@ public struct FormationGroup : IComponentData
 
     /// <summary>
     /// Heading error (rad) beyond which the formation stops trying to wheel
-    /// and simply RE-FORMS on the new bearing. About 100 degrees.
+    /// and simply RE-FORMS on the new bearing. 60 degrees (2026-10-17; was
+    /// ~100: a 90-degree wheel took a 40-unit army ten seconds, during which
+    /// it could neither fight nor get anywhere).
     ///
     /// Wheeling is the right answer for a corner and the wrong one for an
     /// about-face. The turn rate is bounded by what the outer flank can
@@ -149,7 +151,7 @@ public struct FormationGroup : IComponentData
     /// not a wheel. The slot memory means they re-form into the same ranks
     /// rather than scrambling for new ones.
     /// </summary>
-    public const float WheelSnapAngle = 1.75f;
+    public const float WheelSnapAngle = 1.05f;
 
     /// <summary>Leader-stall release threshold (ticks).</summary>
     public const byte StallReleaseTicks = 120;
@@ -187,7 +189,7 @@ public struct FormationGroup : IComponentData
     public const float CohesionRadius = 12f;
     /// <summary>Catch-up speed bonus for members behind their spot
     /// (AoE4 Season Four value: +40%).</summary>
-    public const float CatchUpMultiplier = 1.4f;
+    public const float CatchUpMultiplier = 1.6f;   // 1.4 until 2026-10-17: more flank budget, a faster honest wheel
     /// <summary>How far behind its spot a member must be before the
     /// catch-up bonus kicks in.</summary>
     public const float CatchUpTriggerDistance = 1.5f;

@@ -566,7 +566,8 @@ namespace TheWaningBorder.UI.Ingame
             var label = GameUIKit.Text(cancel, "label", Loc.T("Cancel (Esc)"), 30f,
                 GameUIKit.TextMain, TextAlignmentOptions.Center, wrap: false);
             GameUIKit.Stretch(label.rectTransform);
-            bg.gameObject.AddComponent<UiClickRelay>().OnLeftClick = CloseAuthoredCulture;
+            UITooltip.Relay(bg.gameObject).OnLeftClick = CloseAuthoredCulture;
+            GameUIKit.StyleDanger(bg);   // every Cancel is red
         }
 
         /// <summary>

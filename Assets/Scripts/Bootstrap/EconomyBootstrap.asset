@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a714cafb4d754deb844d4f96b03d3978, type: 3}
+  m_Name: EconomyBootstrap
+  m_EditorClassIdentifier: 
+  low:
+    supplies: 200
+    iron: 75
+    veilstone: 0
+    veilsteel: 0
+    religionPoints: 0
+  normal:
+    supplies: 400
+    iron: 150
+    veilstone: 0
+    veilsteel: 0
+    religionPoints: 5
+  high:
+    supplies: 1200
+    iron: 450
+    veilstone: 100
+    veilsteel: 0
+    religionPoints: 15
+  max:
+    supplies: 100000
+    iron: 100000
+    veilstone: 100000
+    veilsteel: 100000
+    religionPoints: 100

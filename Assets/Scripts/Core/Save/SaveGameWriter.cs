@@ -33,6 +33,13 @@ namespace TheWaningBorder.Core.Save
         /// two ticks and every command buffer has played back.
         /// </summary>
         public static bool Save(string label, out string path, out string error)
+            => Save(label, null, out path, out error);
+
+        /// <param name="label">The player's name for the save; it also names
+        /// the file (2026-10-16).</param>
+        /// <param name="preview">The minimap bake (PNG) the Load Game list
+        /// shows, or null. Made by the UI, which owns the minimap.</param>
+        public static bool Save(string label, byte[] preview, out string path, out string error)
         {
             path = null;
             error = null;
@@ -63,12 +70,13 @@ namespace TheWaningBorder.Core.Save
                     Label = label ?? "",
                     WorldElapsed = LockstepFixedStep.RateManager != null ? LockstepFixedStep.RateManager.Elapsed : 0d,
                     ReplayText = ReplayRecorder.ReadSoFar() ?? "",
+                    Preview = preview,
                 };
                 save.World = WorldSnapshot.Capture(em, out int entities, out string excluded);
                 save.State = SnapshotState.Capture(world, out string stateReport);
                 save.Pending.AddRange(lm.CapturePendingCommands());
 
-                path = SavedGames.NewSavePath(GameSettings.SelectedMapScene);
+                path = SavedGames.NewSavePath(GameSettings.SelectedMapScene, label);
                 save.Write(path);
 
                 UnityEngine.Debug.Log($"[Save] Tick {save.Tick} ({save.Seconds:0}s) → {path}: {entities} entities " +

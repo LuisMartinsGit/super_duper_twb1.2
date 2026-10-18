@@ -65,6 +65,12 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             /// calculation, the AI's hall-anchored placement rings and
             /// TerrainUtility.GetPlayableBounds all assume.</summary>
             public int Size = 256;
+            /// <summary>North-south extent in metres when the map is not
+            /// square (2026-10-17, Yiel Lymwérra is 256 x 128); 0 = Size.
+            /// The heightmap stays square (Unity's rule), so its samples are
+            /// simply closer together along z. Everything below that has the
+            /// TerrainData reads both extents from data.size.</summary>
+            public int SizeZ;
             /// <summary>MUST be 2^n + 1 — Unity silently rounds to the nearest
             /// valid value, and a rounded resolution no longer matches the
             /// array SetHeights is handed.</summary>
@@ -92,7 +98,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 baseMapResolution = 1024,
             };
             data.SetDetailResolution(spec.DetailRes, 16);
-            data.size = new Vector3(spec.Size, spec.MaxHeight, spec.Size);
+            int sizeZ = spec.SizeZ > 0 ? spec.SizeZ : spec.Size;
+            data.size = new Vector3(spec.Size, spec.MaxHeight, sizeZ);
 
             // THE WIND. These four are the entire sway mechanism for terrain
             // detail — a WindZone does NOT drive grass (it only affects trees
@@ -113,7 +120,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
             var go = Terrain.CreateTerrainGameObject(data);
             go.name = "Terrain";
-            go.transform.position = new Vector3(-spec.Size / 2f, 0f, -spec.Size / 2f);
+            go.transform.position = new Vector3(-spec.Size / 2f, 0f, -sizeZ / 2f);
             go.isStatic = true;
 
             var terrain = go.GetComponent<Terrain>();
@@ -141,15 +148,16 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         {
             int res = spec.HeightmapRes;
             var h = new float[res, res];
-            float half = spec.Size / 2f;
-            float step = spec.Size / (float)(res - 1);
+            float sizeZ = spec.SizeZ > 0 ? spec.SizeZ : spec.Size;
+            float halfX = spec.Size / 2f, halfZ = sizeZ / 2f;
+            float stepX = spec.Size / (float)(res - 1), stepZ = sizeZ / (float)(res - 1);
 
             for (int zi = 0; zi < res; zi++)
             {
-                float wz = -half + zi * step;
+                float wz = -halfZ + zi * stepZ;
                 for (int xi = 0; xi < res; xi++)
                 {
-                    float wx = -half + xi * step;
+                    float wx = -halfX + xi * stepX;
                     h[zi, xi] = Mathf.Clamp01(spec.Height(wx, wz) / spec.MaxHeight);
                 }
             }
@@ -176,6 +184,18 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             /// RTS camera.</summary>
             public Field Dirt;
 
+            /// <summary>Meadow mask, 0..1 (optional, 2026-10-17). Null keeps the
+            /// old large Perlin patches; a map with rolling ground passes its
+            /// crests here so the lighter meadow sits ON the rises and the
+            /// relief reads from the RTS camera.</summary>
+            public Field Meadow;
+
+            /// <summary>The second ground layer's substance (Shared folder name
+            /// without "_graph_0"). Default: the second grass. Fiendstone Pass
+            /// uses MossSubstance001_COMPILED so its hollows read darker than
+            /// the grass on the rises.</summary>
+            public string MeadowSubstance = "GrassSubstance002_COMPILED";
+
             /// <summary>Steepness band (degrees) over which rock takes over.</summary>
             public float RockSteepFrom = 18f;
             public float RockSteepTo = 34f;
@@ -197,7 +217,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         {
             var layers = new List<TerrainLayer>();
             var grass = MakeLayer(spec.MapFolder, "GrassSubstance001_COMPILED", "Grass", 24f);
-            var meadow = MakeLayer(spec.MapFolder, "GrassSubstance002_COMPILED", "Meadow", 30f);
+            var meadow = MakeLayer(spec.MapFolder, spec.MeadowSubstance, "Meadow", 30f);
             var rock = MakeLayer(spec.MapFolder, "RockSubstance003_COMPILED", "Rock", 34f);
             var dirt = MakeLayer(spec.MapFolder, "GroundSubstance002_COMPILED", "Dirt", 20f);
             // THE BLOCKING LAYER. The asset NAME is the contract —
@@ -235,14 +255,14 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
             int res = data.alphamapResolution;
             var map = new float[res, res, layers.Count];
-            float half = spec.Size / 2f;
+            float sizeX = data.size.x, sizeZ = data.size.z;
 
             for (int z = 0; z < res; z++)
             {
-                float wz = -half + (z / (float)(res - 1)) * spec.Size;
+                float wz = -sizeZ / 2f + (z / (float)(res - 1)) * sizeZ;
                 for (int x = 0; x < res; x++)
                 {
-                    float wx = -half + (x / (float)(res - 1)) * spec.Size;
+                    float wx = -sizeX / 2f + (x / (float)(res - 1)) * sizeX;
 
                     float nx = (x + 0.5f) / res;
                     float nz = (z + 0.5f) / res;
@@ -269,8 +289,9 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                     float dirtW = (1f - rockW) *
                                   (spec.Dirt != null ? Mathf.Clamp01(spec.Dirt(wx, wz)) : 0f);
 
-                    float meadowW = (1f - rockW) * (1f - dirtW) * Mathf.Clamp01(
-                        Mathf.PerlinNoise(wx * 0.010f + 13.7f, wz * 0.010f + 4.2f) * 1.6f - 0.45f);
+                    float meadowW = (1f - rockW) * (1f - dirtW) * Mathf.Clamp01(spec.Meadow != null
+                        ? spec.Meadow(wx, wz)
+                        : Mathf.PerlinNoise(wx * 0.010f + 13.7f, wz * 0.010f + 4.2f) * 1.6f - 0.45f);
 
                     float grassW = Mathf.Max(0f, 1f - rockW - dirtW - meadowW);
 
@@ -388,6 +409,12 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             /// objectives, crossings). A base ringed with trees or a well you
             /// cannot see over is a worse map, however good the screenshot.</summary>
             public System.Func<float, float, bool> CanPlant;
+
+            /// <summary>Where terrain GRASS blades may grow (2026-10-17). Null
+            /// uses <see cref="CanPlant"/>, as every map did before; a map whose
+            /// open ground should be grassy but not wooded (Yiel Lymwérra)
+            /// passes its own, since CanPlant also places trees.</summary>
+            public System.Func<float, float, bool> CanGrass;
 
             /// <summary>Ground counted as "high" for the rock-vs-tree choice.</summary>
             public float RockAboveHeight = 18f;
@@ -518,7 +545,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
             int aw = data.alphamapWidth, ah = data.alphamapHeight, layers = data.alphamapLayers;
             var maps = data.GetAlphamaps(0, 0, aw, ah);
-            float half = spec.Size / 2f;
+            float sizeX = data.size.x, sizeZ = data.size.z;
+            float halfX = sizeX / 2f, halfZ = sizeZ / 2f;
 
             foreach (var (cx, cz) in cells)
             {
@@ -526,10 +554,10 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 float x0 = cx * GridCellSize, x1 = x0 + GridCellSize;
                 float z0 = cz * GridCellSize, z1 = z0 + GridCellSize;
 
-                int ax0 = Mathf.Clamp(Mathf.FloorToInt((x0 + half) / spec.Size * aw), 0, aw - 1);
-                int ax1 = Mathf.Clamp(Mathf.CeilToInt((x1 + half) / spec.Size * aw) - 1, 0, aw - 1);
-                int az0 = Mathf.Clamp(Mathf.FloorToInt((z0 + half) / spec.Size * ah), 0, ah - 1);
-                int az1 = Mathf.Clamp(Mathf.CeilToInt((z1 + half) / spec.Size * ah) - 1, 0, ah - 1);
+                int ax0 = Mathf.Clamp(Mathf.FloorToInt((x0 + halfX) / sizeX * aw), 0, aw - 1);
+                int ax1 = Mathf.Clamp(Mathf.CeilToInt((x1 + halfX) / sizeX * aw) - 1, 0, aw - 1);
+                int az0 = Mathf.Clamp(Mathf.FloorToInt((z0 + halfZ) / sizeZ * ah), 0, ah - 1);
+                int az1 = Mathf.Clamp(Mathf.CeilToInt((z1 + halfZ) / sizeZ * ah) - 1, 0, ah - 1);
 
                 for (int az = az0; az <= az1; az++)
                     for (int ax = ax0; ax <= ax1; ax++)
@@ -583,7 +611,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             var rng = new System.Random(spec.Seed);
             var list = new List<TreeInstance>(spec.TreeCount);
             occupiedCells = new HashSet<(int, int)>();
-            float half = spec.Size / 2f;
+            float sizeX = data.size.x, sizeZ = data.size.z;
+            float halfX = sizeX / 2f, halfZ = sizeZ / 2f;
 
             // Per-prototype world width at scale 1, so each prop can be scaled
             // to its cell instead of to an arbitrary shared multiplier.
@@ -593,8 +622,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
             for (int i = 0; i < spec.TreeCount; i++)
             {
-                float rawX = (float)(rng.NextDouble() * spec.Size - half);
-                float rawZ = (float)(rng.NextDouble() * spec.Size - half);
+                float rawX = (float)(rng.NextDouble() * sizeX - halfX);
+                float rawZ = (float)(rng.NextDouble() * sizeZ - halfZ);
 
                 // Quantise to the containing build cell's centre.
                 int cellX = Mathf.FloorToInt(rawX / GridCellSize);
@@ -607,7 +636,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 // Re-test plantability at the SNAPPED point — the snap can move
                 // an instance up to a metre, potentially onto a plateau or an
                 // objective the spec means to keep clear.
-                if (wx < -half || wx > half || wz < -half || wz > half) continue;
+                if (wx < -halfX || wx > halfX || wz < -halfZ || wz > halfZ) continue;
                 if (spec.CanPlant != null && !spec.CanPlant(wx, wz)) continue;
                 // Only a cell that really gets a prop is occupied (2026-10-17):
                 // it used to be claimed BEFORE the plant test, so every rejected
@@ -615,7 +644,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 // narrow CanPlant, random walls over much of the field.
                 occupiedCells.Add((cellX, cellZ));
 
-                Sample(data, spec.Size, wx, wz, out float steep, out float height);
+                Sample(data, wx, wz, out float steep, out float height);
 
                 // Rocks go on the high steep ground, trees on the low flats, so
                 // walls read as scree and plains as woodland.
@@ -638,7 +667,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 float scale = cellFit * jitter * spec.TreeScale;
                 list.Add(new TreeInstance
                 {
-                    position = new Vector3((wx + half) / spec.Size, 0f, (wz + half) / spec.Size),
+                    position = new Vector3((wx + halfX) / sizeX, 0f, (wz + halfZ) / sizeZ),
                     prototypeIndex = proto,
                     // Two separate knobs: TreeScale sets overall size,
                     // TreeHeightRatio keeps the squat silhouette. Changing one
@@ -705,7 +734,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             data.detailPrototypes = protos;
 
             int res = data.detailResolution;
-            float half = spec.Size / 2f;
+            float sizeX = data.size.x, sizeZ = data.size.z;
 
             for (int p = 0; p < protos.Length; p++)
             {
@@ -713,13 +742,14 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 float freq = 0.02f + p * 0.006f;
                 for (int z = 0; z < res; z++)
                 {
-                    float wz = -half + (z / (float)(res - 1)) * spec.Size;
+                    float wz = -sizeZ / 2f + (z / (float)(res - 1)) * sizeZ;
                     for (int x = 0; x < res; x++)
                     {
-                        float wx = -half + (x / (float)(res - 1)) * spec.Size;
-                        if (spec.CanPlant != null && !spec.CanPlant(wx, wz)) continue;
+                        float wx = -sizeX / 2f + (x / (float)(res - 1)) * sizeX;
+                        var canGrass = spec.CanGrass ?? spec.CanPlant;
+                        if (canGrass != null && !canGrass(wx, wz)) continue;
 
-                        Sample(data, spec.Size, wx, wz, out float steep, out _);
+                        Sample(data, wx, wz, out float steep, out _);
                         if (steep > 20f) continue;              // no grass on the crags
 
                         // Sparse by intent. The cutoff leaves roughly the top
@@ -737,12 +767,11 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             }
         }
 
-        private static void Sample(TerrainData data, int size, float wx, float wz,
+        private static void Sample(TerrainData data, float wx, float wz,
                                    out float steepness, out float height)
         {
-            float half = size / 2f;
-            float nx = Mathf.Clamp01((wx + half) / size);
-            float nz = Mathf.Clamp01((wz + half) / size);
+            float nx = Mathf.Clamp01((wx + data.size.x / 2f) / data.size.x);
+            float nz = Mathf.Clamp01((wz + data.size.z / 2f) / data.size.z);
             steepness = data.GetSteepness(nx, nz);
             height = data.GetInterpolatedHeight(nx, nz);
         }

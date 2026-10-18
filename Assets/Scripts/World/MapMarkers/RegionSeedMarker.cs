@@ -87,6 +87,15 @@ namespace TheWaningBorder.World.MapMarkers
 
         public ResourceType Resources = ResourceType.Auto;
 
+        /// <summary>
+        /// THE CURSE ALWAYS STARTS HERE (2026-10-17). Only meaningful on a
+        /// Veilstone rich territory: the match does not swap it away
+        /// (TerritoryResourcesConfig.randomizeCurseTerritories skips it), so a
+        /// map built around one cursed place — Yiel Lymwérra's island — keeps
+        /// it. Territory_Claims.md § 11.
+        /// </summary>
+        public bool CurseStaysHere;
+
         // Seeds have no footprint of their own — the gizmo is a locator, and
         // the real extent is wherever this seed is the nearest one. Kept large
         // enough to find at a zoomed-out map view.

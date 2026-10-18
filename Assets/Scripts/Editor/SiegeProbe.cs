@@ -293,6 +293,58 @@ namespace TheWaningBorder.EditorTools
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 
+        /// <summary>
+        /// The fog-of-war test case (2026-10-16): Veilmarch, the largest map,
+        /// fog ON and seen FROM BLUE (not an observer, so the overlay is
+        /// drawn) — while Blue is AI-driven too, so its units actually walk
+        /// and the fog edge can be watched following them.
+        /// </summary>
+        [MenuItem("Waning Border/Debug/Launch Fog Test (Veilmarch, view Blue, 8 AI)")]
+        public static void LaunchFogTest()
+        {
+            if (!EditorApplication.isPlaying)
+            {
+                Debug.LogWarning("[FogTest] enter play mode (any scene) first");
+                return;
+            }
+
+            GameSettings.IsMultiplayer = false;
+            GameSettings.NetworkRole = NetworkRole.None;
+            GameSettings.Mode = GameMode.FreeForAll;
+            GameSettings.TotalPlayers = 8;
+            LobbyConfig.SetupSinglePlayer(8);
+            for (int i = 0; i < 8; i++)
+            {
+                var slot = LobbyConfig.Slots[i];
+                slot.Type = SlotType.AI;
+                slot.AIDifficulty = LobbyAIDifficulty.Hard;
+                slot.TeamIndex = Alliances.NoTeam;
+                slot.StartIndex = PlayerSlot.AutoStart;
+            }
+            GameSettings.SelectedMapScene = "Veilmarch";
+            GameSettings.SpawnSeed = 20261016;
+            GameSettings.FogOfWarEnabled = true;
+            GameSettings.BorderEnabled = true;
+            GameSettings.StartingResources = StartingResourcesLevel.High;
+            GameSettings.IsObserver = false;
+            GameSettings.LocalPlayerFaction = Faction.Blue;
+            GameSettings.TutorialActive = false;
+            LobbyConfig.ApplyColorSelections();
+
+            Debug.Log("[FogTest] launching Veilmarch, fog on, viewing Blue, seed " + GameSettings.SpawnSeed);
+            LoadingScreen.Show(GameSettings.SelectedMapScene);
+        }
+
+        /// <summary>The curse-look test (2026-10-16): the fog test without
+        /// fog, so the curse territory Veilmarch starts with is visible — pair
+        /// with Debug > Focus Camera On Curse.</summary>
+        [MenuItem("Waning Border/Debug/Launch Curse Look Test (Veilmarch, no fog)")]
+        public static void LaunchCurseLookTest()
+        {
+            LaunchFogTest();
+            GameSettings.FogOfWarEnabled = false;
+        }
+
         /// <summary>Fiendstone Pass test (2026-10-17): six Hard AIs, fog off,
         /// so the climb out of the starts and the fight over the ramps can be
         /// watched from anywhere.</summary>
@@ -328,6 +380,59 @@ namespace TheWaningBorder.EditorTools
             LobbyConfig.ApplyColorSelections();
             Debug.Log("[FiendstoneTest] launching Fiendstone Pass, 6 AI, seed " + GameSettings.SpawnSeed);
             LoadingScreen.Show(GameSettings.SelectedMapScene);
+        }
+
+        /// <summary>Yiel Lymwérra test (2026-10-17): two Hard AIs, fog off,
+        /// so the curse coming off the island and the fight in the bay can be
+        /// watched.</summary>
+        [MenuItem("Waning Border/Debug/Launch Yiel Lymwerra Test (2 AI, no fog)")]
+        public static void LaunchYielLymwerraTest()
+        {
+            if (!EditorApplication.isPlaying)
+            {
+                Debug.LogWarning("[YielTest] enter play mode (any scene) first");
+                return;
+            }
+            GameSettings.IsMultiplayer = false;
+            GameSettings.NetworkRole = NetworkRole.None;
+            GameSettings.Mode = GameMode.FreeForAll;
+            GameSettings.TotalPlayers = 2;
+            LobbyConfig.SetupSinglePlayer(2);
+            for (int i = 0; i < 2; i++)
+            {
+                var slot = LobbyConfig.Slots[i];
+                slot.Type = SlotType.AI;
+                slot.AIDifficulty = LobbyAIDifficulty.Hard;
+                slot.TeamIndex = Alliances.NoTeam;
+                slot.StartIndex = PlayerSlot.AutoStart;
+            }
+            GameSettings.SelectedMapScene = "YielLymwerra";
+            GameSettings.SpawnSeed = 20261017;
+            GameSettings.FogOfWarEnabled = false;
+            GameSettings.BorderEnabled = true;
+            GameSettings.StartingResources = StartingResourcesLevel.High;
+            GameSettings.IsObserver = false;
+            GameSettings.LocalPlayerFaction = Faction.Blue;
+            GameSettings.TutorialActive = false;
+            LobbyConfig.ApplyColorSelections();
+            Debug.Log("[YielTest] launching Yiel Lymwerra, 2 AI, seed " + GameSettings.SpawnSeed);
+            LoadingScreen.Show(GameSettings.SelectedMapScene);
+        }
+
+        /// <summary>Play mode: one line per territory — its owner, whether
+        /// any cursed ground sits in it (which locks it for players) and
+        /// whether the curse holds it. For reading how far the curse locks
+        /// a map (Yiel Lymwérra's bay, 2026-10-17).</summary>
+        [MenuItem("Waning Border/Debug/Log Territory Curse State")]
+        public static void LogTerritoryCurseState()
+        {
+            if (!EditorApplication.isPlaying) { Debug.LogWarning("[CurseState] enter play mode first"); return; }
+            var sb = new StringBuilder("[CurseState] t=" + Time.timeSinceLevelLoad.ToString("0") + "s\n");
+            for (int r = 0; r < RegionMap.Count; r++)
+                sb.Append($"  {r,2} {RegionMap.NameOf(r),-18} owner {TerritoryOwnership.OwnerOf(r),2}  " +
+                          $"cursedGround {TheWaningBorder.Systems.Border.CurseGroundSystem.TerritoryHasCurse(r)}  " +
+                          $"curseHeld {TerritoryOwnership.IsCurseHeld(r)}\n");
+            Debug.Log(sb.ToString());
         }
 
         // ── FFA watch ──────────────────────────────────────────────────────

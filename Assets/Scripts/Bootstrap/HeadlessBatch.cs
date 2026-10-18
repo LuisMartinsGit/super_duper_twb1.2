@@ -206,6 +206,7 @@ namespace TheWaningBorder.Bootstrap
             ApplyDifficulty(args);
             ApplyPersonality(args);
             ApplyCulture(args);
+            ApplyTeams(args);
             MatchLogSession.RunInfo = DescribeRun(ArgStr(args, "-twbLabel"));
             GameSettings.IsObserver = true;
             GameSettings.TutorialActive = false;
@@ -323,7 +324,7 @@ namespace TheWaningBorder.Bootstrap
 
             // RE-ASSERT EVERY FRAME. Begin() runs BeforeSceneLoad; GameBootstrap
             // then calls GameSpeedControl.Apply() on match start, which sets
-            // Time.timeScale from PlayerProfile.GameSpeed — 0.75 by default —
+            // Time.timeScale from PlayerProfile.GameSpeed (1.0 by default) —
             // and silently undoes the batch speed. Measured: a run asked for 3x
             // delivered 538 simulated seconds in 533 wall seconds, i.e. 1.0x,
             // which would have turned a 20-match batch from three hours into
@@ -349,7 +350,7 @@ namespace TheWaningBorder.Bootstrap
             {
                 _done = true;
                 Debug.Log($"[HeadlessBatch] match decided at {_t:F0}s — " +
-                          $"{TheWaningBorder.Core.MatchLifecycle.MatchWinner} wins; dumping metrics");
+                          $"{TheWaningBorder.Core.MatchLifecycle.OutcomeLine()}; dumping metrics");
                 try { MatchMetrics.DumpFinal(); }
                 catch (Exception e) { Debug.LogError($"[HeadlessBatch] dump failed: {e.Message}"); }
                 Application.Quit();
@@ -469,6 +470,44 @@ namespace TheWaningBorder.Bootstrap
         /// colours it names, so a batch can decouple personality from colour.
         /// Same loud-but-not-fatal policy as ApplyDifficulty.
         /// </summary>
+        /// <summary>
+        /// -twbFactionTeam "Blue=1,Red=1,Yellow=2,...": the lobby slot's team
+        /// (docs/Design/Teams.md), so a batch can run team matches. Unnamed
+        /// colours stay on no team (0). The slot field is what
+        /// Alliances.ApplyFromLobby reads at match start, exactly as for a
+        /// hand-started skirmish (2026-10-17).
+        /// </summary>
+        private static void ApplyTeams(string[] args)
+        {
+            string spec = ArgStr(args, "-twbFactionTeam");
+            if (string.IsNullOrEmpty(spec)) return;
+            foreach (var raw in spec.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var pair = raw.Split('=');
+                if (pair.Length != 2
+                    || !Enum.TryParse(pair[0].Trim(), true, out Faction faction)
+                    || !byte.TryParse(pair[1].Trim(), out byte team))
+                {
+                    Debug.LogError($"[HeadlessBatch] -twbFactionTeam: cannot read '{raw}' (want <Faction>=<team number>)");
+                    continue;
+                }
+                bool applied = false;
+                for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                {
+                    var slot = LobbyConfig.Slots[i];
+                    if (slot.Faction != faction) continue;
+                    slot.TeamIndex = team;
+                    applied = true;
+                }
+                if (applied) Debug.Log($"[HeadlessBatch] {faction} is on team {team}");
+                else Debug.LogError($"[HeadlessBatch] -twbFactionTeam: {faction} is not a slot in a " +
+                                    $"{LobbyConfig.ActiveSlotCount}-player match");
+            }
+            // ApplyColorSelections already published the (team-less) table;
+            // publish it again now the slots carry their teams.
+            Alliances.ApplyFromLobby();
+        }
+
         private static void ApplyPersonality(string[] args)
         {
             string per = ArgStr(args, "-twbFactionPersonality");

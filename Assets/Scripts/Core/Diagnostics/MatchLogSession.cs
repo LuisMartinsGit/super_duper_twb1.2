@@ -322,10 +322,7 @@ namespace TheWaningBorder.Core.Diagnostics
             // match decided at 3442s with Blue winning was filed identically
             // to one that ran out of clock, and a whole batch read as "nobody
             // ever wins" when somebody had.
-            End(TheWaningBorder.Core.MatchLifecycle.MatchDecided
-                    && !string.IsNullOrEmpty(TheWaningBorder.Core.MatchLifecycle.MatchWinner)
-                ? TheWaningBorder.Core.MatchLifecycle.MatchWinner + " wins"
-                : "quit");
+            End(TheWaningBorder.Core.MatchLifecycle.OutcomeLine());
             lock (_consoleLock)
             {
                 WriteConsoleLineUnlocked($"=== Session ended {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");

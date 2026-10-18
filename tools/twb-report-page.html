@@ -262,6 +262,13 @@ canvas.chart.tall{height:200px}
   <div class="scroll" id="waves"></div>
   </section>
 
+  <section id="cultureSec" hidden>
+  <h2>Cultures</h2>
+  <p class="note">The culture each faction aged up into, and the match time its landmark
+  was finished — the age-up.</p>
+  <div class="scroll" id="cultures"></div>
+  </section>
+
   <h2 id="standingHead">Where each faction finished</h2>
   <div class="scroll" id="standing"></div>
 
@@ -1242,6 +1249,34 @@ function drawTerritory(g,m,t,k,PX,PZ){
   return T;
 }
 
+/* ── THE CURSED GROUND (2026-10-17): CurseGroundSystem's field over time,
+   from MapTrace's KG/KS/KR snapshots (coarsened to 4 m by the extractor).
+   The frame in force at the replay time is painted once into a w x h
+   offscreen canvas (repainted only when the frame changes) and drawn scaled,
+   nearest-neighbour, in the curse colour. No m.curseGround (an older trace): nothing. */
+function drawCurse(g,m,t,k,PX,PZ){
+  var C=m.curseGround; if(!C||!C.frames||!C.frames.length) return;
+  var fi=evAt(C.frames,t)-1; if(fi<0) return;
+  if(!C._cv){ C._cv=document.createElement("canvas"); C._cv.width=C.w; C._cv.height=C.h; C._fi=-1; }
+  var sig=fi+"|"+css("--well");
+  if(C._sig!==sig){
+    C._sig=sig;
+    var w=C.w, h=C.h, cg=C._cv.getContext("2d"), img=cg.createImageData(w,h), d=img.data;
+    var c=rgbOf(css("--well")), rows=C.frames[fi][1];
+    for(var q=0;q<rows.length;q++){
+      var j=rows[q][0], r=rows[q][1], py=(h-1-j)*w;       /* canvas row 0 = north */
+      for(var u=0;u+1<r.length;u+=2)
+        for(var i=r[u];i<r[u]+r[u+1]&&i<w;i++){ var p=(py+i)*4; d[p]=c[0]; d[p+1]=c[1]; d[p+2]=c[2]; d[p+3]=255; }
+    }
+    cg.putImageData(img,0,0);
+  }
+  g.save();
+  g.imageSmoothingEnabled=false;
+  g.globalAlpha=.5;
+  g.drawImage(C._cv, PX(C.x0), PZ(C.z0+C.h*C.cell), C.w*C.cell*k, C.h*C.cell*k);
+  g.restore();
+}
+
 /* ?debug=1 turns on the draw counter overlay (see the end of draw). */
 var DBG=/[?&]debug=1/.test(location.search||"")?{}:null;
 
@@ -1310,6 +1345,8 @@ function draw(){
   var tb=document.getElementById("zterr");
   if(tb){ var hide=!m.terr; if(tb.hidden!==hide) tb.hidden=hide; }
   var TT=(TERR.on&&m.terr)?drawTerritory(g,m,R.t,k,PX,PZ):null;
+  /* the cursed ground at the replay time, over the territory tint */
+  if(m.curseGround) drawCurse(g,m,R.t,k,PX,PZ);
 
   /* region seeds, when the trace recorded them -- with the ownership meter
      under the name while someone is filling or draining it */
@@ -1784,6 +1821,34 @@ function renderWaves(){
         '<td class="num">'+esc(w.posture||"")+'</td>'+
         '<td style="color:var(--ink2)">'+esc(w.why)+'</td></tr>';
     }).join("")+'</tbody></table>';
+}
+
+/* ── CULTURES (2026-10-17): m.cultures = {faction: {culture, at, landmark}} ── */
+var CULTURE_HUE={Alanthor:"--f-Blue",Feraldis:"--f-Red",Runai:"--f-Yellow"};
+function renderCultures(){
+  var m=M[sel], sec=document.getElementById("cultureSec"), host=document.getElementById("cultures");
+  if(!sec||!host) return;
+  var C=(m&&m.cultures)||{};
+  var facs=Object.keys(m&&m.series||{}).filter(function(f){ return f!=="Border"; });
+  Object.keys(C).forEach(function(f){ if(facs.indexOf(f)<0&&f!=="Border") facs.push(f); });
+  if(!facs.length){ sec.hidden=true; host.textContent=""; return; }
+  sec.hidden=false;
+  facs.sort();
+  var count={};
+  facs.forEach(function(f){ var c=(C[f]||{}).culture; if(c) count[c]=(count[c]||0)+1; });
+  host.innerHTML='<table><thead><tr><th>Faction</th><th>Culture</th><th class="num">Aged up at</th>'+
+    '<th>Landmark</th></tr></thead><tbody>'+
+    facs.map(function(f){
+      var e=C[f]||{}, el=(m.eliminated||{})[f];
+      var cul=e.culture?'<span class="swatch" style="background:var('+(CULTURE_HUE[e.culture]||"--mute")+')"></span>'+esc(e.culture)
+                       :'<span style="color:var(--mute)">not yet chosen</span>';
+      return '<tr'+(el!=null?' style="opacity:.6"':'')+'><td><span class="swatch" style="background:'+fhue(f)+'"></span>'+
+        esc(fnm(f))+'</td><td>'+cul+'</td><td class="num">'+(e.at!=null?mmss(e.at):'—')+'</td>'+
+        '<td>'+esc(String(e.landmark||'').replace(/_/g,' '))+'</td></tr>';
+    }).join("")+'</tbody></table>'+
+    '<p class="note" style="padding:8px 9px">'+Object.keys(count).sort().map(function(c){
+      return '<span class="swatch" style="background:var('+(CULTURE_HUE[c]||"--mute")+')"></span>'+esc(c)+' '+count[c];
+    }).join(' · ')+'</p>';
 }
 
 function renderStanding(){
@@ -2262,6 +2327,10 @@ function renderHead(){
         '<span>“Red 60%” under a name: who is filling its ownership meter</span>'+
         '<span>TER or T toggles the territory layer</span>'
       : '')+
+    (m.curseGround
+      ? '<span><span class="sq" style="background:var(--well);opacity:.6"></span>cursed ground at the '+
+        'replay time — the curse’s spread, in 4 m cells</span>'
+      : '')+
     '<span>drag to pan · wheel, pinch or + / − to zoom · double-click zooms in · FIT or 0 resets</span>'+
     '</div>';
   var sh=document.getElementById("standingHead");
@@ -2307,7 +2376,7 @@ function renderAll(){
   if(VW.sel!==sel){ viewReset(); VW.sel=sel; }
   bindView(); renderRosterMode();
   renderRuns(); renderHead(); renderTransport();
-  renderOverflow(); renderScore(); renderWaves(); renderStanding(); renderComposition(); renderStructures();
+  renderOverflow(); renderScore(); renderWaves(); renderCultures(); renderStanding(); renderComposition(); renderStructures();
   renderResearch(); renderCharts(); renderEcon(); renderCombat(); renderCurse();
   requestAnimationFrame(function(){ draw(); renderRoster(true); });
 }
@@ -2552,7 +2621,7 @@ function liveRefresh(e){
   var m=e&&e.m; if(!m||M[sel]!==m||!e.doc) return;
   liveApply(m,e.doc);
   R.t=m.tmax; RS.sig="";
-  renderRuns(); renderHead(); renderScore(); renderStanding(); renderComposition(); renderStructures();
+  renderRuns(); renderHead(); renderScore(); renderCultures(); renderStanding(); renderComposition(); renderStructures();
   renderCharts(); draw(); renderRoster(true); liveBar();
 }
 

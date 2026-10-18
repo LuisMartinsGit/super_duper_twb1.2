@@ -22,6 +22,9 @@ namespace TheWaningBorder.Core.Replay
         public string Label = "";
         public string Outcome = "";
         public DateTime Written;
+        /// <summary>A save's minimap bake (PNG), or null — replays and saves
+        /// written before 2026-10-16 have none.</summary>
+        public byte[] Preview;
         public bool Compatible => Header != null && Header.Compatible;
     }
 
@@ -88,8 +91,15 @@ namespace TheWaningBorder.Core.Replay
         }
 
         /// <summary>A fresh path for a saved game.</summary>
-        public static string NewSavePath(string map)
+        public static string NewSavePath(string map) => NewSavePath(map, null);
+
+        /// <summary>A fresh path named after the player's own name for the
+        /// save when they gave one (2026-10-16), else stamp + map. Never
+        /// overwrites: a second save under the same name gets "-2".</summary>
+        public static string NewSavePath(string map, string name)
         {
+            if (!string.IsNullOrWhiteSpace(name))
+                return Unique(System.IO.Path.Combine(SavesDirectory, SafeName(name.Trim()) + SaveExtension));
             string stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
             return Unique(System.IO.Path.Combine(SavesDirectory, $"{stamp}_{SafeName(map)}{SaveExtension}"));
         }

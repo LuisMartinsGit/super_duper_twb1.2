@@ -73,6 +73,18 @@
 //                        changes, the value crosses a 10-point step, or it
 //                        reaches 0 or 100 -- a summary, not a per-second log.
 //
+// EXTENDED 2026-10-17: THE CURSED GROUND (Territory_Claims.md 6.9), so the
+// Muster Rolls map shows the curse spreading. CurseGroundSystem's field, on
+// its own grid of 2 m build cells:
+//   KG cell x0 z0 w h    the field's grid, once: cell size, south-west
+//                        corner, size in cells (row 0 is the south row)
+//   KS t                 a snapshot begins -- written every CurseEvery
+//                        seconds of match time, and only when the field
+//                        changed since the last one
+//   KR j s:n s:n ...     row j's cursed cells: n cells from column s, west
+//                        to east (rows with no curse are not written)
+//   KE t                 the snapshot ends
+//
 // SAMPLE PERIOD is the whole cost. At 0.5 s a three-hour match with 300 units
 // writes about six million position lines, so the default here is 1 s and
 // -twbTracePeriod overrides it. The dashboard thins whatever it gets; what it
@@ -129,6 +141,11 @@ namespace TheWaningBorder.Core.Diagnostics
         private const float PartitionMinCell = 2f;
         private bool _stopped;
         private long _bytes;
+        // The cursed-ground snapshots (KG / KS / KR / KE).
+        private const float CurseEvery = 15f;
+        private bool _curseGrid;
+        private int _curseVersion = int.MinValue;
+        private float _curseNext;
 
         private static readonly ComponentType[] QT_Building =
         {
@@ -188,6 +205,9 @@ namespace TheWaningBorder.Core.Diagnostics
                 _mHolder = Array.Empty<int>();
                 _mPct = Array.Empty<int>();
                 _mCont = Array.Empty<byte>();
+                _curseGrid = false;
+                _curseVersion = int.MinValue;
+                _curseNext = 0f;
             }
 
             // The fixed features, once, as soon as the partition is ready.
@@ -214,6 +234,7 @@ namespace TheWaningBorder.Core.Diagnostics
             _next = t + Mathf.Max(0.1f, Period);
             string ts = F(t);
             if (_header) WriteMeter(ts);
+            if (_header) WriteCurse(ts, t);
 
             var alive = new HashSet<string>();
 
@@ -401,6 +422,46 @@ namespace TheWaningBorder.Core.Diagnostics
                 _ownLast[i] = o;
                 W("TO", ts, i, SideName(o));
             }
+        }
+
+        /// <summary>KG once, then a KS..KE snapshot of the cursed ground every
+        /// CurseEvery seconds when the field has changed (see the header).
+        /// Reads CurseGroundSystem's public statics only.</summary>
+        private void WriteCurse(string ts, float t)
+        {
+            if (!TheWaningBorder.Systems.Border.CurseGroundSystem.Ready) return;
+            int w = TheWaningBorder.Systems.Border.CurseGroundSystem.Width;
+            int h = TheWaningBorder.Systems.Border.CurseGroundSystem.Height;
+            if (!_curseGrid)
+            {
+                var o = TheWaningBorder.Systems.Border.CurseGroundSystem.Origin;
+                W("KG", F(TheWaningBorder.Systems.Border.CurseGroundSystem.CellSize), F(o.x), F(o.y), w, h);
+                _curseGrid = true;
+            }
+            int version = TheWaningBorder.Systems.Border.CurseGroundSystem.Version;
+            if (t < _curseNext || version == _curseVersion) return;
+            _curseNext = t + CurseEvery;
+            _curseVersion = version;
+            W("KS", ts);
+            var sb = new System.Text.StringBuilder(128);
+            for (int j = 0; j < h; j++)
+            {
+                sb.Length = 0;
+                int start = -1;
+                for (int i = 0; i <= w; i++)
+                {
+                    bool c = i < w && TheWaningBorder.Systems.Border.CurseGroundSystem.CursedCell(i, j);
+                    if (c && start < 0) start = i;
+                    else if (!c && start >= 0)
+                    {
+                        sb.Append(' ').Append(start.ToString(CultureInfo.InvariantCulture))
+                          .Append(':').Append((i - start).ToString(CultureInfo.InvariantCulture));
+                        start = -1;
+                    }
+                }
+                if (sb.Length > 0) W("KR", j.ToString(CultureInfo.InvariantCulture) + sb.ToString());
+            }
+            W("KE", ts);
         }
 
         /// <summary>TM lines: the meter, summarised (see the header).</summary>

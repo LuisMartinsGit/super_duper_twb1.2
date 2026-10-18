@@ -152,6 +152,8 @@ MonoBehaviour:
   ageUpReserveIron: 0
   ageUpReserveVeilstone: 0
   tacticsInterval: 1
+  workerStallSeconds: 20
+  engageMinThreatFraction: 0.1
   contactRadius: 34
   focusRadius: 22
   armyCohesionRadius: 28
@@ -370,6 +372,8 @@ MonoBehaviour:
   territoryBlockedStepSeconds: 60
   towersPerTerritory: 2
   towerPeripheryFraction: 0.6
+  towerShelfEdgeBonus: 1.5
+  towerShelfSearchRadius: 40
   towersProvinceFirst: 2
   towersPerProvinceMax: 6
   towerCoverageTarget: 0.85

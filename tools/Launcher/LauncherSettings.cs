@@ -16,6 +16,10 @@ internal sealed class LauncherSettings
     [JsonPropertyName("key")]
     public string Key { get; set; } = "";
 
+    /// <summary>The install folder the tester chose (InstallLocation). Empty until the first install.</summary>
+    [JsonPropertyName("installRoot")]
+    public string InstallRoot { get; set; } = "";
+
     [JsonPropertyName("apiBase")]
     public string ApiBase { get; set; } = DefaultApiBase;
 

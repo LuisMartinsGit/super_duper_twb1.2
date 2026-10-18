@@ -87,7 +87,7 @@ namespace TheWaningBorder.Multiplayer
             WriteRaw($"# build      {MatchSettingsSync.BuildLabel}  fingerprint {MatchSettingsSync.Fingerprint}");
             WriteRaw($"# map        {GameSettings.SelectedMapScene}  seed {GameSettings.SpawnSeed}");
             WriteRaw($"# rules      age={GameSettings.StartAge} culture={GameSettings.StartCulture} " +
-                     $"maxres={GameSettings.MaxStartingResources} fog={GameSettings.FogOfWarEnabled} " +
+                     $"startres={GameSettings.StartingResources} fog={GameSettings.FogOfWarEnabled} " +
                      $"curse={GameSettings.BorderEnabled}");
             WriteRaw($"# sim        {LockstepTiming.TicksPerSecond} Hz  cell={GameSettings.PathfindingCellSize}  " +
                      $"deterministic={GameSettings.DeterministicLockstep}");

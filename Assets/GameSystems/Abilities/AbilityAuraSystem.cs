@@ -131,7 +131,13 @@ namespace TheWaningBorder.Abilities
         {
             // The memo lives for one pass (the catalog can be reloaded).
             int n = AbilityCatalog.Count;
-            if (_auraKnown.Length != n) { _auraKnown = new byte[n]; _auraOf = new AbilityCard[n]; }
+            // BOTH lengths: a loaded save restores _auraKnown (a byte[] the
+            // snapshot can carry) but not _auraOf (AbilityCard holds a
+            // GameObject, so the snapshot skips it) — the pair came back
+            // n / 0 and every pass threw IndexOutOfRange, killing passive
+            // auras for the rest of a loaded match (2026-10-16).
+            if (_auraKnown.Length != n || _auraOf.Length != n)
+            { _auraKnown = new byte[n]; _auraOf = new AbilityCard[n]; }
             else System.Array.Clear(_auraKnown, 0, n);
 
             var auraQ = QC_UnitAbilitiesFactionTagLocalTransform.Get(em, QT_UnitAbilitiesFactionTagLocalTransform);

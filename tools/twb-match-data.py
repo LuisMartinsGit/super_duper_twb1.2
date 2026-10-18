@@ -672,7 +672,8 @@ def map_nodes(mapname, world):
 #
 # THE REPLAY IS DRAWN ON THE REAL MAP (2026-09-12, operator: "there is no map
 # image, bring back the old maps, i have requested this multiple times").
-# Every map already ships a baked top-down render for the lobby -- the same
+# A map's picture: its baked minimap terrain if it has one, else the
+# top-down render every map ships for the lobby -- the same
 # picture the player picks the map from -- and it is framed on exactly the
 # terrain bounds (MapLobbyImageBaker.GetMapBounds: terrain position + terrain
 # size). The nav grid reports those same bounds as "covering world X[..] Z[..]",
@@ -694,8 +695,11 @@ def map_image(map_name):
             continue
         if folder.replace(" ", "").lower() != map_name.replace(" ", "").lower():
             continue
-        # Lobby first: it is the 768 px one and it is composed for viewing.
-        for suffix in (" Lobby.png", " Thumbnail.png"):
+        # The MINIMAP terrain first (2026-10-17): the game's own minimap
+        # picture (elevation, cliffs, blue water), baked by "Waning Border >
+        # Maps > Bake Minimap Image" on the same terrain bounds. Then the
+        # lobby render (768 px, composed for viewing), then the thumbnail.
+        for suffix in (" Minimap.png", " Lobby.png", " Thumbnail.png"):
             png = os.path.join(full, folder + suffix)
             if os.path.exists(png):
                 with open(png, "rb") as fh:
@@ -922,6 +926,7 @@ def read_trace(host_dir):
     levels = defaultdict(list)      # id -> [[t, level], ...]   (L lines)
     built = {}                      # id -> t construction completed (C lines)
     terr = None                     # TG/TR partition + TO/TM events
+    curse = None                    # KG grid + KS/KR/KE cursed-ground snapshots
     try:
         fh = io.open(path, encoding="utf-8", errors="ignore")
     except Exception:
@@ -981,6 +986,25 @@ def read_trace(host_dir):
                         terr = dict(cell=f(m.group(1)), x0=f(m.group(2)), z0=f(m.group(3)),
                                     w=int(m.group(4)), h=h, rows=[None] * h, own=[], meter=[])
                     continue
+            if line.startswith("K"):
+                p = line.split()
+                if p[0] == "KR" and curse is not None and curse["frames"]:
+                    try:
+                        j = int(p[1])
+                        runs = []
+                        for tok in p[2:]:
+                            a, _, b = tok.partition(":")
+                            runs.append(int(a))
+                            runs.append(int(b))
+                    except (ValueError, IndexError):
+                        continue
+                    curse["frames"][-1][1].append([j, runs])
+                elif p[0] == "KS" and curse is not None and len(p) > 1:
+                    curse["frames"].append([round(f(p[1]), 1), []])
+                elif p[0] == "KG" and len(p) >= 6:
+                    curse = dict(cell=f(p[1]), x0=f(p[2]), z0=f(p[3]),
+                                 w=int(p[4]), h=int(p[5]), frames=[])
+                continue
             m = TR_L.match(line)
             if m:
                 levels[m.group(2)].append([round(f(m.group(1)), 1), int(m.group(3))])
@@ -1025,7 +1049,55 @@ def read_trace(host_dir):
         return None
     return dict(regions=regions, nodes=nodes, buildings=blds, units=units,
                 samples=samples, ftimes=ftimes, deaths=deaths,
-                levels=dict(levels), built=built, terr=territory_of(terr))
+                levels=dict(levels), built=built, terr=territory_of(terr),
+                curse=curse_of(curse))
+
+
+# Cursed-ground frames are coarsened to this many build cells per side
+# (2 x 2 m = 4 m) -- the spread reads the same on the map, and a late-game
+# curse over half a 1 km map would otherwise be tens of MB per match.
+CURSE_COARSEN = 2
+
+
+def curse_of(curse):
+    """The cursed ground over time for the page, or None (a trace from
+    before 2026-10-17). Each frame [t, rows]: rows is [[j, [s, n, s, n...]]...]
+    on the COARSENED grid (cell * CURSE_COARSEN), only rows with curse, south
+    row first; a cell is cursed if any of its build cells is. Frames identical
+    to the previous one are dropped."""
+    if not curse or not curse["frames"]:
+        return None
+    k = CURSE_COARSEN
+    w, h = (curse["w"] + k - 1) // k, (curse["h"] + k - 1) // k
+    frames, last = [], None
+    for t, rows in curse["frames"]:
+        grid = bytearray(w * h)
+        for j, runs in rows:
+            cj = j // k
+            if not 0 <= cj < h:
+                continue
+            for q in range(0, len(runs) - 1, 2):
+                s0, n = runs[q], runs[q + 1]
+                for ci in range(s0 // k, min(w, (s0 + n - 1) // k + 1)):
+                    grid[cj * w + ci] = 1
+        enc = []
+        for cj in range(h):
+            row, runs, i = grid[cj * w:(cj + 1) * w], [], 0
+            while i < w:
+                if row[i]:
+                    st = i
+                    while i < w and row[i]:
+                        i += 1
+                    runs += [st, i - st]
+                else:
+                    i += 1
+            if runs:
+                enc.append([cj, runs])
+        if enc == last:
+            continue
+        last = enc
+        frames.append([t, enc])
+    return dict(cell=curse["cell"] * k, x0=curse["x0"], z0=curse["z0"], w=w, h=h, frames=frames)
 
 
 def territory_of(terr):
@@ -1338,6 +1410,39 @@ def score_tail(d):
         return None
     # a faction that died early is not in the tail, and was not leading
     return score_leader({k: dict(score=v[1]) for k, v in last.items()})
+
+
+# CULTURES (2026-10-17): which culture each faction aged up into, and when.
+# The culture is the AgeUpSystem console line ("[AgeUp] COMPLETE -- Red era 2,
+# culture 3"; Cultures: 1 Runai, 2 Alanthor, 3 Feraldis); the time is the
+# landmark's completion in the trace (MATCH time -- the console's own
+# timestamps are wall seconds), with the landmark type as the fallback culture.
+CULTURE_IDS = {"1": "Runai", "2": "Alanthor", "3": "Feraldis"}
+LANDMARK_CULTURE = {"VaultOfAlmierra": "Alanthor", "FiendstoneKeep": "Feraldis",
+                    "ThessarasCrossing": "Runai"}
+AGEUP = re.compile(r"\[AgeUp\] COMPLETE \S+ (\w+) era (\d+), culture (\d+)")
+
+
+def cultures_of(hd, blds):
+    out = {}
+    for cn in console_names(hd):
+        for line in read_lines(os.path.join(hd, cn)):
+            if "[AgeUp] COMPLETE" not in line:
+                continue
+            m = AGEUP.search(line)
+            if m:
+                out.setdefault(m.group(1), {})["culture"] = CULTURE_IDS.get(m.group(3), "?")
+    for b in blds or []:
+        c = LANDMARK_CULTURE.get(b.get("ty"))
+        if not c or not b.get("f"):
+            continue
+        e = out.setdefault(b["f"], {})
+        e.setdefault("culture", c)
+        e["landmark"] = b.get("id")
+        tc = b.get("tc")
+        if tc is not None and (e.get("at") is None or tc < e["at"]):
+            e["at"] = round(tc, 1)
+    return out
 
 
 def build(match):
@@ -1676,9 +1781,13 @@ def build(match):
         label=label, aiRoster=airoster,
         tmax=tmax, extent=ext, config=cfg,
         world=world, nodes=nodes, regions=regions, blds=blds,
+        # culture per faction and when its landmark finished (see cultures_of)
+        cultures=cultures_of(hd, blds),
         # The game's real territory partition and its owners over time
         # (MapTrace TG/TR/TO/TM); None for a trace that predates them.
         terr=(trace or {}).get("terr"),
+        # The cursed ground over time (MapTrace KG/KS/KR); None before 2026-10-17.
+        curseGround=(trace or {}).get("curse"),
         frames=frames, fidelity=fidelity,
         # Per-unit tracks (traced matches; see "per-unit tracks"). `frames`
         # is then empty and only sampled matches carry it.

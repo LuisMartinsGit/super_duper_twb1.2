@@ -144,6 +144,9 @@ namespace TheWaningBorder.Core.Localization
             t["TURTLE"] = "TARTARUGA";
             t["DEFENDER"] = "DEFENSOR";
             t["MAX"] = "MÁXIMO";
+            t["LOW"] = "BAIXO";
+            t["NORMAL"] = "NORMAL";   // shared with the difficulty list
+            t["HIGH"] = "ALTO";
             t["AGE 0"] = "ERA 0";
             t["AGE 1"] = "ERA 1";
             t["AGE 2"] = "ERA 2";
@@ -301,6 +304,20 @@ namespace TheWaningBorder.Core.Localization
             t["Quit to the main menu? Current progress is lost."] =
                 "Sair para o menu principal? O progresso atual será perdido.";
             t["Quit to desktop?"] = "Sair para o ambiente de trabalho?";
+            t["Menu"] = "Menu";
+            t["Menu (Esc): pause, save, restart or quit."] =
+                "Menu (Esc): pausar, guardar, reiniciar ou sair.";
+            t["ARE YOU SURE?"] = "TENS A CERTEZA?";
+            t["SAVE GAME"] = "GUARDAR JOGO";
+            t["Save Game"] = "Guardar Jogo";
+            t["Game Saved"] = "Jogo Guardado";
+            t["Game saved"] = "Jogo guardado";
+            t["Save Failed"] = "Falha ao Guardar";
+            t["Name this save and write it. Load it again from Load Game on the main menu."] =
+                "Dar um nome a este jogo e guardá-lo. Volta a carregá-lo em Carregar Jogo no menu principal.";
+            t["Name this save:"] = "Nome do jogo guardado:";
+            t["Save"] = "Guardar";
+            t["Give the save a name."] = "Dá um nome ao jogo guardado.";
             t["Confirm"] = "Confirmar";
             t["Cancel"] = "Cancelar";
 
@@ -311,6 +328,7 @@ namespace TheWaningBorder.Core.Localization
             t["{0} has been DEFEATED"] = "{0} foi DERROTADO";
             t["{0} WINS"] = "{0} VENCE";
             t["Winner: {0}"] = "Vencedor: {0}";
+            t["The match goes on without you."] = "A partida continua sem ti.";
             t["GAME OVER — {0}"] = "FIM DE JOGO — {0}";
             t["{0} WINS (node victory)"] = "{0} VENCE (vitória pelos nós)";
             t["VICTORY — {0} node win"] = "VITÓRIA — vitória pelos nós de {0}";

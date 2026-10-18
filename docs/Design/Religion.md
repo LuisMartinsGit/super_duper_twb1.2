@@ -54,6 +54,13 @@ Points accrue from the first tick, **before any Temple exists**: the first RP
 is what pays for the Temple. (Feraldis, from age-up: every kill and every
 sacrifice pays points too — §7.)
 
+**The lobby can start you with RP** (2026-10-16). The starting-resources
+option has four levels — LOW / NORMAL / HIGH / MAX — and every level but
+LOW puts some religion points in the bank at the first tick, so a NORMAL or
+richer start can raise the Temple without first hunting the curse. The amount
+per level is data on `Scripts/Bootstrap/EconomyBootstrap.asset`, beside the
+starting bank.
+
 ### 1.1 Buying RP
 
 Players who start far from the curse are not locked out: the Temple sells RP

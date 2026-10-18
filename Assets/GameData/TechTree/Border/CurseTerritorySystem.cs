@@ -364,22 +364,11 @@ namespace TheWaningBorder.Systems.Border
         /// </summary>
         private void SyncHoldings(EntityManager em)
         {
-            // Territory_Claims.md §6 (2026-09-29): the curse holds exactly what
-            // the ownership METER says it holds — it claims by standing, like
-            // everyone else, and its nodes lock that ground. So the held set is
-            // read from the meter, and the anchors are whatever curse nodes
-            // stand in it now (a node the curse raised, or one seeded at start).
+            // Territory_Claims.md §6.9.4 (2026-10-16): the curse holds every
+            // territory with a living curse node in it, and the anchors are
+            // those nodes (raised by a merge, or seeded at start).
             _scratchPrevHeld.Clear();
             foreach (int t in _held) _scratchPrevHeld.Add(t);
-            _held.Clear();
-            for (int t = 0; t < RegionMap.Count; t++)
-                if (TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Curse) _held.Add(t);
-            // GROUND THE CURSE LOST (§6.5, 2026-10-07): remembered so the
-            // claim dispatch reaches for it first; forgotten once retaken.
-            // Membership only — no order is read off these sets.
-            for (int i = 0; i < _scratchPrevHeld.Count; i++)
-                if (!_held.Contains(_scratchPrevHeld[i])) _lostGround.Add(_scratchPrevHeld[i]);
-            foreach (int t in _held) _lostGround.Remove(t);
 
             _scratchNodeAnchors.Clear();
             // Every live curse node, by territory, in entity order — each one
@@ -410,6 +399,24 @@ namespace TheWaningBorder.Systems.Border
                 list.Add(pos);
             }
             _curseNodeCount = _scratchNodeAnchors.Count;
+
+            // §6.9.4 (2026-10-16): the curse owns no territory on the meter.
+            // What it HOLDS — for garrisons, fill parties and expansion — is
+            // every territory with a living curse node in it, published so the
+            // AI, the unit cap and the Sanctuaries read the same answer.
+            _held.Clear();
+            for (int t = 0; t < RegionMap.Count; t++)
+            {
+                bool has = _scratchNodeAnchors.ContainsKey(t);
+                if (has) _held.Add(t);
+                TerritoryOwnership.SetCurseHeld(t, has);
+            }
+            // GROUND THE CURSE LOST (§6.5, 2026-10-07): remembered so the
+            // claim dispatch reaches for it first; forgotten once retaken.
+            // Membership only — no order is read off these sets.
+            for (int i = 0; i < _scratchPrevHeld.Count; i++)
+                if (!_held.Contains(_scratchPrevHeld[i])) _lostGround.Add(_scratchPrevHeld[i]);
+            foreach (int t in _held) _lostGround.Remove(t);
 
             // Anchors that died: the territory loses its garrison source.
             var gone = new List<int>();

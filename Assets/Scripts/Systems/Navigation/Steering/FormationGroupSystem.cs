@@ -241,7 +241,7 @@ namespace TheWaningBorder.Systems.Navigation
         /// the offset, so the error decays as exp(-gain * t) — about a third of
         /// a metre left after half a second, and no overshoot to orbit around.
         /// </summary>
-        private const float SpotCorrectionGain = 2f;
+        private const float SpotCorrectionGain = 4f;   // 2 until 2026-10-17: a settling army crawled its last metre
 
         /// <summary>Offset at which the leader STARTS easing. Three times the
         /// in-place tolerance: comfortably outside the ~0.18 m the formation
@@ -263,9 +263,10 @@ namespace TheWaningBorder.Systems.Navigation
         /// group speed. Forward speed eases by cos(heading error) to buy the
         /// outer flank the arc length it needs — but cos reaches zero at a
         /// right angle, which would park the whole army for the five seconds a
-        /// 90-degree corner takes. Half speed is the floor.
+        /// 90-degree corner takes. Three-quarter speed is the floor (half until
+        /// 2026-10-17: an army in a turn barely moved).
         /// </summary>
-        private const float WheelSpeedFloor = 0.5f;
+        private const float WheelSpeedFloor = 0.75f;
 
         [ReadOnly] public NativeArray<Entity> Groups;
         public float Dt;

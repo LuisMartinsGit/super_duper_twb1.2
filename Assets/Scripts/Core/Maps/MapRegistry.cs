@@ -121,6 +121,9 @@ namespace TheWaningBorder.Core.Maps
             "FiendstonePass",  // 6P, 1024 m, cliff shelves over a river with
                                // three fords; ramps are the chokes, 14 rich
                                // pockets (2026-10-16)
+            "YielLymwerra",    // 2P, 1024 m, a crescent bay of shallows under
+                               // cliffs, the cursed island Yiel in its middle
+                               // (the curse always starts there, 2026-10-17)
         };
 
         /// <summary>

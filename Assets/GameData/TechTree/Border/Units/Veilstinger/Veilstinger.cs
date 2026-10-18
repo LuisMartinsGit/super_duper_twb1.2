@@ -134,6 +134,10 @@ namespace TheWaningBorder.Entities
             // Pre-allocate DesiredDestination — same race-fix as Crystalling.
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
+            // Veil Offering (Territory_Claims.md §6.9.5), from the SO's abilities.
+            creator.AddComponent(entity, TheWaningBorder.Abilities.AbilityAssignment.Build(def.abilities));
+            creator.AddComponent(entity, default(TheWaningBorder.Abilities.AbilityCooldowns));
+
             return entity;
         }
     }

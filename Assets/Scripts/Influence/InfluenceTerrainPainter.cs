@@ -121,8 +121,6 @@ namespace TheWaningBorder.Influence
         private static readonly string[] RequiredLayerResources =
         {
             "TerrainLayers/AlanthorInfluence",
-            "TerrainLayers/Blood",
-            "TerrainLayers/CurseInfluence",
             "TerrainLayers/VeilstonePatch",
         };
 

@@ -9,7 +9,9 @@
 ## 1. The quick menu
 
 A panel docked to the **right edge, vertically centred** (where the old
-Religion panel was), about 340 px wide at 1080p. **R** shows and hides it; a
+Religion panel was), about 340 px wide at 1080p. It appears only once the player has
+**finished a Temple of Ridan**, and stays from then on as long as the Temple
+stands or a sect is adopted (§4). **R** shows and hides it; a
 slide tab stays on the edge while it is hidden, showing the RP balance.
 
 Top to bottom:
@@ -72,7 +74,7 @@ Top to bottom:
 
 | State | The menu shows |
 |---|---|
-| No Temple yet | only "Build a Temple of Ridan…" and a **Build Temple** button |
+| No Temple finished yet | **nothing** — no panel, no slide tab, and R / T / F1-F6 do nothing. A Temple still under construction does not count (2026-10-16) |
 | Temple destroyed | everything owned, a red banner "Rebuild the Temple to cast sect powers and raise sect buildings" with **Rebuild**; cells "cannot cast"; Build/Rebuild chips and the Tithe disabled; buying unlocks and levels still allowed |
 | 6 of 6 sects | no empty row; the picker cannot open |
 | Spectating / allied view | the same menu read-only, with the player's name and colour in the header |

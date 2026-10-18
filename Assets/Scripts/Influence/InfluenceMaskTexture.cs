@@ -86,6 +86,11 @@ namespace TheWaningBorder.Influence
 
         private float[] _curseRaw; // pre-dilation curse coverage
         private float[] _curseTmp; // separable dilation scratch
+        // Walkable share (0..1) of each mask cell's ground, from the terrain
+        // passability mask, built once it exists. The curse halo is scaled by
+        // it, so the look never climbs a mountain, cliff or deep water
+        // (2026-10-17) — matching CurseGroundSystem, which never curses them.
+        private float[] _walkShare;
         private bool _configured;
         /// <summary>The one-shot region-boundary bake has landed. False until
         /// RegionMap actually has a partition — see the retry in Update.</summary>
@@ -152,7 +157,16 @@ namespace TheWaningBorder.Influence
         /// — the same value the terrain shader blends slate/terraces with, so
         /// presentation systems (rampart props) can grow in lockstep with the
         /// painted front. Bilinear; 0 when no mask is live.</summary>
-        public static float AlanthorCoverage(float worldX, float worldZ)
+        public static float AlanthorCoverage(float worldX, float worldZ) => Coverage(worldX, worldZ, 0);
+
+        /// <summary>Eased CURSE ground coverage (0..1) — the value the curse
+        /// overlay and the crystal shelf (CurseShelfRenderer) are drawn from.</summary>
+        public static float CurseCoverage(float worldX, float worldZ) => Coverage(worldX, worldZ, 3);
+
+        /// <summary>True once the masks exist (a match with terrain).</summary>
+        public static bool Live => _instance != null && _instance._configured;
+
+        private static float Coverage(float worldX, float worldZ, int channel)
         {
             var inst = _instance;
             if (inst == null || !inst._configured) return 0f;
@@ -168,10 +182,10 @@ namespace TheWaningBorder.Influence
             float tx = Mathf.Clamp01(u - x0);
             float ty = Mathf.Clamp01(v - y0);
 
-            float e00 = inst._eased[(y0 * Res + x0) * 5];
-            float e10 = inst._eased[(y0 * Res + x1) * 5];
-            float e01 = inst._eased[(y1 * Res + x0) * 5];
-            float e11 = inst._eased[(y1 * Res + x1) * 5];
+            float e00 = inst._eased[(y0 * Res + x0) * 5 + channel];
+            float e10 = inst._eased[(y0 * Res + x1) * 5 + channel];
+            float e01 = inst._eased[(y1 * Res + x0) * 5 + channel];
+            float e11 = inst._eased[(y1 * Res + x1) * 5 + channel];
             float top = e00 + (e10 - e00) * tx;
             float bot = e01 + (e11 - e01) * tx;
             return top + (bot - top) * ty;
@@ -359,7 +373,10 @@ namespace TheWaningBorder.Influence
                 int h = _curseNodes.Count * 397;
                 for (int i = 0; i < _curseNodes.Count; i++)
                     h = h * 31 + _curseNodes[i].GetHashCode();
-                return h ^ _curseNodeRadius.GetHashCode();
+                // The cursed-ground field (Territory_Claims.md §6.9) moves
+                // without any node moving: its version is part of the signature.
+                return h ^ _curseNodeRadius.GetHashCode()
+                         ^ (TheWaningBorder.Systems.Border.CurseGroundSystem.Version * 7919);
             }
         }
 
@@ -380,6 +397,27 @@ namespace TheWaningBorder.Influence
             }
             float d = Mathf.Sqrt(best);
             return 1f - Mathf.Clamp01((d - _curseNodeRadius * 0.7f) / (_curseNodeRadius * 0.3f));
+        }
+
+        /// <summary>Share of the field cells under texel (x, y) that are cursed.</summary>
+        private static float CurseFieldStamp(int x, int y)
+        {
+            Vector2 min = PlayerInfluenceMap.WorldMin;
+            Vector2 size = PlayerInfluenceMap.WorldSize;
+            var origin = TheWaningBorder.Systems.Border.CurseGroundSystem.Origin;
+            float cell = TheWaningBorder.Systems.Border.CurseGroundSystem.CellSize;
+            float x0 = min.x + (float)x / Res * size.x, x1 = min.x + (float)(x + 1) / Res * size.x;
+            float z0 = min.y + (float)y / Res * size.y, z1 = min.y + (float)(y + 1) / Res * size.y;
+            int cx0 = Mathf.FloorToInt((x0 - origin.x) / cell), cx1 = Mathf.CeilToInt((x1 - origin.x) / cell) - 1;
+            int cz0 = Mathf.FloorToInt((z0 - origin.y) / cell), cz1 = Mathf.CeilToInt((z1 - origin.y) / cell) - 1;
+            int n = 0, cursed = 0;
+            for (int cz = cz0; cz <= cz1; cz++)
+            for (int cx = cx0; cx <= cx1; cx++)
+            {
+                n++;
+                if (TheWaningBorder.Systems.Border.CurseGroundSystem.CursedCell(cx, cz)) cursed++;
+            }
+            return n > 0 ? (float)cursed / n : 0f;
         }
 
         /// <summary>True when an unversioned target input changed since the
@@ -467,11 +505,13 @@ namespace TheWaningBorder.Influence
                         f = culture == Cultures.Feraldis ? 1f : 0f;
                         r = culture == Cultures.Runai    ? 1f : 0f;
 
-                        // CURSED GROUND IS A RADIUS (Territory_Claims.md §6.3,
-                        // 2026-09-29): the look follows the curse NODES, not
-                        // the territory they hold — the same ring the
-                        // exposure damage uses (BorderSettings.nodeAuraRadius).
-                        _curseRaw[i] = CurseNodeStamp(x, y);
+                        // CURSED GROUND IS A FIELD (Territory_Claims.md §6.9,
+                        // 2026-10-16): the look is the share of the texel's
+                        // 2 m cells the curse has reached — the same cells the
+                        // hostile-ground debuff reads. The node radius is only
+                        // the fallback before the field exists.
+                        _curseRaw[i] = TheWaningBorder.Systems.Border.CurseGroundSystem.Ready
+                            ? CurseFieldStamp(x, y) : CurseNodeStamp(x, y);
                     }
                     else
                     {
@@ -554,6 +594,7 @@ namespace TheWaningBorder.Influence
                     _curseTmp[row + x] = best;
                 }
             }
+            var walk = WalkShare();
             for (int y = 0; y < Res; y++)
             {
                 int row = y * Res;
@@ -568,9 +609,39 @@ namespace TheWaningBorder.Influence
                         float v = _curseTmp[sy * Res + x] * w;
                         if (v > best) best = v;
                     }
-                    _targets[(row + x) * 4 + 3] = best;
+                    _targets[(row + x) * 4 + 3] = walk != null ? best * walk[row + x] : best;
                 }
             }
+        }
+
+        /// <summary>The walkable share of each mask cell (4 x 4 samples against
+        /// the terrain passability mask), built once; null until the mask is
+        /// ready, in which case the halo is left unscaled.</summary>
+        private float[] WalkShare()
+        {
+            if (_walkShare != null) return _walkShare;
+            var grid = TheWaningBorder.World.Terrain.PassabilityGrid.Instance;
+            if (grid == null || !grid.IsMaskReady) return null;
+            Vector2 min = PlayerInfluenceMap.WorldMin;
+            Vector2 size = PlayerInfluenceMap.WorldSize;
+            var share = new float[Res * Res];
+            const int S = 4;
+            for (int y = 0; y < Res; y++)
+            for (int x = 0; x < Res; x++)
+            {
+                int open = 0;
+                for (int sz = 0; sz < S; sz++)
+                for (int sx = 0; sx < S; sx++)
+                {
+                    float wx = min.x + (x + (sx + 0.5f) / S) / Res * size.x;
+                    float wz = min.y + (y + (sz + 0.5f) / S) / Res * size.y;
+                    var cell = grid.WorldToCell(new Unity.Mathematics.float3(wx, 0f, wz));
+                    if (grid.GetCell(cell) != TheWaningBorder.World.Terrain.PassabilityGrid.TerrainBlocked) open++;
+                }
+                share[y * Res + x] = (float)open / (S * S);
+            }
+            _walkShare = share;
+            return share;
         }
 
         /// <summary>Step the four culture channels toward the cached targets
@@ -769,6 +840,7 @@ namespace TheWaningBorder.Influence
             _frontier = new bool[Res * Res];
             _curseRaw = new float[Res * Res];
             _curseTmp = new float[Res * Res];
+            _walkShare = null;   // rebuilt from this map's terrain mask
             _targets = new float[Res * Res * 4];
             _targetsValid = false;
             _snapFirstFrame = true;

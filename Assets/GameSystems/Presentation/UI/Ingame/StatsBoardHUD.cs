@@ -366,7 +366,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!RegionMap.Ready || !TerritoryOwnership.Ready) return 0;
             int n = 0;
             for (int t = 0; t < RegionMap.Count; t++)
-                if (TerritoryOwnership.OwnerOf(t) == TerritoryOwnership.Curse) n++;
+                if (TerritoryOwnership.IsCurseHeld(t)) n++;
             return n;
         }
 

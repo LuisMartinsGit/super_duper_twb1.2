@@ -213,8 +213,8 @@ namespace TheWaningBorder.Runai
                 if (RunaiVeil.TierOf(facs[i].Value) < RunaiVeil.Communion) continue;
                 if (!em.HasComponent<RunaiUnitTag>(ents[i])) continue;
                 var p = lts[i].Position;
-                int t = RegionMap.RegionAt(p.x, p.z);
-                if (t == RegionMap.None || TerritoryOwnership.OwnerOf(t) != TerritoryOwnership.Curse) continue;
+                // On cursed ground (Territory_Claims.md §6.9, 2026-10-16).
+                if (!TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(p.x, p.z)) continue;
                 var hp = em.GetComponentData<Health>(ents[i]);
                 if (hp.Value <= 0 || hp.Value >= hp.Max) continue;
                 hp.Value = math.min(hp.Max, hp.Value + heal);

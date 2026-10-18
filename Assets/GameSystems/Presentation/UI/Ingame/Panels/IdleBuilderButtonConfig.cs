@@ -28,5 +28,20 @@ namespace TheWaningBorder.UI.Ingame
 
         /// <summary>Real seconds between idle-count refreshes.</summary>
         public float refreshSeconds;
+
+        // ── Docked in the resource panel (2026-10-16) ──
+        // The button sits in the resource panel's Housing row, beside the
+        // housing count, instead of floating above the panel. Coordinates
+        // are the Housing row's local space (its centre is 0,0).
+
+        /// <summary>Centre of the docked button in the Housing row.</summary>
+        public Vector2 dockedCenter;
+        public Vector2 dockedSize;
+        public float dockedFontSize;
+        /// <summary>Where the housing icon and count move to, so the two sit
+        /// side by side (x only; their authored y is kept).</summary>
+        public float housingShiftX;
+        /// <summary>Width the housing count label is narrowed to.</summary>
+        public float housingLabelWidth;
     }
 }

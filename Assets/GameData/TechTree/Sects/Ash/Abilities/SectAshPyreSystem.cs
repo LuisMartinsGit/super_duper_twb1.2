@@ -50,8 +50,8 @@ namespace TheWaningBorder.Systems.Sect
             // sect-building walk — is asked once per faction per tick instead
             // of once per corpse. Same rows in the same chunk order, same
             // answers: result-identical.
-            var deadPos = new NativeList<float3>(8, Allocator.Temp);
-            var deadFac = new NativeList<Faction>(8, Allocator.Temp);
+            var deadPos = new NativeList<float3>(8, Allocator.TempJob);   // TempJob: a job writes it (Temp is refused even for .Run)
+            var deadFac = new NativeList<Faction>(8, Allocator.TempJob);
             new DyingUnitScanJob { Positions = deadPos, Factions = deadFac }.Run();
 
             if (deadPos.Length > 0)

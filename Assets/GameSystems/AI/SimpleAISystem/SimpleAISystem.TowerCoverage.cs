@@ -206,6 +206,7 @@ namespace TheWaningBorder.AI
                     float gain = 0f;
                     for (int i = 0; i < n; i++)
                         if (!_covDone[i] && math.distancesq(p, _covPts[i]) <= reachSq) gain += _covW[i];
+                    if (gain > 0f && IsShelfEdge(p)) gain *= 1f + math.max(0f, Cfg.towerShelfEdgeBonus);
                     if (gain > bestGain) { bestGain = gain; best = s; }
                 }
                 if (best < 0 || bestGain < math.max(0.0001f, Cfg.towerMinGainWeight))
@@ -425,6 +426,61 @@ namespace TheWaningBorder.AI
         /// whose grid neighbour lies in another claimable region is a border
         /// sample facing that region. Map data only — cached per map version.
         /// </summary>
+        // ── CLIFF SHELVES (2026-10-17) ─────────────────────────────────────
+        /// <summary>Is <paramref name="p"/> on a SHELF EDGE: within 6 m of a
+        /// terrain-blocked drop in some direction, with walkable ground at least
+        /// 3 m lower beyond it -- a spot a tower shoots down from. Terrain
+        /// only, deterministic, cached per 2 m cell.</summary>
+        private static bool IsShelfEdge(float2 p) => AIShelfEdge.Is(p);
+
+        /// <summary>The province sample nearest <paramref name="anchor"/> (within
+        /// towerShelfSearchRadius) that is a shelf edge, or the anchor itself.</summary>
+        /// <summary>How far a sheltered home's drawn tower slot may move to a
+        /// shelf edge, in metres: the drawn slots sit about 22 m round the
+        /// capital, the shelf edges at the start's rim.</summary>
+        private const float ShelteredTowerShelfRadius = 70f;
+
+        private readonly Dictionary<Faction, bool> _homeSheltered = new Dictionary<Faction, bool>();
+        private int _homeShelteredEpoch = int.MinValue;
+
+        /// <summary>Is this faction's home closed by terrain except for a few
+        /// sealable openings (AIWallPlanner.TryAssessOpenings)? Terrain and the
+        /// partition only, so it is computed once per match.</summary>
+        private bool HomeSheltered(EntityManager em, Faction faction)
+        {
+            if (_homeShelteredEpoch != SimCadence.Epoch) { _homeSheltered.Clear(); _homeShelteredEpoch = SimCadence.Epoch; }
+            if (_homeSheltered.TryGetValue(faction, out bool known)) return known;
+            bool sheltered = false;
+            if (AIWallPlannerConfig.I.chokepointsOnPartitionedMaps
+                && AIWallCorridor.TryGetHome(em, faction, out float3 home, out _))
+            {
+                int region = AIWallPlanner.HomeRegion(home);
+                var corridors = new AIWallPlanner.Corridor[4];
+                sheltered = region >= 0
+                    && AIWallPlanner.TryAssessOpenings(home, region, corridors, out int n, out _) && n > 0;
+            }
+            _homeSheltered[faction] = sheltered;
+            return sheltered;
+        }
+
+        private float3 SnapToShelfEdge(int r, float3 anchor, float radiusOverride = -1f)
+        {
+            float rad = radiusOverride > 0f ? radiusOverride : Cfg.towerShelfSearchRadius;
+            if (rad <= 0f || Cfg.towerShelfEdgeBonus <= 0f) return anchor;
+            var samples = SamplesOf(r);
+            float best = rad * rad;
+            int bi = -1;
+            for (int s = 0; s < samples.Length; s++)
+            {
+                float d2 = math.distancesq(samples[s].P, anchor.xz);
+                if (d2 >= best || !IsShelfEdge(samples[s].P)) continue;
+                best = d2; bi = s;
+            }
+            if (bi < 0) return anchor;
+            var q = samples[bi].P;
+            return new float3(q.x, TerrainUtility.GetHeight(q.x, q.y), q.y);
+        }
+
         private TowerSample[] SamplesOf(int r)
         {
             float step = math.max(2f, Cfg.towerSampleStep);

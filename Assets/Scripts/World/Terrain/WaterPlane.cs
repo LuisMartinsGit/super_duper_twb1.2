@@ -16,6 +16,16 @@ namespace TheWaningBorder.World.Terrain
         public Color foamColor = new Color(0.95f, 0.98f, 1f, 0.9f);
         public float waterLevel = 20f;
 
+        /// <summary>Shallows (2026-10-17): ground less than this far BELOW the
+        /// surface is still walkable — fords that armies wade, under visible
+        /// water. Authored per map on the scene's WaterPlane; 0 (every map
+        /// before Fiendstone Pass) keeps the old rule, nothing below the
+        /// surface walks. Building in water stays forbidden at any depth.</summary>
+        public float wadeDepth = 0f;
+
+        /// <summary>The height ground must be ABOVE to be walked on.</summary>
+        public float WalkLine => waterLevel - wadeDepth;
+
         public float flowSpeed = 0.06f;
         public float flowStrength = 0.25f;
 

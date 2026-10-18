@@ -48,8 +48,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             var ls = TheWaningBorder.Core.Multiplayer.LockstepServiceLocator.Instance;
             int last = ls != null ? ls.CurrentTick - 1 : -1;
-            string outcome = TheWaningBorder.Core.MatchLifecycle.MatchDecided
-                ? TheWaningBorder.Core.MatchLifecycle.MatchWinner + " wins" : "quit";
+            string outcome = TheWaningBorder.Core.MatchLifecycle.OutcomeLine();
             string path = ReplayRecorder.LastPath;
             ReplayRecorder.End(last, outcome);
 

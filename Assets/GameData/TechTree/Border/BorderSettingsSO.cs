@@ -278,9 +278,28 @@ namespace TheWaningBorder.Data.Border
         /// a fresh one (§6.5). The curse can be driven back, never out.</summary>
         [Min(0f)] public float reseedSeconds = 180f;
 
-        /// <summary>Radius (m) of cursed ground around each curse node:
-        /// speed debuff, damage over time and the cursed look (§6.3).</summary>
+        /// <summary>Radius (m) a curse node curses AT ONCE when it rises
+        /// (Territory_Claims.md §6.9.2 step 1); its inner ~43 % is DEEP ground.</summary>
         [Min(0f)] public float nodeAuraRadius = 20f;
+
+        // ── Cursed ground (Territory_Claims.md §6.9, 2026-10-16) ──
+        /// <summary>Seconds between cursed-ground steps (creep, staining, receding).</summary>
+        [Min(0.5f)] public float groundCreepSeconds = 2f;
+        /// <summary>Chance per step that a clean cell beside cursed ground turns
+        /// cursed (before the organic noise varies it).</summary>
+        [Range(0f, 1f)] public float groundCreepChance = 0.08f;
+        /// <summary>Creep stops this far (m) from the node feeding the ground.</summary>
+        [Min(0f)] public float groundCreepMaxDistance = 40f;
+        /// <summary>Radius (m) around a standing curse unit that it stains.</summary>
+        [Min(0f)] public float groundStainRadius = 3f;
+        /// <summary>Chance per step that a cell a standing curse unit stains turns cursed.</summary>
+        [Range(0f, 1f)] public float groundStainChance = 0.35f;
+        /// <summary>Chance per step that an orphaned cell beside clean ground turns clean.</summary>
+        [Range(0f, 1f)] public float groundRecedeChance = 0.1f;
+        /// <summary>Most of an expansion party that may sacrifice itself (§6.9.5).</summary>
+        [Range(0f, 1f)] public float sacrificeShare = 0.5f;
+        /// <summary>Seconds between one party member's sacrifice and the next.</summary>
+        [Min(0f)] public float sacrificeIntervalSeconds = 6f;
 
         /// <summary>The first curse spawn after this many seconds carries the
         /// Shardroot if it is not out yet (§6.6 backstop).</summary>
@@ -537,6 +556,14 @@ namespace TheWaningBorder.Data.Border
             initialNodes = 0;
             reseedSeconds = 180f;
             nodeAuraRadius = 20f;
+            groundCreepSeconds = 2f;
+            groundCreepChance = 0.08f;
+            groundCreepMaxDistance = 40f;
+            groundStainRadius = 3f;
+            groundStainChance = 0.35f;
+            groundRecedeChance = 0.1f;
+            sacrificeShare = 0.5f;
+            sacrificeIntervalSeconds = 6f;
             shardrootGuaranteeSeconds = 720f;
             shardrootCurseBonus = 0.5f;
             feraldisNodeVeilsteel = 40;

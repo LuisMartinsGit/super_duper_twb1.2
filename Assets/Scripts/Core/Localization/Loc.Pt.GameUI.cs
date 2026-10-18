@@ -350,6 +350,10 @@ namespace TheWaningBorder.Core.Localization
             t["Empty slot"] = "Espaço vazio";
             t["Sect"] = "Seita";
             t["Cancel"] = "Cancelar";
+            t["Idle"] = "Inativos";
+            t["Idle builders: {0}"] = "Construtores inativos: {0}";
+            t["Show income per minute"] = "Mostrar rendimento por minuto";
+            t["Hide income per minute"] = "Ocultar rendimento por minuto";
             t["OBJECTIVES"] = "OBJETIVOS";
             t["Choose a Culture to specialize in"] =
                 "Escolha uma Cultura em que se especializar";

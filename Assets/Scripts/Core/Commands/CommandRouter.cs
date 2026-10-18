@@ -2558,6 +2558,9 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static void ClearAllCommands(EntityManager em, Entity unit)
         {
+            // Any order (stop, hold, heal, ...) ends a Litharch's Cleanse
+            // channel (Territory_Claims.md §6.9.7).
+            TheWaningBorder.Abilities.LitharchCleanse.Stop(em, unit);
             TransientState.Clear<Types.MoveCommand>(em, unit);
             TransientState.Clear<Types.AttackCommand>(em, unit);
             TransientState.Clear<Types.BuildCommand>(em, unit);

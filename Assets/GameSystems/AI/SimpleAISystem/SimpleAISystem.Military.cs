@@ -87,6 +87,8 @@ namespace TheWaningBorder.AI
             public float3 TargetPos;
             public float3 StagePos;
             public float3 MusterPos;
+            /// <summary>Next time the tactics layer may log an ignored skirmish.</summary>
+            public float IgnoreLogAt;
             public float StartTime;
             /// <summary>When the current leg began — muster, stage or strike.
             /// Its own clock, so a long muster does not eat the stage timeout.</summary>
@@ -2520,6 +2522,9 @@ namespace TheWaningBorder.AI
                 // straggler must not hold the wave at the gate.
                 if (mission.Phase == MissionPhase.Mustering)
                 {
+                    // In a fight (the tactics layer owns it, 2026-10-17): no
+                    // muster re-orders and no departure until it disengages.
+                    if (mission.Engaged) continue;
                     float fraction = FractionWithin(em, mission, mission.MusterPos, GatherRadius(mission.Members.Count));
                     bool musterTimedOut = now - mission.LegStartTime > Cfg.musterTimeoutSeconds;
                     if (fraction >= Cfg.musterGatherFraction || musterTimedOut)
@@ -2539,7 +2544,13 @@ namespace TheWaningBorder.AI
                 // Forward-staging commit: once the army has gathered at the
                 // staging point (or staging times out — stragglers must not
                 // stall the push), strike the objective as one formation.
-                if (mission.Phase == MissionPhase.Staging)
+                if (mission.Phase == MissionPhase.Staging && mission.Engaged)
+                {
+                    // Ambushed on the march (2026-10-17): the tactics layer is
+                    // fighting it out; the march re-orders below would drag the
+                    // army past its attackers again. It resumes on disengage.
+                }
+                else if (mission.Phase == MissionPhase.Staging)
                 {
                     float sx = centroid.x - mission.StagePos.x;
                     float sz = centroid.z - mission.StagePos.z;

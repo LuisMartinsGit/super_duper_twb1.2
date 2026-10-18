@@ -116,7 +116,8 @@ namespace TheWaningBorder.UI.Ingame
                 world.EntityManager,
                 TheWaningBorder.Input.SelectionSystem.CurrentSelection,
                 new float3(wx, TerrainUtility.GetHeight(wx, wz), wz),
-                GameSettings.LocalPlayerFaction);
+                GameSettings.LocalPlayerFaction,
+                TheWaningBorder.Input.FormationInput.CurrentShape);
         }
     }
 }

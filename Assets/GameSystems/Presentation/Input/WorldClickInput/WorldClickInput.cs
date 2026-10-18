@@ -680,7 +680,7 @@ namespace TheWaningBorder.Input
         private static float3 SnapDestinationOffImpassable(float3 point)
         {
             var water = TheWaningBorder.World.Terrain.WaterPlane.Instance;
-            bool underwater = water != null && point.y < water.waterLevel;
+            bool underwater = water != null && point.y < water.WalkLine;
 
             int2 cell = Nav.NavGridQuery.WorldToCellInt2(point);
             bool impassable = cell.x != int.MinValue && !Nav.NavGridQuery.IsCellPassable(cell);

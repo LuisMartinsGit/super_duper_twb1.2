@@ -1237,10 +1237,7 @@ namespace TheWaningBorder.Multiplayer
             LockstepLog.Close();
             LockstepTrace.Close();
 
-            string outcome = TheWaningBorder.Core.MatchLifecycle.MatchDecided
-                     && !string.IsNullOrEmpty(TheWaningBorder.Core.MatchLifecycle.MatchWinner)
-                ? TheWaningBorder.Core.MatchLifecycle.MatchWinner + " wins"
-                : "quit";
+            string outcome = TheWaningBorder.Core.MatchLifecycle.OutcomeLine();
             ReplayRecorder.End(_currentTick - 1, outcome);
         }
 

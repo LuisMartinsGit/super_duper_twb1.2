@@ -175,11 +175,20 @@ namespace TheWaningBorder.AI
             // THE DRAWN TOWER SLOTS FIRST (Game_AI.md § 6g): the home layout's
             // free tower slots, as drawn, before any scan of its own.
             float3 pos = default;
-            bool found = TheWaningBorder.World.Regions.RegionMap.Ready
-                && AIBaseTemplate.TryFirstFreeDrawnSlot(em, faction,
-                       TheWaningBorder.World.Regions.RegionMap.RegionAt(hallPos.x, hallPos.z),
-                       towerId, towerSize, out pos);
+            // TOWERS ALONG THE CLIFF SHELVES (2026-10-17, Game_AI.md § Walls):
+            // a home walled at its chokepoints stands its towers on the shelf
+            // edges above those chokepoints first, where they shoot down onto
+            // whoever climbs the ramp.
+            bool found = TryShelfTowerAtChokepoint(em, faction, brainEntity, hallPos, ownTowers, towerSize, out pos);
             if (found) threatHint = pos;
+            if (!found)
+            {
+                found = TheWaningBorder.World.Regions.RegionMap.Ready
+                    && AIBaseTemplate.TryFirstFreeDrawnSlot(em, faction,
+                           TheWaningBorder.World.Regions.RegionMap.RegionAt(hallPos.x, hallPos.z),
+                           towerId, towerSize, out pos);
+                if (found) threatHint = pos;
+            }
             else found = TryFindTowerSpot(em, hallPos, threatHint, ownTowers, towerSize, out pos);
             // HUT COVERAGE (endgame completeness): when the chokepoint /
             // directed-ring passes come up empty (anti-clump spacing
@@ -217,6 +226,82 @@ namespace TheWaningBorder.AI
             AILogger.Log(faction, "BUILDING",
                 $"Alanthor towers: {existing + 1}/{TowerBudget(difficulty)} toward " +
                 $"({threatHint.x:F0},{threatHint.z:F0})");
+        }
+
+        /// <summary>A shelf-edge tower spot in the home within 40 m of one of the
+        /// wall plan's chokepoint lines (nearest to the line's centre first,
+        /// chains in plan order), when the plan seals chokepoints.</summary>
+        // The home's chokepoint centres, per faction, once per match: from
+        // the openings test (the same one the wall plan uses), so a tower
+        // built BEFORE the walls are planned still goes to the chokepoints.
+        private static readonly System.Collections.Generic.Dictionary<Faction, float3[]> _chokeCentres =
+            new System.Collections.Generic.Dictionary<Faction, float3[]>();
+        private static readonly System.Collections.Generic.Dictionary<Faction, float3[]> _chokeOut =
+            new System.Collections.Generic.Dictionary<Faction, float3[]>();
+        private static int _chokeEpoch = int.MinValue;
+
+        private static float3[] ChokeCentres(Faction faction, float3 hallPos, int home)
+        {
+            if (_chokeEpoch != SimCadence.Epoch) { _chokeCentres.Clear(); _chokeOut.Clear(); _chokeEpoch = SimCadence.Epoch; }
+            if (_chokeCentres.TryGetValue(faction, out var known)) return known;
+            var res = System.Array.Empty<float3>();
+            var outs = System.Array.Empty<float3>();
+            if (AIWallPlannerConfig.I.chokepointsOnPartitionedMaps && home >= 0)
+            {
+                var corridors = new AIWallPlanner.Corridor[4];
+                if (AIWallPlanner.TryAssessOpenings(hallPos, home, corridors, out int n, out _) && n > 0)
+                {
+                    res = new float3[n];
+                    outs = new float3[n];
+                    for (int i = 0; i < n; i++) { res[i] = corridors[i].ChokePos; outs[i] = corridors[i].Approach; }
+                }
+            }
+            _chokeCentres[faction] = res;
+            _chokeOut[faction] = outs;
+            return res;
+        }
+
+        /// <summary>A shelf-edge tower spot in the home within 40 m of one of the
+        /// home's chokepoints (nearest to it first, chokepoints in order), when
+        /// the home is sheltered (TryAssessOpenings).</summary>
+        private static bool TryShelfTowerAtChokepoint(EntityManager em, Faction faction, Entity brainEntity, float3 hallPos,
+            NativeList<float3> ownTowers, int2 towerSize, out float3 spot)
+        {
+            spot = default;
+            int home = AIWallPlanner.HomeRegion(hallPos);
+            var centres = ChokeCentres(faction, hallPos, home);
+            if (centres.Length == 0) return false;
+            int nHome = 0, nShelf = 0;
+            _spotWhyCount.Clear();
+            var outs = _chokeOut[faction];
+            for (int k = 0; k < centres.Length; k++)
+            {
+                float3 centre = centres[k];
+                float2 outward = outs[k].xz;
+                // BEHIND the wall line, on the home side, clear of the line,
+                // its towers and its gate lane: 12-40 m from the line's centre,
+                // at least 8 m back from it toward the home.
+                for (float r = 12f; r <= 40f; r += 4f)
+                    for (int a = 0; a < 16; a++)
+                    {
+                        float ang = a * (math.PI / 8f);
+                        float3 c = centre + new float3(math.cos(ang), 0f, math.sin(ang)) * r;
+                        if (math.dot(c.xz - centre.xz, outward) > -8f) continue;
+                        if (TheWaningBorder.World.Regions.RegionMap.RegionAt(c.x, c.z) != home) continue;
+                        nHome++;
+                        if (!AIShelfEdge.Is(c.xz)) continue;
+                        nShelf++;
+                        // No border ring in chokepoint mode, so the border band
+                        // (kept free for that ring) does not apply: on a shelf
+                        // the cliff IS the border.
+                        if (IsTowerSpotOk(em, ref c, towerSize, ownTowers, borderBand: false)) { spot = c; return true; }
+                        _spotWhyCount.TryGetValue(_spotWhy, out int wc); _spotWhyCount[_spotWhy] = wc + 1;
+                    }
+            }
+            AILogger.Log(faction, "BUILDING",
+                $"Alanthor towers: no shelf spot at the chokepoints ({nHome} in the home, {nShelf} on a shelf edge, " +
+                $"refused: {string.Join(", ", System.Linq.Enumerable.Select(_spotWhyCount, kv => kv.Key + " " + kv.Value))})");
+            return false;
         }
 
         private static void CollectOwnTowerPositions(EntityManager em, Faction faction,
@@ -333,8 +418,12 @@ namespace TheWaningBorder.AI
         /// away — is how a tower could land inside a footprint the check had
         /// just cleared (2026-08-18: "towers on top of the Hall").
         /// </summary>
+        private static string _spotWhy = "";
+        private static readonly System.Collections.Generic.Dictionary<string, int> _spotWhyCount =
+            new System.Collections.Generic.Dictionary<string, int>();
+
         private static bool IsTowerSpotOk(EntityManager em, ref float3 pos, int2 size,
-            NativeList<float3> ownTowers)
+            NativeList<float3> ownTowers, bool borderBand = true)
         {
             pos = BuildGrid.Snap(pos, size);
             pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
@@ -343,17 +432,18 @@ namespace TheWaningBorder.AI
             {
                 float dx = pos.x - ownTowers[i].x;
                 float dz = pos.z - ownTowers[i].z;
-                if (dx * dx + dz * dz < Cfg.minTowerSpacing * Cfg.minTowerSpacing) return false;
+                if (dx * dx + dz * dz < Cfg.minTowerSpacing * Cfg.minTowerSpacing) { _spotWhy = "spacing"; return false; }
             }
             // The border band the wall runs along stays clear.
-            if (!AIWallPlanner.FootprintClearOfBorder(em, pos, size)) return false;
+            if (borderBand && !AIWallPlanner.FootprintClearOfBorder(em, pos, size)) { _spotWhy = "border band"; return false; }
             // …and off the reserved home wall corridor (AIWallCorridor).
-            if (!AIWallCorridor.FootprintClearForOwner(em, pos, size)) return false;
+            if (!AIWallCorridor.FootprintClearForOwner(em, pos, size)) { _spotWhy = "wall corridor"; return false; }
             // …and off every reserved Fortress spot (AIBaseLayout).
-            if (!AIBaseLayout.FootprintClearOfFortressSpots(pos, size, "Alanthor_Tower")) return false;
+            if (!AIBaseLayout.FootprintClearOfFortressSpots(pos, size, "Alanthor_Tower")) { _spotWhy = "fortress spot"; return false; }
             // …and off the drawn base layout's free slots (AIBaseTemplate).
-            if (!AIBaseTemplate.FootprintClearOfFreeSlotsForOwner(em, pos, size)) return false;
-            if (!BuildCommandHelper.IsValidBuildPosition(em, pos, size)) return false;
+            if (!AIBaseTemplate.FootprintClearOfFreeSlotsForOwner(em, pos, size)) { _spotWhy = "layout slot"; return false; }
+            if (!BuildCommandHelper.IsValidBuildPosition(em, pos, size)) { _spotWhy = "invalid ground"; return false; }
+            _spotWhy = "seal";
             // Flush is allowed; sealing the base is not (Game_AI.md 6b).
             return !AIEndgameCommon.SealsOwnersBase(em, pos, size, "Alanthor_Tower");
         }

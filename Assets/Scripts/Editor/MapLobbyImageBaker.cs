@@ -233,6 +233,13 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             {
                 min = terrain.GetPosition();
                 size = terrain.terrainData.size;
+                // A rectangular map sits letterboxed in the square thumbnail:
+                // pin markers against the same centred square
+                // (MapInfoBaker.GetMapBounds).
+                float side = Mathf.Max(size.x, size.z);
+                min.x -= (side - size.x) * 0.5f;
+                min.z -= (side - size.z) * 0.5f;
+                size.x = side; size.z = side;
                 return;
             }
 

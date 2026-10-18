@@ -20,6 +20,13 @@ namespace TheWaningBorder.AI
 {
     public partial struct AIAlanthorEndgameSystem : ISystem
     {
+        // Wall-tower conversion tries per wall piece (see the conversion
+        // loop); static because an ISystem holds no managed state, cleared
+        // on a new match because entity ids are reused.
+        private static readonly System.Collections.Generic.Dictionary<Entity, int> _towerConvTries =
+            new System.Collections.Generic.Dictionary<Entity, int>();
+        private static int _towerConvEpoch = int.MinValue;
+
         #region Cached queries
 
         // CreateEntityQuery registers a new query with the world on EVERY
@@ -1316,6 +1323,14 @@ namespace TheWaningBorder.AI
                     if (em.HasComponent<WallGateTag>(inst)) continue;       // gate piece
                     if (em.HasComponent<WallGateRegionTag>(inst)) continue;
                     if (em.HasComponent<UnderConstruction>(inst)) continue; // still rising
+                    // A conversion the executor refuses never reports back:
+                    // at most three tries per piece (2026-10-17 -- a choke-line
+                    // end hub was re-ordered 140 times in 20 minutes).
+                    if (_towerConvEpoch != SimCadence.Epoch)
+                    { _towerConvTries.Clear(); _towerConvEpoch = SimCadence.Epoch; }
+                    _towerConvTries.TryGetValue(inst, out int tries);
+                    if (tries >= 3) continue;
+                    _towerConvTries[inst] = tries + 1;
 
                     if (!WallSpendAllowed(em, faction, towerCost)) return false;
                     // Spend + stamp through the charged executor: it

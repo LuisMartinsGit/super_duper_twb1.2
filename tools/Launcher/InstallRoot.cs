@@ -1,7 +1,7 @@
 namespace TheWaningBorder.Launcher;
 
 /// <summary>
-/// Makes the fixed install root real before the updater touches anything:
+/// Makes the chosen install root real before the updater touches anything:
 /// creates it, adopts an install from the old "beside the exe" layout, puts
 /// a launcher in it, and gives it a Start Menu entry.
 ///
@@ -121,29 +121,36 @@ internal static class InstallRoot
     /// <summary>
     /// Start Menu > Shardroot Entertainment > The Waning Border, pointing at
     /// the root launcher. Written through the shell's own shortcut object so
-    /// the .lnk is exactly what Explorer would have made.
+    /// the .lnk is exactly what Explorer would have made. Rewritten when it
+    /// points somewhere else — the install folder is the tester's choice, so
+    /// an existing shortcut may still name a folder they moved away from.
     /// </summary>
     private static void EnsureStartMenuShortcut(List<string> notes)
     {
         var link = AppPaths.StartMenuShortcut;
-        if (File.Exists(link) || !File.Exists(AppPaths.LauncherExe)) return;
+        if (!File.Exists(AppPaths.LauncherExe)) return;
 
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(link)!);
-
             var shellType = Type.GetTypeFromProgID("WScript.Shell");
             if (shellType is null) return;
 
             dynamic shell = Activator.CreateInstance(shellType)!;
             dynamic shortcut = shell.CreateShortcut(link);
+
+            var existed = File.Exists(link);
+            if (existed && string.Equals((string)shortcut.TargetPath, AppPaths.LauncherExe, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+
             shortcut.TargetPath = AppPaths.LauncherExe;
             shortcut.WorkingDirectory = AppPaths.Root;
             shortcut.IconLocation = AppPaths.LauncherExe + ",0";
             shortcut.Description = Edition.DisplayName;
             shortcut.Save();
 
-            notes.Add("Added the Start Menu shortcut.");
+            notes.Add(existed ? "Pointed the Start Menu shortcut at the install folder." : "Added the Start Menu shortcut.");
         }
         catch (Exception ex)
         {

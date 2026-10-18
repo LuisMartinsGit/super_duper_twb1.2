@@ -143,7 +143,8 @@ namespace TheWaningBorder.UI.Ingame
             okr.anchorMin = okr.anchorMax = new Vector2(1f, 0.5f); okr.pivot = new Vector2(1f, 0.5f);
             okr.anchoredPosition = new Vector2(-130f, 0f); okr.sizeDelta = new Vector2(100f, 90f);
             Label(_treeBarOk.transform, "Text", "✓", 44f, new Color(0.1f, 0.08f, 0.02f), TextAlignmentOptions.Center);
-            var no = MakeButton(bar.transform, "Cancel", out _, HideTreeBar);
+            var no = MakeButton(bar.transform, "Cancel", out var nobg, HideTreeBar);
+            nobg.color = GameUIKit.Danger;   // every Cancel is red
             var nor = (RectTransform)no.transform;
             nor.anchorMin = nor.anchorMax = new Vector2(1f, 0.5f); nor.pivot = new Vector2(1f, 0.5f);
             nor.anchoredPosition = new Vector2(-16f, 0f); nor.sizeDelta = new Vector2(100f, 90f);

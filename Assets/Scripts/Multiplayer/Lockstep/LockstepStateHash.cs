@@ -707,7 +707,10 @@ namespace TheWaningBorder.Multiplayer
                     Mix(ref h, (uint)TheWaningBorder.World.Regions.TerritoryOwnership.HolderOf(t));
                     Mix(ref h, (uint)TheWaningBorder.World.Regions.TerritoryOwnership.RawValueOf(t));
                     Mix(ref h, TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimed(t) ? 1u : 0u);
+                    Mix(ref h, TheWaningBorder.World.Regions.TerritoryOwnership.IsCurseHeld(t) ? 1u : 0u);
                 }
+                // Cursed ground (Territory_Claims.md §6.9): every cell and its feed.
+                Mix(ref h, TheWaningBorder.Systems.Border.CurseGroundSystem.Checksum);
                 return h;
             }
         }

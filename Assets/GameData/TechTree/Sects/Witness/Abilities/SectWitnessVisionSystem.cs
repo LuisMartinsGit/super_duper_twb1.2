@@ -59,8 +59,8 @@ namespace TheWaningBorder.Systems.Sect
             for (int i = 0; i < levels.Length; i++) levels[i] = 255;
 
             // Pass 1: brand-new scouts that haven't received the bonus yet.
-            var scouts = new NativeList<Entity>(8, Allocator.Temp);
-            var scoutFactions = new NativeList<Faction>(8, Allocator.Temp);
+            var scouts = new NativeList<Entity>(8, Allocator.TempJob);   // TempJob: a job writes it (Temp is refused even for .Run)
+            var scoutFactions = new NativeList<Faction>(8, Allocator.TempJob);
             new UnstampedScoutScanJob { Scouts = scouts, Factions = scoutFactions }.Run();
 
             for (int i = 0; i < scouts.Length; i++)

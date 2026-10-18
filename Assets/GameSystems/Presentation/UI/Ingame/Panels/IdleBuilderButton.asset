@@ -16,3 +16,8 @@ MonoBehaviour:
   size: {x: 280, y: 60}
   fontSize: 26
   refreshSeconds: 0.5
+  dockedCenter: {x: 64, y: -6}
+  dockedSize: {x: 118, y: 118}
+  dockedFontSize: 40
+  housingShiftX: -62
+  housingLabelWidth: 124

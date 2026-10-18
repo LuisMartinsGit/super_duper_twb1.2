@@ -174,13 +174,22 @@ a refusal names the rule.
 
 ## 6. The curse as a claimant
 
+> **2026-10-16 — the curse no longer OWNS territories.** It spreads CURSED
+> GROUND, a field on the map (§6.9), and a territory with any cursed ground in
+> it is simply **unconquerable** for players. §6.1-6.2 (curse claim weight)
+> are retired; where §6.3-6.8 say the curse "holds", "claims" or "takes" a
+> territory, read: the territory has a living curse node in it (§6.9.4). The
+> node circle, creep, unit staining and sacrifices of §6.9 replace the
+> radius bullet of §6.3.
+
 The curse is not a player: no economy, no tech, no brain. It claims ground,
 builds nodes, and fields armies — nothing else (Regions.md §3's scope rule
 stands).
 
-### 6.1 Double weight
+### 6.1 Double weight — retired 2026-10-16
 
-A curse unit's claim weight is `2 × popCost`.
+~~A curse unit's claim weight is `2 × popCost`.~~ Curse units no longer add to
+any territory's meter (§6.9.4).
 
 ### 6.2 Standing, not passing
 
@@ -208,10 +217,11 @@ to flip ground too cheaply, the same rule applies to them.)*
   (2026-10-03)**, not one per territory: a territory with four curse nodes
   fields four garrisons of `garrisonCap` each, and each garrison guards the
   node it rose from (§6.7).
-- **Cursed ground is a RADIUS, not a territory.** The existing hostile-ground
-  effect (speed debuff, damage-over-time, cursed texture — Curse_And_Shardroot.md
-  §2.5b) applies within `nodeAuraRadius` of each curse node, not across the
-  whole curse territory.
+- ~~**Cursed ground is a RADIUS, not a territory.**~~ **Superseded
+  2026-10-16 by §6.9:** a node curses its `nodeAuraRadius` circle AT ONCE,
+  and from there cursed ground creeps, is stained by curse units and spread
+  by sacrifices. The hostile-ground effect (Curse_And_Shardroot.md §2.5b)
+  applies on cursed ground, wherever it has reached.
 
 ### 6.4 Where the curse starts
 
@@ -487,6 +497,146 @@ turned by the veil, the Feraldis Violent Extraction final wave — take
 whatever room is left at the moment they fire, and raise nothing at the cap
 (an infected worker still dies; no creature rises).
 
+### 6.9 Cursed ground (2026-10-16)
+
+Developer directive: *"Cursed ground propagates immediately in the radius of
+the nodes, then propagates in a natural looking way and with the curse.
+Territories are no longer owned by the curse, they are just unconquerable.
+The curse should show on the minimap respecting the shape it has on the
+terrain. The debuff happens whenever a unit is on top of the curse."*
+
+#### 6.9.1 The field
+
+Cursed ground is a field over the whole map in **build cells** (Build_Grid.md,
+2 m). A cell is cursed or clean; a cursed cell remembers the curse node that
+**feeds** it. It is simulation state — every lockstep peer computes the same
+field, it is in the state hash and in saved games — and it is the ONE answer
+to "is this ground cursed": the debuff, the claim rule, the terrain crystal,
+the crystal shelf, the minimap and the AI's route-finding all read it.
+Water, cliffs and other impassable cells are never cursed: a cell must lie in
+a territory AND on walkable terrain (not blocked by the PassabilityGrid's
+terrain mask: mountains, cliff faces, deep water, forest), which every peer
+reads identically. Buildings do not block it. The drawn look obeys the same
+rule (2026-10-17): the curse halo is scaled by each mask texel's walkable
+share, so the crystal ground and shelf stop at a mountain's foot instead of
+climbing it.
+
+#### 6.9.2 How it spreads
+
+1. **A node curses its circle at once.** When a curse node rises (and at
+   match start), every passable cell within `nodeAuraRadius` of it turns
+   cursed, fed by that node.
+2. **Creep.** Every `groundCreepSeconds` the front advances: each clean
+   passable cell next to cursed ground turns cursed with a chance set by
+   `groundCreepChance`, varied by a seeded noise so the edge grows in
+   organic fingers, not rings. Creep stops `groundCreepMaxDistance` from the
+   feeding node — creep alone cannot eat the map.
+3. **Curse units stain it.** Ground under a STANDING curse unit (§6.2's
+   rule: idle, or its order's destination is here) turns cursed much faster:
+   its cell and the cells around it, within `groundStainRadius`, each turn
+   with `groundStainChance` per creep step, with no distance limit. Staining
+   is how the curse carries its ground into new territory.
+4. **Sacrifices curse ground where they die** (§6.9.5).
+
+New cursed ground is fed by the node feeding the cursed ground it grew from;
+ground with no cursed neighbour (a sacrifice in the open) is fed by the
+nearest living curse node.
+
+#### 6.9.3 How it recedes
+
+When a curse node dies, the ground it fed is **orphaned**. An orphaned cell
+that touches ground still fed by a living node is adopted by that node, so
+connected cursed ground fed by other nodes stays. The rest **recedes**: every
+creep step, an orphaned cell next to clean ground turns clean with
+`groundRecedeChance` — the edge eats inward, the same organic shape in
+reverse — until it is gone. If a new node rises nearby first, its creep
+re-adopts what is left.
+
+#### 6.9.4 Territories
+
+- **The curse owns no territory.** Curse units add nothing to any meter
+  (§6.1 retired). Where the curse's own logic needs a "held" territory (its
+  garrisons, fill parties, expansion), it means **a territory with a living
+  curse node in it**.
+- **Unconquerable.** A territory with ANY cursed ground in it cannot gain
+  claim for a player: the meter does not rise there. Decay is unchanged — a
+  player who already holds it keeps it while it stays built or occupied
+  (§2.3), but ground they abandon decays as usual and nobody can claim it
+  again until its cursed ground is gone.
+- **Expansion** (§6.5) keeps its shape: a party walks to an adjacent
+  territory, stands there (staining it, sacrificing, §6.9.5) for
+  `mergeSeconds`, and raises a curse node on a resource node in it. It no
+  longer waits for a meter — there is none for the curse — but it still
+  pauses while hostiles are within `mergeDefendRadius`.
+
+#### 6.9.5 The sacrifice ("Veil Offering")
+
+Every curse creature (Crystalling, Veilstinger, Godsplinter) has an active
+ability: it **channels for 15 s, then dies**, and the ground within a radius
+of where it died turns cursed at once. Bigger creatures curse more: the
+radius is the ability's base radius × the creature's claim size (1 / 2 / 3).
+Only **death or a stun** breaks the channel; damage does not. The death pays
+no kill to anyone (no religion points, no bounty). The curse uses it during
+expansion: a party standing in its target territory offers up members,
+`sacrificeShare` of the party at most, one every `sacrificeIntervalSeconds`.
+The channel time and base radius are the ability's data
+(`Border/Units/Abilities/VeilOffering`).
+
+#### 6.9.6 What it does to units and buildings
+
+The hostile-ground effect (Curse_And_Shardroot.md §2.5b) applies to every
+non-curse unit **standing on a cursed cell** — wherever the ground has
+reached, not within a fixed circle. Its two tiers keep their meaning: the
+lighter tier anywhere on cursed ground, the deep tier on cursed ground close
+to a living node (the inner part of `nodeAuraRadius`); buildings crumble only
+on deep ground.
+
+#### 6.9.7 The Litharch's Cleanse (2026-10-18)
+
+Every Litharch has an active, **aimed** ability, **Cleanse**: the player (or
+the AI) picks a point within its reach and the Litharch **channels** there,
+pushing the curse back.
+
+- **The starting circle** (the ability's radius) is cleared of cursed ground
+  the moment the cast lands.
+- **It grows while the channel holds**: the cleared circle gains a constant
+  **area** a second, so its radius slows as it widens instead of running away
+  with the square of the radius, and it stops growing at a maximum radius.
+  Every creep step the whole circle ends clean — the curse cannot creep or
+  stain back into it while the channel holds.
+- **A falloff band** outside the circle is thinned too: a cursed cell in the
+  band clears with a chance that is 1 at the circle and falls to 0 at the
+  band's outer edge, so the cleared ground has a soft, organic edge.
+- **Allies inside the starting circle heal slowly** while it channels. The
+  Litharch stands and heals through the channel; it does not walk to patients.
+- **The channel ends** when the Litharch is **attacked** (an attacker lands a
+  hit — cursed-ground damage is not an attack), is given **any other order**
+  (move, attack, stop, hold, heal…), is stunned or dies.
+- **The cooldown starts when the channel ends.**
+- When it ends, the ground is ordinary ground again: a living node's creep can
+  re-curse it (§6.9.2). Cleansing holds the curse back; killing its node wins
+  the ground for good.
+
+Every number — starting radius, reach, cooldown, area a second, maximum
+radius, falloff width and heal rate — is the ability's data
+(`TempleOfRidan/Units/Litharch/Abilities/Cleanse/Cleanse.asset`).
+
+The Litharch is the one non-hero unit allowed **two active abilities**: Cleanse
+from the start, and Deploy Field Hospital once the Sect of Renewal's research
+is bought. The spells bar draws one button per active, so both are castable.
+
+#### 6.9.8 Owned ground sheds the curse (2026-10-18)
+
+In a territory **owned** by a faction that has **chosen a culture other than
+Runai** (Alanthor or Feraldis), cursed ground **fades**: every creep step a
+cursed cell next to clean ground turns clean with `groundRecedeChance` — the
+same edge-inward recession as orphaned ground (§6.9.3), but even while its
+node lives. It never fades **inside a living node's own circle**
+(`nodeAuraRadius`), so a node in or beside held ground still holds its core,
+and its creep keeps fighting the fade at the edge. Runai do not shed the
+curse: they make their peace with it instead (Age_1_Runai.md). A faction in
+Age 0 has chosen no culture, so nothing fades for it yet.
+
 ## 7. Winning
 
 **Elimination is the only victory.** Last player — or last team (Teams.md) —
@@ -561,6 +711,10 @@ and (2026-10-04, §6.8) `firstWaveSeconds`, `waveIntervalSeconds`,
 `shardrootGuardPartySize`, `shardrootGuardRadius`, `shardrootGuardLeashRadius`,
 `shardrootHolderAggroRadius`, `shardrootHolderWaveIntervalMult`.
 `waveTargetDistanceSlack` is retired with the nearest-player rule.
+(2026-10-16, §6.9) `groundCreepSeconds`, `groundCreepChance`,
+`groundCreepMaxDistance`, `groundStainRadius`, `groundStainChance`,
+`groundRecedeChance`, `sacrificeShare`, `sacrificeIntervalSeconds`;
+`curseClaimMultiplier` is retired (the curse claims nothing).
 `raidSeconds` is retired with the raids.
 
 ## 9. Known risks (to watch in playtest, not to fix in advance)
@@ -658,6 +812,17 @@ the match seed (`randomizeCurseTerritories`, TerritoryResources.asset). On a
 mirrored map the draw is one territory and its three mirror images, so every
 seat faces the same curse; it is never a home or a territory bordering one.
 The log names them: `the curse starts in … this match`.
+
+**A map may pin its curse (2026-10-17).** A Veilstone rich territory whose
+`RegionSeedMarker.CurseStaysHere` is set is never swapped away: the curse
+always starts there, and only the map's other curse territories are dealt.
+Yiel Lymwérra's island uses it ([Maps/Yiel_Lymwerra.md](Maps/Yiel_Lymwerra.md)).
+
+**Small territories keep proportionate node margins (2026-10-17).** A node
+keeps 10 m clear of any other territory and 8 m from impassable ground; in a
+territory too narrow for that, both are capped at 35 % of its shorter
+bounding-box half-width (`TerritoryResources.ComputeMargins`), so a small
+island or pocket still gets its nodes. Territories wide enough are unchanged.
 
 **Home nodes line the edge (2026-10-07).** In a home territory every node
 stands at least `homeNodeMinOffset` (TerritoryResources.asset) from the start

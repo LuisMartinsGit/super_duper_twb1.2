@@ -35,6 +35,11 @@ namespace TheWaningBorder.AI
         /// mountain passes are still worth sealing.</summary>
         public float maxSealableWidth;
 
+        /// <summary>On a partitioned map, a home that terrain shelters except
+        /// for a few sealable corridors is walled at those chokepoints instead
+        /// of along its border (2026-10-17).</summary>
+        public bool chokepointsOnPartitionedMaps;
+
         /// <summary>Per-flank probe cap for cross-section width.</summary>
         public float chokeProbeCap;
 

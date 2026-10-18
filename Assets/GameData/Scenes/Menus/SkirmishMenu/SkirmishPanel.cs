@@ -76,7 +76,8 @@ namespace TheWaningBorder.UI.Menus.Panels
 
         private int _mapIndex;
         private int _spawnSeed;
-        private bool _fogOfWar, _curseNodes, _maxResources;
+        private bool _fogOfWar, _curseNodes;
+        private StartingResourcesLevel _startResources;
         private bool _wired;
 
         // START WITH CULTURE (StartCultureOption) — replaced the STARTING AGE
@@ -98,6 +99,8 @@ namespace TheWaningBorder.UI.Menus.Panels
 
         private void OnEnable()
         {
+            MenuBackgroundFit.Apply();
+            MenuBackgroundFit.StretchPlateBackgrounds(transform.root, MenuBackgroundFit.LobbyPlates);
             // Same lobby reset the previous skirmish screens performed.
             GameSettings.IsMultiplayer = false;
             GameSettings.NetworkRole = NetworkRole.None;
@@ -110,7 +113,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             _spawnSeed = Random.Range(1, 99999); // fresh spawns every visit
             _fogOfWar = GameSettings.FogOfWarEnabled;
             _curseNodes = GameSettings.BorderEnabled;
-            _maxResources = GameSettings.MaxStartingResources;
+            _startResources = GameSettings.StartingResources;
             _startWithCulture = _startWithCultureDefault;
             _observer = _observerDefault;
 
@@ -141,7 +144,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             if (ResourcesDropdown != null)
             {
                 SetOptions(ResourcesDropdown, ResourceNames);
-                ResourcesDropdown.onValueChanged.AddListener(v => _maxResources = v == 1);
+                ResourcesDropdown.onValueChanged.AddListener(v => _startResources = (StartingResourcesLevel)v);
             }
             StartCultureOption.BuildToggle(AgeDropdown, FogToggle, FogState, out _cultureToggle, out _cultureState);
             if (_cultureToggle != null)
@@ -273,7 +276,7 @@ namespace TheWaningBorder.UI.Menus.Panels
 
         private void SyncOptions()
         {
-            if (ResourcesDropdown != null) ResourcesDropdown.SetValueWithoutNotify(_maxResources ? 1 : 0);
+            if (ResourcesDropdown != null) ResourcesDropdown.SetValueWithoutNotify((int)_startResources);
             SyncPill(_cultureToggle, _cultureState, _startWithCulture);
             SyncPill(FogToggle, FogState, _fogOfWar);
             SyncPill(CurseToggle, CurseState, _curseNodes);
@@ -1044,7 +1047,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             GameSettings.SelectedMapScene = maps[Mathf.Clamp(_mapIndex, 0, maps.Count - 1)].SceneName;
             GameSettings.SpawnSeed = _spawnSeed;
             GameSettings.FogOfWarEnabled = _fogOfWar;
-            GameSettings.MaxStartingResources = _maxResources;
+            GameSettings.StartingResources = _startResources;
             GameSettings.BorderEnabled = _curseNodes;
             GameSettings.IsObserver = _observer;
             StartCultureOption.Apply(_startWithCulture);

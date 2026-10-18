@@ -55,18 +55,30 @@ namespace TheWaningBorder.UI.Ingame
 
         private const int RowsPerFrame = 64;
 
-        // Alpha ramps with height but never hits zero, so lowlands still
-        // read against the frame's dark backdrop; cliffs are near-opaque.
-        private const float LowAlpha   = 0.62f;
-        private const float HighAlpha  = 0.88f;
-        private const float CliffAlpha = 0.96f;
+        // Opaque terrain (2026-10-18, "brighter colours"): a translucent
+        // ramp let the frame's dark backdrop through and muddied every hue.
+        private const float LowAlpha   = 1f;
+        private const float HighAlpha  = 1f;
+        private const float CliffAlpha = 1f;
 
-        // Hypsometric ramp: mossy lowland -> dry tan -> pale summit.
-        // CliffColor is the dark rock that steep inclines blend toward.
-        private static readonly Color LowColor   = new Color(0.24f, 0.38f, 0.27f);
-        private static readonly Color MidColor   = new Color(0.60f, 0.52f, 0.36f);
-        private static readonly Color HighColor  = new Color(0.88f, 0.84f, 0.71f);
-        private static readonly Color CliffColor = new Color(0.21f, 0.13f, 0.10f);
+        // Hillshade range: the shadowed slope floor and the lit-slope peak.
+        private const float ShadeMin = 0.78f;
+        private const float ShadeMax = 1.12f;
+
+        // Hypsometric ramp: green lowland -> warm tan -> pale summit.
+        // CliffColor is the rock that steep inclines blend toward.
+        private static readonly Color LowColor   = new Color(0.40f, 0.64f, 0.34f);
+        private static readonly Color MidColor   = new Color(0.80f, 0.69f, 0.45f);
+        private static readonly Color HighColor  = new Color(0.97f, 0.94f, 0.84f);
+        private static readonly Color CliffColor = new Color(0.40f, 0.29f, 0.21f);
+
+        // Water (2026-10-17): ground under the WaterPlane's surface is drawn
+        // blue, darker with depth; shallows (fords, wadeable) stay light.
+        // Depth reaches DeepWaterColor at WaterFullDepth metres.
+        private static readonly Color ShallowWaterColor = new Color(0.42f, 0.74f, 0.90f);
+        private static readonly Color DeepWaterColor    = new Color(0.14f, 0.40f, 0.74f);
+        private const float WaterFullDepth = 2.0f;
+        private const float WaterAlpha     = 1f;
 
         // North-west sun for the hillshade.
         private static readonly Vector3 LightDir =
@@ -172,6 +184,7 @@ namespace TheWaningBorder.UI.Ingame
 
         private void Awake()
         {
+            Active = this;
             foreach (var img in GetComponentsInChildren<Image>(true))
             {
                 if (string.Equals(img.name, "Map", System.StringComparison.OrdinalIgnoreCase))
@@ -284,6 +297,7 @@ namespace TheWaningBorder.UI.Ingame
 
         private void OnDestroy()
         {
+            if (Active == this) Active = null;
             if (_overlayTex != null) Destroy(_overlayTex);
             if (_mapImage != null && _mapImage.sprite != null && _mapImage.sprite.texture != null)
                 Destroy(_mapImage.sprite.texture);

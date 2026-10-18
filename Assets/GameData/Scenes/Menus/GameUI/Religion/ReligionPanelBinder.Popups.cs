@@ -101,7 +101,8 @@ namespace TheWaningBorder.UI.Ingame
             okr.anchoredPosition = new Vector2(-104f, 0f); okr.sizeDelta = new Vector2(84f, 84f);
             Label(ok.transform, "Text", "✓", 36f, new Color(0.1f, 0.08f, 0.02f), TextAlignmentOptions.Center);
             UITooltip.Bind(ok.gameObject, Loc.T("Confirm (Enter)"));
-            var no = MakeButton(_confirm, "Cancel", out _, ClosePopups);
+            var no = MakeButton(_confirm, "Cancel", out var nobg, ClosePopups);
+            nobg.color = GameUIKit.Danger;   // every Cancel is red
             var nor = (RectTransform)no.transform;
             nor.anchorMin = nor.anchorMax = new Vector2(1f, 0.5f); nor.pivot = new Vector2(1f, 0.5f);
             nor.anchoredPosition = new Vector2(-12f, 0f); nor.sizeDelta = new Vector2(84f, 84f);

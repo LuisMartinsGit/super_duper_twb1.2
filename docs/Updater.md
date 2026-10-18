@@ -180,11 +180,11 @@ that no tester ever received.
 ## 4. What a tester gets
 
 One file, `TWBLauncher.exe`, which they can run from anywhere — Downloads, the
-desktop, a USB stick. It installs into a **fixed per-user root** and never
-into its own folder:
+desktop, a USB stick. It installs into **one remembered root, chosen by the
+tester on the first install**, and never into its own folder:
 
 ```
-%LOCALAPPDATA%\Programs\Shardroot Entertainment\The Waning Border\
+ROOT\                 suggested: %LOCALAPPDATA%\Programs\Shardroot Entertainment\The Waning Border\
   TWBLauncher.exe     the launcher; the GAME keeps it current after each update
   version.txt         the installed version
   launcher.log        one line per decision the updater took (patch declined, ...)
@@ -196,9 +196,27 @@ into its own folder:
 ```
 
 plus a Start Menu entry, *Shardroot Entertainment > The Waning Border*, that
-points at the root launcher.
+points at the root launcher (rewritten if it points at another folder).
 
-**Why the root is fixed (2026-09-23).** It used to be the launcher's own
+**Choosing the root (2026-10-16, `InstallLocation.cs`).** The first install
+asks where to put the game, suggesting the per-user folder above; *Browse*
+picks a parent and appends the product folder. The folder must be empty, new,
+or an existing install (choosing one adopts it as it is), and writable — the
+check writes a probe file, so Program Files without admin rights is refused
+there and then. The choice is stored as `installRoot` in the edition's
+settings file (`%APPDATA%\TheWaningBorder\`), so it survives a re-download of
+the launcher. Resolution order on every start: the remembered folder if it
+exists; else the default folder if it already holds an install (every tester
+from before this change — never asked); else ask. A remembered folder that is
+gone (moved, deleted, drive unplugged) asks again, saying so — pointing at the
+moved folder adopts it. The download cache is `ROOT\download\`, not `%TEMP%`,
+so installing on another drive does not need the zip to fit on C:. The game
+needs no change: it finds the launcher as `..\TWBLauncher.exe` from `game\`.
+The launcher window shows the folder under its title on every start
+("Installed in …", or "Installing into …" on a first install), as a link
+that opens it in Explorer.
+
+**Why there is one root (2026-09-23).** It used to be the launcher's own
 folder. Since every build carries a launcher at `game\TWBLauncher.exe`, that
 copy was a second, fully working install root: a tester who pinned it (it is
 in the folder they see the game in) got a second 1.1 GB build at `game\game\`,

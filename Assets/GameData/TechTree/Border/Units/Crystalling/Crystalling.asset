@@ -53,7 +53,8 @@ MonoBehaviour:
   - Light
   bonusVsTags: []
   preferTargets: []
-  abilities: []
+  abilities:
+  - Veil Offering
   prefab: {fileID: 2978161759476928202, guid: 855ce4916bb3df44c87f2d75699aa999, type: 3}
   presentationId: 320
   animatorController: {fileID: 0}
