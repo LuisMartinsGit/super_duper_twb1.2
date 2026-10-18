@@ -41,10 +41,11 @@ namespace TheWaningBorder.Input
             // SpellPanel / CultureChoicePopup) removed with the old UI
             // (2026-07-17); the EventSystem check above covers the final uGUI.
 
-            // Block while aiming an ability with the ground-target ring
-            // (sect powers / Reliquary abilities) — GroundTargeting owns the
-            // mouse until cast or cancel.
-            if (GroundTargeting.IsActive)
+            // Block while a spell is aimed — the ground ring (GroundTargeting)
+            // or the entity pick (EntityTargeting) owns the mouse until cast
+            // or cancel, and for the rest of the press that ended it
+            // (docs/Design/Spells.md §6).
+            if (AimingInput.HoldsPointer)
                 return true;
 
             // Block during building placement

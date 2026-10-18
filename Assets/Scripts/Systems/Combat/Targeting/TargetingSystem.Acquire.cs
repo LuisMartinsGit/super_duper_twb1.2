@@ -353,6 +353,8 @@ namespace TheWaningBorder.Systems.Combat
         {
             int myF = (int)myFaction;
             if (myF < 0 || myF >= FactionSlots) return Entity.Null;
+            bool rogueScan = TransientState.Active<SectDisordered>(em, self);
+            int row = rogueScan ? RogueSlot : myF;
 
             // Two-pass scan throughout: track both absolute-nearest enemy
             // ("anyBest") and nearest under-cap enemy ("underBest"). Pick
@@ -397,10 +399,11 @@ namespace TheWaningBorder.Systems.Combat
 
             // Hostile factions only: allies' buckets are never visited
             // (docs/Design/Teams.md — allies are never auto-acquired).
-            for (int f = 0; f < FactionSlots; f++)
+            for (int f = 0; f < GridSlots; f++)
             {
                 if (scan.FactionPresent[f] == 0) continue;
-                if (scan.Hostile[myF * FactionSlots + f] == 0) continue;
+                if (scan.Hostile[row * GridSlots + f] == 0) continue;
+                bool ownSide = scan.Hostile[myF * GridSlots + f] == 0;
 
                 for (int dx = -radius; dx <= radius; dx++)
                 {
@@ -412,7 +415,9 @@ namespace TheWaningBorder.Systems.Combat
                         {
                             var ec = scan.Grid.Cands[k];
                             if (ec.Health <= 0) continue;
+                            if (ec.E == self) continue;
                             byte flags = ec.Flags;
+                            if (ownSide && (flags & FlagBuilding) != 0) continue;
 
                             // Buildings-only siege: units are invisible to
                             // the ram's target scan.

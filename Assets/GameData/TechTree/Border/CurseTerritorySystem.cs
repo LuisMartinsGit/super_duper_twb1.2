@@ -258,6 +258,7 @@ namespace TheWaningBorder.Systems.Border
                     _nextExpandAt = now + borderSettings.expansionSeconds / bonus;
                 }
                 TickAttackWaves(em, now, borderSettings);
+                TickArmyConversion(em, now, borderSettings);
                 ShepherdLiving(em, now, borderSettings);
                 return;
             }

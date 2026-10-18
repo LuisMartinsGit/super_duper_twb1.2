@@ -54,6 +54,9 @@ namespace TheWaningBorder.Systems.Combat
         [Unity.Collections.ReadOnly] public ComponentLookup<Invulnerable> Invulnerable;
         [Unity.Collections.ReadOnly] public ComponentLookup<TheWaningBorder.Abilities.TempDisarm> TempDisarm;
         [Unity.Collections.ReadOnly] public ComponentLookup<TheWaningBorder.Core.Commands.Types.AttackCommand> AttackCommand;
+        /// <summary>Friendly Fire (Sects.md, 2026-10-18): a frenzied unit
+        /// hurts and is hurt by everyone, its own side included.</summary>
+        [Unity.Collections.ReadOnly] public ComponentLookup<SectDisordered> Disordered;
 
         public static CombatLookups Create(ref SystemState state) => new CombatLookups
         {
@@ -82,10 +85,12 @@ namespace TheWaningBorder.Systems.Combat
             Invulnerable = state.GetComponentLookup<Invulnerable>(true),
             TempDisarm = state.GetComponentLookup<TheWaningBorder.Abilities.TempDisarm>(true),
             AttackCommand = state.GetComponentLookup<TheWaningBorder.Core.Commands.Types.AttackCommand>(true),
+            Disordered = state.GetComponentLookup<SectDisordered>(true),
         };
 
         public void Update(ref SystemState state)
         {
+            Disordered.Update(ref state);
             Health.Update(ref state);
             Faction.Update(ref state);
             Transform.Update(ref state);
@@ -322,14 +327,24 @@ namespace TheWaningBorder.Systems.Combat
         /// through the shared lookups (the per-unit combat loops).</summary>
         public static bool CanDamage(in CombatLookups lk, Entity attacker, Entity target)
         {
+            if (Frenzied(in lk, attacker) || Frenzied(in lk, target)) return attacker != target;
             if (!lk.Faction.TryGetComponent(attacker, out var af)
                 || !lk.Faction.TryGetComponent(target, out var tf))
                 return true;
             return Alliances.AreHostile(af.Value, tf.Value);
         }
 
+        /// <summary>A unit under Friendly Fire: hostile to everyone, everyone
+        /// hostile to it, whatever the factions say.</summary>
+        public static bool Frenzied(in CombatLookups lk, Entity e)
+            => lk.Disordered.HasComponent(e) && lk.Disordered.IsComponentEnabled(e);
+
+        public static bool Frenzied(EntityManager em, Entity e)
+            => TransientState.Active<SectDisordered>(em, e);
+
         public static bool CanDamage(EntityManager em, Entity attacker, Entity target)
         {
+            if (Frenzied(em, attacker) || Frenzied(em, target)) return attacker != target;
             if (!em.HasComponent<FactionTag>(attacker) || !em.HasComponent<FactionTag>(target))
                 return true;
 
@@ -348,7 +363,8 @@ namespace TheWaningBorder.Systems.Combat
             // faction check of their own — they damage whatever is in Target.
             // A zero here means any path that slips through, now or later,
             // still cannot hurt a teammate. docs/Design/Teams.md
-            if (em.HasComponent<FactionTag>(attacker) && em.HasComponent<FactionTag>(target))
+            if (em.HasComponent<FactionTag>(attacker) && em.HasComponent<FactionTag>(target)
+                && !Frenzied(em, attacker) && !Frenzied(em, target))
             {
                 var af = em.GetComponentData<FactionTag>(attacker).Value;
                 var tf = em.GetComponentData<FactionTag>(target).Value;

@@ -100,12 +100,26 @@ namespace TheWaningBorder.Feraldis
         /// caster's, so the raze bounty / curse-node bounty pay as usual.
         /// The one non-siege effect that may destroy a wall (Combat_Pacing.md).
         /// </summary>
-        public static void Raze(EntityManager em, Entity caster)
+        public static void Raze(EntityManager em, Entity caster, Entity picked = default)
         {
-            if (!em.HasComponent<AbilityAimPoint>(caster) || !em.HasComponent<FactionTag>(caster)) return;
+            if (!em.HasComponent<FactionTag>(caster)) return;
             var c = FeraldisCombat.Cfg;
-            float3 aim = em.GetComponentData<AbilityAimPoint>(caster).Position;
             var fac = em.GetComponentData<FactionTag>(caster).Value;
+
+            // The clicked building (docs/Design/Spells.md §6) — already checked
+            // by AbilityTargetRules (enemy building, in range) before the
+            // cooldown was charged.
+            if (picked != Entity.Null && picked != caster && em.Exists(picked)
+                && em.HasComponent<BuildingTag>(picked) && em.HasComponent<Health>(picked))
+            {
+                RazeOne(em, caster, fac, picked, c);
+                return;
+            }
+
+            // No entity (the ability showcase): the nearest hostile building
+            // to the aimed point, as before.
+            if (!em.HasComponent<AbilityAimPoint>(caster)) return;
+            float3 aim = em.GetComponentData<AbilityAimPoint>(caster).Position;
 
             var q = QC_Buildings.Get(em, QT_Buildings);
             using var ents = q.ToEntityArray(Allocator.Temp);
@@ -119,7 +133,12 @@ namespace TheWaningBorder.Feraldis
                 best = ents[i]; bestD = d;
             }
             if (best == Entity.Null) return;
+            RazeOne(em, caster, fac, best, c);
+        }
 
+        private static void RazeOne(EntityManager em, Entity caster, Faction fac, Entity best,
+            FeraldisCombatConfig c)
+        {
             var hp = em.GetComponentData<Health>(best);
             if (hp.Value <= 0) return;
             if (em.HasComponent<LastDamagedByFaction>(best))

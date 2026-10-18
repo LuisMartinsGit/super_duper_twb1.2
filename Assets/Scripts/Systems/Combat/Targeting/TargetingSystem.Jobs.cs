@@ -116,6 +116,7 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public ComponentLookup<GuardSuppressed> Suppressed;
             [ReadOnly] public ComponentLookup<LitharchState> Litharch;
             [ReadOnly] public ComponentLookup<SectVeiled> Veiled;
+            [ReadOnly] public ComponentLookup<SectDisordered> Disordered;
             [ReadOnly] public EntityStorageInfoLookup Storage;
 
             public static bool On<T>(in ComponentLookup<T> lk, Entity e)
@@ -236,6 +237,7 @@ namespace TheWaningBorder.Systems.Combat
             Suppressed = SystemAPI.GetComponentLookup<GuardSuppressed>(true),
             Litharch = SystemAPI.GetComponentLookup<LitharchState>(true),
             Veiled = SystemAPI.GetComponentLookup<SectVeiled>(true),
+            Disordered = SystemAPI.GetComponentLookup<SectDisordered>(true),
             Storage = SystemAPI.GetEntityStorageInfoLookup(),
         };
 
@@ -259,6 +261,9 @@ namespace TheWaningBorder.Systems.Combat
 
             int myF = (int)myFaction;
             if (myF < 0 || myF >= FactionSlots) return;
+            // A frenzied scanner scans as the rogue row: everyone is its enemy.
+            bool rogueScan = UnitLookups.On(in lk.Disordered, self);
+            int row = rogueScan ? RogueSlot : myF;
 
             bool isMelee = rules.IsMelee != 0;
             bool selfOnRampart = isMelee && lk.IsOnRampart(self);
@@ -284,10 +289,13 @@ namespace TheWaningBorder.Systems.Combat
                 (int)math.floor(myPos.x / TargetingCellSize),
                 (int)math.floor(myPos.z / TargetingCellSize));
 
-            for (int f = 0; f < FactionSlots; f++)
+            for (int f = 0; f < GridSlots; f++)
             {
                 if (scan.FactionPresent[f] == 0) continue;
-                if (scan.Hostile[myF * FactionSlots + f] == 0) continue;
+                if (scan.Hostile[row * GridSlots + f] == 0) continue;
+                // its own side's ground: a frenzied unit fights units there,
+                // never its side's buildings
+                bool ownSide = scan.Hostile[myF * GridSlots + f] == 0;
 
                 for (int dx = -radius; dx <= radius; dx++)
                 {
@@ -299,7 +307,9 @@ namespace TheWaningBorder.Systems.Combat
                         {
                             var ec = scan.Grid.Cands[k];
                             if (ec.Health <= 0) continue;
+                            if (ec.E == self) continue;
                             byte flags = ec.Flags;
+                            if (ownSide && (flags & FlagBuilding) != 0) continue;
 
                             if (rules.BuildingsOnly != 0 && (flags & FlagBuilding) == 0) continue;
                             if (rules.NonSiege != 0 && (flags & FlagWall) != 0) continue;

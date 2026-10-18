@@ -163,6 +163,15 @@ namespace TheWaningBorder.Abilities
         public bool AimedAtPoint;
 
         /// <summary>
+        /// What a SingleTarget card is cast ON (docs/Design/Spells.md §6).
+        /// Anything but None makes the player click the unit or building
+        /// itself, and the engine re-checks the pick (CastTargetRules) before
+        /// the cooldown is charged. None on every card that is not cast on an
+        /// entity.
+        /// </summary>
+        public CastTargetKind TargetKind;
+
+        /// <summary>
         /// Hero level at which this ability becomes available. 1 = always, and
         /// that is every ability shipped before 2026-09-08, so nothing already
         /// authored changes behaviour.
@@ -204,6 +213,9 @@ namespace TheWaningBorder.Abilities
 
         /// <summary>True when the player must pick a ground point to cast it.</summary>
         public bool IsAimed => Targeting == AbilityTargeting.Area && AimedAtPoint && Radius > 0f;
+
+        /// <summary>True when the player must click a unit or building to cast it.</summary>
+        public bool IsEntityTargeted => TargetKind != CastTargetKind.None;
 
         public bool HasEffect(AbilityEffectKind kind)
         {

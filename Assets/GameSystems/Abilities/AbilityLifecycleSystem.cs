@@ -128,6 +128,14 @@ namespace TheWaningBorder.Abilities
                     var card = AbilityCatalog.Get(idx);
                     if (card == null) continue;
 
+                    // A single-target card is cast ON an entity: re-check the
+                    // pick on every peer BEFORE the cooldown is charged. A
+                    // ground click, the wrong kind, a target out of range or
+                    // one that died since the click costs nothing (the client
+                    // already explained). docs/Design/Spells.md §6.
+                    if (card.IsEntityTargeted
+                        && !AbilityTargetRules.Check(em, card, e, target, out _)) continue;
+
                     // Channelled: the cooldown waits for the channel to land
                     // (section 3). Instant: charged now, then applied.
                     // docs/Design/Spells.md, "Cast and interrupt".
@@ -174,6 +182,11 @@ namespace TheWaningBorder.Abilities
                 TransientState.Clear<AbilityCastState>(em, e);
                 var card = AbilityCatalog.Get(c.AbilityIndex);
                 if (card == null) continue;
+                // The target died, vanished or stopped being legal during the
+                // channel: the channel breaks like an interrupt -- no effect,
+                // no cooldown (docs/Design/Spells.md §6).
+                if (card.IsEntityTargeted
+                    && !AbilityTargetRules.Check(em, card, e, c.Target, out _)) continue;
                 SetCooldown(em, e, c.Slot, card.EffectiveCooldown);
                 AbilityEffectExecutor.Apply(em, e, card, c.Target);
             }

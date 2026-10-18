@@ -45,6 +45,15 @@ author a bespoke number.
 | Name | Radius | Use for |
 |---|---|---|
 | **Single Target** | one entity | surgical effects, execute-style damage, building shutdown |
+
+**A Single Target power is cast by clicking the unit or building itself**
+(2026-10-18, [Spells.md](Spells.md) §6): the cursor picks the entity under it,
+the power names which kind it may be cast on (enemy unit, own building,
+friendly building, ...), and a click on the ground or on the wrong kind is
+refused with a message and costs no cooldown. "Own" is the caster's faction;
+team allies count only where a power says *friendly*. The effect lands on that
+entity after the wind-up; if it is gone by then, nothing happens and the
+cooldown is refunded. The per-power target list is in Spells.md §2.
 | **Small** | 8 m | a squad, one building cluster |
 | **Medium** | 15 m | an engagement, a base district |
 | **Large** | 25 m | an army, a whole base |
@@ -164,8 +173,20 @@ inside your territory, half of it outside. Both players can see which applies.
 **[B] Embargo** — one enemy building stops training, research and income;
 queue progress is kept. **Always single target**; lasts **20 / 30 / 40 s**.
 
-**[★] Friendly Fire** — units in the area turn hostile to everyone around
-them for **8 s / 20 s / until killed**. **S / M / L**.
+**[★] Friendly Fire** — enemy units in the area go mad for **8 s / 20 s /
+until killed**. **S / M / L**. *(Reworked 2026-10-18, developer: "Units
+targeted by friendly fire do not change ownership. They target each other and
+become uncontrollable. I want the player to read it as 'my army committed
+suicide' and not 'my army got conquered by the curse'.")*
+- The units **keep their owner and colour** — they are never the curse's.
+- Their owner **cannot control** them (player or AI) while it lasts.
+- They **attack everyone near them, their own side included** (each other
+  too), and everyone may attack them; they never attack their own side's
+  buildings. Allies of the caster are not affected.
+- Its cooldown is **far longer** than the other wildcards' (the value is in
+  `SpellLadder.FriendlyFireCooldown`, developer: "dramatically increase").
+- Code: `SectDisordered` + `NotControllableTag`; TargetingSystem's rogue
+  bucket and `CombatDamageHelper.Frenzied` let the hits through.
 
 **[BUILDING] Reliquary** — while it stands, your sect powers recharge faster.
 (Its old Scry / Lockout / Vision building actives are retired.)

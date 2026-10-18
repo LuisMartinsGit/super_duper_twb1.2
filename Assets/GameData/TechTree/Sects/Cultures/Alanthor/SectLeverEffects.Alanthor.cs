@@ -58,14 +58,14 @@ namespace TheWaningBorder.Economy
                     return level switch
                     {
                         1 => Spec(SectActivePowerKind.HostileConversion, SectRadius.Small, "Friendly Fire",
-                                  "Units in a small area turn hostile to everyone around them for 8s.",
-                                  duration: 8f, cooldown: SpellLadder.SectWildcardCooldown),
+                                  "Enemy units in a small area go mad for 8s: their owner loses control and they attack everyone near them, their own side included.",
+                                  duration: 8f, cooldown: SpellLadder.FriendlyFireCooldown),
                         2 => Spec(SectActivePowerKind.HostileConversion, SectRadius.Medium, "Friendly Fire",
-                                  "Units in a medium area turn hostile to everyone for 20s.",
-                                  duration: 20f, cooldown: SpellLadder.SectWildcardCooldown),
+                                  "Enemy units in a medium area go mad for 20s: their owner loses control and they attack everyone near them, their own side included.",
+                                  duration: 20f, cooldown: SpellLadder.FriendlyFireCooldown),
                         _ => Spec(SectActivePowerKind.HostileConversion, SectRadius.Large, "Friendly Fire",
-                                  "Units in a large area turn hostile to everyone until killed.",
-                                  duration: Permanent, cooldown: SpellLadder.SectWildcardCooldown),
+                                  "Enemy units in a large area go mad until killed: their owner loses control and they attack everyone near them, their own side included.",
+                                  duration: Permanent, cooldown: SpellLadder.FriendlyFireCooldown),
                     };
             }
         }

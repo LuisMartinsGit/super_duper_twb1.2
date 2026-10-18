@@ -218,6 +218,12 @@ namespace TheWaningBorder.Input
             if (TheWaningBorder.Core.PresentationState.PlacingBuilding)
                 return true;
 
+            // Block while a spell is aimed, and for the press that cast it:
+            // the click that picks a spell's target must not also select it
+            // (docs/Design/Spells.md §6).
+            if (AimingInput.HoldsPointer)
+                return true;
+
             return false;
         }
 

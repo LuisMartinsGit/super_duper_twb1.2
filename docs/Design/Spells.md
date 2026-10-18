@@ -48,7 +48,8 @@ damage also goes through §3. They are not part of this model.
 | `Duration` | seconds the effect lasts (-1 = permanent passive) |
 | `Cooldown` | seconds before a recast, **charged when the cast completes**. 0 = *auto* (§5) |
 | `Radius` / `Range` | area size / cast range. On an aimed card, Range 0 means unlimited |
-| `AimedAtPoint` | **new.** The player picks a ground point with the targeting ring. False for an Area card that forms around the caster wherever he stands (War Horn, Full Gallop, Honour thy Pledge, Choreographed Volleys, Shardbound Fury). True only for Use Celestar |
+| `AimedAtPoint` | **new.** The player picks a ground point with the targeting ring. False for an Area card that forms around the caster wherever he stands (War Horn, Full Gallop, Honour thy Pledge, Choreographed Volleys, Shardbound Fury). True for the ground-aimed cards: Use Celestar, Leap, Cleanse |
+| `TargetKind` | **new (2026-10-18).** What a `SingleTarget` card is cast ON: one of *enemy unit*, *own unit*, *friendly unit* (own or team ally), *any unit*, *enemy building*, *own building*, *friendly building*, *any building*, *enemy unit or building*; *None* for every card that is not cast on an entity. Set on Stamp of Record and Lancet (enemy unit), Liquidate (own building, never the capital) and Raze (enemy building, walls and curse structures included). See §6 |
 | `Damage` | **new.** Damage per victim (0 = deals none). Shardbound Fury: 60, the landing slam |
 | `DamageType` | **new.** The armor column the damage is measured against. **Magic** unless the design names another type |
 | `Effects[]` | structured effects (`AbilityEffectKind` + value) |
@@ -75,8 +76,33 @@ are unchanged. New:
   Attainder it is the amount *per kill*. For every other kind it is 0
   (Spite's `Magnitude` is its per-head **cap**, not a damage figure).
 
+- `Target` (**2026-10-18**, read-only, derived from `Kind` + `Reach` in
+  `SectLeverEffects.TargetOf`): what a single-target power is cast ON, with
+  the same values as a card's `TargetKind`. A power whose reach is Single
+  names an entity kind, and so do Ward Discharge and Unmake at every level
+  (their radius is a trigger / splash, not the pick); every area power is
+  *None* and keeps the ground ring. Per power:
+
+  | Power | Target |
+  |---|---|
+  | Antiquity: Embargo | enemy building (never a curse structure; team allies are never hit) |
+  | Fortitude: Ward Discharge (every level) | own finished building |
+  | Fortitude: Emergency Repairs I | friendly building (own or team ally), not one already reinforced |
+  | Prosperity: Bounty | enemy unit |
+  | Prosperity: Overtime | own building |
+  | Witness: Spy Network | enemy unit not already a spy |
+  | War: Call to Arms I | own building that trains (has a production queue) |
+  | Justice: Sentence (single) | enemy unit or building (no wall, no curse structure) |
+  | Ruin: Unmake (every level) | enemy building (no wall, no curse structure) |
+  | Fortitude: Fortify | **None**: a ground point (where the structure rises) |
+  | Prosperity: Plenty | **None**: untargeted, cast at once |
+
+  The higher levels of Emergency Repairs and Call to Arms are areas (Small /
+  Medium) and keep the ring.
+
 The damage type rides the `PendingSectStrike` (`DamageKind`) for the same
 reason `Secondary` does: a strike resolves with the values it was fired with.
+So does the target entity (`Target`) of an entity-targeted power.
 
 ## 3. Damage routing: one door
 
@@ -180,6 +206,49 @@ wind-up is a dodge window, not a channel, so nothing interrupts it.
 - An ability is **aimed** (it puts up the targeting ring) exactly when
   `Targeting == Area && AimedAtPoint`. This fixes Use Celestar, which could not
   be aimed because the old gate demanded `Range > 0`.
+- **Single-target spells are cast by clicking the unit or building itself
+  (2026-10-18).** They used to put up a small ground ring and then hit
+  "whatever stood nearest the point", which read as an area spell and could
+  land on the wrong thing. Now a card with a `TargetKind`, and a sect power
+  with a `Target`, enter the **entity pick** (`EntityTargeting`) instead of
+  the ring:
+  - the cursor ray picks the entity under it (the same pick a selection click
+    uses, `ScreenPick`), and the hovered entity is **outlined on the ground**,
+    green when it is a legal target and red when it is not, with a hint by
+    the cursor ("Pick an enemy unit", or why the hovered thing is refused);
+  - only what the player can **see** may be picked: an enemy standing in fog
+    is not a target;
+  - a click on the **ground** or on the **wrong kind** (a unit for a building
+    power, an ally for an enemy power, a wall for Unmake, the capital for
+    Liquidate, a target beyond the card's `Range`) is **refused** with an
+    on-screen message, **no cooldown is spent**, and the player keeps aiming;
+    right-click or Esc cancels;
+  - the confirming click belongs to the spell: it does not also select what
+    was clicked, and the press is not passed on to the order input. (The
+    ground ring follows the same rule.)
+- **"Own" means the caster's faction.** A target kind reaches team allies only
+  where it says *friendly* (Emergency Repairs I). Enemy means
+  `Alliances.AreHostile` ([Teams.md](Teams.md)), so a team ally is never an
+  enemy target.
+- **The simulation re-checks the target** on every peer (lockstep) before the
+  cooldown is charged: the command carries the target's network id, and a
+  target that is gone, dead, of the wrong kind or out of range when the
+  command executes is dropped silently (the client already explained) and
+  costs nothing. The AI casts the same way: it picks a target entity, which
+  goes through the same check.
+- **If the target dies before the spell lands:**
+  - *Ability cards*: an instant card lands the tick it is checked. A
+    channelled card (Raze, 1 s) re-checks when the channel completes; a
+    target that is gone or no longer legal then **breaks the channel** like an
+    interrupt (§4): no effect and no cooldown.
+  - *Sect powers*: the cooldown is charged when the power is fired (§4) and
+    the effect lands on the target entity after the wind-up, wherever it has
+    moved to. A target that died, vanished or stopped being a legal target
+    during the wind-up takes nothing, and **the cooldown is refunded**.
+- **Range.** A card's `Range` (Raze: 10 m) is measured from the caster to the
+  target's footprint edge, on the client and again in the simulation. Range 0
+  means unlimited. The caster does not walk into range by himself: move him
+  closer and cast again.
 - Card tooltips now describe `FireRatePct`, `SummonPledgeArmy` and
   `ShardboundFury`, and add a damage line ("deals 60 magic damage") and a
   channel line.
@@ -268,7 +337,7 @@ Shardroot sell, and a level that also shortened the cooldown sold it twice.
 | Sect damage | **75 s** | Writ of Attainder, Sentence, Unmake, Spite, Pyre |
 | Building active | **90 s** | the Reliquary's Scry, Lockout and Vision |
 | Hero ultimate | **120 s** | Honour thy Pledge, Shardbound Fury |
-| Sect wildcard | **120 s** | Sew Disorder, Immovable III, Raise Anew I |
+| Sect wildcard | **120 s** | Immovable III, Raise Anew I (Sew Disorder / Friendly Fire has its own, far longer cooldown since 2026-10-18) |
 | Map-wide | **150 s** | Blood Rain, Nowhere to Hide |
 | Deployable structure | **300 s** | Deploy Field Hospital |
 | Economy card, auto | duration + 1 s | Automate Facility (its Under Automation lockout is the brake) |
@@ -336,7 +405,10 @@ refreshing.
 ### 8.5 Radii
 
 Every area uses one of the four canon radii of [Sects.md](Sects.md) §2 -
-Single 1.5, Small 8, Medium 15, Large 25 m - including the ability cards. A
+Single 1.5, Small 8, Medium 15, Large 25 m - including the ability cards.
+**Single is not an area**: a single-target spell is cast on the entity the
+player clicks (§6), so its 1.5 m is only the size of the telegraph drawn on
+that entity, never a pick radius. A
 value between two snaps to the nearest; a tie snaps to the smaller. Honour
 thy Pledge's 6 m is a spawn ring (where the soldiers appear), not an area of
 effect, and is exempt.
@@ -386,7 +458,7 @@ Reliquary building level III still cuts its three cooldowns by 30 %.
 |---|---|---|---|---|
 | Antiquity: **Writ of Attainder** | damage | 55/50/45 -> **75** | 40/60/80 per kill, uncapped -> **30 per kill, max 120** (4 kills); III floor 60 -> **30** | S / M / L |
 | Antiquity: Heavy Bureaucracy | tactical | 75/67/60 -> **60** | 30 s -> **20 s** shutdown | Single / S / L |
-| Antiquity: Sew Disorder | wildcard | 150/135/120 -> **120** | 8 s / 20 s / until killed | S / M / L |
+| Antiquity: Sew Disorder (Friendly Fire) | wildcard | 150/135/120 -> 120 -> **`SpellLadder.FriendlyFireCooldown`** (2026-10-18: far longer than the other wildcards) | 8 s / 20 s / until killed | S / M / L |
 | Renewal: **Hands of Plenty** | tactical | 45/42/40 -> **60** | heal 30/50/80 % -> **45/45/60 %** (III + 10 s regen) | S / M / M |
 | Renewal: Raise Anew | wildcard (exception) | 78/98/117 -> **120/150/180** | Tower / Fortification / Fortress, permanent | Single |
 | Renewal: Second Wind | tactical | 75/70/65 -> **60** | cannot die 6 / 12 / 12 s; III heals 25 % | S / S / M |

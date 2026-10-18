@@ -199,7 +199,7 @@ namespace TheWaningBorder.Abilities
                         TheWaningBorder.Feraldis.HarkonAbilities.Leap(em, caster);
                         break;
                     case AbilityEffectKind.FeraldisRaze:
-                        TheWaningBorder.Feraldis.HarkonAbilities.Raze(em, caster);
+                        TheWaningBorder.Feraldis.HarkonAbilities.Raze(em, caster, target);
                         break;
                     case AbilityEffectKind.FeraldisBloodOath:
                         TheWaningBorder.Feraldis.HarkonAbilities.BloodOath(em, caster, card, dur);
@@ -248,7 +248,7 @@ namespace TheWaningBorder.Abilities
 
                     // The Alanthor sect heroes (docs/Design/Sects.md §4).
                     case AbilityEffectKind.SectStampOfRecord:
-                        TheWaningBorder.Systems.Sect.SectHeroAbilities.StampOfRecord(em, caster, card);
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.StampOfRecord(em, caster, card, target);
                         break;
                     case AbilityEffectKind.SectRecall:
                         TheWaningBorder.Systems.Sect.SectHeroAbilities.Recall(em, caster, card);
@@ -257,7 +257,7 @@ namespace TheWaningBorder.Abilities
                         TheWaningBorder.Systems.Sect.SectHeroAbilities.Bloodletting(em, caster, card, e.Value, dur);
                         break;
                     case AbilityEffectKind.SectLancet:
-                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Lancet(em, caster, card, dur);
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Lancet(em, caster, card, dur, target);
                         break;
                     case AbilityEffectKind.SectSallyForth:
                         TheWaningBorder.Systems.Sect.SectHeroAbilities.SallyForth(em, caster, card, dur);
@@ -269,7 +269,7 @@ namespace TheWaningBorder.Abilities
                         TheWaningBorder.Systems.Sect.SectHeroAbilities.Stake(em, caster, dur);
                         break;
                     case AbilityEffectKind.SectLiquidate:
-                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Liquidate(em, caster, card, e.Value);
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Liquidate(em, caster, card, e.Value, target);
                         break;
                     // Catalogued, Cauterize, Drillmaster and Called In are
                     // auras — SectHeroAuraSystem and StoredStrikeChargeSystem.

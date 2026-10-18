@@ -637,6 +637,30 @@ and its creep keeps fighting the fade at the edge. Runai do not shed the
 curse: they make their peace with it instead (Age_1_Runai.md). A faction in
 Age 0 has chosen no culture, so nothing fades for it yet.
 
+### 6.10 The curse takes an army (2026-10-18)
+
+Developer: "Every 10 minutes the curse can convert an army for itself and
+uses it immediately to attack a random player. The converted army becomes
+visible to all players and they retain any upgrades they had when converted."
+
+- **When:** every `armyConversionSeconds` of match time (the first at that
+  second too), on `BorderSettingsSO`.
+- **Whose army:** a random player (seeded, lockstep) that has at least
+  `armyConversionMinUnits` soldiers — workers, scouts, caravans, heroes, the
+  Shardbound King and units under Friendly Fire never count. The curse takes
+  that player's **largest body of soldiers** (soldiers within
+  `armyConversionLinkRadius` of each other), at most `armyConversionMaxUnits`,
+  nearest its middle first. A player at peace with the curse is never chosen.
+- **What happens to it:** the units become the curse's, keep every upgrade
+  they had (research is written into a unit's own stats), and leave their old
+  owner's control and population. They are **visible to every player**
+  wherever they go (fog and minimap).
+- **At once:** they march as a curse attack wave (§ 6.8 shepherding) on a
+  random **other** player's nearest building — or on their old master if no
+  other player has buildings. Every player is told, and both ends are pinged.
+- This is the curse's own power. Friendly Fire (Sects.md) never changes an
+  owner.
+
 ## 7. Winning
 
 **Elimination is the only victory.** Last player — or last team (Teams.md) —
@@ -1045,3 +1069,18 @@ those numbers belong in this doc.
   (developer, 2026-10-18 — "keep as is"). Every map still has at least one
   (§ 11).
 - "Held" means **claimed** (§ 2): a claim in progress is not held.
+
+**Sanctums follow lighter claim rules (2026-10-18).** Developer: "Sanctum
+territories can be claimed without being connected to the other territories
+and don't need to be built upon to stay claimed."
+
+- **No connection needed.** A Sanctum can be claimed wherever it lies; it
+  does not have to border Fortress-connected ground (the § 10 rule). The
+  age-up gate still applies — claims open at age-up for Sanctums too.
+- **It holds itself.** A claimed Sanctum never decays while it stands empty
+  (§ 2.2's decay needs "no finished building"; a Sanctum counts as held
+  without one), and being cut off from every Fortress does not wear down
+  anything in it. It is still lost the ordinary way: an enemy standing alone
+  in it drains it.
+- It is not a stepping stone: a Sanctum that is not itself connected passes
+  no connection on to its neighbours.

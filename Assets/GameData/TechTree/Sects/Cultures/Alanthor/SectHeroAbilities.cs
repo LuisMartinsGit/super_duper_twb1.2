@@ -89,6 +89,11 @@ namespace TheWaningBorder.Systems.Sect
             return list;
         }
 
+        /// <summary>The entity the player clicked, if one still exists (and is
+        /// not the caster himself); null otherwise.</summary>
+        private static Entity? Live(EntityManager em, Entity picked, Entity caster)
+            => picked != Entity.Null && picked != caster && em.Exists(picked) ? picked : (Entity?)null;
+
         private static Entity NearestUnit(EntityManager em, float3 at, float radius, Faction faction, bool hostile)
         {
             using var near = UnitsNear(em, at, radius, faction, hostile);
@@ -123,9 +128,14 @@ namespace TheWaningBorder.Systems.Sect
         // ── Archivist of Hours ──────────────────────────────────────────────
 
         /// <summary>L3: every ability of the aimed enemy goes on its full cooldown.</summary>
-        public static void StampOfRecord(EntityManager em, Entity caster, AbilityCard card)
+        public static void StampOfRecord(EntityManager em, Entity caster, AbilityCard card,
+            Entity picked = default)
         {
-            var target = NearestUnit(em, AimOf(em, caster), PickRadius, FactionOf(em, caster), hostile: true);
+            // The clicked enemy (checked by AbilityTargetRules before the
+            // cooldown was charged); the nearest-to-aim pick survives only for
+            // callers that pass no entity (the ability showcase).
+            var target = Live(em, picked, caster)
+                ?? NearestUnit(em, AimOf(em, caster), PickRadius, FactionOf(em, caster), hostile: true);
             if (target == Entity.Null) return;
             if (em.HasComponent<UnitAbilities>(target) && em.HasComponent<AbilityCooldowns>(target))
             {
@@ -214,9 +224,11 @@ namespace TheWaningBorder.Systems.Sect
         }
 
         /// <summary>L6: the aimed enemy bleeds for the duration and cannot be healed.</summary>
-        public static void Lancet(EntityManager em, Entity caster, AbilityCard card, float dur)
+        public static void Lancet(EntityManager em, Entity caster, AbilityCard card, float dur,
+            Entity picked = default)
         {
-            var target = NearestUnit(em, AimOf(em, caster), PickRadius, FactionOf(em, caster), hostile: true);
+            var target = Live(em, picked, caster)
+                ?? NearestUnit(em, AimOf(em, caster), PickRadius, FactionOf(em, caster), hostile: true);
             if (target == Entity.Null) return;
             float seconds = math.max(1f, dur);
             TransientState.Set(em, target, new Lanced
@@ -280,10 +292,12 @@ namespace TheWaningBorder.Systems.Sect
         /// <summary>L6: demolish the aimed own building at once for
         /// <paramref name="pct"/>% of everything put into it. The enemy gets no
         /// raze bounty or kill credit. The capital cannot be liquidated.</summary>
-        public static void Liquidate(EntityManager em, Entity caster, AbilityCard card, float pct)
+        public static void Liquidate(EntityManager em, Entity caster, AbilityCard card, float pct,
+            Entity picked = default)
         {
             var faction = FactionOf(em, caster);
-            var building = NearestOwnBuilding(em, AimOf(em, caster), PickRadius + 2f, faction);
+            var building = Live(em, picked, caster)
+                ?? NearestOwnBuilding(em, AimOf(em, caster), PickRadius + 2f, faction);
             if (building == Entity.Null) return;
             if (em.HasComponent<HallTag>(building) || em.HasComponent<FortressTag>(building)) return;
             var worth = TheWaningBorder.Feraldis.FeraldisRaidIncomeSystem.BuildingWorth(em, building, faction);

@@ -168,6 +168,22 @@ namespace TheWaningBorder.AI
                         continue;
                     }
 
+                    // A single-target power is cast ON an entity, never at a
+                    // spot (docs/Design/Spells.md §6): cast it on the legal
+                    // target standing nearest the chosen spot, or hold it.
+                    Entity pick = Entity.Null;
+                    if (spec.Target != TheWaningBorder.Abilities.CastTargetKind.None)
+                    {
+                        pick = SectActivePowerHelper.PickTargetNear(em, faction, spec, target, SectRadii.Small);
+                        if (pick == Entity.Null)
+                        {
+                            if (AITactics.LogDue(em, faction, "sect:" + sectId + slot, AITactics.Cfg.abilityHeldLogSeconds))
+                                AILogger.Log(faction, "ABILITY",
+                                    $"{sectId.Substring(5)} slot {slot} ({spec.Kind}) held (no legal {spec.Target} at the aim)");
+                            continue;
+                        }
+                    }
+
                     // THROUGH THE ROUTER, NEVER Fire() DIRECT (2026-09-04, MP
                     // harness catch #8 — the same class as catch #2). This
                     // system is host-gated, so a direct Fire cast the power on
@@ -179,7 +195,7 @@ namespace TheWaningBorder.AI
                     // vetted the cast; the router re-checks it on every peer.
                     TheWaningBorder.Core.Commands.CommandRouter.IssueSectPower(
                         em, faction, sectId, slot, target,
-                        TheWaningBorder.Core.Commands.CommandSource.AI);
+                        TheWaningBorder.Core.Commands.CommandSource.AI, pick);
                     AILogger.Log(faction, "STRATEGY",
                         $"Alanthor: fired {sectId.Substring(5)} slot {slot} at Lv {level}");
                     AILogger.Log(faction, "ABILITY",

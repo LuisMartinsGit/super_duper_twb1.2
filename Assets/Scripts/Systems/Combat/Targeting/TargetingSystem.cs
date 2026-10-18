@@ -119,6 +119,14 @@ namespace TheWaningBorder.Systems.Combat
 
         /// <summary>Faction slots in the hostility table: 8 players + Border.</summary>
         private const int FactionSlots = 9;
+        /// <summary>FRIENDLY FIRE (Sects.md, 2026-10-18): one more bucket in the
+        /// enemy index, after the nine factions, holding every frenzied unit
+        /// (SectDisordered). Its row and column of the hostility table are all
+        /// hostile, so every scanner — the frenzied unit's own side included —
+        /// sees it as an enemy, and a frenzied scanner (scanning as this row)
+        /// sees everyone. The unit's FactionTag never changes.</summary>
+        private const int RogueSlot = FactionSlots;
+        private const int GridSlots = FactionSlots + 1;
 
         // ── Per-enemy snapshot flags (cached with the enemy set) ─────────
         private const byte FlagBuilding = 1;
@@ -325,10 +333,11 @@ namespace TheWaningBorder.Systems.Combat
 
             // Hostility table, once per tick instead of a team lookup per
             // candidate. Burst-safe variant (SharedStatic team table).
-            var hostile = new NativeArray<byte>(FactionSlots * FactionSlots, Allocator.TempJob);
-            for (int a = 0; a < FactionSlots; a++)
-                for (int b = 0; b < FactionSlots; b++)
-                    hostile[a * FactionSlots + b] = (byte)(Alliances.AreHostileBurst((Faction)a, (Faction)b) ? 1 : 0);
+            var hostile = new NativeArray<byte>(GridSlots * GridSlots, Allocator.TempJob);
+            for (int a = 0; a < GridSlots; a++)
+                for (int b = 0; b < GridSlots; b++)
+                    hostile[a * GridSlots + b] = (byte)(a == RogueSlot || b == RogueSlot
+                        || Alliances.AreHostileBurst((Faction)a, (Faction)b) ? 1 : 0);
 
             // Fix #207 spatial index, keyed PER FACTION as well as per cell:
             // a unit's neighbourhood is mostly its own army, and bucketing by
@@ -355,9 +364,15 @@ namespace TheWaningBorder.Systems.Combat
             // every scan visits the same candidates in the same order as
             // before and every pick is unchanged — it just walks one
             // contiguous record per candidate instead of a hash chain.
-            var factionPresent = new NativeArray<byte>(FactionSlots, Allocator.TempJob);
+            var factionPresent = new NativeArray<byte>(GridSlots, Allocator.TempJob);
+            var disorderedLookup = SystemAPI.GetComponentLookup<SectDisordered>(true);
+            var rogue = new NativeArray<byte>(allEnemies.Length, Allocator.TempJob);
+            for (int i = 0; i < allEnemies.Length; i++)
+                rogue[i] = (byte)(disorderedLookup.HasComponent(allEnemies[i])
+                                  && disorderedLookup.IsComponentEnabled(allEnemies[i]) ? 1 : 0);
             var grid = BuildEnemyGrid(allEnemies, allEnemyTransforms, allEnemyFactions, allEnemyHealth,
-                in sizeLookup, in radiusLookup, factionPresent);
+                in sizeLookup, in radiusLookup, factionPresent, rogue);
+            rogue.Dispose();
 
             // Per-target attacker count — spreads attackers across multiple
             // enemies so rank 2 of a melee column picks a different enemy than
@@ -612,8 +627,8 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     long cx = (long)key.x - MinCx, cz = (long)key.y - MinCz;
                     if (cx < 0 || cx >= CellsX || cz < 0 || cz >= CellsZ
-                        || key.z < 0 || key.z >= FactionSlots) return false;
-                    b = ((int)cz * CellsX + (int)cx) * FactionSlots + key.z;
+                        || key.z < 0 || key.z >= GridSlots) return false;
+                    b = ((int)cz * CellsX + (int)cx) * GridSlots + key.z;
                 }
                 else if (!Sparse.TryGetValue(key, out b)) return false;
                 k0 = Start[b];
@@ -644,7 +659,7 @@ namespace TheWaningBorder.Systems.Combat
         private EnemyGrid BuildEnemyGrid(NativeArray<Entity> ents, NativeArray<LocalTransform> xf,
             NativeArray<FactionTag> fac, NativeArray<Health> hp,
             in ComponentLookup<BuildingSize> sizeLk, in ComponentLookup<Radius> radLk,
-            NativeArray<byte> factionPresent)
+            NativeArray<byte> factionPresent, NativeArray<byte> rogue)
         {
             int n = _cacheOrder.Length;
             _gridBucketOf.ResizeUninitialized(math.max(1, n));
@@ -657,6 +672,7 @@ namespace TheWaningBorder.Systems.Combat
                 int i = _cacheOrder[o];
                 int f = (int)fac[i].Value;
                 if (f < 0 || f >= FactionSlots) continue;
+                if (rogue[i] != 0) f = RogueSlot;
                 var pos = xf[i].Position;
                 int cx = (int)math.floor(pos.x / TargetingCellSize);
                 int cz = (int)math.floor(pos.z / TargetingCellSize);
@@ -668,7 +684,7 @@ namespace TheWaningBorder.Systems.Combat
 
             long cellsX = inserted > 0 ? (long)maxCx - minCx + 1 : 0;
             long cellsZ = inserted > 0 ? (long)maxCz - minCz + 1 : 0;
-            long denseBuckets = cellsX * cellsZ * FactionSlots;
+            long denseBuckets = cellsX * cellsZ * GridSlots;
             bool dense = denseBuckets <= MaxDenseBuckets;
 
             // Pass 2: each inserted enemy's bucket.
@@ -680,13 +696,14 @@ namespace TheWaningBorder.Systems.Combat
                 int i = _cacheOrder[o];
                 int f = (int)fac[i].Value;
                 if (f < 0 || f >= FactionSlots) { _gridBucketOf[o] = -1; continue; }
+                if (rogue[i] != 0) f = RogueSlot;
                 var pos = xf[i].Position;
                 int cx = (int)math.floor(pos.x / TargetingCellSize);
                 int cz = (int)math.floor(pos.z / TargetingCellSize);
                 int b;
                 if (dense)
                 {
-                    b = ((cz - minCz) * (int)cellsX + (cx - minCx)) * FactionSlots + f;
+                    b = ((cz - minCz) * (int)cellsX + (cx - minCx)) * GridSlots + f;
                 }
                 else
                 {

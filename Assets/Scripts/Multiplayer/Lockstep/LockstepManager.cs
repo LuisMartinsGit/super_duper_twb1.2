@@ -1809,14 +1809,13 @@ namespace TheWaningBorder.Multiplayer
 
                 case LockstepCommandType.Ability:
                     {
-                        // EntityNetworkId is the ability *target* (or 0 for self/none).
-                        // The actor was already resolved into `entity` above via the
-                        // command's source-entity mapping. Renamed to avoid shadowing
-                        // the enclosing `targetEntity` declared earlier in this method
-                        // for the AttackCommand path.
-                        Entity abilityTarget = cmd.EntityNetworkId != 0
-                            ? FindEntityByNetworkId(cmd.EntityNetworkId)
-                            : Entity.Null;
+                        // EntityNetworkId is the CASTER (resolved into `entity`
+                        // above); TargetEntityId is the ability's target entity, 0
+                        // for none (QueueAbilityForLockstep). This used to resolve
+                        // the target from EntityNetworkId, so every replicated
+                        // single-target cast was aimed at the caster himself
+                        // (docs/Design/Spells.md §6, 2026-10-18).
+                        Entity abilityTarget = targetEntity;
                         // SecondaryTargetId carries the named ability slot as
                         // slot+1, so an unset 0 decodes to -1 ("first ready
                         // active") and matches every pre-hero command.
@@ -1904,8 +1903,14 @@ namespace TheWaningBorder.Multiplayer
                 case LockstepCommandType.SectPower:
                     {
                         Faction caster = (Faction)cmd.EntityNetworkId;
+                        // SecondaryTargetId: the network id of the entity a
+                        // single-target power is cast on (0 = none). An id
+                        // that no longer resolves gives Entity.Null, which
+                        // Fire refuses for such a power on every peer alike.
+                        Entity sectTarget = cmd.SecondaryTargetId > 0
+                            ? FindEntityByNetworkId(cmd.SecondaryTargetId) : Entity.Null;
                         CommandRouter.SectPowerDirect(em, caster, cmd.BuildingId,
-                            cmd.TargetEntityId, cmd.TargetPosition);
+                            cmd.TargetEntityId, cmd.TargetPosition, sectTarget);
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed SectPower {cmd.BuildingId} t{cmd.TargetEntityId} from player {cmd.PlayerIndex}");
                     }
                     break;

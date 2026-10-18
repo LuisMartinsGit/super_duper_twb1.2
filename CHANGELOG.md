@@ -9,6 +9,40 @@ build always name the same number.
 
 ---
 
+## [0.0.47] — 2026-10-18
+
+### Added
+- **The curse takes an army.** Every 10 minutes the curse seizes the largest
+  group of soldiers of a random player (never heroes, workers or scouts) and
+  sends it straight at another random player. The seized units keep every
+  upgrade they had and are visible to every player wherever they go.
+
+### Changed
+- **Friendly Fire no longer hands units to the curse.** Units it hits keep
+  their owner and colour, but their owner loses control of them and they
+  attack everyone near them — their own side and each other included. They
+  never attack their own side's buildings, and the caster's allies are spared.
+  Its cooldown is now much longer.
+- **Single-target abilities and powers are cast by clicking the target.** No
+  more circle: aim at the unit or building itself (it is outlined green when
+  it is a legal target, red when not). Clicking the ground or the wrong kind
+  of target is refused with a message and costs nothing. Affects Stamp of
+  Record, Lancet, Liquidate, Raze (its 10 m range is now enforced), Embargo,
+  Ward Discharge, Emergency Repairs I, Bounty, Overtime, Spy Network,
+  Call to Arms I, Sentence and Unmake. If the target dies before a power
+  lands, its cooldown is refunded.
+- **Sanctums can be claimed anywhere** — they no longer need to border your
+  connected territory — and they stay claimed without a building, even when
+  cut off from your Fortresses.
+
+### Fixed
+- In multiplayer, an ability cast on a unit could resolve its target as the
+  caster itself.
+- The click that confirms or cancels an aimed spell no longer also selects
+  the unit under it or issues a move order.
+
+---
+
 ## [0.0.46] — 2026-10-18
 
 ### Added

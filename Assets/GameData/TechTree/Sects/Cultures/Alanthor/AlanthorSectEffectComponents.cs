@@ -41,14 +41,20 @@ public struct SectShutdown : IComponentData, IEnableableComponent
 }
 
 /// <summary>
-/// Sew Disorder. On a UNIT: it is hostile to everything, including its own
-/// faction, and everything is hostile to it. <c>OriginalFaction</c> is kept
-/// so the unit can be handed back when the effect is not permanent.
+/// Friendly Fire (Sew Disorder; Sects.md, 2026-10-18). On a UNIT: it keeps
+/// its owner and colour, but its owner cannot control it and it is hostile to
+/// everyone — its own side included — and everyone to it (TargetingSystem's
+/// rogue bucket, CombatDamageHelper.Frenzied). It is NOT the curse's: the
+/// player reads "my army turned on itself", not "the curse took it".
+/// <c>OriginalFaction</c> is the owner when it was struck;
+/// <c>AddedNoControl</c> = 1 when the effect added the NotControllableTag
+/// (so the expiry removes only what it added).
 /// </summary>
 public struct SectDisordered : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;   // SectEffectDuration.Permanent at Lv III
     public Faction OriginalFaction;
+    public byte AddedNoControl;
 }
 
 // ── Renewal ─────────────────────────────────────────────────────────────

@@ -48,6 +48,10 @@ namespace TheWaningBorder.Abilities
         /// <summary>The player picks the ground point (targeting ring).</summary>
         public bool aimedAtPoint;
 
+        /// <summary>What a single-target card is cast on (None = not an
+        /// entity). docs/Design/Spells.md §6.</summary>
+        public CastTargetKind targetKind;
+
         public Sprite icon;
         public GameObject vfxPrefab;
 
@@ -73,6 +77,7 @@ namespace TheWaningBorder.Abilities
                 Damage = damage,
                 DamageType = damageType,
                 AimedAtPoint = aimedAtPoint,
+                TargetKind = targetKind,
                 Vfx = vfxPrefab,
             };
         }

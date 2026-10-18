@@ -36,7 +36,8 @@ namespace TheWaningBorder.Core.Commands
         /// worlds disagree about who was alive.
         /// </summary>
         public static void IssueSectPower(EntityManager em, Faction faction, string sectId,
-            int tier, float3 targetPos, CommandSource source = CommandSource.LocalPlayer)
+            int tier, float3 targetPos, CommandSource source = CommandSource.LocalPlayer,
+            Entity targetEntity = default)
         {
             if (string.IsNullOrEmpty(sectId)) return;
 
@@ -47,18 +48,31 @@ namespace TheWaningBorder.Core.Commands
                 // replayed cast cannot fire a power that is not ready.
                 if (!SectActivePowerHelper.CanFire(em, faction, sectId, tier)) return;
 
+                // A single-target power is cast ON an entity (docs/Design/
+                // Spells.md §6): its network id rides SecondaryTargetId (0 =
+                // none) and Fire re-checks the pick on every peer. An entity
+                // with no network id cannot be named on the wire, so the cast
+                // is refused here rather than dropped everywhere else.
+                int targetId = 0;
+                if (targetEntity != Entity.Null)
+                {
+                    targetId = GetNetworkId(em, targetEntity);
+                    if (targetId <= 0) return;
+                }
+
                 LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
                 {
                     Type = LockstepCommandType.SectPower,
                     EntityNetworkId = (int)faction,   // no entity — the faction IS the caster
                     BuildingId = sectId,
                     TargetEntityId = tier,
+                    SecondaryTargetId = targetId,
                     TargetPosition = targetPos
                 });
             }
             else
             {
-                SectActivePowerHelper.Fire(em, faction, sectId, tier, targetPos);
+                SectActivePowerHelper.Fire(em, faction, sectId, tier, targetPos, targetEntity);
             }
         }
 
@@ -127,8 +141,8 @@ namespace TheWaningBorder.Core.Commands
 
         /// <summary>Post-lockstep application. Every peer runs this.</summary>
         public static void SectPowerDirect(EntityManager em, Faction faction, string sectId,
-            int tier, float3 targetPos)
-            => SectActivePowerHelper.Fire(em, faction, sectId, tier, targetPos);
+            int tier, float3 targetPos, Entity targetEntity = default)
+            => SectActivePowerHelper.Fire(em, faction, sectId, tier, targetPos, targetEntity);
 
         // ═══════════════════════════════════════════════════════════════
         // RELIQUARY ABILITIES (Antiquity)

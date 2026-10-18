@@ -135,6 +135,7 @@ namespace TheWaningBorder.Systems.Sect
                 var e = entities[i];
                 var owner = em.GetComponentData<FactionTag>(e).Value;
                 if (owner == faction || owner == Faction.Border) continue;
+                if (Alliances.AreAllied(owner, faction)) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;
@@ -151,16 +152,19 @@ namespace TheWaningBorder.Systems.Sect
         }
 
         /// <summary>
-        /// Sew Disorder. Enemy units in the circle turn hostile to everything,
-        /// their own side included. The original faction is recorded so a
-        /// non-permanent cast can hand them back. Duration 0 means Lv III —
-        /// hostile until killed.
+        /// Friendly Fire (Sew Disorder; Sects.md, 2026-10-18). Enemy units in
+        /// the circle go mad: they KEEP their owner and colour, their owner
+        /// loses control of them (NotControllableTag), and they attack
+        /// everyone near them, their own side included, while everyone may
+        /// attack them. Duration 0 means Lv III — until killed. Allies of the
+        /// caster are spared.
         /// </summary>
         private static void ApplyHostileConversion(EntityManager em, Faction faction,
             float3 center, float radius, float duration)
         {
             float r2 = radius * radius;
             float stored = duration > 0f ? duration : SectEffectDuration.Permanent;
+            int hit = 0, mine = 0;
 
             var query = QC_UnitTagLocalTransformFactionTag.Get(em, QT_UnitTagLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
@@ -182,26 +186,29 @@ namespace TheWaningBorder.Systems.Sect
                 float dx = p.x - center.x, dz = p.z - center.z;
                 if (dx * dx + dz * dz > r2) continue;
 
+                bool hadNoControl = em.HasComponent<NotControllableTag>(e);
                 TransientState.Set(ecb, e, new SectDisordered
                 {
                     TimeRemaining   = stored,
                     OriginalFaction = owner,
+                    AddedNoControl  = (byte)(hadNoControl ? 0 : 1),
                 });
-
-                // "Hostile to all other units" is exactly what Faction.Border
-                // already means to every combat system, so the flip reuses that
-                // plumbing rather than teaching the targeting stack a second
-                // notion of hostility. The tick hands the unit back when the
-                // timer ends; at Lv III it never does.
-                //
-                // Known trade-off: ApplyCircleDamage exempts Faction.Border, so
-                // a disordered unit cannot be finished off by a sect smite while
-                // the effect lasts. Ordinary weapons still kill it.
-                ecb.SetComponent(e, new FactionTag { Value = Faction.Border });
+                // Out of its owner's hands (player and AI alike: selection,
+                // CommandRouter and the AI roster all honour the tag), and its
+                // standing orders dropped so it turns on whoever is nearest.
+                if (!hadNoControl) ecb.AddComponent<NotControllableTag>(e);
+                if (em.HasComponent<Target>(e)) ecb.SetComponent(e, new Target { Value = Entity.Null });
+                if (em.HasComponent<TheWaningBorder.Core.Commands.Types.AttackCommand>(e))
+                    ecb.RemoveComponent<TheWaningBorder.Core.Commands.Types.AttackCommand>(e);
+                hit++;
+                if (owner == GameSettings.LocalPlayerFaction) mine++;
             }
 
             ecb.Playback(em);
             ecb.Dispose();
+            if (mine > 0 && !GameSettings.IsSpectating)
+                TheWaningBorder.Core.SimSignals.Announce(string.Format(
+                    TheWaningBorder.Core.Localization.Loc.T("Friendly Fire! {0} of your units turned on their own side"), mine));
         }
 
         // ── Renewal ─────────────────────────────────────────────────────────

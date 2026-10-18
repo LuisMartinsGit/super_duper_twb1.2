@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   abilityName: "Liquidate"
   activation: 0
-  targeting: 2
+  targeting: 1
   affects: 0
   castTime: 0
   duration: 0
@@ -28,6 +28,7 @@ MonoBehaviour:
   unlocksAtLevel: 6
   damage: 0
   damageType: 0
-  aimedAtPoint: 1
+  aimedAtPoint: 0
+  targetKind: 6
   icon: {fileID: 0}
   vfxPrefab: {fileID: 0}

@@ -146,6 +146,22 @@ namespace TheWaningBorder.Data.Border
         /// whether or not a wave could be sent.</summary>
         [Min(10f)] public float waveIntervalSeconds = 240f;
 
+        // ── Territory_Claims.md §6.10 (2026-10-18): the curse takes an army ──
+
+        /// <summary>Seconds between the curse seizing a player's army (the
+        /// first at this match second too). 0 turns it off.</summary>
+        [Min(0f)] public float armyConversionSeconds = 600f;
+
+        /// <summary>The most soldiers one seizure takes.</summary>
+        [Min(1)] public int armyConversionMaxUnits = 25;
+
+        /// <summary>A player's largest body of soldiers must be at least this
+        /// big to be seized.</summary>
+        [Min(1)] public int armyConversionMinUnits = 6;
+
+        /// <summary>Soldiers this close (m) to each other count as one body.</summary>
+        [Min(1f)] public float armyConversionLinkRadius = 12f;
+
         /// <summary>Fraction of the curse's garrison units DRAFTED into each
         /// attack wave (§6.8, 2026-10-04: "all spawn as garrison, then waves
         /// are 30% of that"). Nothing is spawned for a wave.</summary>
@@ -529,6 +545,10 @@ namespace TheWaningBorder.Data.Border
             guardLeashRadius = 45f;
             firstWaveSeconds = 480f;
             waveIntervalSeconds = 240f;
+            armyConversionSeconds = 600f;
+            armyConversionMaxUnits = 25;
+            armyConversionMinUnits = 6;
+            armyConversionLinkRadius = 12f;
             waveDraftFraction = 0.30f;
             waveMinSize = 6;
             garrisonMinPerNode = 2;

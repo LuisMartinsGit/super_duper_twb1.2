@@ -156,6 +156,7 @@ namespace TheWaningBorder.Bootstrap
 
             TheWaningBorder.Input.SelectionSystem.ClearSelection();
             TheWaningBorder.UI.World.GroundTargeting.Cancel();
+            TheWaningBorder.UI.World.EntityTargeting.Cancel();
             CameraController.Cleanup();
 
             DestroyPersistent<RuntimeManagers>();   // HUD + presentation stack

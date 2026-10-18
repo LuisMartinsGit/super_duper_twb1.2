@@ -205,7 +205,8 @@ namespace TheWaningBorder.AI
 
             // Raze the hostile building nearest him (curse nodes included).
             Entity bld = NearestHostile(em, faction, at, 12f, buildings: true, out float3 bpos);
-            if (bld != Entity.Null && TryCast(em, harkon, "Raze", bpos)) return;
+            // Raze is cast ON the building (docs/Design/Spells.md §6).
+            if (bld != Entity.Null && TryCast(em, harkon, "Raze", null, bld)) return;
 
             // In a fight: Warcry, and Blood Oath when he is badly hurt.
             Entity foe = NearestHostile(em, faction, at, 14f, buildings: false, out _);
@@ -215,7 +216,8 @@ namespace TheWaningBorder.AI
             TryCast(em, harkon, "Warcry", null);
         }
 
-        private static bool TryCast(EntityManager em, Entity unit, string ability, float3? aim)
+        private static bool TryCast(EntityManager em, Entity unit, string ability, float3? aim,
+            Entity target = default)
         {
             int idx = AbilityCatalog.IndexOf(ability);
             if (idx < 0) return false;
@@ -230,7 +232,10 @@ namespace TheWaningBorder.AI
                 float left = slot == 0 ? cd.C0 : slot == 1 ? cd.C1 : slot == 2 ? cd.C2 : cd.C3;
                 if (left > 0f) return false;
             }
-            return CommandRouter.IssueUnitAbility(em, unit, Entity.Null, aim, CommandSource.AI, slot);
+            // A single-target card refuses a target it would not accept, so a
+            // building out of reach is held here instead of being sent.
+            if (card.IsEntityTargeted && !AbilityTargetRules.Check(em, card, unit, target, out _)) return false;
+            return CommandRouter.IssueUnitAbility(em, unit, target, aim, CommandSource.AI, slot);
         }
 
         // ── totems ─────────────────────────────────────────────────────────

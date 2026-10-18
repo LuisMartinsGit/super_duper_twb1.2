@@ -104,9 +104,10 @@ namespace TheWaningBorder.Systems.Sect
                 disorder.ValueRW.TimeRemaining -= dt;
                 if (disorder.ValueRO.TimeRemaining > 0f) continue;
 
-                // Hand the unit back to the faction it started in.
-                if (em.HasComponent<FactionTag>(e))
-                    ecb.SetComponent(e, new FactionTag { Value = disorder.ValueRO.OriginalFaction });
+                // The madness passes: back under its owner's control (the
+                // faction never changed — Friendly Fire, 2026-10-18).
+                if (disorder.ValueRO.AddedNoControl != 0 && em.HasComponent<NotControllableTag>(e))
+                    ecb.RemoveComponent<NotControllableTag>(e);
                 ecb.SetComponentEnabled<SectDisordered>(e, false);
             }
         }

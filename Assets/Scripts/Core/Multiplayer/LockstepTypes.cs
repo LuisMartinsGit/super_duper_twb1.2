@@ -59,7 +59,7 @@ namespace TheWaningBorder.Core.Multiplayer
         // effect existed on the clicking peer alone. They follow the
         // established shape: the ISSUER validates and pays, every peer applies
         // the mutation.
-        SectPower = 30,          // CommandRouter.IssueSectPower (faction in EntityNetworkId, sect id in BuildingId, tier in TargetEntityId, target in TargetPosition)
+        SectPower = 30,          // CommandRouter.IssueSectPower (faction in EntityNetworkId, sect id in BuildingId, tier in TargetEntityId, target in TargetPosition, a single-target power's target entity network id in SecondaryTargetId or 0)
         ReliquaryAbility = 31,   // CommandRouter.IssueReliquaryAbility (reliquary + ability index in TargetEntityId + target in TargetPosition)
         WallUpgrade = 32,        // CommandRouter.IssueWallUpgrade (wall instance + upgrade type in TargetEntityId)
         KeepWing = 33,           // CommandRouter.IssueKeepWing (keep + KeepWingType byte in TargetEntityId)

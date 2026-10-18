@@ -193,6 +193,7 @@ namespace TheWaningBorder.Systems.Border
             _guardIntruders.Clear();
             _lostGround.Clear();
             ResetAttackWaves();
+            ResetArmyConversion();
         }
 
         /// <summary>Sim time the curse was first seen with no node, or -1.</summary>

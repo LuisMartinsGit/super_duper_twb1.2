@@ -150,6 +150,16 @@ namespace TheWaningBorder.Economy
         /// the old "Locked" placeholder without guessing.</summary>
         public bool IsCanon => Kind != SectActivePowerKind.None && Name != null;
 
+        /// <summary>
+        /// What this power is cast ON (docs/Design/Spells.md §2, §6): an
+        /// entity kind for a single-target power, which the player casts by
+        /// clicking the unit or building itself; None for an area / ground
+        /// power (the targeting ring) or an untargeted one. Derived from the
+        /// kind and reach, so no table can disagree with it.
+        /// </summary>
+        public TheWaningBorder.Abilities.CastTargetKind Target
+            => SectLeverEffects.TargetOf(Kind, Reach);
+
         // Backing pair so a spec that never names a type reads as Magic —
         // a plain enum field would default to Melee (0), which no spell is.
         private DamageType _damageType;
@@ -236,6 +246,38 @@ namespace TheWaningBorder.Economy
         /// </summary>
         public static bool IsCanonSect(string sectId)
             => CanonActive(sectId, 1, 1).Kind != SectActivePowerKind.None;
+
+        /// <summary>
+        /// The entity a power of <paramref name="kind"/> at <paramref name="reach"/>
+        /// is cast on — docs/Design/Spells.md §2 (the per-power table). Ward
+        /// Discharge and Unmake pick one building at every level (their radius
+        /// is the trigger / the splash, not the pick); every other kind picks
+        /// an entity only at Single reach. Fortify raises its structure on a
+        /// ground point and Plenty takes no target, so both stay None.
+        /// </summary>
+        public static TheWaningBorder.Abilities.CastTargetKind TargetOf(
+            SectActivePowerKind kind, SectRadius reach)
+        {
+            switch (kind)
+            {
+                case SectActivePowerKind.WardCharge:     return TheWaningBorder.Abilities.CastTargetKind.OwnBuilding;
+                case SectActivePowerKind.UnmakeBuilding: return TheWaningBorder.Abilities.CastTargetKind.EnemyBuilding;
+                case SectActivePowerKind.RaiseTower:
+                case SectActivePowerKind.Plenty:         return TheWaningBorder.Abilities.CastTargetKind.None;
+            }
+            if (reach != SectRadius.Single) return TheWaningBorder.Abilities.CastTargetKind.None;
+            switch (kind)
+            {
+                case SectActivePowerKind.BuildingShutdown: return TheWaningBorder.Abilities.CastTargetKind.EnemyBuilding;
+                case SectActivePowerKind.BuildingHpBuff:   return TheWaningBorder.Abilities.CastTargetKind.FriendlyBuilding;
+                case SectActivePowerKind.Bounty:           return TheWaningBorder.Abilities.CastTargetKind.EnemyUnit;
+                case SectActivePowerKind.Overtime:         return TheWaningBorder.Abilities.CastTargetKind.OwnBuilding;
+                case SectActivePowerKind.SpyNetwork:       return TheWaningBorder.Abilities.CastTargetKind.EnemyUnit;
+                case SectActivePowerKind.TrainingBoon:     return TheWaningBorder.Abilities.CastTargetKind.OwnBuilding;
+                case SectActivePowerKind.SmiteCircle:      return TheWaningBorder.Abilities.CastTargetKind.EnemyUnitOrBuilding;
+                default:                                   return TheWaningBorder.Abilities.CastTargetKind.None;
+            }
+        }
 
         internal static SectActivePowerSpec Spec(
             SectActivePowerKind kind, SectRadius reach, string name, string description,

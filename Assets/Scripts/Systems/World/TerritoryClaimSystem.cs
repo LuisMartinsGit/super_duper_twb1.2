@@ -273,7 +273,10 @@ namespace TheWaningBorder.Systems.World
                 }
 
                 bool locked = claimed && holderSide >= 0 && _hasLock[t * Sides + holderSide] != 0;
-                bool held = holderSide >= 0 && _hasBuilding[t * Sides + holderSide] != 0;
+                // A Sanctum holds itself (Territory_Claims.md § 11.4,
+                // 2026-10-18): no building is needed to stop its decay.
+                bool held = holderSide >= 0 && (_hasBuilding[t * Sides + holderSide] != 0
+                                                || TerritoryResources.IsSanctum(t));
                 bool lose = false;
                 int loser = holder;
                 int challenger = TerritoryOwnership.Natural;
@@ -458,6 +461,9 @@ namespace TheWaningBorder.Systems.World
             if (side < 0 || side >= CurseSide) return false;
             bool alreadyMine = SideOf(TerritoryOwnership.HolderOf(t)) == side;
             if (!alreadyMine && !_agedUp[side]) return false;
+            // A Sanctum may be claimed wherever it lies, connected or not
+            // (Territory_Claims.md § 11.4, 2026-10-18).
+            if (TerritoryResources.IsSanctum(t)) return true;
             return Borders(t, side);
         }
 
@@ -483,7 +489,7 @@ namespace TheWaningBorder.Systems.World
             {
                 int side = SideOf(TerritoryOwnership.HolderOf(t));
                 any = side >= 0 && side < CurseSide && TerritoryOwnership.IsClaimed(t)
-                      && _connected[t * Sides + side] == 0;
+                      && _connected[t * Sides + side] == 0 && !TerritoryResources.IsSanctum(t);
             }
             if (!any) return;
 
@@ -498,6 +504,7 @@ namespace TheWaningBorder.Systems.World
                 if (t == RegionMap.None || !TerritoryOwnership.IsClaimed(t)) continue;
                 if (SideOf(TerritoryOwnership.HolderOf(t)) != side) continue;
                 if (_connected[t * Sides + side] != 0) continue;
+                if (TerritoryResources.IsSanctum(t)) continue;   // a Sanctum needs no link (§ 11.4)
                 var hp = em.GetComponentData<Health>(ents[i]);
                 if (hp.Value <= 0) continue;
                 int wear = math.max(1, (int)math.ceil(hp.Max * dt / DisconnectSeconds));

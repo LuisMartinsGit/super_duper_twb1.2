@@ -183,6 +183,8 @@ namespace TheWaningBorder.Systems.Combat
         /// with the Burst-safe hostility test (same rules, SharedStatic team table).</summary>
         internal static bool CanDamageBurst(in CombatLookups lk, Entity attacker, Entity target)
         {
+            if (CombatDamageHelper.Frenzied(in lk, attacker) || CombatDamageHelper.Frenzied(in lk, target))
+                return attacker != target;
             if (!lk.Faction.TryGetComponent(attacker, out var af)
                 || !lk.Faction.TryGetComponent(target, out var tf))
                 return true;

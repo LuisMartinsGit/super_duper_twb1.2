@@ -548,6 +548,7 @@ namespace TheWaningBorder.Systems.Visibility
             var planHandle = GetComponentTypeHandle<PlannedBuilding>(true);
             var unitHandle = GetComponentTypeHandle<UnitTag>(true);
             var stealthHandle = GetComponentTypeHandle<StealthTag>(true);
+            var revealedHandle = GetComponentTypeHandle<CurseRevealed>(true);
             var viewTagHandle = GetComponentTypeHandle<PresentationViewSpawned>(true);
 
             // Main-thread chunk reads: finish any job still writing them.
@@ -564,6 +565,8 @@ namespace TheWaningBorder.Systems.Visibility
                 bool isPlan = chunk.Has(ref planHandle);
                 bool isUnit = chunk.Has(ref unitHandle);
                 bool isStealth = chunk.Has(ref stealthHandle);
+                // An army the curse seized is seen by every player (§ 6.10).
+                bool revealedToAll = chunk.Has(ref revealedHandle);
                 bool mobile = isUnit && !isBuilding;
 
                 // Verify = consult the real GameObject for every row of the
@@ -588,6 +591,10 @@ namespace TheWaningBorder.Systems.Visibility
                     if (hasFaction && factions[i].Value == humanFaction)
                     {
                         // Player-owned entities - always visible
+                        show = true;
+                    }
+                    else if (revealedToAll)
+                    {
                         show = true;
                     }
                     else if (isPlan)

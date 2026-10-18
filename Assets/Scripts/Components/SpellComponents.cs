@@ -283,4 +283,19 @@ public struct PendingSectStrike : IComponentData
     public float Secondary;
 
     public float Windup;
+
+    /// <summary>
+    /// The entity a single-target power was cast ON (docs/Design/Spells.md
+    /// §6), Entity.Null for an area / ground power. The effect lands on it
+    /// wherever it has moved to; if it is gone or no longer a legal target
+    /// when the wind-up ends, nothing lands and the cooldown is refunded.
+    /// </summary>
+    public Unity.Entities.Entity Target;
+
+    /// <summary>TheWaningBorder.Abilities.CastTargetKind the target was
+    /// checked against at cast, re-checked at landing.</summary>
+    public byte TargetKind;
+
+    /// <summary>The power's SLOT (1-3), for the cooldown refund.</summary>
+    public byte Slot;
 }

@@ -787,6 +787,30 @@ namespace TheWaningBorder.UI.Ingame
                 CommandRouter.IssueSectPower(_em, faction, sectId, slot, at);
                 return;
             }
+            // A SINGLE-TARGET power is cast ON the unit or building itself:
+            // the player clicks it, and the ground or the wrong kind is refused
+            // before anything is spent. Fire re-runs the same CheckTarget on
+            // every peer before the cooldown (docs/Design/Spells.md §6).
+            if (spec.Target != TheWaningBorder.Abilities.CastTargetKind.None)
+            {
+                var kind = spec.Kind;
+                var targetKind = spec.Target;
+                EntityTargeting.Begin(targetKind,
+                    (em, target) => SectActivePowerHelper.CheckTarget(em, faction, kind, targetKind, target, out var why)
+                        ? null : TheWaningBorder.Abilities.CastTargetRules.Describe(why, targetKind),
+                    target =>
+                    {
+                        var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                        if (w == null || !w.IsCreated) return;
+                        var em = w.EntityManager;
+                        if (!em.Exists(target)) return;
+                        CommandRouter.IssueSectPower(em, faction, sectId, slot,
+                            em.GetComponentData<LocalTransform>(target).Position,
+                            CommandSource.LocalPlayer, target);
+                    });
+                return;
+            }
+
             float radius = spec.Radius > 0f ? spec.Radius : SectRadii.Small;
             GroundTargeting.Begin(radius, new Color(0.96f, 0.77f, 0.32f, 0.85f), target =>
             {

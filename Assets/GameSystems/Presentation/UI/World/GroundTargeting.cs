@@ -38,6 +38,7 @@ namespace TheWaningBorder.UI.World
         /// </summary>
         public static void Begin(float radius, Color color, Action<float3> onConfirm)
         {
+            EntityTargeting.Cancel();
             EnsureInstance();
             _instance._onConfirm = onConfirm;
             _instance._radius = math.max(0.5f, radius);
@@ -85,6 +86,9 @@ namespace TheWaningBorder.UI.World
             if (UnityEngine.Input.GetKeyDown(KeyCode.Escape)
                 || UnityEngine.Input.GetMouseButtonDown(1))
             {
+                // The cancelling right-click must not also order the
+                // selection to walk there (AimingInput).
+                AimingInput.SwallowCurrentPress();
                 Cancel();
                 return;
             }
@@ -106,6 +110,9 @@ namespace TheWaningBorder.UI.World
                     if (UnityEngine.EventSystems.EventSystem.current != null
                         && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
                     var cb = _onConfirm;
+                    // The confirming press must not also click-select what is
+                    // under the ring (AimingInput).
+                    AimingInput.SwallowCurrentPress();
                     Cancel();
                     cb?.Invoke(ground);
                 }

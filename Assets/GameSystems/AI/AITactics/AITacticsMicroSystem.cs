@@ -384,6 +384,28 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>Hostiles from the last read within <paramref name="r"/>.</summary>
+        /// <summary>
+        /// The enemy unit a single-target card should be cast on: from the
+        /// last context read (live hostiles in the scan), legal for the card
+        /// (AbilityTargetRules — kind, side, range), nearest first; a card that
+        /// silences abilities prefers a unit that has some.
+        /// </summary>
+        private Entity PickEnemyTarget(EntityManager em, AbilityCard card, Entity caster, float3 pos)
+        {
+            bool wantsCaster = card.HasEffect(AbilityEffectKind.SectStampOfRecord);
+            Entity best = Entity.Null;
+            float bestScore = float.MaxValue;
+            for (int i = 0; i < _cand.Count; i++)
+            {
+                var h = _cand[i];
+                if (!AbilityTargetRules.Check(em, card, caster, h, out _)) continue;
+                float d = math.distancesq(em.GetComponentData<LocalTransform>(h).Position.xz, pos.xz);
+                if (wantsCaster && !em.HasComponent<UnitAbilities>(h)) d += 1e6f;
+                if (d < bestScore || (d == bestScore && h.Index < best.Index)) { bestScore = d; best = h; }
+            }
+            return best;
+        }
+
         private int EnemiesWithin(EntityManager em, float3 pos, float r)
         {
             float r2 = r * r; int n = 0;
@@ -503,15 +525,30 @@ namespace TheWaningBorder.AI
 
                     // The reason is only spelled out when its log line is due.
                     bool wantWhy = HeldLogDue(fi, card.Name);
-                    var verdict = EvaluateCard(em, fi, faction, card, kind, in ctx, in skill, wantWhy,
-                                               out string why, out int caught);
+                    // A single-target card is cast ON an enemy, never at a
+                    // spot (docs/Design/Spells.md §6): the AI names the entity
+                    // and the engine re-checks it before the cooldown.
+                    Entity pick = Entity.Null;
+                    Verdict verdict;
+                    string why = null;
+                    int caught;
+                    if (kind == CardKind.TargetEnemy)
+                    {
+                        pick = PickEnemyTarget(em, card, e, ctx.Pos);
+                        verdict = pick != Entity.Null ? Verdict.Cast : Verdict.Hold;
+                        caught = pick != Entity.Null ? 1 : 0;
+                        if (pick == Entity.Null && wantWhy) why = "no legal target in reach";
+                    }
+                    else
+                        verdict = EvaluateCard(em, fi, faction, card, kind, in ctx, in skill, wantWhy,
+                                               out why, out caught);
                     if (verdict == Verdict.Ignore) continue;
                     if (verdict == Verdict.Hold)
                     {
                         LogHeld(fi, faction, card.Name, why);
                         continue;
                     }
-                    if (CommandRouter.IssueUnitAbilitySlot(em, e, slot, Entity.Null, null, CommandSource.AI))
+                    if (CommandRouter.IssueUnitAbilitySlot(em, e, slot, pick, null, CommandSource.AI))
                     {
                         MarkCast(e);
                         if (card.Targeting == AbilityTargeting.Area && card.Radius > 0f)
@@ -566,7 +603,7 @@ namespace TheWaningBorder.AI
         /// </summary>
         /// <summary>Which rule a card falls under — a pure function of the
         /// card, so it is worked out once per card, not per caster per pass.</summary>
-        private enum CardKind : byte { Ignore, Enemies, Pledge, Call, Hospital, Escape, SelfDefence, AllyBuff }
+        private enum CardKind : byte { Ignore, Enemies, Pledge, Call, Hospital, Escape, SelfDefence, AllyBuff, TargetEnemy }
 
         private readonly Dictionary<AbilityCard, CardKind> _cardKind = new Dictionary<AbilityCard, CardKind>();
 
@@ -582,6 +619,13 @@ namespace TheWaningBorder.AI
         /// list in <see cref="EvaluateCard"/>'s summary).</summary>
         private static CardKind Classify(AbilityCard card)
         {
+            // Cast ON an entity: an enemy UNIT card (Stamp of Record, Lancet)
+            // is driven here; own-building and enemy-building cards (Liquidate,
+            // Raze) are economy / siege calls this system does not make.
+            if (card.IsEntityTargeted)
+                return card.TargetKind == CastTargetKind.EnemyUnit
+                       || card.TargetKind == CastTargetKind.EnemyUnitOrBuilding
+                    ? CardKind.TargetEnemy : CardKind.Ignore;
             if (card.IsAimed
                 || card.HasEffect(AbilityEffectKind.RevealFog)
                 || card.HasEffect(AbilityEffectKind.ResourceYieldPct)

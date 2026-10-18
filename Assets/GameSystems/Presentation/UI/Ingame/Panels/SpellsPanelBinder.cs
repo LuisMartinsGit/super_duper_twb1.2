@@ -154,7 +154,8 @@ namespace TheWaningBorder.UI.Ingame
             sb.Append(card.Targeting switch
             {
                 AbilityTargeting.SelfCast     => Loc.T("Affects the caster."),
-                AbilityTargeting.SingleTarget => Loc.T("Targets one unit."),
+                AbilityTargeting.SingleTarget => card.IsEntityTargeted
+                    ? Loc.T(TargetLine(card.TargetKind)) : Loc.T("Targets one unit."),
                 AbilityTargeting.Area         => Loc.T("Targets an area."),
                 AbilityTargeting.Aura         => Loc.T("Continuous aura around the caster."),
                 AbilityTargeting.Global       => Loc.T("Affects the whole faction."),
@@ -187,7 +188,8 @@ namespace TheWaningBorder.UI.Ingame
                     if (line != null) sb.Append("\n• ").Append(line);
                 }
 
-            if (card.Radius > 0f) sb.Append('\n').Append(Loc.T("Radius")).Append(' ')
+            // A single-target card has no area: its Radius is not shown.
+            if (card.Radius > 0f && !card.IsEntityTargeted) sb.Append('\n').Append(Loc.T("Radius")).Append(' ')
                                     .Append(card.Radius.ToString("0.#"));
             if (card.Range > 0f) sb.Append("   ").Append(Loc.T("Range")).Append(' ')
                                    .Append(card.Range.ToString("0.#"));
@@ -207,6 +209,22 @@ namespace TheWaningBorder.UI.Ingame
 
             return sb.ToString();
         }
+
+        /// <summary>The tooltip's first line for a card cast on an entity:
+        /// what to click.</summary>
+        private static string TargetLine(CastTargetKind kind) => kind switch
+        {
+            CastTargetKind.EnemyUnit           => "Cast on one enemy unit.",
+            CastTargetKind.OwnUnit             => "Cast on one of your units.",
+            CastTargetKind.FriendlyUnit        => "Cast on one friendly unit.",
+            CastTargetKind.AnyUnit             => "Cast on one unit.",
+            CastTargetKind.EnemyBuilding       => "Cast on one enemy building.",
+            CastTargetKind.OwnBuilding         => "Cast on one of your buildings.",
+            CastTargetKind.FriendlyBuilding    => "Cast on one friendly building.",
+            CastTargetKind.AnyBuilding         => "Cast on one building.",
+            CastTargetKind.EnemyUnitOrBuilding => "Cast on one enemy unit or building.",
+            _                                  => "Targets one unit.",
+        };
 
         private static string DescribeEffect(AbilityEffect e) => e.Kind switch
         {
@@ -273,6 +291,34 @@ namespace TheWaningBorder.UI.Ingame
             // one answer. The card's AimedAtPoint flag is what marks the
             // difference -- it used to be "Range > 0", which also refused the
             // ring to Use Celestar, whose Range 0 means UNLIMITED.
+            // A SINGLE-TARGET card is cast ON a unit or building: the player
+            // clicks the entity itself, and a click on the ground or the
+            // wrong kind is refused before anything is spent
+            // (docs/Design/Spells.md §6). The same AbilityTargetRules runs
+            // again in the simulation before the cooldown is charged.
+            if (card != null && card.IsEntityTargeted)
+            {
+                Entity caster = _primary;
+                var c = card;
+                TheWaningBorder.UI.World.EntityTargeting.Begin(card.TargetKind,
+                    (em, target) =>
+                    {
+                        if (!em.Exists(caster)) return "The caster is gone";
+                        return AbilityTargetRules.Check(em, c, caster, target, out var why)
+                            ? null : CastTargetRules.Describe(why, c.TargetKind);
+                    },
+                    target =>
+                    {
+                        var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                        if (world == null || !world.IsCreated) return;
+                        var em = world.EntityManager;
+                        if (!em.Exists(caster)) return;
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueUnitAbilitySlot(
+                            em, caster, slot, target, null);
+                    });
+                return;
+            }
+
             bool aimed = card != null && card.IsAimed;
             if (aimed)
             {

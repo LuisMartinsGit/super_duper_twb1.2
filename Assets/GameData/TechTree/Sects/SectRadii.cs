@@ -18,8 +18,9 @@ namespace TheWaningBorder.Economy
 
     public static class SectRadii
     {
-        /// <summary>One entity. Cast systems treat this as a pick, not a circle;
-        /// the metre value is the pick tolerance, not an area of effect.</summary>
+        /// <summary>One entity. A Single power is cast by clicking the entity
+        /// itself (SectActivePowerSpec.Target, docs/Design/Spells.md §6); the
+        /// metre value is only the size of its telegraph, never an area.</summary>
         public const float Single = 1.5f;
         public const float Small  = 8f;
         public const float Medium = 15f;

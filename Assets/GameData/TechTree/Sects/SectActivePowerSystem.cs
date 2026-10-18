@@ -85,9 +85,25 @@ namespace TheWaningBorder.Systems.Sect
                 var s = em.GetComponentData<PendingSectStrike>(e);
                 em.DestroyEntity(e);
 
+                // A single-target power lands on the entity it was cast on,
+                // wherever that has moved to. Gone, dead or no longer a legal
+                // target: nothing lands and the cooldown is given back
+                // (docs/Design/Spells.md §6).
+                if (s.TargetKind != 0)
+                {
+                    if (!SectActivePowerHelper.CheckTarget(em, s.Caster, (SectActivePowerKind)s.Kind,
+                            (TheWaningBorder.Abilities.CastTargetKind)s.TargetKind, s.Target, out _))
+                    {
+                        SectActivePowerHelper.RefundCooldown(em, s.Caster, s.SectIndex, s.Slot);
+                        continue;
+                    }
+                    s.Position = em.GetComponentData<LocalTransform>(s.Target).Position;
+                }
+
                 SectActivePowerHelper.DispatchEffect(em, s.Caster,
                     (SectActivePowerKind)s.Kind, s.Position, s.Radius,
-                    s.Magnitude, s.Duration, s.Level, s.Secondary, s.DamageKind);
+                    s.Magnitude, s.Duration, s.Level, s.Secondary, s.DamageKind,
+                    s.TargetKind != 0 ? s.Target : Entity.Null);
                 TheWaningBorder.Rendering.SectPowerVfx.SpawnForPower(
                     SectConfig.IdAt(s.SectIndex), s.Kind, s.Position, s.Radius);
             }
@@ -337,6 +353,19 @@ namespace TheWaningBorder.Systems.Sect
         }
 
         public static bool Fire(EntityManager em, Faction faction, string sectId, int tier, float3 targetPos)
+            => Fire(em, faction, sectId, tier, targetPos, Entity.Null);
+
+        /// <summary>
+        /// Fire slot <paramref name="tier"/> of <paramref name="sectId"/>. A
+        /// single-target power (spec.Target != None) is cast ON
+        /// <paramref name="target"/>, which must pass CheckTarget — checked here
+        /// on every peer BEFORE the cooldown is charged, so a ground click or a
+        /// pick of the wrong kind costs nothing (docs/Design/Spells.md §6). An
+        /// area power ignores <paramref name="target"/> and lands at
+        /// <paramref name="targetPos"/>.
+        /// </summary>
+        public static bool Fire(EntityManager em, Faction faction, string sectId, int tier, float3 targetPos,
+            Entity target)
         {
             // Every ADOPTED sect has its tier-1 power; tiers 2/3 unlock with
             // the temple level (levers auto-track it). Tiered specs are
@@ -364,10 +393,22 @@ namespace TheWaningBorder.Systems.Sect
             var spec = SectLeverEffects.ActiveOf(sectId, tier, powerLevel);
             if (spec.Kind == SectActivePowerKind.None) return false;
 
-            // Curse wells are not castable targets for offensive powers.
-            // Rejected BEFORE the cooldown is charged so a misclick costs
-            // nothing and the player can simply re-aim.
-            if (IsOffensive(spec.Kind) && IsOnCurseWell(em, targetPos)) return false;
+            var targetKind = spec.Target;
+            if (targetKind != TheWaningBorder.Abilities.CastTargetKind.None)
+            {
+                // Cast ON an entity: the pick must be legal now, on this peer,
+                // before anything is spent. The strike is centred on it.
+                if (!CheckTarget(em, faction, spec.Kind, targetKind, target, out _)) return false;
+                targetPos = em.GetComponentData<LocalTransform>(target).Position;
+            }
+            else
+            {
+                target = Entity.Null;
+                // Curse wells are not castable targets for offensive powers.
+                // Rejected BEFORE the cooldown is charged so a misclick costs
+                // nothing and the player can simply re-aim.
+                if (IsOffensive(spec.Kind) && IsOnCurseWell(em, targetPos)) return false;
+            }
 
             // The effect level the strike lands at is the sect's power level,
             // not the slot index. Before the canon pass these two were the same
@@ -406,6 +447,9 @@ namespace TheWaningBorder.Systems.Sect
                 Secondary = spec.Secondary,
                 DamageKind = spec.DamageType,
                 Windup    = windup,
+                Target    = target,
+                TargetKind = (byte)targetKind,
+                Slot      = (byte)tier,
             });
             TheWaningBorder.Rendering.SectPowerVfx.SpawnTelegraph(
                 targetPos, radius, windup);
@@ -555,8 +599,16 @@ namespace TheWaningBorder.Systems.Sect
         // Internal so SectActivePowerSystem can apply a wound-up strike.
         internal static void DispatchEffect(EntityManager em, Faction faction,
             SectActivePowerKind kind, float3 pos, float radius, float magnitude, float duration,
-            byte level = 1, float secondary = 0f, DamageType dmgType = DamageType.Magic)
+            byte level = 1, float secondary = 0f, DamageType dmgType = DamageType.Magic,
+            Entity target = default)
         {
+            // Entity-targeted powers land on the entity the player clicked
+            // (SectActivePowerSystem.Targeted.cs). The point bodies below stay
+            // for the showcase, which fires at a bare point.
+            if (target != Entity.Null
+                && LandOnTarget(em, faction, kind, target, radius, magnitude, duration, level, secondary, dmgType))
+                return;
+
             switch (kind)
             {
                 case SectActivePowerKind.FreezeCooldowns:
@@ -699,11 +751,6 @@ namespace TheWaningBorder.Systems.Sect
         private static void ApplyUnmake(EntityManager em, Faction faction,
             float3 center, float radius, float hpFraction, byte level, DamageType dmgType)
         {
-            // "Other buildings in a SMALL area" (Sects.md): the canon Small,
-            // not a bespoke 6 m.
-            const float SplashRadius = SectRadii.Small;
-            const float SplashFraction = SectLeverEffects.UnmakeSplashFraction;
-
             float r2 = radius * radius;
             var bq = QC_BuildingTagLocalTransformFactionTagHealth.Get(em, QT_BuildingTagLocalTransformFactionTagHealth);
             using var buildings = bq.ToEntityArray(Allocator.Temp);
@@ -729,6 +776,21 @@ namespace TheWaningBorder.Systems.Sect
                 target = e;
             }
             if (target == Entity.Null) return;
+            UnmakeOne(em, faction, target, hpFraction, level, dmgType);
+        }
+
+        /// <summary>
+        /// Unmake ONE building — the clicked one for a player / AI cast
+        /// (docs/Design/Spells.md §6), the nearest-to-point one for the
+        /// showcase's ApplyUnmake — plus level III's splash around it.
+        /// </summary>
+        private static void UnmakeOne(EntityManager em, Faction faction, Entity target,
+            float hpFraction, byte level, DamageType dmgType)
+        {
+            // "Other buildings in a SMALL area" (Sects.md): the canon Small,
+            // not a bespoke 6 m.
+            const float SplashRadius = SectRadii.Small;
+            const float SplashFraction = SectLeverEffects.UnmakeSplashFraction;
 
             // The fraction is of CURRENT hp, computed here; the loss itself
             // lands through the one spell-damage door (docs/Design/Spells.md).
@@ -738,6 +800,8 @@ namespace TheWaningBorder.Systems.Sect
 
             if (level < 3) return;
 
+            var bq = QC_BuildingTagLocalTransformFactionTagHealth.Get(em, QT_BuildingTagLocalTransformFactionTagHealth);
+            using var buildings = bq.ToEntityArray(Allocator.Temp);
             float3 epicentre = em.GetComponentData<LocalTransform>(target).Position;
             float s2 = SplashRadius * SplashRadius;
             for (int i = 0; i < buildings.Length; i++)

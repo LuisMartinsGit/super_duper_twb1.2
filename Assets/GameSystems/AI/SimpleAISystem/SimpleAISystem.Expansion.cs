@@ -840,7 +840,8 @@ namespace TheWaningBorder.AI
                 int owner = TerritoryOwnership.OwnerOf(r);
                 if (owner == (int)faction) continue;
                 if (RegionMap.KindBlocks(RegionMap.KindOf(r))) continue;
-                if (!BordersFortressGround(faction, r, mine)) continue;
+                // A Sanctum may be claimed anywhere (Territory_Claims.md § 11.4).
+                if (!TerritoryResources.IsSanctum(r) && !BordersFortressGround(faction, r, mine)) continue;
                 if (_siteBlocked.TryGetValue(((int)faction, r), out float until) && now < until) continue;
                 bool targeted = false;
                 for (int s = 0; s < squads.Count && !targeted; s++) targeted = squads[s].Territory == r;
@@ -1356,7 +1357,9 @@ namespace TheWaningBorder.AI
                         || (owner >= 0 && Alliances.AreHostile(faction, (Faction)owner)))
                         hostileBorder = true;
                 }
-                bool cutOff = !TheWaningBorder.Systems.World.TerritoryClaimSystem.IsConnected(r, faction);
+                // A Sanctum needs no link (§ 11.4): never "cut off".
+                bool cutOff = !TheWaningBorder.Systems.World.TerritoryClaimSystem.IsConnected(r, faction)
+                              && !TerritoryResources.IsSanctum(r);
                 // STEP 2 (Game_AI.md 5g): the Fortress goes as soon as the
                 // territory's resource buildings are up — towers and
                 // production wait for IT, not the other way round — unless

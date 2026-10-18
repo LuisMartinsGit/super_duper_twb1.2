@@ -58,6 +58,7 @@ namespace TheWaningBorder.UI.Ingame
 
             // Units: own always, others only while FoW-visible.
             var unitsQ = _unitsQ.Get(em, UnitQueryTypes);
+            using (var unitEnts = unitsQ.ToEntityArray(Allocator.Temp))
             using (var facs = unitsQ.ToComponentDataArray<FactionTag>(Allocator.Temp))
             using (var xfs = unitsQ.ToComponentDataArray<LocalTransform>(Allocator.Temp))
             {
@@ -65,8 +66,10 @@ namespace TheWaningBorder.UI.Ingame
                 {
                     var pos = xfs[i].Position;
                     bool mine = facs[i].Value == faction;
+                    // an army the curse seized is seen by everyone (§ 6.10)
                     if (!mine && !unfogged
-                        && !FogOfWarSystem.IsVisibleToFaction(faction, pos)) continue;
+                        && !FogOfWarSystem.IsVisibleToFaction(faction, pos)
+                        && !em.HasComponent<CurseRevealed>(unitEnts[i])) continue;
                     DrawDisc(WorldToOverlayPixel(pos), UnitRadiusPx, FactionColors.Get(facs[i].Value));
                 }
             }
