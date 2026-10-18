@@ -29,6 +29,14 @@ namespace TheWaningBorder.Rendering
         /// to be found by its light alone.</summary>
         public static readonly Color Shardroot = Hdr(0xA8F4FF, 6.0f);
 
+        /// <summary>The Sanctum landmark's crystals — pale white-gold: sanctity,
+        /// never veilstone (cyan) nor the curse (purple), and whiter than the
+        /// orange windows so it does not read as a building.</summary>
+        public static readonly Color Sanctum = Hdr(0xFFE6A8, 3.5f);
+
+        /// <summary>The Sanctum plinth's rune inlay — the same gold, faint.</summary>
+        public static readonly Color SanctumRune = Hdr(0xFFE6A8, 1.6f);
+
         /// <summary>Curse crystals (well, pockets) — purple, the strongest static glow.</summary>
         public static readonly Color Curse = Hdr(0xB14BFF, 4.0f);
 

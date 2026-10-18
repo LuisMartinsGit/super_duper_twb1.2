@@ -285,6 +285,16 @@ namespace TheWaningBorder.Systems.Core
                         newly.Add(f);
                         reason[f] = $"{ascendant} ascended with the Shardroot.";
                     }
+            // ── Dominion (§ 7 second exception, Territory_Claims.md § 11.4):
+            // a faction or team held every Sanctum through its countdown —
+            // every faction hostile to it falls. ──
+            if (TheWaningBorder.Systems.Economy.SanctumSystem.TryWinner(em, out var dominant))
+                foreach (var f in alive)
+                    if (f != dominant && Alliances.AreHostile(f, dominant) && !newly.Contains(f))
+                    {
+                        newly.Add(f);
+                        reason[f] = $"{dominant} won by dominion (every Sanctum held).";
+                    }
             newly.Sort();
 
             foreach (var f in newly)

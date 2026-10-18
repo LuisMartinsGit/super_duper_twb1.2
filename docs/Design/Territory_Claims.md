@@ -647,6 +647,12 @@ match is a draw.
 Temple survives the Shardroot's 10-minute countdown wins
 ([Curse_And_Shardroot.md §3.1c](Curse_And_Shardroot.md)).
 
+**Second exception (2026-10-18): Sanctum dominion** — a faction (or team)
+that holds **every Sanctum on the map at once** starts a **10-minute
+countdown**; if it still holds them all when it ends, it wins. Losing any
+Sanctum — to a player or the curse — cancels the countdown, and taking them
+all again starts a fresh 10 minutes. Rules in § 11.4.
+
 A faction is eliminated by **any** of three rules (`EliminationSystem`, all
 checked on the lockstep clock, so every peer drops the same faction on the
 same tick):
@@ -772,7 +778,7 @@ markers no longer decide anything; nodes are generated from the type.
 | **Empty** | none — position and build space only |
 | **Veilstone rich** | 4 veilstone, **starts cursed** (a curse node on every outcrop) |
 | **Iron rich** | 3 iron |
-| **Sanctum** | none — its holder earns **1 Religion Point a minute** |
+| **Sanctum** | none — its holder earns **1 Religion Point a minute**, sect powers recharge faster and a veilsteel trickle (§ 11.4, 2026-10-18); holding every Sanctum starts the dominion countdown (§ 7) |
 
 **Placement is random inside the territory** (2026-10-01): each node lands on
 a random legal spot, 9 m from the territory's other nodes and outside every
@@ -904,6 +910,42 @@ normal and for every 10 poor."
 
 ### 11.3 Nodes run dry (2026-10-07)
 
+**Revised 2026-10-18 — finite nodes, no lifetime, collapse.** Developer:
+"remove the time constraint. Nodes collapse after fully extracted. Each has a
+finite amount of resources."
+
+- **There is no node lifetime any more.** The line that capped every
+  reserve to nothing at `nodeLifetimeMinutes` is removed (the field goes
+  from `TerritoryIncomeSystem.asset`), and so is everything below that
+  refers to it — "spent by minute 30/60", the lifetime cap on veilstone, the
+  cap on the curse's refill. A node empties **only by what is drawn from
+  it**.
+- **Every node holds a finite amount** — supply, iron and veilstone alike —
+  set by its kind and purity (the reserve sizes and purity multipliers on
+  `TerritoryIncomeSystem.asset`, as before). Every unit a slot pays, empty or
+  built, at its purity, is drawn from it; better extraction draws faster.
+  What does **not** draw from a node: the Alanthor **Trading Outpost** (trade
+  is not mining, Veilstone_Economy.md § 3.1) and the Runai **Sanctuary**.
+- **A fully extracted node collapses.** On the tick its reserve reaches
+  zero the node is removed from the map, and **every building working it
+  collapses with it**: the extractor on it (Gatherer's Hut, Mine, Veilstone
+  Mine, Sanctuary) and, for a veilstone outcrop, the Trading Outposts on its
+  side slots. Collapse is destruction (Health 0), with no refund. The
+  territory loses the lock those buildings gave (§ 3) and keeps any other.
+  There is no Depleted state left to refill, trade at or build on.
+- **Every node shows what is left**: a bar and a number over the node, in
+  the node's own resource, wherever the player can see the node (fog of war
+  applies). Presentation only; the reserve is the simulation's.
+- **A node pays its full rate until it is empty** (supply and iron as
+  veilstone always did). The old "yield falls with the reserve" curve is
+  removed with the yield floor: a rate proportional to what is left decays
+  geometrically and never reaches zero, so nothing could ever collapse. A
+  node's life is therefore its reserve over what is drawn from it.
+- The curse taking an outcrop no longer refills it.
+
+*The text below is the 2026-10-07/09 history; where it disagrees with the
+block above, the block above wins.*
+
 Developer: "Why does the economy stop mattering? Add decay to the nodes."
 In the 8-player batch every faction reached the population cap by about
 minute 40 and the resource cap soon after: income kept rising on research,
@@ -964,3 +1006,42 @@ falling. Adjust all nodes to be spent by minute 30."
   multiplies only that Fortress's own supplies income, and the surveys no
   longer multiply the Mines (they pay the Guilds instead).
 
+
+### 11.4 Sanctums (2026-10-18)
+
+Developer: "Holding one grants religion points and -10% sect power cooldown +
+some veilsteel trickle. Holding all starts a 10 minute countdown to victory."
+
+**What a held Sanctum pays its holder** (each one, so they stack):
+
+- **1 Religion Point a minute**, straight to the balance (unchanged).
+- **Sect powers recharge 10 % faster** — every sect power's cooldown
+  ([Sects.md](Sects.md), [Religion.md](Religion.md)) is cut by 10 % per
+  Sanctum held, multiplicatively on what is left of the cooldown when the
+  power is cast. The total cut is capped (`maxCooldownCut`). A power already
+  cooling keeps the cooldown it started with.
+- **A veilsteel trickle** to the bank. This is a deliberate source of
+  veilsteel that nobody forges, like the Guild surveys
+  (Veilstone_Economy.md § 1, § 5).
+
+The RP interval, the cooldown cut per Sanctum, its cap and the veilsteel rate
+are config values on `SanctumSystem.asset` beside `SanctumSystem.cs`; none of
+those numbers belong in this doc.
+
+**Dominion — the Sanctum victory** (the second exception to elimination,
+§ 7):
+
+- When one faction, or one team (allies' Sanctums count together,
+  [Teams.md](Teams.md)), holds **every** Sanctum territory on the map at
+  the same moment, a **10-minute countdown** starts on the lockstep clock
+  (`dominionSeconds` on `SanctumSystem.asset`).
+- Every player is told when it starts, and sees the time left; the holder's
+  Sanctums are marked on the minimap.
+- If the holder loses **any** Sanctum before it ends (to a player or to the
+  curse, which can hold Sanctums but never wins), the countdown is
+  **cancelled**. Taking them all again starts a fresh 10 minutes.
+- When it ends with every Sanctum still held, that faction or team wins.
+- A map with a single Sanctum is allowed: holding it starts the countdown
+  (developer, 2026-10-18 — "keep as is"). Every map still has at least one
+  (§ 11).
+- "Held" means **claimed** (§ 2): a claim in progress is not held.

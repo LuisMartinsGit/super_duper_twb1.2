@@ -151,6 +151,7 @@ ladder is the only thing that glows:
 | Building windows | `#FFB05A` | × 2.5 | yes, soft |
 | Faction lanterns / sconces | faction *glow* colour (§4.2) | × 3.0 | yes |
 | Veilstone outcropping crystals | `#5FD8E8` | × 3.0 | yes |
+| Sanctum crystals (the landmark, §6.3) | `#FFE6A8` white-gold | × 3.5 (rune inlay × 1.6) | yes, soft |
 | Curse crystals (well, pockets) | `#B14BFF` | × 4.0 | yes, strongest static glow |
 | Curse pool | `#7FCB3A` | × 2.0 | faint |
 | Veil seams (ground fissures near the curse) | `#3AD6FF` → `#8E5CF0` by proximity | × 3.0 | yes |
@@ -342,6 +343,7 @@ each one must carry information, or it is noise at zoom:
 | Purple crystals | a well or a pocket, and its held state | Curse_And_Shardroot.md |
 | Green pool | a pocket's centre | Curse_And_Shardroot.md |
 | Cyan crystals + cyan seams | veilstone, minable | ResourceNodes |
+| White-gold crystal spires in a ring of standing stones, gold motes, a floating shard | a **Sanctum** — the territory whose holder earns Religion Points; the crystal marks the ground, not who holds it | Territory_Claims.md §11; §6.5 |
 | Orange ember cracks | burning / burnt ground | Fire.md |
 | Magenta boundary river | the well's hold radius while a verb is in progress | Curse_And_Shardroot.md |
 | Aurora veil along a border | this ground is the curse's — its edge, in place of a line | §6.4 |
@@ -387,6 +389,32 @@ Hovl's are built-in-pipeline, UNI's are VFX Graph beams.
 Tuned live with the developer on 2026-09-18: first cut too thick and too
 bright; now arch half-width 1.1 m, height 3.2 m, wisp intensity 0.9, body
 0.06, and "getting better" — expect more passes.
+
+### 6.5 The Sanctum crystal (2026-10-18)
+
+Every Sanctum territory carries one landmark: a cluster of tall faceted
+crystal spires (the main one about 8 m) rising from a weathered two-tier
+stone plinth, ringed by leaning grey standing stones (one fallen), a broken
+rune inlay glowing faintly in the plinth, a shard turning slowly above the
+spires, drifting gold motes and one soft warm point light that breathes.
+
+**Colour: white-gold `#FFE6A8`** (the `Sanctum` rung of the ladder). It
+means sanctity, so it must never read as either reserved crystal colour —
+not cyan (veilstone, §6.1), not purple (the curse) — and it sits whiter and
+cooler than the orange `#FFB05A` windows so it does not read as a building.
+It says *this ground is a Sanctum*; it shows no owner (no player colour) —
+the border line says who holds it.
+
+It is placed at load on every Sanctum, authored or resolved from the seed
+(`SanctumCrystal.LayAll`, called by `TerritoryResources.Spawn`): near the
+territory's centre on node-legal ground with a walkable ring around it, and
+it blocks a node-sized 4 × 4 m square so units walk round it and nothing is
+built on it. It changes no rule. Art is generated, not Synty
+(`Waning Border > Art > Author Sanctum Crystal`, `SanctumCrystalAuthor.cs`;
+previews via `Render Sanctum Crystal Preview`); prefab, materials and the
+`SanctumCrystalVisual.asset` tunables live in
+`Assets/GameData/TechTree/ResourceNodes/SanctumCrystal/`. Only transforms and
+the light move per frame — the crystal material stays static (§10).
 
 ## 7. Fog of war & the void
 

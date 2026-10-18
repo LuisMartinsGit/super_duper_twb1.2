@@ -457,6 +457,8 @@ namespace TheWaningBorder.Systems.Sect
             // A standing Reliquary (Antiquity's building) recharges every
             // sect power faster (Sects.md §4).
             cooldown *= AlanthorSectEconomy.CooldownScale(em, faction);
+            // Every Sanctum held cuts it further (Territory_Claims.md § 11.4).
+            cooldown *= TheWaningBorder.Systems.Economy.SanctumSystem.CooldownScale(faction);
             return cooldown;
         }
 

@@ -152,6 +152,18 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/GameData/Scenes/Maps/Yiel Lymwerra/YielLymwerra.unity
     guid: 050651cbb6f4544468b27e5e45452381
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Moatwatch/Moatwatch.unity
+    guid: ae049adecfd494e4b956d480100b6ad9
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Highfold/Highfold.unity
+    guid: f5d10204da0540f4d95db707aa6779fe
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Broken Oath/BrokenOath.unity
+    guid: 6125230229005ce419d824dcf92a2823
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Trine Hollow/TrineHollow.unity
+    guid: 03ad763a336d611449154ce3057c7785
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

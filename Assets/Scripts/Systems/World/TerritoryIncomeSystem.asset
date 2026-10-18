@@ -18,8 +18,6 @@ MonoBehaviour:
   pureReserveMultiplier: 2.5
   normalReserveMultiplier: 1
   poorReserveMultiplier: 0.4
-  depletionFloor: 0
-  nodeLifetimeMinutes: 60
   emptySlotPerMinute: 10
   ironYieldMultiplier: 1
   deepShaftsMultiplier: 1.2

@@ -298,6 +298,9 @@ namespace TheWaningBorder.World.Regions
                                  "— widen that ground on the map.");
             else
                 Debug.Log("[TerritoryResources] every veilstone outcrop has room for its four Trading Outposts.");
+            // The Sanctum landmark (Art_Direction.md §6.3): after the nodes, so
+            // it keeps clear of them; same peers, same order, same sites.
+            SanctumCrystal.LayAll(em, centres);
             _reserved.Clear();
         }
 

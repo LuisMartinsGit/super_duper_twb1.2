@@ -78,20 +78,6 @@ namespace TheWaningBorder.UI.Ingame
         };
         private static CachedEntityQuery QC_Healthy;
 
-        // Resource-depletion bar smoothing (task-108 Phase 5). Persists the
-        // last-rendered fill ratio per resource-node entity so the amber bar
-        // lerps toward the simulation's discrete tick value instead of
-        // snapping. Renderer-only state — never written to the ECS world, so
-        // multiplayer determinism is unaffected.
-        private readonly Dictionary<Entity, float> _lastFill = new();
-        // Stale-entry pruning happens once every N frames (cheap walk).
-        private int _pruneFrameCounter;
-        private const int PruneEveryNFrames = 180;  // ~3s at 60fps
-
-        // Transparent background for the depletion bar — no visible track,
-        // just outline + amber fill per design spec §6.
-        private static readonly Color TransparentBg = new Color(0f, 0f, 0f, 0f);
-
         void Awake()
         {
             _world = EntityWorld.DefaultGameObjectInjectionWorld;
@@ -171,14 +157,6 @@ namespace TheWaningBorder.UI.Ingame
             for (int i = _activeCount; i < _pool.Count; i++)
                 _pool[i].SetActive(false);
 
-            // Periodic stale-entry prune for the depletion-bar lerp cache —
-            // resource nodes get destroyed when depleted, and we don't want
-            // _lastFill to grow forever.
-            if (++_pruneFrameCounter >= PruneEveryNFrames)
-            {
-                _pruneFrameCounter = 0;
-                PruneStaleFillEntries();
-            }
         }
 
         /// <summary>
@@ -316,29 +294,6 @@ namespace TheWaningBorder.UI.Ingame
             return mgr.TryGetView(e, out var go) && go != null && go.activeInHierarchy;
         }
 
-        private void PruneStaleFillEntries()
-        {
-            if (_lastFill.Count == 0) return;
-            // Two-pass: collect stale keys, then remove. Avoids mutating the
-            // dictionary while enumerating.
-            List<Entity> stale = null;
-            foreach (var kvp in _lastFill)
-            {
-                var e = kvp.Key;
-                if (!_em.Exists(e) ||
-                    (!_em.HasComponent<IronMineTag>(e) && !_em.HasComponent<VeilstoneOutcroppingTag>(e)
-                     && !_em.HasComponent<VeilsteelDepositTag>(e)))
-                {
-                    (stale ??= new List<Entity>()).Add(e);
-                }
-            }
-            if (stale != null)
-            {
-                for (int i = 0; i < stale.Count; i++)
-                    _lastFill.Remove(stale[i]);
-            }
-        }
-
         private void HideAll()
         {
             for (int i = 0; i < _pool.Count; i++) _pool[i].SetActive(false);
@@ -353,32 +308,14 @@ namespace TheWaningBorder.UI.Ingame
 
         private bool HasDrawableBar(Entity e)
         {
-            // Resource nodes draw an amber depletion bar instead of a Health bar
-            // and don't carry the Health component, so the standard Health gate
-            // must let them through.
-            if (_em.HasComponent<Health>(e)) return true;
-            if (_em.HasComponent<IronMineTag>(e)) return true;
-            if (_em.HasComponent<VeilstoneOutcroppingTag>(e)) return true;
-            if (_em.HasComponent<VeilsteelDepositTag>(e)) return true;
-            return false;
+            // Resource nodes carry no Health: what is left in them is drawn
+            // by NodeReserveBars, over every visible node (2026-10-18).
+            return _em.HasComponent<Health>(e);
         }
 
         private void DrawBarForEntity(Camera cam, Entity e, bool isSelected = false, bool isHovered = false)
         {
             if (!_em.HasComponent<LocalTransform>(e)) return;
-
-            // Resource nodes (iron deposits, veilstone outcroppings) render an amber
-            // depletion bar instead of the standard Health bar. They don't carry
-            // Health at all — HasDrawableBar lets them through the gate above.
-            bool isIronDeposit = _em.HasComponent<IronMineTag>(e);
-            // Veilsteel nodes share IronDepositState, so they take the iron path.
-            bool isVeilsteelDeposit = _em.HasComponent<VeilsteelDepositTag>(e);
-            bool isVeilstoneOutcropping     = _em.HasComponent<VeilstoneOutcroppingTag>(e);
-            if (isIronDeposit || isVeilsteelDeposit || isVeilstoneOutcropping)
-            {
-                DrawResourceDepletionBar(cam, e, isIronDeposit || isVeilsteelDeposit);
-                return;
-            }
 
             var hp = _em.GetComponentData<Health>(e);
             if (hp.Max <= 0) return;
@@ -492,63 +429,6 @@ namespace TheWaningBorder.UI.Ingame
             RitualKind.ViolentExtraction => WorldOverlayPalette.HealthLow,  // Feraldis
             _                            => WorldOverlayPalette.HealthMid,  // Runai
         };
-
-        /// <summary>
-        /// Renders a single amber bar above a resource node showing
-        /// remaining / initial. No background track (transparent fill behind
-        /// the amber portion), just the standard dark outline + amber fill —
-        /// visually distinct from the green/amber/red health bar which sits
-        /// on a dark track.
-        /// </summary>
-        private void DrawResourceDepletionBar(Camera cam, Entity e, bool isIron)
-        {
-            int remaining, max;
-            if (isIron)
-            {
-                var s = _em.GetComponentData<IronDepositState>(e);
-                remaining = s.RemainingIron;
-                // Pre-task-108 saves may carry InitialIron == 0; fall back to
-                // RemainingIron so the bar renders full instead of empty.
-                max = s.InitialIron > 0 ? s.InitialIron : remaining;
-            }
-            else
-            {
-                var s = _em.GetComponentData<VeilstoneOutcroppingState>(e);
-                remaining = s.RemainingVeilstone;
-                max = s.MaxVeilstone > 0 ? s.MaxVeilstone : remaining;
-            }
-
-            float targetFill = max > 0 ? Mathf.Clamp01((float)remaining / max) : 0f;
-
-            // Snap to the simulation's live value. An earlier draft lerped
-            // toward targetFill at 3.0/sec for visual smoothing, but the cache
-            // only updates when the entity is hovered/selected — so re-hover
-            // after a long gap played a visible catch-up animation as the bar
-            // chased the now-stale cached value down to truth. Snapping reads
-            // the live RemainingIron/InitialIron each draw; mining tick
-            // changes are small enough per frame that no smoothing is needed.
-            float lerpedFill = targetFill;
-            _lastFill[e] = targetFill;
-
-            var pos = _em.GetComponentData<LocalTransform>(e).Position;
-            // Resource nodes are world-objects (closer to buildings than units)
-            // so use the building y-offset for headroom above the model.
-            float yOff = buildingYOffset;
-            Vector3 worldPos = new Vector3(pos.x, pos.y + yOff, pos.z);
-            Vector3 screenPos = cam.WorldToScreenPoint(worldPos);
-            if (screenPos.z < 0) return;  // behind camera
-
-            Color fillColor = WorldOverlayPalette.ResourceDepletion;
-
-            var bar = GetOrAllocate(_activeCount++);
-            bar.SetGeometry(screenPos.x, screenPos.y, barWidth, barHeight, barBorder);
-            // Transparent background = no visible track, just the dark border
-            // outline + the amber fill portion.
-            bar.SetColors(TransparentBg, BorderColor, fillColor);
-            bar.SetFill(lerpedFill);
-            bar.SetShield(0f, 0f);
-            bar.SetActive(true);
-        }
 
         private BarWidget GetOrAllocate(int index)
         {

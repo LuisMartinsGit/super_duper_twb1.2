@@ -34,6 +34,9 @@ namespace TheWaningBorder.UI.Ingame
         /// </summary>
         public const float ReservedScreenHeight = TopGapPx + LabelHeightPx;
 
+        /// <summary>Label width while the dominion countdown shares the line.</summary>
+        private const float WideLabel = 420f;
+
         private Text _label;
         private float _nextUpdate;
 
@@ -54,6 +57,7 @@ namespace TheWaningBorder.UI.Ingame
             _label.fontStyle = FontStyle.Bold;
             _label.alignment = TextAnchor.UpperCenter;
             _label.color = new Color(1f, 1f, 1f, 0.9f);
+            _label.supportRichText = true;
 
             var outline = textGo.AddComponent<Outline>();
             outline.effectColor = new Color(0f, 0f, 0f, 0.8f);
@@ -90,9 +94,21 @@ namespace TheWaningBorder.UI.Ingame
             int hours = (int)(t / 3600.0);
             int minutes = (int)(t / 60.0) % 60;
             int seconds = (int)t % 60;
-            _label.text = hours > 0
+            string clock = hours > 0
                 ? $"{hours}:{minutes:00}:{seconds:00}"
                 : $"{minutes:00}:{seconds:00}";
+            // DOMINION (Territory_Claims.md § 11.4): while one side holds every
+            // Sanctum, everyone sees whose countdown it is and the time left.
+            if (TheWaningBorder.Systems.Economy.SanctumSystem.TryCountdown(world.EntityManager,
+                    out var holder, out float left))
+            {
+                int lm = (int)(left / 60f), ls = (int)left % 60;
+                string hex = ColorUtility.ToHtmlStringRGB(FactionColors.Get(holder));
+                clock += $"   <color=#{hex}>Dominion: {holder} {lm}:{ls:00}</color>";
+                if (_label.rectTransform.sizeDelta.x < WideLabel)
+                    _label.rectTransform.sizeDelta = new Vector2(WideLabel, LabelHeightPx);
+            }
+            _label.text = clock;
         }
     }
 }

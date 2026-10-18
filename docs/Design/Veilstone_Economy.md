@@ -41,13 +41,20 @@ Every veilstone outcrop on the map is in exactly one state:
 |---|---|---|
 | **Inactive** | Ordinary, uncursed crystal | Start state; a curse node on it is destroyed |
 | **Cursed** | A curse node stands on it | The curse builds a node on it (Territory_Claims.md §6.3) |
-| **Depleted** | Mined out | A mine drew its reserve to zero |
+| ~~**Depleted**~~ **Collapsed** (2026-10-18) | Mined out — **gone** | Its reserve reached zero: the outcrop is removed from the map with every building working it (Territory_Claims.md § 11.3) |
+
+**Revised 2026-10-18:** an outcrop has a **finite** reserve and no lifetime;
+when it is fully extracted it **collapses** — removed, together with the
+Veilstone Mine or Sanctuary on it and the Trading Outposts on its side slots.
+There is no Depleted outcrop any more, so nothing below that refills, trades
+at or builds on a Depleted outcrop applies (struck through where it appears).
 
 - **An empty node pays a small trickle** of its resource to whoever holds its
   ground (the empty-slot rate in `TerritoryIncomeSystem`); built on, it pays
   its extractor's rate instead (§5). A Cursed or Depleted outcrop
   pays nothing.
-- **The curse replenishes.** When the curse raises a node on a depleted
+- ~~**The curse replenishes.**~~ *(void since 2026-10-18: a spent outcrop
+  collapses, so there is nothing to refill.)* When the curse raises a node on a depleted
   outcrop, the outcrop's reserve refills to full. Pacify it later and it is
   a full Inactive node again. **The refill is capped by the node lifetime**
   (Territory_Claims.md § 11.3, 2026-10-08): it restores only what the
@@ -58,12 +65,12 @@ Every veilstone outcrop on the map is in exactly one state:
   Inactive. Who destroyed it decides what else happens (§3).
 
 State is derived, not authored: an outcrop with a live curse node on it is
-Cursed; otherwise an outcrop whose reserve is spent is Depleted; otherwise it
-is Inactive.
+Cursed; otherwise it is Inactive (an outcrop whose reserve is spent no longer
+exists, 2026-10-18).
 
 ## 3. Per-culture interaction
 
-| | Inactive node | Cursed node | Depleted node |
+| | Inactive node | Cursed node | ~~Depleted node~~ (collapsed since 2026-10-18 — the column is void) |
 |---|---|---|---|
 | **Feraldis** | **Mine** on it (slave-staffed): fast veilstone, drains the node | Destroy the curse node → **veilstone + veilsteel bounty** | nothing |
 | **Runai** | **Sanctuary** on it: religion points, never drains it | **Sanctuary** on it with Consecrated Ground (even in curse-held ground): the node sleeps, more religion points | nothing |
@@ -78,7 +85,7 @@ the map, in contested ground, that anyone can burn.
 | | |
 |---|---|
 | **Alanthor do not mine veilstone** | No Veilstone Mine once Alanthor (iron Mines stay — they are every culture's). **At age-up every Veilstone Mine the faction owns becomes the FIRST Trading Outpost of its outcrop** — same building (same entity, owner, health fraction and territory lock), but it **moves off the outcrop onto one of its four sides**: the free, buildable side nearest the faction's capital, ties broken north, east, south, west — a side in the outcrop's own territory first, one across a border only when no other is free. The other three sides can then be built. The mine's level is lost; the Outpost starts at its own Level 1. With no free side it stays on the outcrop (a fallback, logged). |
-| Placement (2026-10-04, decision 40 — supersedes the on-outcrop placement of decision 28) | **Beside** an Inactive or Depleted veilstone outcrop, on one of its **four side slots — north, east, south, west** — the post's footprint flush against the outcrop's square and centred on its axis ([Build_Grid.md § The Trading Outpost's side slots](Build_Grid.md)). **At most one post per side, so at most four per outcrop.** The outcrop itself stays an impassable node nobody builds on. The placement ghost snaps to the nearest free side of an outcrop near the cursor and skips a side the ground refuses; it is red when every side is taken or blocked. Never beside a Cursed outcrop. Each post remembers the outcrop it trades at. Alanthor's Mine button and the Outpost's own button both raise it. |
+| Placement (2026-10-04, decision 40 — supersedes the on-outcrop placement of decision 28) | **Beside** an Inactive veilstone outcrop (~~or Depleted~~ — spent outcrops collapse, 2026-10-18), on one of its **four side slots — north, east, south, west** — the post's footprint flush against the outcrop's square and centred on its axis ([Build_Grid.md § The Trading Outpost's side slots](Build_Grid.md)). **At most one post per side, so at most four per outcrop.** The outcrop itself stays an impassable node nobody builds on. The placement ghost snaps to the nearest free side of an outcrop near the cursor and skips a side the ground refuses; it is red when every side is taken or blocked. Never beside a Cursed outcrop. Each post remembers the outcrop it trades at. Alanthor's Mine button and the Outpost's own button both raise it. |
 | **Four posts, one outcrop** | This is how Alanthor's veilstone grows **without more veilstone slots on the map**: an outcrop can carry up to four times the trade it carried as a single Outpost — at a steeper price for every post beyond the first. |
 | Cost, build time | on the `Alanthor_TradingOutpost` SO — the price of the **first** post beside an outcrop |
 | **Per-outcrop cost ramp** | Every further post beside the **same** outcrop costs more — its build price AND every level-up it later buys are the base price times the ramp entry for its place (the 1st, 2nd, 3rd or 4th post there). The **first post beside a new outcrop is base price again**, which rewards taking more veilstone ground over stacking one outcrop. A post's place is counted from the posts already standing beside that outcrop (any owner, finished or not) plus the builder's own plans there, and is fixed when its ground is broken. The multipliers are `outcropRampMultipliers` in `TradingOutpostSystem.asset`. The build button names the ramp; the price charged is the one for the side the post snaps to; refunds hand back the price paid. |
@@ -101,8 +108,11 @@ not buying veilstone — per post, so with four posts on an outcrop one can
 forge while three buy. The trade runs on a short fixed cycle (`cycleSeconds`,
 1 s since 2026-10-03, decision 28) with a per-Outpost fractional carry, so the
 per-minute numbers are paid exactly. The Outpost does **not** drain the
-outcrop; trade is not mining. Depleted outcrops left behind by Feraldis are as
-good as fresh ones for an Outpost.
+outcrop; trade is not mining. **But it falls with its outcrop (2026-10-18):**
+if the outcrop is fully extracted by something else — its own empty-slot
+trickle, a Feraldis or Age 0 Veilstone Mine — it collapses and takes every
+Outpost on its side slots with it (Territory_Claims.md § 11.3). ~~Depleted
+outcrops left behind by Feraldis are as good as fresh ones for an Outpost.~~
 
 Every trade rate, the cycle and the Trade Agreements discounts live in
 `TradingOutpostSystem.asset` beside the class (rates authored per minute); the
@@ -119,8 +129,8 @@ cheaper per veilstone as well as faster.
 
 - **Veilstone Mine** on an Inactive outcrop, **staffed by slaves**: veilstone
   per mine level and crew, Feraldis scaled up, and every unit paid is drawn
-  from the outcrop's reserve — each slave drains it faster. A spent outcrop is
-  Depleted and pays nothing.
+  from the outcrop's reserve — each slave drains it faster. A spent outcrop
+  collapses with the Mine on it (2026-10-18).
 - **The curse pays veilstone**: a curse unit Feraldis kills pays veilstone
   (not religion points); a destroyed curse node pays **veilstone and
   veilsteel** (`curseNodeVeilstone`, `curseNodeVeilsteel` in
@@ -151,7 +161,8 @@ cheaper per veilstone as well as faster.
 ### 3.4 The curse
 
 - Produces units that attack **everyone equally**.
-- Takes a Depleted outcrop and replenishes it (§2).
+- ~~Takes a Depleted outcrop and replenishes it (§2).~~ *(void 2026-10-18:
+  spent outcrops collapse.)*
 - *Open item:* the curse still hunts the Shardroot holder
   (Territory_Claims.md §6.6). That is a reaction to holding a piece of it,
   not a preference for a faction, and is kept until decided otherwise.

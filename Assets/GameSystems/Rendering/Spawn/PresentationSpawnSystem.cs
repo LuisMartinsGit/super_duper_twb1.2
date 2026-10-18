@@ -628,6 +628,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             var go = CreateProceduralVeilsteelDeposit(pos, entity);
             return go;
         }
+        if (presentationId == TheWaningBorder.Entities.SanctumCrystal.PresentationID)
+            return CreateSanctumCrystal(pos, entity);
 
         // === ALANTHOR WALLS: procedural hub, instances, towers, gates ===
         // Wall pieces carry the owner's colour on their ownership parts, and

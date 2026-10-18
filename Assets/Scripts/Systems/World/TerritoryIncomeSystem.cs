@@ -16,13 +16,15 @@
 //   * the capital's own supplies are NOT paid here: the Fortress carries a
 //     SuppliesIncome from its SO (ResourceTickSystem pays it). The flat
 //     50/min this system added on top was cut (unification item 10).
-//   * a cursed or depleted veilstone outcrop pays nothing, and there is no
-//     veilsteel node at all (docs/Design/Veilstone_Economy.md, 2026-10-01)
+//   * a cursed veilstone outcrop pays nothing, and there is no veilsteel
+//     node at all (docs/Design/Veilstone_Economy.md, 2026-10-01)
 //
-// THE LATE GAME COMES AT 30 MINUTES (2026-10-08). Every node's reserve is
-// capped by a lifetime line that reaches 0 at `nodeLifetimeMinutes` of
-// simulated match time, so by then no slot — empty or built — pays anything.
-// What still pays after it, and is paid here:
+// FINITE NODES (2026-10-18, Territory_Claims.md § 11.3): every node holds a
+// finite reserve and every unit a slot pays — empty or built — is drawn from
+// it, at the slot's FULL rate until the reserve is gone. There is no lifetime
+// line any more. A spent node COLLAPSES with every building working it
+// (NodeCollapse, run after each paying tick). What draws on no node, and is
+// paid here:
 //   * the Guild surveys — every Alanthor Guild pays a flat amount per
 //     completed survey tier, scaled by its level, drawn from no node
 //   * territory claims — every held territory pays a flat rate once its
@@ -131,27 +133,9 @@ namespace TheWaningBorder.Systems.World
         /// read as the building being broken.</summary>
         private const float MineToNodeRange = 12f;
 
-        /// <summary>
-        /// What a fresh node holds. At the 75/min base trickle this is roughly
-        /// 53 minutes of undisturbed extraction, so a node is still paying at
-        /// the end of a long match — but it is visibly poorer: about 53% yield
-        /// by minute 25, sooner if an extraction building is drawing on it.
-        ///
-        /// "Very slowly" is the point. A node that empties inside a match would
-        /// make the map a countdown; one that never empties makes the opening
-        /// land grab the entire economy.
-        /// </summary>
-        // NODES RUN DRY (2026-10-07, Territory_Claims.md § 11.3): the reserve
-        // sizes and the yield floor live on TerritoryIncomeSystem.asset.
+        // FINITE NODES (Territory_Claims.md § 11.3): the reserve sizes and
+        // the purity multipliers live on TerritoryIncomeSystem.asset.
         private static TerritoryIncomeSystemConfig Cfg => TerritoryIncomeSystemConfig.I;
-
-        /// <summary>
-        /// Yield floor as a fraction of the node's fresh rate. A spent node
-        /// keeps trickling rather than dying: a territory whose nodes hit zero
-        /// would be worth holding for nothing at all, which turns the late game
-        /// into a map of dead ground nobody contests.
-        /// </summary>
-        private static float DepletionFloor => Cfg.depletionFloor;
 
         // SimCadence-phased, NOT a raw float accumulator (2026-09-04, MP
         // harness catch #7 class): a raw `_timer -= dt` carries a
@@ -215,7 +199,6 @@ namespace TheWaningBorder.Systems.World
             var em = EntityManager;
             TerritoryOwnership.Recompute(em);
             EnsureNodeReserves(em);
-            ApplyNodeLifetime(em);
 
             float minutes = TickInterval / 60f;
             int count = RegionMap.Count;
@@ -273,6 +256,9 @@ namespace TheWaningBorder.Systems.World
                 if (split != null) BookSplit((Faction)owner, yield, split, minutes);
             }
             TheWaningBorder.Systems.Sect.AlanthorSectEconomy.EndRate();
+            // A node this tick emptied collapses now, with what worked it
+            // (§ 11.3): after the payout, so its last units were paid.
+            NodeCollapse.CollapseSpent(em);
         }
 
         // -- Ledger attribution (observation only) --------------------------
@@ -447,12 +433,8 @@ namespace TheWaningBorder.Systems.World
             {
                 if (NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2, out Entity supplyNode))
                 {
-                    float scale = 1f;
-                    if (em.HasComponent<NodeReserve>(supplyNode))
-                    {
-                        var res = em.GetComponentData<NodeReserve>(supplyNode);
-                        if (res.Initial > 0f) scale = Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
-                    }
+                    // full rate until the node is empty (§ 11.3, 2026-10-18)
+                    float scale = SpentNode(em, supplyNode) ? 0f : 1f;
                     y.Supplies += LadderFor(HutId, culture).At(level) * scale
                                   * TerritoryResources.PurityMultiplier(em, supplyNode);
                 }
@@ -513,8 +495,12 @@ namespace TheWaningBorder.Systems.World
             return m > 0f ? m : 1f;
         }
 
-        /// <summary>One extractor's slot rate on the ore nodes it stands on,
-        /// scaled by what is left in each (the same scale the tick pays).</summary>
+        /// <summary>A node whose reserve is gone (it collapses this tick).</summary>
+        private static bool SpentNode(EntityManager em, Entity node)
+            => em.HasComponent<NodeReserve>(node) && em.GetComponentData<NodeReserve>(node).Remaining <= 0f;
+
+        /// <summary>One extractor's slot rate on the ore nodes it stands on
+        /// (the same rate the tick pays: full until a node is empty).</summary>
         private static float NodeLevelYield(EntityManager em, OreCensus o, Unity.Mathematics.float3 p,
             float r2, int level, SlotLadder ladder)
         {
@@ -525,13 +511,8 @@ namespace TheWaningBorder.Systems.World
                 var np = em.GetComponentData<LocalTransform>(node).Position;
                 float dx = np.x - p.x, dz = np.z - p.z;
                 if (dx * dx + dz * dz > r2) continue;
-                float scale = 1f;
-                if (em.HasComponent<NodeReserve>(node))
-                {
-                    var res = em.GetComponentData<NodeReserve>(node);
-                    if (res.Initial > 0f) scale = Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
-                }
-                total += ladder.At(level) * scale * TerritoryResources.PurityMultiplier(em, node);
+                if (SpentNode(em, node)) continue;     // full rate until empty (§ 11.3)
+                total += ladder.At(level) * TerritoryResources.PurityMultiplier(em, node);
             }
             return total;
         }
@@ -831,16 +812,20 @@ namespace TheWaningBorder.Systems.World
                     float rate = hutLadder.At(c.SupplyHutLevel[i]) * c.SupplyPurity[i];
                     // Feraldis: a hut pays by its crew of slaves (Age_1_Feraldis.md §3.1).
                     if (c.SupplyHutLevel[i] > 0) rate *= c.SupplyCrew[i];
-                    // § 11.3: a supply node thins as it empties and runs dry.
+                    // § 11.3 (2026-10-18): full rate until the node is empty,
+                    // every unit drawn from it; a spent node pays nothing and
+                    // collapses at the end of the tick.
                     var sNode = c.SupplyNode[i];
                     if (em.HasComponent<NodeReserve>(sNode))
                     {
                         var res = em.GetComponentData<NodeReserve>(sNode);
-                        if (res.Initial > 0f) rate *= Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
-                        if (drainMinutes > 0f && res.Remaining > 0f)
+                        if (res.Remaining <= 0f) continue;
+                        if (drainMinutes > 0f)
                         {
-                            res.Remaining = Mathf.Max(0f, res.Remaining - rate * drainMinutes);
+                            float take = Mathf.Min(res.Remaining, rate * drainMinutes);
+                            res.Remaining -= take;
                             em.SetComponentData(sNode, res);
+                            rate = take / drainMinutes;
                         }
                     }
                     y.Supplies += rate;
@@ -1223,11 +1208,10 @@ namespace TheWaningBorder.Systems.World
         /// <summary>
         /// Per-minute output of every ore slot of one kind in a territory.
         ///
-        /// IRON keeps the depletion curve: yield scales by what is left, down
-        /// to <see cref="DepletionFloor"/>. VEILSTONE is fast and finite: an
-        /// outcrop pays only while Inactive, at its full rate until its reserve
-        /// is gone, then it is Depleted and pays nothing (Veilstone_Economy.md
-        /// §2). Every unit paid is drawn from the reserve on the paying call.
+        /// Every node pays its full rate until its reserve is gone (2026-10-18,
+        /// Territory_Claims.md § 11.3); a veilstone outcrop pays only while
+        /// Inactive. Every unit paid is drawn from the reserve on the paying
+        /// call; a spent node collapses at the end of the tick (NodeCollapse).
         /// </summary>
         private static float OreSlotYield(EntityManager em, OreCensus o, int territory,
             float drainMinutes, SlotLadder ladder, float multiplier, bool veilstone,
@@ -1248,27 +1232,15 @@ namespace TheWaningBorder.Systems.World
                 if (o.ExtractorLevels[i] > 0) rate *= extractorMultiplier * o.Crew[i];
                 if (em.HasComponent<NodeReserve>(node))
                 {
+                    // full rate until empty, every unit drawn (§ 11.3, 2026-10-18)
                     var res = em.GetComponentData<NodeReserve>(node);
-                    if (veilstone)
+                    if (res.Remaining <= 0f) continue;
+                    if (drainMinutes > 0f)
                     {
-                        if (res.Remaining <= 0f) continue;
-                        if (drainMinutes > 0f)
-                        {
-                            float take = Mathf.Min(res.Remaining, rate * drainMinutes);
-                            res.Remaining -= take;
-                            em.SetComponentData(node, res);
-                            rate = take / drainMinutes;
-                        }
-                    }
-                    else
-                    {
-                        if (res.Initial > 0f)
-                            rate *= Mathf.Max(DepletionFloor, res.Remaining / res.Initial);
-                        if (drainMinutes > 0f && res.Remaining > 0f)
-                        {
-                            res.Remaining = Mathf.Max(0f, res.Remaining - rate * drainMinutes);
-                            em.SetComponentData(node, res);
-                        }
+                        float take = Mathf.Min(res.Remaining, rate * drainMinutes);
+                        res.Remaining -= take;
+                        em.SetComponentData(node, res);
+                        rate = take / drainMinutes;
                     }
                 }
                 total += rate;
@@ -1293,54 +1265,6 @@ namespace TheWaningBorder.Systems.World
             AddMissingReserves(em, QC_MissingIron.Get(em, QT_MissingIron), Cfg.ironNodeReserve);
             AddMissingReserves(em, QC_MissingSupply.Get(em, QT_MissingSupply), Cfg.supplyNodeReserve);
             AddMissingReserves(em, QC_MissingVeilstone.Get(em, QT_MissingVeilstone), Cfg.veilstoneNodeReserve);
-        }
-
-        /// <summary>
-        /// THE LATE GAME (2026-10-08, Territory_Claims.md § 11.3): the share of
-        /// a node's fresh reserve still allowed to exist at this moment of the
-        /// match — 1 at the start, falling linearly to 0 at
-        /// `nodeLifetimeMinutes` of SIMULATED match time (SimClock, so every
-        /// lockstep peer reads the same value on the same tick). 1 when the
-        /// lifetime is off.
-        /// </summary>
-        public static float NodeLifetimeFraction()
-        {
-            float life = Cfg.nodeLifetimeMinutes;
-            if (life <= 0f) return 1f;
-            float minutes = (float)(SimClock.Elapsed / 60.0);
-            return Mathf.Clamp01(1f - minutes / life);
-        }
-
-        /// <summary>
-        /// Cap every node's reserve at its lifetime share of its fresh one:
-        /// Remaining = min(Remaining, Initial × fraction). Extraction drains a
-        /// node below the line sooner; the line itself reaches 0 at the
-        /// lifetime, so every node — worked or not, supply, iron or veilstone
-        /// — pays nothing after it. A min is order-independent, so the walk
-        /// order cannot change the result.
-        /// </summary>
-        private static void ApplyNodeLifetime(EntityManager em)
-        {
-            float f = NodeLifetimeFraction();
-            if (f >= 1f) return;
-            CapReserves(em, QC_Supply.Get(em, QT_Supply), f);
-            CapReserves(em, QC_Iron.Get(em, QT_Iron), f);
-            CapReserves(em, QC_Veilstone.Get(em, QT_Veilstone), f);
-        }
-
-        private static void CapReserves(EntityManager em, EntityQuery q, float fraction)
-        {
-            if (q.IsEmptyIgnoreFilter) return;
-            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (!em.HasComponent<NodeReserve>(ents[i])) continue;
-                var res = em.GetComponentData<NodeReserve>(ents[i]);
-                float cap = res.Initial * fraction;
-                if (res.Remaining <= cap) continue;
-                res.Remaining = cap;
-                em.SetComponentData(ents[i], res);
-            }
         }
 
         /// <summary>§ 11.3: a Pure node holds more (and outlasts its higher

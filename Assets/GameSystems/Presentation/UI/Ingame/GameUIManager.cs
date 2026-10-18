@@ -348,6 +348,8 @@ namespace TheWaningBorder.UI.Ingame
             // Where the income comes from: hover a territory or a building
             // for its resources per minute (docs/Design/Veilstone_Economy.md).
             gameObject.AddComponent<TheWaningBorder.UI.World.IncomeOverlay>().Init(catalog.chrome);
+            // What is left in every visible resource node (Territory_Claims.md § 11.3).
+            gameObject.AddComponent<TheWaningBorder.UI.World.NodeReserveBars>();
 
             if (catalog.actionsPanel != null)
             {

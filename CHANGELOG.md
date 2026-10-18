@@ -9,6 +9,47 @@ build always name the same number.
 
 ---
 
+## [0.0.46] — 2026-10-18
+
+### Added
+- **Four new maps**, all built around one choice: hold poor ground that is
+  easy to defend, or fight for rich ground in the open. Territories are
+  small, so there are many of them.
+  - **Moatwatch** (4 players, 512 m). Each player starts in a corner keep
+    behind a moat, with two small inner territories and two waded fords out
+    to one big open middle that gets richer toward the centre.
+  - **Highfold** (8 players, 768 m). Four players start in mountain valleys
+    with a single ramp down to the fields; four start in the open fields
+    around the richest ground on the map.
+  - **Broken Oath** (5 players, 3 v 2, 768 × 448 m). The three hold open low
+    ground with their homes close together; the two hold a plateau above an
+    escarpment with four ramps up. The rich ground is in the middle.
+  - **Trine Hollow** (3 players, 640 m, the same ground for every seat
+    turned three ways). Homes on the rim, a ring of terraces, Sanctums on the
+    ridges between seats and a rich basin with the curse in its centre.
+- **Sanctum crystals.** Every Sanctum territory now has a glowing crystal
+  landmark, on every map.
+- **Sanctums pay more, and can win the game.** Each Sanctum you hold gives
+  1 Religion Point a minute (as before), a small veilsteel income and 10 %
+  faster sect power cooldowns; the bonuses stack per Sanctum. **Dominion:**
+  hold every Sanctum on the map at once (allies count together) and a
+  10-minute countdown starts, shown next to the match clock. Lose any
+  Sanctum and it is cancelled; if it runs out, you win.
+- **Every resource node shows what is left**: a bar and the amount, over
+  every node you can see.
+
+### Changed
+- **Resource nodes are finite and collapse.** There is no longer a 60-minute
+  timer that empties every node. A node holds a fixed amount and pays its
+  full rate until it is empty; then it collapses, and the building working it
+  collapses with it (for a veilstone outcrop, its Trading Outposts too).
+  Trading Outposts and Runai Sanctuaries still never drain an outcrop. The
+  curse no longer refills an outcrop it takes.
+- The node's old remaining-amount bar on hover is replaced by the always-on
+  bar above.
+
+---
+
 ## [0.0.45] — 2026-10-18
 
 ### Added

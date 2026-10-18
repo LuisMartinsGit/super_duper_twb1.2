@@ -40,19 +40,6 @@ namespace TheWaningBorder.Systems.World
         public float normalReserveMultiplier;
         public float poorReserveMultiplier;
 
-        /// <summary>Yield floor as a fraction of a node's fresh rate. 0 = a
-        /// worked node runs dry; above 0 it keeps that trickle forever.</summary>
-        public float depletionFloor;
-
-        /// <summary>
-        /// THE LATE GAME (2026-10-08): every node — supply, iron, veilstone —
-        /// is spent by this many minutes of SIMULATED match time. A node's
-        /// reserve is capped at Initial × (1 − matchMinutes / this), so its
-        /// pay falls to nothing by then whether or not it was worked. 0 or
-        /// less turns the lifetime off.
-        /// </summary>
-        public float nodeLifetimeMinutes;
-
         // ── slot rates ───────────────────────────────────────────────────
 
         /// <summary>What an EMPTY slot pays (supply, iron or uncursed

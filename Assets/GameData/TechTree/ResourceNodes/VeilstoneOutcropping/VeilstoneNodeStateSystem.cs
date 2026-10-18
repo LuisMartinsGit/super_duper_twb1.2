@@ -6,11 +6,10 @@
 //   * else its NodeReserve is spent               -> Depleted
 //   * else                                        -> Inactive
 //
-// THE CURSE REPLENISHES. The moment an outcrop turns Cursed its reserve is
-// refilled to full — capped by the node lifetime (TerritoryIncomeSystem.
-// NodeLifetimeFraction, 2026-10-08), so after minute 30 a refill restores
-// nothing — and a node Feraldis mined out and abandoned comes back once the
-// curse has held it and somebody pacifies it again.
+// NO REFILL (2026-10-18, Territory_Claims.md § 11.3): an outcrop holds a
+// finite reserve; the curse taking it no longer refills it, and a spent
+// outcrop collapses (NodeCollapse) rather than lingering as Depleted, so
+// Depleted is only ever the state of an outcrop on the tick it empties.
 //
 // The curse node is a separate building entity at the outcrop's position (the
 // curse never marks the resource node itself — CurseTerritorySystem.Living
@@ -101,17 +100,6 @@ namespace TheWaningBorder.Systems.Economy
                 if (cursed)
                 {
                     next = VeilstoneNodeKind.Cursed;
-                    if (prev != VeilstoneNodeKind.Cursed && em.HasComponent<NodeReserve>(e))
-                    {
-                        // ...but never past the node lifetime (2026-10-08,
-                        // Territory_Claims.md § 11.3): after minute 30 the
-                        // curse refills an outcrop to nothing, so taking a
-                        // spent outcrop cannot resurrect its income.
-                        var res = em.GetComponentData<NodeReserve>(e);
-                        res.Remaining = res.Initial
-                            * TheWaningBorder.Systems.World.TerritoryIncomeSystem.NodeLifetimeFraction();
-                        em.SetComponentData(e, res);
-                    }
                 }
                 else if (em.HasComponent<NodeReserve>(e)
                          && em.GetComponentData<NodeReserve>(e).Remaining <= 0f)

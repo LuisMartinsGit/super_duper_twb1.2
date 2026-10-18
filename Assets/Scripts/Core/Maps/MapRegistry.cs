@@ -124,6 +124,14 @@ namespace TheWaningBorder.Core.Maps
             "YielLymwerra",    // 2P, 1024 m, a crescent bay of shallows under
                                // cliffs, the cursed island Yiel in its middle
                                // (the curse always starts there, 2026-10-17)
+            "Moatwatch",       // 4P, 512 m, moated corner keeps with two fords
+                               // each, an open rich middle (2026-10-18)
+            "Highfold",        // 8P, 768 m, four mountain-valley seats with one
+                               // ramp out, four open-field seats (2026-10-18)
+            "BrokenOath",      // 5P 3v2, 768 x 448 m, the two on a plateau
+                               // above an escarpment (2026-10-18)
+            "TrineHollow",     // 3P, 640 m, three-fold bowl: rim, terraces,
+                               // a rich basin (2026-10-18)
         };
 
         /// <summary>
