@@ -134,8 +134,9 @@ namespace TheWaningBorder.Systems.Sect
             {
                 var e = entities[i];
                 var owner = em.GetComponentData<FactionTag>(e).Value;
+                // Allies of the caster are NOT spared (2026-10-19); only the
+                // caster's own units and the curse are.
                 if (owner == faction || owner == Faction.Border) continue;
-                if (Alliances.AreAllied(owner, faction)) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;
@@ -155,9 +156,9 @@ namespace TheWaningBorder.Systems.Sect
         /// Friendly Fire (Sew Disorder; Sects.md, 2026-10-18). Enemy units in
         /// the circle go mad: they KEEP their owner and colour, their owner
         /// loses control of them (NotControllableTag), and they attack
-        /// everyone near them, their own side included, while everyone may
-        /// attack them. Duration 0 means Lv III — until killed. Allies of the
-        /// caster are spared.
+        /// everyone near them — their own side's units AND buildings included
+        /// — while everyone may attack them. Duration 0 means Lv III — until
+        /// killed. Only the caster's own units are spared (2026-10-19).
         /// </summary>
         private static void ApplyHostileConversion(EntityManager em, Faction faction,
             float3 center, float radius, float duration)

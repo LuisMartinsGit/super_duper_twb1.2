@@ -36,11 +36,13 @@ namespace TheWaningBorder.Economy
         }
 
         // ── Antiquity: Cartography (Sects.md §4, 2026-10-15) ─────────────────
-        // "Capturing a territory explores all of it." Consumed by
-        // CartographySystem, which reveals a newly held territory's ground.
+        // 2026-10-19: "every territory you hold is fully visible to you; lost
+        // ground falls back to explored". Consumed by FogOfWarSystem (the fog
+        // grid: a per-territory cell mask stamped visible, exactly to the
+        // border) and FactionSight (the simulation's sight test).
 
-        /// <summary>Does this faction explore every territory it captures?</summary>
-        public static bool ExploresCapturedTerritory(Faction faction) => Has(faction, Cartography);
+        /// <summary>Does this faction see every territory it holds, whole?</summary>
+        public static bool RevealsHeldTerritory(Faction faction) => Has(faction, Cartography);
 
         /// <summary>Research and building-upgrade TIME multiplier. Royal Index
         /// (Antiquity's old research) was replaced by Cartography 2026-10-15;

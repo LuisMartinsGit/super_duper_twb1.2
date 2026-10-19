@@ -398,7 +398,9 @@ namespace TheWaningBorder.Systems.Sect
             {
                 // Cast ON an entity: the pick must be legal now, on this peer,
                 // before anything is spent. The strike is centred on it.
-                if (!CheckTarget(em, faction, spec.Kind, targetKind, target, out _)) return false;
+                // An enemy target must also be in the caster's sight (own and
+                // allied ones always are) -- docs/Design/Spells.md §6.1.
+                if (!CheckTargetInSight(em, faction, spec.Kind, targetKind, target, out _, fresh: true)) return false;
                 targetPos = em.GetComponentData<LocalTransform>(target).Position;
             }
             else
@@ -408,6 +410,11 @@ namespace TheWaningBorder.Systems.Sect
                 // Rejected BEFORE the cooldown is charged so a misclick costs
                 // nothing and the player can simply re-aim.
                 if (IsOffensive(spec.Kind) && IsOnCurseWell(em, targetPos)) return false;
+                // An aimed power lands only where the caster (or an ally) can
+                // see the CENTRE right now (docs/Design/Spells.md §6.1). The
+                // simulation's own sight test, never the fog grid, so every
+                // peer refuses the same cast; refused before anything is spent.
+                if (!AimInSight(em, faction, spec.Kind, targetPos, fresh: true)) return false;
             }
 
             // The effect level the strike lands at is the sect's power level,

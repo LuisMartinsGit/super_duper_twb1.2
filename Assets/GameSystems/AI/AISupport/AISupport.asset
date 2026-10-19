@@ -23,3 +23,5 @@ MonoBehaviour:
   cleanseSearchRadius: 90
   cleanseThreatRadius: 16
   cleanseErrandSeconds: 40
+  cleanseAimInset: 0.6
+  cleanseDoneMargin: 4

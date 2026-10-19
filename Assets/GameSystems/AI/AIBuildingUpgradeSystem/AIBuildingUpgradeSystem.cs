@@ -11,6 +11,20 @@
 // Reserves a small buffer of resources before upgrading so upgrades
 // don't bankrupt the AI mid-rush. Reserves are loose — if the AI
 // genuinely can't afford it, the command helper rejects gracefully.
+//
+// ONE DECISION PER TYPE (2026-10-19, docs/Design/Overview.md § Building
+// levels). A level is faction-wide per building type: finishing it raises
+// every building of the type, and new ones are built at it. So the AI never
+// walks a type's buildings looking for the "lowest" one any more — it asks
+// once per type:
+//   * is a level of this type already queued / running anywhere? then no;
+//   * is it WORTH it? A level is priced against soldiers: its SO price in
+//     reference-unit prices (referenceUnitId's SO cost) must not exceed the
+//     buildings it raises times soldiersPer<Category>Building — more
+//     Barracks, a level worth more (ValueGate). An overflowing bank
+//     (surplusIgnoresValue) and the housing Hut (gated on need) skip it;
+//   * where does the clock run? PickHost: an idle building of the type
+//     before one busy training, the shortest queue otherwise.
 
 using Unity.Collections;
 using TheWaningBorder.Core;
@@ -162,6 +176,30 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_GathererHutUpgradeableNotRaider;
 
+        // Feraldis trainers (2026-10-19): the Hall of Axes, Rig Yard and
+        // Engine Works level L1-L3 like every other production line.
+        static readonly ComponentType[] QT_HallOfAxesUpgradeable =
+        {
+            ComponentType.ReadOnly<HallOfAxesTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_HallOfAxesUpgradeable;
+        static readonly ComponentType[] QT_PastureUpgradeable =
+        {
+            ComponentType.ReadOnly<PastureTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_PastureUpgradeable;
+        static readonly ComponentType[] QT_FerSiegeYardUpgradeable =
+        {
+            ComponentType.ReadOnly<FerSiegeYardTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_FerSiegeYardUpgradeable;
+
         static readonly ComponentType[] QT_TradingOutpostUpgradeable =
         {
             ComponentType.ReadOnly<TradingOutpostTag>(),
@@ -169,6 +207,15 @@ namespace TheWaningBorder.AI
             ComponentType.ReadOnly<FactionTag>(),
         };
         static CachedEntityQuery QC_TradingOutpostUpgradeable;
+
+        // The iron Mine levels L1-L3 for every culture (2026-10-19).
+        static readonly ComponentType[] QT_MineUpgradeable =
+        {
+            ComponentType.ReadOnly<MineTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_MineUpgradeable;
 
         #endregion
 
@@ -214,10 +261,11 @@ namespace TheWaningBorder.AI
         // ladder ships — wall Tower/Gate CONVERSIONS stay with
         // WallUpgradeSystem and are NOT driven from here.
         private static readonly string[] PriorityOrder =
-            { "GatherersHut", "Fortress", "Barracks", "Hut", "ArcheryRange",
+            { "GatherersHut", "Mine", "Fortress", "Barracks", "Hut", "ArcheryRange",
               "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Tower",
               "VaultOfAlmierra", "Alanthor_Wall",
-              "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop", "Runai_Sanctuary" };
+              "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop", "Runai_Sanctuary",
+              "Feraldis_HallOfAxes", "Feraldis_Pasture", "Feraldis_SiegeYard" };
 
 
         public void OnCreate(ref SystemState state)
@@ -331,6 +379,11 @@ namespace TheWaningBorder.AI
             }
         }
 
+        /// <summary>The economy ladders TryEconomyUpgrade rotates through, in
+        /// pass order (index = the query it picks a host from).</summary>
+        private static readonly string[] EconomyLevelIds =
+            { "GatherersHut", "Alanthor_TradingOutpost", "Mine" };
+
         /// <summary>AIPivotalReserve key of the capital's next level.</summary>
         private const string CapitalReserveKey = "CapitalLevel";
 
@@ -345,23 +398,29 @@ namespace TheWaningBorder.AI
 
         /// <summary>
         /// One economy level, ahead of the rotation and without yielding to
-        /// the army (Game_AI.md 5f / 5h): the Gatherer's Hut (highest first,
-        /// so huts reach the L3 survey gate) on even passes, the cheapest
-        /// Trading Outpost on odd ones, each falling back to the other.
+        /// the army (Game_AI.md 5f / 5h): the Gatherer's Hut, the Trading
+        /// Outpost and the iron Mine (2026-10-19) take turns by pass, each
+        /// falling back to the next.
         /// Respects the savings hold (the capital's price first) and the
         /// army's veilstone earmark.
         /// </summary>
         private static bool TryEconomyUpgrade(EntityManager em, Faction faction, int pass,
             bool incomeOutranksPot)
         {
-            bool outpostFirst = (pass & 1) == 1;
-            for (int k = 0; k < 2; k++)
+            for (int k = 0; k < EconomyLevelIds.Length; k++)
             {
-                bool outpost = (k == 0) == outpostFirst;
-                Entity best = outpost ? CheapestOutpost(em, faction) : HighestHut(em, faction);
+                int kind = (pass + k) % EconomyLevelIds.Length;
+                string id = EconomyLevelIds[kind];
+                // ONE decision per type: the level raises every hut / post / mine.
+                Entity best = PickHost(em, faction, kind == 0
+                    ? QC_GathererHutUpgradeableNotRaider.Get(em, QT_GathererHutUpgradeableNotRaider)
+                    : kind == 1
+                        ? QC_TradingOutpostUpgradeable.Get(em, QT_TradingOutpostUpgradeable)
+                        : QC_MineUpgradeable.Get(em, QT_MineUpgradeable));
                 if (best == Entity.Null) continue;
                 if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var cost, out byte next)) continue;
                 if (next <= 1) continue;   // L1 is the free age-up level
+                if (!ValueGate(em, faction, best, cost, Cfg.soldiersPerEconomyBuilding, surplus: false)) continue;
                 // Outside the budget's lump-sum reservation (the Fortress pot,
                 // Game_AI.md 5c): a level paid from the bank directly used
                 // to spend it on every release of the pivotal hold.
@@ -385,49 +444,99 @@ namespace TheWaningBorder.AI
                 string deferred = AIBudget.EconomyDeferral(em, faction, cost);
                 if (deferred != null)
                 {
-                    AIBudget.NoteEconomyDeferred(faction,
-                        "upgrade " + (outpost ? "Alanthor_TradingOutpost" : "GatherersHut"), deferred);
+                    AIBudget.NoteEconomyDeferred(faction, "upgrade " + id, deferred);
                     return false;
                 }
                 if (UpgradeBuildingCommandHelper.Execute(em, best,
                         TheWaningBorder.Core.Commands.CommandSource.AI) != UpgradeBuildingResult.Ok) continue;
-                string id = outpost ? "Alanthor_TradingOutpost" : "GatherersHut";
                 AILogger.Log(faction, "ECON", $"upgrade {id} -> L{next} ({cost.Supplies}s {cost.Iron}i)");
                 return true;
             }
             return false;
         }
 
-        private static Entity HighestHut(EntityManager em, Faction faction)
-            => PickUpgradeable(em, faction,
-                QC_GathererHutUpgradeableNotRaider.Get(em, QT_GathererHutUpgradeableNotRaider), cheapest: false);
-
-        private static Entity CheapestOutpost(EntityManager em, Faction faction)
-            => PickUpgradeable(em, faction,
-                QC_TradingOutpostUpgradeable.Get(em, QT_TradingOutpostUpgradeable), cheapest: true);
-
-        /// <summary>The highest-level building (or, <paramref name="cheapest"/>,
-        /// the one with the cheapest next level) of a query that can be
-        /// levelled now: finished, nothing queued, below max.</summary>
-        private static Entity PickUpgradeable(EntityManager em, Faction faction, EntityQuery q, bool cheapest)
+        /// <summary>
+        /// WHERE a type's level-up runs (2026-10-19). Null when the type can
+        /// not be levelled now: one is already queued or running on any
+        /// building of the type (faction-wide, one at a time), or the type is
+        /// at its top. Otherwise the building whose production it delays
+        /// least — idle and empty-queued first, then the shortest queue;
+        /// <paramref name="preferred"/> (the home capital) wins a tie. Ties
+        /// otherwise fall to query order, the same on every run.
+        /// </summary>
+        public static Entity PickHost(EntityManager em, Faction faction, EntityQuery q,
+            Entity preferred = default)
         {
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             Entity best = Entity.Null;
-            int bestScore = int.MinValue;
+            int bestLoad = int.MaxValue;
+            bool typeChecked = false;
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                if (UpgradeBuildingCommandHelper.IsUpgradeQueued(em, ents[i])) continue;
-                if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, ents[i], out var cost, out byte next)) continue;
-                if (next <= 1 || next > BuildingUpgradeConfig.MaxLevel) continue;
-                int score = cheapest
-                    ? -(cost.Supplies + cost.Iron + cost.Veilstone + cost.Veilsteel)
-                    : next;
-                if (score > bestScore) { bestScore = score; best = ents[i]; }
+                var e = ents[i];
+                if (em.HasComponent<UnderConstruction>(e)) continue;
+                if (!typeChecked)
+                {
+                    typeChecked = true;
+                    string ladder = UpgradeBuildingCommandHelper.ResolveBuildingId(em, e);
+                    if (TheWaningBorder.Systems.Buildings.FactionBuildingLevels
+                            .UpgradeInFlight(em, faction, ladder, out _))
+                        return Entity.Null;
+                    if (TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, faction, ladder)
+                            >= BuildingUpgradeConfig.MaxLevel)
+                        return Entity.Null;
+                }
+                if (TheWaningBorder.Core.Commands.CommandRouter.IsProductionQueueFull(em, e)) continue;
+
+                int load = 0;
+                if (em.HasComponent<ProductionState>(e) && em.GetComponentData<ProductionState>(e).Busy != 0)
+                    load += 2;
+                if (em.HasBuffer<ProductionQueueItem>(e))
+                    load += 2 * em.GetBuffer<ProductionQueueItem>(e, true).Length;
+                if (e != preferred) load += 1;
+                if (load < bestLoad) { bestLoad = load; best = e; }
             }
             return best;
+        }
+
+        /// <summary>
+        /// Is ONE faction-wide level worth its price against soldiers? The
+        /// price, in reference-unit prices (Cfg.referenceUnitId's SO cost, all
+        /// four resources summed), must not exceed the finished buildings of
+        /// the type it raises times <paramref name="soldiersPerBuilding"/>.
+        /// Read from the SOs every time, so a price raise moves the bar with
+        /// no code change. An overflowing bank skips it when
+        /// Cfg.surplusIgnoresValue (the basics cap leaves nothing to train).
+        /// </summary>
+        private static bool ValueGate(EntityManager em, Faction faction, Entity host, in Cost price,
+            float soldiersPerBuilding, bool surplus)
+        {
+            if (soldiersPerBuilding <= 0f) return true;
+            if (surplus && Cfg.surplusIgnoresValue) return true;
+            float soldier = ReferenceSoldierPrice();
+            if (soldier <= 0f) return true;
+            string ladder = UpgradeBuildingCommandHelper.ResolveBuildingId(em, host);
+            int owned = TheWaningBorder.Systems.Buildings.FactionBuildingLevels.CountOwned(em, faction, ladder);
+            float inSoldiers = (price.Supplies + price.Iron + price.Veilstone + price.Veilsteel) / soldier;
+            float worth = owned * soldiersPerBuilding;
+            if (worth >= inSoldiers) return true;
+            if (AILogger.Enabled)
+                AIBudget.NoteEconomyDeferred(faction, "upgrade " + ladder,
+                    $"worth {worth:F1} soldiers ({owned} x {soldiersPerBuilding:F1}) < price {inSoldiers:F1} soldiers");
+            return false;
+        }
+
+        /// <summary>The reference soldier's SO price (all four resources
+        /// summed); 0 when the id is unset or unknown (gate off).</summary>
+        private static float ReferenceSoldierPrice()
+        {
+            string id = Cfg.referenceUnitId;
+            if (string.IsNullOrEmpty(id) || !TechCatalog.TryGetUnit(id, out var def) || def?.cost == null)
+                return 0f;
+            var c = def.cost;
+            return c.Supplies + c.Iron + c.Veilstone + c.Veilsteel;
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -508,12 +617,14 @@ namespace TheWaningBorder.AI
         /// output and never yields to the army it feeds. A roster table, not
         /// tuning: the ids are the buildings' SO ids.</summary>
         private static bool RaisesUnitOutput(string buildingId)
-            => buildingId == "Barracks" || buildingId == "ArcheryRange"
-            || buildingId == "Alanthor_RoyalStable" || buildingId == "Alanthor_SiegeYard";
+            => System.Array.IndexOf(ProductionLineIds, buildingId) >= 0;
 
-        /// <summary>The same four lines, for the pass below the reserve floor.</summary>
+        /// <summary>The production lines of every culture, for the pass below
+        /// the reserve floor (Runai and Feraldis trainers joined 2026-10-19).</summary>
         private static readonly string[] ProductionLineIds =
-            { "Barracks", "ArcheryRange", "Alanthor_RoyalStable", "Alanthor_SiegeYard" };
+            { "Barracks", "ArcheryRange", "Alanthor_RoyalStable", "Alanthor_SiegeYard",
+              "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop",
+              "Feraldis_HallOfAxes", "Feraldis_Pasture", "Feraldis_SiegeYard" };
 
         /// <summary>Level the home capital (the faction's Hall with the
         /// lowest NetworkId — the starting seat, the rule SimpleAISystem and
@@ -532,7 +643,7 @@ namespace TheWaningBorder.AI
             var verdict = TryUpgradeCapitalCore(em, faction, surplus, out var home);
             // THE CAPITAL'S PRICE IS A SAVINGS GOAL (Game_AI.md 5h). A rusher
             // spent every supply on units as it arrived and its capital sat at
-            // L1 all match: the price never formed, and the x2 / x4 on the
+            // L1 all match: the price never formed, and the +25 % / +50 % on the
             // home territory never came.
             if (verdict == CapitalUpgrade.Saving && reserveCapital
                 && UpgradeBuildingCommandHelper.TryGetNextCost(em, home, out var price, out byte next))
@@ -618,15 +729,23 @@ namespace TheWaningBorder.AI
             if (home == Entity.Null) return CapitalUpgrade.NotNeeded;
             if (em.HasComponent<UnderConstruction>(home)) return CapitalUpgrade.NotNeeded;
 
-            byte lvl = em.HasComponent<BuildingUpgradeState>(home)
-                ? em.GetComponentData<BuildingUpgradeState>(home).Level : (byte)0;
+            // The FACTION's Fortress level — every Fortress stands there
+            // (2026-10-19, faction-wide levels).
+            byte lvl = TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, faction, "Fortress");
             if (lvl >= Cfg.capitalPriorityLevel || lvl >= BuildingUpgradeConfig.MaxLevel)
                 return CapitalUpgrade.NotNeeded;
-            // Already paid for and waiting / in progress: nothing to buy.
-            if (UpgradeBuildingCommandHelper.IsUpgradeQueued(em, home)) return CapitalUpgrade.NotNeeded;
+            // Already paid for and waiting / in progress on ANY Fortress:
+            // nothing to buy.
+            if (TheWaningBorder.Systems.Buildings.FactionBuildingLevels
+                    .UpgradeInFlight(em, faction, "Fortress", out _))
+                return CapitalUpgrade.NotNeeded;
+            // The clock runs on the least busy Fortress, the home one on a tie
+            // (an expansion Fortress levels the home seat just the same).
+            var host = PickHost(em, faction, query, preferred: home);
+            if (host != Entity.Null) home = host;
 
             // UNITS BEFORE ECONOMY (Game_AI.md 5h): a priority level past
-            // capitalEssentialLevel (L2 doubles the home income and stays
+            // capitalEssentialLevel (L2 raises the home income by 25 % and stays
             // essential) is economy drive -- on a tier that says so it
             // waits, unsaved, while the money could still become units. The
             // rotation may still level it later, under the same gate.
@@ -656,9 +775,10 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// Find the LOWEST-LEVEL building of the given type owned by the
-        /// faction. Lowest level = highest marginal benefit per upgrade
-        /// click (Fortress L1 unlocks the multi-target chain).
+        /// ONE faction-wide decision for a building type (2026-10-19): if the
+        /// type can level now (nothing of it levelling, below its top), is
+        /// worth its price against soldiers (ValueGate) and passes the army
+        /// gates, queue it on the least busy building of the type (PickHost).
         /// Returns true if the upgrade was queued.
         /// </summary>
         /// <param name="supplyEngine">The Gatherer's Hut levelled as the
@@ -694,6 +814,9 @@ namespace TheWaningBorder.AI
                     // for. Excluded so the pass moves on to something useful.
                     query = QC_GathererHutUpgradeableNotRaider.Get(em, QT_GathererHutUpgradeableNotRaider);
                     break;
+                case "Mine":
+                    query = QC_MineUpgradeable.Get(em, QT_MineUpgradeable);
+                    break;
                 case "ArcheryRange":
                     query = QC_ArcheryRangeTagBuildingUpgradeableFactionTag.Get(em, QT_ArcheryRangeTagBuildingUpgradeableFactionTag);
                     break;
@@ -721,6 +844,15 @@ namespace TheWaningBorder.AI
                 case "Runai_Sanctuary":
                     query = QC_SanctuaryUpgradeable.Get(em, QT_SanctuaryUpgradeable);
                     break;
+                case "Feraldis_HallOfAxes":
+                    query = QC_HallOfAxesUpgradeable.Get(em, QT_HallOfAxesUpgradeable);
+                    break;
+                case "Feraldis_Pasture":
+                    query = QC_PastureUpgradeable.Get(em, QT_PastureUpgradeable);
+                    break;
+                case "Feraldis_SiegeYard":
+                    query = QC_FerSiegeYardUpgradeable.Get(em, QT_FerSiegeYardUpgradeable);
+                    break;
                 case "Alanthor_Wall":
                     // Wall hubs: many instances, lowest-level-first (default
                     // direction below). Matches nothing until hubs carry
@@ -731,39 +863,15 @@ namespace TheWaningBorder.AI
                     return false;
             }
 
-            using var ents = query.ToEntityArray(Allocator.Temp);
-
-            // Selection direction. Default is lowest-level-first (highest
-            // marginal benefit per click). GATHERER'S HUTS INVERT THIS
-            // (2026-08-09, log-proven): the veilsteel drip only flows from
-            // MAX-LEVEL huts with VeilsteelSurvey, and with new L1 huts founded
-            // all game, lowest-first meant 31 straight L2 upgrades and not one
-            // hut ever reaching L3 — the entire hut-side veilsteel economy
-            // stayed locked for 47 minutes. Highest-first pushes huts through
-            // to the gate one at a time instead of levelling the whole estate
-            // in lockstep.
-            bool highestFirst = buildingId == "GatherersHut";
-
-            Entity best = Entity.Null;
-            int bestLevel = highestFirst ? -1 : int.MaxValue;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                // Queued counts as busy: BuildingUpgrading only appears once
-                // the item reaches the head of the production queue, so
-                // testing it alone would keep re-picking a building whose
-                // upgrade is already paid for and waiting.
-                if (UpgradeBuildingCommandHelper.IsUpgradeQueued(em, ents[i])) continue;
-
-                byte lvl = em.HasComponent<BuildingUpgradeState>(ents[i])
-                    ? em.GetComponentData<BuildingUpgradeState>(ents[i]).Level : (byte)0;
-                if (lvl >= BuildingUpgradeConfig.MaxLevel) continue;
-
-                bool better = highestFirst ? lvl > bestLevel : lvl < bestLevel;
-                if (better) { bestLevel = lvl; best = ents[i]; }
-            }
+            // ONE decision per type (2026-10-19). The old per-building walk —
+            // lowest level first, Gatherer's Huts highest first so one hut at a
+            // time reached the L3 survey gate — is moot: every building of a
+            // type stands at the faction's level, and a new one is built at it.
+            Entity best = PickHost(em, faction, query);
             if (best == Entity.Null) return false;
+            if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var price, out byte nextLevel))
+                return false;
+            int bestLevel = nextLevel - 1;
 
             // Army first: never spend the military line's iron on levels.
             // A PRODUCTION LINE'S LEVEL IS EXEMPT from every army-first gate
@@ -771,6 +879,17 @@ namespace TheWaningBorder.AI
             // what allows the army to grow faster"): this iron floor, the
             // ArmyFirstYield below and the army's veilstone earmark.
             bool feedsArmy = RaisesUnitOutput(buildingId);
+
+            // MORE BUILDINGS, A LEVEL WORTH MORE (2026-10-19): the price
+            // against soldiers, scaled by how many buildings it raises. The
+            // housing Hut is gated on need above instead.
+            if (buildingId != "Hut")
+            {
+                float perBuilding = feedsArmy ? Cfg.soldiersPerProductionBuilding
+                    : buildingId == "GatherersHut" || buildingId == "Mine" ? Cfg.soldiersPerEconomyBuilding
+                    : Cfg.soldiersPerOtherBuilding;
+                if (!ValueGate(em, faction, best, price, perBuilding, surplus)) return false;
+            }
 
             // UNITS BEFORE ECONOMY (Game_AI.md 5h): every level that does not
             // raise unit output waits, on a tier that says so, while the

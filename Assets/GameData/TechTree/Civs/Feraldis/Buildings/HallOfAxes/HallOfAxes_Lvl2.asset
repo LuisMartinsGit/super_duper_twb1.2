@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 2
   displayName: Hall of Axes
   upgradeCost:
-    Supplies: 167
-    Iron: 40
+    Supplies: 600
+    Iron: 300
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 30

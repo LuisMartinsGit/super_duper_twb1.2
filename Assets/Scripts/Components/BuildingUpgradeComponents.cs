@@ -11,6 +11,7 @@
 // Components live in the global namespace to match the rest of
 // Core/Components/*.cs (BuildingComponents, CoreComponents, etc.).
 
+using Unity.Collections;
 using Unity.Entities;
 
 /// <summary>
@@ -87,4 +88,22 @@ public enum UpgradeBuildingResult : byte
     /// <summary>The building's shared research + level-up queue is at
     /// CommandRouter.MaxProductionQueue.</summary>
     QueueFull,
+    /// <summary>Another building of the same type is already levelling — a
+    /// level is faction-wide, so one runs at a time per type (2026-10-19).</summary>
+    UpgradingElsewhere,
+}
+
+/// <summary>
+/// A faction's level for ONE building type (2026-10-19 — building levels are
+/// faction-wide per type, docs/Design/Overview.md § Building levels). Lives
+/// on the faction's bank entity; one row per ladder id
+/// (UpgradeBuildingCommandHelper.ResolveBuildingId) levelled past the free
+/// age-up level 1. Read and written only through
+/// TheWaningBorder.Systems.Buildings.FactionBuildingLevels.
+/// </summary>
+[InternalBufferCapacity(8)]
+public struct FactionBuildingLevel : IBufferElementData
+{
+    public FixedString64Bytes BuildingId;
+    public byte Level;
 }

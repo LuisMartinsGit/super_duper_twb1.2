@@ -234,9 +234,17 @@ namespace TheWaningBorder.UI.Menus
 
             if (!info.Compatible)
             {
-                var t3 = GameUIKit.Text(textCol, "build",
-                    string.Format(Loc.T("Made with build {0} — cannot be played on this build."), info.Header.Build),
+                // Listed, greyed, with the reason — never hidden (2026-10-19:
+                // an old-format save used to vanish from the list).
+                bg.color = new Color(0f, 0f, 0f, 0.25f);
+                t1.color = GameUIKit.TextLocked;
+                t2.color = GameUIKit.TextLocked;
+                var t3 = GameUIKit.Text(textCol, "build", info.IncompatibleReason ?? "",
                     26f, GameUIKit.TextLocked, TextAlignmentOptions.Left, wrap: false);
+                t3.enableAutoSizing = true;
+                t3.fontSizeMin = 18f;
+                t3.fontSizeMax = 26f;
+                t3.overflowMode = TextOverflowModes.Ellipsis;
                 GameUIKit.FixHeight(t3.gameObject, 34f);
             }
 
@@ -350,8 +358,7 @@ namespace TheWaningBorder.UI.Menus
         {
             if (!info.Compatible)
             {
-                _error.text = string.Format(Loc.T("Made with build {0} — cannot be played on this build."),
-                    info.Header.Build);
+                _error.text = info.IncompatibleReason ?? "";
                 return;
             }
             var mode = info.IsSave ? ReplayMode.Resume : ReplayMode.Watch;

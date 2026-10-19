@@ -75,7 +75,9 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
 
             // Abilities from the SO 'abilities' field (fallback: Scout Sight). Use
-            // Celestar is unlocked by the ScoutingCelestarii research.
+            // Celestar is unlocked by the (Alanthor-only) ScoutingCelestarii
+            // research; it is a PASSIVE since 2026-10-19, run by
+            // CelestarPassiveSystem (Abilities/UseCelestar/).
             creator.AddComponent(entity, new ScoutSightState { BaseLos = los, LastHealth = (int)hp });
             var abilityList = new System.Collections.Generic.List<string>();
             if (def != null && def.abilities != null && def.abilities.Length > 0) abilityList.AddRange(def.abilities);

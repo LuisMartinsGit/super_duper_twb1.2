@@ -796,7 +796,9 @@ namespace TheWaningBorder.UI.Ingame
                 var kind = spec.Kind;
                 var targetKind = spec.Target;
                 EntityTargeting.Begin(targetKind,
-                    (em, target) => SectActivePowerHelper.CheckTarget(em, faction, kind, targetKind, target, out var why)
+                    // CheckTargetInSight: an enemy the caster cannot see is
+                    // refused, exactly as Fire refuses it (Spells.md §6.1).
+                    (em, target) => SectActivePowerHelper.CheckTargetInSight(em, faction, kind, targetKind, target, out var why)
                         ? null : TheWaningBorder.Abilities.CastTargetRules.Describe(why, targetKind),
                     target =>
                     {
@@ -812,11 +814,25 @@ namespace TheWaningBorder.UI.Ingame
             }
 
             float radius = spec.Radius > 0f ? spec.Radius : SectRadii.Small;
+            var aimKind = spec.Kind;
             GroundTargeting.Begin(radius, new Color(0.96f, 0.77f, 0.32f, 0.85f), target =>
             {
                 var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
                 if (w == null || !w.IsCreated) return;
                 CommandRouter.IssueSectPower(w.EntityManager, faction, sectId, slot, target);
+            },
+            // The centre must be in the caster's sight (Spells.md §6.1): the
+            // ring reads the simulation's own test, so red here is exactly
+            // what Fire would refuse.
+            point =>
+            {
+                var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (w == null || !w.IsCreated) return null;
+                return SectActivePowerHelper.AimInSight(w.EntityManager, faction, aimKind, point)
+                    ? null
+                    : TheWaningBorder.Abilities.CastTargetRules.Describe(
+                        TheWaningBorder.Abilities.CastTargetRefusal.NotInSight,
+                        TheWaningBorder.Abilities.CastTargetKind.None);
             });
         }
 

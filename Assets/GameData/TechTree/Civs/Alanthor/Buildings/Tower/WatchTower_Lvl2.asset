@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 2
   displayName: Watch Tower
   upgradeCost:
-    Supplies: 266
-    Iron: 120
+    Supplies: 500
+    Iron: 250
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 25

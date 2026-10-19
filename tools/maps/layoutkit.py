@@ -36,7 +36,16 @@ from scipy.spatial import cKDTree
 LEVEL_H = [5.0, 9.5, 14.0, 18.5, 23.0, 27.5]   # 4.5 m a step: a cliff
 ROLL_H = [3.0, 2.2, 2.0, 1.5, 1.2, 1.0]        # rolling ground above a level
 WATER, WADE, BED, FORD_H = 3.6, 0.5, 1.2, 3.25  # WaterPlane level, wadeDepth, river bed, ford top
-MTN_BASE = 34.0              # mountains start above the top level: a wall
+# Mountains (2026-10-19: ONE THIRD of their old height, the same ruggedness).
+# The original profile — MTN_BASE + MTN_DOME a metre in (up to 40 m in) + the
+# ridge noise (8 m + 3 m) — is kept whole, and its relief OVER THE GROUND
+# AROUND IT is scaled by MTN_SCALE: h = ground + (old - ground) / 3, noise
+# included, so every peak and trough keeps its place and its proportion, just
+# squashed. Never less than MTN_MIN over the ground beside it; mountains stay
+# impassable by the NoWalk paint (nowalk.png) and unclaimable (no territory),
+# not by height.
+MTN_BASE, MTN_DOME = 34.0, 0.45      # the original (pre-2026-10-19) profile
+MTN_SCALE, MTN_MIN = 1.0 / 3.0, 2.5
 MAX_H = 72.0                 # TerrainData height for a normalised 1.0
 NODES = {"Start": 7, "Normal": 3, "NormalIron": 3, "NormalVeilstone": 4,   # NV: worst case of the 1-2 draw
          "Empty": 0, "VeilstoneRich": 4, "IronRich": 3, "Sanctum": 0}
@@ -181,6 +190,22 @@ def NOT(f):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+def _mtn_ground(ground, mtn, iters=300):
+    """The ground a mountain stands on, inside the mass: equal to the real
+    ground at its foot and relaxed (Jacobi, 4-neighbour mean) toward a smooth
+    surface inside, so a mass spanning two shelves has no seam and its relief
+    over the ground beside its foot is exactly the scaled old relief."""
+    from scipy import ndimage as _nd
+    gi = _nd.distance_transform_edt(mtn, return_distances=False, return_indices=True)
+    g = _nd.gaussian_filter(ground[gi[0], gi[1]], 12).astype(np.float32)
+    g[~mtn] = ground[~mtn]
+    k = np.array([[0, .25, 0], [.25, 0, .25], [0, .25, 0]], np.float32)
+    for _ in range(iters):
+        g2 = _nd.convolve(g, k, mode="nearest")
+        g[mtn] = g2[mtn]
+    return g
+
+
 class Plan:
     def __init__(self, title, sx, sz, group, here, seed=1, warp=(12.0, 4.0)):
         self.title, self.sx, self.sz, self.here = title, int(sx), int(sz), here
@@ -312,7 +337,22 @@ class Plan:
         return canon
 
     def ford_paint(self, canon, rtype, fn, shared=False):
+        """A SHALLOWS territory: waded water that is its own territory and is
+        BUILDABLE (exported as buildableShallows -> RegionSeedMarker.
+        BuildableShallows, 2026-10-19). Only for a wide stretch of shallows
+        meant to be held; a river crossing is a wade_paint ford instead."""
         return self.region_paint(canon, 0, rtype, fn, shared=shared, kind="ford")
+
+    def wade_paint(self, fn):
+        """A FORD: waded water that is NO territory of its own (2026-10-19).
+        build() hands each of its samples to the nearest land territory, so
+        the inner half of a crossing joins the territory on one bank and the
+        outer half the one on the other: the two banks BORDER each other
+        across it, and claims cross where armies wade. Unbuildable (water is,
+        outside a shallows territory)."""
+        m = self.union(fn)
+        self.terrain[m] = WATERT; self.wade[m] = True; self.region[m] = -1
+        return m
 
     def split(self, prefix, level, zone, count, types, init=None, iters=40, min_mirror=30.0, anchor=None, min_area=2000):
         """Nearest-seed (Voronoi, in warped space) territories over the FREE
@@ -433,6 +473,13 @@ class Plan:
         if hole.any():
             idx = ndimage.distance_transform_edt(self.region < 0, return_distances=False, return_indices=True)
             self.region[hole] = self.region[idx[0][hole], idx[1][hole]]
+        # fords (wade_paint): each waded sample no territory holds joins the
+        # nearest LAND territory, so a crossing is split between its banks
+        ford = self.wade & (self.region < 0)
+        if ford.any():
+            owned = (self.region >= 0) & (self.terrain == LAND)
+            idx = ndimage.distance_transform_edt(~owned, return_distances=False, return_indices=True)
+            self.region[ford] = self.region[idx[0][ford], idx[1][ford]]
         self._fold_all()
         reg, ter = self.region, self.terrain
         self.valid = reg >= 0
@@ -520,7 +567,21 @@ class Plan:
         self.ridge = ridge
         d_in = ndimage.distance_transform_edt(self.mtn)
         self.d_mtn_in = d_in
-        h[self.mtn] = (MTN_BASE + np.minimum(d_in, 40) * 0.45 + ridge * 8 + ridge2 * 3)[self.mtn]
+        if self.mtn.any():
+            # the ground beside each mountain sample (water counts as level 0),
+            # smoothed so a mass spanning two shelves has no seam in it
+            ground = np.where(land, h, LEVEL_H[0]).astype(np.float32)
+            gi = ndimage.distance_transform_edt(self.mtn, return_distances=False, return_indices=True)
+            g_near = ground[gi[0], gi[1]]
+            g_soft = _mtn_ground(ground, self.mtn)
+            old = MTN_BASE + np.minimum(d_in, 40) * MTN_DOME + ridge * 8 + ridge2 * 3
+            hm = g_soft + (old - g_soft) * MTN_SCALE          # the old relief, a third as high
+            floor_ = g_near + MTN_MIN
+            k_ = 0.5                       # a soft floor: never dips under it
+            hm = floor_ + k_ * np.logaddexp(0, (hm - floor_) / k_)
+            h[self.mtn] = hm[self.mtn]
+            self.mtn_rise = (hm - g_near)[self.mtn]
+            self.mtn_rise_old = (old - g_near)[self.mtn]
         # water: a bed, sloped banks, waded fords on top
         d_bank = ndimage.distance_transform_edt(self.water)
         bank_w = 7.0 + 2.5 * np.tanh(self.noise(26, 83))
@@ -726,13 +787,19 @@ class Plan:
                     self.nodes[rid] = (need - 1, need, []); continue
             self.legal = getattr(self, "legal", {}); self.legal[rid] = int(ok.sum())
             cy, cx = np.nonzero(ok)
-            order = rng.permutation(len(cy))
+            # a few random orders, best kept: the runtime retries its random
+            # tries too, so one unlucky greedy order is not a real shortfall
             placed = []
-            for j in order:
-                p = (cy[j] + y0, cx[j] + x0)
-                if all((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 >= NODE_SPACING ** 2 for q in placed):
-                    placed.append(p)
-                    if len(placed) >= need: break
+            for _try in range(4):
+                order = rng.permutation(len(cy))
+                got_ = []
+                for j in order:
+                    p = (cy[j] + y0, cx[j] + x0)
+                    if all((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 >= NODE_SPACING ** 2 for q in got_):
+                        got_.append(p)
+                        if len(got_) >= need: break
+                if len(got_) > len(placed): placed = got_
+                if len(placed) >= need: break
             if rec["type"] == "Start" and ok.sum() < HOME_LEGAL_MIN:
                 # the runtime lays nodes by random tries in the bounding box:
                 # a home whose legal ground is a thin band can come up short
@@ -748,6 +815,12 @@ class Plan:
         print("unreachable on foot:", self.cut or "none")
         print("bordering nothing:", self.lonely or "none", "| outside the claim graph:", self.unclaimable or "none")
         print("cliff samples the walk rule does not block:", self.cliff_leaks)
+        if self.mtn.any() and hasattr(self, "mtn_rise"):
+            r_ = self.mtn_rise
+            o_ = self.mtn_rise_old
+            print(f"mountain height over the ground beside it: old median {np.median(o_):.1f} max {o_.max():.1f} m"
+                  f" -> new min {r_.min():.1f} median {np.median(r_):.1f} max {r_.max():.1f} m"
+                  f" (median ratio {np.median(r_ / np.maximum(o_, 1e-3)):.3f})")
         print("node shortfalls:", self.node_short or "none")
         for i, row in self.dist.items(): print(f"  seat {i + 1}:", row)
         if "--table" in sys.argv:
@@ -972,7 +1045,10 @@ class Plan:
             if rec["id"] in home_pt:
                 sxw, szw = home_pt[rec["id"]]
             else:
-                dt = ndimage.distance_transform_edt(np.pad(m & (self.walk | self.wade), 1))[1:-1, 1:-1]
+                # a land territory's seed stands on its land (it may hold half
+                # a ford now); a shallows territory's in its waded water
+                ground = (self.walk & self.wade) if rec["kind"] == "ford" else (self.walk & self.land)
+                dt = ndimage.distance_transform_edt(np.pad(m & ground, 1))[1:-1, 1:-1]
                 sr, sc = np.unravel_index(np.argmax(dt), dt.shape)
                 sxw, szw = float(sc - self.sx / 2), float(self.sz / 2 - sr)
             # a waded ford stands under the water, below level 0: it gets its
@@ -984,6 +1060,9 @@ class Plan:
                 "kind": "PlayerStart" if rec["type"] == "Start" else "Normal",
                 "resources": rec["type"],
                 "pinCurse": bool(self.pin_curse and rec["type"] == "VeilstoneRich"),
+                # a shallows territory (ford_paint): its waded water is
+                # buildable (RegionSeedMarker.BuildableShallows, 2026-10-19)
+                "buildableShallows": rec["kind"] == "ford",
                 "seedX": round(sxw, 2), "seedZ": round(szw, 2), "shape": shape,
             })
         starts_out = []

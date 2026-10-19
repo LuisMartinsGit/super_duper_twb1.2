@@ -17,9 +17,9 @@ MonoBehaviour:
   level: 2
   displayName: Wagonworks
   upgradeCost:
-    Supplies: 200
-    Iron: 60
-    Veilstone: 20
+    Supplies: 600
+    Iron: 180
+    Veilstone: 60
     Veilsteel: 0
   upgradeSeconds: 30
   hpMultiplier: 1.15

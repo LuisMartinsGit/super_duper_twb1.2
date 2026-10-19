@@ -30,6 +30,10 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static void ClearWorkOrders(EntityManager em, Entity unit)
         {
+            // The worker's build queue goes too, and the plans in it that no
+            // other worker holds are cancelled and refunded
+            // (docs/Design/Planned_Buildings.md §6).
+            TheWaningBorder.Entities.PlannedBuildings.ReleaseWorker(em, unit);
             TransientState.Clear<Types.BuildCommand>(em, unit);
             TransientState.Clear<BuildOrder>(em, unit);
 

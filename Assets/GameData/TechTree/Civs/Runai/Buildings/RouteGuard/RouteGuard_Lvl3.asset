@@ -17,9 +17,9 @@ MonoBehaviour:
   level: 3
   displayName: Route Guard
   upgradeCost:
-    Supplies: 400
-    Iron: 120
-    Veilstone: 60
+    Supplies: 1200
+    Iron: 360
+    Veilstone: 180
     Veilsteel: 0
   upgradeSeconds: 45
   hpMultiplier: 1.2

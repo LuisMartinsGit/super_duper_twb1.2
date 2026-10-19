@@ -66,14 +66,34 @@ namespace TheWaningBorder.Core.Commands.Types
         /// Clears conflicting commands and sets up construction state.
         /// </summary>
         public static void Execute(EntityManager em, Entity worker, Entity targetBuilding,
-            string buildingId, float3 position)
+            string buildingId, float3 position, bool append = true)
         {
             if (!em.Exists(worker)) return;
 
             // Verify worker can build
             if (!em.HasComponent<CanBuild>(worker)) return;
 
-            // A BUSY worker gets the new site QUEUED, not substituted.
+            // BIND THE PLAN NOW (Planned_Buildings.md §6). A lockstep Build is
+            // issued in the same tick as its placement, before the plan
+            // exists, so it names only a SPOT. The executor runs the
+            // PlaceBuilding first (same issuer, lower command index), so the
+            // plan is there by now: bind it, and the queue entry OWNS that
+            // plan from this tick on. Left unbound, the entry was resolved
+            // later by an 8 m radius search that could pick a neighbouring
+            // chained plan, leaving its own plan held by nobody.
+            if (targetBuilding == Entity.Null)
+                targetBuilding = TheWaningBorder.Entities.PlannedBuildings
+                    .ResolveOrderTarget(em, worker, buildingId, position);
+
+            // A NON-QUEUED build (no Shift) REPLACES whatever the worker was
+            // doing: its earlier build queue is dropped and the plans in it
+            // cancelled and refunded, keeping only the one now targeted.
+            if (!append)
+                TheWaningBorder.Entities.PlannedBuildings.ReleaseWorker(em, worker, keep: targetBuilding);
+
+            // A BUSY worker gets the new site QUEUED, not substituted —
+            // and so does an idle one that still has a queue (it would
+            // otherwise wipe that queue in ClearAllCommands below).
             //
             // BuildCommand and BuildOrder are single components, so this method
             // used to overwrite whatever the worker was already doing. Placing
@@ -83,11 +103,14 @@ namespace TheWaningBorder.Core.Commands.Types
             // rescued sites that happened to be near each other; far-apart ones
             // were lost.
             //
-            // Queuing (rather than replacing) is right for this game because
-            // placement is not "order this worker somewhere" — the player
-            // places a BUILDING and the system picks a worker. Cancelling the
-            // worker's current job was never the intent of that click.
-            if (IsBusy(em, worker))
+            // Queuing is the default (every AI dispatch, a right-click on a
+            // site, a Shift-click chain). Since 2026-10-19 a plain placement
+            // click passes append = false and REPLACES the queue instead
+            // (Planned_Buildings.md §6) — handled above.
+            bool busy = IsBusy(em, worker);
+            bool hasQueue = em.HasBuffer<QueuedBuildSite>(worker)
+                && em.GetBuffer<QueuedBuildSite>(worker).Length > 0;
+            if (append && (busy || hasQueue))
             {
                 var queue = em.HasBuffer<QueuedBuildSite>(worker)
                     ? em.GetBuffer<QueuedBuildSite>(worker)
@@ -99,10 +122,13 @@ namespace TheWaningBorder.Core.Commands.Types
                     Position = position,
                     TargetBuilding = targetBuilding,
                 });
+                if (!busy) TryStartNextQueued(em, worker);
                 return;
             }
 
-            // Clear conflicting commands
+            // Clear conflicting commands. For a worker that holds plans this
+            // releases them (PlannedBuildings.ReleaseWorker) — but the
+            // replace branch above already did, keeping the target.
             CommandHelper.ClearAllCommands(em, worker);
 
             // A drafted mining worker must LEAVE the mining state machine —
@@ -442,9 +468,19 @@ namespace TheWaningBorder.Core.Commands.Types
             const float slopeStep = 1.5f;
 
             float h = TerrainUtility.GetHeight(x, z);
-            if (WaterPlane.Instance != null &&
-                WaterPlane.Instance.IsUnderwater(new UnityEngine.Vector3(x, h, z)))
-                return false;
+            var water = WaterPlane.Instance;
+            if (water != null && water.IsUnderwater(new UnityEngine.Vector3(x, h, z)))
+            {
+                // Under the surface nothing builds — except WADED ground
+                // (above the walk line) inside a SHALLOWS territory, one that
+                // is itself waded water (2026-10-19, Yiel_Lymwerra.md): a
+                // territory you can claim you can build in. A ford inside a
+                // land territory stays unbuildable.
+                if (h <= water.WalkLine) return false;
+                if (!TheWaningBorder.World.Regions.RegionMap.BuildableShallows(
+                        TheWaningBorder.World.Regions.RegionMap.RegionAt(x, z)))
+                    return false;
+            }
 
             float hL = TerrainUtility.GetHeight(x - slopeStep, z);
             float hR = TerrainUtility.GetHeight(x + slopeStep, z);

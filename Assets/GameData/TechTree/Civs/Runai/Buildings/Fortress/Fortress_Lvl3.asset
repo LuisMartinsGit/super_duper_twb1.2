@@ -17,9 +17,9 @@ MonoBehaviour:
   level: 3
   displayName: Fortress
   upgradeCost:
-    Supplies: 800
-    Iron: 400
-    Veilstone: 160
+    Supplies: 2000
+    Iron: 1000
+    Veilstone: 480
     Veilsteel: 0
   upgradeSeconds: 60
   hpMultiplier: 1.2

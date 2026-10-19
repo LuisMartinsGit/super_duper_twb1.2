@@ -22,7 +22,7 @@ namespace TheWaningBorder.Core.Multiplayer
         Move = 1,
         Attack = 2,
         Stop = 3,
-        Build = 4,
+        Build = 4,               // worker in EntityNetworkId, target plan/site in TargetEntityId (0 = by spot), SecondaryTargetId bit 0 = replace the build queue (0 = append; Planned_Buildings.md §6)
         Train = 5,
         // 6 was Gather, retired with worker gathering (Regions.md §4).
         // Ordinal reserved -- see the note at 23.

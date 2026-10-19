@@ -14,6 +14,11 @@
 // Everything the button decides — age gate, culture gate, cost, next level —
 // comes from UpgradeBuildingCommandHelper, so this file adds no rules of its
 // own; it only formats them.
+//
+// FACTION-WIDE (2026-10-19, docs/Design/Overview.md § Building levels): a
+// level raises EVERY building of the type, so the tooltip says so and counts
+// them, and while another building of the type is levelling this one shows
+// that upgrade's progress, disabled, instead of offering a second one.
 
 using Unity.Entities;
 using UnityEngine;
@@ -90,6 +95,31 @@ namespace TheWaningBorder.UI.Ingame
                 return info;
             }
 
+            string ladderId = UpgradeBuildingCommandHelper.ResolveBuildingId(em, building);
+
+            // The type is levelling on ANOTHER building: one at a time per
+            // type, faction-wide — show that one's progress, never a second.
+            if (TheWaningBorder.Systems.Buildings.FactionBuildingLevels
+                    .UpgradeInFlight(em, faction, ladderId, out var elsewhere)
+                && elsewhere != building)
+            {
+                info.Show = true;
+                info.Enabled = false;
+                bool running = TransientState.Active<BuildingUpgrading>(em, elsewhere);
+                if (running)
+                {
+                    var up = em.GetComponentData<BuildingUpgrading>(elsewhere);
+                    float pct = up.Total > 0f ? Mathf.Clamp01(up.Progress / up.Total) : 0f;
+                    info.Progress = pct;
+                    info.Label = string.Format(Loc.T("Upgrading\n{0}%"), (int)(pct * 100f));
+                }
+                else info.Label = Loc.T("Upgrade\nqueued");
+                info.Tooltip = "<b>" + Loc.T("Upgrading at another building of this type") + "</b>\n"
+                    + Loc.T("A level-up raises every building of this type you own, so only one runs at a time. "
+                          + "This one rises with it.");
+                return info;
+            }
+
             if (BuildingActionLayouts.FactionAge(em, faction) < 1)
                 return info;   // pre-culture: nothing to upgrade into yet
             if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, building,
@@ -110,6 +140,9 @@ namespace TheWaningBorder.UI.Ingame
                 + "</b>\n"
                 + (NextLevelStats(em, building, nextLevel)
                    ?? Loc.T("Raises this building's stats and unlocks its next tier of units and research."))
+                + "\n" + string.Format(
+                    Loc.T("Applies to all {0} buildings of this type you own, and every one you build later."),
+                    TheWaningBorder.Systems.Buildings.FactionBuildingLevels.CountOwned(em, faction, ladderId))
                 + "\n" + Loc.T("Cost: ") + UIHelpers.FormatCostRich(cost, available)
                 + (canAfford ? ""
                     : "\n" + Loc.T("<color=#C08040>Not enough resources.</color>"));
@@ -179,6 +212,10 @@ namespace TheWaningBorder.UI.Ingame
                     break;
                 case UpgradeBuildingResult.QueueFull:
                     PlayerNotificationSystem.NotifyError(Loc.T("Production queue full"));
+                    break;
+                case UpgradeBuildingResult.UpgradingElsewhere:
+                    PlayerNotificationSystem.NotifyError(
+                        Loc.T("Another building of this type is already upgrading"));
                     break;
             }
         }

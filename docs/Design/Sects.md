@@ -58,6 +58,12 @@ cooldown is refunded. The per-power target list is in Spells.md §2.
 | **Medium** | 15 m | an engagement, a base district |
 | **Large** | 25 m | an army, a whole base |
 
+**Line of sight (2026-10-19, [Spells.md](Spells.md) §6.1):** a power is cast
+only where its caster (or a team ally) can see right now — the aimed centre of
+an area power, the target of a single-target enemy power. Own / allied targets
+are always seen; Plenty, Nowhere to Hide and reveals are exempt. A refused
+cast spends nothing; the AI aims only at what it sees.
+
 ## 2b. Cooldowns, damage and wind-ups
 
 Every sect power's numbers are set by the balance ladder in
@@ -181,17 +187,31 @@ suicide' and not 'my army got conquered by the curse'.")*
 - The units **keep their owner and colour** — they are never the curse's.
 - Their owner **cannot control** them (player or AI) while it lasts.
 - They **attack everyone near them, their own side included** (each other
-  too), and everyone may attack them; they never attack their own side's
-  buildings. Allies of the caster are not affected.
-- Its cooldown is **far longer** than the other wildcards' (the value is in
-  `SpellLadder.FriendlyFireCooldown`, developer: "dramatically increase").
+  too) — **units and buildings, their own side's buildings too** — and
+  everyone may attack them. **Only the caster's own units are spared**; the
+  caster's allies go mad like anyone else (2026-10-19, developer: "Buildings
+  and allies should not be spared").
+- A frenzied unit wears a **red aura** while it lasts (`UnitCombatVfx`,
+  `frenziedPrefab` — Lana `Area_generic_red`, copied to
+  `Sects/Antiquity/Abilities/FriendlyFire/FriendlyFire_Aura.prefab`).
+- Its cooldown is **longer** than the other wildcards' (the value is in
+  `SpellLadder.FriendlyFireCooldown`; 2026-10-18 "dramatically increase",
+  2026-10-19 "too much", brought down).
 - Code: `SectDisordered` + `NotControllableTag`; TargetingSystem's rogue
   bucket and `CombatDamageHelper.Frenzied` let the hits through.
 
 **[BUILDING] Reliquary** — while it stands, your sect powers recharge faster.
 (Its old Scry / Lockout / Vision building actives are retired.)
 
-**[RESEARCH] Cartography** — capturing a territory explores all of it.
+**[RESEARCH] Cartography** — every territory you hold is **fully visible**
+(2026-10-19; was "capturing a territory explores all of it"): live sight over
+exactly the territory's ground, following its border and nothing outside it,
+so enemy units inside it are seen. Shared with team-mates like any sight, and
+counted as sight by the simulation (`FactionSight`, the sect-power aim rule).
+When ownership is lost the territory falls back to explored fog. It does not
+let units auto-acquire targets further than their own range. Code: the fog
+grid stamps a per-territory cell mask (`FogOfWarManager` territory sight, fed
+by `FogOfWarSystem`); `FactionSight.SeesHeldTerritory`.
 
 **[UNIT] Artificer** — long-range anti-armour; a slow glow-lance. **Stasis
 Bolt:** a target it hits is slowed (move and attack speed) for a few seconds.

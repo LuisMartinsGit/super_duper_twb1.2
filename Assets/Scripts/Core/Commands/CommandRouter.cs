@@ -363,10 +363,15 @@ namespace TheWaningBorder.Core.Commands
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Issue a build command to a worker unit.
+        /// Issue a build command to a worker unit. <paramref name="append"/>
+        /// (the default) queues it behind whatever the worker is building —
+        /// a Shift-click chain; false REPLACES the worker's build queue, and
+        /// the plans in it are cancelled and refunded
+        /// (docs/Design/Planned_Buildings.md §6).
         /// </summary>
         public static void IssueBuild(EntityManager em, Entity worker, Entity targetBuilding,
-            string buildingId, float3 position, CommandSource source = CommandSource.LocalPlayer)
+            string buildingId, float3 position, CommandSource source = CommandSource.LocalPlayer,
+            bool append = true)
         {
             if (ShouldDropCommand(source)) return;
             if (worker == Entity.Null || !em.Exists(worker)) return;
@@ -374,11 +379,11 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueBuildForLockstep(em, worker, targetBuilding, buildingId, position);
+                QueueBuildForLockstep(em, worker, targetBuilding, buildingId, position, append);
             }
             else
             {
-                BuildCommandHelper.Execute(em, worker, targetBuilding, buildingId, position);
+                BuildCommandHelper.Execute(em, worker, targetBuilding, buildingId, position, append);
             }
         }
 
@@ -2561,6 +2566,10 @@ namespace TheWaningBorder.Core.Commands
             // Any order (stop, hold, heal, ...) ends a Litharch's Cleanse
             // channel (Territory_Claims.md §6.9.7).
             TheWaningBorder.Abilities.LitharchCleanse.Stop(em, unit);
+            // Any other order drops a worker's build queue and cancels (with
+            // a full refund) the plans in it that no other worker still holds
+            // (docs/Design/Planned_Buildings.md §6). No-op for non-builders.
+            TheWaningBorder.Entities.PlannedBuildings.ReleaseWorker(em, unit);
             TransientState.Clear<Types.MoveCommand>(em, unit);
             TransientState.Clear<Types.AttackCommand>(em, unit);
             TransientState.Clear<Types.BuildCommand>(em, unit);

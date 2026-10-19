@@ -11,6 +11,11 @@
 // the tick-stepped SimulationSystemGroup, on the first tick the building is
 // both finished and cultured — the same tick on every peer.
 //
+// FACTION-WIDE LEVELS (2026-10-19): "level 1" is the FLOOR. A building
+// finished after its faction levelled the type is stamped straight at the
+// faction's level for it (FactionBuildingLevels) — new construction is
+// already upgraded on build (docs/Design/Overview.md § Building levels).
+//
 // The presentation now only READS BuildingUpgradeState for its variant
 // choice; a view that spawns a tick early simply shows Lv0 until the next
 // variant scan.
@@ -81,7 +86,12 @@ namespace TheWaningBorder.Systems.Buildings
                     BasePopulationProvider = basePop,
                 });
 
-                BuildingUpgradeSystem.ApplyLevel(em, e, 1);
+                // The faction's level for this type (>= 1 with a culture).
+                byte level = FactionBuildingLevels.LevelFor(em, e);
+                if (level < 1) level = 1;
+                if (level > TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel)
+                    level = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel;
+                BuildingUpgradeSystem.ApplyLevel(em, e, level);
             }
         }
     }

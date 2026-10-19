@@ -30,6 +30,7 @@
    "kind": "PlayerStart",
    "resources": "Start",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -148.12,
    "seedZ": 1.12,
    "shape": [
@@ -178,6 +179,7 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -50.62,
    "seedZ": 34.88,
    "shape": [
@@ -302,6 +304,7 @@
    "kind": "Normal",
    "resources": "NormalIron",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -81.75,
    "seedZ": -34.5,
    "shape": [
@@ -438,8 +441,9 @@
    "kind": "Normal",
    "resources": "Normal",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 0.0,
-   "seedZ": 47.62,
+   "seedZ": 48.0,
    "shape": [
     4.88,
     32.81,
@@ -508,6 +512,7 @@
    "kind": "Normal",
    "resources": "IronRich",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -92.25,
    "seedZ": -71.62,
    "shape": [
@@ -722,6 +727,7 @@
    "kind": "Normal",
    "resources": "Empty",
    "pinCurse": false,
+   "buildableShallows": true,
    "seedX": -33.0,
    "seedZ": -30.38,
    "shape": [
@@ -856,6 +862,7 @@
    "kind": "Normal",
    "resources": "Sanctum",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 0.0,
    "seedZ": 75.0,
    "shape": [
@@ -902,6 +909,7 @@
    "kind": "Normal",
    "resources": "VeilstoneRich",
    "pinCurse": true,
+   "buildableShallows": false,
    "seedX": -12.75,
    "seedZ": -3.75,
    "shape": [
@@ -968,6 +976,7 @@
    "kind": "PlayerStart",
    "resources": "Start",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 148.12,
    "seedZ": 1.12,
    "shape": [
@@ -1112,6 +1121,7 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 50.62,
    "seedZ": 34.88,
    "shape": [
@@ -1236,6 +1246,7 @@
    "kind": "Normal",
    "resources": "NormalIron",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 81.75,
    "seedZ": -34.5,
    "shape": [
@@ -1376,6 +1387,7 @@
    "kind": "Normal",
    "resources": "IronRich",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 92.25,
    "seedZ": -71.62,
    "shape": [
@@ -1590,6 +1602,7 @@
    "kind": "Normal",
    "resources": "Empty",
    "pinCurse": false,
+   "buildableShallows": true,
    "seedX": 33.0,
    "seedZ": -30.38,
    "shape": [

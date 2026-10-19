@@ -334,7 +334,10 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>A level-up price on this post: the level SO's price times
-        /// the post's ramp multiplier. Refunds re-derive the same figure.</summary>
+        /// the post's ramp multiplier. NOT USED since 2026-10-19: building
+        /// levels are faction-wide per type, so a level's price cannot depend
+        /// on which post its clock runs on — the ramp prices building a post
+        /// only (UpgradeBuildingCommandHelper.TryGetLevelCost).</summary>
         public static Cost RampedUpgradeCost(EntityManager em, Entity post, Cost baseCost)
             => Ramp(baseCost, RampMultiplier(RampIndexOf(em, post)));
 

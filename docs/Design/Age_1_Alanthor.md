@@ -40,7 +40,9 @@
   pre-culture Age 0 form; **L1 is free and automatic at age-up** for every
   cultured building — Garrison, Archery Range and Guild included (decision 27).
   L2 and L3 are bought; their prices, times and multipliers are on the level
-  SOs.
+  SOs. **A level is faction-wide per building type** (2026-10-19,
+  [Overview.md § Building levels](Overview.md#building-levels-faction-wide)):
+  levelling one Garrison levels every Garrison, and new ones are built at it.
 - **The only tech level gate is the tech SO's `minBuildingLevel`** (decision
   21). The gates listed in this doc are those values (they are rules, so the
   doc states them); prices never.
@@ -83,6 +85,13 @@ attack-cooldown multipliers over the base, targets per volley, population,
 slot income, interest multiplier, trade-rate multiplier (the Trading
 Outpost), an authored attack and sight, and its model**. `BuildingUpgradeConfig` reads them first; its code tables are kept
 only for Runai and Feraldis until their levels get the same treatment.
+
+**A level belongs to the faction, per building type** (2026-10-19,
+[Overview.md § Building levels](Overview.md#building-levels-faction-wide)):
+one level-up raises every building of the type the faction owns, new
+buildings of the type are finished at that level, and only one level-up of a
+type runs at a time. The upgrade button and queue slot say it applies to
+every building of the type.
 
 **The HUD names the level.** Level 0 is the bare Age 0 name; every levelled
 building reads `<name> - Lvl N`, using the level asset's name — the Hut
@@ -127,10 +136,37 @@ everyone; the Alanthor ones are Alanthor-gated and filed in
 | **Veilstone Tools** | Alanthor | Fortress L3 | build speed, tier 3 |
 | **Veilsteel Tools** | Alanthor | Fortress L3 | build speed, tier 4 |
 | **Mason Guild** | Alanthor | Fortress L2 | faction-wide building HP |
-| **Scouting Celestarii** | Alanthor | — | Use Celestar on Scouts + full Scout vision |
+| **Scouting Celestarii** | Alanthor | — | the **Celestar passive** on every Scout ([§ Scouting Celestarii](#scouting-celestarii--the-celestar-passive-2026-10-19)) |
 
 **The tool ladder is build speed** — Alanthor builds its walls and towers
 faster as it climbs it; it does not touch gathering (nobody gathers).
+
+#### Scouting Celestarii — the Celestar passive (2026-10-19)
+
+**Alanthor only** (culture-gated on the tech SO, filed in
+`Civs/Alanthor/Buildings/Fortress/Research/ScoutingCelestarii.asset`). It used
+to unlock *Use Celestar*, an aimed active reveal; from 2026-10-19 it is a
+**passive** and there is no button.
+
+- Once researched, **every Scout** of the faction — standing and newly
+  trained — carries the passive.
+- **Each Scout runs it independently**, and **only while idle**: no move,
+  attack, attack-move, patrol or queued order, no target, and not moving.
+- An idle Scout whose passive is ready **reveals a random patch anywhere on
+  the map** (uniform over the playable rectangle, drawn from the match seed,
+  so every lockstep peer reveals the same patch). The patch is a circle that
+  stays revealed for the ability's duration, for the faction and its team
+  (shared line of sight, [Teams.md](Teams.md)).
+- **Then the cooldown runs**: it starts when the reveal ends, and it keeps
+  running whether or not the Scout is idle — a busy Scout simply waits until
+  it is idle again before the next reveal.
+- Radius, reveal duration and cooldown are the `UseCelestar` ability SO's
+  `radius` (and its RevealFog effect value, kept equal) / `duration` /
+  `cooldown`
+  (`Age0/Buildings/Fortress/Units/Scout/Abilities/UseCelestar/UseCelestar.asset`).
+- **The AI** (Alanthor) researches it early on its economy ladder and, once
+  it owns it and has more than one Scout, parks one Scout beside its Fortress
+  as a watcher so the passive keeps firing; the rest keep exploring.
 
 The age-up itself is the landmark — there is no "Advance from Age 0"
 research.
@@ -277,8 +313,12 @@ Implemented in `GathererHutIncomeSystem` (surveys), `GathererHutReinforcementSys
 Every culture's iron Mine (Age 0 building, `Age0/Buildings/Mine/`). Alanthor
 levels are `Mine/Mine_Lvl1..3` with their own slot-income ladder. The Mine
 hosts **Deep Shafts** and **Rich Seams** ([Veilstone_Economy.md §6](Veilstone_Economy.md)).
-Note: until `UpgradeBuildingCommandHelper.ResolveBuildingId` gains a Mine row,
-Mines cannot be levelled and `Mine_Lvl1..3` are data waiting for that switch.
+**Mines level L1-L3 (2026-10-19)**, for every culture (each has its own
+`Civs/<Culture>/Buildings/Mine/Mine_Lvl1..3`): L1 free at age-up, L2 and L3
+bought, **faction-wide** like every building level
+([Overview.md § Building levels](Overview.md#building-levels-faction-wide)) —
+one level-up raises every Mine the faction owns, and its slot income with it.
+The AI levels Mines with its other economy buildings.
 
 ---
 
@@ -291,7 +331,8 @@ Alanthor levels (`VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) carry the
 interest multiplier: **interest applies from L1 and grows with level**
 (decision 12); the banking-grade techs raise the rate (the grade rates are on
 the Vault SO). Its research gates: Veilstone Monetization at **Vault L2**,
-Veilsteel Bonds at **Vault L3**.
+Veilsteel Bonds at **Vault L3**. **One Vault per faction** (2026-10-19,
+[Age_0.md § Vault](Age_0.md)).
 
 ---
 
@@ -900,5 +941,3 @@ Levels, abilities and the death / revival choice: [Heroes.md](Heroes.md).
 - **Trading Outpost art** — its own Alanthor model (it still borrows the Runai
   Trading Post visual), now that it really stands beside the outcrop
   (decision 40); level models for L2 / L3.
-- **Mine levels** — wire the Mine into `UpgradeBuildingCommandHelper` so
-  `Mine_Lvl1..3` take effect.

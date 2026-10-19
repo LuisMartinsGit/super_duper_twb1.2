@@ -8,7 +8,7 @@
 //   * mask PNGs    — north at the top; which ones a map has is its own business,
 //                    the map's builder names them in its LayoutMapSpec
 //   * layout.json  — size, levels, water, territory outlines + kinds +
-//                    resource types (+ pinCurse), player starts
+//                    resource types (+ pinCurse, buildableShallows), player starts
 // and the map's builder (MapBuilderFiendstonePass, MapBuilderYielLymwerra)
 // only says how to paint and plant from those masks. Re-shaping a map is an
 // edit to its Python and a rebuild, never a hand-sculpt.
@@ -64,6 +64,9 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             public string code, name, kind, resources;
             public int level;
             public bool pinCurse;
+            /// <summary>A shallows territory: waded water that is buildable
+            /// (RegionSeedMarker.BuildableShallows, 2026-10-19).</summary>
+            public bool buildableShallows;
             public float seedX, seedZ;
             public float[] shape;   // x0, z0, x1, z1, ...
         }
@@ -328,6 +331,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 var m = go.AddComponent<RegionSeedMarker>();
                 m.RegionName = r.name;
                 m.CurseStaysHere = r.pinCurse;
+                m.BuildableShallows = r.buildableShallows;
                 if (!System.Enum.TryParse(r.kind, out m.Kind)) { Debug.LogError($"[{spec.MapName}] bad kind '{r.kind}' on {r.name}"); bad++; }
                 if (!System.Enum.TryParse(r.resources, out m.Resources)) { Debug.LogError($"[{spec.MapName}] bad resources '{r.resources}' on {r.name}"); bad++; }
                 if (r.pinCurse && m.Resources != RegionSeedMarker.ResourceType.VeilstoneRich)

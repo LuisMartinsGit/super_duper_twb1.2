@@ -32,5 +32,12 @@ namespace TheWaningBorder.Systems.Economy
 
         /// <summary>Seconds a faction or team must hold every Sanctum to win.</summary>
         public float dominionSeconds;
+
+        /// <summary>Every this many seconds of dominion time left, everyone
+        /// gets a warning notice (2026-10-19: 150 = every 2.5 minutes).</summary>
+        public float countdownWarningSeconds;
+
+        /// <summary>Extra warnings near the end, in seconds left (60, 30).</summary>
+        public float[] countdownFinalWarnings;
     }
 }

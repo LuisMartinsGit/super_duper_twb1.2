@@ -143,7 +143,10 @@ namespace TheWaningBorder.AI
                 out Entity building, CommandSource.AI);
             if (queuedPlacement)
             {
-                AICommon.DispatchWorkersTo(em, faction, Entity.Null, buildingId, pos, maxWorkers: 2);
+                // A plan nobody holds is cancelled (Planned_Buildings.md §6):
+                // with no idle hand, a busy worker queues it.
+                if (AICommon.DispatchWorkersTo(em, faction, Entity.Null, buildingId, pos, maxWorkers: 2) == 0)
+                    AICommon.PullWorkersTo(em, faction, Entity.Null, buildingId, pos, maxWorkers: 1);
                 AILogger.Log(faction, "BUILDING", $"Alanthor age-2 ladder: queued {buildingId}");
                 return true;
             }

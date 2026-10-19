@@ -307,6 +307,18 @@ namespace TheWaningBorder.Core.Localization
             t["{0}% complete"] = "{0}% concluído";
             t["Upgrade\nLv {0}"] = "Melhorar\nNv {0}";
             t["Upgrade to Level {0}"] = "Melhorar para o Nível {0}";
+            // Faction-wide building levels (2026-10-19).
+            t["Upgrade to Level {0} (every building of this type)"] =
+                "Melhorar para o Nível {0} (todos os edifícios deste tipo)";
+            t["Upgrading at another building of this type"] = "A melhorar noutro edifício deste tipo";
+            t["A level-up raises every building of this type you own, so only one runs at a time. "
+              + "This one rises with it."] =
+                "Uma melhoria eleva todos os edifícios deste tipo que possui, por isso só corre uma "
+              + "de cada vez. Este sobe com ela.";
+            t["Applies to all {0} buildings of this type you own, and every one you build later."] =
+                "Aplica-se aos {0} edifícios deste tipo que possui e a todos os que construir depois.";
+            t["Another building of this type is already upgrading"] =
+                "Outro edifício deste tipo já está a ser melhorado";
             // Trading Outpost side slots, ramp and levels (2026-10-04).
             t["Trades x{0} — spends and earns that much more per minute."] =
                 "Comercia x{0} — gasta e ganha tanto mais por minuto.";

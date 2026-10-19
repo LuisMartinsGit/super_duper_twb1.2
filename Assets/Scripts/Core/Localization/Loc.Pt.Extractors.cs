@@ -222,6 +222,7 @@ namespace TheWaningBorder.Core.Localization
             t["Automate Facility"] = "Automatizar Instalação";
             t["Under Automation"] = "Sob Automação";
             t["Use Celestar"] = "Usar Celestar";
+            t["while idle: a random patch anywhere on the map"] = "quando parado: uma zona aleatória em qualquer ponto do mapa";
             t["Scout Sight"] = "Visão de Batedor";
             t["War Horn"] = "Corno de Guerra";
             t["Full Gallop"] = "A Todo o Galope";

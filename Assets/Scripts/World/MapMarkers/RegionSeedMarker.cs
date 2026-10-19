@@ -96,6 +96,16 @@ namespace TheWaningBorder.World.MapMarkers
         /// </summary>
         public bool CurseStaysHere;
 
+        /// <summary>
+        /// A SHALLOWS territory (2026-10-19): the territory is itself waded
+        /// water, so its waded ground (no deeper than the WaterPlane's
+        /// wadeDepth) is BUILDABLE. Everywhere else waded water stays
+        /// unbuildable — a ford inside a land territory is crossed, never built
+        /// on. Set by the layout builder for a territory authored as waded
+        /// water (Yiel Lymwérra's bay); read by RegionMap.BuildableShallows.
+        /// </summary>
+        public bool BuildableShallows;
+
         // Seeds have no footprint of their own — the gizmo is a locator, and
         // the real extent is wherever this seed is the nearest one. Kept large
         // enough to find at a zoomed-out map view.

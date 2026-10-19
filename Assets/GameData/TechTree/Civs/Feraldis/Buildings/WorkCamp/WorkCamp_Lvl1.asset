@@ -27,7 +27,7 @@ MonoBehaviour:
   attackCooldownMultiplier: 0.9090909
   maxTargets: 0
   populationProvided: 0
-  slotIncomePerMinute: 130
+  slotIncomePerMinute: 110
   interestMultiplier: 0
   tradeRateMultiplier: 0
   attack:

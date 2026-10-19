@@ -84,6 +84,66 @@ namespace TheWaningBorder.Systems.Sect
             return true;
         }
 
+        // ── Line of sight (docs/Design/Spells.md §6.1, 2026-10-19) ──────────
+
+        /// <summary>
+        /// Does a cast of <paramref name="kind"/> need its aim point in the
+        /// caster's sight? Every aimed power does, except the three whose aim
+        /// point is not where they act: Plenty has no target, Nowhere to Hide
+        /// (RevealedStrike) is map-wide, and a reveal exists to look INTO the
+        /// fog, so gating it on sight would make it pointless.
+        /// </summary>
+        public static bool NeedsSight(SectActivePowerKind kind) => kind switch
+        {
+            SectActivePowerKind.Plenty         => false,
+            SectActivePowerKind.RevealedStrike => false,
+            SectActivePowerKind.RevealCircle   => false,
+            SectActivePowerKind.None           => false,
+            _                                  => true,
+        };
+
+        /// <summary>
+        /// An area / ground power aimed at <paramref name="pos"/>: true when
+        /// the power needs no sight, or when <paramref name="faction"/> (or an
+        /// ally) sees the point right now. The simulation's test
+        /// (FactionSight), so Fire, the AI and the aiming ring agree.
+        /// </summary>
+        public static bool AimInSight(EntityManager em, Faction faction, SectActivePowerKind kind, float3 pos,
+            bool fresh = false)
+            => !NeedsSight(kind) || TheWaningBorder.World.FogOfWar.FactionSight.CanSee(em, faction, pos, fresh);
+
+        /// <summary>
+        /// Is <paramref name="target"/> in <paramref name="faction"/>'s sight?
+        /// Its own and its allies' units and buildings always are; anything
+        /// else must stand inside a friendly line-of-sight circle now.
+        /// </summary>
+        public static bool TargetInSight(EntityManager em, Faction faction, Entity target, bool fresh = false)
+        {
+            if (target == Entity.Null || !em.Exists(target)) return false;
+            if (em.HasComponent<FactionTag>(target)
+                && Alliances.AreAllied(faction, em.GetComponentData<FactionTag>(target).Value))
+                return true;
+            if (!em.HasComponent<LocalTransform>(target)) return false;
+            return TheWaningBorder.World.FogOfWar.FactionSight.CanSee(
+                em, faction, em.GetComponentData<LocalTransform>(target).Position, fresh);
+        }
+
+        /// <summary>
+        /// <see cref="CheckTarget(EntityManager, Faction, SectActivePowerKind, CastTargetKind, Entity, out CastTargetRefusal)"/>
+        /// plus the sight rule — what a CAST must pass (Fire, the aiming UI,
+        /// the AI's pick). The landing re-check is plain CheckTarget: a target
+        /// that walks into the fog during the wind-up is still struck.
+        /// </summary>
+        public static bool CheckTargetInSight(EntityManager em, Faction faction, SectActivePowerKind kind,
+            CastTargetKind targetKind, Entity target, out CastTargetRefusal why, bool fresh = false)
+        {
+            if (!CheckTarget(em, faction, kind, targetKind, target, out why)) return false;
+            if (targetKind == CastTargetKind.None) return true;
+            if (NeedsSight(kind) && !TargetInSight(em, faction, target, fresh))
+            { why = CastTargetRefusal.NotInSight; return false; }
+            return true;
+        }
+
         /// <summary>The spec overload of <see cref="CheckTarget(EntityManager, Faction, SectActivePowerKind, CastTargetKind, Entity, out CastTargetRefusal)"/>.</summary>
         public static bool CheckTarget(EntityManager em, Faction faction, in SectActivePowerSpec spec,
             Entity target, out CastTargetRefusal why)
@@ -109,7 +169,8 @@ namespace TheWaningBorder.Systems.Sect
             {
                 float d = math.distancesq(trs[i].Position.xz, pos.xz);
                 if (d > bestD) continue;
-                if (!CheckTarget(em, faction, spec.Kind, spec.Target, ents[i], out _)) continue;
+                // Only what the caster can see: Fire would refuse the rest.
+                if (!CheckTargetInSight(em, faction, spec.Kind, spec.Target, ents[i], out _)) continue;
                 bestD = d;
                 best = ents[i];
             }

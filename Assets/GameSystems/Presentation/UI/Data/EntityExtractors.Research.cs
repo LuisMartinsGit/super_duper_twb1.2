@@ -344,8 +344,9 @@ namespace TheWaningBorder.UI.Data
         /// same way this describer does.</summary>
         public static string DescribeProductionItem(in ProductionQueueItem item)
         {
+            // A level is faction-wide per type (2026-10-19): the slot says so.
             if (item.Kind == ProductionKind.BuildingUpgrade)
-                return string.Format(Loc.T("Upgrade to Level {0}"), item.Level);
+                return string.Format(Loc.T("Upgrade to Level {0} (every building of this type)"), item.Level);
 
             if (item.Kind == ProductionKind.Train)
             {

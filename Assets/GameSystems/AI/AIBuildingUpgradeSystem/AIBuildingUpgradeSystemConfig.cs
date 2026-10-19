@@ -48,7 +48,7 @@ namespace TheWaningBorder.AI
         public int capitalPriorityLevel;
 
         /// <summary>Capital levels up to this one are ESSENTIAL: bought and
-        /// saved for ahead of everything (L2 doubles the home territory's
+        /// saved for ahead of everything (L2 raises the home territory's
         /// income). Levels above it, up to capitalPriorityLevel, are economy
         /// drive: on a tier with unitsBeforeEconomy they wait while the money
         /// could still become units (docs/Design/Game_AI.md 5h).</summary>
@@ -65,5 +65,30 @@ namespace TheWaningBorder.AI
         /// <summary>Huts are levelled only while free housing (popMax - pop)
         /// is at most this. A Hut level buys population and nothing else.</summary>
         public int hutUpgradeHeadroomMax;
+
+        /// <summary>FACTION-WIDE LEVELS (2026-10-19): a level is priced
+        /// against soldiers. The unit whose SO cost (all four resources
+        /// summed) is "one soldier". Empty = the value gate is off.</summary>
+        public string referenceUnitId;
+
+        /// <summary>Soldiers one production building's level is worth (a
+        /// Barracks, Archery Range, Stable, Siege Yard and their Runai /
+        /// Feraldis twins). A level is bought only while buildings-of-the-type
+        /// x this >= its price in soldiers — more Barracks, a level worth
+        /// more. 0 = no gate for the category.</summary>
+        public float soldiersPerProductionBuilding;
+
+        /// <summary>The same, for an economy building (Gatherer's Hut, Trading
+        /// Outpost).</summary>
+        public float soldiersPerEconomyBuilding;
+
+        /// <summary>The same, for everything else in the rotation (Watch
+        /// Tower, Vault, Sanctuary, ...). Not the capital: its priority levels
+        /// are bought on their own rule, and not the housing Hut (need-gated).</summary>
+        public float soldiersPerOtherBuilding;
+
+        /// <summary>While the bank overflows (AIBudget.BankOverflowing) the
+        /// value gate is skipped: the basics cap leaves nothing to train.</summary>
+        public bool surplusIgnoresValue;
     }
 }

@@ -89,18 +89,18 @@ namespace TheWaningBorder.Abilities
                 },
                 Aftermath = null,
             },
-            // 6 — Use Celestar (Scout active reveal). Reuses the sect RevealCircle
-            // power's reveal mechanism (SectActivePowerHelper.SpawnReveal). No max
-            // range on the aim (Range 0 = unlimited), but it has a cooldown.
+            // 6 — Use Celestar (Scout PASSIVE reveal since 2026-10-19,
+            // docs/Design/Age_1_Alanthor.md § Scouting Celestarii). An idle
+            // Scout reveals a random Radius patch anywhere on the map for
+            // Duration, then waits Cooldown — CelestarPassiveSystem, beside the
+            // SO. The name is kept: it is the index contract's identity check.
             new AbilityCard {
-                Name = "Use Celestar", Activation = AbilityActivation.Active,
-                Targeting = AbilityTargeting.Area, Affects = AbilityAffects.Self,
-                // Unit tactical band (60 s) and the canon Small radius (8 m):
-                // docs/Design/Spells.md 8.2 / 8.5.
-                CastTime = 5f, Duration = 15f, Cooldown = 60f, Radius = 8f, Range = 0f,
-                AimedAtPoint = true,
+                Name = "Use Celestar", Activation = AbilityActivation.Passive,
+                Targeting = AbilityTargeting.Global, Affects = AbilityAffects.Self,
+                CastTime = 0f, Duration = 5f, Cooldown = 30f, Radius = 10f, Range = 0f,
+                AimedAtPoint = false,
                 Effects = new[] {
-                    new AbilityEffect(AbilityEffectKind.RevealFog, 8f),
+                    new AbilityEffect(AbilityEffectKind.RevealFog, 10f),
                 },
                 Aftermath = null,
             },

@@ -129,6 +129,10 @@ namespace TheWaningBorder.Systems.Visibility
             }
             _nextReveal = UnityEngine.Time.unscaledTime + RevealInterval;
 
+            // Cartography: held territories are seen whole (before the
+            // static-layer reuse test - a changed set forces its rebuild).
+            PushTerritorySight(mgr);
+
             // task-063 phase 1: sect FogVisionBonus removed with the
             // FactionSectState bridge. Phase 2 reintroduces vision-related sect
             // levers (e.g. Witness — All-Seeing).
@@ -229,6 +233,40 @@ namespace TheWaningBorder.Systems.Visibility
                     };
             mobiles.Dispose();
             mobiles = grown;
+        }
+
+        private bool[] _territorySight = System.Array.Empty<bool>();
+
+        /// <summary>
+        /// CARTOGRAPHY (docs/Design/Sects.md §4, 2026-10-19): a faction that
+        /// has researched it sees every territory it currently HOLDS, whole
+        /// and exactly to its border. Hands the manager the
+        /// [faction * count + territory] table each reveal pass; the manager
+        /// stamps those territories' cells into the static layer. A lost
+        /// territory simply stops being stamped and falls back to explored.
+        /// Team-mates share it through the ordinary shared-sight merge.
+        /// </summary>
+        private void PushTerritorySight(FogOfWarManager mgr)
+        {
+            const int players = 8;   // Faction.Blue (0) .. Faction.White (7)
+            int count = TheWaningBorder.World.Regions.RegionMap.Ready
+                        && TheWaningBorder.World.Regions.TerritoryOwnership.Ready
+                ? TheWaningBorder.World.Regions.RegionMap.Count : 0;
+            if (_territorySight.Length != players * count)
+                _territorySight = new bool[players * count];
+
+            ulong hash = 0xCBF29CE484222325UL;
+            for (int f = 0; f < players; f++)
+            {
+                bool charts = count > 0 && SectResearchEffects.RevealsHeldTerritory((Faction)f);
+                for (int t = 0; t < count; t++)
+                {
+                    bool on = charts && TheWaningBorder.World.Regions.TerritoryOwnership.IsOwnedBy(t, (Faction)f);
+                    _territorySight[f * count + t] = on;
+                    if (on) hash = (hash ^ (ulong)(f * count + t + 1)) * 0x100000001B3UL;
+                }
+            }
+            mgr.SetTerritorySight(_territorySight, count, hash);
         }
 
         /// <summary>Where the artifact physically stands: its holder, or the

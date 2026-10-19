@@ -17,3 +17,7 @@ MonoBehaviour:
   cooldownCutPerSanctum: 0.1
   maxCooldownCut: 0.5
   dominionSeconds: 600
+  countdownWarningSeconds: 150
+  countdownFinalWarnings:
+  - 60
+  - 30

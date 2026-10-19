@@ -403,7 +403,6 @@ namespace TheWaningBorder.Systems.Combat
             {
                 if (scan.FactionPresent[f] == 0) continue;
                 if (scan.Hostile[row * GridSlots + f] == 0) continue;
-                bool ownSide = scan.Hostile[myF * GridSlots + f] == 0;
 
                 for (int dx = -radius; dx <= radius; dx++)
                 {
@@ -417,7 +416,6 @@ namespace TheWaningBorder.Systems.Combat
                             if (ec.Health <= 0) continue;
                             if (ec.E == self) continue;
                             byte flags = ec.Flags;
-                            if (ownSide && (flags & FlagBuilding) != 0) continue;
 
                             // Buildings-only siege: units are invisible to
                             // the ram's target scan.

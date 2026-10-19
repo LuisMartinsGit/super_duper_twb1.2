@@ -56,5 +56,17 @@ namespace TheWaningBorder.AI
         /// <summary>Seconds a Litharch sent on a cleanse errand is left out of
         /// the army-follow step, so the two do not pull it back and forth.</summary>
         public float cleanseErrandSeconds;
+
+        /// <summary>How far past the nearest cursed cell (away from the
+        /// Litharch) the Cleanse is aimed, as a fraction of its starting
+        /// radius — the starting circle clears at once, so centring it on the
+        /// patch's edge would waste half of it on clean ground. Below 1, so the
+        /// cell itself is always inside the circle (Game_AI.md § 6n).</summary>
+        public float cleanseAimInset;
+
+        /// <summary>The AI ends its own channel once no cursed ground lies
+        /// within the cleared circle plus its falloff band plus this margin,
+        /// metres — nothing left to push back (Game_AI.md § 6n).</summary>
+        public float cleanseDoneMargin;
     }
 }

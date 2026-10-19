@@ -307,6 +307,21 @@ for i, s in enumerate(start_ids):
 PLAYER = [(60, 110, 230), (220, 60, 60), (60, 170, 80), (230, 200, 40), (160, 80, 210), (240, 140, 40)]
 is_pocket = np.array([n.startswith(("Rk", "Sp")) for n in names])
 pocket = valid & is_pocket[np.maximum(region, 0)]
+def _mtn_ground(ground, mtn, iters=300):
+    """The ground a mountain stands on, inside the mass: equal to the real
+    ground at its foot and relaxed (Jacobi, 4-neighbour mean) toward a smooth
+    surface inside, so a mass spanning two shelves has no seam and its relief
+    over the ground beside its foot is exactly the scaled old relief."""
+    from scipy import ndimage as _nd
+    gi = _nd.distance_transform_edt(mtn, return_distances=False, return_indices=True)
+    g = _nd.gaussian_filter(ground[gi[0], gi[1]], 12).astype(np.float32)
+    g[~mtn] = ground[~mtn]
+    k = np.array([[0, .25, 0], [.25, 0, .25], [0, .25, 0]], np.float32)
+    for _ in range(iters):
+        g2 = _nd.convolve(g, k, mode="nearest")
+        g[mtn] = g2[mtn]
+    return g
+
 mtn = ~valid & ~river
 ridge = 1 - np.abs(noise(60, 31)); ridge2 = 1 - np.abs(noise(22, 32))
 dist_open = ndimage.distance_transform_edt(mtn)
@@ -416,14 +431,35 @@ WATER = 3.6                  # WaterPlane level: more than WADE below it nothing
 BED = 1.2                    # river bed
 WADE = 0.5                   # WaterPlane.wadeDepth: ground this shallow is still walked
 FORD_H = 3.25                # the fords: 0.35 m UNDER the surface, waded (2026-10-17)
-MTN_BASE = 29.0              # mountains start well above the top shelf: a wall
+# Mountains (2026-10-19: ONE THIRD of their old height, the same ruggedness).
+# The original profile — MTN_BASE + MTN_DOME a metre in (to 40 m) + the ridge
+# noise (8 m + 3 m) — is kept whole and its relief over the ground around it
+# scaled by MTN_SCALE: h = ground + (old - ground) / 3, noise included. Never
+# under MTN_MIN over the ground beside it. Impassable by the NoWalk paint
+# (nowalk.png) and unclaimable (no territory), not by height.
+MTN_BASE, MTN_DOME = 29.0, 0.4       # the original (pre-2026-10-19) profile
+MTN_SCALE, MTN_MIN = 1.0 / 3.0, 2.5
 RAMP_DEPTH = 12              # m a ramp reaches into each side (24 m long)
 
 mtn = ~valid & ~river
 h = np.zeros((N, N), np.float32)
 h[valid] = LEVEL_H[level[valid]]
 d_in = ndimage.distance_transform_edt(mtn)
-h[mtn] = (MTN_BASE + np.minimum(d_in, 40) * 0.4 + ridge * 8 + ridge2 * 3)[mtn]
+# the ground beside each mountain sample (the river counts as the low
+# ground), smoothed so a mass spanning two shelves has no seam
+ground = np.where(valid, h, LEVEL_H[0]).astype(np.float32)
+gi = ndimage.distance_transform_edt(mtn, return_distances=False, return_indices=True)
+g_near = ground[gi[0], gi[1]]
+g_soft = _mtn_ground(ground, mtn)
+old = MTN_BASE + np.minimum(d_in, 40) * MTN_DOME + ridge * 8 + ridge2 * 3
+hm = g_soft + (old - g_soft) * MTN_SCALE                   # the old relief, a third as high
+floor_ = g_near + MTN_MIN
+hm = floor_ + 0.5 * np.logaddexp(0, (hm - floor_) / 0.5)    # a soft floor
+h[mtn] = hm[mtn]
+_ro, _rn = (old - g_near)[mtn], (hm - g_near)[mtn]
+print(f"mountain height over the ground beside it: old median {np.median(_ro):.1f} max {_ro.max():.1f} m"
+      f" -> new min {_rn.min():.1f} median {np.median(_rn):.1f} max {_rn.max():.1f} m"
+      f" (median ratio {np.median(_rn / np.maximum(_ro, 1e-3)):.3f})")
 
 # River: a bed, then a bank of varying width and rough slope up to the low
 # ground (2026-10-17: was a straight 8 m smoothstep).
@@ -562,9 +598,29 @@ def resources(code):
     if c[0] == "P" and c[1:].isdigit(): return "Start"
     return TYPES[SOUTH_OF.get(c, c)]
 
+# The fords belong to the banks (2026-10-19): each ford sample joins the
+# nearest land territory, so the crossing is split down the middle between
+# the low ground on either bank. The two banks BORDER each other there and
+# claims cross where armies wade; a ford is still water, so unbuildable. The
+# river between the fords stays no territory. (Before this the river cut the
+# claim graph in two: the far bank could never be claimed.)
+region_x = region.copy()
+_fz = ford & (region < 0)
+_gi = ndimage.distance_transform_edt(region < 0, return_distances=False, return_indices=True)
+region_x[_fz] = region[_gi[0][_fz], _gi[1][_fz]]
+_nb = {i: set() for i in range(len(names))}
+for a_, b_ in ((region_x[:, 1:], region_x[:, :-1]), (region_x[1:, :], region_x[:-1, :])):
+    mm = (a_ != b_) & (a_ >= 0) & (b_ >= 0)
+    for p_, q_ in set(zip(a_[mm].tolist(), b_[mm].tolist())): _nb[p_].add(q_); _nb[q_].add(p_)
+_seen = {start_ids[0]}; _q = [start_ids[0]]
+while _q:
+    for j in _nb[_q.pop()]:
+        if j not in _seen: _seen.add(j); _q.append(j)
+print("outside the claim graph:", [names[i] for i in range(len(names)) if i not in _seen] or "none")
+
 regions_out = []
 for r, code in enumerate(names):
-    m = region == r
+    m = region_x == r
     if not m.any(): continue
     lab, n = ndimage.label(m)
     if n > 1:   # keep the main body; slivers heal to a neighbour at runtime

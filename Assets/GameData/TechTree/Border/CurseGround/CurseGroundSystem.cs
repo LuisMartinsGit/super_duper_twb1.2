@@ -129,14 +129,15 @@ namespace TheWaningBorder.Systems.Border
         /// <summary>
         /// Clear every cursed cell within <paramref name="radius"/> of
         /// <paramref name="pos"/> at once -- a Litharch's Cleanse landing
-        /// (section 6.9.7). Called from the simulation (the ability executor),
-        /// so it is deterministic.
+        /// (section 6.9.7), with its <paramref name="falloff"/> band thinned
+        /// at once too (2026-10-19: the cast is immediate). Called from the
+        /// simulation (the ability executor), so it is deterministic.
         /// </summary>
-        public static void ClearDisk(float3 pos, float radius)
+        public static void ClearDisk(float3 pos, float radius, float falloff = 0f)
         {
             var s = _instance;
             if (s == null || !s._ready || radius <= 0f) return;
-            s.ClearCircle(pos.x, pos.z, radius, falloff: 0f);
+            s.ClearCircle(pos.x, pos.z, radius, falloff);
         }
 
         /// <summary>

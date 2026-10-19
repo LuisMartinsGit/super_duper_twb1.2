@@ -262,6 +262,7 @@ namespace TheWaningBorder.EditorTools
             combat.speedUpPrefab = P(T + "Age0/Units/Vfx/Unit_SpeedUp.prefab");
             combat.slowDownPrefab = P(T + "Age0/Units/Vfx/Unit_SlowDown.prefab");
             combat.attackUpPrefab = P(T + "Age0/Units/Vfx/Unit_AttackUp.prefab");
+            combat.frenziedPrefab = P(T + "Sects/Antiquity/Abilities/FriendlyFire/FriendlyFire_Aura.prefab");
             combat.arrowVeilstoneHitPrefab = P(T + "Civs/Alanthor/Buildings/ArcheryRange/Vfx/ArrowHit_Veilstone.prefab");
             combat.arrowVeilsteelHitPrefab = P(T + "Civs/Alanthor/Buildings/ArcheryRange/Vfx/ArrowHit_Veilsteel.prefab");
             EditorUtility.SetDirty(combat);

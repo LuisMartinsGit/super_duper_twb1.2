@@ -187,6 +187,8 @@ namespace TheWaningBorder.UI.Ingame
                     string line = DescribeEffect(effect);
                     if (line != null) sb.Append("\n• ").Append(line);
                 }
+            if (card.IsPassive && card.HasEffect(AbilityEffectKind.RevealFog))
+                sb.Append("\n• ").Append(Loc.T("while idle: a random patch anywhere on the map"));
 
             // A single-target card has no area: its Radius is not shown.
             if (card.Radius > 0f && !card.IsEntityTargeted) sb.Append('\n').Append(Loc.T("Radius")).Append(' ')
@@ -202,6 +204,11 @@ namespace TheWaningBorder.UI.Ingame
             if (!card.IsPassive)
                 sb.Append("   ").Append(Loc.T("Cooldown")).Append(' ')
                   .Append(Mathf.RoundToInt(card.EffectiveCooldown)).Append('s');
+            // A TIMED passive (the Celestar, 2026-10-19) shows its own
+            // authored cooldown; an always-on passive has none.
+            else if (card.Cooldown > 0f)
+                sb.Append("   ").Append(Loc.T("Cooldown")).Append(' ')
+                  .Append(Mathf.RoundToInt(card.Cooldown)).Append('s');
             if (card.CastTime > 0f)
                 sb.Append('\n').Append(string.Format(
                     Loc.T("Channel {0:0.#}s -- a new order, a stun or death interrupts it."),
@@ -304,7 +311,10 @@ namespace TheWaningBorder.UI.Ingame
                     (em, target) =>
                     {
                         if (!em.Exists(caster)) return "The caster is gone";
-                        return AbilityTargetRules.Check(em, c, caster, target, out var why)
+                        // CheckInSight: an enemy the caster cannot see is
+                        // refused, exactly as the simulation refuses it
+                        // (Spells.md §6.1).
+                        return AbilityTargetRules.CheckInSight(em, c, caster, target, out var why)
                             ? null : CastTargetRules.Describe(why, c.TargetKind);
                     },
                     target =>
@@ -324,6 +334,7 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Entity caster = _primary;
                 float radius = card.Radius;
+                var c = card;
                 TheWaningBorder.UI.World.GroundTargeting.Begin(radius, AimRingColor, point =>
                 {
                     var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
@@ -332,6 +343,19 @@ namespace TheWaningBorder.UI.Ingame
                     if (!em.Exists(caster)) return;
                     TheWaningBorder.Core.Commands.CommandRouter.IssueUnitAbilitySlot(
                         em, caster, slot, default, point);
+                },
+                // The aim point must be in the caster's sight (Spells.md
+                // §6.1): the ring reads the simulation's own test, so red
+                // here is exactly what AbilityLifecycleSystem would refuse.
+                point =>
+                {
+                    var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                    if (world == null || !world.IsCreated) return null;
+                    var em = world.EntityManager;
+                    if (!em.Exists(caster)) return "The caster is gone";
+                    return AbilityTargetRules.AimInSight(em, c, caster, point)
+                        ? null
+                        : CastTargetRules.Describe(CastTargetRefusal.NotInSight, CastTargetKind.None);
                 });
                 return;
             }
@@ -373,19 +397,22 @@ namespace TheWaningBorder.UI.Ingame
 
             var ua = _em.GetComponentData<UnitAbilities>(_primary);
 
-            // The passive line first — one passive, unchanged.
-            AbilityCard passive = null;
+            // The passive line first. A Scout with Scouting Celestarii carries
+            // TWO passives (Scout Sight + the Celestar, 2026-10-19), so every
+            // passive is named on the line and described in the tooltip.
+            string passiveNames = null, passiveTips = null;
             for (int sl = 0; sl < MaxSlots; sl++)
             {
                 var c = AbilityCatalog.Get(ua.Get(sl));
-                if (c != null && c.Activation == AbilityActivation.Passive) { passive = c; break; }
+                if (c == null || c.Activation != AbilityActivation.Passive) continue;
+                string tip = $"<b>{Loc.T(c.Name)}</b>  <color=#8FA8C0>{Loc.T("passive")}</color>\n{Describe(c)}";
+                passiveNames = passiveNames == null ? Loc.T(c.Name) : passiveNames + ", " + Loc.T(c.Name);
+                passiveTips = passiveTips == null ? tip : passiveTips + "\n\n" + tip;
             }
 
-            _passiveLabel.text = passive != null
-                ? string.Format(Loc.T("Passive: {0}"), Loc.T(passive.Name)) : "";
-            _passiveTooltip = passive != null
-                ? $"<b>{Loc.T(passive.Name)}</b>  <color=#8FA8C0>{Loc.T("passive")}</color>\n{Describe(passive)}"
-                : null;
+            _passiveLabel.text = passiveNames != null
+                ? string.Format(Loc.T("Passive: {0}"), passiveNames) : "";
+            _passiveTooltip = passiveTips;
 
             // Every UNLOCKED active gets its own row. AbilityQuery does the
             // level gating, so a hero below the unlock simply has fewer rows.

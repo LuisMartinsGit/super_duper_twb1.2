@@ -54,7 +54,9 @@ simulation and seeded.
   was quit shows *REPLAY ENDED*. Both offer **Muster Rolls** and **Watch
   Again**.
 - **Build-bound:** a replay only plays on the build that recorded it (the
-  file carries the build fingerprint). Others are listed but cannot be played.
+  file carries the build fingerprint: game version + lockstep protocol +
+  save-format version, §3). Others are listed, greyed with the reason, but
+  cannot be played.
 
 ## 3. Saved games
 
@@ -109,6 +111,19 @@ resource nodes, territory types), and starts the clock at the saved tick.
   actually played, and still verifies every recorded hash on both sides of the
   load. A save made after a load chains: each load adds its snapshot.
 - **Build-bound**, like replays.
+- **A save carries a format version (2026-10-19).** `save.txt` holds
+  `format` (`SaveGameFile.SaveFormatVersion`, the one place the number lives)
+  and `build` (the game version that wrote it). **Any change to the layout of
+  simulation state** (a component or buffer added, removed or reshaped, a
+  static or system field the snapshot carries) **bumps it**, and a save of any
+  other version — or one with no version at all — **is refused with a
+  message** naming the version that made it ("This save was made with an
+  older version of the game (0.0.47) and can't be loaded in this version.").
+  The Load Game list still shows such a save, greyed with that reason; it is
+  never hidden and never crashes the list. The version is also mixed into the
+  build fingerprint, so replays recorded before a bump are refused the same
+  way, and a replay whose embedded `snap` is of another format is refused
+  before it plays.
 
 Multiplayer saves are out of scope (each peer records its own replay; a
 resumed match would need every peer to load the same snapshot and reconnect).
@@ -122,7 +137,7 @@ delay), then `c` (command, lossless wire form), `h` (state hash), `snap`
 (tick + base64 saved game, for a resumed match) and `end`.
 
 **Saved game** (`.twbsave`): a zip, documented in the header of
-`Assets/Scripts/Core/Save/SaveGameFile.cs` — `save.txt` (tick, match time,
+`Assets/Scripts/Core/Save/SaveGameFile.cs` — `save.txt` (format, build, tick, match time,
 label, world clock), `replay.twbr`, `world.bin`, `state.bin`, `pending.txt`,
 and the optional `preview.png` (the minimap bake; older saves have none and
 still load).

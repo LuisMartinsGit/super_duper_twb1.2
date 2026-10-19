@@ -97,7 +97,11 @@ namespace TheWaningBorder.Rendering
                         int idx = abil[i].Get(slot);
                         if (idx < 0 || idx >= AbilityCatalog.Count) continue;
                         var card = AbilityCatalog.Get(idx);
-                        if (card == null || !card.IsPassive || !VfxSpawn.HasParticles(card.Vfx)) continue;
+                        // Only ALWAYS-ON passives loop on their owner. A timed
+                        // passive (the Celestar's periodic reveal, 2026-10-19)
+                        // lands somewhere else and must not glow on the unit.
+                        if (card == null || !card.IsPassive || !card.IsPermanent
+                            || !VfxSpawn.HasParticles(card.Vfx)) continue;
                         var key = (ents[i], slot);
                         if (!EntityViewManager.Instance.TryGetView(ents[i], out var view) || view == null) continue;
                         _seen.Add(key);

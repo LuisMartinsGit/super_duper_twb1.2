@@ -19,3 +19,7 @@ MonoBehaviour:
   enshrineVeilstone: 1500
   enshrineVeilsteel: 800
   ascensionSeconds: 600
+  countdownWarningSeconds: 150
+  countdownFinalWarnings:
+  - 60
+  - 30

@@ -1011,7 +1011,10 @@ namespace TheWaningBorder.UI.Ingame
                     {
                         if (!_em.Exists(entity)) continue;
                         if (!_em.HasComponent<CanBuild>(entity)) continue;
-                        CommandRouter.IssueBuild(_em, entity, Entity.Null, id, pos);
+                        // Shift chains (append to the worker's build queue);
+                        // a plain click replaces it (Planned_Buildings.md §6).
+                        CommandRouter.IssueBuild(_em, entity, Entity.Null, id, pos,
+                            CommandSource.LocalPlayer, append: ChainHeld);
                     }
                 }
                 return;
@@ -1058,9 +1061,15 @@ namespace TheWaningBorder.UI.Ingame
                 if (!_em.Exists(entity)) continue;
                 if (!_em.HasComponent<CanBuild>(entity)) continue;
 
-                CommandRouter.IssueBuild(_em, entity, building, buildingId, pos);
+                CommandRouter.IssueBuild(_em, entity, building, buildingId, pos,
+                    CommandSource.LocalPlayer, append: ChainHeld);
             }
         }
+
+        /// <summary>Shift held: this placement is appended to each selected
+        /// worker's build queue rather than replacing it.</summary>
+        private static bool ChainHeld
+            => UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
 
         /// <summary>
         /// The faction a placement of <paramref name="buildingId"/> belongs

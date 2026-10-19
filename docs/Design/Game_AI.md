@@ -1053,8 +1053,9 @@ A reading older than `armyFirstStatusMaxAge` is ignored.
   spend costs. The units are not affordable, so the rest of the bank may go,
   but not the part that buys the army the moment the veilstone lands.
 
-**What yields.** In AIBuildingUpgradeSystem, every level except the four
-production lines (Barracks, Archery Range, Royal Stable, Siege Yard). A level
+**What yields.** In AIBuildingUpgradeSystem, every level except the
+production lines (Barracks, Archery Range, Royal Stable, Siege Yard, and
+since 2026-10-19 the Runai and Feraldis trainers — see § 5j). A level
 cuts their train time, so it raises unit output and never yields. **Production buildings never yield to the army, new or levelled**
 (2026-10-04, operator: "the buildings are what allows the army to grow
 faster"). `ArmyFirstYield` is applied nowhere to them: not to a new
@@ -1343,8 +1344,9 @@ seconds, and "no idle worker" was the rarest reason an extractor waited
 (about one block in ten; the bank and free nodes were the rest), so the
 worker rule (3 + 1 per conquered territory) is not what binds. What separates a rich faction
 from a poor one is **levels**, above all the **capital's**: a territory's
-slots are multiplied by its Fortress's level (x1 / x2 / x4,
-`TerritoryIncomeSystem.HallMultiplier`), so the home capital at L2 and L3 is
+slots were multiplied by its Fortress's level (x1 / x2 / x4 at the time,
+`TerritoryIncomeSystem.HallMultiplier`; since 2026-10-08 the level scales only
+the Fortress's own income, and since 2026-10-19 by far less), so the home capital at L2 and L3 is
 by far the highest-return purchase in the game and pays itself back in about
 a minute. Factions whose capital reached L3 by ~20 minutes earned three to
 six times the income of those stuck at L1, and a capital stuck at L1 meant
@@ -1401,7 +1403,8 @@ fought curse nodes at even power and lost.
   levelled as the supply engine while the capital's essential price forms.
 - **The capital's essential level, and a cap on its savings hold.** Capital
   levels up to `capitalEssentialLevel` (`AIBuildingUpgradeSystem.asset`; L2,
-  which doubles the home territory's income) stay essential: bought and saved
+  which raises the home Fortress's income by its
+  `fortressLevelIncomeMultipliers` rung) stay essential: bought and saved
   for ahead of everything. Levels above it, up to the priority level, are
   economy drive under the rule above. The savings hold itself is capped: once
   it has held the bank unbroken for `capitalReserveMaxHoldSeconds` it is
@@ -1603,6 +1606,41 @@ Easy at minute 11 and never answered. Every held territory whose last-tick
 challenger is a hostile player now raises an incident at that side's unit
 nearest the territory's seed, answered on the tier's delay and margin like a
 raid.
+
+### 5j. A building level is one faction-wide decision (2026-10-19)
+
+Building levels are faction-wide per type
+([Overview.md § Building levels](Overview.md#building-levels-faction-wide)),
+so the AI decides a level ONCE per type, never once per building
+(`AIBuildingUpgradeSystem`, `SimpleAISystem.Surplus`):
+
+- **One at a time.** Nothing of a type is ordered while a level-up of it is
+  queued or running on any building of the faction.
+- **Where it runs** (`PickHost`): an idle building of the type with an empty
+  queue first, then the shortest queue — never one busy training if an idle
+  one exists; the home capital wins a tie among Fortresses.
+- **Worth it?** (`ValueGate`) The level's price, read from its level SO, in
+  reference-soldier prices (`referenceUnitId`'s SO cost, all four resources
+  summed), must not exceed the finished buildings of the type it raises
+  times `soldiersPerProductionBuilding` / `soldiersPerEconomyBuilding` /
+  `soldiersPerOtherBuilding` — more Barracks, a level worth more, and a price
+  raise on the SO moves the bar with no code change. Skipped while the bank
+  overflows (`surplusIgnoresValue`), for the capital's priority levels (§ 5d)
+  and for the housing Hut (gated on housing need). A refused level logs
+  `ECON: deferred (worth N soldiers ... < price M soldiers) — upgrade <type>`.
+- **No catching up new buildings.** A new building is finished at the
+  faction's level, so the old lowest-level-first walk (and the Gatherer's
+  Hut highest-first exception) are gone.
+- The Feraldis trainers (Hall of Axes, Rig Yard, Engine Works) joined the
+  rotation, and every culture's trainers count as production lines.
+- **Mines level too (2026-10-19).** The iron Mine joined the rotation and the
+  economy pass (`TryEconomyUpgrade` turns through the Gatherer's Hut, the
+  Trading Outpost and the Mine), valued as an economy building.
+- **Per-faction caps are checked before a site search** (`TryBuildBuildingCore`,
+  `BuildingFactory.AtFactionCap`): a capped id — one Vault, 20 Houses — is
+  refused up front rather than by the executor.
+
+Knobs: `AIBuildingUpgradeSystem.asset`.
 
 ## 6. Military manager
 
@@ -2720,6 +2758,17 @@ it on the support cadence (`AISupport.thinkInterval`,
   channels. While it is on that errand (`cleanseErrandSeconds`) or
   channelling, the army-follow step (§ 6m) leaves it alone, because a move
   order would end the channel.
+- **Aim into the patch (2026-10-19):** the cast clears its whole starting
+  circle at once (§6.9.7), so the AI does not centre it on the nearest cursed
+  cell (half the circle would land on clean ground): it aims
+  `cleanseAimInset` × the starting radius further in, along the line from the
+  Litharch through that cell. The cell stays inside the circle. Even a patch
+  of a few cells is worth a cast now — it is gone on the first tick.
+- **Let go when done (2026-10-19):** a channel never ends by itself, so the
+  AI stops its own Litharch's channel once the circle has reached its maximum
+  radius, or once no cursed ground lies within the circle plus its falloff
+  band plus `cleanseDoneMargin` — nothing left to push back. The cooldown then
+  runs and the Litharch returns to healing.
 - **Then:** a territory with no cursed ground left is an ordinary claim
   candidate again, with no special handling.
 
@@ -2880,3 +2929,4 @@ host-only through the lockstep command queue.
 - No machine learning (AoE4 shipped without it).
 - No vision or resource cheats on any tier.
 - No naval/water AI (no naval gameplay yet).
+

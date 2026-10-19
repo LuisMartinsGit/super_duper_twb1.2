@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 3
   displayName: Waystation
   upgradeCost:
-    Supplies: 240
-    Iron: 60
+    Supplies: 720
+    Iron: 180
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 35

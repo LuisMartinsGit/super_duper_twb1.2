@@ -105,6 +105,26 @@ namespace TheWaningBorder.World.Regions
             || kind == MapMarkers.RegionSeedMarker.RegionKind.Obstacle
             || kind == MapMarkers.RegionSeedMarker.RegionKind.Forest;
 
+        // Parallel to _seeds: the shallows territories, whose waded ground is
+        // buildable (RegionSeedMarker.BuildableShallows, 2026-10-19). Empty
+        // when no map region says so.
+        private static bool[] _shallows = System.Array.Empty<bool>();
+
+        /// <summary>True when the region is a SHALLOWS territory: waded water
+        /// that may be built on (Yiel_Lymwerra.md § The bay). Any other
+        /// region's waded water — a ford — stays unbuildable.</summary>
+        public static bool BuildableShallows(int region) =>
+            region >= 0 && region < _shallows.Length && _shallows[region];
+
+        /// <summary>Mark the shallows territories, parallel to the seeds of
+        /// the last <see cref="Configure"/>. Null or empty clears them.</summary>
+        public static void SetBuildableShallows(IReadOnlyList<bool> flags)
+        {
+            _shallows = new bool[_seeds.Length];
+            if (flags == null) return;
+            for (int i = 0; i < _shallows.Length && i < flags.Count; i++) _shallows[i] = flags[i];
+        }
+
         public static Vector2[] ShapeOf(int region) =>
             region >= 0 && region < _shapes.Length ? _shapes[region] : null;
 
@@ -136,6 +156,7 @@ namespace TheWaningBorder.World.Regions
             Version++;
             _kinds = new MapMarkers.RegionSeedMarker.RegionKind[seeds.Count];
             _anyKind = kinds != null && kinds.Count > 0;
+            _shallows = System.Array.Empty<bool>();   // SetBuildableShallows re-marks them
             for (int i = 0; i < seeds.Count; i++)
             {
                 _seeds[i] = seeds[i];
@@ -216,6 +237,7 @@ namespace TheWaningBorder.World.Regions
             Version++;
             _kinds = System.Array.Empty<MapMarkers.RegionSeedMarker.RegionKind>();
             _anyKind = false;
+            _shallows = System.Array.Empty<bool>();
         }
 
         // ── organic boundaries ──────────────────────────────────────────
@@ -757,6 +779,7 @@ namespace TheWaningBorder.World.Regions
             var names = new List<string>(markers.Count);
             var shapes = new List<Vector2[]>(markers.Count);
             var kinds = new List<MapMarkers.RegionSeedMarker.RegionKind>(markers.Count);
+            var shallows = new List<bool>(markers.Count);
             for (int i = 0; i < markers.Count; i++)
             {
                 var m = markers[i];
@@ -766,9 +789,11 @@ namespace TheWaningBorder.World.Regions
                 names.Add(m.RegionName);
                 shapes.Add(m.Shape);
                 kinds.Add(m.Kind);
+                shallows.Add(m.BuildableShallows);
             }
 
             Configure(seeds, names, shapes, kinds);
+            SetBuildableShallows(shallows);
             TWBLog.Log($"[RegionMap] {seeds.Count} region(s) built from markers.");
         }
     }

@@ -17,9 +17,9 @@ MonoBehaviour:
   level: 3
   displayName: Sanctuary
   upgradeCost:
-    Supplies: 300
-    Iron: 160
-    Veilstone: 120
+    Supplies: 900
+    Iron: 480
+    Veilstone: 360
     Veilsteel: 0
   upgradeSeconds: 50
   hpMultiplier: 1.2

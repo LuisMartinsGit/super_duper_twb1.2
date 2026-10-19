@@ -1210,9 +1210,24 @@ a free upgrade:
 
 #### The Wonder road: enshrine and hold for 10 minutes
 
-- Enshrining starts the **ascension countdown — 10 minutes**, visible to every
-  player: a HUD timer, a minimap ping on the Temple and a notice ("Purple has
-  enshrined the Shardroot — 10:00 to ascension").
+- Enshrining starts the **ascension countdown — 10 minutes**
+  (`ascensionSeconds` on `ShardrootEmpowerment.asset`), visible to every
+  player (2026-10-19, developer: "Both timed victories (shardroot and
+  sanctum) should present a timer to all players so that they know how long
+  until they win/lose the game. Issue a warning message every 2.5 minutes."):
+  - **a HUD timer** beside the match clock for everyone, spectators and
+    replays included — "Your ascension: 07:32" in the allied tint for the
+    enshrining side, "Purple — Shardroot ascension 07:32" in the hostile tint
+    for the factions it would eliminate. It shares the clock row with the
+    Sanctum dominion timer ([Territory_Claims.md § 11.4](Territory_Claims.md))
+    and disappears when the countdown stops;
+  - **warning notices** at the start, every `countdownWarningSeconds` of time
+    left (2.5 minutes: 7:30, 5:00, 2:30) and at the final marks in
+    `countdownFinalWarnings` (1:00, 0:30), each with a minimap ping on the
+    Temple — "Keep the enshrining Temple standing for 7:30 more to ascend" for
+    the enshrining side, "Purple's Shardroot ascension: 7:30 remaining —
+    destroy their Temple to stop it" for the rest — and a notice when it is
+    broken.
 - **The clock runs regardless**, as an Age of Empires Wonder's does: enemies
   standing at the Temple do not pause it; only destroying the Temple stops it.
 - **The Temple destroyed** — it detonates and the artifact drops in the crater

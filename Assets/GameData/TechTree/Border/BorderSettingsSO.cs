@@ -162,6 +162,10 @@ namespace TheWaningBorder.Data.Border
         /// <summary>Soldiers this close (m) to each other count as one body.</summary>
         [Min(1f)] public float armyConversionLinkRadius = 12f;
 
+        /// <summary>Only soldiers this close (m) to a living curse node can
+        /// be seized — the node's watch over its ground (2026-10-19).</summary>
+        [Min(1f)] public float armyConversionNodeRadius = 40f;
+
         /// <summary>Fraction of the curse's garrison units DRAFTED into each
         /// attack wave (§6.8, 2026-10-04: "all spawn as garrison, then waves
         /// are 30% of that"). Nothing is spawned for a wave.</summary>
@@ -549,6 +553,7 @@ namespace TheWaningBorder.Data.Border
             armyConversionMaxUnits = 25;
             armyConversionMinUnits = 6;
             armyConversionLinkRadius = 12f;
+            armyConversionNodeRadius = 40f;
             waveDraftFraction = 0.30f;
             waveMinSize = 6;
             garrisonMinPerNode = 2;

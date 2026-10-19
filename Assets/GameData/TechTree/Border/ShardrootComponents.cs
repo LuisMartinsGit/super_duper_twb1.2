@@ -87,7 +87,9 @@ public struct ShardrootState : IComponentData
     public Faction AscensionFaction;
     public float AscensionElapsed;
     public byte AscensionDone;
-    /// <summary>Whole minutes left at the last countdown notice.</summary>
+    /// <summary>Seconds-left mark of the last countdown warning (-1 = none
+    /// yet; CountdownWarnings). Named for its old meaning, whole minutes, and
+    /// kept so saved games still load.</summary>
     public int AscensionNoticeMinutes;
 
     /// <summary>Shardroot quanta the artifact embodies — drives god-power

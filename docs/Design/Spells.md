@@ -48,7 +48,7 @@ damage also goes through §3. They are not part of this model.
 | `Duration` | seconds the effect lasts (-1 = permanent passive) |
 | `Cooldown` | seconds before a recast, **charged when the cast completes**. 0 = *auto* (§5) |
 | `Radius` / `Range` | area size / cast range. On an aimed card, Range 0 means unlimited |
-| `AimedAtPoint` | **new.** The player picks a ground point with the targeting ring. False for an Area card that forms around the caster wherever he stands (War Horn, Full Gallop, Honour thy Pledge, Choreographed Volleys, Shardbound Fury). True for the ground-aimed cards: Use Celestar, Leap, Cleanse |
+| `AimedAtPoint` | **new.** The player picks a ground point with the targeting ring. False for an Area card that forms around the caster wherever he stands (War Horn, Full Gallop, Honour thy Pledge, Choreographed Volleys, Shardbound Fury). True for the ground-aimed cards: Leap, Cleanse (Use Celestar was one until it became a passive, 2026-10-19) |
 | `TargetKind` | **new (2026-10-18).** What a `SingleTarget` card is cast ON: one of *enemy unit*, *own unit*, *friendly unit* (own or team ally), *any unit*, *enemy building*, *own building*, *friendly building*, *any building*, *enemy unit or building*; *None* for every card that is not cast on an entity. Set on Stamp of Record and Lancet (enemy unit), Liquidate (own building, never the capital) and Raze (enemy building, walls and curse structures included). See §6 |
 | `Damage` | **new.** Damage per victim (0 = deals none). Shardbound Fury: 60, the landing slam |
 | `DamageType` | **new.** The armor column the damage is measured against. **Magic** unless the design names another type |
@@ -254,6 +254,51 @@ wind-up is a dodge window, not a channel, so nothing interrupts it.
   channel line.
 - The armour line reads "+15 % armour" and is now true.
 
+### 6.1 Sect powers and ability cards need line of sight (2026-10-19)
+
+A sect power may only be cast where its caster can **see right now** — by the
+caster's own or a team ally's units and buildings (teams share line of sight,
+[Teams.md](Teams.md)). This binds the player and the AI alike.
+
+- **Area / ground powers:** the aimed **centre** must be in sight. The edge of
+  the circle may reach into the fog.
+- **Single-target powers:** an **enemy** target must be in sight. An own or
+  allied target is always in sight.
+- **Exempt** — powers whose aim point is not where they act: untargeted ones
+  (Plenty), map-wide ones (Nowhere to Hide), and **reveals** (a reveal exists
+  to look *into* the fog; gating it on sight would make it pointless).
+- **The simulation decides**, on every peer, before the cooldown is charged:
+  a refused cast spends nothing. "In sight" is the simulation's own test —
+  inside the `LineOfSight` radius of any own / allied unit or building
+  (`FactionSight.CanSee`), never the fog-of-war display — so every lockstep
+  peer agrees. Sight is judged when the command executes; a target that walks
+  into the fog during the wind-up is still struck (§6, the landing re-check
+  is the legality test only).
+- **Aiming UI:** the ground ring turns **red** over a point the caster cannot
+  see, and the entity pick refuses an unseen enemy. Clicking there says
+  "You cannot see there" and keeps aiming; right-click / Esc cancels.
+- **AI:** chooses only aim points and targets it can see (the same test), and
+  holds the power otherwise rather than throwing a cast away.
+
+**Ability cards too (2026-10-19).** Unit and hero ability cards follow the
+same rule, judged the same way (`AbilityTargetRules.CastInSight`, asked by
+`AbilityLifecycleSystem` before the cooldown is charged; the aiming test is
+`AbilityTargetRules.AimInSight` / `CheckInSight`):
+
+- **Ground-aimed cards** (`AimedAtPoint`: Leap, Cleanse) — the aimed point
+  must be in sight.
+- **Entity-targeted cards** (`TargetKind`: Stamp of Record, Lancet, Raze) — an
+  enemy target must be in sight; an own or allied target (Liquidate) always is.
+- **Exempt:** reveals — any card with a `RevealFog` or `LosRampWhileStill`
+  effect (Use Celestar, Scout Sight); passives, auras, self-cast and
+  caster-centred area cards (War Horn, Honour thy Pledge, ...), which have no
+  aim point; and casts by the curse, which has no fog.
+- A channelled card is judged when it starts; the completion re-check is the
+  legality test only, exactly as a power's landing.
+- The spell panel's ring and entity pick turn red and say "You cannot see
+  there"; the AI (tactics micro, Harkon, the Litharch's Cleanse) picks only
+  seen targets and points.
+
 
 ## 7. Open questions
 
@@ -331,13 +376,13 @@ Shardroot sell, and a level that also shortened the cooldown sold it twice.
 | Band | Cooldown | Who |
 |---|--:|---|
 | Hero active | **45 s** | Liquid Courage |
-| Unit tactical active | **60 s** | War Horn, Full Gallop, Choreographed Volleys, Use Celestar, Ranging Shot |
+| Unit tactical active | **60 s** | War Horn, Full Gallop, Choreographed Volleys, Ranging Shot (Use Celestar left the band when it became a passive, 2026-10-19) |
 | Sect tactical (buff, debuff, heal, ward, utility) | **60 s** | most sect powers |
 | Sect economy | **60 s** | Harvest the Veil, Call to Arms, Cleanse |
 | Sect damage | **75 s** | Writ of Attainder, Sentence, Unmake, Spite, Pyre |
 | Building active | **90 s** | the Reliquary's Scry, Lockout and Vision |
 | Hero ultimate | **120 s** | Honour thy Pledge, Shardbound Fury |
-| Sect wildcard | **120 s** | Immovable III, Raise Anew I (Sew Disorder / Friendly Fire has its own, far longer cooldown since 2026-10-18) |
+| Sect wildcard | **120 s** | Immovable III, Raise Anew I (Sew Disorder / Friendly Fire has its own, longer cooldown since 2026-10-18 — `SpellLadder.FriendlyFireCooldown`) |
 | Map-wide | **150 s** | Blood Rain, Nowhere to Hide |
 | Deployable structure | **300 s** | Deploy Field Hospital |
 | Economy card, auto | duration + 1 s | Automate Facility (its Under Automation lockout is the brake) |
@@ -438,7 +483,7 @@ separated by slashes. "-" = none.
 | Veilshift Withdrawal / Life Cling | aftermath | - | - | - | 5 | - |
 | Honour thy Pledge (Lexor, level 4+) | hero ultimate | 90 -> **120** | - | 6 spawn ring | 30-60 by level | - |
 | Shardbound Fury (Lexor + Shardroot) | hero ultimate | 120 | slam 90 -> **60** magic; buildings 600 -> **300** | 22 -> **25** | - | - |
-| Use Celestar (Scout) | unit tactical | 30 -> **60** | - | 10 -> **8** | 15 | 5 s |
+| Use Celestar (Scout, **passive** since 2026-10-19 — idle Scouts reveal a random patch, [Age_1_Alanthor.md](Age_1_Alanthor.md#scouting-celestarii--the-celestar-passive-2026-10-19)) | passive | on the SO | - | on the SO | on the SO | - |
 | Scout Sight (passive) | - | - | - | - | permanent | - |
 | War Horn (cavalry) | unit tactical | 60 | - | 20 -> **15** | 20 window | - |
 | Full Gallop (cavalry) | unit tactical | 75 -> **60** | - | 20 -> **15** | 8 | - |
@@ -458,7 +503,7 @@ Reliquary building level III still cuts its three cooldowns by 30 %.
 |---|---|---|---|---|
 | Antiquity: **Writ of Attainder** | damage | 55/50/45 -> **75** | 40/60/80 per kill, uncapped -> **30 per kill, max 120** (4 kills); III floor 60 -> **30** | S / M / L |
 | Antiquity: Heavy Bureaucracy | tactical | 75/67/60 -> **60** | 30 s -> **20 s** shutdown | Single / S / L |
-| Antiquity: Sew Disorder (Friendly Fire) | wildcard | 150/135/120 -> 120 -> **`SpellLadder.FriendlyFireCooldown`** (2026-10-18: far longer than the other wildcards) | 8 s / 20 s / until killed | S / M / L |
+| Antiquity: Sew Disorder (Friendly Fire) | wildcard | 150/135/120 -> 120 -> **`SpellLadder.FriendlyFireCooldown`** (2026-10-18: far longer than the other wildcards; 2026-10-19: brought down) | 8 s / 20 s / until killed | S / M / L |
 | Renewal: **Hands of Plenty** | tactical | 45/42/40 -> **60** | heal 30/50/80 % -> **45/45/60 %** (III + 10 s regen) | S / M / M |
 | Renewal: Raise Anew | wildcard (exception) | 78/98/117 -> **120/150/180** | Tower / Fortification / Fortress, permanent | Single |
 | Renewal: Second Wind | tactical | 75/70/65 -> **60** | cannot die 6 / 12 / 12 s; III heals 25 % | S / S / M |

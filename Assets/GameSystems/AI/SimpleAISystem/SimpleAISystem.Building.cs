@@ -97,6 +97,12 @@ namespace TheWaningBorder.AI
             if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null)
             { reason = "no catalog def"; return false; }
 
+            // PER-FACTION CAPS (BuildingDef.maxPerFaction — one Vault of
+            // Almierra, 20 Houses, ...): the executor refuses a capped id, so
+            // do not even try (2026-10-19).
+            if (TheWaningBorder.Entities.BuildingFactory.AtFactionCap(em, faction, buildingId))
+            { reason = "per-faction cap"; return false; }
+
             // Era gate (2026-08-11): minEra was UI-only, so the AI happily
             // built era-locked buildings — the Age-0 Archery Range this rule
             // now delays (ranged units are an Age-1 unlock, Combat_Pacing.md).
@@ -300,6 +306,11 @@ namespace TheWaningBorder.AI
                 if (sent == 0 && _rebuildingLostTrainer)
                     NoteLostTrainerPull(faction, buildingId,
                         AICommon.PullWorkersTo(em, faction, Entity.Null, buildingId, pos, maxWorkers: 2));
+                // A PLAN MUST BELONG TO A WORKER (Planned_Buildings.md §6):
+                // one nobody holds is cancelled and refunded, so with no idle
+                // hand the nearest busy worker queues it.
+                else if (sent == 0)
+                    AICommon.PullWorkersTo(em, faction, Entity.Null, buildingId, pos, maxWorkers: 1);
                 // No rollback path here: the placement command is already
                 // queued on every peer. Past the idle-worker pre-flight a
                 // zero dispatch is a rare race; workers auto-chain to nearby

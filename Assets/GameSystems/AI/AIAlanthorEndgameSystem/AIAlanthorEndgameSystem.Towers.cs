@@ -209,7 +209,9 @@ namespace TheWaningBorder.AI
                 out Entity building, CommandSource.AI);
             if (queuedPlacement)
             {
-                AICommon.DispatchWorkersTo(em, faction, Entity.Null, towerId, pos, maxWorkers: 1);
+                // A plan nobody holds is cancelled (Planned_Buildings.md §6).
+                if (AICommon.DispatchWorkersTo(em, faction, Entity.Null, towerId, pos, maxWorkers: 1) == 0)
+                    AICommon.PullWorkersTo(em, faction, Entity.Null, towerId, pos, maxWorkers: 1);
                 AILogger.Log(faction, "BUILDING",
                     $"Alanthor towers: {existing + 1}/{TowerBudget(difficulty)} toward " +
                     $"({threatHint.x:F0},{threatHint.z:F0})");

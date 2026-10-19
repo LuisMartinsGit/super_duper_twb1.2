@@ -299,7 +299,7 @@ namespace TheWaningBorder.Core.Commands
         }
 
         private static void QueueBuildForLockstep(EntityManager em, Entity worker, Entity targetBuilding,
-            string buildingId, float3 position)
+            string buildingId, float3 position, bool append)
         {
             int workerId = GetNetworkId(em, worker);
             int targetId = targetBuilding != Entity.Null ? GetNetworkId(em, targetBuilding) : 0;
@@ -307,7 +307,7 @@ namespace TheWaningBorder.Core.Commands
             if (workerId <= 0)
             {
                 if (!MayExecuteLocally(em, worker, "Build")) return;
-                BuildCommandHelper.Execute(em, worker, targetBuilding, buildingId, position);
+                BuildCommandHelper.Execute(em, worker, targetBuilding, buildingId, position, append);
                 return;
             }
 
@@ -317,7 +317,10 @@ namespace TheWaningBorder.Core.Commands
                 EntityNetworkId = workerId,
                 TargetEntityId = targetId,
                 TargetPosition = position,
-                BuildingId = buildingId
+                BuildingId = buildingId,
+                // Bit 0 = REPLACE the worker's build queue (no Shift). Zero
+                // means append, so every older replay reads as it did.
+                SecondaryTargetId = append ? 0 : 1,
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }

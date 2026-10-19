@@ -32,9 +32,9 @@ namespace TheWaningBorder.Economy
         public const float HeroUltimateCooldown = 120f;
         /// <summary>Sect wildcard (Sew Disorder, Immovable III, Raise Anew I).</summary>
         public const float SectWildcardCooldown = 120f;
-        /// <summary>Friendly Fire's own, much longer cooldown (2026-10-18,
-        /// developer: "dramatically increase cooldown of friendly fire").</summary>
-        public const float FriendlyFireCooldown = 600f;
+        /// <summary>Friendly Fire's own, longer cooldown (2026-10-18:
+        /// "dramatically increase"; 2026-10-19: "600 s is too much, make it 150 s").</summary>
+        public const float FriendlyFireCooldown = 150f;
         /// <summary>Map-wide power (Blood Rain, Nowhere to Hide).</summary>
         public const float MapWideCooldown = 150f;
         /// <summary>Deployable structure (Deploy Field Hospital).</summary>

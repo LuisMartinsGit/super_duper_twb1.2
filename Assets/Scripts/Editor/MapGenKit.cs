@@ -573,6 +573,45 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                       $"(layer {noWalkIdx}).");
         }
 
+        /// <summary>
+        /// Force the NoWalk layer to full weight on every alphamap texel whose
+        /// world position <paramref name="blocked"/> says is mountain
+        /// (2026-10-19). The hand-built maps lowered their mountains to a
+        /// third of their height, which brought the flanks under the slope
+        /// limit, so the paint — not the height — is now what keeps them
+        /// impassable, exactly as the layout maps' nowalk.png does. World
+        /// coordinates are centre-origin, as every builder here places its
+        /// terrain. Returns the number of texels painted.
+        /// </summary>
+        public static int PaintNoWalkWhere(TerrainData data, System.Func<float, float, bool> blocked)
+        {
+            int noWalkIdx = FindNoWalkLayer(data);
+            if (noWalkIdx < 0)
+            {
+                Debug.LogError("[MapGenKit] No 'NoWalk' terrain layer — the mountains will NOT block.");
+                return 0;
+            }
+            int aw = data.alphamapWidth, ah = data.alphamapHeight, layers = data.alphamapLayers;
+            var maps = data.GetAlphamaps(0, 0, aw, ah);
+            float sizeX = data.size.x, sizeZ = data.size.z;
+            int painted = 0;
+            for (int az = 0; az < ah; az++)
+            {
+                float wz = (az + 0.5f) / ah * sizeZ - sizeZ * 0.5f;
+                for (int ax = 0; ax < aw; ax++)
+                {
+                    float wx = (ax + 0.5f) / aw * sizeX - sizeX * 0.5f;
+                    if (!blocked(wx, wz)) continue;
+                    for (int l = 0; l < layers; l++)
+                        maps[az, ax, l] = l == noWalkIdx ? 1f : 0f;
+                    painted++;
+                }
+            }
+            data.SetAlphamaps(0, 0, maps);
+            Debug.Log($"[MapGenKit] NoWalk painted under the mountains: {painted} texels (layer {noWalkIdx}).");
+            return painted;
+        }
+
         /// <summary>Index of the NoWalk terrain layer, matching the
         /// case-insensitive name scan PassabilityGrid.LoadNoWalkMask uses.
         /// </summary>

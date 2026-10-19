@@ -93,6 +93,11 @@ namespace TheWaningBorder.Core.Multiplayer
                     // The command table is part of the contract: a peer that
                     // does not know a command type silently drops it.
                     Mix(((int)LockstepCommandType.SectAdopt).ToString(CultureInfo.InvariantCulture));
+                    // The sim-state layout too (2026-10-19): a replay recorded
+                    // before a save-format bump re-simulates into a different
+                    // world, so its fingerprint must stop matching even when
+                    // Application.version was not bumped (editor, dev builds).
+                    Mix("save" + TheWaningBorder.Core.Save.SaveGameFile.SaveFormatVersion.ToString(CultureInfo.InvariantCulture));
 
                     _fingerprint = h.ToString("X8", CultureInfo.InvariantCulture);
                 }

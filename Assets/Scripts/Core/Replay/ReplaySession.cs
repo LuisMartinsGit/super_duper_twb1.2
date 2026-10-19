@@ -107,7 +107,7 @@ namespace TheWaningBorder.Core.Replay
             {
                 var save = SaveGameFile.Load(path, out error);
                 if (save == null) return false;
-                if (!save.Replay.Header.Apply(out error)) return false;
+                if (!save.Replay.Header.Apply(true, out error)) return false;
                 SaveFile = save;
                 File = save.Replay;
                 StartTick = save.Tick;
@@ -118,6 +118,7 @@ namespace TheWaningBorder.Core.Replay
                 var file = ReplayFile.Load(path, out error);
                 if (file == null) return false;
                 if (!file.Header.Apply(out error)) return false;
+                if (!SnapshotsLoadable(file, out error)) return false;
                 File = file;
                 StartTick = 0;
                 GameSettings.WatchingReplay = true;
@@ -143,6 +144,7 @@ namespace TheWaningBorder.Core.Replay
             var file = ReplayFile.Load(replayPath, out error);
             if (file == null) return false;
             if (!file.Header.Apply(out error)) return false;
+            if (!SnapshotsLoadable(file, out error)) return false;
             SaveFile = save;
             _baseSave = save;
             File = file;
@@ -152,6 +154,34 @@ namespace TheWaningBorder.Core.Replay
             GameSettings.WatchingReplay = true;
             Speed = 1f;
             ResetPlayback();
+            return true;
+        }
+
+        /// <summary>
+        /// A replay of a resumed game restores the save it embeds ("snap"
+        /// lines) mid-playback. A snapshot of another save format cannot be
+        /// restored, and playing on without it would re-simulate a world the
+        /// recording never had — so the replay is refused up front, with the
+        /// save's own message, rather than failing (or lying) partway through.
+        /// (The header fingerprint mixes in SaveFormatVersion, so this only
+        /// fires on a hand-edited or mismatched file; it is the belt to that
+        /// braces.)
+        /// </summary>
+        static bool SnapshotsLoadable(ReplayFile file, out string error)
+        {
+            error = null;
+            foreach (var s in file.Snapshots)
+            {
+                byte[] bytes;
+                try { bytes = Convert.FromBase64String(s.Data); }
+                catch (FormatException)
+                {
+                    error = TheWaningBorder.Core.Localization.Loc.T("Not a replay this version of the game can read.");
+                    return false;
+                }
+                error = SaveGameFile.CheckFormat(bytes);
+                if (error != null) return false;
+            }
             return true;
         }
 

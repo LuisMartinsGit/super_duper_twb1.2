@@ -17,7 +17,7 @@ MonoBehaviour:
   level: 3
   displayName: Slave Pens
   upgradeCost:
-    Supplies: 533
+    Supplies: 1400
     Iron: 0
     Veilstone: 0
     Veilsteel: 0

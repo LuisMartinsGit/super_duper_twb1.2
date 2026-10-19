@@ -412,6 +412,8 @@ namespace TheWaningBorder.Entities
                 case "TempleOfRidan": built = GetFactionBuildingCount<TempleOfRidanTag>(em, faction); break;
                 case "ThessarasCrossing": built = GetFactionBuildingCount<ThessarasCrossingTag>(em, faction); break;
                 case "Feraldis_GreatForge": built = GetFactionBuildingCount<GreatForgeTag>(em, faction); break;
+                // One Vault of Almierra per faction (Age_0.md § Vault, 2026-10-19).
+                case "VaultOfAlmierra": built = GetFactionBuildingCount<VaultTag>(em, faction); break;
                 // The House of Vaelith sect buildings, one each (Religion.md §3.2).
                 case "Sect_Reliquary": built = GetFactionBuildingCount<ReliquaryTag>(em, faction); break;
                 case "Sect_MendingHall": built = GetFactionBuildingCount<MendingHallTag>(em, faction); break;

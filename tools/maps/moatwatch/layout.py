@@ -11,10 +11,11 @@
 # tor, unclaimable).
 #
 # Each corner is a KEEP behind a moat (deep water) crossed by two waded fords
-# that face the middle. Inside the moat: the home and two small garths, poor
-# but safe. Outside: one big open expanse cut into many small territories,
-# poor by the moats and along the edges, rich toward the centre, with a raised
-# barrow (the Sanctum) in each quadrant.
+# that face the middle, each split between the Keep and the Field across it.
+# Inside the moat: the home and two small garths, poor but safe. Outside:
+# one big open expanse cut into many small territories, poor by the moats
+# and along the edges, rich toward the centre, with a raised barrow (the
+# Sanctum) in each quadrant.
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from layoutkit import *
@@ -47,13 +48,14 @@ P.region_paint("Keep", 0, "Start", inner, start=start)
 # the garths lie along the moat's two ends, against the map edge
 P.region_paint("GarthS", 0, "Normal", AND(inner, blob(*corner_pt(5, 118), 36, 56, 5, 0.1)))
 P.region_paint("GarthW", 0, "NormalIron", AND(inner, blob(*corner_pt(85, 118), 36, 56, 85, 0.1)))
-# the fords: waded water, each its own (Empty) territory, so the keep borders
-# the expanse and claims can cross (a territory ringed by unclaimed water
-# borders nothing)
+# the fords: waded water and NO territory of their own (2026-10-19). Each
+# ford is split between its banks — the inner half joins the Keep, the outer
+# half the Field across — so the keep BORDERS the expanse and claims cross
+# where armies wade (a territory ringed by unclaimed water borders nothing).
+# Water is unbuildable, so a ford is crossed, never built on or held alone.
 for i, deg in enumerate(FORDS):
     a, b = corner_pt(deg, MOAT_IN - 6), corner_pt(deg, MOAT_OUT + 6)
-    P.ford_paint(f"Ford{i}", "Empty", AND(moat, lane([a, b], 10, wob=0.15)))
-P.labels.update({"Ford0": "Ford", "Ford1": "Ford"})
+    P.wade_paint(AND(moat, lane([a, b], 10, wob=0.15)))
 
 # the Sanctum barrow: a raised mound, two ramps
 P.region_paint("Barrow", 1, "Sanctum", blob(-78, -78, 26, 19, 45, 0.15))
@@ -80,13 +82,13 @@ def display(rec):
     if c == "Keep": return f"{s} Keep"
     if c == "GarthS": return f"{s} South Garth" if rec["k"] in (0, 1) else f"{s} North Garth"
     if c == "GarthW": return f"{s} Garth"
-    if c.startswith("Ford"): return f"{s} Ford {'I' if c == 'Ford0' else 'II'}"
     if c == "Barrow": return f"{s} Barrow"
     return f"{s} {WORDS[int(c[5:]) % len(WORDS)]}"
 
 P.finish("Moatwatch", display, notes=[
     "Each keep: home + two garths inside a moat,",
-    "two waded fords (Empty) toward the middle.",
+    "two waded fords toward the middle, split",
+    "between keep and field (no territory).",
     "Poor and safe inside; rich and open outside.",
     "Barrow = raised Sanctum, two ramps.",
     "Centre = rock tor (unclaimable).",

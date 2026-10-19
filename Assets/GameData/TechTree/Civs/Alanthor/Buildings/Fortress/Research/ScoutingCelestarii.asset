@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Scouting Celestarii
   role: Utility
   effect: 
-  desc: "Unlocks the Use Celestar reveal ability on Scouts and restores full Scout vision: settled max LOS and sight-ramp speed return to 100 percent (behaviour-by-id)."
+  desc: "Every Scout gains the Celestar passive: while idle, it periodically reveals a random patch anywhere on the map (behaviour-by-id)."
   researchAt: Fortress
   minBuildingLevel: 0
   researchTime: 30

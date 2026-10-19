@@ -14,6 +14,7 @@ using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
 using TheWaningBorder.Systems.Sect;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.World.FogOfWar;
 
 namespace TheWaningBorder.AI
 {
@@ -171,7 +172,21 @@ namespace TheWaningBorder.AI
                     // A single-target power is cast ON an entity, never at a
                     // spot (docs/Design/Spells.md §6): cast it on the legal
                     // target standing nearest the chosen spot, or hold it.
+                    // PickTargetNear only returns targets the AI can SEE.
                     Entity pick = Entity.Null;
+                    if (spec.Target == TheWaningBorder.Abilities.CastTargetKind.None
+                        && !SectActivePowerHelper.AimInSight(em, faction, spec.Kind, target))
+                    {
+                        // Line of sight (Spells.md §6.1): Fire refuses an aim
+                        // the caster cannot see, so hold rather than queue a
+                        // cast every peer would throw away. The pickers below
+                        // already filter on sight; this catches derived aims
+                        // (the tower picket, a fight-site centre).
+                        if (AITactics.LogDue(em, faction, "sect:" + sectId + slot, AITactics.Cfg.abilityHeldLogSeconds))
+                            AILogger.Log(faction, "ABILITY",
+                                $"{sectId.Substring(5)} slot {slot} ({spec.Kind}) held (aim not in sight)");
+                        continue;
+                    }
                     if (spec.Target != TheWaningBorder.Abilities.CastTargetKind.None)
                     {
                         pick = SectActivePowerHelper.PickTargetNear(em, faction, spec, target, SectRadii.Small);
@@ -353,7 +368,7 @@ namespace TheWaningBorder.AI
 
                 // Aim at a resource node.
                 case SectActivePowerKind.NodeOverYield:
-                    return TryPickResourceNode(em, hallPos, out target);
+                    return TryPickResourceNode(em, faction, hallPos, out target);
 
                 // Economy (Prosperity): Overtime on the keep's queue, Plenty
                 // whenever it is ready — both are worth casting at any time.
@@ -398,7 +413,9 @@ namespace TheWaningBorder.AI
                     float dx = p.x - _powerSites[s].Pos.x, dz = p.z - _powerSites[s].Pos.z;
                     atSite = dx * dx + dz * dz <= siteR2;
                 }
-                if (atSite) pts.Add(p);
+                // Only enemies the AI can SEE: a power aimed into the fog is
+                // refused (Spells.md §6.1), and the snapshot is omniscient.
+                if (atSite && FactionSight.CanSee(em, faction, p)) pts.Add(p);
             }
 
             float c2 = castRadius * castRadius;
@@ -504,7 +521,7 @@ namespace TheWaningBorder.AI
         /// <summary>Nearest live resource node to the Hall, for Harvest the
         /// Veil. Nearest rather than richest on purpose: a node beside the base
         /// is one the AI still holds when the 30 s payout finishes.</summary>
-        private static bool TryPickResourceNode(EntityManager em, float3 hallPos, out float3 target)
+        private static bool TryPickResourceNode(EntityManager em, Faction faction, float3 hallPos, out float3 target)
         {
             target = default;
             var q = QC_IronDepositStateLocalTransform.Get(em, QT_IronDepositStateLocalTransform);
@@ -521,6 +538,8 @@ namespace TheWaningBorder.AI
                 float dz = xfs[i].Position.z - hallPos.z;
                 float d2 = dx * dx + dz * dz;
                 if (d2 >= best) continue;
+                // Seen nodes only (Spells.md §6.1).
+                if (!FactionSight.CanSee(em, faction, xfs[i].Position)) continue;
                 best = d2;
                 target = xfs[i].Position;
                 found = true;
@@ -626,6 +645,8 @@ namespace TheWaningBorder.AI
                 var e = ents[i];
                 if (em.HasComponent<WallTag>(e)) continue;
                 if (em.HasComponent<UnderConstruction>(e)) continue;
+                // Seen buildings only (Spells.md §6.1).
+                if (!FactionSight.CanSee(em, faction, p)) continue;
                 bestD2 = d2; target = p; found = true;
             }
             return found;

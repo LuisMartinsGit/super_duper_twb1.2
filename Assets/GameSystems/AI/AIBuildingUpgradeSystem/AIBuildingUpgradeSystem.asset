@@ -21,3 +21,8 @@ MonoBehaviour:
   capitalEssentialLevel: 2
   surplusUpgradesPerThink: 3
   hutUpgradeHeadroomMax: 40
+  referenceUnitId: Spearman
+  soldiersPerProductionBuilding: 8
+  soldiersPerEconomyBuilding: 4
+  soldiersPerOtherBuilding: 4
+  surplusIgnoresValue: 1

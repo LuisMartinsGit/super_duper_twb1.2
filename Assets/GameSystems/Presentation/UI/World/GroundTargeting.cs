@@ -3,6 +3,12 @@
 // casts, right-click / Escape cancels. Shared by the sect god powers
 // (ReligionHUD Fire) and the Reliquary's targeted abilities.
 //
+// An optional validator judges the point under the cursor every frame
+// (docs/Design/Spells.md §6.1 — a sect power may only be aimed where the
+// caster can see): an invalid point turns the ring red, and a click there
+// says why and keeps aiming, spending nothing — the same misclick behaviour
+// as EntityTargeting. The simulation re-checks before it charges anything.
+//
 // The ring is a real ground DECAL (GroundDecals), so it bends over slopes
 // instead of hovering as a flat disc at one height. It was a Quad with the
 // TWB/GroundTargetRing shader, which drew in the Overlay queue with
@@ -25,9 +31,18 @@ namespace TheWaningBorder.UI.World
         /// (RTSInputManager, BuildCommandPannel) must stand down.</summary>
         public static bool IsActive { get; private set; }
 
+        /// <summary>Aim-point test: null when the point is a legal aim, else
+        /// the (English) reason it is not.</summary>
+        public delegate string Refusal(float3 point);
+
+        private static readonly Color InvalidTint = new Color(1f, 0.3f, 0.25f, 0.9f);
+
         private Action<float3> _onConfirm;
+        private Refusal _refusal;
         private DecalProjector _ring;
         private float _radius;
+        private Color _validColor;
+        private bool _showingInvalid;
         // Swallow the click that pressed the ability button itself.
         private bool _armedThisFrame;
 
@@ -37,10 +52,21 @@ namespace TheWaningBorder.UI.World
         /// <paramref name="onConfirm"/> with the ground point.
         /// </summary>
         public static void Begin(float radius, Color color, Action<float3> onConfirm)
+            => Begin(radius, color, onConfirm, null);
+
+        /// <summary>
+        /// <see cref="Begin(float, Color, Action{float3})"/> with an aim-point
+        /// test: where <paramref name="refusal"/> returns a reason the ring
+        /// turns red and a click explains it and keeps aiming.
+        /// </summary>
+        public static void Begin(float radius, Color color, Action<float3> onConfirm, Refusal refusal)
         {
             EntityTargeting.Cancel();
             EnsureInstance();
             _instance._onConfirm = onConfirm;
+            _instance._refusal = refusal;
+            _instance._validColor = color;
+            _instance._showingInvalid = false;
             _instance._radius = math.max(0.5f, radius);
             _instance.EnsureRing();
             GroundDecals.SetShape(_instance._ring, GroundDecals.Ring(), color);
@@ -53,6 +79,7 @@ namespace TheWaningBorder.UI.World
         {
             if (_instance == null) return;
             _instance._onConfirm = null;
+            _instance._refusal = null;
             if (_instance._ring != null) _instance._ring.gameObject.SetActive(false);
             IsActive = false;
         }
@@ -101,6 +128,14 @@ namespace TheWaningBorder.UI.World
                 GroundDecals.Place(_ring, new Vector3(ground.x, ground.y, ground.z),
                                    _radius * 2f);
 
+                string refusal = _refusal?.Invoke(ground);
+                bool invalid = refusal != null;
+                if (invalid != _showingInvalid)
+                {
+                    _showingInvalid = invalid;
+                    GroundDecals.SetShape(_ring, GroundDecals.Ring(), invalid ? InvalidTint : _validColor);
+                }
+
                 if (UnityEngine.Input.GetMouseButtonDown(0))
                 {
                     if (_armedThisFrame) return; // same click that armed us
@@ -109,6 +144,14 @@ namespace TheWaningBorder.UI.World
                     // GameplayUIController.IsPointerOverHUD, 2026-07-17.)
                     if (UnityEngine.EventSystems.EventSystem.current != null
                         && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+                    if (invalid)
+                    {
+                        // Say why, keep aiming, spend nothing.
+                        TheWaningBorder.UI.Ingame.PlayerNotificationSystem.NotifyError(
+                            TheWaningBorder.Core.Localization.Loc.T(refusal));
+                        _armedThisFrame = false;
+                        return;
+                    }
                     var cb = _onConfirm;
                     // The confirming press must not also click-select what is
                     // under the ring (AimingInput).

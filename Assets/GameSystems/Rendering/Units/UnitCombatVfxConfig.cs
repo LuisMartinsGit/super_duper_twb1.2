@@ -27,6 +27,9 @@ namespace TheWaningBorder.Rendering
         public GameObject slowDownPrefab;
         /// <summary>Looping while a unit deals bonus damage (Lana Fog_electric).</summary>
         public GameObject attackUpPrefab;
+        /// <summary>Looping while a unit is under Friendly Fire — the red aura
+        /// (Lana Area_generic_red; Sects.md, 2026-10-19).</summary>
+        public GameObject frenziedPrefab;
 
         /// <summary>Effect scale per metre of unit height.</summary>
         public float scalePerMetre;

@@ -11,6 +11,12 @@
 // One level-up in the queue at a time. Two would have to be priced before the
 // first had applied, so the second's cost would be guesswork; refusing the
 // click keeps AlreadyUpgrading meaning exactly what it always meant.
+//
+// A LEVEL IS FACTION-WIDE PER TYPE (2026-10-19, docs/Design/Overview.md §
+// Building levels): the level read here is the faction's level for the
+// building's type (FactionBuildingLevels), finishing it raises every building
+// of the type, and only ONE level-up of a type may be queued or running per
+// faction — a second building of the type refuses with UpgradingElsewhere.
 
 using Unity.Entities;
 using TheWaningBorder.Core;
@@ -59,19 +65,23 @@ namespace TheWaningBorder.Core.Commands.Types
             string buildingId = ResolveBuildingId(em, building);
             if (string.IsNullOrEmpty(buildingId)) return UpgradeBuildingResult.NotUpgradeable;
 
-            // Determine current level (default 0 if no state component yet).
-            byte currentLevel = 0;
-            if (em.HasComponent<BuildingUpgradeState>(building))
-                currentLevel = em.GetComponentData<BuildingUpgradeState>(building).Level;
-
-            if (currentLevel >= BuildingUpgradeConfig.MaxLevel)
-                return UpgradeBuildingResult.AlreadyMaxLevel;
-
             // Owner culture: read from the Hall's FactionProgress (any culture
             // unlocks upgrades for that faction's buildings — even non-Hall ones).
             if (!em.HasComponent<FactionTag>(building)) return UpgradeBuildingResult.NoCulture;
             var faction = em.GetComponentData<FactionTag>(building).Value;
+
+            // The faction's level for this type — every building of it
+            // stands there.
+            byte currentLevel = CurrentLevel(em, faction, buildingId);
+            if (currentLevel >= BuildingUpgradeConfig.MaxLevel)
+                return UpgradeBuildingResult.AlreadyMaxLevel;
+
             if (!FactionHasCulture(em, faction)) return UpgradeBuildingResult.NoCulture;
+
+            // One level-up of a type at a time, faction-wide.
+            if (TheWaningBorder.Systems.Buildings.FactionBuildingLevels
+                    .UpgradeInFlight(em, faction, buildingId, out _))
+                return UpgradeBuildingResult.UpgradingElsewhere;
 
             byte targetLevel = (byte)(currentLevel + 1);
 
@@ -125,18 +135,24 @@ namespace TheWaningBorder.Core.Commands.Types
             if (IsUpgradeQueued(em, building)) return;
             if (CommandRouter.IsProductionQueueFull(em, building)) return;
 
-            byte currentLevel = 0;
-            if (em.HasComponent<BuildingUpgradeState>(building))
-                currentLevel = em.GetComponentData<BuildingUpgradeState>(building).Level;
+            string buildingId = ResolveBuildingId(em, building);
+            if (string.IsNullOrEmpty(buildingId)) return;
+            if (!em.HasComponent<FactionTag>(building)) return;
+            var faction = em.GetComponentData<FactionTag>(building).Value;
+
+            // Faction-wide: a level-up of this type already queued on another
+            // building (two commands landing in the same tick) wins; this one
+            // is dropped unpaid, identically on every peer.
+            if (TheWaningBorder.Systems.Buildings.FactionBuildingLevels
+                    .UpgradeInFlight(em, faction, buildingId, out _))
+                return;
+
+            byte currentLevel = CurrentLevel(em, faction, buildingId);
             if (currentLevel >= BuildingUpgradeConfig.MaxLevel) return;
             byte targetLevel = (byte)(currentLevel + 1);
 
             // Cost lookup + SPEND — after the re-entry guards above so a
             // duplicate command can never double-charge.
-            string buildingId = ResolveBuildingId(em, building);
-            if (string.IsNullOrEmpty(buildingId)) return;
-            if (!em.HasComponent<FactionTag>(building)) return;
-            var faction = em.GetComponentData<FactionTag>(building).Value;
             if (!TryGetLevelCost(em, building, faction, buildingId, targetLevel, out var cost)) return;
             if (!FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Upgrades)) return;
 
@@ -209,20 +225,26 @@ namespace TheWaningBorder.Core.Commands.Types
         // HELPERS
         // ──────────────────────────────────────────────────────────────────
 
+        /// <summary>The faction's current level for a type — what every
+        /// building of the type stands at (FactionBuildingLevels).</summary>
+        private static byte CurrentLevel(EntityManager em, Faction faction, string buildingId)
+            => TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, faction, buildingId);
+
         /// <summary>
-        /// The price of THIS building's level-up: the level's own price
-        /// (BuildingUpgradeConfig — the level SO first), times the Trading
-        /// Outpost's per-outcrop ramp for an Outpost (its place among the
-        /// posts beside its outcrop, docs/Design/Veilstone_Economy.md §3.1).
-        /// The check, the spend, the refund and the UI all price through here,
-        /// so a refund hands back exactly what was charged.
+        /// The price of the type's next level-up: the level's own price
+        /// (BuildingUpgradeConfig — the level SO first). The check, the spend,
+        /// the refund and the UI all price through here, so a refund hands
+        /// back exactly what was charged.
+        ///
+        /// The Trading Outpost's per-outcrop ramp prices BUILDING a post only
+        /// since 2026-10-19: a level is faction-wide, so the post its clock
+        /// happens to run on cannot change what it costs
+        /// (docs/Design/Veilstone_Economy.md §3.1).
         /// </summary>
         private static bool TryGetLevelCost(EntityManager em, Entity building, Faction faction,
             string buildingId, byte level, out Cost cost)
         {
             if (!BuildingUpgradeConfig.TryGetCost(em, faction, buildingId, level, out cost)) return false;
-            if (em.HasComponent<TradingOutpostTag>(building))
-                cost = TheWaningBorder.Entities.TradingOutpost.RampedUpgradeCost(em, building, cost);
             // Charter of Works (Prosperity): extractor levels cost less.
             float m = TheWaningBorder.Economy.SectResearchEffects.LevelCostMultiplier(faction, buildingId);
             if (m < 1f)
@@ -246,6 +268,10 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<ArcheryRangeTag>(e)) return "ArcheryRange";
             if (em.HasComponent<HutTag>(e))          return "Hut";
             if (em.HasComponent<GathererHutTag>(e))  return "GatherersHut";
+            // The iron Mine levels L1-L3 for every culture (2026-10-19,
+            // Civs/<Culture>/Buildings/Mine/Mine_Lvl1..3). The Veilstone Mine
+            // has no ladder (it converts at age-up instead).
+            if (em.HasComponent<MineTag>(e))         return "Mine";
             // Choice-building simple upgrades (design 2026-07-04). The Keep is
             // NOT here — it levels via wings (KeepWingSystem), not this ladder.
             if (em.HasComponent<VaultTag>(e))        return "VaultOfAlmierra";
@@ -302,15 +328,14 @@ namespace TheWaningBorder.Core.Commands.Types
             nextLevel = 0;
             if (!em.Exists(building) || !em.HasComponent<BuildingUpgradeable>(building)) return false;
 
-            byte current = em.HasComponent<BuildingUpgradeState>(building)
-                ? em.GetComponentData<BuildingUpgradeState>(building).Level : (byte)0;
+            if (!em.HasComponent<FactionTag>(building)) return false;
+            var faction = em.GetComponentData<FactionTag>(building).Value;
+            string id = ResolveBuildingId(em, building);
+            byte current = CurrentLevel(em, faction, id);
             if (current >= BuildingUpgradeConfig.MaxLevel) return false;
 
             nextLevel = (byte)(current + 1);
-            string id = ResolveBuildingId(em, building);
-            if (!em.HasComponent<FactionTag>(building)) return false;
-            return TryGetLevelCost(em, building, em.GetComponentData<FactionTag>(building).Value,
-                id, nextLevel, out cost);
+            return TryGetLevelCost(em, building, faction, id, nextLevel, out cost);
         }
     }
 }

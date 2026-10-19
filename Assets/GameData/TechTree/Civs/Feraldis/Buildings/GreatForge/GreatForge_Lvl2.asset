@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 2
   displayName: Great Forge
   upgradeCost:
-    Supplies: 447
-    Iron: 100
+    Supplies: 1000
+    Iron: 500
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 65

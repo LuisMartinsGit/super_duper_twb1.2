@@ -419,6 +419,10 @@ namespace TheWaningBorder.AI
             "Alanthor_TradeAgreements1",         // Trading Outpost — cheaper inputs
             "Alanthor_SwiftCaravans",            // Trading Outpost — every trade faster
             "ArmedScouts",                       // Fortress — arms scouts (attack gate)
+            // Fortress (Alanthor) — the Celestar passive: idle scouts reveal
+            // random patches (2026-10-19). Early, cheap intel; the scout
+            // director parks a watcher at home so it fires.
+            "ScoutingCelestarii",
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
             "Fletching", "StoneTippedArrows",    // Archery Range (Age 1) — range / T1
             "IronTools", "MasonGuild",           // Fortress (Alanthor) — T2 eco + building HP
@@ -427,7 +431,6 @@ namespace TheWaningBorder.AI
             "VeilstoneSurvey2",                  // Gatherer's Hut — veilstone drip II
             "VeilsteelSurvey",                   // Gatherer's Hut — veilsteel (maxed huts only)
             "IronSurveying3",                    // Gatherer's Hut — iron drip III
-            "ScoutingCelestarii",                // Fortress (Alanthor) — scout tech
             "VeilstoneTools",                    // Fortress (Alanthor) — T3 eco
         };
 

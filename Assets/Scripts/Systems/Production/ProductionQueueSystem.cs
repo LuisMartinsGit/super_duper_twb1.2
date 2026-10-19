@@ -307,11 +307,13 @@ namespace TheWaningBorder.Systems.Production
 
                 default: // BuildingUpgrade
                 {
-                    byte current = em.HasComponent<BuildingUpgradeState>(e)
-                        ? em.GetComponentData<BuildingUpgradeState>(e).Level : (byte)0;
+                    // The FACTION's level for this type (2026-10-19 — levels
+                    // are faction-wide per type, FactionBuildingLevels).
+                    byte current = TheWaningBorder.Systems.Buildings.FactionBuildingLevels.LevelFor(em, e);
 
                     // The level moved while this item waited — an age-up
-                    // auto-level or a scenario promotion. Applying it anyway
+                    // auto-level, a scenario promotion, or (an old save) the
+                    // same level finished on another building of the type. Applying it anyway
                     // would skip or repeat a tier, so drop it and hand the
                     // money back at the price it was charged (that is what
                     // Level records).
@@ -424,8 +426,10 @@ namespace TheWaningBorder.Systems.Production
                     return;
 
                 default: // BuildingUpgrade
-                    // Structural: may add a Barracks' ranged attack and spawn
-                    // Feraldis raiders, so the buffer is re-fetched below.
+                    // Structural: may add a Barracks' ranged attack. Applies
+                    // the level to EVERY building of the type the faction
+                    // owns (FactionBuildingLevels), so the buffer is
+                    // re-fetched below.
                     TheWaningBorder.Systems.Buildings.BuildingUpgradeSystem
                         .CompleteUpgrade(em, e, item.Level);
                     _popValid = false;   // a level can move a population cap

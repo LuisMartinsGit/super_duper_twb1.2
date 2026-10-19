@@ -109,6 +109,9 @@ namespace TheWaningBorder.Entities
                 PaidReligion = paidReligion,
             });
             EntityBuild.Add(em, e, new PaidBuildCost { Value = paid });
+            // Not yet held by a worker: the Build order that follows the
+            // placement (same lockstep tick) binds it (ResolveOrderTarget).
+            EntityBuild.Add(em, e, new PlanOwnership());
             EntityBuild.Add(em, e, new FactionTag { Value = faction });
             EntityBuild.Add(em, e, LocalTransform.FromPositionRotationScale(
                 pos, quaternion.RotateY(math.radians(yawDegrees)), 1f));
@@ -236,6 +239,153 @@ namespace TheWaningBorder.Entities
             }
             return best;
         }
+
+        // ── A plan belongs to a worker (Planned_Buildings.md §6) ────────
+
+        /// <summary>Is <paramref name="e"/> a live plan?</summary>
+        public static bool IsPlan(EntityManager em, Entity e)
+            => e != Entity.Null && em.Exists(e) && em.HasComponent<PlannedBuilding>(e);
+
+        /// <summary>
+        /// The faction's own plan of <paramref name="buildingId"/> (any id
+        /// when empty) whose footprint covers <paramref name="position"/>,
+        /// nearest centre first; Null when there is none. This is how an
+        /// order that names a SPOT rather than an entity (every lockstep
+        /// Build issued in the same tick as its placement) finds the plan
+        /// that placement created. Tight on purpose (the footprint plus one
+        /// metre of snap slack, not a radius): chained Huts stand one cell
+        /// apart, and a radius let a queue entry bind its neighbour's plan.
+        /// </summary>
+        public static Entity FindOwnPlanAt(EntityManager em, Faction faction, string buildingId, float3 position)
+        {
+            var q = QC_Plans.Get(em, QT_Plans);
+            if (q.IsEmptyIgnoreFilter) return Entity.Null;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            bool anyId = string.IsNullOrEmpty(buildingId);
+            Entity best = Entity.Null;
+            float bestD = float.MaxValue;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                if (!anyId && IdOf(em, ents[i]) != buildingId) continue;
+                var s = em.GetComponentData<BuildingSize>(ents[i]);
+                BuildCommandHelper.FootprintAabb(xfs[i].Position, new int2(s.Width, s.Height),
+                    out float2 min, out float2 max);
+                if (position.x < min.x - 1f || position.x > max.x + 1f
+                    || position.z < min.y - 1f || position.z > max.y + 1f) continue;
+                float d = math.distancesq(xfs[i].Position.xz, position.xz);
+                if (d < bestD) { bestD = d; best = ents[i]; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// The plan a Build order with no target entity is for: the worker's
+        /// own faction's plan at that spot, or Null (not a plan: a wall hub,
+        /// or a placement the executor refused).
+        /// </summary>
+        public static Entity ResolveOrderTarget(EntityManager em, Entity worker, string buildingId, float3 position)
+        {
+            if (!em.Exists(worker) || !em.HasComponent<FactionTag>(worker)) return Entity.Null;
+            if (!string.IsNullOrEmpty(buildingId) && !UsesPlan(buildingId)) return Entity.Null;
+            return FindOwnPlanAt(em, em.GetComponentData<FactionTag>(worker).Value, buildingId, position);
+        }
+
+        /// <summary>A worker that can still hold plans: alive, not dying.</summary>
+        public static bool IsLiveWorker(EntityManager em, Entity worker)
+        {
+            if (!em.Exists(worker) || !em.HasComponent<CanBuild>(worker)) return false;
+            if (em.HasComponent<DeathAnimationState>(worker) && em.IsComponentEnabled<DeathAnimationState>(worker))
+                return false;
+            if (em.HasComponent<Health>(worker) && em.GetComponentData<Health>(worker).Value <= 0) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// The worker was given another order (Planned_Buildings.md §6):
+        /// drop its current build order and its WHOLE build queue, and cancel
+        /// (refunding in full) every plan in them that no other live worker
+        /// still holds. Sites that already broke ground stay as they are; the
+        /// worker is simply no longer queued on them.
+        /// <paramref name="keep"/> is the plan a replacing Build order is
+        /// about to target, so re-ordering a worker onto one of its own plans
+        /// does not cancel that plan.
+        ///
+        /// Called from every order's cleanup (CommandHelper.ClearAllCommands,
+        /// CommandCleanup.ClearWorkOrders), i.e. inside the lockstep executor,
+        /// from replicated state, in a fixed order: every peer cancels the
+        /// same plans on the same tick.
+        /// </summary>
+        public static void ReleaseWorker(EntityManager em, Entity worker, Entity keep = default)
+        {
+            if (worker == Entity.Null || !em.Exists(worker) || !em.HasComponent<CanBuild>(worker)) return;
+
+            var held = new NativeList<Entity>(Allocator.Temp);
+            if (TransientState.Active<BuildCommand>(em, worker))
+            {
+                var cmd = em.GetComponentData<BuildCommand>(worker);
+                var t = cmd.TargetBuilding;
+                if (t == Entity.Null) t = ResolveOrderTarget(em, worker, cmd.BuildingId.ToString(), cmd.Position);
+                if (IsPlan(em, t)) held.Add(t);
+                TransientState.Clear<BuildCommand>(em, worker);
+            }
+            if (em.HasBuffer<QueuedBuildSite>(worker))
+            {
+                var buf = em.GetBuffer<QueuedBuildSite>(worker);
+                for (int k = 0; k < buf.Length; k++)
+                {
+                    var t = buf[k].TargetBuilding;
+                    if (t == Entity.Null)
+                        t = ResolveOrderTarget(em, worker, buf[k].BuildingId.ToString(), buf[k].Position);
+                    if (IsPlan(em, t) && !held.Contains(t)) held.Add(t);
+                }
+                // Re-fetched: ResolveOrderTarget reads only, but keep the
+                // handle fresh before writing.
+                em.GetBuffer<QueuedBuildSite>(worker).Clear();
+            }
+
+            for (int i = 0; i < held.Length; i++)
+            {
+                var p = held[i];
+                if (p == keep || !IsPlan(em, p)) continue;
+                if (HeldByAnyWorker(em, p)) continue;
+                Cancel(em, p, refund: true);
+            }
+            held.Dispose();
+        }
+
+        /// <summary>Does any live worker of the plan's faction still hold
+        /// <paramref name="plan"/> in its current build order or queue?</summary>
+        public static bool HeldByAnyWorker(EntityManager em, Entity plan)
+        {
+            var faction = em.GetComponentData<FactionTag>(plan).Value;
+            var bq = QC_Workers.Get(em, QT_Workers);
+            using (var workers = bq.ToEntityArray(Allocator.Temp))
+            {
+                for (int i = 0; i < workers.Length; i++)
+                {
+                    if (!TransientState.Active<BuildCommand>(em, workers[i])) continue;
+                    if (em.GetComponentData<BuildCommand>(workers[i]).TargetBuilding != plan) continue;
+                    if (OwnsAs(em, workers[i], faction)) return true;
+                }
+            }
+            var qq = QC_Queues.Get(em, QT_Queues);
+            using var queued = qq.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < queued.Length; i++)
+            {
+                var buf = em.GetBuffer<QueuedBuildSite>(queued[i], true);
+                for (int k = 0; k < buf.Length; k++)
+                    if (buf[k].TargetBuilding == plan && OwnsAs(em, queued[i], faction)) return true;
+            }
+            return false;
+        }
+
+        private static bool OwnsAs(EntityManager em, Entity worker, Faction faction)
+            => em.HasComponent<FactionTag>(worker)
+            && em.GetComponentData<FactionTag>(worker).Value == faction
+            && IsLiveWorker(em, worker);
 
         // ── Break ground ────────────────────────────────────────────────
 

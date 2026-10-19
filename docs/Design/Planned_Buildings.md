@@ -1,7 +1,9 @@
 # Planned Buildings
 
-> **Doc version: 2026-10-01. Canon for what a build order creates, and for the
-> Delete button.** *(Implemented — see §5.)*
+> **Doc version: 2026-10-19. Canon for what a build order creates, and for the
+> Delete button.** *(Implemented — see §5.)* **§6 (2026-10-19): every plan
+> belongs to a worker's build queue; any other order to that worker cancels
+> and refunds its plans.**
 
 ---
 
@@ -83,11 +85,55 @@ Only your own. The tooltip says which of these the current selection gets.
 - `CommandRouter.PlaceBuildingDirect` spends, then creates a plan for every
   worker-raised building (landmarks still self-construct as sites);
   `CreateConstructionSite` is the shared site tail.
-- `PlannedBuildingSystem` — breaks ground when a worker is in range; idle
-  workers adopt plans no one is heading for.
+- `PlannedBuildingSystem` — breaks ground when a worker is in range; resumes
+  an idle worker's build queue; the ownership sweep of §6.
 - `PlannedBuildingVisualSystem` + `FogVisibilitySyncSystem` — white preview,
   owner-only.
 - `CommandRouter.IssueDelete` / `DeleteDirect`, lockstep `DeleteEntity = 54`;
   the header button and key in `GameUIManager`.
 - Workers only adopt construction sites of their own faction now (they used to
   adopt any site within 8 m of an order).
+
+## 6. A plan belongs to a worker (2026-10-19)
+
+A plan exists only as an entry in some worker's **build queue** — its current
+build order or one queued behind it. There is no such thing as a plan nobody
+is going to build.
+
+| Event | What happens to the worker's plans |
+|---|---|
+| **Shift + click** another placement | **Appended** to the queue of every selected worker. Never replaces. |
+| A placement **without Shift** while the worker is busy | Replaces: the worker's earlier queue is dropped (its plans cancelled, below), the new plan becomes its order. |
+| **Any other order** to the worker — move, attack, attack-move, patrol, stop, hold, repair, heal, convert, a ritual, The Call, a formation order — from the player or the AI | The worker's whole build queue is dropped. Every **plan** in it is **cancelled and refunded in full**, unless another worker still has that plan queued (then it stays, owned by that worker). |
+| The worker **dies** (or otherwise stops being a live worker of that faction) | Same: its plans that no other worker holds are cancelled and refunded. |
+| Ground already **broken** (a site) | Not a plan any more: dropping the queue frees the worker but the **site stays**, as before — finish it, or Delete it for a full refund (§4). |
+
+**The ownership sweep.** Once a second the simulation checks every plan
+against every live worker's build order and queue:
+
+- A plan placed with **no worker at all** (a building lever with nothing
+  selected, an AI placement that found no free hands) is offered to the
+  faction's nearest idle worker; if none takes it within a few seconds it is
+  cancelled and refunded, and the owner is told why.
+- A plan that **had** a worker and lost it (its last holder died, or a stuck
+  plan in a game saved before this rule) is cancelled and refunded after a
+  short grace.
+
+The grace periods are engine timing (they only cover the tick a lockstep
+placement takes to reach its worker), not tuning, and live in
+`PlannedBuildings` as constants.
+
+**Queues resume on their own.** A worker that finishes or loses its current
+job starts the next entry of its queue on the next tick — whether or not
+anyone else in the world happens to be building at that moment.
+
+**Delete** is unchanged: a selected plan is cancelled and refunded (§4), and
+the workers that had it queued simply drop it.
+
+Code: `PlannedBuildings.ReleaseWorker` (called from every order's command
+cleanup — `CommandHelper.ClearAllCommands` and `CommandCleanup.ClearWorkOrders`),
+`PlannedBuildings.ResolveOrderTarget` (binds a lockstep Build order issued in
+the same tick as its placement to the plan it created), the `PlanOwnership`
+component and `PlannedBuildingSystem.SweepOwnership`; the append / replace
+flag rides the lockstep `Build` command's `SecondaryTargetId` (bit 0 =
+replace; 0 = append, so older replays read as before).

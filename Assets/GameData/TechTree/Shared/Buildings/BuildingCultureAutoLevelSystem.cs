@@ -20,6 +20,11 @@
 // upgrades take. The visual swap is done by BuildingPrefabSwapSystem on
 // its next 0.5 s scan.
 //
+// FACTION-WIDE LEVELS (2026-10-19): the bump target is the faction's level
+// for the building's type (FactionBuildingLevels, floor 1), not a flat 1, so
+// a building that slipped past BuildingLevelOneSeedSystem still lands at the
+// type's level. It only ever RAISES a building.
+//
 // Throttled to 0.5 s; the work per tick is one O(N) walk across
 // upgradeable buildings — already-bumped buildings short-circuit on
 // the level check.
@@ -86,10 +91,19 @@ namespace TheWaningBorder.Systems.Buildings
                 if (em.HasComponent<UnderConstruction>(e)) continue;
                 if (TransientState.Active<BuildingUpgrading>(em, e)) continue;
 
-                // Already at L1+? Nothing to do.
+                // Already at L1+ and at the faction's level for the type?
+                // Nothing to do.
+                byte target = 1;
                 if (em.HasComponent<BuildingUpgradeState>(e))
                 {
-                    if (em.GetComponentData<BuildingUpgradeState>(e).Level >= 1) continue;
+                    byte have = em.GetComponentData<BuildingUpgradeState>(e).Level;
+                    if (have >= 1)
+                    {
+                        target = FactionBuildingLevels.LevelFor(em, e);
+                        if (target > TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel)
+                            target = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel;
+                        if (have >= target) continue;
+                    }
                 }
 
                 // Faction must have COMPLETED age-up. AgeUpSystem sets the
@@ -121,9 +135,13 @@ namespace TheWaningBorder.Systems.Buildings
                     });
                 }
 
-                BuildingUpgradeSystem.ApplyLevel(em, e, 1);
+                byte typeLevel = FactionBuildingLevels.LevelFor(em, e);
+                if (typeLevel > TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel)
+                    typeLevel = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel;
+                if (typeLevel > target) target = typeLevel;
+                BuildingUpgradeSystem.ApplyLevel(em, e, target);
                 TWBLog.Log(
-                    $"[Upgrade] auto-L1 — {faction} entity {e.Index} (culture picked)");
+                    $"[Upgrade] auto-L{target} — {faction} entity {e.Index} (faction level for its type)");
             }
         }
 

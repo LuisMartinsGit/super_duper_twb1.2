@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using TheWaningBorder.Core.Localization;
 using UnityEngine;
 
 namespace TheWaningBorder.Core.Replay
@@ -25,7 +26,15 @@ namespace TheWaningBorder.Core.Replay
         /// <summary>A save's minimap bake (PNG), or null — replays and saves
         /// written before 2026-10-16 have none.</summary>
         public byte[] Preview;
-        public bool Compatible => Header != null && Header.Compatible;
+        /// <summary>A save whose format this build cannot restore: the
+        /// player-facing reason (SaveGameFile.FormatError), else null.</summary>
+        public string Incompatibility;
+        public bool Compatible => Incompatibility == null && Header != null && Header.Compatible;
+
+        /// <summary>Why <see cref="Compatible"/> is false (localized), or null.</summary>
+        public string IncompatibleReason
+            => Incompatibility ?? (Header == null ? Loc.T("Not a replay this version of the game can read.")
+                : Header.Compatible ? null : Header.IncompatibleMessage(IsSave));
     }
 
     public static class SavedGames

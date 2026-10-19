@@ -1,4 +1,4 @@
-# Fiendstone Pass (2026-10-16)
+# Fiendstone Pass (2026-10-16; fords split between the banks, mountains lowered 2026-10-19)
 
 Six players, 1024 × 1024 m. Cliff shelves stepping down to a river. The map
 is about **chokes you can shoot down into**: every way between levels is a
@@ -47,13 +47,32 @@ than the corners.
   map brings: **`WaterPlane.wadeDepth`**, set per map on the scene's water
   (`layout.json` `wadeDepth`). Ground less than that far below the surface
   stays walkable (`PassabilityGrid`, and the move-click snap in
-  `WorldClickInput`); deeper is blocked as before. Building in water stays
-  forbidden at any depth. Every other map has a wade depth of 0, which is
+  `WorldClickInput`); deeper is blocked as before. Building in a ford stays
+  forbidden (only a SHALLOWS territory's waded water is buildable,
+  [Yiel_Lymwerra.md](Yiel_Lymwerra.md), 2026-10-19). Every other map has a wade depth of 0, which is
   the old rule. The water level, the wade depth and the ford height are in
   `layout.py`. The sloped banks also pass through the wade band, which leaves
   a strip about a metre wide along each bank where units can step into the
   water. Only the fords cross; the riverbed between them is too deep.
-  They are in the river, so unclaimable.
+- **The fords belong to the banks (2026-10-19).** Each ford is split down
+  its middle: the north half is part of the low-ground territory on the north
+  bank, the south half part of the one on the south bank (layout.py hands
+  every ford sample to the nearest land territory before writing the
+  outlines). So the two banks BORDER each other at every ford and claims
+  cross where armies wade. Until then the fords were river — no territory —
+  and the river cut the claim graph in two: nobody could ever claim the far
+  bank. The riverbed between the fords stays no territory, and a ford is
+  still unbuildable water.
+- **Mountains are a third as high (2026-10-19)**: the original mountain
+  profile — base, dome and ridge noise — kept whole, with its relief over
+  the ground around it (the shelves) scaled by 1/3 (`ground + (old - ground) / 3`,
+  noise included), so every peak and trough keeps its place and
+  proportion: the same ruggedness, squashed vertically. Never less than a
+  few metres over the ground at their foot; their NoWalk paint and the
+  missing territory outline, not their height, keep them impassable and
+  unclaimable. The numbers are `MTN_BASE` / `MTN_DOME` (the original
+  profile), `MTN_SCALE` and `MTN_MIN` in `layout.py`, which prints old and
+  new relief.
 - **The river's look** is the Houidisoft "One Click Add Water" ocean Shader
   Graph (`Assets/Tools/Houidisoft technology/`), on the WaterPlane's mesh as
   `River Water.mat` in the map folder. The material is data: the builder

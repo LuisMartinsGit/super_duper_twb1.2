@@ -321,6 +321,44 @@ namespace TheWaningBorder.Core.Localization
             t["Confirm"] = "Confirmar";
             t["Cancel"] = "Cancelar";
 
+            // ── SavedGamesScreen (Load Game) / SaveGameFile / ReplayFile ──
+            t["Saved Games"] = "Jogos Guardados";
+            t["Replays"] = "Repetições";
+            t["Open Folder"] = "Abrir Pasta";
+            t["Back"] = "Voltar";
+            t["No replays yet. Every skirmish you play is recorded here."] =
+                "Ainda não há repetições. Cada escaramuça que jogas fica aqui gravada.";
+            t["No saved games. Save a match from the pause menu (Esc)."] =
+                "Não há jogos guardados. Guarda uma partida no menu de pausa (Esc).";
+            t["players"] = "jogadores";
+            t["Load"] = "Carregar";
+            t["Watch"] = "Ver";
+            t["Delete"] = "Apagar";
+            t["Sure?"] = "Certeza?";
+            t["This save was made with an older version of the game ({0}) and can't be loaded in this version."] =
+                "Este jogo guardado foi feito com uma versão anterior do jogo ({0}) e não pode ser carregado nesta versão.";
+            t["This save was made with an older version of the game and can't be loaded in this version."] =
+                "Este jogo guardado foi feito com uma versão anterior do jogo e não pode ser carregado nesta versão.";
+            t["This save was made with a newer version of the game ({0}) and can't be loaded in this version."] =
+                "Este jogo guardado foi feito com uma versão mais recente do jogo ({0}) e não pode ser carregado nesta versão.";
+            t["This save was made with a newer version of the game and can't be loaded in this version."] =
+                "Este jogo guardado foi feito com uma versão mais recente do jogo e não pode ser carregado nesta versão.";
+            t["This save was made with a different version of the game ({0}) and can't be loaded in this version."] =
+                "Este jogo guardado foi feito com uma versão diferente do jogo ({0}) e não pode ser carregado nesta versão.";
+            t["This save was made with a different version of the game and can't be loaded in this version."] =
+                "Este jogo guardado foi feito com uma versão diferente do jogo e não pode ser carregado nesta versão.";
+            t["This replay was recorded with a different version of the game ({0}) and can't be played in this version."] =
+                "Esta repetição foi gravada com uma versão diferente do jogo ({0}) e não pode ser reproduzida nesta versão.";
+            t["This replay was recorded with a different version of the game and can't be played in this version."] =
+                "Esta repetição foi gravada com uma versão diferente do jogo e não pode ser reproduzida nesta versão.";
+            t["Not a saved game this version of the game can read."] =
+                "Não é um jogo guardado que esta versão do jogo consiga ler.";
+            t["Not a replay this version of the game can read."] =
+                "Não é uma repetição que esta versão do jogo consiga ler.";
+            t["Could not read the save: "] = "Não foi possível ler o jogo guardado: ";
+            t["Could not read the file: "] = "Não foi possível ler o ficheiro: ";
+            t["The save has no world snapshot."] = "O jogo guardado não contém o estado do mundo.";
+
             // ── VictoryPanel / VictoryConditionSystem ───────────────────
             t["VICTORY"] = "VITÓRIA";
             t["DEFEAT"] = "DERROTA";

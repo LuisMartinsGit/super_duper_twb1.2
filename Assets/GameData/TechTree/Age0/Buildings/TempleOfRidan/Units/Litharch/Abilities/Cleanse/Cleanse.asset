@@ -19,15 +19,15 @@ MonoBehaviour:
   castTime: 0
   duration: 0
   cooldown: 120
-  radius: 3
+  radius: 7.5
   range: 12
   effects:
   - kind: 46
-    value: 5
+    value: 25
   - kind: 47
     value: 4
   - kind: 48
-    value: 18
+    value: 24
   - kind: 49
     value: 2
   aftermath: []

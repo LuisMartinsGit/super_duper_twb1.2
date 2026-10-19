@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 2
   displayName: "Vault of Almi\xE9rra"
   upgradeCost:
-    Supplies: 210
-    Iron: 50
+    Supplies: 500
+    Iron: 200
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 30
@@ -28,7 +28,7 @@ MonoBehaviour:
   maxTargets: 0
   populationProvided: 0
   slotIncomePerMinute: 0
-  interestMultiplier: 2
+  interestMultiplier: 1.25
   attack:
     enabled: 0
     damage: 12

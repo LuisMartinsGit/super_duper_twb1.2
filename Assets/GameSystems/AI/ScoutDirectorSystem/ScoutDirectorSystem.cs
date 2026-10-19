@@ -178,6 +178,7 @@ namespace TheWaningBorder.AI
             RequireForUpdate<AIBrain>();
             _zones.Clear();
             _plans.Clear();
+            _watchers.Clear();
         }
 
         protected override void OnUpdate()
@@ -266,6 +267,18 @@ namespace TheWaningBorder.AI
                 if (!anyScout)
                     DraftStandIns(em, owner, sEnts, sTags, sFacs, sHps, _standIns);
 
+                // ── THE CELESTAR WATCH (2026-10-19, Age_1_Alanthor.md §
+                // Scouting Celestarii) ── the Celestar passive fires only on an
+                // IDLE scout, and "a scout never stops" would starve it. Once
+                // the faction owns the research and has scouts to spare, a
+                // few (celestarWatchScouts, never the last one) are parked
+                // beside the Fortress and left alone; the rest keep exploring.
+                var watchers = PickCelestarWatchers(em, owner, hasHall, sEnts, sTags, sFacs, sXfs, hallPos);
+                float3 parkPos = float3.zero;
+                bool parkOk = false;
+                if (watchers.Count > 0)
+                    parkOk = TryParkPoint(hallPos, worldMin, worldSize, out parkPos);
+
                 for (int i = 0; i < sEnts.Length; i++)
                 {
                     if (sFacs[i].Value != owner) continue;
@@ -276,6 +289,29 @@ namespace TheWaningBorder.AI
 
                     Entity scout = sEnts[i];
                     float3 pos = sXfs[i].Position;
+
+                    if (parkOk && watchers.Contains(scout))
+                    {
+                        _plans.TryGetValue(scout, out var wplan);
+                        float dxw = parkPos.x - pos.x, dzw = parkPos.z - pos.z;
+                        float arrive = Cfg.celestarWatchArriveRadius;
+                        if (dxw * dxw + dzw * dzw > arrive * arrive)
+                        {
+                            bool heading = wplan != null && !wplan.Fleeing
+                                && math.distancesq(wplan.Target, parkPos) < 1f;
+                            if (!heading || (sDds[i].Has == 0
+                                && !TransientState.Active<CommandQueueActive>(em, scout)))
+                            {
+                                _plans[scout] = new ScoutPlan { Target = parkPos, Since = now };
+                                CommandRouter.IssueMove(em, scout, parkPos, CommandSource.AI);
+                                if (!heading)
+                                    TheWaningBorder.AI.AILogger.Log(owner, "SCOUT",
+                                        $"celestar watch -> park at ({parkPos.x:0},{parkPos.z:0})");
+                            }
+                        }
+                        else if (wplan != null) _plans.Remove(scout);   // parked: issue nothing, stay idle
+                        continue;
+                    }
 
                     // Stamp the zone the scout is standing in as freshly visited.
                     if (ZoneIndex(zs, worldMin, worldSize, pos, out int hereZone))
@@ -455,6 +491,77 @@ namespace TheWaningBorder.AI
                 worldMin.x + (x + 0.5f) * cellX,
                 0f,
                 worldMin.y + (z + 0.5f) * cellZ);
+        }
+
+        /// <summary>Watchers kept from pass to pass (per faction), so the
+        /// parked scout is not swapped for another each think.</summary>
+        private readonly Dictionary<int, HashSet<Entity>> _watchers = new Dictionary<int, HashSet<Entity>>();
+
+        private const string CelestarTech = "ScoutingCelestarii";
+
+        /// <summary>The scouts that hold the Celestar watch for
+        /// <paramref name="owner"/> this pass: empty until the research is
+        /// owned; otherwise up to celestarWatchScouts real Scouts, never all
+        /// of them (one always explores). Sticky: a live watcher stays one;
+        /// a gap is filled by the Scout nearest the Fortress.</summary>
+        private HashSet<Entity> PickCelestarWatchers(EntityManager em, Faction owner, bool hasHall,
+            NativeArray<Entity> ents, NativeArray<UnitTag> tags, NativeArray<FactionTag> facs,
+            NativeArray<LocalTransform> xfs, float3 hallPos)
+        {
+            if (!_watchers.TryGetValue((int)owner, out var set))
+                _watchers[(int)owner] = set = new HashSet<Entity>();
+
+            var research = TheWaningBorder.Economy.FactionResearchState.Instance;
+            bool owned = hasHall && Cfg.celestarWatchScouts > 0 && research != null
+                         && research.HasResearched(owner, CelestarTech);
+
+            int scouts = 0;
+            if (owned)
+                for (int i = 0; i < ents.Length; i++)
+                    if (facs[i].Value == owner && tags[i].Class == UnitClass.Scout && em.Exists(ents[i])
+                        && !em.HasComponent<UnderConstruction>(ents[i])) scouts++;
+            int want = owned ? math.min(Cfg.celestarWatchScouts, scouts - 1) : 0;
+            if (want <= 0) { set.Clear(); return set; }
+
+            // Drop the dead and the no-longer-scouts, keep the rest.
+            var keep = new HashSet<Entity>();
+            for (int i = 0; i < ents.Length; i++)
+                if (set.Contains(ents[i]) && facs[i].Value == owner && tags[i].Class == UnitClass.Scout
+                    && em.Exists(ents[i]) && keep.Count < want) keep.Add(ents[i]);
+            set.Clear();
+            foreach (var e in keep) set.Add(e);
+
+            while (set.Count < want)
+            {
+                int best = -1;
+                float bestD = float.MaxValue;
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (facs[i].Value != owner || tags[i].Class != UnitClass.Scout) continue;
+                    if (set.Contains(ents[i]) || !em.Exists(ents[i])) continue;
+                    if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                    float d = math.distancesq(xfs[i].Position, hallPos);
+                    if (d < bestD) { bestD = d; best = i; }
+                }
+                if (best < 0) break;
+                set.Add(ents[best]);
+            }
+            return set;
+        }
+
+        /// <summary>The watch post: celestarWatchOffset metres from the
+        /// Fortress on its far side from the map centre (the safe side),
+        /// snapped onto the walkable field.</summary>
+        private static bool TryParkPoint(float3 hallPos, float2 worldMin, float2 worldSize, out float3 park)
+        {
+            float2 centre = worldMin + worldSize * 0.5f;
+            float2 away = new float2(hallPos.x, hallPos.z) - centre;
+            float len = math.length(away);
+            float2 dir = len > 0.01f ? away / len : new float2(1f, 0f);
+            float3 want = new float3(hallPos.x + dir.x * Cfg.celestarWatchOffset, hallPos.y,
+                                     hallPos.z + dir.y * Cfg.celestarWatchOffset);
+            NavGridQuery.SnapToWalkable(want, out park, out bool ok);
+            return ok;
         }
 
         private static bool TryGetHallPos(EntityManager em, Faction faction, out float3 pos)

@@ -88,6 +88,38 @@ namespace TheWaningBorder.Core.Localization
             t["The Temple falls — the SHARDROOT lies in the crater!"] =
                 "O Templo cai — o SHARDROOT jaz na cratera!";
 
+            // ---- Timed victories (SanctumSystem / ShardrootSystem / GameClockHUD, 2026-10-19) ----
+            t["Hold every Sanctum for {0} more to win!"] =
+                "Mantém todos os Santuários durante mais {0} para vencer!";
+            t["{0}'s Sanctum dominion: {1} remaining — take a Sanctum to stop it!"] =
+                "Domínio dos Santuários de {0}: faltam {1} — toma um Santuário para o travar!";
+            t["{0}'s Sanctum dominion: {1} remaining"] =
+                "Domínio dos Santuários de {0}: faltam {1}";
+            t["Your dominion is broken — a Sanctum was lost"] =
+                "O teu domínio foi quebrado — perdeu-se um Santuário";
+            t["{0}'s dominion is broken — a Sanctum was lost"] =
+                "O domínio de {0} foi quebrado — perdeu-se um Santuário";
+            t["Dominion — every Sanctum held, the match is yours!"] =
+                "Domínio — todos os Santuários são teus, e a partida também!";
+            t["{0} wins by dominion — every Sanctum held!"] =
+                "{0} vence por domínio — todos os Santuários mantidos!";
+            t["Your ascension is broken — the enshrining Temple has fallen!"] =
+                "A tua ascensão foi quebrada — o Templo consagrado caiu!";
+            t["{0}'s ascension is broken!"] = "A ascensão de {0} foi quebrada!";
+            t["Keep the enshrining Temple standing for {0} more to ascend!"] =
+                "Mantém o Templo consagrado de pé durante mais {0} para ascender!";
+            t["{0}'s Shardroot ascension: {1} remaining — destroy their Temple to stop it!"] =
+                "Ascensão do Shardroot de {0}: faltam {1} — destrói o seu Templo para a travar!";
+            t["{0}'s Shardroot ascension: {1} remaining"] =
+                "Ascensão do Shardroot de {0}: faltam {1}";
+            t["ASCENSION — the Shardroot is yours, and the match with it!"] =
+                "ASCENSÃO — o Shardroot é teu, e a partida também!";
+            t["{0} ASCENDS — the Shardroot is theirs!"] = "{0} ASCENDE — o Shardroot é seu!";
+            t["Your dominion: {0}"] = "O teu domínio: {0}";
+            t["Your ascension: {0}"] = "A tua ascensão: {0}";
+            t["Sanctum dominion {0}"] = "Domínio dos Santuários {0}";
+            t["Shardroot ascension {0}"] = "Ascensão do Shardroot {0}";
+
             // ---- Curse / wells (Border systems) ----
             t["The rite collapses — the well erupts!"] = "O ritual colapsa — o poço entra em erupção!";
             t["Backlash — wave {0} of {1}!"] = "Retaliação — vaga {0} de {1}!";

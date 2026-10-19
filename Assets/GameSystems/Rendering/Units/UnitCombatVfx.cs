@@ -30,15 +30,15 @@ namespace TheWaningBorder.Rendering
         private static UnitCombatVfxConfig Cfg
             => _cfg != null ? _cfg : (_cfg = ComponentConfig.Require<UnitCombatVfxConfig>());
 
-        private enum Buff { SpeedUp, SlowDown, AttackUp }
-        private const int BuffCount = 3;
+        private enum Buff { SpeedUp, SlowDown, AttackUp, Frenzied }
+        private const int BuffCount = 4;
 
         private readonly Dictionary<Entity, float> _nextHit = new();
         private readonly Dictionary<(Entity, Buff), GameObject> _loops = new();
         private readonly HashSet<(Entity, Buff)> _want = new();
         private readonly List<(Entity, Buff)> _scratch = new();
         private float _nextPoll;
-        private EntityQuery _buffed, _slowed, _totem;
+        private EntityQuery _buffed, _slowed, _totem, _frenzied;
         private EntityManager _queryOwner;
 
         void OnEnable() => CombatVfxSignals.Clear();
@@ -97,6 +97,7 @@ namespace TheWaningBorder.Rendering
                 _buffed = new EntityQueryBuilder(Allocator.Temp).WithAll<SpellBuff, UnitTag>().Build(em);
                 _slowed = new EntityQueryBuilder(Allocator.Temp).WithAll<SpellDebuff, UnitTag>().Build(em);
                 _totem = new EntityQueryBuilder(Allocator.Temp).WithAll<TotemAuraBuff, UnitTag>().Build(em);
+                _frenzied = new EntityQueryBuilder(Allocator.Temp).WithAll<SectDisordered, UnitTag>().Build(em);
                 _queryOwner = em;
             }
             _want.Clear();
@@ -119,6 +120,10 @@ namespace TheWaningBorder.Rendering
             using (var totems = _totem.ToComponentDataArray<TotemAuraBuff>(Allocator.Temp))
                 for (int i = 0; i < ents.Length; i++)
                     if (totems[i].AttackBonus > t) _want.Add((ents[i], Buff.AttackUp));
+            // Friendly Fire: the red aura for as long as the madness lasts.
+            using (var ents = _frenzied.ToEntityArray(Allocator.Temp))
+                foreach (var e in ents)
+                    if (em.IsComponentEnabled<SectDisordered>(e)) _want.Add((e, Buff.Frenzied));
 
             foreach (var key in _want)
             {
@@ -129,6 +134,7 @@ namespace TheWaningBorder.Rendering
                 {
                     Buff.SpeedUp => cfg.speedUpPrefab,
                     Buff.SlowDown => cfg.slowDownPrefab,
+                    Buff.Frenzied => cfg.frenziedPrefab,
                     _ => cfg.attackUpPrefab,
                 };
                 if (prefab == null) continue;

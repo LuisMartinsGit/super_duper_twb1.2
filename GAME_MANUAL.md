@@ -225,6 +225,7 @@ the camera.
 | Panel | Location | Contents |
 |---|---|---|
 | **Resource HUD** | Top / Bottom-right | Supplies, Iron, Veilstone, Veilsteel, Glow — live values. |
+| **Match Clock** | Top-center | Match time (sim time). While a **timed victory** runs — **Sanctum dominion** (one side holds every Sanctum) or **Shardroot ascension** (a Temple enshrines the Shardroot) — its countdown sits beside the clock for every player and spectator: "Your dominion: 07:32" in green when your side is winning, "Blue — Shardroot ascension 07:32" in red when you stand to lose. Two countdowns sit either side of the clock. A warning notice comes at the start, every 2.5 minutes of time left, at 1:00 and 0:30, and when the countdown is broken. |
 | **Game Stats** | Bottom-center | Population, unit count, building count, focus count. |
 | **Entity Info Panel** | Left | Portrait, HP, stats; or multi-selection grid for big groups. |
 | **Entity Action Panel** | Left | Build buttons, train queue, research. With units selected: the four formation shapes (top row) and the three stances (second row). The stance the whole selection shares is lit gold; in a mixed selection every stance present is lit dimmer and its tooltip says how many units hold it. |
@@ -261,7 +262,8 @@ When you queue a building it follows the cursor as a ghost:
   One capital per territory. See [docs/Design/Regions.md §2](docs/Design/Regions.md).
 - **Mouse Wheel** rotates non-wall buildings in 15° steps.
 - **Wall hubs** snap to a friendly hub of the same kind within about 4.2 m, or onto a friendly wall section within 3 m (see Walls above); they are not grid-snapped.
-- **Shift + Click** to place keeps you in placement mode — drop several in a row.
+- **Shift + Click** to place keeps you in placement mode — drop several in a row. Each one is **added to the selected workers' build queue**; a plain click (no Shift) replaces the queue instead.
+- **A planned building belongs to the worker queued to build it.** Giving that worker any other order (move, attack, stop, patrol, repair, a plain-click build…) drops its queue and **cancels and refunds** every plan in it no other worker still holds; if the worker dies, the same happens. Sites that already broke ground stay. See [docs/Design/Planned_Buildings.md §6](docs/Design/Planned_Buildings.md).
 - **Right-click or Esc** to leave placement mode.
 
 ---
@@ -348,6 +350,7 @@ damage on hit.
 ### Special Combat Mechanics
 
 - **Healing** — Litharchs restore HP to allies in heal range. (Litharchs have **no attack** unless **Warrior Priests** is researched at the Temple of Ridan, per [Age_0.md](docs/Design/Age_0.md).)
+- **Cleanse** — every Litharch's aimed spell: pick a point in reach and the cursed ground in a 15 m wide circle there is cleared at once; keep the Litharch channelling and the cleared circle keeps growing. A holy hum plays while a visible Litharch channels. Being hit or given any order ends it; the cooldown starts then ([Territory_Claims.md §6.9.7](docs/Design/Territory_Claims.md)).
 - **Watch Tower garrison** (Alanthor) — up to 4 foot units inside a Watch Tower; each adds one target to its volley.
 - **Spell Buffs** — Temporary status effects from sect spells (damage, cooldown, invulnerability).
 - **Mind Control** — Flips a unit's allegiance for a duration, then returns it.
@@ -508,6 +511,14 @@ dies. And beware: while you hold it, **the Border hunts you**.
 A Scout always sees its full line of sight (**40 m**), moving or standing
 still. (The old perch-and-bloom vision, which shrank while moving and grew
 while standing, was removed on 2026-09-29.)
+
+**Scouting Celestarii (Alanthor, passive since 2026-10-19).** Once researched
+at the Fortress, every idle Scout — standing still with no order — now and
+then reveals a random patch somewhere on the map for a few seconds, then
+waits out a cooldown. Each Scout does this on its own, so a few Scouts
+parked at home keep flashing glimpses of the map. There is no button and no
+hotkey: it is a passive (shown on the Scout's ability panel). Radius,
+duration and cooldown are on the `UseCelestar` ability SO.
 
 ### How the AI lays out its base
 

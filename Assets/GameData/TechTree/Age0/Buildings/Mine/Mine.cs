@@ -7,8 +7,8 @@ namespace TheWaningBorder.Entities
     /// <summary>
     /// The Mine. Placement is gated on standing next to an ore patch
     /// (WorkerCommandPanel.MeetsPatchRequirement); MineIncomeSystem then
-    /// works every node in range forever, without workers and without
-    /// depleting them.
+    /// works every node in range until its reserve is spent. It levels L1-L3
+    /// faction-wide (BuildingUpgradeable; Mine_Lvl1..3 per culture).
     ///
     /// Design: docs/Design/Age_0.md § Mine (2026-08-05 rev.4).
     /// </summary>
@@ -35,6 +35,8 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(em, entity, default(MineTag));
             EntityBuild.Add(em, entity, new MineState());
+            // LEVELS L1-L3 (2026-10-19): Mine_Lvl1..3 per culture, faction-wide.
+            EntityBuild.Add(em, entity, default(BuildingUpgradeable));
             EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             EntityBuild.Add(em, entity, defense);
             // A RESEARCH HOST (2026-10-02): Deep Shafts and Rich Seams are
@@ -62,6 +64,7 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(ecb, entity, default(MineTag));
             EntityBuild.Add(ecb, entity, new MineState());
+            EntityBuild.Add(ecb, entity, default(BuildingUpgradeable));
             EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             EntityBuild.Add(ecb, entity, defense);
             EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);

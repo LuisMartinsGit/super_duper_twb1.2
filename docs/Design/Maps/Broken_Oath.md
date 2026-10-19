@@ -1,4 +1,4 @@
-# Broken Oath (2026-10-18)
+# Broken Oath (2026-10-18; mountains lowered 2026-10-19)
 
 Five players, 768 × 448 m (rectangular, `TerrainSpec.SizeZ`), built for **3 v 2**.
 
@@ -48,7 +48,17 @@ territories sit on the axis between the teams, mirrored north/south.
   heights, masks and `layout.json` the builder reads.
 - **Cliffs** are height steps steeper than the walk limit; **ramps** are
   16 m slopes. Mountains are covered by no territory outline (unclaimable)
-  and carry NoWalk paint.
+  and carry NoWalk paint — that paint, not their height, is what makes them
+  impassable.
+- **Mountains are a third as high (2026-10-19)**: the original mountain
+  profile — base, dome and ridge noise — kept whole, with its relief over
+  the ground around it scaled by 1/3 (`ground + (old - ground) / 3`, noise
+  included), so every peak and trough keeps its place and proportion: the
+  same ruggedness, squashed vertically. Never less than a few metres over
+  the ground at their foot; their NoWalk paint and the missing territory
+  outline, not their height, keep them impassable and unclaimable. The
+  model is in `layoutkit.py` (`MTN_BASE` / `MTN_DOME` = the original
+  profile, `MTN_SCALE`, `MTN_MIN`); the run prints old and new relief.
 - **Forest** is decoration (Regions.md § Region kinds): clumps at mountain
   and cliff feet and by water, never on a ramp's approach, a ford, a home,
   a pocket or a Sanctum; the kit thins it until nothing is cut off.

@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 3
   displayName: Trading Outpost
   upgradeCost:
-    Supplies: 450
-    Iron: 200
+    Supplies: 1200
+    Iron: 600
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 60

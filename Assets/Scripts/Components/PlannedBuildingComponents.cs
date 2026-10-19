@@ -30,3 +30,23 @@ public struct PlannedBuilding : IComponentData
     /// <summary>Sim time of the next break-ground attempt while refused.</summary>
     public float NextBreakGroundAt;
 }
+
+/// <summary>
+/// Who is going to build this plan (docs/Design/Planned_Buildings.md §6).
+/// A plan exists only as an entry in some live worker's build order or
+/// queue; PlannedBuildingSystem's ownership sweep keeps this up to date and
+/// cancels (refunding) a plan nobody holds. A separate component rather than
+/// fields on PlannedBuilding so a game saved before the rule still loads —
+/// a plan without it is treated as one that HAD a worker and lost it.
+/// </summary>
+public struct PlanOwnership : IComponentData
+{
+    /// <summary>1 once any worker has held the plan. A never-held plan (a
+    /// lever placement, an AI placement with no free hands) is offered to an
+    /// idle worker before it is cancelled; a held-then-lost one is not.</summary>
+    public byte EverOwned;
+    /// <summary>1 while the sweep finds no worker holding it.</summary>
+    public byte Unowned;
+    /// <summary>Sim time the current unowned stretch began.</summary>
+    public float UnownedSince;
+}

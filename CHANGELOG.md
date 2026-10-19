@@ -9,6 +9,57 @@ build always name the same number.
 
 ---
 
+## [0.0.48] — 2026-10-19
+
+### Added
+- **Victory countdowns on screen.** Sanctum dominion and Shardroot ascension
+  now show a timer beside the match clock to every player, naming who will
+  win. Everyone is warned at the start, every 2.5 minutes, at 1:00 and 0:30,
+  and when the countdown is broken.
+- **Cleanse is stronger and audible.** The Litharch's Cleanse instantly clears
+  a 15 m circle of cursed ground and keeps growing it much faster while it is
+  sustained. A channelling Litharch now makes a sound.
+- **Scouting Celestarii is a passive (Alanthor only).** Each idle Scout reveals
+  a random patch of the map for 5 s, then rests 30 s.
+- **Frenzied units wear a red aura** while Friendly Fire lasts.
+- **Mines can be levelled.**
+
+### Changed
+- **Building levels are faction-wide.** Upgrading one Barracks upgrades every
+  Barracks you own, and new ones are built at that level. Only one level-up
+  per building type runs at a time. Level-ups cost much more: it is a choice
+  between more soldiers and better ones.
+- **Economy rebalance.** Supplies income is lower (the Fortress's level
+  bonus is now +25 % / +50 %, extractors pay less), each held territory pays
+  more veilstone, forging veilsteel is twice as productive, selling veilsteel
+  pays less iron, and the Vault pays less. Resource nodes hold far less, so
+  a territory's nodes run dry in about 10-15 minutes and production has to
+  move. Trade Agreements III discounts 50 % (was 75 %).
+- **One Vault of Almierra per faction.**
+- **Sanctums are claimed by standing 30 soldiers in them,** uncontested, for
+  20 seconds — also to take one from another player.
+- **Friendly Fire** spares only the caster's own units: allies go mad too, and
+  frenzied units attack buildings, their own side's included. Cooldown 150 s.
+- **The curse only seizes an army near one of its nodes.**
+- **Powers and abilities need line of sight.** Sect powers and unit/hero
+  abilities can only be aimed where you (or an ally) can see; reveals are
+  exempt. The aim turns red and says so. The AI follows the same rule.
+- **Cartography** now shows every territory you own in full live sight,
+  following its border exactly; it fades back to explored when lost.
+- **Maps:** mountains on every map are a third as high. Moatwatch's and
+  Fiendstone Pass's fords now belong to the territories on either side (on
+  Fiendstone Pass the far bank could not be claimed before). Yiel Lymwérra's
+  bay shallows can be built on.
+- **Saves from older versions can no longer be loaded;** the Load Game list
+  shows them greyed out with the reason.
+
+### Fixed
+- Chained build orders could leave buildings stuck as plans that no worker
+  would build and that could not be cancelled. Plans now belong to the
+  worker ordered to build them: Shift+click adds to its queue, any other
+  order cancels and refunds its queued plans, and a dead worker's plans are
+  refunded.
+
 ## [0.0.47] — 2026-10-18
 
 ### Added

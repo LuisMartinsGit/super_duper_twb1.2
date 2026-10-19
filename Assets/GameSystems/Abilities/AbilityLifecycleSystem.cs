@@ -135,6 +135,13 @@ namespace TheWaningBorder.Abilities
                     // already explained). docs/Design/Spells.md §6.
                     if (card.IsEntityTargeted
                         && !AbilityTargetRules.Check(em, card, e, target, out _)) continue;
+                    // Line of sight (Spells.md §6.1): an aimed point or an
+                    // enemy target the caster's faction cannot see right now
+                    // is refused here, before anything is spent. Reveals,
+                    // passives and caster-centred cards are exempt. Fresh
+                    // gather: the authoritative test must not depend on a
+                    // cache warmed differently on this peer.
+                    if (!AbilityTargetRules.CastInSight(em, card, e, target, fresh: true)) continue;
 
                     // Channelled: the cooldown waits for the channel to land
                     // (section 3). Instant: charged now, then applied.

@@ -390,7 +390,7 @@ namespace TheWaningBorder.Economy
 
         public static string ResearchText(string sectId) => sectId switch
         {
-            SectConfig.Antiquity  => Loc.T("Cartography — capturing a territory explores all of it."),
+            SectConfig.Antiquity  => Loc.T("Cartography — every territory you hold is fully visible."),
             SectConfig.Renewal    => Loc.T("Field Hospital — your Litharchs can raise a temporary infirmary in the field."),
             SectConfig.Fortitude  => Loc.T("Deep Foundations — walls, towers and gates cost less and build faster."),
             SectConfig.Prosperity => Loc.T("Charter of Works — extractors cost less to build and to level up."),

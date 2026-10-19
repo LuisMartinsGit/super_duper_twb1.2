@@ -19,6 +19,14 @@
 //       Barracks has no attack at level 0).
 //   - Hut: PopulationProvider.Amount = base + HutBonusPop[level].
 //
+// FACTION-WIDE (2026-10-19, docs/Design/Overview.md § Building levels): a
+// finished level-up is the FACTION's new level for that building type.
+// CompleteUpgrade records it (FactionBuildingLevels) and applies it to every
+// finished building of the type the faction owns; a building finished later
+// is raised to it by BuildingLevelOneSeedSystem / BuildingCultureAutoLevelSystem.
+// ApplyLevel itself stays per-entity — it is the one write point every path
+// shares.
+//
 // The instant paths (BuildingCultureAutoLevelSystem, BuildingLevelOneSeedSystem,
 // StartAgePromoter, ScenarioSetup) call ApplyLevel DIRECTLY and deliberately
 // skip CompleteUpgrade: an age-up auto-level is not a Feraldis House finishing
@@ -43,14 +51,20 @@ namespace TheWaningBorder.Systems.Buildings
         private const float BarracksAttackCooldown = 2.5f;
 
         /// <summary>
-        /// A queued level-up finished: apply the level and fire the effects
-        /// that belong to FINISHING one. Called only by ProductionQueueSystem.
+        /// A queued level-up finished: it is the faction's new level for the
+        /// building's TYPE — recorded, and applied to every finished building
+        /// of that type the faction owns (this one included). Called only by
+        /// ProductionQueueSystem.
         /// </summary>
         public static void CompleteUpgrade(EntityManager em, Entity building, byte level)
         {
             if (!em.Exists(building)) return;
 
             ApplyLevel(em, building, level);
+            if (em.HasComponent<FactionTag>(building))
+                FactionBuildingLevels.ApplyToAll(em, em.GetComponentData<FactionTag>(building).Value,
+                    TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.ResolveBuildingId(em, building),
+                    level);
 
             // Debug log so the upgrade pipeline is visible during playtesting.
             // Identifies the building type by tag — same resolution the command
@@ -88,9 +102,9 @@ namespace TheWaningBorder.Systems.Buildings
             em.SetComponentData(building, ups);
 
             // Debug.Log, not TWBLog, ON PURPOSE: this is the ONLY write point
-            // for a building's level, and a 2026-08-17 report claimed "all
-            // buildings of one type share their level" — a claim the per-
-            // entity code cannot explain. One tagged line per level write
+            // for a building's level. (A 2026-08-17 report claimed "all
+            // buildings of one type share their level"; since 2026-10-19 that
+            // is the rule — FactionBuildingLevels.) One tagged line per level write
             // (a handful per match; the age-up auto-L1 wave legitimately
             // prints one per building) survives into player-build console
             // capture, so the next report shows exactly how many buildings

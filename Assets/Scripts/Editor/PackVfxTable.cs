@@ -60,6 +60,10 @@ namespace TheWaningBorder.EditorTools
             (Lana + "Regeneration/Regeneration_health_area.prefab", Renewal + "DeployFieldHospital/DeployFieldHospital_Effect.prefab"),
             (Lana + "Regeneration/Regeneration_health_area_loop.prefab", Renewal + "DeployFieldHospital/FieldHospital_Aura.prefab"),
 
+            // ── Friendly Fire (Sect of Antiquity): the red aura a frenzied unit
+            //    wears while it lasts — UnitCombatVfx ──
+            (Lana + "Area_generic/Area_generic_red.prefab", T + "Sects/Antiquity/Abilities/FriendlyFire/FriendlyFire_Aura.prefab"),
+
             // ── The Shardroot ──
             (Lana + "Loot/Loot_iddle.prefab", T + "Border/Shardroot_Idle.prefab"),
             (Lana + "Loot/Loot_drop.prefab", T + "Border/Shardroot_Drop.prefab"),

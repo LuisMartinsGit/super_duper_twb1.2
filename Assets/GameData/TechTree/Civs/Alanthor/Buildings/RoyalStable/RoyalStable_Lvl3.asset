@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 3
   displayName: Royal Stable
   upgradeCost:
-    Supplies: 340
-    Iron: 80
+    Supplies: 1400
+    Iron: 700
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 45

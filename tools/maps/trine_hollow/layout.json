@@ -34,6 +34,7 @@
    "kind": "PlayerStart",
    "resources": "Start",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 0.0,
    "seedZ": 238.0,
    "shape": [
@@ -154,6 +155,7 @@
    "kind": "PlayerStart",
    "resources": "Start",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -206.11,
    "seedZ": -119.0,
    "shape": [
@@ -292,6 +294,7 @@
    "kind": "PlayerStart",
    "resources": "Start",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 206.11,
    "seedZ": -119.0,
    "shape": [
@@ -442,6 +445,7 @@
    "kind": "Normal",
    "resources": "Normal",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 90.0,
    "seedZ": 256.0,
    "shape": [
@@ -488,6 +492,7 @@
    "kind": "Normal",
    "resources": "Normal",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -267.0,
    "seedZ": -50.0,
    "shape": [
@@ -536,6 +541,7 @@
    "kind": "Normal",
    "resources": "Normal",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 176.0,
    "seedZ": -206.0,
    "shape": [
@@ -600,7 +606,8 @@
    "kind": "Normal",
    "resources": "NormalIron",
    "pinCurse": false,
-   "seedX": -77.0,
+   "buildableShallows": false,
+   "seedX": -80.0,
    "seedZ": 232.0,
    "shape": [
     -85.0,
@@ -646,6 +653,7 @@
    "kind": "Normal",
    "resources": "NormalIron",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -162.0,
    "seedZ": -184.0,
    "shape": [
@@ -688,6 +696,7 @@
    "kind": "Normal",
    "resources": "NormalIron",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 241.0,
    "seedZ": -48.0,
    "shape": [
@@ -744,8 +753,9 @@
    "kind": "Normal",
    "resources": "Sanctum",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 196.0,
-   "seedZ": 119.0,
+   "seedZ": 118.0,
    "shape": [
     201.0,
     81.5,
@@ -790,6 +800,7 @@
    "kind": "Normal",
    "resources": "Sanctum",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -200.0,
    "seedZ": 111.0,
    "shape": [
@@ -836,6 +847,7 @@
    "kind": "Normal",
    "resources": "Sanctum",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 4.0,
    "seedZ": -229.0,
    "shape": [
@@ -892,6 +904,7 @@
    "kind": "Normal",
    "resources": "VeilstoneRich",
    "pinCurse": true,
+   "buildableShallows": false,
    "seedX": 0.0,
    "seedZ": 0.0,
    "shape": [
@@ -950,7 +963,8 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
-   "seedX": -107.0,
+   "buildableShallows": false,
+   "seedX": -108.0,
    "seedZ": 134.0,
    "shape": [
     -128.0,
@@ -1034,6 +1048,7 @@
    "kind": "Normal",
    "resources": "Empty",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 127.0,
    "seedZ": 150.0,
    "shape": [
@@ -1134,6 +1149,7 @@
    "kind": "Normal",
    "resources": "Normal",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -27.0,
    "seedZ": 158.0,
    "shape": [
@@ -1216,7 +1232,8 @@
    "kind": "Normal",
    "resources": "NormalIron",
    "pinCurse": false,
-   "seedX": 76.0,
+   "buildableShallows": false,
+   "seedX": 75.0,
    "seedZ": 166.0,
    "shape": [
     93.0,
@@ -1262,6 +1279,7 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -62.0,
    "seedZ": -160.0,
    "shape": [
@@ -1362,8 +1380,9 @@
    "kind": "Normal",
    "resources": "Empty",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -193.0,
-   "seedZ": 35.0,
+   "seedZ": 36.0,
    "shape": [
     -218.0,
     2.5,
@@ -1476,6 +1495,7 @@
    "kind": "Normal",
    "resources": "Normal",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -123.0,
    "seedZ": -103.0,
    "shape": [
@@ -1578,8 +1598,9 @@
    "kind": "Normal",
    "resources": "NormalIron",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -181.0,
-   "seedZ": -18.0,
+   "seedZ": -19.0,
    "shape": [
     -178.0,
     -80.5,
@@ -1638,6 +1659,7 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 170.0,
    "seedZ": 27.0,
    "shape": [
@@ -1728,6 +1750,7 @@
    "kind": "Normal",
    "resources": "Empty",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 66.0,
    "seedZ": -185.0,
    "shape": [
@@ -1848,6 +1871,7 @@
    "kind": "Normal",
    "resources": "Normal",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 150.0,
    "seedZ": -55.0,
    "shape": [
@@ -1944,6 +1968,7 @@
    "kind": "Normal",
    "resources": "NormalIron",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 106.0,
    "seedZ": -148.0,
    "shape": [
@@ -2006,8 +2031,9 @@
    "kind": "Normal",
    "resources": "IronRich",
    "pinCurse": false,
-   "seedX": -69.0,
-   "seedZ": 63.0,
+   "buildableShallows": false,
+   "seedX": -70.0,
+   "seedZ": 64.0,
    "shape": [
     -70.0,
     31.5,
@@ -2056,6 +2082,7 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 35.0,
    "seedZ": 130.0,
    "shape": [
@@ -2102,6 +2129,7 @@
    "kind": "Normal",
    "resources": "IronRich",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -16.0,
    "seedZ": 55.0,
    "shape": [
@@ -2148,6 +2176,7 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 96.0,
    "seedZ": 88.0,
    "shape": [
@@ -2198,8 +2227,9 @@
    "kind": "Normal",
    "resources": "IronRich",
    "pinCurse": false,
-   "seedX": -20.0,
-   "seedZ": -92.0,
+   "buildableShallows": false,
+   "seedX": -22.0,
+   "seedZ": -117.0,
    "shape": [
     2.0,
     -150.5,
@@ -2270,6 +2300,7 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -130.0,
    "seedZ": -35.0,
    "shape": [
@@ -2340,6 +2371,7 @@
    "kind": "Normal",
    "resources": "IronRich",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": -40.0,
    "seedZ": -41.0,
    "shape": [
@@ -2400,8 +2432,9 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
-   "seedX": -124.0,
-   "seedZ": 39.0,
+   "buildableShallows": false,
+   "seedX": -125.0,
+   "seedZ": 38.0,
    "shape": [
     -149.0,
     -23.5,
@@ -2468,8 +2501,9 @@
    "kind": "Normal",
    "resources": "IronRich",
    "pinCurse": false,
-   "seedX": 90.0,
-   "seedZ": 29.0,
+   "buildableShallows": false,
+   "seedX": 111.0,
+   "seedZ": 39.0,
    "shape": [
     95.0,
     -8.5,
@@ -2522,6 +2556,7 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 95.0,
    "seedZ": -95.0,
    "shape": [
@@ -2598,6 +2633,7 @@
    "kind": "Normal",
    "resources": "IronRich",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 56.0,
    "seedZ": -13.0,
    "shape": [
@@ -2658,6 +2694,7 @@
    "kind": "Normal",
    "resources": "NormalVeilstone",
    "pinCurse": false,
+   "buildableShallows": false,
    "seedX": 28.0,
    "seedZ": -127.0,
    "shape": [

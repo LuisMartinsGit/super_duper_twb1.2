@@ -18,3 +18,5 @@ MonoBehaviour:
   claimExponent: 1
   decayRate: 3
   curseClaimMultiplier: 2
+  sanctumClaimUnits: 30
+  sanctumClaimSeconds: 20

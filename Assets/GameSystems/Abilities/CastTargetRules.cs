@@ -11,9 +11,12 @@
 // dropped on every peer alike.
 //
 // Pure function of ECS state: no client-only input (fog is the CLIENT's extra
-// test, in EntityTargeting, because it is the local player's view).
+// test, in EntityTargeting, because it is the local player's view; the
+// SIMULATION's sight rule, Spells.md §6.1, is FactionSight — the
+// AbilityTargetRules sight helpers below).
 
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.Core;
 
@@ -39,6 +42,7 @@ namespace TheWaningBorder.Abilities
         AlreadyAffected,
         NoProduction,
         OutOfRange,
+        NotInSight,      // outside the caster's (and allies') line of sight — Spells.md §6.1
     }
 
     public static class CastTargetRules
@@ -161,6 +165,7 @@ namespace TheWaningBorder.Abilities
             CastTargetRefusal.AlreadyAffected => "That target is already affected",
             CastTargetRefusal.NoProduction    => "That building trains nothing",
             CastTargetRefusal.OutOfRange      => "Out of range",
+            CastTargetRefusal.NotInSight      => "You cannot see there",
             _                                 => Prompt(kind),
         };
     }
@@ -194,6 +199,92 @@ namespace TheWaningBorder.Abilities
                 { why = CastTargetRefusal.OutOfRange; return false; }
             }
             return true;
+        }
+
+        // ── Line of sight (docs/Design/Spells.md §6.1, 2026-10-19) ──────────
+        // The sect powers' rule, extended to ability cards: a ground-aimed
+        // card needs its point in the caster faction's (or an ally's) sight,
+        // an entity-targeted card needs an ENEMY target in sight (own / allied
+        // targets always are). The simulation's test (FactionSight), so the
+        // aiming UI, the AI and AbilityLifecycleSystem agree on every peer.
+
+        /// <summary>A reveal looks INTO the fog; gating it on sight would make
+        /// it pointless (Use Celestar, Scout Sight, any RevealFog card).</summary>
+        public static bool IsReveal(AbilityCard card)
+            => card != null && (card.HasEffect(AbilityEffectKind.RevealFog)
+                                || card.HasEffect(AbilityEffectKind.LosRampWhileStill));
+
+        /// <summary>
+        /// Does a cast of <paramref name="card"/> need sight at all? Only an
+        /// ACTIVE card with an aim: a ground point (Area + AimedAtPoint) or an
+        /// entity (TargetKind). Passives, auras, self-casts, caster-centred
+        /// areas and reveals are exempt.
+        /// </summary>
+        public static bool NeedsSight(AbilityCard card)
+            => card != null
+               && card.Activation == AbilityActivation.Active
+               && !IsReveal(card)
+               && (card.IsEntityTargeted
+                   || (card.Targeting == AbilityTargeting.Area && card.AimedAtPoint));
+
+        /// <summary>The caster's faction, or false when there is none. The
+        /// curse (Faction.Border) has no fog and is never sight-gated.</summary>
+        private static bool SightGated(EntityManager em, Entity caster, out Faction faction)
+        {
+            faction = default;
+            if (caster == Entity.Null || !em.Exists(caster) || !em.HasComponent<FactionTag>(caster)) return false;
+            faction = em.GetComponentData<FactionTag>(caster).Value;
+            return faction != Faction.Border;
+        }
+
+        /// <summary>
+        /// A ground-aimed card aimed at <paramref name="point"/>: true when the
+        /// card needs no sight, or the caster's faction (or an ally) sees the
+        /// point right now. <paramref name="fresh"/> as FactionSight.CanSee
+        /// (the authoritative sim caller passes it).
+        /// </summary>
+        public static bool AimInSight(EntityManager em, AbilityCard card, Entity caster, float3 point,
+            bool fresh = false)
+        {
+            if (!NeedsSight(card) || card.IsEntityTargeted) return true;
+            if (!SightGated(em, caster, out var faction)) return true;
+            return TheWaningBorder.World.FogOfWar.FactionSight.CanSee(em, faction, point, fresh);
+        }
+
+        /// <summary>
+        /// <see cref="Check"/> plus the sight rule — what a CAST must pass (the
+        /// aiming UI, the AI's pick). An unseen enemy is refused with
+        /// <see cref="CastTargetRefusal.NotInSight"/>.
+        /// </summary>
+        public static bool CheckInSight(EntityManager em, AbilityCard card, Entity caster, Entity target,
+            out CastTargetRefusal why, bool fresh = false)
+        {
+            if (!Check(em, card, caster, target, out why)) return false;
+            if (card == null || !card.IsEntityTargeted || !NeedsSight(card)) return true;
+            if (!SightGated(em, caster, out var faction)) return true;
+            if (!TheWaningBorder.Systems.Sect.SectActivePowerHelper.TargetInSight(em, faction, target, fresh))
+            { why = CastTargetRefusal.NotInSight; return false; }
+            return true;
+        }
+
+        /// <summary>
+        /// The simulation's sight test when a cast STARTS (AbilityLifecycleSystem,
+        /// before the cooldown is charged): the entity target, or the aim point
+        /// stamped on the caster (AbilityAimPoint). A card with no stamped
+        /// point lands on the caster, which is in sight by definition. The
+        /// channel-completion re-check does not ask this — a target that walks
+        /// into the fog during the wind-up is still struck, as for sect powers.
+        /// </summary>
+        public static bool CastInSight(EntityManager em, AbilityCard card, Entity caster, Entity target,
+            bool fresh = false)
+        {
+            if (!NeedsSight(card)) return true;
+            if (!SightGated(em, caster, out var faction)) return true;
+            if (card.IsEntityTargeted)
+                return TheWaningBorder.Systems.Sect.SectActivePowerHelper.TargetInSight(em, faction, target, fresh);
+            if (!em.HasComponent<AbilityAimPoint>(caster)) return true;
+            return TheWaningBorder.World.FogOfWar.FactionSight.CanSee(
+                em, faction, em.GetComponentData<AbilityAimPoint>(caster).Position, fresh);
         }
     }
 }

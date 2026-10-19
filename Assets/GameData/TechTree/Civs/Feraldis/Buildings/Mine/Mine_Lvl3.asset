@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 3
   displayName: Mine
   upgradeCost:
-    Supplies: 727
-    Iron: 160
+    Supplies: 1100
+    Iron: 450
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 45
@@ -27,7 +27,7 @@ MonoBehaviour:
   attackCooldownMultiplier: 0.8333333
   maxTargets: 0
   populationProvided: 0
-  slotIncomePerMinute: 270
+  slotIncomePerMinute: 150
   interestMultiplier: 0
   tradeRateMultiplier: 0
   attack:

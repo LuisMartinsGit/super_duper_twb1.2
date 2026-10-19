@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 3
   displayName: Trading Post
   upgradeCost:
-    Supplies: 300
-    Iron: 100
+    Supplies: 900
+    Iron: 300
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 45
@@ -27,7 +27,7 @@ MonoBehaviour:
   attackCooldownMultiplier: 0.77
   maxTargets: 0
   populationProvided: 0
-  slotIncomePerMinute: 220
+  slotIncomePerMinute: 150
   interestMultiplier: 0
   tradeRateMultiplier: 0
   attack:

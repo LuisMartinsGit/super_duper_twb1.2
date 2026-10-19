@@ -442,7 +442,10 @@ namespace TheWaningBorder.Systems.Border
             if (temple != state.AscensionFaction)
             {
                 if (state.AscensionFaction != Faction.Border && state.AscensionDone == 0)
-                    SimSignals.Notify(string.Format(Loc.T("{0}'s ascension is broken!"), state.AscensionFaction));
+                    SimSignals.Announce(CountdownWarnings.SideOf(state.AscensionFaction) == CountdownSide.Own
+                        ? Loc.T("Your ascension is broken — the enshrining Temple has fallen!")
+                        : string.Format(Loc.T("{0}'s ascension is broken!"),
+                            FactionColors.RichName(state.AscensionFaction)));
                 state.AscensionFaction = temple;
                 state.AscensionElapsed = 0f;
                 state.AscensionNoticeMinutes = -1;
@@ -454,19 +457,58 @@ namespace TheWaningBorder.Systems.Border
 
             state.AscensionElapsed += dt;
             float left = math.max(0f, total - state.AscensionElapsed);
-            int minutes = (int)math.ceil(left / 60f);
-            if (minutes != state.AscensionNoticeMinutes
-                && (minutes >= 10 || minutes == 5 || minutes == 3 || minutes <= 2))
+            // WARNINGS (2026-10-19): at the start, every countdownWarningSeconds
+            // of time left, and at the final marks — to every player.
+            var cfg = TheWaningBorder.Entities.ShardrootEmpowermentConfig.I;
+            int lastMark = state.AscensionNoticeMinutes;
+            if (CountdownWarnings.Due(left, cfg.countdownWarningSeconds, cfg.countdownFinalWarnings,
+                    ref lastMark, out int mark))
             {
-                state.AscensionNoticeMinutes = minutes;
-                SimSignals.Notify(string.Format(Loc.T("{0} has enshrined the Shardroot — {1}:00 to ascension!"),
-                    temple, minutes));
+                state.AscensionNoticeMinutes = lastMark;
+                SimSignals.Announce(AscensionWarningText(temple, mark));
                 SimSignals.Ping(templePos, SimPingKind.Discovery, 15f, big: true);
             }
             if (left > 0f) return;
             state.AscensionDone = 1;
-            SimSignals.Notify(string.Format(Loc.T("{0} ASCENDS — the Shardroot is theirs!"), temple));
+            SimSignals.Announce(CountdownWarnings.SideOf(temple) == CountdownSide.Own
+                ? Loc.T("ASCENSION — the Shardroot is yours, and the match with it!")
+                : string.Format(Loc.T("{0} ASCENDS — the Shardroot is theirs!"), FactionColors.RichName(temple)));
             UnityEngine.Debug.Log($"[Shardroot] ASCENSION COMPLETE -- {temple} wins after {state.AscensionElapsed:0}s");
+        }
+
+        /// <summary>The ascension warning, worded for the side the local
+        /// screen is on (presentation text only; the schedule is sim time).</summary>
+        private static string AscensionWarningText(Faction temple, int secondsLeft)
+        {
+            string t = CountdownWarnings.Short(secondsLeft);
+            switch (CountdownWarnings.SideOf(temple))
+            {
+                case CountdownSide.Own:
+                    return string.Format(Loc.T("Keep the enshrining Temple standing for {0} more to ascend!"), t);
+                case CountdownSide.Hostile:
+                    return string.Format(Loc.T("{0}'s Shardroot ascension: {1} remaining — destroy their Temple to stop it!"),
+                        FactionColors.RichName(temple), t);
+                default:
+                    return string.Format(Loc.T("{0}'s Shardroot ascension: {1} remaining"),
+                        FactionColors.RichName(temple), t);
+            }
+        }
+
+        /// <summary>The running ascension countdown, for the HUD: false when no
+        /// Temple enshrines the artifact (or it already ran out). Presentation
+        /// reads it; nothing in the sim does. Sim time, saved with the world.</summary>
+        public static bool TryAscensionCountdown(EntityManager em, out Faction faction, out float secondsLeft)
+        {
+            faction = Faction.Border; secondsLeft = 0f;
+            var q = QC_ShardrootState.Get(em, QT_ShardrootState);
+            if (q.IsEmptyIgnoreFilter) return false;
+            using var s = q.ToComponentDataArray<ShardrootState>(Allocator.Temp);
+            if (s.Length == 0 || s[0].AscensionFaction == Faction.Border || s[0].AscensionDone != 0) return false;
+            float total = TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.ascensionSeconds;
+            if (total <= 0f) return false;
+            faction = s[0].AscensionFaction;
+            secondsLeft = math.max(0f, total - s[0].AscensionElapsed);
+            return true;
         }
 
         private static ShardrootState FreshState() => new ShardrootState

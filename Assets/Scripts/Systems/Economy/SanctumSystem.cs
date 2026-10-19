@@ -38,6 +38,9 @@ public struct SanctumDominion : IComponentData
     public Faction Holder;
     public float Elapsed;
     public byte Done;
+    /// <summary>Seconds-left mark of the last countdown warning (-1 = none
+    /// yet; CountdownWarnings). Named for its old meaning, whole minutes, and
+    /// kept so saved games still load.</summary>
     public int NoticeMinutes;
 }
 
@@ -156,7 +159,7 @@ namespace TheWaningBorder.Systems.Economy
             var q = QC_Dominion.Get(em, QT_Dominion);
             if (q.IsEmptyIgnoreFilter) return false;
             using var s = q.ToComponentDataArray<SanctumDominion>(Allocator.Temp);
-            if (s[0].Holder == Faction.Border) return false;
+            if (s[0].Holder == Faction.Border || s[0].Done != 0) return false;
             holder = s[0].Holder;
             secondsLeft = math.max(0f, Cfg.dominionSeconds - s[0].Elapsed);
             return true;
@@ -194,8 +197,10 @@ namespace TheWaningBorder.Systems.Economy
             {
                 if (st.Holder != Faction.Border)
                 {
-                    SimSignals.Announce(string.Format(Loc.T("{0}'s dominion is broken — a Sanctum was lost"),
-                        FactionColors.RichName(st.Holder)));
+                    SimSignals.Announce(CountdownWarnings.SideOf(st.Holder) == CountdownSide.Own
+                        ? Loc.T("Your dominion is broken — a Sanctum was lost")
+                        : string.Format(Loc.T("{0}'s dominion is broken — a Sanctum was lost"),
+                            FactionColors.RichName(st.Holder)));
                     st.Holder = Faction.Border; st.Elapsed = 0f; st.NoticeMinutes = -1;
                     em.SetComponentData(ent, st);
                 }
@@ -213,13 +218,14 @@ namespace TheWaningBorder.Systems.Economy
 
             st.Elapsed += dt;
             float left = math.max(0f, Cfg.dominionSeconds - st.Elapsed);
-            int minutes = (int)math.ceil(left / 60f);
-            if (minutes != st.NoticeMinutes && left > 0f
-                && (st.NoticeMinutes < 0 || minutes == 5 || minutes == 3 || minutes <= 2))
+            // WARNINGS (2026-10-19): at the start, every countdownWarningSeconds
+            // of time left, and at the final marks — to every player.
+            int lastMark = st.NoticeMinutes;
+            if (CountdownWarnings.Due(left, Cfg.countdownWarningSeconds, Cfg.countdownFinalWarnings,
+                    ref lastMark, out int mark))
             {
-                st.NoticeMinutes = minutes;
-                SimSignals.Announce(string.Format(Loc.T("{0} holds every Sanctum — {1}:00 to dominion!"),
-                    FactionColors.RichName(holder), minutes));
+                st.NoticeMinutes = lastMark;
+                SimSignals.Announce(WarningText(holder, mark));
                 for (int t = 0; t < RegionMap.Count; t++)
                 {
                     if (!TerritoryResources.IsSanctum(t)) continue;
@@ -230,11 +236,31 @@ namespace TheWaningBorder.Systems.Economy
             if (left <= 0f)
             {
                 st.Done = 1;
-                SimSignals.Announce(string.Format(Loc.T("{0} wins by dominion — every Sanctum held!"),
-                    FactionColors.RichName(holder)));
+                SimSignals.Announce(CountdownWarnings.SideOf(holder) == CountdownSide.Own
+                    ? Loc.T("Dominion — every Sanctum held, the match is yours!")
+                    : string.Format(Loc.T("{0} wins by dominion — every Sanctum held!"),
+                        FactionColors.RichName(holder)));
                 UnityEngine.Debug.Log($"[Sanctum] DOMINION COMPLETE -- {holder} wins after {st.Elapsed:0}s");
             }
             em.SetComponentData(ent, st);
+        }
+
+        /// <summary>The dominion warning, worded for the side the local screen
+        /// is on (presentation text only; the schedule is sim time).</summary>
+        private static string WarningText(Faction holder, int secondsLeft)
+        {
+            string t = CountdownWarnings.Short(secondsLeft);
+            switch (CountdownWarnings.SideOf(holder))
+            {
+                case CountdownSide.Own:
+                    return string.Format(Loc.T("Hold every Sanctum for {0} more to win!"), t);
+                case CountdownSide.Hostile:
+                    return string.Format(Loc.T("{0}'s Sanctum dominion: {1} remaining — take a Sanctum to stop it!"),
+                        FactionColors.RichName(holder), t);
+                default:
+                    return string.Format(Loc.T("{0}'s Sanctum dominion: {1} remaining"),
+                        FactionColors.RichName(holder), t);
+            }
         }
     }
 }

@@ -13,7 +13,11 @@
 //     once claims are open (aged up);
 //   * skips it if an armed hostile (the curse included) stands within
 //     cleanseThreatRadius of the spot — a Litharch does not walk into a fight;
-//   * walks into range, then casts Cleanse at the spot and channels.
+//   * walks into range, then casts Cleanse and channels — aimed
+//     cleanseAimInset x the starting radius past the spot, into the patch,
+//     because the starting circle clears at once (2026-10-19);
+//   * lets go of a channel whose circle is fully grown or has no cursed
+//     ground left near it (cleanseDoneMargin), so the Litharch heals again.
 // A Litharch on that errand is left out of the army-follow step for
 // cleanseErrandSeconds, and one channelling is never moved (a move order
 // would end the channel). Once the ground is clean the claim logic sees the
@@ -65,6 +69,12 @@ namespace TheWaningBorder.AI
             var card = AbilityCatalog.Get(cleanse);
             if (card == null) return;
 
+            // A channel never ends by itself: let go of one that has nothing
+            // left to do, so the Litharch returns to healing and its cooldown
+            // runs (2026-10-19). Before the target scan, which returns early
+            // once no cursed ground is left — exactly when a channel is done.
+            ReleaseFinishedCleanses(em, healers, cfg.cleanseDoneMargin);
+
             // The ground this faction may cleanse: what it holds, and — once
             // claims are open — what it would claim but for the curse.
             _cleanseTargets.Clear();
@@ -97,9 +107,22 @@ namespace TheWaningBorder.AI
                 if (!TheWaningBorder.Systems.Border.CurseGroundSystem.TryNearestCursed(
                         p, cfg.cleanseSearchRadius, t => _cleanseTargets.Contains(t), out float3 spot))
                     continue;
-                if (ArmedHostileNear(em, faction, spot, cfg.cleanseThreatRadius)) continue;
-
                 float dist = math.distance(p.xz, spot.xz);
+
+                // Aim INTO the patch: the starting circle clears at once, so
+                // centring it on the nearest (edge) cell would spend half of it
+                // on clean ground. Pushed along the line from the Litharch, by
+                // less than the radius, so the cell stays inside the circle.
+                float3 aim = spot;
+                if (dist > 0.01f && card.Radius > 0f)
+                {
+                    float inset = math.clamp(cfg.cleanseAimInset, 0f, 0.95f) * card.Radius;
+                    aim = spot + (spot - p) / dist * inset;
+                    aim.y = spot.y;
+                }
+                if (ArmedHostileNear(em, faction, spot, cfg.cleanseThreatRadius)
+                    || ArmedHostileNear(em, faction, aim, cfg.cleanseThreatRadius)) continue;
+
                 if (card.Range > 0f && dist > card.Range)
                 {
                     // Walk to just inside the reach, then cast on a later think.
@@ -111,12 +134,35 @@ namespace TheWaningBorder.AI
                         $"Litharch walks to cleanse cursed ground at ({spot.x:0},{spot.z:0}) in {RegionMap.NameOf(RegionMap.RegionAt(spot.x, spot.z))}");
                     continue;
                 }
-                if (CommandRouter.IssueUnitAbilitySlot(em, h, slot, Entity.Null, spot, CommandSource.AI))
+                // (An aim beyond the reach lands at the reach's edge on the same
+                // line — LitharchCleanse.Begin — which still covers the cell.)
+                // The aim must be in sight (Spells.md §6.1), or the engine
+                // refuses the cast: hold it for a later think instead.
+                if (!AbilityTargetRules.AimInSight(em, card, h, aim)) continue;
+                if (CommandRouter.IssueUnitAbilitySlot(em, h, slot, Entity.Null, aim, CommandSource.AI))
                 {
                     _cleanseErrand[h] = now + cfg.cleanseErrandSeconds;
                     AILogger.Log(faction, "SUPPORT",
                         $"Litharch cleanses at ({spot.x:0},{spot.z:0}) in {RegionMap.NameOf(RegionMap.RegionAt(spot.x, spot.z))}");
                 }
+            }
+        }
+
+        /// <summary>Stop every channelling healer whose circle has reached its
+        /// maximum, or that has no cursed ground left within the circle, its
+        /// falloff band and <paramref name="margin"/> (Game_AI.md § 6n).</summary>
+        private void ReleaseFinishedCleanses(EntityManager em, List<Entity> healers, float margin)
+        {
+            foreach (var h in healers)
+            {
+                if (!LitharchCleanse.IsChanneling(em, h)) continue;
+                var c = em.GetComponentData<CleanseChannel>(h);
+                bool grown = c.Radius >= c.MaxRadius - 0.01f;
+                bool nothingLeft = !TheWaningBorder.Systems.Border.CurseGroundSystem.TryNearestCursed(
+                    c.Center, c.Radius + c.Falloff + math.max(0f, margin), null, out _);
+                if (!grown && !nothingLeft) continue;
+                CommandRouter.IssueStop(em, h, CommandSource.AI);
+                _cleanseErrand.Remove(h);
             }
         }
 

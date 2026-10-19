@@ -115,6 +115,14 @@ holder's weight there is zero.
 ground you raze every extractor and Fortress in it, then drain it. Walls and
 towers slow that down; they do not stop it.
 
+**Holding ground does not, by itself, let you see it.** Owned territory is
+fogged like any other ground — you need sight sources on it. The one exception
+is Antiquity's research **Cartography** (Sects.md §4, 2026-10-19): with it,
+every territory you hold is **fully visible** (live sight, enemy units and all,
+exactly to the territory's border and nothing beyond), for you and your
+team-mates, and counts as seen for every simulation sight test (sect powers'
+aim rule). Lose the territory and it falls back to explored (remembered) fog.
+
 ## 4. The Fortress
 
 **Every player starts with a Shelter** — the Age 0 form of the capital —
@@ -598,10 +606,24 @@ the AI) picks a point within its reach and the Litharch **channels** there,
 pushing the curse back.
 
 - **The starting circle** (the ability's radius) is cleared of cursed ground
-  the moment the cast lands.
+  the moment the cast lands. **Stronger and immediate (2026-10-19)** —
+  developer: "cleansing should immediately clear curse from a 15 unit
+  diameter area, and further regress curse with sustained casting": the
+  starting circle is a **15 m diameter** (rule-level; the value is the
+  ability's `radius`), cleared on the cast's first tick, so a small patch is
+  gone before the channel has grown at all.
 - **It grows while the channel holds**: the cleared circle gains a constant
   **area** a second, so its radius slows as it widens instead of running away
   with the square of the radius, and it stops growing at a maximum radius.
+  The rate was raised with the 2026-10-19 pass so that sustained channelling
+  visibly pushes the edge back within seconds and reaches the maximum in
+  about a minute.
+- **It can be heard (2026-10-19)**: a channelling Litharch plays a positional
+  holy loop for as long as the channel holds, and a burst when the cast
+  lands, so a player can pick out a cleanse by ear. Presentation only — the
+  sound never touches the simulation — and only for a Litharch the local
+  player can see (fog); it follows the master volume. Clips and levels are on
+  `CleanseSfx.asset`, beside the ability.
   Every creep step the whole circle ends clean — the curse cannot creep or
   stain back into it while the channel holds.
 - **A falloff band** outside the circle is thinned too: a cursed cell in the
@@ -615,7 +637,10 @@ pushing the curse back.
 - **The cooldown starts when the channel ends.**
 - When it ends, the ground is ordinary ground again: a living node's creep can
   re-curse it (§6.9.2). Cleansing holds the curse back; killing its node wins
-  the ground for good.
+  the ground for good. Unlike the owned-ground fade (§6.9.8), Cleanse clears
+  **even inside a living node's circle** — that is the Litharch's power over
+  the fade — but once the channel stops holding it, the node's creep takes
+  that ground back.
 
 Every number — starting radius, reach, cooldown, area a second, maximum
 radius, falloff width and heal rate — is the ability's data
@@ -651,6 +676,13 @@ visible to all players and they retain any upgrades they had when converted."
   that player's **largest body of soldiers** (soldiers within
   `armyConversionLinkRadius` of each other), at most `armyConversionMaxUnits`,
   nearest its middle first. A player at peace with the curse is never chosen.
+- **The curse must SEE the army, and only near its nodes (2026-10-19,**
+  developer: "MUST have LOS over the army it takes!", then "The curse can only
+  trigger the army conversion close to its nodes"**).** Only soldiers within
+  `armyConversionNodeRadius` (on `BorderSettingsSO`) of a living curse node
+  count — for the minimum, for the body and for the take; curse units do not
+  extend it. A player whose army stands away from every curse node is passed
+  over; if no player has an army near a node, nothing is taken that time.
 - **What happens to it:** the units become the curse's, keep every upgrade
   they had (research is written into a unit's own stats), and leave their old
   owner's control and population. They are **visible to every player**
@@ -676,6 +708,17 @@ that holds **every Sanctum on the map at once** starts a **10-minute
 countdown**; if it still holds them all when it ends, it wins. Losing any
 Sanctum — to a player or the curse — cancels the countdown, and taking them
 all again starts a fresh 10 minutes. Rules in § 11.4.
+
+**Both timed victories are public (2026-10-19).** Developer: "Both timed
+victories (shardroot and sanctum) should present a timer to all players so
+that they know how long until they win/lose the game. Issue a warning message
+every 2.5 minutes." While either countdown runs, every player and spectator
+sees it beside the match clock (who, which victory, mm:ss left), and everyone
+gets a warning notice when it starts, every `countdownWarningSeconds` of time
+left and at the final marks (`countdownFinalWarnings`) — config values on
+`SanctumSystem.asset` and `ShardrootEmpowerment.asset` — plus one when it is
+cancelled. Details in § 11.4 and
+[Curse_And_Shardroot.md §3.1c](Curse_And_Shardroot.md).
 
 A faction is eliminated by **any** of three rules (`EliminationSystem`, all
 checked on the lockstep clock, so every peer drops the same faction on the
@@ -1059,8 +1102,23 @@ those numbers belong in this doc.
   [Teams.md](Teams.md)), holds **every** Sanctum territory on the map at
   the same moment, a **10-minute countdown** starts on the lockstep clock
   (`dominionSeconds` on `SanctumSystem.asset`).
-- Every player is told when it starts, and sees the time left; the holder's
-  Sanctums are marked on the minimap.
+- **Every player sees it (2026-10-19).** While the countdown runs, a timer
+  beside the match clock (top centre) shows who will win and the time left —
+  "Your dominion: 07:32" in the allied tint for the holder's side, "Blue —
+  Sanctum dominion 07:32" in the hostile tint for everyone it would eliminate,
+  neutral for spectators and replays. It disappears when the countdown is
+  cancelled. The Shardroot ascension's timer shares the clock row (the two
+  sit either side of the clock when both run).
+- **Warnings (2026-10-19):** every player gets a notice when the countdown
+  starts, then each time the time left crosses a multiple of
+  `countdownWarningSeconds` (every 2.5 minutes: 7:30, 5:00, 2:30 of a
+  10-minute countdown), and at the final marks in `countdownFinalWarnings`
+  (1:00, 0:30). The holder's side reads "Hold every Sanctum for 7:30 more to
+  win"; the others "Blue's Sanctum dominion: 7:30 remaining — take a Sanctum
+  to stop it". Each warning pings the Sanctums on the minimap. A cancel tells
+  everyone the dominion is broken.
+- The timer and the schedule run on sim time from the countdown's ECS state,
+  so spectators, replays and loaded saves show exactly what the sim holds.
 - If the holder loses **any** Sanctum before it ends (to a player or to the
   curse, which can hold Sanctums but never wins), the countdown is
   **cancelled**. Taking them all again starts a fresh 10 minutes.
@@ -1070,9 +1128,24 @@ those numbers belong in this doc.
   (§ 11).
 - "Held" means **claimed** (§ 2): a claim in progress is not held.
 
-**Sanctums follow lighter claim rules (2026-10-18).** Developer: "Sanctum
-territories can be claimed without being connected to the other territories
-and don't need to be built upon to stay claimed."
+**Sanctums follow their own claim rule (2026-10-18, rewritten 2026-10-19).**
+Developer: "Sanctum territories can be claimed without being connected to the
+other territories and don't need to be built upon to stay claimed." Then: "A
+sanctum can be claimed by standing at least 30 units on it (without contest)
+for 20 seconds."
+
+- **Standing claim, not the meter.** A Sanctum is claimed — or taken from
+  its holder — by one side standing at least `sanctumClaimUnits` **military
+  units** (a head count, not population; workers, scouts, caravans, escorts,
+  summons and units under Friendly Fire never count) in it, **uncontested**
+  (no hostile unit in it), for `sanctumClaimSeconds` **without a break**.
+  Both values are on `TerritoryOwnership.asset`. Falling under the count, a
+  hostile arriving, or cursed ground in it resets the clock to zero. The
+  territory meter shows the progress (filling for free ground, emptying on a
+  held one); when it completes, the Sanctum is the claimant's at once, the
+  old holder's buildings in it collapse (§ 3), and both are told.
+- A holder that has LOCKED the Sanctum (§ 3, a node building or Fortress in
+  it) cannot have it taken until the lock is gone.
 
 - **No connection needed.** A Sanctum can be claimed wherever it lies; it
   does not have to border Fortress-connected ground (the § 10 rule). The
@@ -1080,7 +1153,6 @@ and don't need to be built upon to stay claimed."
 - **It holds itself.** A claimed Sanctum never decays while it stands empty
   (§ 2.2's decay needs "no finished building"; a Sanctum counts as held
   without one), and being cut off from every Fortress does not wear down
-  anything in it. It is still lost the ordinary way: an enemy standing alone
-  in it drains it.
+  anything in it. It is lost only to another side's standing claim (above).
 - It is not a stepping stone: a Sanctum that is not itself connected passes
   no connection on to its neighbours.

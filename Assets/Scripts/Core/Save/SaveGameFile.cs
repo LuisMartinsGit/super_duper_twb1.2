@@ -3,8 +3,9 @@
 // docs/Design/Replays_And_Saves.md §3
 //
 // One .twbsave file, a zip with:
-//   save.txt     format, the tick the match resumes at, match seconds, label,
-//                the world clock (the fixed-step ElapsedTime, exact)
+//   save.txt     format (SaveFormatVersion), build (the game version that
+//                wrote it), the tick the match resumes at, match seconds,
+//                label, the world clock (the fixed-step ElapsedTime, exact)
 //   replay.twbr  the replay up to that tick — the resumed match keeps writing
 //                it, so a loaded game still produces a whole-match replay
 //   world.bin    WorldSnapshot: every simulation entity and component
@@ -22,6 +23,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Core.Multiplayer;
 using TheWaningBorder.Core.Replay;
 
@@ -29,11 +31,33 @@ namespace TheWaningBorder.Core.Save
 {
     public sealed class SaveGameFile
     {
+        /// <summary>
+        /// THE save-format version — the one place it lives. Any change to the
+        /// layout of simulation state (a component or buffer added, removed or
+        /// reshaped, a static or system field the snapshot carries) bumps it,
+        /// and a save of any other version is refused with a message: a
+        /// snapshot restored into a different layout is silently wrong, not
+        /// merely old. docs/Design/Replays_And_Saves.md §3 (2026-10-19).
+        /// Also mixed into MatchSettingsSync.Fingerprint, so replays recorded
+        /// before a bump (which would re-simulate into a different world) are
+        /// refused the same way.
+        /// </summary>
         // 3 (2026-10-15): PerSectState.UnlockedActives became UnlockMask
-        // (the ECS world layout changed), so format-2 saves are refused.
-        public const int CurrentFormat = 3;
+        //   (the ECS world layout changed), so format-2 saves are refused.
+        // 4 (2026-10-19): faction-wide building levels (FactionBuildingLevel
+        //   buffer), PlanOwnership, CelestarPassiveState, Sanctum claim state
+        //   and the rest of that day's components — a 0.0.47 snapshot has
+        //   none of them.
+        public const int SaveFormatVersion = 4;
 
-        public int Format = CurrentFormat;
+        /// <summary>Same value; kept for existing callers.</summary>
+        public const int CurrentFormat = SaveFormatVersion;
+
+        public int Format = SaveFormatVersion;
+        /// <summary>Application.version of the build that wrote the save
+        /// (save.txt "build"; saves written before 2026-10-19 fall back to
+        /// their replay header's build).</summary>
+        public string Build = "";
         public int Tick;
         public float Seconds;
         public string Label = "";
@@ -59,6 +83,7 @@ namespace TheWaningBorder.Core.Save
                 var c = CultureInfo.InvariantCulture;
                 Text(zip, "save.txt", string.Join("\n",
                     "format\t" + Format.ToString(c),
+                    "build\t" + ReplayHeader.Clean(string.IsNullOrEmpty(Build) ? UnityEngine.Application.version : Build),
                     "tick\t" + Tick.ToString(c),
                     "seconds\t" + Seconds.ToString("R", c),
                     "elapsed\t" + WorldElapsed.ToString("R", c),
@@ -103,7 +128,7 @@ namespace TheWaningBorder.Core.Save
         {
             byte[] bytes;
             try { bytes = File.ReadAllBytes(path); }
-            catch (Exception e) { error = "Could not read the save: " + e.Message; return null; }
+            catch (Exception e) { error = Loc.T("Could not read the save: ") + e.Message; return null; }
             return Load(bytes, out error);
         }
 
@@ -114,9 +139,12 @@ namespace TheWaningBorder.Core.Save
             {
                 using var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
                 var save = new SaveGameFile { RawBytes = bytes };
-                if (!ReadMeta(zip, save, out error)) return null;
+                ReadMeta(zip, save);
                 save.ReplayText = ReadText(zip, "replay.twbr");
                 save.Replay = ReplayFile.Parse(save.ReplayText.Split('\n'));
+                if (string.IsNullOrEmpty(save.Build)) save.Build = save.Replay.Header.Build;
+                error = FormatError(save.Format, save.Build);
+                if (error != null) return null;
                 save.World = ReadBytes(zip, "world.bin");
                 save.State = ReadBytes(zip, "state.bin");
                 foreach (var line in ReadText(zip, "pending.txt").Split('\n'))
@@ -131,19 +159,19 @@ namespace TheWaningBorder.Core.Save
                 }
                 if (save.World == null || save.World.Length == 0)
                 {
-                    error = "The save has no world snapshot.";
+                    error = Loc.T("The save has no world snapshot.");
                     return null;
                 }
                 return save;
             }
             catch (InvalidDataException)
             {
-                error = "Not a saved game this version of the game can read.";
+                error = Loc.T("Not a saved game this version of the game can read.");
                 return null;
             }
             catch (Exception e)
             {
-                error = "Could not read the save: " + e.Message;
+                error = Loc.T("Could not read the save: ") + e.Message;
                 return null;
             }
         }
@@ -155,7 +183,7 @@ namespace TheWaningBorder.Core.Save
             {
                 using var zip = ZipFile.OpenRead(path);
                 var save = new SaveGameFile();
-                if (!ReadMeta(zip, save, out _)) return null;
+                ReadMeta(zip, save);
                 var header = new ReplayHeader();
                 var entry = zip.GetEntry("replay.twbr");
                 if (entry != null)
@@ -165,10 +193,15 @@ namespace TheWaningBorder.Core.Save
                     while ((line = r.ReadLine()) != null && line != "begin")
                         header.ReadLine(line.Split('\t'));
                 }
+                if (string.IsNullOrEmpty(save.Build)) save.Build = header.Build;
+                // A save of another format is LISTED, greyed with the reason —
+                // never hidden: hiding it made a player's saves vanish after an
+                // update with nothing on screen to say why.
                 return new SavedGameInfo
                 {
                     Path = path,
                     IsSave = true,
+                    Incompatibility = FormatError(save.Format, save.Build),
                     Header = header,
                     Seconds = save.Seconds,
                     Label = save.Label,
@@ -185,28 +218,75 @@ namespace TheWaningBorder.Core.Save
             }
         }
 
-        static bool ReadMeta(ZipArchive zip, SaveGameFile save, out string error)
+        static void ReadMeta(ZipArchive zip, SaveGameFile save)
         {
-            error = null;
             var c = CultureInfo.InvariantCulture;
+            save.Format = 0;   // no "format" line = older than every versioned save
             foreach (var line in ReadText(zip, "save.txt").Split('\n'))
             {
                 var p = line.TrimEnd('\r').Split('\t');
                 switch (p[0])
                 {
                     case "format": save.Format = ReplayHeader.Int(p, 1); break;
+                    case "build": save.Build = ReplayHeader.Str(p, 1); break;
                     case "tick": save.Tick = ReplayHeader.Int(p, 1); break;
                     case "seconds": float.TryParse(ReplayHeader.Str(p, 1), NumberStyles.Float, c, out save.Seconds); break;
                     case "elapsed": double.TryParse(ReplayHeader.Str(p, 1), NumberStyles.Float, c, out save.WorldElapsed); break;
                     case "label": save.Label = ReplayHeader.Str(p, 1); break;
                 }
             }
-            if (save.Format != CurrentFormat)
+        }
+
+        /// <summary>
+        /// Null when this build can restore a save of <paramref name="format"/>;
+        /// otherwise the player-facing reason (localized), naming the game
+        /// version that wrote it when it is known.
+        /// </summary>
+        public static string FormatError(int format, string build)
+        {
+            if (format == SaveFormatVersion) return null;
+            bool known = !string.IsNullOrEmpty(build);
+            if (format > SaveFormatVersion)
+                return known
+                    ? string.Format(Loc.T("This save was made with a newer version of the game ({0}) and can't be loaded in this version."), build)
+                    : Loc.T("This save was made with a newer version of the game and can't be loaded in this version.");
+            return known
+                ? string.Format(Loc.T("This save was made with an older version of the game ({0}) and can't be loaded in this version."), build)
+                : Loc.T("This save was made with an older version of the game and can't be loaded in this version.");
+        }
+
+        /// <summary>
+        /// The format check alone — reads save.txt (and the replay header for
+        /// the build when save.txt has none), never the world. Used on the
+        /// snapshots a replay embeds ("snap" lines) before the replay is armed.
+        /// Null = loadable.
+        /// </summary>
+        public static string CheckFormat(byte[] bytes)
+        {
+            try
             {
-                error = "This save was written by an older save format and cannot be loaded.";
-                return false;
+                using var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+                var save = new SaveGameFile();
+                ReadMeta(zip, save);
+                if (string.IsNullOrEmpty(save.Build))
+                {
+                    var entry = zip.GetEntry("replay.twbr");
+                    if (entry != null)
+                    {
+                        var header = new ReplayHeader();
+                        using var r = new StreamReader(entry.Open(), Encoding.UTF8);
+                        string line;
+                        while ((line = r.ReadLine()) != null && line != "begin")
+                            header.ReadLine(line.Split('\t'));
+                        save.Build = header.Build;
+                    }
+                }
+                return FormatError(save.Format, save.Build);
             }
-            return true;
+            catch (Exception e)
+            {
+                return Loc.T("Could not read the save: ") + e.Message;
+            }
         }
 
         static string ReadText(ZipArchive zip, string name)

@@ -134,7 +134,7 @@ effects and gates are on the tech SOs.
 | **Armed Scouts** (`ArmedScouts`) | everyone, Age 0 | **arms Scouts**: sets their damage, for Scouts already on the field **and every Scout trained afterwards** (decision 13). Until then Scouts are unarmed and vision-only |
 | **Iron / Veilstone / Veilsteel Tools** | Alanthor | further **build speed** tiers ([Age_1_Alanthor.md](Age_1_Alanthor.md)) |
 | **Mason Guild** | Alanthor | faction-wide building HP |
-| **Scouting Celestarii** | Alanthor | `ScoutingCelestarii` — Use Celestar + full Scout vision |
+| **Scouting Celestarii** | Alanthor | `ScoutingCelestarii` — the Celestar passive: idle Scouts reveal random patches of the map (2026-10-19, [Age_1_Alanthor.md](Age_1_Alanthor.md#scouting-celestarii--the-celestar-passive-2026-10-19)) |
 
 There is **no age-up research** — the age-up is the landmark (see
 [§ Age-up by landmark](#age-up-by-landmark-2026-09-29)).
@@ -178,7 +178,10 @@ supplies and veilstone, never iron. Each pays its slot-income ladder
 ([Veilstone_Economy.md §5](Veilstone_Economy.md)). The Mine hosts its own
 research (Deep Shafts, Rich Seams). At age-up **Alanthor's Veilstone Mines
 become Trading Outposts** (Alanthor never mine veilstone; their iron Mines
-stay).
+stay). **The iron Mine levels L1-L3 after age-up** (2026-10-19), every
+culture, faction-wide ([Age_1_Alanthor.md § Mine](Age_1_Alanthor.md),
+[Overview.md § Building levels](Overview.md#building-levels-faction-wide));
+the Veilstone Mine has no levels.
 
 ---
 
@@ -391,6 +394,12 @@ straight line and never compounds. Anything stored above the cap earns
 nothing (it is still safe and still paid out on withdrawal). A withdrawal
 takes everything and zeroes the principal.
 
+**One Vault per faction (2026-10-19).** A faction may own only one Vault of
+Almiérra at a time — standing, under construction or planned all count
+(`maxPerFaction` on the Vault SO, enforced in the build menu, the placement
+executor and the AI like every per-faction cap). A lost Vault may be rebuilt.
+Several Vaults multiplied the safe return the Vault exists to cap.
+
 **Interest applies from level 1 and grows with the Vault's level**
 (decision 12), and **the banking-grade techs raise the rate**: the base rate,
 the principal cap and the three grade rates are on
@@ -477,11 +486,12 @@ line of sight. SO: `Age0/Buildings/Fortress/Units/Worker/Worker.asset`.
 Extreme line of sight is the role. **Unarmed until Armed Scouts** (decision
 13): a Scout has no damage and never auto-engages until that research
 completes, after which every Scout — standing or newly trained — has the
-damage the tech's effect sets. **Scout Sight:** a reduced share of LoS while
-moving, ramping to the full radius while standing still and unharmed; before
-**Scouting Celestarii** the settled maximum and the ramp speed are reduced,
-and the research restores them (2026-08-02). Ramp values on the Scout Sight
-ability SO.
+damage the tech's effect sets. **Scout Sight:** a Scout always sees its full
+line of sight, moving or standing (the perch-and-bloom ramp was removed
+2026-09-29). The Alanthor **Scouting Celestarii** research no longer touches
+Scout vision; since 2026-10-19 it gives every Scout the **Celestar passive** —
+an idle Scout periodically reveals a random patch of the map
+([Age_1_Alanthor.md](Age_1_Alanthor.md#scouting-celestarii--the-celestar-passive-2026-10-19)).
 
 ### Spearman
 

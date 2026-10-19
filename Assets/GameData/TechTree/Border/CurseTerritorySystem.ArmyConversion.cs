@@ -5,6 +5,11 @@
 // `armyConversionMaxUnits`, heroes never) and turns it on a random OTHER
 // player at once, as an attack wave.
 //
+//   * the curse must SEE them, and only its NODES see for this (2026-10-19:
+//     "MUST have LOS over the army it takes", then "can only trigger the army
+//     conversion close to its nodes"): only soldiers within
+//     `armyConversionNodeRadius` of a living curse node count — an army far
+//     from every node is never taken, whatever curse units stand near it;
 //   * the units become the curse's (FactionTag -> Border), keep every upgrade
 //     they had (research is written into a unit's own stats when it lands,
 //     TechEffectSystem), and leave their old owner's control and population;
@@ -60,6 +65,44 @@ namespace TheWaningBorder.Systems.Border
         private static CachedEntityQuery QC_ConvertCandidates;
 
         private readonly List<(Entity e, float3 p)>[] _convByFaction = NewConvLists();
+
+        private static readonly ComponentType[] QT_CurseSmallEyes =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<SmallNodeTag>(),
+        };
+        private static readonly ComponentType[] QT_CurseMainEyes =
+        {
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<BorderMainNodeTag>(),
+        };
+        private static CachedEntityQuery QC_CurseSmallEyes, QC_CurseMainEyes;
+        private readonly List<(float3 p, float r)> _curseEyes = new();
+
+        private void AddNodeEyes(EntityQuery eq, float r)
+        {
+            using var facs = eq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = eq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var hps = eq.ToComponentDataArray<Health>(Allocator.Temp);
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == Faction.Border && hps[i].Value > 0)
+                    _curseEyes.Add((xfs[i].Position, r));
+        }
+
+        /// <summary>Is this point close enough to a living curse node?</summary>
+        private bool CurseSees(float3 p)
+        {
+            for (int i = 0; i < _curseEyes.Count; i++)
+            {
+                var (ep, r) = _curseEyes[i];
+                if (math.distancesq(ep.xz, p.xz) <= r * r) return true;
+            }
+            return false;
+        }
         private readonly List<int> _convComponent = new();
         private readonly List<Entity> _convPicked = new();
 
@@ -87,7 +130,14 @@ namespace TheWaningBorder.Systems.Border
             float rollVictim = _rng.NextFloat();
             float rollTarget = _rng.NextFloat();
 
-            // ── every player's soldiers ──
+            // ── what the curse can see for this: its living NODES, each
+            // watching `armyConversionNodeRadius` round it (2026-10-19) ──
+            _curseEyes.Clear();
+            float nodeR = math.max(1f, s.armyConversionNodeRadius);
+            AddNodeEyes(QC_CurseSmallEyes.Get(em, QT_CurseSmallEyes), nodeR);
+            AddNodeEyes(QC_CurseMainEyes.Get(em, QT_CurseMainEyes), nodeR);
+
+            // ── every player's soldiers the curse can see ──
             for (int f = 0; f < PlayerSlots; f++) _convByFaction[f].Clear();
             var q = QC_ConvertCandidates.Get(em, QT_ConvertCandidates);
             using (var ents = q.ToEntityArray(Allocator.Temp))
@@ -106,6 +156,7 @@ namespace TheWaningBorder.Systems.Border
                     if (em.HasComponent<CaravanTag>(ents[i])) continue;
                     if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(ents[i])) continue;
                     if (TransientState.Active<SectDisordered>(em, ents[i])) continue;
+                    if (!CurseSees(xfs[i].Position)) continue;
                     _convByFaction[f].Add((ents[i], xfs[i].Position));
                 }
             }
@@ -118,8 +169,8 @@ namespace TheWaningBorder.Systems.Border
             }
             if (victims.Count == 0)
             {
-                UnityEngine.Debug.Log("[CurseTerritory] ARMY CONVERSION skipped — no player has an army of " +
-                                      $"{minUnits}+ soldiers.");
+                UnityEngine.Debug.Log("[CurseTerritory] ARMY CONVERSION skipped — the curse sees no army of " +
+                                      $"{minUnits}+ soldiers near its {_curseEyes.Count} nodes).");
                 return;
             }
             int victim = victims[math.min(victims.Count - 1, (int)(rollVictim * victims.Count))];

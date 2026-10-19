@@ -234,7 +234,9 @@ namespace TheWaningBorder.AI
             }
             // A single-target card refuses a target it would not accept, so a
             // building out of reach is held here instead of being sent.
-            if (card.IsEntityTargeted && !AbilityTargetRules.Check(em, card, unit, target, out _)) return false;
+            // An unseen target or aim point is held too (Spells.md §6.1).
+            if (card.IsEntityTargeted && !AbilityTargetRules.CheckInSight(em, card, unit, target, out _)) return false;
+            if (aim.HasValue && !AbilityTargetRules.AimInSight(em, card, unit, aim.Value)) return false;
             return CommandRouter.IssueUnitAbility(em, unit, target, aim, CommandSource.AI, slot);
         }
 

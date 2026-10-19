@@ -1517,7 +1517,10 @@ namespace TheWaningBorder.Multiplayer
 
                 case LockstepCommandType.Build:
                     Entity buildTarget = cmd.TargetEntityId > 0 ? FindEntityByNetworkId(cmd.TargetEntityId) : Entity.Null;
-                    BuildCommandHelper.Execute(em, entity, buildTarget, cmd.BuildingId, cmd.TargetPosition);
+                    // SecondaryTargetId bit 0: replace the worker's build
+                    // queue instead of appending (Planned_Buildings.md §6).
+                    BuildCommandHelper.Execute(em, entity, buildTarget, cmd.BuildingId, cmd.TargetPosition,
+                        append: (cmd.SecondaryTargetId & 1) == 0);
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed Build from player {cmd.PlayerIndex}");
                     break;
 

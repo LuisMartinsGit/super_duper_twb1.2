@@ -124,7 +124,8 @@ namespace TheWaningBorder.Systems.Combat
         /// (SectDisordered). Its row and column of the hostility table are all
         /// hostile, so every scanner — the frenzied unit's own side included —
         /// sees it as an enemy, and a frenzied scanner (scanning as this row)
-        /// sees everyone. The unit's FactionTag never changes.</summary>
+        /// sees everyone — units and buildings, its own side's included
+        /// (2026-10-19). The unit's FactionTag never changes.</summary>
         private const int RogueSlot = FactionSlots;
         private const int GridSlots = FactionSlots + 1;
 

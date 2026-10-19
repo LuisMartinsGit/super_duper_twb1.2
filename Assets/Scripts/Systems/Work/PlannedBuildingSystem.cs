@@ -1,22 +1,37 @@
 // PlannedBuildingSystem.cs
-// Turns PLANS into construction sites when a worker arrives
-// (docs/Design/Planned_Buildings.md).
+// Turns PLANS into construction sites when a worker arrives, keeps every
+// worker's build queue moving, and makes sure no plan outlives the worker
+// that was going to build it (docs/Design/Planned_Buildings.md §1, §6).
 //
-// A worker's BuildCommand names either the plan itself (single player, the
-// AI, a Build order that resolved its target) or Entity.Null with the site's
-// position (a lockstep Build issued in the same tick as the placement). Both
-// resolve to the faction's OWN plan there — never another player's. Once the
-// worker stands within build range the plan BREAKS GROUND
-// (PlannedBuildings.BreakGround): the real under-construction site appears,
-// the worker's order is re-pointed at it, and BuildCommandSystem — which runs
-// right after — turns it into a BuildOrder on the same tick.
+// A worker's BuildCommand names either the plan itself (bound when the order
+// was executed — BuildCommandHelper.Execute → PlannedBuildings
+// .ResolveOrderTarget) or, rarely, Entity.Null with the site's position (a
+// wall hub; a Build whose placement was refused). A Null target is resolved
+// to the faction's OWN plan of that building whose footprint covers the spot
+// — never another player's, never a neighbouring plan. Once the worker stands
+// within build range the plan BREAKS GROUND (PlannedBuildings.BreakGround):
+// the real under-construction site appears, the worker's order is re-pointed
+// at it, and BuildCommandSystem — which runs right after — turns it into a
+// BuildOrder on the same tick.
 //
-// Plans nobody is heading for (placed with no worker selected, or whose
-// workers were pulled off) are adopted by an idle worker of the same faction
-// within reach, like an abandoned foundation.
+// QUEUES RESUME HERE (2026-10-19). A worker that finished or lost its current
+// job used to resume its queue only from BuildingConstructionSystem's
+// adoption scan — and that system returns early unless SOME worker in the
+// world holds an active BuildOrder. A worker finishing the last build in
+// progress anywhere therefore stood idle with its whole queue: the chained
+// plans stayed white previews for ever, and because the worker still HAD a
+// queue it was never counted idle enough to adopt them either. The resume
+// pass below runs every tick, plans or no plans.
+//
+// THE OWNERSHIP SWEEP (§6). Once a second every plan is checked against the
+// live workers' build orders and queues. A plan nobody holds is cancelled and
+// refunded — after a short grace for one that lost its worker, or after an
+// adoption attempt and a longer grace for one that never had a worker (a
+// lever placement, an AI placement with no free hands).
 //
 // Simulation, structural changes applied after each scan, query order only —
-// every lockstep peer breaks ground on the same plan on the same tick.
+// every lockstep peer breaks ground, resumes, adopts and cancels the same
+// plans on the same tick.
 
 using Unity.Collections;
 using Unity.Entities;
@@ -34,12 +49,18 @@ namespace TheWaningBorder.Systems.Work
     {
         /// <summary>Same reach BuildCommandSystem uses to start building.</summary>
         private const float BuildRange = 4f;
-        /// <summary>How far from a Build order's position its plan may stand.</summary>
-        private const float ResolveRadius = 8f;
-        /// <summary>How far an idle worker walks to adopt an unattended plan.</summary>
-        private const float AdoptRadius = 30f;
-        private const float AdoptInterval = 1f;
+        /// <summary>Ownership sweep cadence.</summary>
+        private const float SweepInterval = 1f;
+        /// <summary>A plan that HAD a worker and lost it (death, a stuck plan
+        /// from an older save) is cancelled after this. Engine timing — it
+        /// only has to outlast the sweep cadence.</summary>
+        private const float LostOwnerGraceSeconds = 2f;
+        /// <summary>A plan that NEVER had a worker is offered to idle workers
+        /// for this long before it is cancelled. Engine timing.</summary>
+        private const float NeverOwnedGraceSeconds = 10f;
 
+        // Field name kept from the old adoption pass: saved games serialise
+        // system fields by name.
         private SimCadence.Periodic _adopt;
 
         static readonly ComponentType[] QT_Plans =
@@ -50,14 +71,14 @@ namespace TheWaningBorder.Systems.Work
         };
         static CachedEntityQuery QC_Plans;
 
-        protected override void OnCreate()
-        {
-            RequireForUpdate<PlannedBuilding>();
-        }
-
         protected override void OnUpdate()
         {
             var em = EntityManager;
+
+            ResumeQueues(em);
+
+            if (QC_Plans.Get(em, QT_Plans).IsEmptyIgnoreFilter) return;
+
             var retarget = new NativeList<Entity>(Allocator.Temp);
             var retargetTo = new NativeList<Entity>(Allocator.Temp);
             var breakPlan = new NativeList<Entity>(Allocator.Temp);
@@ -78,8 +99,11 @@ namespace TheWaningBorder.Systems.Work
                 }
                 else if (target == Entity.Null || !em.Exists(target))
                 {
-                    plan = PlannedBuildings.FindOwnPlanNear(em, fac.ValueRO.Value,
-                        cmd.ValueRO.Position, ResolveRadius);
+                    // The plan of THIS building at THIS spot — not the nearest
+                    // plan within a radius, which bound chained orders to their
+                    // neighbours' plans and wall-hub orders to any plan nearby.
+                    plan = PlannedBuildings.ResolveOrderTarget(em, entity,
+                        cmd.ValueRO.BuildingId.ToString(), cmd.ValueRO.Position);
                     if (plan == Entity.Null) continue;
                     retarget.Add(entity);
                     retargetTo.Add(plan);
@@ -106,12 +130,42 @@ namespace TheWaningBorder.Systems.Work
 
             retarget.Dispose(); retargetTo.Dispose(); breakPlan.Dispose(); breakWorker.Dispose();
 
-            if (_adopt.Due(SystemAPI.Time.DeltaTime, AdoptInterval)) AdoptUnattended(em);
+            if (_adopt.Due(SystemAPI.Time.DeltaTime, SweepInterval)) SweepOwnership(em);
         }
 
-        /// <summary>Send the nearest idle same-faction worker to every plan
-        /// that no worker is headed for (current order or queue).</summary>
-        private void AdoptUnattended(EntityManager em)
+        /// <summary>
+        /// Start the next queued build of every live worker that has a queue
+        /// and no current build, repair or construction job. Runs every tick:
+        /// see the file header for why this cannot live in the gated
+        /// BuildingConstructionSystem.
+        /// </summary>
+        private void ResumeQueues(EntityManager em)
+        {
+            var resume = new NativeList<Entity>(Allocator.Temp);
+            foreach (var (queue, entity) in SystemAPI
+                .Query<DynamicBuffer<QueuedBuildSite>>()
+                .WithAll<CanBuild>()
+                .WithEntityAccess())
+            {
+                if (queue.Length == 0) continue;
+                if (TransientState.Active<BuildCommand>(em, entity)
+                    || TransientState.Active<BuildOrder>(em, entity)
+                    || TransientState.Active<RepairOrder>(em, entity)) continue;
+                resume.Add(entity);
+            }
+            for (int i = 0; i < resume.Length; i++)
+                if (PlannedBuildings.IsLiveWorker(em, resume[i]))
+                    BuildCommandHelper.TryStartNextQueued(em, resume[i]);
+            resume.Dispose();
+        }
+
+        /// <summary>
+        /// Planned_Buildings.md §6: bind any order still naming only a spot,
+        /// mark which plans a live worker holds, offer never-held plans to an
+        /// idle worker, and cancel (refunding) the plans nobody holds once
+        /// their grace is up.
+        /// </summary>
+        private void SweepOwnership(EntityManager em)
         {
             var q = QC_Plans.Get(em, QT_Plans);
             using var plans = q.ToEntityArray(Allocator.Temp);
@@ -119,54 +173,157 @@ namespace TheWaningBorder.Systems.Work
             using var planFacs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var planXfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-            var attended = new NativeHashSet<Entity>(plans.Length, Allocator.Temp);
-            var idle = new NativeList<Entity>(Allocator.Temp);
-            var idlePos = new NativeList<float3>(Allocator.Temp);
-            var idleFac = new NativeList<Faction>(Allocator.Temp);
-
+            // ── Every builder, in query order ──
+            var workers = new NativeList<Entity>(Allocator.Temp);
+            var workerPos = new NativeList<float3>(Allocator.Temp);
+            var workerFac = new NativeList<Faction>(Allocator.Temp);
             foreach (var (xf, fac, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<FactionTag>>()
                 .WithAll<CanBuild>()
                 .WithEntityAccess())
             {
-                if (TransientState.Active<BuildCommand>(em, entity))
-                {
-                    attended.Add(em.GetComponentData<BuildCommand>(entity).TargetBuilding);
-                    continue;
-                }
-                bool queuedAny = false;
-                if (em.HasBuffer<QueuedBuildSite>(entity))
-                {
-                    var buf = em.GetBuffer<QueuedBuildSite>(entity);
-                    for (int k = 0; k < buf.Length; k++) { attended.Add(buf[k].TargetBuilding); queuedAny = true; }
-                }
-                if (queuedAny) continue;
-                if (TransientState.Active<BuildOrder>(em, entity) || TransientState.Active<RepairOrder>(em, entity)) continue;
-                if (em.HasComponent<UserMoveOrder>(entity) && em.IsComponentEnabled<UserMoveOrder>(entity)) continue;
-                idle.Add(entity);
-                idlePos.Add(xf.ValueRO.Position);
-                idleFac.Add(fac.ValueRO.Value);
+                workers.Add(entity);
+                workerPos.Add(xf.ValueRO.Position);
+                workerFac.Add(fac.ValueRO.Value);
             }
 
-            float r2 = AdoptRadius * AdoptRadius;
+            var held = new NativeHashSet<Entity>(plans.Length, Allocator.Temp);
+            var idle = new NativeList<int>(Allocator.Temp);
+            for (int w = 0; w < workers.Length; w++)
+            {
+                var e = workers[w];
+                if (!PlannedBuildings.IsLiveWorker(em, e)) continue;
+                bool any = false;
+
+                if (TransientState.Active<BuildCommand>(em, e))
+                {
+                    any = true;
+                    var cmd = em.GetComponentData<BuildCommand>(e);
+                    if (cmd.TargetBuilding == Entity.Null)
+                    {
+                        var bound = PlannedBuildings.ResolveOrderTarget(em, e, cmd.BuildingId.ToString(), cmd.Position);
+                        if (bound != Entity.Null) { cmd.TargetBuilding = bound; em.SetComponentData(e, cmd); }
+                    }
+                    if (PlannedBuildings.IsPlan(em, cmd.TargetBuilding)
+                        && em.GetComponentData<FactionTag>(cmd.TargetBuilding).Value == workerFac[w])
+                        held.Add(cmd.TargetBuilding);
+                }
+                if (em.HasBuffer<QueuedBuildSite>(e))
+                {
+                    var buf = em.GetBuffer<QueuedBuildSite>(e);
+                    for (int k = 0; k < buf.Length; k++)
+                    {
+                        any = true;
+                        var entry = buf[k];
+                        if (entry.TargetBuilding == Entity.Null)
+                        {
+                            var bound = PlannedBuildings.ResolveOrderTarget(em, e,
+                                entry.BuildingId.ToString(), entry.Position);
+                            if (bound != Entity.Null) { entry.TargetBuilding = bound; buf[k] = entry; }
+                        }
+                        if (PlannedBuildings.IsPlan(em, entry.TargetBuilding)
+                            && em.GetComponentData<FactionTag>(entry.TargetBuilding).Value == workerFac[w])
+                            held.Add(entry.TargetBuilding);
+                    }
+                }
+                if (any) continue;
+                if (TransientState.Active<BuildOrder>(em, e) || TransientState.Active<RepairOrder>(em, e)) continue;
+                if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                idle.Add(w);
+            }
+
+            // ── Every plan ──
+            float now = SimClock.Now;
+            var addOwnership = new NativeList<Entity>(Allocator.Temp);
+            var addOwnershipValue = new NativeList<PlanOwnership>(Allocator.Temp);
+            var adoptPlan = new NativeList<Entity>(Allocator.Temp);
+            var adoptWorker = new NativeList<Entity>(Allocator.Temp);
+            var cancelPlan = new NativeList<Entity>(Allocator.Temp);
+            var cancelNever = new NativeList<bool>(Allocator.Temp);
+
             for (int p = 0; p < plans.Length; p++)
             {
-                if (attended.Contains(plans[p])) continue;
-                int best = -1;
-                float bestD = r2;
-                for (int i = 0; i < idle.Length; i++)
+                var plan = plans[p];
+                bool has = em.HasComponent<PlanOwnership>(plan);
+                // A plan from a game saved before the rule: it had a worker
+                // once, or it would not be stuck.
+                var po = has ? em.GetComponentData<PlanOwnership>(plan)
+                             : new PlanOwnership { EverOwned = 1 };
+                var before = po;
+
+                if (held.Contains(plan))
                 {
-                    if (idle[i] == Entity.Null || idleFac[i] != planFacs[p].Value) continue;
-                    float d = math.distancesq(idlePos[i].xz, planXfs[p].Position.xz);
-                    if (d <= bestD) { bestD = d; best = i; }
+                    po.EverOwned = 1;
+                    po.Unowned = 0;
                 }
-                if (best < 0) continue;
-                BuildCommandHelper.Execute(em, idle[best], plans[p],
-                    PlannedBuildings.IdOf(em, plans[p]), planXfs[p].Position);
-                idle[best] = Entity.Null;
+                else
+                {
+                    bool adopted = false;
+                    if (po.EverOwned == 0)
+                    {
+                        int best = -1;
+                        float bestD = float.MaxValue;
+                        for (int i = 0; i < idle.Length; i++)
+                        {
+                            int w = idle[i];
+                            if (w < 0 || workerFac[w] != planFacs[p].Value) continue;
+                            float d = math.distancesq(workerPos[w].xz, planXfs[p].Position.xz);
+                            if (d < bestD) { bestD = d; best = i; }
+                        }
+                        if (best >= 0)
+                        {
+                            adoptPlan.Add(plan);
+                            adoptWorker.Add(workers[idle[best]]);
+                            idle[best] = -1;
+                            po.EverOwned = 1;
+                            po.Unowned = 0;
+                            adopted = true;
+                        }
+                    }
+                    if (!adopted)
+                    {
+                        if (po.Unowned == 0) { po.Unowned = 1; po.UnownedSince = now; }
+                        else if (now - po.UnownedSince >= (po.EverOwned == 0
+                                     ? NeverOwnedGraceSeconds : LostOwnerGraceSeconds))
+                        {
+                            cancelPlan.Add(plan);
+                            cancelNever.Add(po.EverOwned == 0);
+                            continue;
+                        }
+                    }
+                }
+
+                if (!has) { addOwnership.Add(plan); addOwnershipValue.Add(po); }
+                else if (po.EverOwned != before.EverOwned || po.Unowned != before.Unowned
+                         || po.UnownedSince != before.UnownedSince)
+                    em.SetComponentData(plan, po);
             }
 
-            attended.Dispose(); idle.Dispose(); idlePos.Dispose(); idleFac.Dispose();
+            // ── Structural changes, after the scans ──
+            for (int i = 0; i < addOwnership.Length; i++)
+                if (em.Exists(addOwnership[i]))
+                    em.AddComponentData(addOwnership[i], addOwnershipValue[i]);
+            for (int i = 0; i < adoptPlan.Length; i++)
+            {
+                if (!PlannedBuildings.IsPlan(em, adoptPlan[i])) continue;
+                BuildCommandHelper.Execute(em, adoptWorker[i], adoptPlan[i],
+                    PlannedBuildings.IdOf(em, adoptPlan[i]),
+                    em.GetComponentData<LocalTransform>(adoptPlan[i]).Position);
+            }
+            for (int i = 0; i < cancelPlan.Length; i++)
+            {
+                if (!PlannedBuildings.IsPlan(em, cancelPlan[i])) continue;
+                PlannedBuildings.Cancel(em, cancelPlan[i], refund: true,
+                    reason: TheWaningBorder.Core.Localization.Loc.T(cancelNever[i]
+                        ? "no worker was free to build it"
+                        : "the worker who was to build it is gone"));
+            }
+
+            workers.Dispose(); workerPos.Dispose(); workerFac.Dispose();
+            held.Dispose(); idle.Dispose();
+            addOwnership.Dispose(); addOwnershipValue.Dispose();
+            adoptPlan.Dispose(); adoptWorker.Dispose();
+            cancelPlan.Dispose(); cancelNever.Dispose();
         }
     }
 }

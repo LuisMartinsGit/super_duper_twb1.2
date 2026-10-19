@@ -166,6 +166,10 @@ namespace TheWaningBorder.Bootstrap
             int hallLevel = math.min(targetLevel, TheWaningBorder.Core.Settings.BuildingUpgradeConfig.MaxLevel);
             for (int lvl = 1; lvl <= hallLevel; lvl++)
                 BuildingUpgradeSystem.ApplyLevel(em, hall, (byte)lvl);
+            // Levels are faction-wide per type (2026-10-19): the faction's
+            // Fortress level is the promoted one, so a later Fortress and the
+            // next upgrade price both start from it.
+            FactionBuildingLevels.Raise(em, faction, "Fortress", (byte)hallLevel);
 
             // Bump faction era. Age N → Era N+1, mirroring the in-game age-up
             // (initial age-up → Era 2).

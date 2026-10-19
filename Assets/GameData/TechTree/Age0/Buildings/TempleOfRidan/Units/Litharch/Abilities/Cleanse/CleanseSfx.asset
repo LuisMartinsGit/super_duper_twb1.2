@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb8b611c1dc04e9ba95f63ffafa769c1, type: 3}
+  m_Name: CleanseSfx
+  m_EditorClassIdentifier: 
+  loopClip: {fileID: 8300000, guid: 1585e8abe3184ceb8c31c154ce9eacb3, type: 3}
+  burstClip: {fileID: 8300000, guid: e06b89d7227d4d50adbd977ff455604f, type: 3}
+  loopVolume: 0.55
+  burstVolume: 0.8
+  fadeSeconds: 0.6
+  minDistance: 30
+  maxDistance: 120
+  spatialBlend: 0.85
+  pollSeconds: 0.1

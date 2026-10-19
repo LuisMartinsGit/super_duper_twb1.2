@@ -2,7 +2,8 @@
 // The Litharch's CLEANSE (Territory_Claims.md §6.9.7, 2026-10-18): an aimed
 // channel that pushes cursed ground back.
 //
-//   * the starting circle (the card's Radius) is cleared at once;
+//   * the starting circle (the card's Radius — a 15 m diameter, 2026-10-19)
+//     and its falloff band are cleared at once, on the cast's first tick;
 //   * while the Litharch channels, the cleared circle GROWS at a constant
 //     area a second (CleanseGround's value), so its radius slows as it widens
 //     and never runs away with the square of the radius; it stops growing at
@@ -76,7 +77,10 @@ namespace TheWaningBorder.Abilities
                 Cooldown = card.EffectiveCooldown,
                 LastHealth = em.HasComponent<Health>(caster) ? em.GetComponentData<Health>(caster).Value : 0,
             });
-            TheWaningBorder.Systems.Border.CurseGroundSystem.ClearDisk(aim, start);
+            // Immediate (2026-10-19): the whole starting circle, and its soft
+            // edge, is clean on the cast's first tick.
+            TheWaningBorder.Systems.Border.CurseGroundSystem.ClearDisk(
+                aim, start, math.max(0f, card.EffectValue(AbilityEffectKind.CleanseFalloff, 0f)));
         }
 
         /// <summary>End the channel, if one is running. The cooldown, held at

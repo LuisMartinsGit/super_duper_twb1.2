@@ -47,7 +47,8 @@ on equal footing — there are only **two "ages"**.
   culture. From age-up onward, all progression is made through **building
   upgrades** (up to **level 3**; each culture's level 1 is free at age-up, and
   later level prices live on the building level SOs) and **faction-wide
-  technologies**. There is no Age 2 / Age 3 / Imperial — the depth of the
+  technologies**. A building level is itself faction-wide, per building
+  type — levelling one Barracks levels them all ([§ Building levels](#building-levels-faction-wide)). There is no Age 2 / Age 3 / Imperial — the depth of the
   game lives in the culture × sect × upgrade matrix, not in further ages.
 
 ---
@@ -255,6 +256,52 @@ The ladders are Stone → Iron → Veilstone → Shard-infused (weapons; the
 equivalent arrow, armour and tool ladders follow the same shape). Each tier's
 host building, building-level gate (the tech SO's `minBuildingLevel`, the only
 level gate) and price are on its tech SO.
+
+---
+
+<a id="building-levels-faction-wide"></a>
+
+## Building levels are faction-wide, per building type (2026-10-19)
+
+> **Decided 2026-10-19.** A building's level is no longer its own. It is a
+> property of the **faction and the building type**, for every culture.
+
+- **Levelling one levels all.** When a faction finishes a level-up on one
+  building of a type, **every** building of that type it owns becomes that
+  level at once — stats, model, name, population, attack, everything the
+  level gives. Upgrading a Barracks upgrades all Barracks; a House level
+  raises every House.
+- **New construction is built at the level.** A building of the type finished
+  later (or still under construction when the level lands) comes out at the
+  faction's level for it. L1 is still the free age-up level, for every
+  building of every type.
+- **One at a time per type.** Only one level-up of a type may be queued or
+  running per faction. Its clock runs on the building it was ordered at, and
+  only that building pays the downtime (no training or shooting while it
+  levels). Every other building of the type shows the running level-up and
+  offers no second one.
+- **Losing the building that is levelling loses the level-up** (as before —
+  a destroyed building's queue dies with it); another may then be ordered.
+  A cancel refunds the price, as before.
+- **Why.** The price is paid once for the whole faction, so a level is a
+  choice between **more soldiers and better soldiers**: the more buildings of
+  a type a faction owns, the more one level is worth. Prices are on the level
+  SOs and are being reviewed upward for that reason; this rule states none.
+- **Conversions.** A building that becomes another type (the Hut converted to
+  a Watch Tower or a Wall Hub) takes the level of its NEW type. A cultured
+  rename at age-up is the same type, and every type starts Age 1 at L1.
+- **Walls** were already faction-wide: the stone wall's level is the wall
+  research the faction holds, applied to every hub, segment and tower
+  (Age_1_Alanthor.md § The stone wall).
+- **The Trading Outpost's per-outcrop ramp prices building a post only**; a
+  level is faction-wide, so which post it is ordered at cannot change its
+  price (Veilstone_Economy.md §3.1).
+
+Code: `FactionBuildingLevels` (`GameData/TechTree/Shared/Buildings/`) holds the
+per-faction, per-type level as a `FactionBuildingLevel` buffer on the
+faction's bank entity (saved with the world snapshot); a finished level-up
+applies it to every building of the type, and the level-1 seed / culture
+auto-level systems stamp it on new buildings.
 
 ---
 

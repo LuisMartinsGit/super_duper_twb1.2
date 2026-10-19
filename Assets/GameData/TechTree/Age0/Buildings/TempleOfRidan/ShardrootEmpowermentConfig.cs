@@ -39,6 +39,13 @@ namespace TheWaningBorder.Entities
         /// must stand for its faction to win the match. 0 = no ascension.</summary>
         public float ascensionSeconds;
 
+        /// <summary>Every this many seconds of ascension time left, everyone
+        /// gets a warning notice (2026-10-19: 150 = every 2.5 minutes).</summary>
+        public float countdownWarningSeconds;
+
+        /// <summary>Extra warnings near the end, in seconds left (60, 30).</summary>
+        public float[] countdownFinalWarnings;
+
         public TheWaningBorder.Core.Cost EnshrinePrice =>
             TheWaningBorder.Core.Cost.Of(enshrineSupplies, enshrineIron, enshrineVeilstone, enshrineVeilsteel);
     }

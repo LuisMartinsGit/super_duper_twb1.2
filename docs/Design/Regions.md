@@ -126,6 +126,34 @@ partition survived from one match into the next, so a second map could show the
 first map's borders.) The thumbnail is a bake; the editor re-bakes it on scene
 save whenever the markers have changed since the last bake.
 
+### Mountains are a third as high (2026-10-19)
+
+On **every** map a mountain rises a third as high over the ground around it as
+it did, with the same ruggedness: the old profile (base, dome, ridge noise) is
+kept whole and its relief scaled, `ground + (old - ground) / 3`. Low mountains
+no longer wall a map by height or slope, so **NoWalk paint is what makes a
+mountain impassable** on every map, and claimability stays what it already
+was at runtime — the region's kind / authored outline, never the height. The
+4 m / 24 m height test below is only the fallback for a map with no region
+kinds.
+
+- Layout maps (Fiendstone Pass, Yiel Lymwérra, Moatwatch, Highfold, Broken
+  Oath, Trine Hollow): the model is in `tools/maps/layoutkit.py` (and the two
+  older `layout.py`); mountains are in `nowalk.png` and in no outline.
+- Veilmarch (`MapBuilderVeilmarchGrand`) and the builder
+  `MapBuilderRiverlands`: they build the scaled height and paint NoWalk on the
+  ground the ORIGINAL profile made impassable (above 24 m or steeper than the
+  walk limit), after any NoWalk clean. Their placement checks still read the
+  original profile, so no marker moved.
+- Hand-sculpted scenes (Sundered Crown, Hollow Table, Twin Spans, and the
+  shipped 704 m Sundered Reach — the Riverlands builder makes a different,
+  older 512 m map and must not be run over it): `Waning Border > Maps >
+  Flatten Mountains To Third (Open Scene)` (`MapMountainFlattener`) finds the
+  originally impassable masses that reach 24 m, lowers them the same way and
+  paints them NoWalk. Run once per map.
+- Do **not** run `Clear NoWalk Patches: Veilmarch` after the rebuild — it
+  strips every NoWalk texel, mountains included.
+
 ---
 
 ## 2. Claiming a territory

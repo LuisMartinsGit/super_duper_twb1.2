@@ -43,5 +43,12 @@ namespace TheWaningBorder.World.Regions
 
         /// <summary>The curse's claim weight multiplier (§6.1).</summary>
         public float curseClaimMultiplier;
+
+        /// <summary>A SANCTUM is claimed by standing at least this many military
+        /// units in it, of one side and uncontested (§ 11.4, 2026-10-19).</summary>
+        public int sanctumClaimUnits;
+
+        /// <summary>...for this many seconds without a break.</summary>
+        public float sanctumClaimSeconds;
     }
 }

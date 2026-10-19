@@ -398,7 +398,9 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < _cand.Count; i++)
             {
                 var h = _cand[i];
-                if (!AbilityTargetRules.Check(em, card, caster, h, out _)) continue;
+                // Only what the caster can see (Spells.md §6.1): the engine
+                // would refuse the rest.
+                if (!AbilityTargetRules.CheckInSight(em, card, caster, h, out _)) continue;
                 float d = math.distancesq(em.GetComponentData<LocalTransform>(h).Position.xz, pos.xz);
                 if (wantsCaster && !em.HasComponent<UnitAbilities>(h)) d += 1e6f;
                 if (d < bestScore || (d == bestScore && h.Index < best.Index)) { bestScore = d; best = h; }

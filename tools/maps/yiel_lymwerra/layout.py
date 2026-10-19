@@ -22,7 +22,8 @@
 #
 # North to south: mountains (unclaimable) -> grass plateau (the starts)
 # -> coastal cliff -> beach -> the sea. The plateau is cut by a crescent BAY
-# of SHALLOWS (wadeable, never buildable), ringed by cliffs, open to the sea
+# of SHALLOWS (wadeable, and BUILDABLE: a territory you can claim you can
+# build in, 2026-10-19), ringed by cliffs, open to the sea
 # in the south, with the cursed ISLAND Yiel in its middle. Two ramps lead
 # down into the bay; the beaches are reached only through the bay. A Sanctum
 # pocket sits up in the mountains, one ramp down to the Crown.
@@ -120,9 +121,11 @@ for m in ("sea", "bay", "island", "shallows", "beach", "mountain", "pocket", "gr
     globals()[m] = mirror(globals()[m])
 
 # ── Territories ──────────────────────────────────────────────────────────────
-# The shallows are territories too (two, split through the island): water
-# forbids building at any depth, but without them the island would border
-# nothing, and a territory bordering nothing can never be claimed.
+# The shallows are territories too (two, split through the island): without
+# them the island would border nothing, and a territory bordering nothing can
+# never be claimed. They are SHALLOWS territories (2026-10-19): their waded
+# water is buildable (buildableShallows -> RegionSeedMarker.BuildableShallows),
+# because ground you can claim you must be able to build on and hold.
 names = [s[0] for s in SEEDS] + ["WBeach", "WShallows", "Sanctum", "Isle"]
 dd = np.stack([(ux - x) ** 2 + (uz - z) ** 2 for _, x, z in SEEDS])
 near = dd.argmin(0)
@@ -209,8 +212,42 @@ fade = np.clip((np.minimum(np.minimum(d_low, d_mtn), d_ramp0) - 2.0) / 8.0, 0, 1
 h_gr = H_GRASS + 2.0 * roll * fade
 h[grass] = h_gr[grass]
 h[pocket] = H_POCKET + 0.5 * roll[pocket]
-h_m = 22.0 + np.minimum(d_mtn_in, 25) * 1.1 + ridge * 9 + ridge2 * 4 + ridge3 * 1.5
+def _mtn_ground(ground, mtn, iters=300):
+    """The ground a mountain stands on, inside the mass: equal to the real
+    ground at its foot and relaxed (Jacobi, 4-neighbour mean) toward a smooth
+    surface inside, so a mass spanning two shelves has no seam and its relief
+    over the ground beside its foot is exactly the scaled old relief."""
+    from scipy import ndimage as _nd
+    gi = _nd.distance_transform_edt(mtn, return_distances=False, return_indices=True)
+    g = _nd.gaussian_filter(ground[gi[0], gi[1]], 8 * M).astype(np.float32)
+    g[~mtn] = ground[~mtn]
+    k = np.array([[0, .25, 0], [.25, 0, .25], [0, .25, 0]], np.float32)
+    for _ in range(iters):
+        g2 = _nd.convolve(g, k, mode="nearest")
+        g[mtn] = g2[mtn]
+    return g
+
+# Mountains (2026-10-19: ONE THIRD of their old height, the same ruggedness).
+# The original profile — 22 m + 1.1 a metre in (to 25 m) + the ridge noise
+# (9 + 4 + 1.5 m) — is kept whole and its relief over the ground around it
+# (the plateau, the pocket) scaled by MTN_SCALE: h = ground + (old - ground)
+# / 3, noise included. Never under MTN_MIN over the ground beside it.
+# Impassable by the NoWalk paint (nowalk.png) and unclaimable, not by height.
+MTN_BASE, MTN_DOME = 22.0, 1.1       # the original (pre-2026-10-19) profile
+MTN_SCALE, MTN_MIN = 1.0 / 3.0, 2.5
+ground = np.where(mountain, H_GRASS, h).astype(np.float32)
+_gi = ndimage.distance_transform_edt(mountain, return_distances=False, return_indices=True)
+g_near = ground[_gi[0], _gi[1]]
+g_soft = _mtn_ground(ground, mountain)
+h_old = MTN_BASE + np.minimum(d_mtn_in, 25) * MTN_DOME + ridge * 9 + ridge2 * 4 + ridge3 * 1.5
+h_m = g_soft + (h_old - g_soft) * MTN_SCALE                   # the old relief, a third as high
+_floor = g_near + MTN_MIN
+h_m = _floor + 0.5 * np.logaddexp(0, (h_m - _floor) / 0.5)    # a soft floor
 h[mountain] = h_m[mountain]
+_ro, _rn = (h_old - g_near)[mountain], (h_m - g_near)[mountain]
+print(f"mountain height over the ground beside it: old median {np.median(_ro):.1f} max {_ro.max():.1f} m"
+      f" -> new min {_rn.min():.1f} median {np.median(_rn):.1f} max {_rn.max():.1f} m"
+      f" (median ratio {np.median(_rn / np.maximum(_ro, 1e-3)):.3f})")
 lip = grass & (d_low < 0.6)
 h[lip] -= (np.abs(noise(1, 49)) * 0.6)[lip]
 h = np.where(ramp_mask, ramp_h, h)
@@ -425,7 +462,7 @@ d.text((lx, y), "Yiel Lymwérra", fill=(0, 0, 0), font=big); y += 30
 d.text((lx, y), f"2 players, {WX} x {WZ} m, mirrored west/east", fill=(0, 0, 0), font=font); y += 18
 d.text((lx, y), "faint grid = 10 m; squares = the capital (10 m)", fill=(0, 0, 0), font=font); y += 28
 for lab_, col in [("Grass plateau", (112, 146, 66)), ("Beach", (222, 200, 150)),
-                  ("Shallows: wade, never build", (128, 160, 140)), ("Sea (impassable)", (30, 76, 124)),
+                  ("Shallows: wade AND build", (128, 160, 140)), ("Sea (impassable)", (30, 76, 124)),
                   ("Cliff", (70, 62, 56)), ("Ramp", (170, 140, 100)),
                   ("Mountain (unclaimable)", (140, 132, 122)), ("Forest (impassable)", (46, 82, 42)),
                   ("Island: curse start", (150, 90, 170))]:
@@ -437,7 +474,7 @@ for line in ["Start: the plateau beside the bay.",
              "Crown: shared, above both bay ramps.",
              "Sanctum: mountain pocket, one ramp.",
              "Beach: reached ONLY through the bay.",
-             "Shallows: claimable, never buildable.",
+             "Shallows: claimable AND buildable.",
              "Yiel: the curse's home, in the shallows."]:
     d.text((lx, y), line, fill=(0, 0, 0), font=font); y += 18
 y += 12
@@ -540,6 +577,8 @@ for r, code in enumerate(names):
         "code": code, "name": DISPLAY[code], "level": lv,
         "kind": "PlayerStart" if rtype(code) == "Start" else "Normal",
         "resources": rtype(code), "pinCurse": code == "Isle",
+        # the bay's waded water may be built on (RegionSeedMarker.BuildableShallows)
+        "buildableShallows": code.endswith("Shallows"),
         "seedX": round(float((sc / M - SX / 2) * SCALE), 2), "seedZ": round(float((SZ / 2 - sr / M) * SCALE), 2),
         "shape": shape,
     })

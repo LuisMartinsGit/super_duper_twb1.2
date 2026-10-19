@@ -432,6 +432,8 @@ namespace TheWaningBorder.Bootstrap
                 }
                 for (byte lvl = 1; lvl <= 3; lvl++)
                     TheWaningBorder.Systems.Buildings.BuildingUpgradeSystem.ApplyLevel(em, guild, lvl);
+                // Levels are faction-wide per type (2026-10-19).
+                TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Raise(em, faction, "GatherersHut", 3);
 
                 // Start it damaged so the swarm pushes it under 50% quickly and
                 // the Stop burst fires early in the fight.

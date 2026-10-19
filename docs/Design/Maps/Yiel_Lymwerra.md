@@ -1,4 +1,4 @@
-# Yiel Lymwérra (2026-10-17)
+# Yiel Lymwérra (2026-10-17; buildable shallows and lower mountains 2026-10-19)
 
 Two players, **384 × 192 m** — a rectangular map. A coast: mountains in the north, a grass plateau,
 a cliff down to the beaches and the sea in the south. Cut into the plateau is
@@ -32,7 +32,7 @@ same ground.
 | Gull Bluff / Tern Bluff | clifftop between the start and the bay's south horn | Normal + iron |
 | Westerly Downs / Easterly Downs | plateau north-west / north-east of the bay, holds a bay ramp | Normal + veilstone |
 | Gull Strand / Tern Strand | the beach under the coastal cliff — **reached only through the bay** | Iron rich |
-| West / East Lymwérra | the shallows, split through the island | Empty |
+| West / East Lymwérra | the shallows, split through the island — **buildable** (2026-10-19) | Empty |
 | Bayhead (shared) | plateau north of the bay, between both bay ramps | Normal |
 | Stormcairn (shared) | a pocket up in the mountains, one ramp down to Bayhead | Sanctum |
 | Yiel (shared) | the island | Veilstone rich — **the curse always starts here** |
@@ -50,16 +50,30 @@ are laid, and the island takes all four of its outcrops.
   the shallows at the bay's mouth, so everything below the cliffs is reached
   through the bay.
 - **The shallows are waded** (the `WaterPlane.wadeDepth` rule Fiendstone Pass
-  introduced): the bay floor sits just under the surface, so armies walk it,
-  and building in water stays forbidden at any depth. The sea shelves off
-  past the bay mouth and is too deep to walk.
-- **The shallows are territories** even though nothing can be built there.
-  Adjacency is outlines touching (RegionMap), so an island ringed by
-  unclaimed water would border nothing, and a territory bordering nothing
-  can never be claimed (claims need a bordering connected territory), nor
-  reached by anything that walks the territory graph. Two Empty shallows
-  territories give the island its neighbours, and armies standing in the bay
-  contest them.
+  introduced): the bay floor sits just under the surface, so armies walk it.
+  The sea shelves off past the bay mouth and is too deep to walk.
+- **The shallows are territories.** Adjacency is outlines touching
+  (RegionMap), so an island ringed by unclaimed water would border nothing,
+  and a territory bordering nothing can never be claimed (claims need a
+  bordering connected territory), nor reached by anything that walks the
+  territory graph. Two Empty shallows territories give the island its
+  neighbours, and armies standing in the bay contest them. Folding them into
+  the land around would make no sense here: the bay is a wide place, not a
+  crossing.
+- **The shallows are BUILDABLE (2026-10-19).** A territory you can claim
+  you must be able to build in, or it can never be held (an unbuilt
+  territory's meter only stands while an army does). The rule, for every
+  map: **waded water — ground no deeper under the `WaterPlane` than its
+  `wadeDepth`, i.e. above its walk line — is buildable only inside a
+  SHALLOWS territory, one that is itself waded water**
+  (`RegionSeedMarker.BuildableShallows`, written by the builder from
+  `buildableShallows` in layout.json, read through
+  `RegionMap.BuildableShallows`). Everywhere else water stays unbuildable at
+  any depth, so a ford inside a land territory (Moatwatch, Fiendstone Pass)
+  is crossed, never built on. One test enforces it,
+  `BuildCommandHelper.TerrainPointOk`, which the player's placement, the
+  plan / site validation, the AI's site searches and the node placement all
+  share; the 15° slope limit and the passability test still apply on top.
 - **The curse is pinned to Yiel.** Veilstone rich territories normally swap
   to a random spot each match (`randomizeCurseTerritories`,
   Territory_Claims.md); a territory whose `RegionSeedMarker.CurseStaysHere`
@@ -77,7 +91,18 @@ are laid, and the island takes all four of its outcrops.
   earlier 4 m-wavelength relief was steeper than the 15° build limit almost
   everywhere.
 - **Mountains** and **the sea** are covered by no territory outline, so they
-  are unclaimable; mountains also carry NoWalk paint.
+  are unclaimable; mountains also carry NoWalk paint, which (not their
+  height) is what makes them impassable.
+- **Mountains are a third as high (2026-10-19)**: the original mountain
+  profile — base, dome and ridge noise — kept whole, with its relief over
+  the ground around it (the plateau, the pocket) scaled by 1/3 (`ground + (old - ground) / 3`,
+  noise included), so every peak and trough keeps its place and
+  proportion: the same ruggedness, squashed vertically. Never less than a
+  few metres over the ground at their foot; their NoWalk paint and the
+  missing territory outline, not their height, keep them impassable and
+  unclaimable. The numbers are `MTN_BASE` / `MTN_DOME` (the original
+  profile), `MTN_SCALE` and `MTN_MIN` in `layout.py`, which prints old and
+  new relief.
 - **Forest** is decoration (Regions.md § Region kinds): clumps at the
   mountains' feet and along the clifftops, never near a start, a ramp or
   Bayhead.

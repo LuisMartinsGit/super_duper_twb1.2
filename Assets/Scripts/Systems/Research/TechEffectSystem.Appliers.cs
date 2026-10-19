@@ -398,8 +398,9 @@ namespace TheWaningBorder.Systems.Research
             }
         }
 
-        /// <summary>Scouting Celestarii — grant the Use Celestar reveal ability to
-        /// every existing faction Scout (new Scouts pick it up at spawn via the
+        /// <summary>Scouting Celestarii — grant the Use Celestar reveal PASSIVE
+        /// (2026-10-19; CelestarPassiveSystem fires it on idle Scouts) to every
+        /// existing faction Scout (new Scouts pick it up at spawn via the
         /// research check in Scout.Create).</summary>
         private static void ApplyScoutingCelestarii(EntityManager em, Faction faction)
         {

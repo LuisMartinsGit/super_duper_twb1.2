@@ -86,6 +86,13 @@ namespace TheWaningBorder.Systems.World
         private const int CensusSlots = 30;
         private int _censusSlot;
         private int[] _popAcc = System.Array.Empty<int>();
+        /// <summary>Military HEAD COUNT per (territory, side), sampled with the
+        /// population census — the Sanctum claim counts heads (§ 11.4).</summary>
+        private int[] _headAcc = System.Array.Empty<int>();
+        private int[] _head = System.Array.Empty<int>();
+        /// <summary>Per Sanctum: the side standing its claim and for how long.</summary>
+        private float[] _sanctumHold = System.Array.Empty<float>();
+        private int[] _sanctumSide = System.Array.Empty<int>();
 
         // Building -> territory, valid while the building has not moved and
         // the region map is the same version. Rebuilt from the live building
@@ -175,6 +182,9 @@ namespace TheWaningBorder.Systems.World
                 TerritoryOwnership.ResetMeter();
                 _censusSlot = 0;
                 System.Array.Clear(_popAcc, 0, _popAcc.Length);
+                System.Array.Clear(_headAcc, 0, _headAcc.Length);
+                System.Array.Clear(_sanctumHold, 0, _sanctumHold.Length);
+                for (int i = 0; i < _sanctumSide.Length; i++) _sanctumSide[i] = -1;
                 _regionMemo.Clear();
                 _regionMemoNext.Clear();
             }
@@ -200,6 +210,7 @@ namespace TheWaningBorder.Systems.World
             if (_popAcc.Length != cells)
             {
                 _popAcc = new int[cells];
+                _headAcc = new int[cells];
                 _censusSlot = 0;
             }
             if (_censusSlot < CensusSlots) SampleUnits(em, _censusSlot++);
@@ -230,6 +241,16 @@ namespace TheWaningBorder.Systems.World
             if (_popAcc.Length == cells) System.Array.Copy(_popAcc, _pop, cells);
             else System.Array.Clear(_pop, 0, cells);
             System.Array.Clear(_popAcc, 0, _popAcc.Length);
+            if (_head.Length != cells) _head = new int[cells];
+            if (_headAcc.Length == cells) System.Array.Copy(_headAcc, _head, cells);
+            else System.Array.Clear(_head, 0, cells);
+            System.Array.Clear(_headAcc, 0, _headAcc.Length);
+            if (_sanctumHold.Length != count)
+            {
+                _sanctumHold = new float[count];
+                _sanctumSide = new int[count];
+                for (int i = 0; i < count; i++) _sanctumSide[i] = -1;
+            }
             _censusSlot = 0;
 
             GatherBuildings(em);
@@ -270,6 +291,14 @@ namespace TheWaningBorder.Systems.World
                             if (weight[o] > 0f && Hostile(o, s)) { frozen = true; break; }
                     presentCount++;
                     if (firstPresent < 0) firstPresent = s;
+                }
+
+                // A SANCTUM has its own claim (§ 11.4, 2026-10-19): enough
+                // soldiers standing alone for long enough, not the meter.
+                if (TerritoryResources.IsSanctum(t))
+                {
+                    TickSanctum(em, t, dt, holder, holderSide, value, claimed, frozen, weight, ref anyLoss);
+                    continue;
                 }
 
                 bool locked = claimed && holderSide >= 0 && _hasLock[t * Sides + holderSide] != 0;
@@ -382,6 +411,102 @@ namespace TheWaningBorder.Systems.World
             if (anyLoss) UnityEngine.Debug.Log("[TerritoryClaim] ownership lost — buildings collapsed.");
 
             WearDisconnected(em, count, dt);
+        }
+
+        // ── Sanctums (Territory_Claims.md § 11.4, 2026-10-19) ───────────
+
+        /// <summary>
+        /// A Sanctum is claimed — or taken from its holder — by ONE side
+        /// standing at least `sanctumClaimUnits` military units in it,
+        /// uncontested, for `sanctumClaimSeconds` without a break. It needs no
+        /// connection to the claimant's ground and no building to stay held
+        /// (it never decays). Contest, cursed ground, a lock by the holder or
+        /// falling under the count resets the clock. The meter shows the
+        /// progress: rising for free ground, falling on a held one.
+        /// </summary>
+        private void TickSanctum(EntityManager em, int t, float dt, int holder, int holderSide,
+            int value, bool claimed, bool frozen, float[] weight, ref bool anyLoss)
+        {
+            var cfg = Cfg;
+            int need = math.max(1, cfg.sanctumClaimUnits);
+            float secs = math.max(1f, cfg.sanctumClaimSeconds);
+            int max = TerritoryOwnership.MeterMax;
+            bool lockedByHolder = claimed && holderSide >= 0 && _hasLock[t * Sides + holderSide] != 0;
+
+            // The claimant: the side with the most heads, at least `need`,
+            // allowed to take ground (aged up; connection not needed here).
+            int claimant = -1, best = 0;
+            if (!frozen && !TheWaningBorder.Systems.Border.CurseGroundSystem.TerritoryHasCurse(t))
+                for (int s = 0; s < Sides; s++)
+                {
+                    if (weight[s] <= 0f) continue;
+                    int heads = _head[t * Sides + s];
+                    if (heads < need || heads <= best) continue;
+                    if (s != holderSide && !MayTake(t, s)) continue;
+                    claimant = s; best = heads;
+                }
+            if (claimant >= 0 && claimant != holderSide && lockedByHolder) claimant = -1;
+
+            // Nobody taking it (or the holder standing on its own ground).
+            if (claimant < 0 || (claimed && claimant == holderSide))
+            {
+                _sanctumHold[t] = 0f; _sanctumSide[t] = -1;
+                if (claimed)
+                    TerritoryOwnership.SetMeter(t, holder, max, true, lockedByHolder, frozen, TerritoryOwnership.Natural);
+                else
+                    TerritoryOwnership.SetMeter(t, TerritoryOwnership.Natural, 0, false, false, frozen,
+                        TerritoryOwnership.Natural);
+                if (claimant < 0 && weight != null)
+                {
+                    int present = -1;
+                    for (int s = 0; s < Sides && present < 0; s++) if (weight[s] > 0f) present = s;
+                    if (present >= 0 && !frozen) NoticeSanctumShort(t, present, need);
+                }
+                return;
+            }
+
+            if (_sanctumSide[t] != claimant) { _sanctumSide[t] = claimant; _sanctumHold[t] = 0f; }
+            _sanctumHold[t] += dt;
+            float frac = math.saturate(_sanctumHold[t] / secs);
+
+            if (frac < 1f)
+            {
+                if (claimed)
+                    TerritoryOwnership.SetMeter(t, holder, (int)(max * (1f - frac)), true, false, false,
+                        HolderValue(claimant));
+                else
+                    TerritoryOwnership.SetMeter(t, HolderValue(claimant), (int)(max * frac), false, false, false,
+                        TerritoryOwnership.Natural);
+                return;
+            }
+
+            // Held long enough: it is theirs.
+            bool lose = claimed && holderSide >= 0 && holderSide != claimant;
+            int newHolder = HolderValue(claimant);
+            bool newLock = _hasLock[t * Sides + claimant] != 0;
+            TerritoryOwnership.SetMeter(t, newHolder, max, true, newLock, false, TerritoryOwnership.Natural);
+            _sanctumHold[t] = 0f; _sanctumSide[t] = -1;
+            if (lose)
+            {
+                anyLoss = true;
+                CollapseBuildings(em, t, holderSide);
+                Announce(t, holder, lost: true, by: newHolder);
+            }
+            Announce(t, newHolder, lost: false);
+        }
+
+        private double _nextSanctumNotice;
+
+        /// <summary>Tell the local player, at most every 20 s, that a Sanctum
+        /// needs more soldiers. Presentation only.</summary>
+        private void NoticeSanctumShort(int t, int side, int need)
+        {
+            if (GameSettings.IsSpectating || side != (int)GameSettings.LocalPlayerFaction) return;
+            double now = TheWaningBorder.Core.SimClock.Elapsed;
+            if (now < _nextSanctumNotice) return;
+            _nextSanctumNotice = now + 20.0;
+            SimSignals.Notify(string.Format(TheWaningBorder.Core.Localization.Loc.T(
+                "A Sanctum needs {0} soldiers standing in it, uncontested, to be claimed"), need));
         }
 
         // ── Fortress reach (Territory_Claims.md §8) ─────────────────────
@@ -553,6 +678,7 @@ namespace TheWaningBorder.Systems.World
             var conscriptH = GetComponentTypeHandle<ConscriptedTag>(true);
             var deathH = GetComponentTypeHandle<DeathAnimationState>(true);
             var popH = GetComponentTypeHandle<PopulationCost>(true);
+            var disH = GetComponentTypeHandle<SectDisordered>(true);
             var godH = GetComponentTypeHandle<GodsplinterState>(true);
             var stingH = GetComponentTypeHandle<VeilstingerState>(true);
 
@@ -574,6 +700,7 @@ namespace TheWaningBorder.Systems.World
                 bool hasPop = chunk.Has(ref popH);
                 var pops = hasPop ? chunk.GetNativeArray(ref popH) : default;
                 bool isGod = chunk.Has(ref godH), isSting = chunk.Has(ref stingH);
+                bool hasDis = chunk.Has(ref disH);
 
                 for (int i = 0; i < chunk.Count; i++)
                 {
@@ -585,6 +712,8 @@ namespace TheWaningBorder.Systems.World
                     var cls = tags[i].Class;
                     if (cls == UnitClass.Economy || cls == UnitClass.Worker || cls == UnitClass.Scout) continue;
                     if (hasDeath && chunk.IsComponentEnabled(ref deathH, i)) continue;
+                    // A unit gone mad under Friendly Fire claims for nobody.
+                    if (hasDis && chunk.IsComponentEnabled(ref disH, i)) continue;
 
                     var p = xfs[i].Position;
                     int t = RegionMap.RegionAt(p.x, p.z);
@@ -599,6 +728,7 @@ namespace TheWaningBorder.Systems.World
                             : side == CurseSide ? (isGod ? 3 : isSting ? 2 : 1)
                             : 1;
                     _popAcc[t * Sides + side] += pop;
+                    _headAcc[t * Sides + side] += 1;
                 }
             }
         }

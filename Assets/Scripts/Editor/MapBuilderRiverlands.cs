@@ -45,15 +45,23 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         private const int HeightRes = 1025;      // ~0.5 m per texel
         private const int AlphaRes = 512;
 
-        // Heights chosen against PassabilityGrid's thresholds:
+        // The ORIGINAL heights were chosen against the old thresholds
         //   WaterHeight = 4 m, MountainHeight = 24 m, MaxWalkableSlope = 1.0
-        // RegionMap.IsClaimable uses the same two numbers, so anything raised
-        // above 24 m or sunk below 4 m is automatically BOTH impassable and
-        // unclaimable — which is exactly what mountains and the Nature ring are.
+        // so anything raised above 24 m or sunk below 4 m was both impassable
+        // and unclaimable. RidgeY / NatureY are that original profile
+        // (UnscaledHeightAt); since 2026-10-19 the terrain is built with the
+        // mountain relief over the plain a THIRD as high (MountainScale), and
+        // the old mountain footprint is painted NoWalk (IsMountain) — the
+        // lowered flanks are under the slope limit, so the paint, not the
+        // height, keeps them impassable.
         private const float PlainY = 8f;
         private const float LakeY = 1.0f;
         private const float RidgeY = 34f;
         private const float NatureY = 40f;
+        private const float MountainScale = 1f / 3f;
+        private const float OldMountainHeight = 24f;
+        private const float MaxWalkableSlope = 1.0f;   // PassabilityGrid.MaxWalkableSlope
+        private const float SlopeStep = 1.5f;          // PassabilityGrid.SlopeCheckStep, metres
 
         // ── polar layout (metres from map centre) ───────────────────────────
         private const int Sectors = 6;                // one per player
@@ -194,7 +202,40 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             return data;
         }
 
+        /// <summary>Built height: the original profile with its mountain
+        /// relief over the plain a third as high (2026-10-19), lakes as they
+        /// were.</summary>
         private static float HeightAt(float nx, float nz)
+        {
+            float plain = PlainY + Noise(nx, nz);
+            float y = plain + (MountainProfile(nx, nz) - plain) * MountainScale;
+            return SinkLakes(nx, nz, y);
+        }
+
+        /// <summary>The ORIGINAL (pre-2026-10-19) height — what the placement
+        /// tests and the ground paint read, so footprints are unchanged.</summary>
+        private static float UnscaledHeightAt(float nx, float nz)
+            => SinkLakes(nx, nz, MountainProfile(nx, nz));
+
+        /// <summary>Mountain ground: what the ORIGINAL profile made
+        /// impassable by height or slope. Painted NoWalk. World metres,
+        /// centre origin (MapGenKit.PaintNoWalkWhere).</summary>
+        private static bool IsMountain(float wx, float wz)
+        {
+            float nx = wx / MapMetres + 0.5f, nz = wz / MapMetres + 0.5f;
+            float plain = PlainY + Noise(nx, nz);
+            float m = MountainProfile(nx, nz);
+            if (m - plain <= 0.5f) return false;           // no ridge / ring raised it
+            if (UnscaledHeightAt(nx, nz) >= OldMountainHeight) return true;
+            float dn = SlopeStep / MapMetres;
+            float dX = (UnscaledHeightAt(nx + dn, nz) - UnscaledHeightAt(nx - dn, nz)) / (2f * SlopeStep);
+            float dZ = (UnscaledHeightAt(nx, nz + dn) - UnscaledHeightAt(nx, nz - dn)) / (2f * SlopeStep);
+            return dX * dX + dZ * dZ > MaxWalkableSlope * MaxWalkableSlope;
+        }
+
+        /// <summary>The plain, the Nature ring and the mountains, at their
+        /// ORIGINAL height.</summary>
+        private static float MountainProfile(float nx, float nz)
         {
             float y = PlainY + Noise(nx, nz);
 
@@ -212,7 +253,11 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 up = Mathf.Max(up, Blob(nx, nz, c, MountainSize / MapMetres));
             }
             if (up > 0f) y = Mathf.Lerp(y, RidgeY, Smooth(up));
+            return y;
+        }
 
+        private static float SinkLakes(float nx, float nz, float y)
+        {
             // Lakes, sunk last so one never sits on a ridge.
             float down = 0f;
             for (int i = 0; i < Sectors; i += 2)
@@ -275,7 +320,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 float nz = z / (float)(AlphaRes - 1);
                 for (int x = 0; x < AlphaRes; x++)
                 {
-                    float y = HeightAt(x / (float)(AlphaRes - 1), nz);
+                    float y = UnscaledHeightAt(x / (float)(AlphaRes - 1), nz);   // the original footprint
                     int pick = 0;                                   // Grass
                     if (y < 4f) pick = Mathf.Min(1, lc - 1);        // Dirt  (lake bed)
                     else if (y > 24f) pick = Mathf.Min(2, lc - 1);  // Rock  (mountain / ring)
@@ -283,6 +328,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 }
             }
             data.SetAlphamaps(0, 0, map);
+            // The mountains and the Nature ring block by paint (2026-10-19).
+            MapGenKit.PaintNoWalkWhere(data, IsMountain);
         }
 
         // ── markers ─────────────────────────────────────────────────────────
@@ -465,7 +512,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             {
                 var p = Vector2.Lerp(ideal, seedN, step / 24f);
                 var w = ToWorld(p.x, p.y);
-                float y = HeightAt(p.x, p.y);
+                float y = UnscaledHeightAt(p.x, p.y);
                 if (y <= 4f + 2.85f || y >= 24f - 2.85f) continue;      // unusable ground
                 if (TheWaningBorder.World.Regions.RegionMap.RegionAt(w.x, w.z) == home)
                     return p;
@@ -518,10 +565,11 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             {
                 float nx = world.x / MapMetres + 0.5f;
                 float nz = world.z / MapMetres + 0.5f;
-                float y = HeightAt(nx, nz);
+                float y = UnscaledHeightAt(nx, nz);
                 string why = null;
                 if (y <= 4f + 2.85f) why = $"under water (y={y:0.0} m)";
                 else if (y >= 24f - 2.85f) why = $"on mountain / Nature ring (y={y:0.0} m)";
+                else if (IsMountain(world.x, world.z)) why = "on a mountain flank (NoWalk)";
                 if (why == null) return;
                 Debug.LogError($"[{MapName}] {what} at ({nx:0.000}, {nz:0.000}) is {why}.");
                 bad++;

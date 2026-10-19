@@ -379,7 +379,8 @@ namespace TheWaningBorder.World.FogOfWar
         {
             if (!_visible.IsCreated) return;
 
-            if (!_staticValid || staticHash != _staticHash || staticCount != _staticCount)
+            if (!_staticValid || staticHash != _staticHash || staticCount != _staticCount
+                || TerritoryKey() != _staticTerrKey)
                 RebuildStatic(statics, staticCount, staticHash);
 
             RunFactionPass(mobiles, mobileCount, clearFirst: true);
@@ -391,7 +392,8 @@ namespace TheWaningBorder.World.FogOfWar
         /// static set has not changed may then pass no commands at all
         /// (StampPass will not rebuild). 2026-10-16 perf.</summary>
         public bool StaticLayerMatches(ulong hash, int count)
-            => _staticValid && _static.IsCreated && hash == _staticHash && count == _staticCount;
+            => _staticValid && _static.IsCreated && hash == _staticHash && count == _staticCount
+               && TerritoryKey() == _staticTerrKey;
 
         unsafe void RebuildStatic(NativeArray<StampCommand> statics, int count, ulong hash)
         {
@@ -405,10 +407,11 @@ namespace TheWaningBorder.World.FogOfWar
 
             var cmds = SortByFaction(statics, count, out var start, out var cnt);
             var flags = new NativeArray<byte>(MaxFactions, Allocator.TempJob);
+            ulong terrKey = TerritoryKey();
             for (int f = 0; f < MaxFactions; f++)
             {
                 // Clear a slice that held stamps before or is about to.
-                bool has = cnt[f] > 0;
+                bool has = cnt[f] > 0 || (terrKey != 0 && FactionHasTerritorySight(f));
                 flags[f] = (byte)((_staticHas[f] || has) ? FlagClear : 0);
                 _staticHas[f] = has;
             }
@@ -432,10 +435,179 @@ namespace TheWaningBorder.World.FogOfWar
             }.Schedule(MaxFactions, 1).Complete();
 
             cmds.Dispose(); start.Dispose(); cnt.Dispose(); flags.Dispose();
+
+            // Cartography's held territories, exactly on their cells, into
+            // the same layer (and Revealed) - see StampTerritorySight.
+            if (terrKey != 0)
+                StampTerritorySight((byte*)_static.GetUnsafePtr(), (byte*)_revealed.GetUnsafePtr(), cells);
+            _staticTerrKey = terrKey;
+
             _staticHash = hash;
             _staticCount = count;
             _staticValid = true;
             _staticVersion++;   // the overlay re-uploads the building sight now
+        }
+
+        // ── Territory sight: Cartography (2026-10-19) ──────────────────────
+        // docs/Design/Sects.md §4 (Antiquity): with Cartography researched,
+        // every territory a faction HOLDS is fully visible to it - exactly
+        // the territory's cells, following its border, nothing outside - and
+        // falls back to remembered ("explored") the moment it is lost, simply
+        // because it is no longer stamped.
+        //
+        // The fog grid is cut by territory ONCE per map (RegionMap.RegionAt
+        // at every cell centre - the same lookup the drawn border lines are
+        // traced from), stored as row runs per territory. Cutting walks every
+        // cell, so it is spread over several passes (TerritoryBuildCells per
+        // pass) and only starts the first time any faction has sight to
+        // stamp. Stamping is then one MemSet per run.
+        //
+        // The territories go into the STATIC layer: it is copied into Visible
+        // every pass (so IsVisible, the minimap, unit show/hide and the team
+        // merge all see them) and it is what the overlay texture draws as
+        // visible. The layer is rebuilt only when the sighted set changes
+        // (TerritoryKey), so a stable map costs nothing per pass.
+        // Presentation only - the simulation's sight test is FactionSight.
+        const int TerritoryBuildCells = 1 << 17;
+
+        int _terrMapVersion = int.MinValue, _terrMapCount = -1, _terrMapW, _terrMapH;
+        Vector2 _terrMapMin;
+        float _terrMapCell;
+        int _terrBuildRow;
+        System.Collections.Generic.List<Vector2Int>[] _terrRunsBuild;
+        Vector2Int[] _terrRuns = Array.Empty<Vector2Int>();   // (cell index in a slice, length)
+        int[] _terrRunStart = Array.Empty<int>();
+        int[] _terrRunCount = Array.Empty<int>();
+        bool _terrReady;
+        int _terrBuildId;
+
+        bool[] _terrSight = Array.Empty<bool>();   // [faction * count + territory]
+        int _terrSightCount;
+        ulong _terrSightHash;
+        bool _terrAny;
+        ulong _staticTerrKey;
+
+        /// <summary>
+        /// Which territories each faction sees whole this pass, as
+        /// [faction * territoryCount + territory] — its OWN holdings; team
+        /// mates get them through the usual shared-sight merge.
+        /// <paramref name="hash"/> identifies the set; the static layer is
+        /// rebuilt when it changes. Called by FogOfWarSystem every reveal pass.
+        /// </summary>
+        public void SetTerritorySight(bool[] sight, int territoryCount, ulong hash)
+        {
+            _terrSight = sight ?? Array.Empty<bool>();
+            _terrSightCount = territoryCount;
+            _terrSightHash = hash;
+            _terrAny = false;
+            for (int i = 0; i < _terrSight.Length; i++)
+                if (_terrSight[i]) { _terrAny = true; break; }
+            if (_terrAny) AdvanceTerritoryMask();
+        }
+
+        /// <summary>0 when no territory is stamped; otherwise a key that
+        /// changes with the sighted set and with every re-cut cell mask.</summary>
+        ulong TerritoryKey()
+        {
+            if (!_terrAny || !_terrReady || _terrSightCount != _terrMapCount) return 0UL;
+            ulong z = _terrSightHash ^ ((ulong)(uint)_terrBuildId << 32) ^ 0x9E3779B97F4A7C15UL;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            return (z ^ (z >> 31)) | 1UL;
+        }
+
+        bool FactionHasTerritorySight(int f)
+        {
+            int n = _terrSightCount, o = f * n;
+            if (n > _terrRunCount.Length || o + n > _terrSight.Length) return false;
+            for (int t = 0; t < n; t++)
+                if (_terrSight[o + t] && _terrRunCount[t] > 0) return true;
+            return false;
+        }
+
+        unsafe void StampTerritorySight(byte* vis, byte* rev, int cells)
+        {
+            int n = _terrSightCount;
+            if (n > _terrRunCount.Length) return;
+            for (int f = 0; f < MaxFactions; f++)
+            {
+                int o = f * n;
+                if (o + n > _terrSight.Length) break;
+                long fo = (long)f * cells;
+                for (int t = 0; t < n; t++)
+                {
+                    if (!_terrSight[o + t]) continue;
+                    int s = _terrRunStart[t], e = s + _terrRunCount[t];
+                    for (int k = s; k < e; k++)
+                    {
+                        var run = _terrRuns[k];
+                        UnsafeUtility.MemSet(vis + fo + run.x, 255, run.y);
+                        UnsafeUtility.MemSet(rev + fo + run.x, 255, run.y);
+                    }
+                }
+            }
+        }
+
+        /// <summary>Cut (more of) the fog grid by territory. Starts over when
+        /// the map's regions or the fog grid change.</summary>
+        void AdvanceTerritoryMask()
+        {
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready || _w <= 0 || _h <= 0) return;
+            int count = TheWaningBorder.World.Regions.RegionMap.Count;
+            if (_terrMapVersion != TheWaningBorder.World.Regions.RegionMap.Version
+                || _terrMapCount != count || _terrMapW != _w || _terrMapH != _h
+                || _terrMapMin != WorldMin || _terrMapCell != CellSize)
+            {
+                _terrMapVersion = TheWaningBorder.World.Regions.RegionMap.Version;
+                _terrMapCount = count;
+                _terrMapW = _w; _terrMapH = _h;
+                _terrMapMin = WorldMin; _terrMapCell = CellSize;
+                _terrReady = false;
+                _terrBuildRow = 0;
+                _terrRunsBuild = new System.Collections.Generic.List<Vector2Int>[count];
+                for (int t = 0; t < count; t++)
+                    _terrRunsBuild[t] = new System.Collections.Generic.List<Vector2Int>(64);
+            }
+            if (_terrReady) return;
+
+            int rows = Mathf.Max(1, TerritoryBuildCells / _w);
+            int end = Mathf.Min(_h, _terrBuildRow + rows);
+            for (int y = _terrBuildRow; y < end; y++)
+            {
+                float wz = WorldMin.y + (y + 0.5f) * CellSize;
+                int cur = -1, x0 = 0;
+                for (int x = 0; x <= _w; x++)
+                {
+                    int t = x < _w
+                        ? TheWaningBorder.World.Regions.RegionMap.RegionAt(WorldMin.x + (x + 0.5f) * CellSize, wz)
+                        : -1;
+                    if (t == cur) continue;
+                    if (cur >= 0 && cur < count)
+                        _terrRunsBuild[cur].Add(new Vector2Int(y * _w + x0, x - x0));
+                    cur = t;
+                    x0 = x;
+                }
+            }
+            _terrBuildRow = end;
+            if (_terrBuildRow < _h) return;
+
+            int total = 0;
+            for (int t = 0; t < count; t++) total += _terrRunsBuild[t].Count;
+            _terrRuns = new Vector2Int[total];
+            _terrRunStart = new int[count];
+            _terrRunCount = new int[count];
+            int at = 0;
+            for (int t = 0; t < count; t++)
+            {
+                var list = _terrRunsBuild[t];
+                _terrRunStart[t] = at;
+                _terrRunCount[t] = list.Count;
+                list.CopyTo(_terrRuns, at);
+                at += list.Count;
+            }
+            _terrRunsBuild = null;
+            _terrReady = true;
+            _terrBuildId++;
         }
 
         unsafe void RunFactionPass(NativeArray<StampCommand> mobiles, int count, bool clearFirst)

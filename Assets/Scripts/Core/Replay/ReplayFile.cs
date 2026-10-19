@@ -35,6 +35,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using TheWaningBorder.Core.Config;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Core.Multiplayer;
 
 namespace TheWaningBorder.Core.Replay
@@ -69,6 +70,22 @@ namespace TheWaningBorder.Core.Replay
 
         /// <summary>True when this build can re-simulate the file.</summary>
         public bool Compatible => Fingerprint == MatchSettingsSync.Fingerprint;
+
+        /// <summary>The player-facing refusal for a file from another build
+        /// (localized). The fingerprint carries the game version, the lockstep
+        /// protocol and SaveGameFile.SaveFormatVersion, so a replay from before
+        /// any of those changed is refused here.</summary>
+        public string IncompatibleMessage(bool isSave)
+        {
+            bool known = !string.IsNullOrEmpty(Build);
+            if (isSave)
+                return known
+                    ? string.Format(Loc.T("This save was made with a different version of the game ({0}) and can't be loaded in this version."), Build)
+                    : Loc.T("This save was made with a different version of the game and can't be loaded in this version.");
+            return known
+                ? string.Format(Loc.T("This replay was recorded with a different version of the game ({0}) and can't be played in this version."), Build)
+                : Loc.T("This replay was recorded with a different version of the game and can't be played in this version.");
+        }
 
         /// <summary>The header of the match being played right now.</summary>
         public static ReplayHeader CaptureCurrent()
@@ -120,13 +137,17 @@ namespace TheWaningBorder.Core.Replay
         /// build — a different simulation would take a different path from the
         /// first command on, and the player would watch nonsense.
         /// </summary>
-        public bool Apply(out string error)
+        public bool Apply(out string error) => Apply(false, out error);
+
+        /// <param name="isSave">Word the refusal for a saved game rather than a replay.</param>
+        public bool Apply(bool isSave, out string error)
         {
             error = null;
             if (!Compatible)
             {
-                error = $"Recorded by build {Build}; this is {UnityEngine.Application.version}. " +
-                        "A replay or save only plays on the build that made it.";
+                error = IncompatibleMessage(isSave);
+                UnityEngine.Debug.LogWarning($"[Replay] Refused: recorded by build {Build} (fp {Fingerprint}); " +
+                    $"this is {UnityEngine.Application.version} (fp {MatchSettingsSync.Fingerprint}).");
                 return false;
             }
             if (!MatchSettingsSync.Apply(Settings, out error)) return false;
@@ -287,14 +308,14 @@ namespace TheWaningBorder.Core.Replay
                 var file = Parse(File.ReadLines(path, Encoding.UTF8));
                 if (file.Header.Format <= 0 || file.Header.Format > ReplayHeader.CurrentFormat)
                 {
-                    error = "Not a replay this version of the game can read.";
+                    error = Loc.T("Not a replay this version of the game can read.");
                     return null;
                 }
                 return file;
             }
             catch (Exception e)
             {
-                error = "Could not read the file: " + e.Message;
+                error = Loc.T("Could not read the file: ") + e.Message;
                 return null;
             }
         }

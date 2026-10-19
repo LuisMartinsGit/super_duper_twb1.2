@@ -197,7 +197,10 @@ hunts the caravans; the AI of every culture targets them (§9).
 | **Thessara's Crossing** | landmark, grand market, trade research |
 
 All trainers level L1-L3 (level SOs in their folders). The **Waystation
-levels** too (`Waystation_Lvl1..3`).
+levels** too (`Waystation_Lvl1..3`). As for every culture, a level is
+**faction-wide per building type** — one level-up raises every building of
+the type, and new ones are built at it
+([Overview.md § Building levels](Overview.md#building-levels-faction-wide)).
 
 ### 4.3 Waystation — the Runai watch tower
 

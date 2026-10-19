@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 3
   displayName: Guild
   upgradeCost:
-    Supplies: 467
-    Iron: 75
+    Supplies: 1100
+    Iron: 400
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 45
@@ -27,7 +27,7 @@ MonoBehaviour:
   attackCooldownMultiplier: 0.8333333
   maxTargets: 0
   populationProvided: 0
-  slotIncomePerMinute: 195
+  slotIncomePerMinute: 140
   interestMultiplier: 0
   attack:
     enabled: 0

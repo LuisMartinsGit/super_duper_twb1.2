@@ -17,9 +17,9 @@ MonoBehaviour:
   buyIron: 50
   buyVeilstone: 100
   forgeVeilstone: 50
-  forgeVeilsteel: 10
+  forgeVeilsteel: 20
   sellVeilsteel: 50
-  sellIron: 300
+  sellIron: 150
   sellSupplies: 0
   forgeTech: Alanthor_VeilsteelForging
   sellTech: Alanthor_VeilsteelExport
@@ -30,7 +30,7 @@ MonoBehaviour:
   discountPercent:
   - 20
   - 45
-  - 75
+  - 50
   speedTechs:
   - Alanthor_SwiftCaravans
   nodeReach: 12

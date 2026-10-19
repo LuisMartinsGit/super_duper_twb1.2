@@ -19,6 +19,7 @@ MonoBehaviour:
   speedUpPrefab: {fileID: 3871730096559169797, guid: 8f52337c441cac54c9841230ebfce63d, type: 3}
   slowDownPrefab: {fileID: 6690736211316310120, guid: 13bad7ef4039fb541b047cadaa155b42, type: 3}
   attackUpPrefab: {fileID: 7042460137364555477, guid: 9c5255fe92a3b05408397f04563af965, type: 3}
+  frenziedPrefab: {fileID: 1989413823170049497, guid: f8ed1fa46c39cba4483cae05f733d0bb, type: 3}
   scalePerMetre: 0.5
   hitHeightFraction: 0.55
   hitCooldownSeconds: 0.35

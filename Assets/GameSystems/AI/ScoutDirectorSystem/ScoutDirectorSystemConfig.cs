@@ -35,5 +35,15 @@ namespace TheWaningBorder.AI
 
         public float planTimeoutSeconds;
 
+        // The Celestar watch (2026-10-19): scouts parked idle at home once
+        // ScoutingCelestarii is owned, so the passive fires. Never the last scout.
+        public int celestarWatchScouts;
+
+        // metres from the Fortress, on its far side from the map centre
+        public float celestarWatchOffset;
+
+        // a watcher within this many metres of its post counts as parked
+        public float celestarWatchArriveRadius;
+
     }
 }

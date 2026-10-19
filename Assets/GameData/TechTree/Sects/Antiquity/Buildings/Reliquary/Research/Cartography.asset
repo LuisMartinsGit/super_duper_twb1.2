@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: "Cartography"
   role: Utility
   effect: 
-  desc: "Sect of Antiquity. Capturing a territory explores all of it."
+  desc: "Sect of Antiquity. Every territory you hold is fully visible to you; lost ground falls back to explored."
   researchAt: Sect_Reliquary
   minBuildingLevel: 0
   researchTime: 50

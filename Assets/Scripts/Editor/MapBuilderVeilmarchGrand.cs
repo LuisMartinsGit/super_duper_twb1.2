@@ -1,4 +1,4 @@
-﻿// MapBuilderVeilmarchGrand.cs
+// MapBuilderVeilmarchGrand.cs
 // THE VEILMARCH GENERATOR. Eight players on the 385 m ring.
 //
 // 2026-09-24: this is now the ONLY Veilmarch. The four-player map and its
@@ -85,11 +85,20 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         // read it.
         private const int DetailRes = 512;
 
-        // Heights against PassabilityGrid/RegionMap thresholds (Water 4 m,
-        // Mountain 24 m): above 24 or below 4 is impassable AND unclaimable.
+        // The ORIGINAL heights (UnscaledHeightAt) against the old thresholds
+        // (Water 4 m, Mountain 24 m): above 24 or below 4 is impassable AND
+        // unclaimable. RidgeY / NatureY are that original profile; the
+        // terrain is built a THIRD as high over the plain (MountainScale,
+        // 2026-10-19), so the mountain footprint is read from the unscaled
+        // profile and painted NoWalk (IsMountain) — the lowered flanks are
+        // under the slope limit and would otherwise be walked.
         private const float PlainY = 8f;
         private const float RidgeY = 34f;
         private const float NatureY = 40f;
+        private const float MountainScale = 1f / 3f;
+        private const float OldMountainHeight = 24f;   // the old height line
+        private const float MaxWalkableSlope = 1.0f;   // PassabilityGrid.MaxWalkableSlope
+        private const float SlopeStep = 1.5f;          // PassabilityGrid.SlopeCheckStep
         private const float NatureRingMetres = 40f;
 
         // ── polar layout (metres from map centre; 4 sectors) ────────────────
@@ -229,6 +238,9 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             // The flora pass's NoWalk patches are stripped again (2026-10-06,
             // MapNoWalkCleaner): the developer wants this map free.
             MapNoWalkCleaner.Clear(terrain.terrainData);
+            // The mountains, AFTER the clean (which strips every NoWalk
+            // texel): a third as high, they block by paint (2026-10-19).
+            MapGenKit.PaintNoWalkWhere(terrain.terrainData, IsMountain);
 
             int bad = ValidatePlacements();
             bad += ValidateRegionAreas();
@@ -273,8 +285,37 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
         // ── terrain ─────────────────────────────────────────────────────────
 
-        /// <summary>Ground height in world metres at world (wx, wz).</summary>
+        /// <summary>Ground height in world metres at world (wx, wz): the
+        /// original profile with its relief over the plain scaled by
+        /// <see cref="MountainScale"/> (2026-10-19, a third as high, the same
+        /// shape).</summary>
         private static float HeightAt(float wx, float wz)
+        {
+            float plain = PlainHeightAt(wx, wz);
+            return plain + (UnscaledHeightAt(wx, wz) - plain) * MountainScale;
+        }
+
+        /// <summary>The plain under everything, before any ridge or ring.</summary>
+        private static float PlainHeightAt(float wx, float wz) => Mathf.Max(PlainY + Noise(wx, wz), 7.0f);
+
+        /// <summary>Mountain ground: what the ORIGINAL profile made impassable
+        /// — above the old 24 m line, or steeper than the walk limit. Painted
+        /// NoWalk so the lowered mountains block exactly where they did.</summary>
+        private static bool IsMountain(float wx, float wz)
+        {
+            if (UnscaledHeightAt(wx, wz) >= OldMountainHeight) return true;
+            float dX = (UnscaledHeightAt(wx + SlopeStep, wz) - UnscaledHeightAt(wx - SlopeStep, wz)) / (2f * SlopeStep);
+            float dZ = (UnscaledHeightAt(wx, wz + SlopeStep) - UnscaledHeightAt(wx, wz - SlopeStep)) / (2f * SlopeStep);
+            if (dX * dX + dZ * dZ <= MaxWalkableSlope * MaxWalkableSlope) return false;
+            // the plain's own noise never reaches the limit; only ground the
+            // ridge / ring raised counts
+            return UnscaledHeightAt(wx, wz) - PlainHeightAt(wx, wz) > 0.5f;
+        }
+
+        /// <summary>The ORIGINAL (pre-2026-10-19) height profile — what every
+        /// placement test and the ground paint still read, so the map's
+        /// footprints are unchanged.</summary>
+        private static float UnscaledHeightAt(float wx, float wz)
         {
             // The floor keeps noise dips clear of the validator's water margin
             // (4 m water + 2.85 m slack): a plain that wobbles down to 6.8 m is
@@ -412,7 +453,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 for (int x = 0; x < AlphaRes; x++)
                 {
                     float wx = -half + (x / (float)(AlphaRes - 1)) * MapMetres;
-                    float h = HeightAt(wx, wz);
+                    float h = UnscaledHeightAt(wx, wz);   // the look follows the original footprint
                     for (int l = 0; l < lc; l++) w[l] = 0f;
 
                     // Base: two grasses trading on broad noise.
@@ -691,7 +732,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             for (int step = 0; step <= 24; step++)
             {
                 var p = Vector2.Lerp(ideal, seedP, step / 24f);
-                float y = HeightAt(p.x, p.y);
+                float y = UnscaledHeightAt(p.x, p.y);
                 if (y <= 4f + 2.85f || y >= 24f - 2.85f) continue;
                 if (TheWaningBorder.World.Regions.RegionMap.RegionAt(p.x, p.y) == region)
                     return p;
@@ -774,7 +815,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             if (NatureRingMask(wx, wz) > 0.15f)
                 return Hash(wx, wz) % 100 < 65;    // thick edge band
 
-            float y = HeightAt(wx, wz);
+            float y = UnscaledHeightAt(wx, wz);
             if (y > 24f) return Hash(wx, wz) % 100 < 45;  // scree on the ridges
 
             return Hash(wx, wz) % 100 < 22;        // open field: sparse
@@ -862,10 +903,11 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
             void Check(string what, Vector3 world)
             {
-                float y = HeightAt(world.x, world.z);
+                float y = UnscaledHeightAt(world.x, world.z);
                 string why = null;
                 if (y <= 4f + 2.85f) why = $"under water (y={y:0.0} m)";
                 else if (y >= 24f - 2.85f) why = $"on ridge / Nature ring (y={y:0.0} m)";
+                else if (IsMountain(world.x, world.z)) why = "on a mountain flank (NoWalk)";
                 if (why == null) return;
                 Debug.LogError($"[{MapName}] {what} at ({world.x:0}, {world.z:0}) is {why}.");
                 bad++;
@@ -985,8 +1027,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 {
                     float wx = (x + 0.5f) * cell - MapMetres * 0.5f;
                     float wz = (z + 0.5f) * cell - MapMetres * 0.5f;
-                    float y = HeightAt(wx, wz);
-                    if (y <= 4f || y >= 24f) continue;   // unclaimable
+                    float y = UnscaledHeightAt(wx, wz);
+                    if (y <= 4f || y >= 24f || IsMountain(wx, wz)) continue;   // unclaimable
                     int r = TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz);
                     if (r < 0) continue;
                     area.TryGetValue(r, out float a);

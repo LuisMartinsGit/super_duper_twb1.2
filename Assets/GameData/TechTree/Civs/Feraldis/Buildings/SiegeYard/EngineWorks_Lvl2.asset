@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 2
   displayName: Engine Works
   upgradeCost:
-    Supplies: 193
-    Iron: 60
+    Supplies: 700
+    Iron: 350
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 35

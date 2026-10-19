@@ -167,35 +167,24 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// Level ONE Trading Outpost per think while veilstone-held (2026-10-04,
-        /// Veilstone_Economy.md §3.1): a level raises the post's trade rate,
-        /// which is veilstone per minute. The cheapest next level first — the
-        /// per-outcrop ramp makes a first post's level-up cheaper than a
-        /// fourth's — and never one that dips into the army's veilstone
+        /// Level the Trading Outposts while veilstone-held (2026-10-04,
+        /// Veilstone_Economy.md §3.1): a level raises the trade rate, which is
+        /// veilstone per minute. Never one that dips into the army's veilstone
         /// earmark. L1 is the free age-up level and is never bought here.
+        /// ONE faction-wide decision (2026-10-19): the level raises EVERY post,
+        /// so nothing is bought while one is queued or running on any post,
+        /// and the clock runs on the least busy post
+        /// (AIBuildingUpgradeSystem.PickHost). A surplus spend, so no value
+        /// gate against soldiers.
         /// </summary>
         private static void TrySurplusOutpostUpgrade(EntityManager em, Faction faction)
         {
             var q = QC_Outposts.Get(em, QT_Outposts);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            Entity best = Entity.Null;
-            Cost bestCost = default;
-            byte bestLevel = 0;
-            int bestTotal = int.MaxValue;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (facs[i].Value != faction) continue;
-                if (TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.IsUpgradeQueued(em, ents[i]))
-                    continue;
-                if (!TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.TryGetNextCost(
-                        em, ents[i], out var cost, out byte next)) continue;
-                if (next <= 1) continue;
-                int total = cost.Supplies + cost.Iron + cost.Veilstone + cost.Veilsteel;
-                if (total >= bestTotal) continue;
-                best = ents[i]; bestCost = cost; bestLevel = next; bestTotal = total;
-            }
+            Entity best = AIBuildingUpgradeSystem.PickHost(em, faction, q);
             if (best == Entity.Null) return;
+            if (!TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.TryGetNextCost(
+                    em, best, out var bestCost, out byte bestLevel)) return;
+            if (bestLevel <= 1) return;
             if (!FactionEconomy.CanAfford(em, faction, bestCost)) return;
             if (!AIBudget.LeavesMilitaryVeilstone(em, faction, bestCost)) return;
 

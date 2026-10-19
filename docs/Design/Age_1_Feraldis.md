@@ -175,6 +175,12 @@ Before age-up the Religion.md §1 rules apply to Feraldis as to everyone.
 
 ## 4. The Great Forge
 
+> Every Feraldis building level (Hall of Axes, Rig Yard, Engine Works, War
+> Hall, Slave Pens, Great Forge, Fortress) is **faction-wide per building
+> type**, as for every culture: one level-up raises every building of the
+> type, and new ones are built at it
+> ([Overview.md § Building levels](Overview.md#building-levels-faction-wide)).
+
 `Feraldis_GreatForge` — **one per faction**, levels L1–L3. The industrial
 heart of the culture and the building an enemy most wants to raze.
 
