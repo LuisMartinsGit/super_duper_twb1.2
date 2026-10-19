@@ -38,7 +38,10 @@ namespace TheWaningBorder.Feraldis
             if (em.HasComponent<GreatForgeTag>(building)) return c.crewSlotsForge;
             if (em.HasComponent<VeilstoneMineTag>(building)) return c.crewSlotsVeilstoneMine;
             if (em.HasComponent<MineTag>(building)) return c.crewSlotsMine;
-            if (em.HasComponent<GathererHutTag>(building)) return c.crewSlotsWorkCamp;
+            // a depleted Work Camp works no node (Territory_Claims.md § 11.3,
+            // 2026-10-19): no crew, so its slaves are released
+            if (em.HasComponent<GathererHutTag>(building))
+                return em.HasComponent<DepletedHutTag>(building) ? 0 : c.crewSlotsWorkCamp;
             return 0;
         }
 

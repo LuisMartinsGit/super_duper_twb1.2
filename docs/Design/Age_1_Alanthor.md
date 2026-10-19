@@ -419,7 +419,31 @@ bolt (a `BuildingSiegeShot`, so it may hit a wall piece). Every number is on
 cavalry, siege, workers or heroes. **Each occupant adds one target to the
 tower's volley** (`garrisonArrowsPerOccupant`): a full tower shoots at more
 enemies at once. Occupants are safe inside while the tower stands and step
-out beside it when ordered out; if the tower falls they die with it.
+out beside it when ordered out (the tower's **Empty** button).
+
+**Garrisoning rules (2026-10-20 — supersedes "if the tower falls they die
+with it").** These hold for every building with garrison slots, not only the
+Watch Tower:
+
+- **The order walks; the entry waits.** Right-clicking the tower gives the
+  order at once, but a unit goes in only when it **arrives** — within the
+  tower's footprint plus `entryRange` (`Age0/Buildings/Wall/WallGarrison.asset`).
+  From further away it walks to the near side of the tower first. Any other
+  order on the way cancels the walk; so does the tower dying, changing hands
+  or filling up (the unit then stops where it is). When more men arrive than
+  there are slots, the first ones in fill it and the rest stand beside it.
+- **A garrisoned unit is gone from the map.** It leaves the selection on
+  entry and shows nothing — no body, selection ring, ownership disc, health
+  bar or decal — until it comes out.
+- **A tower that falls puts its men out alive.** Whatever ends the building
+  — killed, demolished with Delete, collapsed, converted, rebuilt — its
+  occupants are **ejected** on free ground around where it stood
+  (`ejectGap`, `ejectSpacing`, `ejectRings` on the same asset). They are never
+  destroyed with it.
+- **The garrison is always readable.** A manned tower shows an **`n/max`**
+  badge over it at all times (gold when full) — yours and your allies'
+  always, an enemy's only while you can see the tower. Your own tower shows
+  it when selected even when empty.
 
 ### Trading Outpost — `Alanthor_TradingOutpost` (L1-L3, decision 40)
 
@@ -510,6 +534,27 @@ down the same way. A **breach** — a dead module — turns the modules either
 side of it into ramps **anyone** can climb, enemies included. Palisades have no
 deck. Cavalry, siege, workers and heroes stay on the ground. **Wall garrison
 slots are retired:** units stand on the deck, visibly, fighting from it.
+
+**On the battlements (AoE4 walls, 2026-10-20):**
+
+- **Any piece takes the order.** A right-click on a hub, a wall tower, a gate
+  or the curtain itself — its top or its face — sends the foot units to the
+  deck cell nearest the click. They walk to the access point on **their own
+  side** of the wall, climb, and walk the wall-walk to the spot.
+- **They are visible and controllable up there.** A unit on the deck is drawn
+  standing on the walk at deck height, is selectable (click or box), and takes
+  orders: a move along the wall stays on the deck; Stop holds there; a move
+  to the ground brings it down the way it went up (landing beside the access
+  point, on the side it is heading for).
+- **They fight from the wall.** A unit on the deck engages **only what is
+  inside its reach**, whatever its stance, and never chases off the deck —
+  the deck is its guard point. Bowmen up there shoot with the ordinary height
+  advantage ([Combat_Pacing.md § Fighting from a wall-walk](Combat_Pacing.md)).
+  Melee on the deck can only reach men on the deck (an enemy that climbed in
+  through a breach); ground melee cannot reach them.
+- Simplified for now: an **ordered** attack on a target out of reach from the
+  deck walks the unit along the deck towards it as far as the walk goes — it
+  does not climb down to chase.
 
 ### Promotion, research and the wall lock
 

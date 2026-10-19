@@ -235,7 +235,10 @@ Guild** (the built Alanthor Gatherer's Hut, any level) pay a flat amount of
 that survey's resource a minute — Iron Surveying I-III iron, Veilstone
 Survey I-II veilstone, Veilsteel Survey veilsteel — scaled by the Guild's
 level. It is **drawn from no node** and so keeps paying after the Guild's
-supply node is spent: it is the late-game Guild income. It is paid by the
+supply node is spent: it is the late-game Guild income. **A Guild is never
+destroyed with its node (2026-10-19)**: when the supply node collapses the
+Guild stays standing, Depleted, and its surveys keep paying
+(Territory_Claims.md § 11.3). It is paid by the
 territory tick only while the Guild's territory is held, and booked in the
 match metrics as `guildSurvey`. A survey does **not** multiply the Mines or
 Veilstone Mines (until 2026-10-08 it did, which is what made iron soar

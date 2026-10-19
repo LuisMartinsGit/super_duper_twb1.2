@@ -31,6 +31,29 @@ public struct ShardrootTag : IComponentData { }
 public struct ShardboundHeroTag : IComponentData { }
 
 /// <summary>
+/// THE ENSHRINE ORDER (2026-10-20, Curse_And_Shardroot.md § 3.1d): the
+/// player right-clicked their own finished Temple of Ridan with the Shardroot's
+/// bearer selected. The bearer walks to the Temple and, once within
+/// BorderConstants.ShardrootDepositRadius of its wall, enshrines the artifact
+/// (ShardrootCarrySystem, the same delivery the AI's couriers make). While the
+/// order runs the bearer's Intent is Temple, so walking past its own Hall
+/// does not bind the artifact on the way. Dropped when the bearer is ordered
+/// elsewhere, stops short, loses the artifact, or the Temple is lost; a
+/// faction that cannot pay waits at the Temple (§ 3.1c) with the order kept.
+/// Issued as LockstepCommandType.EnshrineShardroot.
+/// </summary>
+public struct ShardrootEnshrineOrder : IComponentData
+{
+    public Entity Temple;
+    /// <summary>The bearer's Intent before the order, restored on a drop.</summary>
+    public byte PrevIntent;
+    /// <summary>Seconds the bearer has stood still short of the Temple.</summary>
+    public float StuckSeconds;
+    /// <summary>1 once the "cannot pay" notice was shown for this order.</summary>
+    public byte PriceNoticed;
+}
+
+/// <summary>
 /// The Maw backstop's visible artifact (§3): a display-only entity standing
 /// in the host well once it reaches Maw maturity unverbed. NOT a pickup and
 /// NOT a ShardrootTag holder -- nobody can take it; verbing the well

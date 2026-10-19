@@ -85,6 +85,12 @@ namespace TheWaningBorder.UI.World
             public MeshRenderer CrossVRenderer;
 
             public bool Shown;              // last fog-gate result applied
+            /// <summary>Last frame the chunk walk reached this unit. A unit
+            /// the walk no longer reaches is DISABLED (garrisoned in a tower,
+            /// boarded) — it left the query, so nothing else would ever hide
+            /// what it last showed (2026-10-20: the selection ring of a
+            /// garrisoned archer stayed on the ground with no unit on it).</summary>
+            public int SeenFrame;
             public bool RingOn;
             public bool Healing;
             public bool Primed;
@@ -296,6 +302,7 @@ namespace TheWaningBorder.UI.World
             var factionHandle = _em.GetComponentTypeHandle<FactionTag>(true);
             var litharchHandle = _em.GetComponentTypeHandle<LitharchState>(true);
 
+            int frame = Time.frameCount;
             using var chunks = query.ToArchetypeChunkArray(Unity.Collections.Allocator.Temp);
             for (int c = 0; c < chunks.Length; c++)
             {
@@ -311,6 +318,7 @@ namespace TheWaningBorder.UI.World
                 {
                     var entity = entities[i];
                     if (!_indicators.TryGetValue(entity, out var ind)) continue;
+                    ind.SeenFrame = frame;
 
                     float3 pos = transforms[i].Position;
 
@@ -356,7 +364,9 @@ namespace TheWaningBorder.UI.World
                     if (moved)
                     {
                         // Terrain sample only when the unit actually moved.
-                        float terrainY = TerrainUtility.GetHeight(pos.x, pos.z);
+                        // max(): a unit on a wall-walk stands above the ground
+                        // under it, and its disc goes over its head there.
+                        float terrainY = math.max(TerrainUtility.GetHeight(pos.x, pos.z), pos.y);
                         ind.IndicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
                         ind.LastPos = pos;
                     }
@@ -421,7 +431,24 @@ namespace TheWaningBorder.UI.World
                     }
                 }
             }
+
+            // Units the walk did not reach are out of the query — disabled
+            // (inside a building) — so hide whatever they still show. Leaving
+            // the query is a structural change, so this runs only on frames
+            // the UnitTag order version moved.
+            int hideVersion = _em.GetComponentOrderVersion<UnitTag>();
+            if (hideVersion != _lastHideOrderVersion)
+            {
+                _lastHideOrderVersion = hideVersion;
+                foreach (var kv in _indicators)
+                {
+                    var ind = kv.Value;
+                    if (ind.SeenFrame != frame && (ind.Shown || ind.RingOn)) HideIndicators(ind);
+                }
+            }
         }
+
+        private int _lastHideOrderVersion = -1;
 
         private static void HideIndicators(Indicators ind)
         {

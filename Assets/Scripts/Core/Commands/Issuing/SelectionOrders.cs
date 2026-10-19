@@ -164,6 +164,71 @@ namespace TheWaningBorder.Core.Commands.Issuing
             return n;
         }
 
+        /// <summary>
+        /// A right-click on a friendly or allied STONE wall piece — hub,
+        /// curtain (the segment that owns the curtain mesh, which the old
+        /// handler skipped as "data-only"), wall tower or gate — orders the
+        /// selection's foot units onto its wall-walk at the deck cell nearest
+        /// the click (docs/Design/Age_1_Alanthor.md § The stone wall,
+        /// 2026-10-20). A click on the wall's FACE missed the deck plane and
+        /// used to fall through to a plain move to the foot of the wall.
+        /// Returns how many units took the order (0: not a walkable wall, or
+        /// nobody here may stand on one — the caller falls through).
+        /// </summary>
+        public int TryWallTopOrder(Entity wallPiece, float3 clickWorld)
+        {
+            if (wallPiece == Entity.Null || !_em.Exists(wallPiece)) return 0;
+            if (!_em.HasComponent<WallTag>(wallPiece)) return 0;
+            if (_em.HasComponent<PalisadeTag>(wallPiece)) return 0;          // a fence has no walk
+            if (_em.HasComponent<UnderConstruction>(wallPiece)) return 0;
+            if (!_em.HasComponent<FactionTag>(wallPiece)) return 0;
+            if (Alliances.AreHostile(GameSettings.LocalPlayerFaction,
+                    _em.GetComponentData<FactionTag>(wallPiece).Value)) return 0;
+
+            if (!TryNearestDeckPoint(clickWorld, WallTopSearchRadius, out float3 deck))
+            {
+                if (!_em.HasComponent<LocalTransform>(wallPiece)) return 0;
+                var at = _em.GetComponentData<LocalTransform>(wallPiece).Position;
+                if (!TryNearestDeckPoint(at, WallTopSearchRadius, out deck)) return 0;
+            }
+            return IssueWallTopMove(deck);
+        }
+
+        /// <summary>How far from the click a wall-top order looks for a deck
+        /// cell, metres: past half the wall's depth plus a click on its foot.</summary>
+        private const float WallTopSearchRadius = 4f;
+
+        /// <summary>The walkable rampart-layer cell nearest <paramref name="near"/>
+        /// within <paramref name="radius"/> metres, as a point on the deck.</summary>
+        private static bool TryNearestDeckPoint(float3 near, float radius, out float3 point)
+        {
+            point = default;
+            var c0 = TheWaningBorder.Systems.Navigation.NavGridQuery.WorldToCellInt2(near);
+            if (c0.x == int.MinValue) return false;
+            float cs = math.distance(
+                TheWaningBorder.Systems.Navigation.NavGridQuery.CellCenter(c0).xz,
+                TheWaningBorder.Systems.Navigation.NavGridQuery.CellCenter(c0 + new int2(1, 0)).xz);
+            if (cs < 0.01f) cs = 1f;
+            int n = (int)math.ceil(radius / cs);
+            float best = float.MaxValue;
+            bool found = false;
+            for (int dz = -n; dz <= n; dz++)
+            for (int dx = -n; dx <= n; dx++)
+            {
+                var c = new int2(c0.x + dx, c0.y + dz);
+                if (!TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(c, NavLayerIndex.LayerRampart))
+                    continue;
+                float3 cc = TheWaningBorder.Systems.Navigation.NavGridQuery.CellCenter(c);
+                float d = math.distancesq(cc.xz, near.xz);
+                if (d >= best || d > radius * radius) continue;
+                best = d;
+                point = new float3(cc.x,
+                    TheWaningBorder.Systems.Navigation.LayerTransitionSystem.DeckYAt(cc.x, cc.z), cc.z);
+                found = true;
+            }
+            return found;
+        }
+
         // Every wall instance, for resolving which one a deck cell belongs to.
         // Cached: CreateEntityQuery registers permanently with the world.
         static readonly ComponentType[] WallTypes =
@@ -262,6 +327,114 @@ namespace TheWaningBorder.Core.Commands.Issuing
             }
             return any;
         }
+
+        /// <summary>
+        /// ENSHRINE (Curse_And_Shardroot.md § 3.1d, 2026-10-20): a right-click
+        /// on a Temple of Ridan with the Shardroot's bearer in the selection
+        /// sends the bearer to enshrine it there. Returns false when nobody in
+        /// the selection carries the artifact or the target is no Temple, so
+        /// the caller falls through to its usual handling. A refused order
+        /// (not your Temple, unfinished, bound hero, cannot pay) says why and
+        /// returns true — the click meant "enshrine", nothing else happens.
+        /// Only the bearer takes the order; the rest of the selection walks
+        /// alongside it.
+        /// </summary>
+        public bool TryEnshrineOrder(Entity target)
+        {
+            if (!ShardrootEnshrine.IsTemple(_em, target)) return false;
+            Entity bearer = SelectedBearer();
+            if (bearer == Entity.Null) return false;
+
+            var refusal = ShardrootEnshrine.Check(_em, bearer, target, checkPrice: true);
+            if (refusal != ShardrootEnshrine.Refusal.None)
+            {
+                SimSignals.NotifyError(ShardrootEnshrine.RefusalText(refusal));
+                return true;
+            }
+            CommandRouter.IssueEnshrineShardroot(_em, bearer, target, CommandSource.LocalPlayer);
+
+            // The escort follows to the Temple as a formation; the bearer is
+            // left out so its own walk to the wall is not overwritten.
+            var escort = CollectOwnedMovableSelection();
+            escort.Remove(bearer);
+            if (escort.Count > 0 && _em.HasComponent<LocalTransform>(target))
+                CommandRouter.IssueFormationMove(_em, escort,
+                    _em.GetComponentData<LocalTransform>(target).Position, Shape, CommandSource.LocalPlayer);
+            return true;
+        }
+
+        /// <summary>
+        /// The cursor hint over <paramref name="target"/> when the selection
+        /// holds the Shardroot's bearer: "Enshrine the Shardroot", or why it
+        /// cannot be (<paramref name="ok"/> false). Null when the hint does not
+        /// apply (no bearer selected, or not a Temple).
+        /// </summary>
+        public string EnshrineHoverHint(Entity target, out bool ok)
+        {
+            ok = false;
+            if (!ShardrootEnshrine.IsTemple(_em, target)) return null;
+            Entity bearer = SelectedBearer();
+            if (bearer == Entity.Null) return null;
+            // A hostile Temple is an attack target, not an enshrine refusal.
+            if (_em.HasComponent<FactionTag>(target)
+                && Alliances.AreHostile(GameSettings.LocalPlayerFaction, _em.GetComponentData<FactionTag>(target).Value))
+                return null;
+            var refusal = ShardrootEnshrine.Check(_em, bearer, target, checkPrice: true);
+            ok = refusal == ShardrootEnshrine.Refusal.None;
+            return ok ? TheWaningBorder.Core.Localization.Loc.T("Enshrine the Shardroot") : ShardrootEnshrine.RefusalText(refusal);
+        }
+
+        /// <summary>The owned unit in the selection carrying the Shardroot,
+        /// or Entity.Null (there is only ever one).</summary>
+        public Entity SelectedBearer()
+        {
+            var sel = CurrentSelection;
+            if (sel == null) return Entity.Null;
+            foreach (var e in sel)
+                if (IsOwnedByLocalPlayer(e) && ShardrootEnshrine.IsBearer(_em, e)) return e;
+            return Entity.Null;
+        }
+
+        /// <summary>
+        /// The actions-panel button: send the selected bearer to the nearest
+        /// finished Temple of Ridan of its own. Returns the refusal text, or
+        /// null when the order went out.
+        /// </summary>
+        public static string EnshrineAtNearestTemple(EntityManager em, Entity bearer)
+        {
+            if (!ShardrootEnshrine.IsBearer(em, bearer)) return ShardrootEnshrine.RefusalText(ShardrootEnshrine.Refusal.NoBearer);
+            var f = em.GetComponentData<FactionTag>(bearer).Value;
+            float3 from = em.GetComponentData<LocalTransform>(bearer).Position;
+            var q = _templeQuery.Get(em, TempleTypes);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            Entity best = Entity.Null;
+            float bestD = float.MaxValue;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != f) continue;
+                if (ShardrootEnshrine.Check(em, bearer, ents[i], checkPrice: false) != ShardrootEnshrine.Refusal.None) continue;
+                float d = math.distancesq(xfs[i].Position.xz, from.xz);
+                if (d < bestD) { bestD = d; best = ents[i]; }
+            }
+            if (best == Entity.Null)
+                return em.HasComponent<ShardboundHeroTag>(bearer)
+                    ? ShardrootEnshrine.RefusalText(ShardrootEnshrine.Refusal.Bound)
+                    : TheWaningBorder.Core.Localization.Loc.T("You have no finished Temple of Ridan to enshrine the Shardroot in");
+            var refusal = ShardrootEnshrine.Check(em, bearer, best, checkPrice: true);
+            if (refusal != ShardrootEnshrine.Refusal.None) return ShardrootEnshrine.RefusalText(refusal);
+            CommandRouter.IssueEnshrineShardroot(em, bearer, best, CommandSource.LocalPlayer);
+            return null;
+        }
+
+        static readonly ComponentType[] TempleTypes =
+        {
+            ComponentType.ReadOnly<TempleOfRidanTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static TheWaningBorder.Core.CachedEntityQuery _templeQuery;
 
         public bool TryGarrisonWall(Entity target)
         {
@@ -658,14 +831,16 @@ namespace TheWaningBorder.Core.Commands.Issuing
         /// <summary>
         /// Right-drag (2026-10-15): a formation move centred on
         /// <paramref name="centre"/> that ARRIVES facing
-        /// <paramref name="arriveFacing"/> (XZ, the drag direction).
+        /// <paramref name="arriveFacing"/> (XZ, the drag direction) with an
+        /// ordered frontage of <paramref name="columns"/> units per block row
+        /// (2026-10-20, the drag length; 0 = the shape's default).
         /// </summary>
-        public void IssueFormationMove(float3 centre, float3 arriveFacing)
+        public void IssueFormationMove(float3 centre, float3 arriveFacing, int columns = 0)
         {
             var units = CollectOwnedMovableSelection();
             if (units.Count == 0) return;
             CommandRouter.IssueFormationMove(_em, units, centre,
-                Shape, arriveFacing, CommandSource.LocalPlayer);
+                Shape, arriveFacing, columns, CommandSource.LocalPlayer);
         }
 
         /// <summary>
@@ -676,13 +851,15 @@ namespace TheWaningBorder.Core.Commands.Issuing
         /// not a second copy of the arithmetic. Fills <paramref name="slots"/>
         /// and returns false when nothing in the selection can move.
         /// </summary>
-        public bool PreviewFormationSlots(float3 centre, float3 arriveFacing, List<float3> slots)
+        public bool PreviewFormationSlots(float3 centre, float3 arriveFacing, List<float3> slots,
+            int columns = 0)
         {
             slots.Clear();
             var units = CollectOwnedMovableSelection();
             if (units.Count == 0) return false;
             float3 facing = CommandRouter.UnpackFacing(CommandRouter.PackFacing(arriveFacing));
-            if (!FormationMoveCommandHelper.BuildPlan(_em, units, centre, Shape, facing, out var plan))
+            if (!FormationMoveCommandHelper.BuildPlan(_em, units, centre, Shape, facing,
+                    FormationMoveCommandHelper.ClampColumns(columns), out var plan))
                 return false;
             slots.AddRange(plan.SlotWorld);
             return true;
@@ -825,12 +1002,30 @@ namespace TheWaningBorder.Core.Commands.Issuing
 
         /// <summary>Right-drag while attack-move is armed: the formation
         /// attack-move, arriving facing <paramref name="arriveFacing"/>.</summary>
-        public void IssueAttackMoveFormation(float3 centre, float3 arriveFacing)
+        public void IssueAttackMoveFormation(float3 centre, float3 arriveFacing, int columns = 0)
         {
             var units = CollectOwnedMovableSelection();
             if (units.Count == 0) return;
             CommandRouter.IssueFormationAttackMove(_em, units, centre,
-                Shape, arriveFacing, CommandSource.LocalPlayer);
+                Shape, arriveFacing, columns, CommandSource.LocalPlayer);
+        }
+
+        /// <summary>The widest any block of the selection could stand — its
+        /// biggest type's head count (the layout's rank census), so the input
+        /// layer can map a right-drag onto 1..this many columns. 0 when
+        /// nothing in the selection can move.</summary>
+        public int LargestFormationBlock()
+        {
+            var units = CollectOwnedMovableSelection();
+            if (units.Count == 0) return 0;
+            var census = new int[FormationMoveCommandHelper.RankCount];
+            int best = 0;
+            foreach (var e in units)
+            {
+                int r = math.clamp(FormationMoveCommandHelper.FormationRank(_em, e), 0, census.Length - 1);
+                best = math.max(best, ++census[r]);
+            }
+            return best;
         }
 
 

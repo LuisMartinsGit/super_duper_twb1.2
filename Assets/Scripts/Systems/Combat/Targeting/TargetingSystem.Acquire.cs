@@ -176,6 +176,15 @@ namespace TheWaningBorder.Systems.Combat
                 r.Acquire = 0;
                 return r;
             }
+            // ON THE WALL-WALK (docs/Design/Age_1_Alanthor.md § The stone
+            // wall, 2026-10-20): a man on the battlements fights from them —
+            // anything inside his reach, whatever his stance, and never a
+            // chase (no leash) that would walk him off the edge of the deck.
+            if (IsOnRampart(em, e))
+            {
+                r.ScanRadius = reach;
+                return r;
+            }
             if (cls == UnitClass.Support)
             {
                 r.ScanRadius = reach;

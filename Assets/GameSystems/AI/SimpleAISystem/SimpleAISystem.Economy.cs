@@ -513,7 +513,7 @@ namespace TheWaningBorder.AI
             // savings-mode hack: when the age gate or a Defend posture
             // tilts the weights, this pipeline throttles by itself).
             {
-                int ghTotal = CountFactionBuildings<GathererHutTag>(em, faction);
+                int ghTotal = CountWorkingHuts(em, faction);   // depleted huts are not extractors
                 bool started = false;
 
                 // DIFFICULTY CAP. personality.gathererHutTarget was defined for
@@ -597,7 +597,7 @@ namespace TheWaningBorder.AI
                 }
                 if (started)
                     AILogger.Log(faction, "ECONOMY",
-                        $"GatherersHut started (total {CountFactionBuildings<GathererHutTag>(em, faction)}, " +
+                        $"GatherersHut started (working {CountWorkingHuts(em, faction)}, " +
                         $"inflight {CountFactionBuildingsUnderConstruction<GathererHutTag>(em, faction)})");
 
                 // …AND THE BANK WAITS FOR THEM. Until the bootstrap huts are
@@ -617,7 +617,7 @@ namespace TheWaningBorder.AI
                 // openingHutGraceSeconds even before a node is visible — the
                 // home nodes are under fog for the first think, which is
                 // exactly when the starting bank used to go.
-                int missingHuts = openingHuts - CountFactionBuildings<GathererHutTag>(em, faction);
+                int missingHuts = openingHuts - CountWorkingHuts(em, faction);
                 if (missingHuts > 0
                     && FactionEra(em, faction) < 2
                     && (now < Cfg.openingHutGraceSeconds || HasFreeHutSite(em, faction))

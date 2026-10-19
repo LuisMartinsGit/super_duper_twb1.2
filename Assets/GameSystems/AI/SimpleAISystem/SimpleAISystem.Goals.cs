@@ -159,7 +159,7 @@ namespace TheWaningBorder.AI
 
             // ── 4. INCOME. ──
             goals.Add(new Goal(GoalKind.Build, "GatherersHut", 3,
-                CountFactionBuildings<GathererHutTag>(em, faction),
+                CountWorkingHuts(em, faction),   // depleted huts work no node
                 AIBudgetCategory.EconomyExpansion, "supply income"));
 
             // ── 5. AN ARMY THAT EXISTS. ──

@@ -36,6 +36,8 @@ namespace TheWaningBorder.Core.Commands
             TheWaningBorder.Entities.PlannedBuildings.ReleaseWorker(em, unit);
             TransientState.Clear<Types.BuildCommand>(em, unit);
             TransientState.Clear<BuildOrder>(em, unit);
+            // A walk into a garrison (2026-10-20) is replaced by any order.
+            TheWaningBorder.Entities.WallGarrison.CancelApproach(em, unit);
 
             if (em.HasComponent<Types.HealCommand>(unit))
                 em.RemoveComponent<Types.HealCommand>(unit);

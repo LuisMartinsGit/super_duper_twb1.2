@@ -651,7 +651,12 @@ namespace TheWaningBorder.Input
                 // Drop entities that are gone, or units that have just died — a
                 // dying unit lingers ~2 s while its death animation plays, and a
                 // corpse must not stay selected (so it can't receive commands).
+                // A DISABLED unit is inside a building (a garrisoned tower,
+                // 2026-10-20): it has no body to select, so it leaves the
+                // selection the moment it goes in (a control-group recall
+                // that brings it back is dropped here the same frame).
                 if (!_em.Exists(sel) ||
+                    _em.HasComponent<Disabled>(sel) ||
                     (_em.HasComponent<UnitTag>(sel) && IsDeadOrDying(sel)))
                     _selection.RemoveAt(i);
             }

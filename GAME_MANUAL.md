@@ -172,12 +172,15 @@ Right-click does whatever makes sense for the target:
 | Target | Result |
 |---|---|
 | Ground | Move (in formation: units hold their shape en route — melee front, ranged back — at the slowest member's speed, slows included, with a +40% catch-up boost for stragglers; workers and far-away outliers path independently). The rear ranks keep formation right up to their own slots after the front has arrived. On an attack-move a unit that steps out of rank to fight falls back in once its fight is over. Formations hold their shape in multiplayer too. |
+| Your own / allied stone wall (any piece, foot units) | Climb onto its wall-walk at the spot nearest the click — they go up at the nearest hub, wall tower or gate on their side. |
+| Your own Watch Tower (foot units) | Garrison: they walk there and go inside on arrival (up to 4). |
 | Overpass bridge deck | Send the selection OVER the bridge — any unit type; they climb a ramp, cross the deck, and descend the far side. Units not ordered onto the deck simply walk UNDER the span. |
 | Enemy unit / building | Attack. |
 | Friendly damaged building | Repair (with workers). |
 | Friendly under-construction building | Resume building (with workers). |
 | Friendly unit (Litharch selected) | Heal. |
 | Veilstone Main Node, active (Acolyte selected) | Begin Conversion ritual (Runai). |
+| Your own finished Temple of Ridan, with the Shardroot's bearer selected | Enshrine the Shardroot: the bearer walks to the Temple and stows it there (see *Enshrining it yourself* below). |
 | Ground or resource, with only buildings selected | Set Rally Point. |
 | Enemy, with a shooting building selected (Shelter/Fortress, tower, Keep, wall tower) | Direct its fire: the enemy takes one of the building's target slots while in range; the rest keep auto-firing. The order holds if the target walks out of range, and ends when it dies or you press **Stop**. On an emplacement, its engine attacks. |
 | Enemy wall piece, no siege selected | Nothing — "Only siege can damage walls". Only siege units (and siege-firing buildings) can damage walls. |
@@ -192,6 +195,14 @@ gives an attack-move. A press that barely moves (under about a dozen pixels) is
 an ordinary right-click; so is any press on an enemy, a building, a wall top or
 a resource, and Shift (queueing) ignores the drag. The camera never uses the
 right button (pan is the middle button), so the two never compete.
+
+**Right-Drag length — the formation's width.** How far you drag sets how wide
+the army stands: a **short drag** (the cursor close to the point you pressed)
+makes a **broad** formation — each type of unit in a single long rank — and a
+**long drag** makes a **thin**, deep one, a few men wide. The ghost follows as
+you drag, so you see the width before you release; the direction still sets
+the facing. A plain right-click keeps the usual two-rank layout. The Wedge
+keeps its point and ignores the width.
 
 **Shift + Right-Click** — Add an order to the END of each selected unit's
 queue instead of replacing what it is doing (up to **15** queued orders per
@@ -351,7 +362,7 @@ damage on hit.
 
 - **Healing** — Litharchs restore HP to allies in heal range. (Litharchs have **no attack** unless **Warrior Priests** is researched at the Temple of Ridan, per [Age_0.md](docs/Design/Age_0.md).)
 - **Cleanse** — every Litharch's aimed spell: pick a point in reach and the cursed ground in a 15 m wide circle there is cleared at once; keep the Litharch channelling and the cleared circle keeps growing. A holy hum plays while a visible Litharch channels. Being hit or given any order ends it; the cooldown starts then ([Territory_Claims.md §6.9.7](docs/Design/Territory_Claims.md)).
-- **Watch Tower garrison** (Alanthor) — up to 4 foot units inside a Watch Tower; each adds one target to its volley.
+- **Watch Tower garrison** (Alanthor) — up to 4 foot units inside a Watch Tower; each adds one target to its volley. Units ordered in from afar walk to the tower and go in on arrival; inside they leave the selection, and an **n/max** badge over the tower shows how many are in it. If the tower is destroyed they are put out alive around it.
 - **Spell Buffs** — Temporary status effects from sect spells (damage, cooldown, invulnerability).
 - **Mind Control** — Flips a unit's allegiance for a duration, then returns it.
 - **Summons** — Spawned units expire on timer or when the summoner dies.
@@ -506,6 +517,17 @@ powers surge — but the Temple detonates catastrophically if it falls, and
 the Shardroot drops in the crater). The choice is locked until the vessel
 dies. And beware: while you hold it, **the Border hunts you**.
 
+**Enshrining it yourself:** select the unit carrying the Shardroot (King
+Lexor or any courier) and **right-click your own finished Temple of Ridan** —
+the cursor reads "Enshrine the Shardroot". The bearer walks up to the Temple
+and stows the artifact there as soon as it stands beside it, and it will not
+hand the artifact to the Fortress on the way. The **Enshrine** button on the
+bearer's action panel does the same with your nearest Temple. Enshrining is
+very expensive: if you cannot pay, the order is refused and the notice tells
+you the price (if the bank runs short on the way, the bearer waits at the
+Temple until you can). A King who has already been bound at the Fortress
+cannot give it up — the choice holds until he falls.
+
 ### Scout Vision
 
 A Scout always sees its full line of sight (**40 m**), moving or standing
@@ -628,7 +650,8 @@ match starts.
 | Build a wall | Pick the Palisade (Age 0) or Stone Wall (Alanthor) and **drag** the line; hubs and sections are laid along it. |
 | Convert a wall section | Select the section: **Gate** (needs 4 clear sections; the gatehouse takes 3) or **Hub**; on a stone wall also **Tower** (3 clear sections), **Mount Ballista** (wall level 2+) or **Mount Trebuchet** (wall level 3) — emplacements are built by workers. |
 | Raise the stone wall's level | Select any Wall Hub and research **Battlements**, then **Shielded Ramparts** — every wall you own is re-clad at once. |
-| Garrison a Watch Tower (Alanthor) | Right-click it with **foot units** selected: up to **4** go inside, and each one adds a target to the tower's volley. |
+| Garrison a Watch Tower (Alanthor) | Right-click it with **foot units** selected: they walk to it and up to **4** go inside on arrival; each one adds a target to the tower's volley. The **n/max** badge over the tower shows who is in it; **Empty** puts them out. A destroyed tower puts its men out alive. |
+| Man the battlements (Alanthor stone wall) | Right-click any part of your (or an ally's) stone wall with **foot units** selected: they climb at the nearest hub, wall tower or gate on their side and stand on the wall-walk, where you can see, select and move them. Up there they fight whatever is in reach (bowmen shoot further from the height) and never chase off. Right-click the ground to bring them down. Palisades have no wall-walk. |
 | Heal a friendly unit | Right-click it with a Litharch selected. |
 | Convert a Veilstone Main Node | Channel **Acolyte** (Runai) on an active node. |
 | Destroy a Veilstone Main Node | You need **Iconoclasts** (Feraldis) to bypass node invulnerability. |

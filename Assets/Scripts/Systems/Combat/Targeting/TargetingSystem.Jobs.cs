@@ -186,6 +186,11 @@ namespace TheWaningBorder.Systems.Combat
                     r.Acquire = 0;
                     return r;
                 }
+                if (IsOnRampart(e))
+                {
+                    r.ScanRadius = reach;
+                    return r;
+                }
                 if (cls == UnitClass.Support)
                 {
                     r.ScanRadius = reach;

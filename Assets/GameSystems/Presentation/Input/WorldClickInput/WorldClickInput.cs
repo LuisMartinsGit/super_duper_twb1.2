@@ -65,6 +65,7 @@ namespace TheWaningBorder.Input
             bool dragged = _press.Tracked && _press.Dragging && _press.HasFacing;
             float3 dragCentre = _press.World;
             float3 dragFacing = _press.Facing;
+            int dragColumns = _press.Columns;
             bool dragAttackMove = _press.AttackMove;
             ResetPress();
 
@@ -92,11 +93,11 @@ namespace TheWaningBorder.Input
                 if (dragAttackMove && _modes.AttackMove)
                 {
                     _modes.Disarm();
-                    _orders.IssueAttackMoveFormation(dragCentre, dragFacing);
+                    _orders.IssueAttackMoveFormation(dragCentre, dragFacing, dragColumns);
                 }
                 else
                 {
-                    _orders.IssueFormationMove(dragCentre, dragFacing);
+                    _orders.IssueFormationMove(dragCentre, dragFacing, dragColumns);
                 }
                 return;
             }
@@ -264,6 +265,12 @@ namespace TheWaningBorder.Input
                     break;
 
                 case SelectionOrders.TargetType.FriendlyBuilding:
+                    // The Shardroot's bearer on a Temple of Ridan: enshrine it
+                    // (Curse_And_Shardroot.md § 3.1d). First, because a
+                    // Feraldis Temple is also the Blood Altar and the order
+                    // below would sacrifice a courier carrying the artifact.
+                    if (_orders.TryEnshrineOrder(target)) break;
+
                     // A REINFORCED wall has two slots per module: the men walk
                     // into it rather than onto it
                     // (docs/Design/Age_1_Alanthor.md § Garrison slots). Tried
@@ -275,20 +282,15 @@ namespace TheWaningBorder.Input
                     // Forge, sacrifice at the Blood Altar (Age_1_Feraldis.md).
                     if (_orders.TryFeraldisOrder(target)) break;
 
-                    // AoE4: right-click your own wall -> foot units garrison it
-                    // (route to stairs, climb, spread along the top). Segments
-                    // are data-only; skip those and under-construction walls.
+                    // AoE4: right-click your own stone wall -> foot units climb
+                    // onto its wall-walk at the deck cell nearest the click
+                    // (route to stairs, climb, spread along the top). Any piece,
+                    // the curtain's segment included. Nobody here may stand on
+                    // a wall (workers, cavalry, siege): fall through so they can
+                    // still repair it.
                     if (_em.HasComponent<WallTag>(target)
-                        && !_em.HasComponent<WallSegmentTag>(target)
-                        && !_em.HasComponent<UnderConstruction>(target)
-                        && _em.HasComponent<LocalTransform>(target))
-                    {
-                        var wp = _em.GetComponentData<LocalTransform>(target).Position;
-                        if (_orders.IssueWallTopMove(new float3(wp.x, Nav.LayerTransitionSystem.DeckY, wp.z)) > 0)
-                            break;
-                        // Nobody here may stand on a wall (workers, cavalry,
-                        // siege): fall through so they can still repair it.
-                    }
+                        && _orders.TryWallTopOrder(target, clickWorld) > 0)
+                        break;
                     if (capabilities.CanBuildRepair && _em.HasComponent<UnderConstruction>(target))
                         _orders.IssueBuildCommands(target);
                     else if (capabilities.CanBuildRepair && _orders.IsBuildingDamaged(target))
@@ -377,6 +379,14 @@ namespace TheWaningBorder.Input
         // held. The ghost is FormationMoveCommandHelper.BuildPlan itself (via
         // SelectionOrders.PreviewFormationSlots), never a copy of the layout.
         //
+        // THE DRAG LENGTH IS THE WIDTH (2026-10-20). Developer: "closer to the
+        // destination point -> broader formation, farther away -> thinner
+        // formation." The ground distance from the press point to the cursor
+        // maps linearly from Cfg.widthNearMetres (broadest: every type block
+        // in one rank — its head count, capped at Cfg.widthMaxColumns) to
+        // Cfg.widthFarMetres (thinnest: Cfg.widthMinColumns per rank), and
+        // rides the order as its column count. The rotation is unchanged.
+        //
         // A press that does not travel Cfg.dragThresholdPixels is a plain
         // right-click and routes exactly as before; so does any press that is
         // NOT a ground move (an enemy, a building, a rally, a wall top, a
@@ -395,6 +405,9 @@ namespace TheWaningBorder.Input
             public float3 Facing;     // press -> cursor, unit length (XZ)
             public float3 PreviewFacing;
             public bool HavePreview;
+            public int Broadest;      // widest columns this selection can use (its largest block)
+            public int Columns;       // the frontage the drag length asks for
+            public int PreviewColumns;
         }
 
         private PressState _press;
@@ -453,6 +466,8 @@ namespace TheWaningBorder.Input
                 float thr = Cfg.dragThresholdPixels;
                 if (travelled.sqrMagnitude < thr * thr) return;
                 _press.Dragging = true;
+                _press.Broadest = math.min(math.max(1, _orders.LargestFormationBlock()),
+                    math.max(1, Cfg.widthMaxColumns));
             }
 
             if (!TryGetClickPoint(out float3 cursor)) return;
@@ -467,18 +482,37 @@ namespace TheWaningBorder.Input
             }
             if (!_press.HasFacing) return;
 
+            _press.Columns = ColumnsForDrag(math.length(d), _press.Broadest);
+
             // Rebuild the ghost layout only when the direction has turned
-            // enough to matter — BuildPlan allocates, the arrow does not.
+            // enough to matter, or the width changed — BuildPlan allocates,
+            // the arrow does not.
             float cosRefresh = math.cos(math.radians(Cfg.previewRefreshDegrees));
-            if (!_press.HavePreview || math.dot(_press.Facing, _press.PreviewFacing) < cosRefresh)
+            if (!_press.HavePreview || math.dot(_press.Facing, _press.PreviewFacing) < cosRefresh
+                || _press.Columns != _press.PreviewColumns)
             {
-                _press.HavePreview = _orders.PreviewFormationSlots(_press.World, _press.Facing, _previewSlots);
+                _press.HavePreview = _orders.PreviewFormationSlots(_press.World, _press.Facing,
+                    _previewSlots, _press.Columns);
                 _press.PreviewFacing = _press.Facing;
+                _press.PreviewColumns = _press.Columns;
             }
             if (!_press.HavePreview) return;
 
             if (_preview == null) _preview = new FormationDragPreview();
             _preview.Show(_previewSlots, _press.World, cursor, Cfg);
+        }
+
+        /// <summary>
+        /// Drag length (ground metres from the press point) → columns per
+        /// rank: <paramref name="broadest"/> at Cfg.widthNearMetres or less,
+        /// Cfg.widthMinColumns at Cfg.widthFarMetres or more, linear between.
+        /// </summary>
+        private int ColumnsForDrag(float metres, int broadest)
+        {
+            int thin = math.clamp(Cfg.widthMinColumns, 1, math.max(1, broadest));
+            float span = Cfg.widthFarMetres - Cfg.widthNearMetres;
+            float t = span > 1e-3f ? math.saturate((metres - Cfg.widthNearMetres) / span) : 1f;
+            return (int)math.round(math.lerp(broadest, thin, t));
         }
 
         private void ResetPress()

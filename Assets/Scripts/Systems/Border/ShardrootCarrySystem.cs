@@ -112,6 +112,14 @@ namespace TheWaningBorder.Systems.Economy
         };
         static CachedEntityQuery QC_TaggedBearers;
 
+        // Bearers under a player's enshrine order (ShardrootEnshrine, § 3.1d).
+        static readonly ComponentType[] QT_EnshrineOrders =
+        {
+            ComponentType.ReadOnly<ShardrootEnshrineOrder>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_EnshrineOrders;
+
         #endregion
 
         protected override void OnUpdate()
@@ -217,6 +225,19 @@ namespace TheWaningBorder.Systems.Economy
             claimers.Dispose();
             claimedAmounts.Dispose();
             claimedSources.Dispose();
+
+            // ── Phase 3a: the player's enshrine order (2026-10-20) ─────
+            // A bearer the player sent to their Temple (right-click,
+            // ShardrootEnshrine): walk, pay, enshrine — the same delivery as
+            // the courier pass below, plus the notices a player needs.
+            {
+                var orderQuery = QC_EnshrineOrders.Get(em, QT_EnshrineOrders);
+                if (!orderQuery.IsEmpty)
+                {
+                    using var ordered = orderQuery.ToEntityArray(Allocator.Temp);
+                    ShardrootEnshrine.TickOrders(em, ecb, ordered, dt);
+                }
+            }
 
             // ── Phase 3: carrier-near-temple → deposit ─────────────────
             // Spec refinement #2: Shardroot is stored on TempleOfRidan, not on a

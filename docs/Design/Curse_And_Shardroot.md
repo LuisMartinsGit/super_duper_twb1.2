@@ -1265,6 +1265,45 @@ Shardroot regardless of road chosen."
   fights the world — which is why it must be insanely expensive and why
   holding it is the match's decisive moment, not a side bonus.
 
+### 3.1d The player's enshrine order (2026-10-20, CURRENT)
+
+Developer: "When playing, it is impossible for a human player to store the
+shardroot on the temple (should be: select the hero who has it -> right click
+to stow away the shardroot. Hero needs to be next to the building)."
+
+The AI always could: it walks its courier to its Temple marked for the Temple
+road, and the delivery enshrines it on arrival. A player had no such order —
+a right-click on the Temple was a plain move that stopped wherever the
+formation slot fell, a carrier walking past its own Hall had the artifact
+bound there first, and a faction short of the price was told nothing. So:
+
+- **Select the unit carrying the Shardroot and right-click your own finished
+  Temple of Ridan**: the bearer walks to the Temple's wall and, once within
+  the deposit reach (`ShardrootDepositRadius` in `BorderConstants`), enshrines
+  it — the same delivery, price and effect as the AI's (§3.1b, §3.1c). Any
+  other selected units follow to the Temple. The cursor over the Temple reads
+  **"Enshrine the Shardroot"**, or why it cannot be.
+- **While the order runs the bearer is on the Temple road**: passing its own
+  Hall does not bind the artifact on the way.
+- **Refused, with a notice**: someone else's Temple, an unfinished one, a
+  faction that cannot pay the enshrine price (the notice states the price), and
+  the **Shardbound Hero** — the King road's choice still holds until he falls
+  (§3.1b). A King Lexor who picked the artifact up himself is not yet bound —
+  he is bound only when he delivers it at the Hall — so he can enshrine it.
+- **If the bank runs short between the order and the arrival**, the bearer
+  waits at the Temple with the order kept (the §3.1c rule) and is told the
+  price once; it enshrines the moment the bank covers it.
+- **The order ends** when the bearer is ordered elsewhere, stands still short
+  of the Temple for a few seconds (stuck), loses the artifact, or the Temple
+  can no longer take it.
+- **An action-panel button, Enshrine**, sends the selected bearer to the
+  nearest own finished Temple — the same order.
+
+Code: `ShardrootEnshrine.cs` (beside `ShardrootComponents.cs`; the check, the
+executor and the per-tick arrival, run by `ShardrootCarrySystem`), the
+`ShardrootEnshrineOrder` component, `CommandRouter.IssueEnshrineShardroot` —
+one lockstep command, `EnshrineShardroot` (opcode 56).
+
 ### 3.2 Discovery aids
 
 A fully-bloomed perched scout (expanding-vision design, [Game_AI.md § 7](Game_AI.md))

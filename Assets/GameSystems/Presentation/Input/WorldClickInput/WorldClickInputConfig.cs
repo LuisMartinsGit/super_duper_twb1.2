@@ -64,5 +64,23 @@ namespace TheWaningBorder.Input
         /// <summary>Height above the terrain the ghost markers and arrow
         /// float at, in metres.</summary>
         public float previewYOffset;
+
+        // ── Right-drag formation WIDTH (2026-10-20) ──
+
+        /// <summary>Drag length (ground metres from the press point) at or
+        /// below which the formation is at its BROADEST: every type block in
+        /// one rank.</summary>
+        public float widthNearMetres;
+
+        /// <summary>Drag length at or beyond which the formation is at its
+        /// THINNEST (<see cref="widthMinColumns"/> per rank).</summary>
+        public float widthFarMetres;
+
+        /// <summary>Fewest units per rank a long drag makes (the thin end).</summary>
+        public int widthMinColumns;
+
+        /// <summary>Most units per rank a short drag makes (the broad end); a
+        /// block smaller than this simply stands in one rank.</summary>
+        public int widthMaxColumns;
     }
 }

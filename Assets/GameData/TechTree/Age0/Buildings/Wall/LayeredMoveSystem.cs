@@ -37,6 +37,14 @@ namespace TheWaningBorder.Systems.Buildings
         // from outside stops a few metres from its centre — give a generous
         // "reached the access point" radius.
         private const float AccessEntryDist = 6.0f;
+        /// <summary>How far from an access point's centre (Chebyshev, so it
+        /// clears a square bastion on the diagonal too) a unit on the ground
+        /// walks to before it climbs: on ITS OWN side of the wall. Aiming at
+        /// the centre — an impassable masonry cell — let the goal snap to the
+        /// nearest walkable cell, which on a straight run is as likely to be
+        /// the far side of the wall, so the climb never started (2026-10-20).
+        /// Must stay inside <see cref="AccessEntryDist"/>.</summary>
+        private const float AccessApproachDist = 3.5f;
         private const float TransitionRate  = 1.6666666f; // ~0.6 s LERP
 
         // Reused scratch (cleared each tick) so a normal garrison op doesn't
@@ -103,6 +111,7 @@ namespace TheWaningBorder.Systems.Buildings
                     if (ord.Progress >= 1f)
                     {
                         Route(em, ecb, entity, ord.TransEnd, ord.FinalDest, ord.TargetLayer);
+                        FinalLeg(em, ecb, entity, ord.FinalDest, ord.TargetLayer);
                         ecb.RemoveComponent<LayeredMoveOrder>(entity);
                     }
                     else
@@ -117,6 +126,7 @@ namespace TheWaningBorder.Systems.Buildings
                 if (layer == ord.TargetLayer)
                 {
                     Route(em, ecb, entity, xf.Position, ord.FinalDest, ord.TargetLayer);
+                    FinalLeg(em, ecb, entity, ord.FinalDest, ord.TargetLayer);
                     ecb.RemoveComponent<LayeredMoveOrder>(entity);
                     continue;
                 }
@@ -157,10 +167,27 @@ namespace TheWaningBorder.Systems.Buildings
                     ord.Phase = 1;
                     ord.Progress = 0f;
                     ord.TransStart = xf.Position;
+                    float3 land = ap;
+                    if (ord.TargetLayer != NavLayerIndex.LayerRampart)
+                    {
+                        // Coming DOWN: land beside the masonry on the side of
+                        // where the unit is going, not inside the bastion —
+                        // walking out of an impassable cell could pick either
+                        // face of the wall (2026-10-20).
+                        float3 d = ord.FinalDest - ap; d.y = 0f;
+                        float m = math.max(math.abs(d.x), math.abs(d.z));
+                        if (m > 0.01f)
+                        {
+                            d /= m;
+                            float3 p = new float3(ap.x + d.x * AccessApproachDist, ap.y,
+                                                  ap.z + d.z * AccessApproachDist);
+                            if (NavGridQuery.IsWorldStandable(p)) land = p;
+                        }
+                    }
                     float endY = ord.TargetLayer == NavLayerIndex.LayerRampart
-                        ? RampartSurfaceY(ap.x, ap.z)
-                        : TerrainUtility.GetHeight(ap.x, ap.z);
-                    ord.TransEnd = new float3(ap.x, endY, ap.z);
+                        ? RampartSurfaceY(land.x, land.z)
+                        : TerrainUtility.GetHeight(land.x, land.z);
+                    ord.TransEnd = new float3(land.x, endY, land.z);
                     SetDestHasZero(em, entity);
                     orderRO.ValueRW = ord;
                 }
@@ -179,7 +206,12 @@ namespace TheWaningBorder.Systems.Buildings
                 }
                 else
                 {
-                    SetDest(em, ecb, entity, new float3(ap.x, xf.Position.y, ap.z));
+                    float3 d = xf.Position - ap; d.y = 0f;
+                    float m = math.max(math.abs(d.x), math.abs(d.z));
+                    if (m < 0.01f) d = new float3(1f, 0f, 0f); else d /= m;
+                    float3 stand = new float3(ap.x + d.x * AccessApproachDist, xf.Position.y,
+                                              ap.z + d.z * AccessApproachDist);
+                    SetDest(em, ecb, entity, stand);
                     orderRO.ValueRW = ord;
                 }
             }
@@ -422,6 +454,37 @@ namespace TheWaningBorder.Systems.Buildings
                 ? RampartSurfaceY(dest.x, dest.z)
                 : TerrainUtility.GetHeight(dest.x, dest.z);
             return new float3(dest.x, y, dest.z);
+        }
+
+        /// <summary>
+        /// The last leg of a layered move is a PLAYER move to the clicked
+        /// spot: shielded from auto-targeting (UserMoveOrder) and ending at
+        /// the unit's new guard point (docs/Design/Stances.md §2). The climb
+        /// before it is a walk to the stairs, whose arrival would otherwise
+        /// leave the guard point on the ground below the wall — and the stance
+        /// leash then walked a man on the wall-walk back towards it, off the
+        /// edge of the deck (2026-10-20).
+        /// </summary>
+        private static void FinalLeg(EntityManager em, EntityCommandBuffer ecb, Entity e,
+            float3 dest, byte layer)
+        {
+            var guard = new GuardPoint { Position = DestOnLayer(dest, layer), Has = 1 };
+            if (em.HasComponent<GuardPoint>(e))
+            {
+                em.SetComponentData(e, guard);
+                em.SetComponentEnabled<GuardPoint>(e, true);
+            }
+            else
+            {
+                ecb.AddComponent(e, guard);
+                ecb.SetComponentEnabled<GuardPoint>(e, true);
+            }
+            if (em.HasComponent<UserMoveOrder>(e)) em.SetComponentEnabled<UserMoveOrder>(e, true);
+            else
+            {
+                ecb.AddComponent<UserMoveOrder>(e);
+                ecb.SetComponentEnabled<UserMoveOrder>(e, true);
+            }
         }
 
         // Add is structural -> ECB (we're inside a SystemAPI.Query foreach);

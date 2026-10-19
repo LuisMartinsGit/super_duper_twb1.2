@@ -9,6 +9,17 @@ using Unity.Mathematics;
 /// <summary>Resource collection building.</summary>
 public struct GathererHutTag : IComponentData { }
 
+/// <summary>
+/// A Gatherer's Hut (Guild / Work Camp / Trading Post) whose supply node ran
+/// dry and collapsed under it (docs/Design/Territory_Claims.md § 11.3,
+/// 2026-10-19). The hut STAYS standing — the Guild surveys keep paying, it
+/// keeps its level and hosts its research — but it works no node: its slot
+/// is gone, it no longer LOCKS its territory, takes no Feraldis crew, and the
+/// AI does not count it as a working extractor. Added by NodeCollapse; never
+/// removed (no node ever reappears under it).
+/// </summary>
+public struct DepletedHutTag : IComponentData { }
+
 // GathererHutYield and FarmBuildOrder are GONE with the area-income model
 // (2026-08-28). Both existed only to serve the BFME2-style farm: a coverage
 // ratio for the yield %, and a build order for the first-come-first-served

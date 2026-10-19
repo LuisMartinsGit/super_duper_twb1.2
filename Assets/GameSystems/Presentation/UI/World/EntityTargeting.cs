@@ -46,8 +46,8 @@ namespace TheWaningBorder.UI.World
         /// entity, else the (English) reason it may not.</summary>
         public delegate string Refusal(EntityManager em, Entity target);
 
-        private static readonly Color ValidTint = new Color(0.35f, 1f, 0.45f, 0.9f);
-        private static readonly Color InvalidTint = new Color(1f, 0.3f, 0.25f, 0.9f);
+        internal static readonly Color ValidTint = new Color(0.35f, 1f, 0.45f, 0.9f);
+        internal static readonly Color InvalidTint = new Color(1f, 0.3f, 0.25f, 0.9f);
 
         private CastTargetKind _kind;
         private Refusal _refusal;

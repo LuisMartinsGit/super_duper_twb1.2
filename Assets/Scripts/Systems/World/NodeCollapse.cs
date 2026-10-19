@@ -6,7 +6,11 @@
 // reserve reaches zero it is removed from the map, and every building working
 // it collapses with it:
 //
-//   * a supply node      -> the Gatherer's Hut on it
+//   * a supply node      -> NOTHING collapses (2026-10-19): the Gatherer's
+//                           Hut on it (Guild / Work Camp / Trading Post)
+//                           stays standing, marked DepletedHutTag — it works
+//                           no node any more, but the Guild surveys it pays
+//                           are drawn from no node and keep paying
 //   * an iron node       -> the Mine on it
 //   * a veilstone outcrop-> the Veilstone Mine or Runai Sanctuary on it, and
 //                           every Alanthor Trading Outpost on its side slots
@@ -45,6 +49,8 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>Buildings collapsed so far (any owner), for the log line.</summary>
         private static int _killed;
+        /// <summary>Huts marked depleted so far (any owner), for the log line.</summary>
+        private static int _depleted;
 
         static readonly ComponentType[][] QT_Nodes =
         {
@@ -80,10 +86,13 @@ namespace TheWaningBorder.Systems.World
                 {
                     int i = spent[s];
                     float3 p = xfs[i].Position;
-                    int before = _killed;
-                    int collapsed = CollapseWorkers(em, kind, p, xfs);
+                    int before = _killed, beforeDepleted = _depleted;
+                    int collapsed = kind == KindSupply
+                        ? DepleteHuts(em, p, xfs, res)
+                        : CollapseWorkers(em, kind, p, xfs);
                     UnityEngine.Debug.Log($"[NodeCollapse] {(kind == KindSupply ? "supply" : kind == KindIron ? "iron" : "veilstone")} " +
-                                          $"node at ({p.x:0},{p.z:0}) ran dry — {_killed - before} building(s) collapsed");
+                                          $"node at ({p.x:0},{p.z:0}) ran dry — {_killed - before} building(s) collapsed, " +
+                                          $"{_depleted - beforeDepleted} hut(s) depleted");
                     Notify(kind, p, collapsed);
                     PassabilityGrid.Instance?.UnblockObstacle(p, BuildGrid.ResourceNodeBlockRadius);
                     em.DestroyEntity(ents[i]);
@@ -97,8 +106,7 @@ namespace TheWaningBorder.Systems.World
         private static int CollapseWorkers(EntityManager em, int kind, float3 p, NativeArray<LocalTransform> nodeXfs)
         {
             int mine = 0;
-            if (kind == KindSupply) mine += CollapseNear(em, QC_Huts.Get(em, QT_Huts), p, nodeXfs);
-            else if (kind == KindIron) mine += CollapseNear(em, QC_Mines.Get(em, QT_Mines), p, nodeXfs);
+            if (kind == KindIron) mine += CollapseNear(em, QC_Mines.Get(em, QT_Mines), p, nodeXfs);
             else
             {
                 mine += CollapseNear(em, QC_VeilMines.Get(em, QT_VeilMines), p, nodeXfs);
@@ -145,6 +153,53 @@ namespace TheWaningBorder.Systems.World
             return mine;
         }
 
+        /// <summary>
+        /// A spent SUPPLY node does not take its hut with it (2026-10-19,
+        /// developer: "depleted guilds should not get destroyed — it renders
+        /// late game armies practically impossible"): every Gatherer's Hut
+        /// within WorkRange that has no other live supply node in reach is
+        /// marked <see cref="DepletedHutTag"/> and keeps standing. A hut that
+        /// still reaches another live node keeps working that one. The local
+        /// player's count is returned for the notice.
+        /// </summary>
+        private static int DepleteHuts(EntityManager em, float3 p,
+            NativeArray<LocalTransform> nodeXfs, NativeArray<NodeReserve> nodeRes)
+        {
+            var q = QC_Huts.Get(em, QT_Huts);
+            if (q.IsEmptyIgnoreFilter) return 0;
+            int mine = 0;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            float r2 = WorkRange * WorkRange;
+            var mark = new NativeList<Entity>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                float3 b = xfs[i].Position;
+                if (math.distancesq(b.xz, p.xz) > r2) continue;
+                if (em.HasComponent<DepletedHutTag>(ents[i])) continue;
+                bool otherLive = false;
+                for (int n = 0; n < nodeXfs.Length && !otherLive; n++)
+                {
+                    float3 o = nodeXfs[n].Position;
+                    if (o.x == p.x && o.z == p.z) continue;
+                    if (nodeRes[n].Initial > 0f && nodeRes[n].Remaining <= 0f) continue;   // spent too
+                    if (math.distancesq(b.xz, o.xz) <= r2) otherLive = true;
+                }
+                if (!otherLive) mark.Add(ents[i]);
+            }
+            for (int i = 0; i < mark.Length; i++)
+            {
+                var e = mark[i];
+                em.AddComponent<DepletedHutTag>(e);
+                _depleted++;
+                if (!GameSettings.IsSpectating
+                    && em.GetComponentData<FactionTag>(e).Value == GameSettings.LocalPlayerFaction)
+                    mine++;
+            }
+            mark.Dispose();
+            return mine;
+        }
+
         private static int Kill(EntityManager em, Entity e)
         {
             var hp = em.GetComponentData<Health>(e);
@@ -170,7 +225,9 @@ namespace TheWaningBorder.Systems.World
             string what = kind == KindSupply ? L("A supply node") : kind == KindIron ? L("An iron node") : L("A veilstone outcrop");
             string where = t >= 0 ? RegionMap.NameOf(t) : L("the wilds");
             SimSignals.Notify(localCollapsed > 0
-                ? string.Format(L("{0} in {1} ran dry — the buildings working it collapsed"), what, where)
+                ? kind == KindSupply
+                    ? string.Format(L("{0} in {1} ran dry — the building working it is depleted"), what, where)
+                    : string.Format(L("{0} in {1} ran dry — the buildings working it collapsed"), what, where)
                 : string.Format(L("{0} in {1} ran dry"), what, where));
         }
     }

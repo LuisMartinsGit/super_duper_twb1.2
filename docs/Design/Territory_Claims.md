@@ -1000,6 +1000,22 @@ finite amount of resources."
   side slots. Collapse is destruction (Health 0), with no refund. The
   territory loses the lock those buildings gave (§ 3) and keeps any other.
   There is no Depleted state left to refill, trade at or build on.
+- **Except the Gatherer's Hut (2026-10-19).** Developer: "depleted guilds
+  should not get destroyed - it renders late game armies practically
+  impossible." The Guild surveys (Veilstone_Economy.md § 5.1) pay every
+  Guild iron / veilstone / veilsteel drawn from no node — the late-game
+  Alanthor income that pays for veilstone and veilsteel armies — so a Guild
+  destroyed with its supply node took that income with it. When a **supply**
+  node collapses, the Gatherer's Hut on it (Guild / Work Camp / Trading Post
+  — one entity, every culture) **stays standing, Depleted**: it pays no
+  supplies (its slot is gone with the node, empty-slot trickle included),
+  keeps its level, its surveys and its research, still HOLDS the ground like
+  any building but no longer LOCKS it (it is not on a node), takes no
+  Feraldis crew, and is shown as "(Depleted)". No node ever reappears under
+  it (nodes are dealt once, at match start). **Mines, Veilstone Mines,
+  Sanctuaries and Trading Outposts still collapse** with their node: none of
+  them earns anything that is not drawn from it. (`DepletedHutTag`,
+  `NodeCollapse`.)
 - **Every node shows what is left**: a bar and a number over the node, in
   the node's own resource, wherever the player can see the node (fog of war
   applies). Presentation only; the reserve is the simulation's.

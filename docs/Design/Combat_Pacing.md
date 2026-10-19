@@ -431,6 +431,27 @@ attackers whose damage type is **Siege**.
   one siege unit selected, the siege units attack and the rest of the
   selection is left alone.
 
+## Fighting from a wall-walk (2026-10-20)
+
+Foot units can stand on a stone wall's deck
+([Age_1_Alanthor.md § The stone wall](Age_1_Alanthor.md)). The rules that make
+a wall worth manning:
+
+- **Height.** A bowman on the deck stands `AlanthorWall.DeckHeight` above the
+  ground, so the existing height rule (`HeightAdvantage`) lengthens his range
+  and raises his damage against men below; a bowman below shooting up loses
+  the same. No wall-specific multiplier exists.
+- **Melee cannot reach up or down.** The melee height gate
+  (`TargetingSystem.MeleeMaxHeightDelta`) keeps ground melee from hitting men
+  on the deck and deck melee from hitting men below. Melee on the deck fights
+  only what is on the deck — enemies who climbed in through a breach or with
+  Scaling Hooks.
+- **Men on the deck hold the wall.** They engage what is inside their reach,
+  whatever their stance, and never chase off the deck.
+- **The Shielded wall hardens them** (`WallTiers.DeckArmorBonus`).
+- The Wall Rule still stands: the men on a wall do not make its pieces
+  attackable by anything but siege.
+
 ## Directed building fire
 
 Every building that shoots (`BuildingRangedAttack` — watch / totem

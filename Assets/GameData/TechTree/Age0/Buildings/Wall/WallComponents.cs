@@ -184,11 +184,20 @@ public struct WallGarrisonSlot : IBufferElementData
 }
 
 /// <summary>
-/// On a unit that is currently inside a wall module. Holds the module so
-/// the unit can be put back beside it on release, and so the module's
-/// death can take its garrison with it.
+/// On a unit that is currently inside a garrisonable building (a Watch
+/// Tower today; any building with a <see cref="WallGarrisonSlot"/> buffer).
+/// Holds the building so the unit can be put back beside it on release, and
+/// WHERE the building stood (<see cref="At"/>, <see cref="Half"/>) so that
+/// when it is destroyed — by any path: killed, demolished, collapsed with
+/// its node, converted, rebuilt at age-up — its men are EJECTED alive around
+/// that spot (2026-10-20, docs/Design/Age_1_Alanthor.md § Watch Tower). The
+/// entity is gone by then, so its position has to be remembered here.
 /// </summary>
 public struct WallGarrisonedIn : IComponentData
 {
     public Entity Module;
+    /// <summary>The building's position when the unit went in.</summary>
+    public float3 At;
+    /// <summary>Half the building's footprint (metres) at entry.</summary>
+    public float Half;
 }

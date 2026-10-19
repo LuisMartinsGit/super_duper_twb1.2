@@ -842,7 +842,9 @@ namespace TheWaningBorder.Systems.World
         /// </summary>
         public static bool IsLocking(EntityManager em, Entity e)
             => em.HasComponent<FortressTag>(e)
-            || em.HasComponent<GathererHutTag>(e)
+            // a depleted hut works no node any more (§ 11.3, 2026-10-19): it
+            // still HOLDS the ground like any building, but no longer locks it
+            || (em.HasComponent<GathererHutTag>(e) && !em.HasComponent<DepletedHutTag>(e))
             || em.HasComponent<MineTag>(e)
             || em.HasComponent<VeilstoneMineTag>(e)
             || em.HasComponent<TradingOutpostTag>(e)

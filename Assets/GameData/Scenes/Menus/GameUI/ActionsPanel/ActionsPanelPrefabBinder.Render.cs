@@ -88,7 +88,56 @@ namespace TheWaningBorder.UI.Ingame
             for (int i = count; i < _slots.Length; i++) ClearSlot(_slots[i]);
 
             RenderStances(em, sel);
+            RenderEnshrine(em, sel);
             return count;
+        }
+
+        // ── Unit mode: enshrine the Shardroot (Curse_And_Shardroot.md § 3.1d) ──
+
+        /// <summary>First slot of row 2: the bearer's Enshrine button.</summary>
+        private const int EnshrineSlot = 2 * Cols;
+
+        /// <summary>With the Shardroot's bearer selected, one button sends it
+        /// to the nearest own finished Temple of Ridan to enshrine the
+        /// artifact — the same order a right-click on the Temple gives.</summary>
+        private void RenderEnshrine(EntityManager em, List<Entity> sel)
+        {
+            if (_slots.Length <= EnshrineSlot) return;
+            Entity bearer = Entity.Null;
+            var local = GameSettings.LocalPlayerFaction;
+            for (int i = 0; sel != null && i < sel.Count && bearer == Entity.Null; i++)
+            {
+                var e = sel[i];
+                if (!em.Exists(e) || !em.HasComponent<FactionTag>(e)
+                    || em.GetComponentData<FactionTag>(e).Value != local) continue;
+                if (TheWaningBorder.Entities.ShardrootEnshrine.IsBearer(em, e)) bearer = e;
+            }
+            if (bearer == Entity.Null) return;
+
+            var price = TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.EnshrinePrice;
+            bool bound = em.HasComponent<ShardboundHeroTag>(bearer);
+            var b = new ActionButton
+            {
+                Id = "EnshrineShardroot",
+                Label = Loc.T("Enshrine"),
+                Tooltip = "<b>" + Loc.T("Enshrine the Shardroot") + "</b>\n"
+                          + Loc.T("Carry it to your nearest Temple of Ridan and enshrine it there: "
+                                  + "every unit of yours is empowered and the ascension countdown begins. "
+                                  + "Or right-click your Temple with the bearer selected.")
+                          + (bound ? "\n" + TheWaningBorder.Entities.ShardrootEnshrine.RefusalText(
+                                TheWaningBorder.Entities.ShardrootEnshrine.Refusal.Bound) : "")
+                          + "\n" + Loc.T("Cost: "),
+                Cost = price,
+                Enabled = !bound,
+                CanAfford = FactionEconomy.CanAfford(em, local, price),
+            };
+            Entity who = bearer;
+            FillSlot(_slots[EnshrineSlot], b, Category.Religion, null, () =>
+            {
+                string refusal = TheWaningBorder.Core.Commands.Issuing.SelectionOrders
+                    .EnshrineAtNearestTemple(em, who);
+                if (refusal != null) PlayerNotificationSystem.NotifyError(refusal);
+            }, em);
         }
 
         // ── Unit mode: stances (docs/Design/Stances.md §6) ─────────────────

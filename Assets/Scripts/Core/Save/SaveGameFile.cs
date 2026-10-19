@@ -48,7 +48,13 @@ namespace TheWaningBorder.Core.Save
         //   buffer), PlanOwnership, CelestarPassiveState, Sanctum claim state
         //   and the rest of that day's components — a 0.0.47 snapshot has
         //   none of them.
-        public const int SaveFormatVersion = 4;
+        // 5 (2026-10-19): DepletedHutTag (a Gatherer's Hut whose supply node
+        //   collapsed stays standing, Territory_Claims.md § 11.3) — a format-4
+        //   snapshot destroyed those huts instead.
+        // 6 (2026-10-20): WallGarrisonedIn gained At / Half (where the
+        //   building stood, so a destroyed tower ejects its men) and the
+        //   GarrisonApproach component (a garrison order walks there first).
+        public const int SaveFormatVersion = 6;
 
         /// <summary>Same value; kept for existing callers.</summary>
         public const int CurrentFormat = SaveFormatVersion;

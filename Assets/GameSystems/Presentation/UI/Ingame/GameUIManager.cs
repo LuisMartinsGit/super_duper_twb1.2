@@ -350,6 +350,9 @@ namespace TheWaningBorder.UI.Ingame
             gameObject.AddComponent<TheWaningBorder.UI.World.IncomeOverlay>().Init(catalog.chrome);
             // What is left in every visible resource node (Territory_Claims.md § 11.3).
             gameObject.AddComponent<TheWaningBorder.UI.World.NodeReserveBars>();
+            // How many men are inside each garrisoned tower (n/max) — a
+            // garrisoned unit has no body on the map (Age_1_Alanthor.md § Watch Tower).
+            gameObject.AddComponent<TheWaningBorder.UI.World.GarrisonBadges>();
 
             if (catalog.actionsPanel != null)
             {

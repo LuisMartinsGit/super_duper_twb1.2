@@ -19,17 +19,32 @@
 // REPLACE its fire; each adds `garrisonArrowsPerOccupant` arrows (targets)
 // to the tower's own volley (Age_1_Alanthor.md § Watch Tower: "Garrison
 // slots / arrow-fire 4 / yes"). See RefreshTowerFire.
+//
+// 2026-10-20 (docs/Design/Age_1_Alanthor.md § Watch Tower):
+//   * a garrison order WALKS the unit there (BeginApproach + GarrisonApproach,
+//     driven by WallGarrisonApproachSystem); it goes in only within the
+//     footprint plus WallGarrisonConfig.entryRange — no more entering from
+//     across the map;
+//   * a garrisoned unit leaves the selection and every overlay (the view is
+//     dropped on entry; UnitIndicatorSystem / SelectionSystem skip disabled
+//     units);
+//   * when the building is destroyed by ANY path its men are EJECTED alive
+//     around where it stood (Eject, from WallGarrisonSystem's orphan sweep)
+//     — they used to die with it.
 
 using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using TheWaningBorder.World.Terrain;
+using TheWaningBorder.Systems.Navigation;
 
 namespace TheWaningBorder.Entities
 {
     public static class WallGarrison
     {
+        static WallGarrisonConfig Cfg => WallGarrisonConfig.I;
+
         /// <summary>Reach of a manned wall, metres.</summary>
         public const float FireRange = 18f;
         /// <summary>Seconds between volleys from a manned wall.</summary>
@@ -77,6 +92,8 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<CanBuild>(unit) || em.HasComponent<WorkerTag>(unit)) return false;
             if (em.HasComponent<CavalryTag>(unit)) return false;
             if (em.HasComponent<EmplacedEngineTag>(unit)) return false;
+            // Heroes stay outside (Age_1_Alanthor.md § Watch Tower).
+            if (em.HasComponent<HeroLevel>(unit)) return false;
             var cls = em.GetComponentData<UnitTag>(unit).Class;
             return cls != UnitClass.Siege && cls != UnitClass.Scout;
         }
@@ -93,8 +110,83 @@ namespace TheWaningBorder.Entities
                 == em.GetComponentData<FactionTag>(module).Value;
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // WALKING THERE (2026-10-20)
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>Half the building's footprint, metres (BuildingSize is
+        /// in metres; Radius for anything without one).</summary>
+        public static float HalfExtent(EntityManager em, Entity building)
+        {
+            if (em.HasComponent<BuildingSize>(building))
+            {
+                var s = em.GetComponentData<BuildingSize>(building);
+                return math.max(s.Width, s.Height) * 0.5f;
+            }
+            return em.HasComponent<Radius>(building) ? em.GetComponentData<Radius>(building).Value : 2f;
+        }
+
+        /// <summary>XZ distance from <paramref name="p"/> to the building's
+        /// footprint square (0 inside it).</summary>
+        public static float DistanceToFootprint(EntityManager em, Entity building, float3 p)
+        {
+            if (!em.HasComponent<LocalTransform>(building)) return float.MaxValue;
+            var c = em.GetComponentData<LocalTransform>(building).Position;
+            float h = HalfExtent(em, building);
+            float dx = math.max(0f, math.abs(p.x - c.x) - h);
+            float dz = math.max(0f, math.abs(p.z - c.z) - h);
+            return math.sqrt(dx * dx + dz * dz);
+        }
+
+        /// <summary>True when <paramref name="unit"/> is close enough to go
+        /// straight in (WallGarrisonConfig.entryRange past the footprint).</summary>
+        public static bool InEntryRange(EntityManager em, Entity unit, Entity building)
+            => em.HasComponent<LocalTransform>(unit)
+               && DistanceToFootprint(em, building, em.GetComponentData<LocalTransform>(unit).Position)
+                  <= Cfg.entryRange;
+
         /// <summary>
-        /// Put <paramref name="unit"/> in the module's first free slot.
+        /// The garrison ORDER's executor (every peer runs it off the wire):
+        /// a unit within entry range goes in now; one further away walks to
+        /// the footprint edge on its own side and goes in on arrival
+        /// (<see cref="GarrisonApproach"/>, WallGarrisonApproachSystem).
+        /// Structural: call outside query iteration.
+        /// </summary>
+        public static void BeginApproach(EntityManager em, Entity unit, Entity building)
+        {
+            if (!CanGarrison(em, unit, building)) return;
+            if (InEntryRange(em, unit, building)) { Enter(em, unit, building); return; }
+
+            float3 from = em.GetComponentData<LocalTransform>(unit).Position;
+            float3 c = em.GetComponentData<LocalTransform>(building).Position;
+            float h = HalfExtent(em, building) + Cfg.approachSlack;
+            float3 d = from - c; d.y = 0f;
+            float m = math.max(math.abs(d.x), math.abs(d.z));
+            if (m < 0.01f) d = new float3(1f, 0f, 0f); else d /= m;   // onto the unit square
+            float3 dest = new float3(c.x + d.x * h, c.y, c.z + d.z * h);
+
+            // A plain move: it clears whatever the unit was doing (and any
+            // earlier GarrisonApproach), snaps the point onto walkable ground
+            // and shields the walk from auto-targeting. A unit on a wall-walk
+            // comes down first (MoveCommandHelper's layered branch).
+            TheWaningBorder.Core.Commands.Types.MoveCommandHelper.Execute(em, unit, dest);
+
+            TransientState.Set(em, unit, new GarrisonApproach { Building = building });
+        }
+
+        /// <summary>Drop a pending garrison walk (any other order does).
+        /// Non-structural: the component is only disabled.</summary>
+        public static void CancelApproach(EntityManager em, Entity unit)
+        {
+            if (em.Exists(unit)) TransientState.Clear<GarrisonApproach>(em, unit);
+        }
+
+        /// <summary>True while <paramref name="unit"/> is walking to a garrison.</summary>
+        public static bool IsApproaching(EntityManager em, Entity unit)
+            => TransientState.Active<GarrisonApproach>(em, unit);
+
+        /// <summary>
+        /// Put <paramref name="unit"/> in the building's first free slot.
         /// Structural (the unit is disabled): call outside query iteration.
         /// </summary>
         public static void Enter(EntityManager em, Entity unit, Entity module)
@@ -108,7 +200,21 @@ namespace TheWaningBorder.Entities
             if (free < 0) return;
             slots[free] = new WallGarrisonSlot { Occupant = unit };
 
-            em.AddComponentData(unit, new WallGarrisonedIn { Module = module });
+            // Inside, the unit is doing nothing: drop every order it carried
+            // (and the walk that brought it here), so it does not resume a
+            // stale march the moment it is put out again.
+            TheWaningBorder.Core.Commands.CommandHelper.ClearAllCommands(em, unit);
+            CancelApproach(em, unit);
+            if (em.HasComponent<Target>(unit)) em.SetComponentData(unit, new Target { Value = Entity.Null });
+
+            float3 at = em.HasComponent<LocalTransform>(module)
+                ? em.GetComponentData<LocalTransform>(module).Position : float3.zero;
+            em.AddComponentData(unit, new WallGarrisonedIn
+            {
+                Module = module,
+                At = at,
+                Half = HalfExtent(em, module),
+            });
             // Drop the view first: once the entity is disabled the spawn
             // query no longer sees it, so nothing would ever come back for it.
             var spawn = PresentationSpawnSystem.Instance;
@@ -131,7 +237,7 @@ namespace TheWaningBorder.Entities
 
         /// <summary>
         /// Take everyone out of <paramref name="module"/> and stand them on
-        /// the ground beside it. Structural: call outside query iteration.
+        /// the ground around it. Structural: call outside query iteration.
         /// </summary>
         public static void EmptyModule(EntityManager em, Entity module)
         {
@@ -146,34 +252,97 @@ namespace TheWaningBorder.Entities
                     occupants.Add(slots[i].Occupant);
                 slots[i] = new WallGarrisonSlot { Occupant = Entity.Null };
             }
-            if (occupants.Count == 0) { RefreshFire(em, module); Reclad(em, module); return; }
-
-            float3 at = em.HasComponent<LocalTransform>(module)
-                ? em.GetComponentData<LocalTransform>(module).Position : float3.zero;
-            quaternion rot = em.HasComponent<LocalTransform>(module)
-                ? em.GetComponentData<LocalTransform>(module).Rotation : quaternion.identity;
-            // -X is the INNER (friendly) face of a wall module: the men step
-            // back down on their own side, never into the enemy's.
-            float3 inward = math.mul(rot, new float3(-1f, 0f, 0f));
-
-            for (int i = 0; i < occupants.Count; i++)
+            if (occupants.Count > 0)
             {
-                var u = occupants[i];
+                float3 at = em.HasComponent<LocalTransform>(module)
+                    ? em.GetComponentData<LocalTransform>(module).Position : float3.zero;
+                Eject(em, occupants, at, HalfExtent(em, module));
+            }
+
+            RefreshFire(em, module);
+            Reclad(em, module);
+        }
+
+        /// <summary>Sixteen fixed bearings for the ejection rings — a table,
+        /// not trigonometry, so every peer lands every man on the same spot.</summary>
+        static readonly float2[] EjectDirs =
+        {
+            new float2( 1.000000f,  0.000000f), new float2( 0.923880f,  0.382683f),
+            new float2( 0.707107f,  0.707107f), new float2( 0.382683f,  0.923880f),
+            new float2( 0.000000f,  1.000000f), new float2(-0.382683f,  0.923880f),
+            new float2(-0.707107f,  0.707107f), new float2(-0.923880f,  0.382683f),
+            new float2(-1.000000f,  0.000000f), new float2(-0.923880f, -0.382683f),
+            new float2(-0.707107f, -0.707107f), new float2(-0.382683f, -0.923880f),
+            new float2( 0.000000f, -1.000000f), new float2( 0.382683f, -0.923880f),
+            new float2( 0.707107f, -0.707107f), new float2( 0.923880f, -0.382683f),
+        };
+
+        /// <summary>
+        /// Stand <paramref name="units"/> back on the ground around a building
+        /// that stood at <paramref name="at"/> (half-footprint
+        /// <paramref name="half"/>), each on free walkable ground: rings of
+        /// sixteen bearings from <c>ejectGap</c> past the footprint outwards,
+        /// skipping blocked cells and spots another ejected man already took.
+        /// Alive, enabled, idle, on the ground layer. Used by the Empty button
+        /// and by the orphan sweep (the building was destroyed, by whatever
+        /// path). Structural: call outside query iteration.
+        /// </summary>
+        public static void Eject(EntityManager em, List<Entity> units, float3 at, float half)
+        {
+            var cfg = Cfg;
+            var taken = new List<float3>(units.Count);
+            float minSq = cfg.ejectSpacing * cfg.ejectSpacing * 0.8f;
+            for (int i = 0; i < units.Count; i++)
+            {
+                var u = units[i];
                 if (!em.Exists(u)) continue;
-                float3 spot = at + inward * 2.2f + math.mul(rot, new float3(0f, 0f, (i - 0.5f) * 1.4f));
+
+                float3 spot = default;
+                bool found = false;
+                for (int ring = 0; ring <= cfg.ejectRings && !found; ring++)
+                {
+                    float r = half + cfg.ejectGap + ring * cfg.ejectSpacing;
+                    for (int k = 0; k < EjectDirs.Length && !found; k++)
+                    {
+                        // Each man starts his search a few bearings further
+                        // round, so a crowd fans out instead of queueing on
+                        // one side.
+                        var dir = EjectDirs[(k + i * 5) % EjectDirs.Length];
+                        float3 p = new float3(at.x + dir.x * r, at.y, at.z + dir.y * r);
+                        if (!NavGridQuery.IsWorldStandable(p)) continue;
+                        bool clash = false;
+                        for (int t = 0; t < taken.Count && !clash; t++)
+                            clash = math.distancesq(taken[t].xz, p.xz) < minSq;
+                        if (clash) continue;
+                        spot = p;
+                        found = true;
+                    }
+                }
+                if (!found)
+                    NavGridQuery.SnapToWalkable(new float3(at.x + half + cfg.ejectGap, at.y, at.z), out spot, out _);
                 spot.y = TerrainUtility.GetHeight(spot.x, spot.z);
+                taken.Add(spot);
 
                 if (em.HasComponent<Disabled>(u)) em.RemoveComponent<Disabled>(u);
                 if (em.HasComponent<WallGarrisonedIn>(u)) em.RemoveComponent<WallGarrisonedIn>(u);
+                CancelApproach(em, u);
+                if (em.HasComponent<LayeredMoveOrder>(u)) em.RemoveComponent<LayeredMoveOrder>(u);
+                if (em.HasComponent<LayerTraversalState>(u)) em.RemoveComponent<LayerTraversalState>(u);
+                if (em.HasBuffer<DeckWaypoint>(u)) em.GetBuffer<DeckWaypoint>(u).Clear();
+                if (em.HasComponent<NavLayerIndex>(u))
+                    em.SetComponentData(u, new NavLayerIndex { Layer = NavLayerIndex.LayerGround });
+                if (em.HasComponent<DesiredDestination>(u))
+                    em.SetComponentData(u, new DesiredDestination { Position = spot, Has = 0 });
                 if (em.HasComponent<LocalTransform>(u))
                 {
                     var t = em.GetComponentData<LocalTransform>(u);
                     em.SetComponentData(u, LocalTransform.FromPositionRotationScale(spot, t.Rotation, t.Scale));
                 }
+                // Out here the guard point is where he stands, or the stance
+                // leash would walk him back to wherever he was when he went in.
+                if (em.HasComponent<GuardPoint>(u))
+                    em.SetComponentData(u, new GuardPoint { Position = spot, Has = 1 });
             }
-
-            RefreshFire(em, module);
-            Reclad(em, module);
         }
 
         /// <summary>

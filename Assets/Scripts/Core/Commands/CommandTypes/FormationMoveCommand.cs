@@ -114,6 +114,19 @@ namespace TheWaningBorder.Core.Commands.Types
         public static void BuildLayout(int[] census, FormationShape shape,
             out List<float2> slotLocal, out List<int> groupCounts,
             out List<int> groupRank)
+            => BuildLayout(census, shape, 0, out slotLocal, out groupCounts, out groupRank);
+
+        /// <summary>
+        /// <see cref="BuildLayout(int[], FormationShape, out List{float2}, out List{int}, out List{int})"/>
+        /// with an ordered FRONTAGE (2026-10-20, the right-drag width):
+        /// <paramref name="columns"/> is the most units a block's row may hold
+        /// (0 = the shape's own default). Each type block is cut into
+        /// ceil(n / columns) even ranks, so a small value makes a thin, deep
+        /// column and a large one a broad, shallow line.
+        /// </summary>
+        public static void BuildLayout(int[] census, FormationShape shape, int columns,
+            out List<float2> slotLocal, out List<int> groupCounts,
+            out List<int> groupRank)
         {
             slotLocal = new List<float2>();
             groupCounts = new List<int>();
@@ -156,7 +169,7 @@ namespace TheWaningBorder.Core.Commands.Types
                     cursorY -= basePitch * (TypeGapPitches - 1f)
                         * math.max(RankSpacingScale(lastRank), RankSpacingScale(rank));
 
-                ComputeBlockRows(n, shape, out var blockRows);
+                ComputeBlockRows(n, shape, columns, out var blockRows);
                 for (int r = 0; r < blockRows.Count; r++)
                 {
                     rowCounts.Add(blockRows[r]);
@@ -265,8 +278,18 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         public static void Execute(EntityManager em, IReadOnlyList<Entity> units,
             float3 destination, FormationShape shape, bool attackMove, float3 arriveFacing)
+            => Execute(em, units, destination, shape, attackMove, arriveFacing, 0);
+
+        /// <summary>
+        /// Execute with an ordered arrival facing AND an ordered frontage
+        /// (<paramref name="columns"/>, the right-drag width, 2026-10-20; 0 =
+        /// the shape's default). See <see cref="BuildLayout(int[], FormationShape, int, out List{float2}, out List{int}, out List{int})"/>.
+        /// </summary>
+        public static void Execute(EntityManager em, IReadOnlyList<Entity> units,
+            float3 destination, FormationShape shape, bool attackMove, float3 arriveFacing,
+            int columns)
         {
-            if (!BuildPlan(em, units, destination, shape, arriveFacing, out var plan)) return;
+            if (!BuildPlan(em, units, destination, shape, arriveFacing, columns, out var plan)) return;
 
             // Count members BEFORE issuing: a group of one gets no group, so
             // its membership really is ending and must still be stripped.
@@ -403,8 +426,16 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         public static bool BuildPlan(EntityManager em, IReadOnlyList<Entity> candidates,
             float3 destination, FormationShape shape, float3 arriveFacing, out FormationPlan plan)
+            => BuildPlan(em, candidates, destination, shape, arriveFacing, 0, out plan);
+
+        /// <summary>The plan with an ordered frontage too (<paramref name="columns"/>
+        /// units per block row at most; 0 = the shape's default).</summary>
+        public static bool BuildPlan(EntityManager em, IReadOnlyList<Entity> candidates,
+            float3 destination, FormationShape shape, float3 arriveFacing, int columns,
+            out FormationPlan plan)
         {
             plan = default;
+            columns = ClampColumns(columns);
 
             var units = new List<Entity>();
             var positions = new List<float3>();
@@ -486,7 +517,7 @@ namespace TheWaningBorder.Core.Commands.Types
             var census = new int[RankCount];
             for (int i = 0; i < count; i++)
                 census[math.clamp(ranks[i], 0, RankCount - 1)]++;
-            BuildLayout(census, shape, out var slotLocal, out var groupCounts, out _);
+            BuildLayout(census, shape, columns, out var slotLocal, out var groupCounts, out _);
 
             // Identifies THIS layout, so a remembered slot index can only be
             // reused while the shape it indexes into is unchanged. Shape plus
@@ -938,9 +969,40 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         internal static void ComputeBlockRows(int count, FormationShape shape,
             out List<int> rowCounts)
+            => ComputeBlockRows(count, shape, 0, out rowCounts);
+
+        /// <summary>Most columns an ordered frontage may ask for — the wire
+        /// carries 8 bits (CommandRouter.Formation), and nothing wider is a
+        /// formation.</summary>
+        public const int MaxOrderedColumns = 255;
+
+        /// <summary>0 (no ordered frontage) or 1..MaxOrderedColumns.</summary>
+        public static int ClampColumns(int columns)
+            => columns <= 0 ? 0 : math.min(columns, MaxOrderedColumns);
+
+        /// <summary>
+        /// Rows for one type block with an ordered frontage: at most
+        /// <paramref name="columns"/> per row, the rows as even as the count
+        /// allows (front ranks take the remainder). 0 = the shape's default
+        /// rows below. The WEDGE keeps its pyramid — a frontage would make it
+        /// a box — so the right-drag width shapes Box, Staggered and Line.
+        /// </summary>
+        internal static void ComputeBlockRows(int count, FormationShape shape, int columns,
+            out List<int> rowCounts)
         {
             rowCounts = new List<int>();
             if (count <= 0) return;
+
+            columns = ClampColumns(columns);
+            if (columns > 0 && shape != FormationShape.Wedge)
+            {
+                int ranks = (count + columns - 1) / columns;
+                int perRank = count / ranks;
+                int spare = count % ranks;
+                for (int r = 0; r < ranks; r++)
+                    rowCounts.Add(perRank + (r < spare ? 1 : 0));
+                return;
+            }
 
             if (shape == FormationShape.Line || shape == FormationShape.Wedge)
             {

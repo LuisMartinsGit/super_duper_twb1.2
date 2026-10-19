@@ -9,6 +9,35 @@ build always name the same number.
 
 ---
 
+## [0.0.49] — 2026-10-20
+
+### Added
+- **Fight from the walls.** Right-click a stone wall to send foot soldiers up
+  onto the wall-walk. They stand visibly on the battlements, can be selected
+  and ordered along the wall or back down, and archers keep their height
+  bonus. Units on the wall never chase off it.
+- **Stow the Shardroot yourself.** Select the hero carrying it and right-click
+  your own Temple of Ridan (or press the new Enshrine button): the hero walks
+  to the Temple and enshrines it, without binding it at the Fortress on the
+  way. If you can't afford it yet, the hero waits there.
+- **Formation width.** While right-dragging a move, the drag length sets the
+  frontage: a short drag gives a broad formation, a long drag a thin one.
+- **Garrison badges.** Garrisoned buildings show "n/max" above them.
+
+### Changed
+- **Depleted Guilds stay standing.** When a supply node runs dry the Guild
+  (Work Camp, Trading Post) on it is marked Depleted instead of collapsing,
+  so its Guild surveys keep paying. Mines still collapse.
+
+### Fixed
+- Units ordered into a tower from far away were absorbed instantly; they now
+  walk there and enter on arrival.
+- Garrisoned units left their selection ring and health bar behind.
+- Units inside a destroyed, demolished or converted building died with it;
+  they are now ejected alive.
+- Protocol and save format bumped: multiplayer needs everyone on 0.0.49, and
+  0.0.48 saves can't be loaded.
+
 ## [0.0.48] — 2026-10-19
 
 ### Added

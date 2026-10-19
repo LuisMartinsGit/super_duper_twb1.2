@@ -22,3 +22,7 @@ MonoBehaviour:
   previewArrowColor: {r: 1, g: 0.82, b: 0.2, a: 0.8}
   previewArrowWidth: 0.12
   previewYOffset: 0.15
+  widthNearMetres: 2
+  widthFarMetres: 24
+  widthMinColumns: 2
+  widthMaxColumns: 40

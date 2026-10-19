@@ -427,6 +427,17 @@ namespace TheWaningBorder.UI.Data
                 info.Description += (info.Description.Length > 0 ? "\n" : "") + line;
             }
 
+            // A depleted Gatherer's Hut / Guild (Territory_Claims.md § 11.3,
+            // 2026-10-19): its node is gone, so say what it still does.
+            if (em.HasComponent<DepletedHutTag>(entity) && em.HasComponent<FactionTag>(entity))
+            {
+                byte hutCulture = CultureConfig.GetCompletedCulture(em, em.GetComponentData<FactionTag>(entity).Value);
+                string line = hutCulture == Cultures.Alanthor
+                    ? Loc.T("Depleted — its supply node ran dry. It pays no supplies; its surveys still pay.")
+                    : Loc.T("Depleted — its supply node ran dry. It pays nothing.");
+                info.Description += (info.Description.Length > 0 ? "\n" : "") + line;
+            }
+
             // Self-destruct timer
             if (em.HasComponent<SelfDestructTimer>(entity))
             {

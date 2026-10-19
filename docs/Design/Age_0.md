@@ -302,7 +302,7 @@ engine ([Age_1_Feraldis.md § Walls](Age_1_Feraldis.md)).
 | Cost | a price **per hub plus a price per curtain module** (`PalisadeSegment.asset`), charged for the whole length when the fence is laid — supplies only. The gate conversion costs the same as the stone wall's gate (decision 36) |
 | HP | hub and module HP on their SOs; never scaled for Alanthor / Runai (their palisade has no levels). **Feraldis**: scaled once by the Wooden Wall level SO at age-up (above) |
 | Footprint | the hub's footprint is its SO's, **not grid-snapped** (the wall hubs are the buildings exempt from the build grid, [Build_Grid.md § 5](Build_Grid.md)). The curtain is freeform and **thin** |
-| Walkable | **no.** A fence has no wall-walk; only the stone wall has a deck |
+| Walkable | **no.** A fence has no wall-walk; only the stone wall has a deck. A right-click on a palisade with soldiers is an ordinary move to its foot (2026-10-20: the battlements of [Age_1_Alanthor.md § The stone wall](Age_1_Alanthor.md) are stone-only) |
 | Look | authored timber art — `Wall_segment.fbx` / `Wall_hub.fbx` in `Age0/Buildings/Wall/`, the palisade slot (0) of `WallModuleArt.asset` |
 | Conversions | **Gate and Hub only.** No tower and no mounted engine. No placeholder cards. **Feraldis Wooden Wall: Gate, wall Tower and Hub** — still no mounted engine |
 | Joins | **palisade to palisade only.** A palisade never snaps to, auto-connects with, or is branched from a stone wall, and the reverse — they are different buildings |

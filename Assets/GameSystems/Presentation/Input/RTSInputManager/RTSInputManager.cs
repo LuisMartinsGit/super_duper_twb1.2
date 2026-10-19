@@ -135,7 +135,10 @@ namespace TheWaningBorder.Input
 
             // Block input during UI interactions or building placement
             if (InputBlocking.ShouldBlock())
+            {
+                _hoverHint = null;   // the cursor is on the HUD: no world hint
                 return;
+            }
 
             // Update hover state (always allowed, even for observers)
             UpdateHover();
@@ -156,6 +159,32 @@ namespace TheWaningBorder.Input
         {
             var hovered = ScreenPick.EntityUnderMouse(Cfg.clickMask, _em);
             HoveredEntity = _em.Exists(hovered) ? hovered : Entity.Null;
+
+            // The right-click hint: with the Shardroot's bearer selected, a
+            // Temple says what a right-click there will do (§ 3.1d). The text
+            // and the rule are the order layer's; this only draws it.
+            _hoverHint = HoveredEntity != Entity.Null && !GameSettings.IsSpectating
+                ? _orders.EnshrineHoverHint(HoveredEntity, out _hoverHintOk)
+                : null;
+        }
+
+        private string _hoverHint;
+        private bool _hoverHintOk;
+        private GUIStyle _hintStyle;
+
+        private void DrawHoverHint()
+        {
+            if (string.IsNullOrEmpty(_hoverHint)) return;
+            if (_hintStyle == null)
+                _hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold };
+            Vector2 m = UnityEngine.Input.mousePosition;
+            var r = new Rect(m.x + 18f, Screen.height - m.y + 6f, 420f, 24f);
+            _hintStyle.normal.textColor = new Color(0f, 0f, 0f, 0.85f);
+            GUI.Label(new Rect(r.x + 1f, r.y + 1f, r.width, r.height), _hoverHint, _hintStyle);
+            _hintStyle.normal.textColor = _hoverHintOk
+                ? TheWaningBorder.UI.World.EntityTargeting.ValidTint
+                : TheWaningBorder.UI.World.EntityTargeting.InvalidTint;
+            GUI.Label(r, _hoverHint, _hintStyle);
         }
 
         #endregion
@@ -167,6 +196,7 @@ namespace TheWaningBorder.Input
             // The banner belongs to the modes it reports; the pump only owns
             // the OnGUI call, because a plain class cannot have one.
             _modes?.DrawBanner();
+            DrawHoverHint();
         }
 
         #endregion

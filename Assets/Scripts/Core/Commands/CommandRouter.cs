@@ -356,6 +356,14 @@ namespace TheWaningBorder.Core.Commands
                 em.SetComponentData(unit, order);
             else
                 em.AddComponentData(unit, order);
+
+            // A PLAYER move like any other (2026-10-20): shielded from
+            // auto-targeting on the way to the stairs, and where it ends —
+            // on the wall-walk — is its guard point. Without the guard point
+            // the stance leash walked a man on the wall back towards wherever
+            // he stood before the climb, i.e. off the edge of the deck.
+            TransientState.SetFlag<UserMoveOrder>(em, unit);
+            TransientState.Set(em, unit, new GuardPoint { Position = dest, Has = 1 });
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -2570,6 +2578,8 @@ namespace TheWaningBorder.Core.Commands
             // a full refund) the plans in it that no other worker still holds
             // (docs/Design/Planned_Buildings.md §6). No-op for non-builders.
             TheWaningBorder.Entities.PlannedBuildings.ReleaseWorker(em, unit);
+            // A walk into a garrison (2026-10-20) ends with any other order.
+            TheWaningBorder.Entities.WallGarrison.CancelApproach(em, unit);
             TransientState.Clear<Types.MoveCommand>(em, unit);
             TransientState.Clear<Types.AttackCommand>(em, unit);
             TransientState.Clear<Types.BuildCommand>(em, unit);

@@ -23,7 +23,13 @@ namespace TheWaningBorder.UI.Data
         public static string GetSelectionDisplayName(Entity entity, EntityManager em)
         {
             string name = ResolveSelectionName(entity, em);
-            return em.HasComponent<BuildingTag>(entity) ? WithLevel(entity, em, name) : WithPurity(entity, em, name);
+            if (!em.HasComponent<BuildingTag>(entity)) return WithPurity(entity, em, name);
+            name = WithLevel(entity, em, name);
+            // A hut whose supply node collapsed under it (Territory_Claims.md
+            // § 11.3, 2026-10-19) stands on as "Guild - Lvl 2 (Depleted)".
+            if (em.HasComponent<DepletedHutTag>(entity))
+                name = string.Format(Loc.T("{0} (Depleted)"), name);
+            return name;
         }
 
         /// <summary>A resource node names its purity: "Pure Iron Deposit",

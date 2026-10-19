@@ -97,10 +97,11 @@ namespace TheWaningBorder.Core.Commands
         // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Put <paramref name="unit"/> into <paramref name="module"/>'s
-        /// garrison. Only a reinforced curtain module has slots, and only a
-        /// foot unit may take one (docs/Design/Age_1_Alanthor.md § Garrison
-        /// slots).
+        /// Send <paramref name="unit"/> into <paramref name="module"/>'s
+        /// garrison — a Watch Tower today, any building with garrison slots.
+        /// Only a foot unit may take one (docs/Design/Age_1_Alanthor.md §
+        /// Watch Tower). The order is immediate; the entry happens when the
+        /// unit arrives.
         /// </summary>
         public static void IssueGarrisonWall(EntityManager em, Entity unit, Entity module,
             CommandSource source = CommandSource.LocalPlayer)
@@ -116,7 +117,7 @@ namespace TheWaningBorder.Core.Commands
                 if (unitId <= 0 || moduleId <= 0)
                 {
                     if (!MayExecuteLocally(em, unit, "GarrisonWall")) return;
-                    WallGarrison.Enter(em, unit, module);
+                    WallGarrison.BeginApproach(em, unit, module);
                     return;
                 }
                 LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
@@ -128,13 +129,16 @@ namespace TheWaningBorder.Core.Commands
             }
             else
             {
-                WallGarrison.Enter(em, unit, module);
+                WallGarrison.BeginApproach(em, unit, module);
             }
         }
 
-        /// <summary>Executor — runs on every peer.</summary>
+        /// <summary>Executor — runs on every peer. The unit WALKS to the
+        /// building and goes in on arrival (2026-10-20; it used to be absorbed
+        /// on the spot from anywhere): WallGarrison.BeginApproach +
+        /// WallGarrisonApproachSystem.</summary>
         public static void GarrisonWallDirect(EntityManager em, Entity unit, Entity module)
-            => WallGarrison.Enter(em, unit, module);
+            => WallGarrison.BeginApproach(em, unit, module);
 
         /// <summary>Empty a module's garrison back onto the ground beside it.</summary>
         public static void IssueUngarrisonWall(EntityManager em, Entity module,

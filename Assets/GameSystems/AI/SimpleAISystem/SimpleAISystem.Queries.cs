@@ -216,6 +216,30 @@ namespace TheWaningBorder.AI
             return MemoSet(ref TagMemo<T>.Count, faction, n);
         }
 
+        static readonly ComponentType[] QT_DepletedHuts =
+        {
+            ComponentType.ReadOnly<DepletedHutTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_DepletedHuts;
+
+        /// <summary>The faction's Gatherer's Huts that still WORK a supply
+        /// node (sites and plans included): every hut minus the depleted ones,
+        /// whose node collapsed under them (Territory_Claims.md § 11.3,
+        /// 2026-10-19). A depleted hut keeps standing — its Guild surveys
+        /// still pay — but it is not a working extractor, so it must not
+        /// fill the hut cap and stop the AI founding huts on fresh nodes.</summary>
+        private static int CountWorkingHuts(EntityManager em, Faction faction)
+        {
+            int n = CountFactionBuildings<GathererHutTag>(em, faction);
+            var q = QC_DepletedHuts.Get(em, QT_DepletedHuts);
+            if (q.IsEmptyIgnoreFilter) return n;
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction) n--;
+            return math.max(0, n);
+        }
+
         /// <summary>How many finished trainers of this kind the faction has,
         /// and whether EVERY one of them has a full production queue.
         ///

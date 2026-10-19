@@ -1596,7 +1596,7 @@ namespace TheWaningBorder.Multiplayer
                     // continuation commands of this tick and runs the order on
                     // the last one.
                     CommandRouter.ExecuteFormationOrder(em, cmd, FindEntityByNetworkId);
-                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed FormationOrder x{cmd.SecondaryTargetId} from player {cmd.PlayerIndex}");
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed FormationOrder x{CommandRouter.FormationOrderCount(cmd.SecondaryTargetId)} from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.Train:
@@ -1717,6 +1717,13 @@ namespace TheWaningBorder.Multiplayer
                     CommandRouter.FeraldisOrderDirect(em, entity, targetEntity,
                         (byte)(cmd.SecondaryTargetId & 0xFF), cmd.SecondaryTargetId >> 8, cmd.TargetPosition);
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed FeraldisOrder({cmd.SecondaryTargetId & 0xFF}) from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.EnshrineShardroot:
+                    // EntityNetworkId: the bearer. TargetEntityId: its Temple.
+                    if (targetEntity != Entity.Null)
+                        CommandRouter.EnshrineShardrootDirect(em, entity, targetEntity);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed EnshrineShardroot from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.DeleteEntity:

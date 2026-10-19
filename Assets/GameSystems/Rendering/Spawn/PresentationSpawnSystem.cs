@@ -1714,6 +1714,21 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         }
     }
 
+    /// <summary>Metres above the walking surface a simulated Y must be
+    /// before the view asks whether the unit is on a wall-walk. Engine
+    /// tolerance, not tuning: well over the millimetre gap between the sim's
+    /// and the renderer's height samples, well under the wall's deck height.</summary>
+    private const float WallWalkLiftThreshold = 0.75f;
+
+    /// <summary>On the rampart nav layer, or mid-climb to / from it.</summary>
+    private bool IsOnWallLayer(Entity entity)
+    {
+        if (_em.HasComponent<NavLayerIndex>(entity)
+            && _em.GetComponentData<NavLayerIndex>(entity).Layer == NavLayerIndex.LayerRampart)
+            return true;
+        return _em.HasComponent<LayeredMoveOrder>(entity) || _em.HasComponent<LayerTraversalState>(entity);
+    }
+
     private void SyncView(EntityViewManager evm, Entity entity, LocalTransform lt,
         bool underConstruction, bool interpolate, float stepDuration, int frame)
     {
@@ -1806,7 +1821,17 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // x/z so a unit crossing a slope rides it smoothly rather than
         // in tick-sized steps.
         if (!sync.KeepSimY)
-            pos.y = TerrainUtility.GetSurfaceHeight(pos.x, pos.z, sync.RenderPos.y);
+        {
+            float surfaceY = TerrainUtility.GetSurfaceHeight(pos.x, pos.z, sync.RenderPos.y);
+            // A unit on a stone WALL-WALK (or climbing to it) is simulated at
+            // the deck, metres above the ground under it. Snapping it to the
+            // ground drew it INSIDE the masonry — invisible and unclickable
+            // (2026-10-20). Only a unit simulated clearly above the surface
+            // pays for the layer lookup.
+            if (sync.RenderPos.y - surfaceY > WallWalkLiftThreshold && IsOnWallLayer(entity))
+                surfaceY = sync.RenderPos.y;
+            pos.y = surfaceY;
+        }
 
         // Construction rising animation: pieces start below ground and
         // rise into place bottom-to-top via BuildingRiseData. Falls back

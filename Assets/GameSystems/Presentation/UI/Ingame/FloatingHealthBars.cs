@@ -144,6 +144,7 @@ namespace TheWaningBorder.UI.Ingame
                     var e = selection[i];
                     if (_drawn.Contains(e)) continue;
                     if (!_em.Exists(e)) continue;
+                    if (_em.HasComponent<Disabled>(e)) continue;   // inside a building
                     if (!HasDrawableBar(e)) continue;
 
                     DrawBarForEntity(cam, e, isSelected: true);

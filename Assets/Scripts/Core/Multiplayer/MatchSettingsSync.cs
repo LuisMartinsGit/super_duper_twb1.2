@@ -53,7 +53,16 @@ namespace TheWaningBorder.Core.Multiplayer
         // performance pass changes sim results -- a 0.0.42 peer would fork.
         // 7 (2026-10-16): movement, formation and combat run as Burst jobs
         // (deterministic float mode, baked height grid) -- sim results differ.
-        public const int ProtocolVersion = 7;
+        // 8 (2026-10-20): opcode 56 EnshrineShardroot (the player's enshrine
+        // order) and FormationOrder's SecondaryTargetId gained the right-drag
+        // frontage in bits 16-23 -- a 7 peer would drop the one and lay the
+        // other out at the default width.
+        // 9 (2026-10-20): GarrisonWall (opcode 45) now WALKS the unit to the
+        // building and enters on arrival instead of absorbing it on the spot,
+        // a destroyed tower ejects its garrison instead of killing it, and a
+        // unit on a wall-walk fights only what is in its reach — the same
+        // command stream yields a different world on an 8 peer.
+        public const int ProtocolVersion = 9;
 
         // ═══════════════════════════════════════════════════════════════
         // BUILD FINGERPRINT

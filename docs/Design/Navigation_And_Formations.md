@@ -234,8 +234,25 @@ the pose-fit tolerance makes the first order snap instead of continue.
   the layout. The facing rides the `FormationOrder` flag word as two 10-bit
   signed components (`CommandRouter.PackFacing`), quantised before ANY path
   uses it, so local, replayed and remote executions agree. A plain click (no
-  drag), Shift-queueing and every context target are unchanged; there is no
-  frontage control — the layout has no width parameter.
+  drag), Shift-queueing and every context target are unchanged.
+- **Right-drag length = formation width** (2026-10-20). Developer: "when an
+  army is selected, right clicking and dragging should also let you decide the
+  width of the formation. Closer to the destination point -> broader
+  formation, farther away -> thinner formation. The rotation is directed by
+  mouse direction relative to the point (like it is now)." The ground distance
+  from the press point to the cursor sets the FRONTAGE — the most units a type
+  block's rank may hold. A short drag (`widthNearMetres` or less in
+  `WorldClickInput.asset`) is the broadest: every type block in a single rank
+  (at most `widthMaxColumns`). A long drag (`widthFarMetres` or more) is the
+  thinnest: `widthMinColumns` per rank, a deep column. Between, linear. Each
+  block is then cut into even ranks of at most that many (front ranks take the
+  remainder), so the type stack, the gaps and the cavalry wings keep their
+  rules; the **Wedge** keeps its pyramid and ignores the width. A plain click
+  keeps the shape's default rows. The ghost is `BuildPlan` with the same
+  column count. The count rides the `FormationOrder` command in
+  `SecondaryTargetId` bits 16-23 (the unit count stays in the low 16 bits), so
+  an older replay — zero there — replays at the default width
+  (`FormationMoveCommandHelper.BuildLayout(census, shape, columns, …)`).
 - A selected formation draws **one** movement line, from its virtual leader to
   its destination; units out of the group draw their own.
 - Rally points support target entities and shift-queued chains.
