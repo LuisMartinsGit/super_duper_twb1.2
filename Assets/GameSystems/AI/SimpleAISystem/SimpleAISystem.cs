@@ -373,6 +373,13 @@ namespace TheWaningBorder.AI
                 }
                 case 7:
                 {
+                    // MAN THE FORTIFICATIONS (Game_AI.md § 6s): towers kept
+                    // garrisoned, threatened wall stretches manned, a few
+                    // sentries on the long walls. First in the step, so a
+                    // posted unit is already out of the economy defence and
+                    // Defend's recall below.
+                    TickWallDefence(em, brain.Owner, in aiState, now);
+
                     // DEFEND THE ECONOMY (Game_AI.md § 5i): an attack on an
                     // extractor, a house or a worker in held ground — the curse's
                     // raids included — gets a response sized to the attacker,

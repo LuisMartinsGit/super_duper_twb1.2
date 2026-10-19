@@ -204,7 +204,12 @@ namespace TheWaningBorder.Systems.Combat
             // StoneheartBastion +3 aura, etc.). Adds to defense BEFORE
             // the matrix calc so it actually reduces incoming damage.
             // Was previously written but never read. (task-062 C-1)
-            defenseValue += CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value, CombatDamageHelper.BaseDefense(em, tgt.Value, dmgType));
+            int ownDefense = CombatDamageHelper.BaseDefense(em, tgt.Value, dmgType);
+            defenseValue += CombatDamageHelper.GetSpellBuffArmorBonus(em, tgt.Value, ownDefense);
+
+            // A troop on a wall-walk carries more armour
+            // (docs/Design/Combat_Pacing.md § Fighting from a wall-walk).
+            defenseValue += CombatDamageHelper.WallTopArmorBonus(em, tgt.Value, ownDefense);
 
             bool targetHasDebuff = em.HasComponent<BorderDebuff>(tgt.Value);
             BorderDebuff targetDebuff = targetHasDebuff
@@ -217,7 +222,10 @@ namespace TheWaningBorder.Systems.Combat
             // bit is raised by the helper either way)
 
             // Calculate height-based damage modifier
-            float heightMod = CalculateHeightDamageModifier(myPos.y, targetPos.y);
+            // ... unless the attacker fights from a wall-walk: then the wall
+            // bonus REPLACES the height scaling (never both).
+            float heightMod = CombatDamageHelper.AttackerHeightOrWallMult(em, entity,
+                CalculateHeightDamageModifier(myPos.y, targetPos.y));
 
             // Veilstone modifier (uses pre-fetched data)
             float borderMod = 1.0f;

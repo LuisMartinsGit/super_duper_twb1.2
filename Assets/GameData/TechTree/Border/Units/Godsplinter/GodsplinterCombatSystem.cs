@@ -124,6 +124,9 @@ namespace TheWaningBorder.Systems.Border
                     int defenseValue = 0;
                     if (em.HasComponent<Defense>(tgt.Value))
                         defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(tgt.Value), dmgType);
+                    // A troop on a wall-walk carries more armour
+                    // (docs/Design/Combat_Pacing.md § Fighting from a wall-walk).
+                    defenseValue += CombatDamageHelper.WallTopArmorBonus(em, tgt.Value, defenseValue);
 
                     // Veilstone modifier
                     float borderMod = 1.0f;

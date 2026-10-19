@@ -136,19 +136,30 @@ namespace TheWaningBorder.Systems.Buildings
                 int unitFaction = em.HasComponent<FactionTag>(entity)
                     ? (int)em.GetComponentData<FactionTag>(entity).Value : -1;
 
-                int best = -1; float bestSq = float.MaxValue;
-                for (int i = 0; i < _apPos.Count; i++)
+                // Going UP, the access is chosen ONCE per order and kept in
+                // the order (Phase 3, TransEnd): the nearest usable one whose
+                // wall-walk actually JOINS the spot ordered (2026-10-20). The
+                // nearest one outright could be a different wall — the men
+                // climbed it and stood at the edge of its deck, short of a
+                // walk they could not reach.
+                // Coming DOWN it is kept the same way, in TransStart (Phase 2).
+                int best = -1;
+                if (ord.Phase == 3 || ord.Phase == 2)
                 {
-                    // Gated access (owner >= 0) is friendly-only; breach ramps
-                    // (owner == -1) are usable by anyone.
-                    // Owner OR ally — matches the gate rule: a wall that stops
-                    // your ally is worse than no wall. docs/Design/Teams.md
-                    if (_apOwner[i] >= 0
-                        && !Alliances.AreAllied((Faction)_apOwner[i], (Faction)unitFaction)) continue;
-                    float dx = _apPos[i].x - xf.Position.x;
-                    float dz = _apPos[i].z - xf.Position.z;
-                    float d = dx * dx + dz * dz;
-                    if (d < bestSq) { bestSq = d; best = i; }
+                    float3 kept = ord.Phase == 3 ? ord.TransEnd : ord.TransStart;
+                    for (int i = 0; i < _apPos.Count && best < 0; i++)
+                        if (math.distancesq(_apPos[i].xz, kept.xz) < 0.01f) best = i;
+                    if (best < 0) ord.Phase = 0;   // that access is gone: choose again
+                }
+                if (best < 0)
+                {
+                    best = ChooseAccess(xf.Position, unitFaction, ord.FinalDest, ord.TargetLayer, layer);
+                    if (best >= 0 && ord.TargetLayer == NavLayerIndex.LayerRampart
+                        && layer != NavLayerIndex.LayerRampart)
+                    {
+                        ord.Phase = 3;
+                        ord.TransEnd = _apPos[best];
+                    }
                 }
 
                 if (best < 0)
@@ -218,6 +229,74 @@ namespace TheWaningBorder.Systems.Buildings
 
             ecb.Playback(em);
             ecb.Dispose();
+        }
+
+        /// <summary>
+        /// The access point a unit uses to change layers: the nearest one it
+        /// may use (its side's hubs, towers and gates; breach and overpass
+        /// ramps for anyone). Going UP to a deck spot, only accesses whose
+        /// wall-walk joins that spot count (coming DOWN, only those on the
+        /// walk the unit stands on) — found with one search over the
+        /// deck from the spot; an access standing on no deck cell (an
+        /// overpass ramp) is not ruled out. Falls back to the nearest usable
+        /// one when none joins. -1 when nothing is usable.
+        /// </summary>
+        private int ChooseAccess(float3 from, int unitFaction, float3 dest, byte targetLayer, byte layer)
+        {
+            // Up: the walk the spot is on. Down: the walk the unit is on.
+            HashSet<int2> joined = null;
+            if (targetLayer == NavLayerIndex.LayerRampart)
+                joined = DeckComponent(dest);
+            else if (layer == NavLayerIndex.LayerRampart)
+                joined = DeckComponent(from);
+
+            int best = -1, bestAny = -1;
+            float bestSq = float.MaxValue, bestAnySq = float.MaxValue;
+            for (int i = 0; i < _apPos.Count; i++)
+            {
+                // Gated access (owner >= 0) is friendly-only; breach ramps
+                // (owner == -1) are usable by anyone. Owner OR ally — matches
+                // the gate rule. docs/Design/Teams.md
+                if (_apOwner[i] >= 0
+                    && !Alliances.AreAllied((Faction)_apOwner[i], (Faction)unitFaction)) continue;
+                float dx = _apPos[i].x - from.x;
+                float dz = _apPos[i].z - from.z;
+                float d = dx * dx + dz * dz;
+                if (d < bestAnySq) { bestAnySq = d; bestAny = i; }
+                if (joined != null)
+                {
+                    int2 c = NavGridQuery.WorldToCellInt2(_apPos[i]);
+                    bool onDeck = c.x != int.MinValue && NavGridQuery.IsCellPassable(c, NavLayerIndex.LayerRampart);
+                    if (onDeck && !joined.Contains(c)) continue;
+                }
+                if (d < bestSq) { bestSq = d; best = i; }
+            }
+            return best >= 0 ? best : bestAny;
+        }
+
+        /// <summary>Every rampart cell joined to <paramref name="at"/>'s by
+        /// the wall-walk (fixed neighbour order, bounded by
+        /// <see cref="DeckSearchBudget"/>); null when the spot is off the deck.</summary>
+        private static HashSet<int2> DeckComponent(float3 at)
+        {
+            int2 start = NavGridQuery.WorldToCellInt2(at);
+            if (start.x == int.MinValue || !NavGridQuery.IsCellPassable(start, NavLayerIndex.LayerRampart))
+                return null;
+            var seen = new HashSet<int2> { start };
+            var frontier = new Queue<int2>();
+            frontier.Enqueue(start);
+            while (frontier.Count > 0 && seen.Count < DeckSearchBudget)
+            {
+                int2 c = frontier.Dequeue();
+                for (int i = 0; i < 4; i++)
+                {
+                    int2 n = c + DeckSteps[i];
+                    if (seen.Contains(n) || !NavGridQuery.IsCellPassable(n, NavLayerIndex.LayerRampart)) continue;
+                    seen.Add(n);
+                    frontier.Enqueue(n);
+                }
+            }
+            return seen;
         }
 
         // Friendly-gated access: every stone hub, tower and gate, tagged with

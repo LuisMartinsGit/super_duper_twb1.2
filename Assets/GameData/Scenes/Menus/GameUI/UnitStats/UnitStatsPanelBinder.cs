@@ -203,6 +203,17 @@ namespace TheWaningBorder.UI.Ingame
             }
 
             SetVisible(false);
+
+            // Fighting from a wall-walk (docs/Design/Combat_Pacing.md): hovering
+            // the panel of a unit up on a wall says what the wall gives it.
+            // Null (no tooltip) for anything not on a wall-walk.
+            UITooltip.Bind(gameObject, () =>
+            {
+                if (!_visible || _boundUnit == Entity.Null) return null;
+                var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                if (w == null || !w.IsCreated) return null;
+                return TheWaningBorder.UI.Data.EntityInfoExtractor.WallTopLine(w.EntityManager, _boundUnit);
+            });
         }
 
         private static bool NameIs(Component c, string name) =>

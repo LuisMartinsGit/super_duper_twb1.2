@@ -31,7 +31,11 @@ public struct LayeredMoveOrder : IComponentData
 {
     public float3 FinalDest;
     public byte TargetLayer;
-    public byte Phase;        // 0 = en route to access; 1 = transitioning
+    // 0 = choosing an access; 1 = transitioning (LERP TransStart -> TransEnd);
+    // 2 = on the deck, walking to the access at TransStart to come down;
+    // 3 = on the ground, walking to the access at TransEnd to climb — the
+    //     one whose wall-walk joins FinalDest (2026-10-20).
+    public byte Phase;
     public float3 TransStart;
     public float3 TransEnd;
     public float Progress;

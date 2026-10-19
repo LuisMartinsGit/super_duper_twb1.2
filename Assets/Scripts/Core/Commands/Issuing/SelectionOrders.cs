@@ -96,32 +96,13 @@ namespace TheWaningBorder.Core.Commands.Issuing
             return true;
         }
 
-        // Detect the wall's "along" axis at a deck cell by sampling which
-        // direction (X vs Z) has more contiguous wall-deck cells. Used to
-        // spread garrisoning units along the wall (the debug-wall cubes have
-        // identity rotation, so we can't read orientation off the transform).
-        private float3 WallAlongAxis(float3 wallTopPoint)
-        {
-            var cell = TheWaningBorder.Systems.Navigation.NavGridQuery
-                .WorldToCellInt2(wallTopPoint);
-            if (cell.x == int.MinValue) return new float3(1f, 0f, 0f);
-            int xRun = 0, zRun = 0;
-            for (int k = 1; k <= 4; k++)
-            {
-                if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(new int2(cell.x + k, cell.y), 1)) xRun++;
-                if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(new int2(cell.x - k, cell.y), 1)) xRun++;
-                if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(new int2(cell.x, cell.y + k), 1)) zRun++;
-                if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(new int2(cell.x, cell.y - k), 1)) zRun++;
-            }
-            return xRun >= zRun ? new float3(1f, 0f, 0f) : new float3(0f, 0f, 1f);
-        }
+        // The wall-walk slot layout and the layered-move issue live in
+        // WallTopOrders (2026-10-20) so the AI's wall manning shares them.
 
         // Order selected FOOT units onto the wall top, spread along the wall
-        // around the clicked point. LayeredMoveSystem routes each to the
-        // nearest friendly access (tower/gate) or a breach ramp, LERPs it up,
-        // then it walks the deck to its slot. Returns how many units took the
-        // order, so the input layer can fall through to its normal handling
-        // when nobody in the selection may stand on a wall.
+        // around the clicked point. Returns how many units took the order, so
+        // the input layer can fall through to its normal handling when nobody
+        // in the selection may stand on a wall.
         public int IssueWallTopMove(float3 wallTopPoint)
         {
             // Overpass-bridge decks are roads, not fortifications: ANY
@@ -142,26 +123,8 @@ namespace TheWaningBorder.Core.Commands.Issuing
                 }
                 else if (CanGarrisonWall(e)) units.Add(e);
             }
-
-            int n = units.Count;
-            if (n == 0) return 0;
-
-            float3 along = WallAlongAxis(wallTopPoint);
-            for (int i = 0; i < n; i++)
-            {
-                float off = (i - (n - 1) * 0.5f) * FormationSpacing;
-                float3 dest = wallTopPoint + along * off;
-                // The spread is laid on a grid axis, and a wall can run at any
-                // bearing: a slot that falls off the walk takes the clicked
-                // point instead, or the unit would be routed to thin air.
-                var slotCell = TheWaningBorder.Systems.Navigation.NavGridQuery.WorldToCellInt2(dest);
-                if (slotCell.x == int.MinValue
-                    || !TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(slotCell, NavLayerIndex.LayerRampart))
-                    dest = wallTopPoint;
-                CommandRouter.IssueLayeredMove(_em, units[i], dest,
-                    NavLayerIndex.LayerRampart, CommandSource.LocalPlayer);
-            }
-            return n;
+            return WallTopOrders.IssueWallTopMove(_em, units, wallTopPoint,
+                FormationSpacing, CommandSource.LocalPlayer);
         }
 
         /// <summary>
@@ -198,36 +161,8 @@ namespace TheWaningBorder.Core.Commands.Issuing
         /// cell, metres: past half the wall's depth plus a click on its foot.</summary>
         private const float WallTopSearchRadius = 4f;
 
-        /// <summary>The walkable rampart-layer cell nearest <paramref name="near"/>
-        /// within <paramref name="radius"/> metres, as a point on the deck.</summary>
         private static bool TryNearestDeckPoint(float3 near, float radius, out float3 point)
-        {
-            point = default;
-            var c0 = TheWaningBorder.Systems.Navigation.NavGridQuery.WorldToCellInt2(near);
-            if (c0.x == int.MinValue) return false;
-            float cs = math.distance(
-                TheWaningBorder.Systems.Navigation.NavGridQuery.CellCenter(c0).xz,
-                TheWaningBorder.Systems.Navigation.NavGridQuery.CellCenter(c0 + new int2(1, 0)).xz);
-            if (cs < 0.01f) cs = 1f;
-            int n = (int)math.ceil(radius / cs);
-            float best = float.MaxValue;
-            bool found = false;
-            for (int dz = -n; dz <= n; dz++)
-            for (int dx = -n; dx <= n; dx++)
-            {
-                var c = new int2(c0.x + dx, c0.y + dz);
-                if (!TheWaningBorder.Systems.Navigation.NavGridQuery.IsCellPassable(c, NavLayerIndex.LayerRampart))
-                    continue;
-                float3 cc = TheWaningBorder.Systems.Navigation.NavGridQuery.CellCenter(c);
-                float d = math.distancesq(cc.xz, near.xz);
-                if (d >= best || d > radius * radius) continue;
-                best = d;
-                point = new float3(cc.x,
-                    TheWaningBorder.Systems.Navigation.LayerTransitionSystem.DeckYAt(cc.x, cc.z), cc.z);
-                found = true;
-            }
-            return found;
-        }
+            => WallTopOrders.TryNearestDeckPoint(near, radius, out point);
 
         // Every wall instance, for resolving which one a deck cell belongs to.
         // Cached: CreateEntityQuery registers permanently with the world.

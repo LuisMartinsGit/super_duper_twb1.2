@@ -882,6 +882,15 @@ namespace TheWaningBorder.Systems.Navigation
                         // A corpse mid-death-animation is about to stop
                         // occupying the point; don't settle behind it.
                         if (Active(ref Dying, other)) continue;
+                        // A unit still walking a PLAYER move is passing
+                        // through, not holding the point: its order clears
+                        // the moment it arrives, so one that has really
+                        // settled on our goal still blocks us. Without this
+                        // a file spread along a wall-walk (a cell per man,
+                        // SelectionOrders.DeckSlots) stopped short wherever
+                        // a man bound further along walked over another's
+                        // slot (2026-10-20).
+                        if (Active(ref UserMove, other)) continue;
 
                         float3 op = Xform[other].Position;
 

@@ -88,6 +88,7 @@ namespace TheWaningBorder.Systems.Navigation
             // Snapshot units once (faction + position).
             using var unitFactions = _unitQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var unitTransforms = _unitQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var unitEntities = _unitQuery.ToEntityArray(Allocator.Temp);
 
             // Bucket the units on a grid one detect-radius wide, so each gate
             // tests only the 3x3 cells around it instead of every unit on the
@@ -157,7 +158,7 @@ namespace TheWaningBorder.Systems.Navigation
                         var up = unitTransforms[u].Position;
                         float dx = up.x - gatePos.x;
                         float dz = up.z - gatePos.z;
-                        if (dx * dx + dz * dz <= radiusSq)
+                        if (dx * dx + dz * dz <= radiusSq && PassesAtGroundLevel(em, unitEntities[u]))
                         {
                             friendlyNearby = true;
                             break;
@@ -165,13 +166,25 @@ namespace TheWaningBorder.Systems.Navigation
                     } while (buckets.TryGetNextValue(out u, ref it));
                 }
 
+                // What the PATH PLANNER sees is not the doors (2026-10-20).
+                // An Auto gate is a way through for its side whether or not
+                // the doors happen to be open this poll — they open as the
+                // men arrive, which they never would if the planner refused
+                // the closed gate (friendly ground units stopped short in
+                // front of it, waiting for a door only their arrival opens).
+                // Only the player's seal shuts the passage; hostiles are kept
+                // out by the portal's owner bits and the conditional ground
+                // cell, never by this bit. The walk OVER the gate is never
+                // shut by its doors. Written every poll: a portal rebuild
+                // resets every bit to open.
+                FlipMirrorOpenBit(ref mirror, st.PortalNodeGround, !sealedShut);
+                FlipMirrorOpenBit(ref mirror, st.PortalNodeRampart, true);
+
                 byte nowOpen = friendlyNearby ? (byte)1 : (byte)0;
                 if (nowOpen != st.OpenState)
                 {
                     st.OpenState = nowOpen;
                     st.LastChangedTick = _tick;
-                    FlipMirrorOpenBit(ref mirror, st.PortalNodeGround, nowOpen != 0);
-                    FlipMirrorOpenBit(ref mirror, st.PortalNodeRampart, nowOpen != 0);
                     // Keep the legacy WallGateState.IsOpen in sync (UI /
                     // visual consumers still read it).
                     if (em.HasComponent<WallGateState>(gateEntity))
@@ -186,6 +199,28 @@ namespace TheWaningBorder.Systems.Navigation
 
             order.Dispose();
             buckets.Dispose();
+        }
+
+        /// <summary>
+        /// Does this unit count for the gate? Only a man on the GROUND passes
+        /// through a gate. One on the wall-walk over it (rampart layer), one
+        /// climbing up or down at an access point, and one walking to an
+        /// access point to climb are never going through the passage, so
+        /// they must not swing the doors (docs/Design/Age_1_Alanthor.md
+        /// § The gate is one structure, 2026-10-20). Order-independent and
+        /// read from sim state only, so the poll stays deterministic.
+        /// </summary>
+        private static bool PassesAtGroundLevel(EntityManager em, Entity unit)
+        {
+            if (em.HasComponent<NavLayerIndex>(unit)
+                && em.GetComponentData<NavLayerIndex>(unit).Layer != NavLayerIndex.LayerGround)
+                return false;
+            if (em.HasComponent<LayeredMoveOrder>(unit))
+            {
+                var o = em.GetComponentData<LayeredMoveOrder>(unit);
+                if (o.Phase == 1 || o.TargetLayer != NavLayerIndex.LayerGround) return false;
+            }
+            return true;
         }
 
         /// <summary>Unit bucket: cells <see cref="RegionDetectRadius"/> wide

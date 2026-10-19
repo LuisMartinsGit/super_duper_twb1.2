@@ -2774,6 +2774,72 @@ it on the support cadence (`AISupport.thinkInterval`,
 
 The numbers are on `AISupport.asset`.
 
+## 6s. The AI mans its towers and walls (2026-10-20)
+
+Developer: "Make sure the AI places garrisons in towers and places units on
+walls." Before this the AI built Watch Towers (§ 7b, § 3c) and stone walls
+(§ 3b) and never put a man in either: towers fired with their own arrows only,
+and the only use of a wall was the Turtle's wall guard (§ 3b), which parks
+idle soldiers on the ground inside the gates. Code:
+`SimpleAISystem.WallDefence.cs`, a pass every `wallDefenceIntervalSeconds`
+at the start of think step 7. It issues only the player's own orders —
+`CommandRouter.IssueGarrisonWall` (walk there, go in) and the wall-top order
+(`WallTopOrders.IssueWallTopMove`, the slot layout and layered move the
+player's right-click uses, factored out of `SelectionOrders`) — so every post
+is a lockstep command like any other AI order.
+
+- **Tower garrisons.** Every finished building of ours with garrison slots
+  (the Alanthor Watch Tower today; no Feraldis or Runai building has slots)
+  is kept filled with ranged foot units, up to capacity. Threatened towers
+  (hostile strength within `towerThreatRadius`) come first, then the ones
+  farthest from the capital — the border. Men are drawn nearest first,
+  within `towerGarrisonDraftRadius`. Two caps keep the field army whole: at
+  most `towerGarrisonMaxRangedShare` of the ranged army (field plus already
+  garrisoned) sits in towers, and a post is never taken when fewer than
+  `wallPostMinFieldArmy` free combat units would remain. A dead occupant
+  frees its slot and the next pass refills it. A tower that falls ejects its
+  men alive (WallGarrison), and they go back to the army; nothing extra is
+  needed to save them.
+- **Manning the wall.** The faction's stone wall (never the palisade, which
+  has no walk) is cut into `wallStretchMeters` stretches. A stretch with
+  hostile strength of at least `wallThreatMinStrength` within
+  `wallThreatRadius` of its walk is manned: ranged within
+  `wallManDraftRadius` go up onto it, spread along the walk, sized to the
+  threat (`wallManStrengthRatio` of the threat in own-ranged strength,
+  clamped to `wallManMin`-`wallManMax`). When the threat outweighs our own
+  strength there by `wallMeleeOutnumberedRatio`, up to `wallMeleeMax` melee
+  go up as well to hold the walk. At most `wallMaxMannedStretches` stretches
+  are manned at once, strongest threat first.
+- **Coming down.** A manned stretch quiet for `wallReleaseAfterSeconds` (the
+  hysteresis) comes down: its men walk to the ground `wallReleaseInsetMeters`
+  inside the wall, toward the capital, and rejoin the army. A stretch that is
+  destroyed or loses its walk releases its men at once.
+- **Sentries.** In peacetime a few ranged stand on the long walls: one per
+  `wallSentryPiecesPerSentry` stone wall pieces, at most `wallSentryMax`,
+  spread round the walls by bearing from the capital. They stay up until the
+  wall goes or the all-in.
+- **A posted unit is nobody else's.** While posted (walking to a tower or
+  inside it, climbing or standing on the walk) a unit is out of every draft:
+  `IsClaimSquadMember` includes the post set, so the wave, its
+  reinforcements, raids, claim / curse / reconquest squads, the economy
+  defence, the wall guard and the Shardroot strike all skip it; Defend's
+  recall skips it; the endgame systems' idle test asks the same set. A
+  garrisoned unit is disabled and invisible to every query anyway (it still
+  costs population, and the army floor does not count it, so the AI trains
+  its field army back up around its garrisons). A post the unit never
+  reached — no layered order, not on the walk, not approaching or inside the
+  tower after `wallPostGraceSeconds` — is forgotten.
+- **The all-in takes the sentries, not the home guard.** Under the
+  late-game all-in (§ 6n) the sentries come down to join the army and no new
+  ones go up. The towers keep their men and a threatened stretch is still
+  manned: § 6n already leaves a home guard to defend the base, and the posts
+  are part of it.
+
+The numbers are on `SimpleAISystem.asset` (§ "Manning the fortifications").
+Log category `WALLS` in the AI logs: `garrisoned N in WatchTower …`,
+`manned wall (N: r ranged, m melee) … vs threat T`, `threat gone — N unit(s)
+down off the wall`, `posted N sentry(ies) on the wall`.
+
 ## 7. Scouting
 
 Keep the information-driven `ScoutDirectorSystem` (zone staleness scoring,

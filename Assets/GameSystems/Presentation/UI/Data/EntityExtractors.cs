@@ -23,6 +23,20 @@ namespace TheWaningBorder.UI.Data
     public static partial class EntityInfoExtractor
     {
         /// <summary>
+        /// The wall-walk line for a unit fighting from a wall
+        /// (docs/Design/Combat_Pacing.md § Fighting from a wall-walk), or null
+        /// when it is not up on one. The percentages are read from
+        /// WallGarrison.asset — the same values the damage sites use.
+        /// </summary>
+        public static string WallTopLine(EntityManager em, Entity unit)
+        {
+            if (!TheWaningBorder.Systems.Combat.CombatDamageHelper.OnWallTop(em, unit)) return null;
+            var cfg = TheWaningBorder.Entities.WallGarrisonConfig.I;
+            return string.Format(Loc.T("On the wall: +{0}% damage, +{1}% armour"),
+                cfg.wallTopDamagePct.ToString("0.#"), cfg.wallTopArmorPct.ToString("0.#"));
+        }
+
+        /// <summary>
         /// The entity's shield (equipment-tier ShieldBar): extra hit points
         /// every hit spends before Health (docs/Design/Combat_Pacing.md).
         /// False, with 0 / 0, when the entity carries no shield.

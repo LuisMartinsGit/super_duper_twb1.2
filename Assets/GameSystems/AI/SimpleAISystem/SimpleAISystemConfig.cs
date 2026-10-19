@@ -1497,5 +1497,57 @@ namespace TheWaningBorder.AI
         /// <summary>Multiplier on the difficulty's counterResponse under a
         /// doctrine: how much of the army still follows the enemy read.</summary>
         public float doctrineCounterResponseScale;
+
+        // ── Manning the fortifications (Game_AI.md § 6s, 2026-10-20) ──
+
+        /// <summary>Seconds between wall-defence passes (towers, wall
+        /// manning, sentries). 0 = the AI never garrisons or mans walls.</summary>
+        public float wallDefenceIntervalSeconds;
+        /// <summary>An ordered post that has not reached its tower / the deck
+        /// (and carries no live order) after this many seconds is forgotten.</summary>
+        public float wallPostGraceSeconds;
+        /// <summary>Peacetime posts (tower garrisons, sentries) never leave
+        /// fewer free combat units than this in the field.</summary>
+        public int wallPostMinFieldArmy;
+        /// <summary>At most this share of the ranged army (field + already
+        /// garrisoned) sits in towers. 0 = no tower garrisons.</summary>
+        public float towerGarrisonMaxRangedShare;
+        /// <summary>How far from a tower (or a sentry's stretch) a garrison
+        /// draws its men, metres.</summary>
+        public float towerGarrisonDraftRadius;
+        /// <summary>Hostile strength within this of a tower puts it first in line.</summary>
+        public float towerThreatRadius;
+        /// <summary>The wall is cut into stretches of this size (grid
+        /// buckets of wall pieces), metres; each is manned on its own.</summary>
+        public float wallStretchMeters;
+        /// <summary>Hostile strength within this of a stretch's walk is its threat.</summary>
+        public float wallThreatRadius;
+        /// <summary>A stretch is manned at this hostile strength (AIEngagement
+        /// scale; one soldier is ~30).</summary>
+        public int wallThreatMinStrength;
+        /// <summary>Men sent up = threat x this / the mean strength of the
+        /// ranged on hand, clamped to [wallManMin, wallManMax].</summary>
+        public float wallManStrengthRatio;
+        public int wallManMin;
+        public int wallManMax;
+        /// <summary>How far from a threatened stretch its men are drawn, metres.</summary>
+        public float wallManDraftRadius;
+        /// <summary>At most this many stretches manned at once (strongest threat first).</summary>
+        public int wallMaxMannedStretches;
+        /// <summary>When the threat exceeds our own strength at the stretch
+        /// times this, melee go up too to hold the walk…</summary>
+        public float wallMeleeOutnumberedRatio;
+        /// <summary>…at most this many per pass.</summary>
+        public int wallMeleeMax;
+        /// <summary>A manned stretch quiet this long (no threat) comes down.</summary>
+        public float wallReleaseAfterSeconds;
+        /// <summary>Men coming down walk this far inside the wall, toward the capital.</summary>
+        public float wallReleaseInsetMeters;
+        /// <summary>Metres between men on the walk.</summary>
+        public float wallPostSpacingMeters;
+        /// <summary>Peacetime sentries: one ranged per this many stone wall
+        /// pieces, at most wallSentryMax (0 = none).</summary>
+        public int wallSentryPiecesPerSentry;
+        public int wallSentryMax;
     }
 }

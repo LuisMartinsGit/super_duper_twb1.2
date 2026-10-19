@@ -15,6 +15,11 @@ namespace TheWaningBorder.Systems.Combat
     /// Crossbowmen, Longbowman, Ballista) and VeilstingerCombatSystem so the
     /// rule is symmetric between players and the Border. Deterministic —
     /// pure math on lockstep-simulated positions.
+    ///
+    /// A shooter standing on a wall-walk keeps the RANGE side of this, but its
+    /// DAMAGE takes the wall bonus instead
+    /// (CombatDamageHelper.AttackerHeightOrWallMult; Combat_Pacing.md §
+    /// Fighting from a wall-walk) — the two never stack.
     /// </summary>
     public static class HeightAdvantage
     {

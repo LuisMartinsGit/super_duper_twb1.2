@@ -25,6 +25,9 @@ namespace TheWaningBorder.Core.Localization
                 "{0} regressa ao nível {1}, tudo o que era — por x{2} o custo e o tempo.";
             t["Honour thy Pledge"] = "Honra o teu Juramento";
 
+            // ── Fighting from a wall-walk (Combat_Pacing.md, 2026-10-20) ──
+            t["On the wall: +{0}% damage, +{1}% armour"] = "Na muralha: +{0}% de dano, +{1}% de armadura";
+
             t["Cost: "] = "Custo: ";
             t["Time: {0}s"] = "Tempo: {0}s";
             t["{0}  (Lv {1})"] = "{0}  (Nv {1})";

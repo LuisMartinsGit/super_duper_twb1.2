@@ -154,7 +154,8 @@ namespace TheWaningBorder.AI
         /// squads alone must leave a response alone too, or the next wave or
         /// reclaim pulls it off the fight it was sent to (Game_AI.md § 5i).
         /// Curse-clearing sorties are claim squads, so they are covered.</remarks>
-        private bool IsClaimSquadMember(Entity e) => _claimSquadMembers.Contains(e) || IsEconResponder(e);
+        private bool IsClaimSquadMember(Entity e) => _claimSquadMembers.Contains(e) || IsEconResponder(e)
+            || IsWallPosted(e);   // a tower or wall post (SimpleAISystem.WallDefence.cs)
 
         /// <summary>
         /// Is <paramref name="e"/> a member of one of the faction's missions?

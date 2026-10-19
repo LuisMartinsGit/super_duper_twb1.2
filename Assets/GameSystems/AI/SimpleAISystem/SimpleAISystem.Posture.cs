@@ -291,6 +291,9 @@ namespace TheWaningBorder.AI
                 // Already answering an attack on the economy: it has its own
                 // fight (SimpleAISystem.EconomyDefence.cs).
                 if (IsEconResponder(ents[i])) continue;
+                // Manning a wall or walking into a tower (Game_AI.md § 6s):
+                // the post IS its part of the defence.
+                if (IsWallPosted(ents[i])) continue;
                 float dx = xfs[i].Position.x - hallPos.x;
                 float dz = xfs[i].Position.z - hallPos.z;
                 bool home = dx * dx + dz * dz <= defendRadiusSq;

@@ -165,14 +165,9 @@ namespace TheWaningBorder.Systems.Navigation
                     var e = gateEntities[idx];
                     var pos = gateXfs[idx].Position;
                     var fac = gateFactions[idx].Value;
-                    int2 centreCell = WorldToCell(grid, pos);
-                    // Approximate inside/outside cells as one cell on each
-                    // side of the gate centre along +X axis (matches the
-                    // wall layout used by the M5 test scenario). A future
-                    // polish pass should derive the axis from the wall
-                    // hub graph.
-                    int2 insideCell = new int2(centreCell.x - 1, centreCell.y);
-                    int2 outsideCell = new int2(centreCell.x + 1, centreCell.y);
+                    GatePortalCells(grid, pos, gateXfs[idx].Rotation,
+                        out int2 insideCell, out int2 outsideCell,
+                        out int2 deckA, out int2 deckB);
 
                     // Ground gate portal: inside <-> outside at layer 0.
                     specList.Specs.Add(new WallPortalSpec
@@ -190,9 +185,9 @@ namespace TheWaningBorder.Systems.Navigation
                     specList.Specs.Add(new WallPortalSpec
                     {
                         Kind = PortalNode.KindGateRampart,
-                        SourceCell = insideCell,
+                        SourceCell = deckA,
                         SourceLayer = 1,
-                        TargetCell = outsideCell,
+                        TargetCell = deckB,
                         TargetLayer = 1,
                         OwnerId = (int)fac,
                         SourceEntity = e,
@@ -291,6 +286,37 @@ namespace TheWaningBorder.Systems.Navigation
         {
             // Mirror, not component — the entity may already be wiped.
             if (_specs.IsCreated) _specs.Dispose();
+        }
+
+        /// <summary>How far either side of a gate's centre its ground portal
+        /// cells sit, metres: clear of the stone wall's blocked ground band
+        /// (StampWallLayersJob.StoneHalfAcross) by a metre.</summary>
+        public const float GatePortalReach = 3.5f;
+
+        /// <summary>
+        /// The cells a gate's two portals join (2026-10-20). GROUND: one on
+        /// each FACE of the wall, across it — through the passage. DECK: one
+        /// either side of the gate's centre ALONG the wall-walk over it. Read
+        /// off the gate's own heading (a gate is spawned facing along its
+        /// wall), so a gate on a wall at any bearing is a way through. The
+        /// first version fixed both pairs one cell either side of the centre
+        /// along +X: on any wall not running north-south both "sides" lay
+        /// inside the masonry and the planner never knew the gate was there,
+        /// so friendly ground units walked round the end of the wall.
+        /// WallGateRegistrationSystem resolves the nodes from these same cells.
+        /// </summary>
+        public static void GatePortalCells(in NavGridSingleton grid, float3 pos, quaternion rot,
+            out int2 groundIn, out int2 groundOut, out int2 deckA, out int2 deckB)
+        {
+            float3 fwd = math.mul(rot, new float3(0f, 0f, 1f));
+            fwd.y = 0f;
+            fwd = math.lengthsq(fwd) > 1e-6f ? math.normalize(fwd) : new float3(0f, 0f, 1f);
+            float3 right = new float3(fwd.z, 0f, -fwd.x);
+            groundIn = WorldToCell(grid, pos - right * GatePortalReach);
+            groundOut = WorldToCell(grid, pos + right * GatePortalReach);
+            float step = grid.CellSize;
+            deckA = WorldToCell(grid, pos - fwd * step);
+            deckB = WorldToCell(grid, pos + fwd * step);
         }
 
         private static int2 WorldToCell(in NavGridSingleton grid, float3 world)

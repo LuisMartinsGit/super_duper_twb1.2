@@ -165,6 +165,7 @@ namespace TheWaningBorder.AI
             if (em.HasComponent<UnderConstruction>(u)) return false;
             if (em.HasComponent<NotControllableTag>(u)) return false;
             if (em.HasComponent<RitualState>(u)) return false;
+            if (SimpleAISystem.IsWallPosted(u)) return false;   // a tower / wall post (Game_AI.md § 6s)
             if (TransientState.Active<AttackCommand>(em, u)) return false;
             if (TransientState.Active<AttackMoveTag>(em, u)) return false;
             if (TransientState.Active<UserMoveOrder>(em, u)) return false;

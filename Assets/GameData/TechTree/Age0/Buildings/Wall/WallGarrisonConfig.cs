@@ -39,5 +39,14 @@ namespace TheWaningBorder.Entities
         /// <summary>Further rings tried, each <see cref="ejectSpacing"/> out,
         /// when the first has no free ground left.</summary>
         public int ejectRings;
+
+        /// <summary>Percent more damage a troop deals while it stands on a
+        /// wall-walk (docs/Design/Combat_Pacing.md § Fighting from a wall-walk).
+        /// Replaces the height-advantage damage scaling for that hit.</summary>
+        public float wallTopDamagePct;
+
+        /// <summary>Percent of its own armour (for the incoming damage type) a
+        /// troop gains on top while it stands on a wall-walk.</summary>
+        public float wallTopArmorPct;
     }
 }

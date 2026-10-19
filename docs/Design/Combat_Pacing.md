@@ -437,10 +437,28 @@ Foot units can stand on a stone wall's deck
 ([Age_1_Alanthor.md § The stone wall](Age_1_Alanthor.md)). The rules that make
 a wall worth manning:
 
+- **Troops on top of walls have 15 % damage and armour buff** (the
+  developer's rule, 2026-10-20). A troop standing on the wall-walk — a unit on
+  the rampart nav layer, `NavLayerIndex.LayerRampart`; one still climbing
+  does not count — deals more damage with every weapon hit (melee, arrows,
+  bolts) and carries more armour against every hit that goes through armour
+  (melee, projectiles and their splash, armour-mitigated spells). The armour
+  is a percentage of the unit's **own** armour for the incoming damage type,
+  resolved like a percentage armour buff (`SpellBuff.ArmorPct`), so a unit
+  with no armour in that column gains none. It is decided **live** where the
+  damage is resolved — step off the deck and it is gone, with nothing to
+  expire. Troops only: a wall's own hubs, towers and emplacements are
+  buildings and take nothing from it. **The numbers live on
+  `WallGarrison.asset`** (`wallTopDamagePct`, `wallTopArmorPct`;
+  `WallGarrisonConfig`), never in code. The stats panel's tooltip says so
+  while the unit is up there.
 - **Height.** A bowman on the deck stands `AlanthorWall.DeckHeight` above the
-  ground, so the existing height rule (`HeightAdvantage`) lengthens his range
-  and raises his damage against men below; a bowman below shooting up loses
-  the same. No wall-specific multiplier exists.
+  ground, so the existing height rule (`HeightAdvantage`) lengthens his
+  **range**; a bowman below shooting up loses range and damage as usual. For
+  a shooter **on the deck**, the wall bonus above **replaces** the height
+  rule's damage scaling (it does not stack — a man on the wall is always
+  above the ground, and paying that elevation twice would make the deck worth
+  far more than the rule says). His range keeps the height bonus.
 - **Melee cannot reach up or down.** The melee height gate
   (`TargetingSystem.MeleeMaxHeightDelta`) keeps ground melee from hitting men
   on the deck and deck melee from hitting men below. Melee on the deck fights

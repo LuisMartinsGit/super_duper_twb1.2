@@ -17,3 +17,5 @@ MonoBehaviour:
   ejectGap: 1.5
   ejectSpacing: 1.2
   ejectRings: 4
+  wallTopDamagePct: 15
+  wallTopArmorPct: 15

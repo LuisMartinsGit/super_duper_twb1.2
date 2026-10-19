@@ -162,7 +162,12 @@ namespace TheWaningBorder.Systems.Combat
             float aimDist = plan.AimDist;
             bool isSiege = plan.IsSiege != 0;
 
-            int finalDamage = HeightAdvantage.ScaleDamage(em.GetComponentData<Damage>(entity).Value, myPos.y, targetPos.y);
+            // High-ground damage — or, from a wall-walk, the wall bonus INSTEAD
+            // (docs/Design/Combat_Pacing.md § Fighting from a wall-walk). The
+            // range side of HeightAdvantage (plan job) is kept either way.
+            int finalDamage = math.max(1, (int)math.round(em.GetComponentData<Damage>(entity).Value
+                * CombatDamageHelper.AttackerHeightOrWallMult(em, entity,
+                    HeightAdvantage.Multiplier(myPos.y, targetPos.y))));
 
             // Veilstone buff on attacker (bonus damage)
             if (em.HasComponent<BorderBuff>(entity))

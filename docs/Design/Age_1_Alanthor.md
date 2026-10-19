@@ -513,9 +513,9 @@ drawn left-to-right and one drawn right-to-left are the same wall.
 
 | Lv | Name | Reached by | May fit | Look (both faces) |
 |----|------|-----------|---------|------|
-| **1** | **Stone Wall** | the Alanthor culture pick — free | **gate, wall tower** | dressed stone, a low parapet on both edges; hubs are square bastions flush with the walk |
+| **1** | **Stone Wall** | the Alanthor culture pick — free | **gate, wall tower** | dressed stone, a low parapet on both edges; hubs are round bastions flush with the walk |
 | **2** | **Battlemented Wall** | `Battlements`, at the Wall Hub | + **Ballista emplacement** | arrow-slit faces, full battlements on both edges |
-| **3** | **Shielded Wall** | `ShieldedRamparts`, at the Wall Hub, after `Battlements` | + **Trebuchet emplacement** | rough-coursed faces, battlements both edges, a **roofed hoarding gallery along both faces**; every hub becomes a round tower under a slate cone |
+| **3** | **Shielded Wall** | `ShieldedRamparts`, at the Wall Hub, after `Battlements` | + **Trebuchet emplacement** | rough-coursed faces, battlements both edges, a **roofed hoarding gallery along both faces**; hubs stay flush with the walk (they fire — below) |
 
 Each level's HP multiplier is on its level SO (`Wall_Lvl1..3`). Level 3 also:
 
@@ -524,7 +524,8 @@ Each level's HP multiplier is on its level SO (`Wall_Lvl1..3`). Level 3 also:
   is gained on the deck and lost the moment the unit steps off it.
 - **Puts a tower on every hub.** A Shielded hub fires like a wall tower. Hubs
   raised after the research are towers from the start; standing hubs gain it
-  with the promotion.
+  with the promotion. It is still drawn **at deck height** (2026-10-20, next
+  bullet list) — the hub fires, it does not grow.
 
 **The wall is walkable.** The walk is a second nav layer (the rampart layer).
 Right-click a friendly or allied stone wall with **foot units** selected and
@@ -537,10 +538,29 @@ slots are retired:** units stand on the deck, visibly, fighting from it.
 
 **On the battlements (AoE4 walls, 2026-10-20):**
 
+- **The wall-walk is ONE corridor.** A hub's top is flush with the walk at
+  every level — a round drum whose floor is the walk, its deck a disc of the
+  drum's radius (`AlanthorWall.HubDeckRadius`), so the curtain, the hubs, the
+  gatehouse roof and the wall towers are one continuous walk at
+  `AlanthorWall.DeckHeight` and men walk straight through a hub. A hub draws
+  no crown ring (it would cross the walk wherever a curtain meets it). A
+  **wall tower** keeps the walk too: the module is an ordinary run and its
+  two turrets hang off the faces just outside the walkway, so it is taller
+  without breaking the corridor.
+- **A wall-top order spreads the squad along the walk.** Each man gets his
+  own deck cell, chosen along the corridor joined to the clicked cell (so the
+  file follows the walk through hubs and round bends), centred on the click:
+  the middle of the walk first, a staggered file a spacing apart, then the
+  walk's edges when the squad is bigger than the middle. Never two on one
+  cell.
+
 - **Any piece takes the order.** A right-click on a hub, a wall tower, a gate
   or the curtain itself — its top or its face — sends the foot units to the
   deck cell nearest the click. They walk to the access point on **their own
-  side** of the wall, climb, and walk the wall-walk to the spot.
+  side** of the wall, climb, and walk the wall-walk to the spot. The access
+  is the nearest one **whose wall-walk joins the spot** (2026-10-20) — never a
+  nearer piece of a different, unconnected wall — and coming down, the
+  nearest one on the walk they stand on.
 - **They are visible and controllable up there.** A unit on the deck is drawn
   standing on the walk at deck height, is selectable (click or box), and takes
   orders: a move along the wall stays on the deck; Stop holds there; a move
@@ -548,8 +568,12 @@ slots are retired:** units stand on the deck, visibly, fighting from it.
   point, on the side it is heading for).
 - **They fight from the wall.** A unit on the deck engages **only what is
   inside its reach**, whatever its stance, and never chases off the deck —
-  the deck is its guard point. Bowmen up there shoot with the ordinary height
-  advantage ([Combat_Pacing.md § Fighting from a wall-walk](Combat_Pacing.md)).
+  the deck is its guard point. **Troops on top of walls have 15 % damage and
+  armour buff** (the developer's rule — values on `WallGarrison.asset`): their
+  hits land harder and they carry more of their own armour while they stand
+  on the walk. Bowmen keep the height advantage's longer range; the wall bonus
+  replaces its damage scaling rather than stacking on it
+  ([Combat_Pacing.md § Fighting from a wall-walk](Combat_Pacing.md)).
   Melee on the deck can only reach men on the deck (an enemy that climbed in
   through a breach); ground melee cannot reach them.
 - Simplified for now: an **ordered** attack on a target out of reach from the
@@ -761,7 +785,10 @@ whole span open so nothing is drawn through it.
 | Opening | the centre third; the flanking thirds are solid masonry |
 
 **Opening and closing it.** By default it opens when a friendly comes near and
-closes behind them, and it never opens for a hostile. The player can override:
+closes behind them, and it never opens for a hostile. **Only men on the ground
+count** (2026-10-20): a unit on the wall-walk over the gate, one climbing up or
+down at an access point, and one on its way to climb never swing the doors —
+none of them goes through the passage. The player can override:
 
 | Mode | Behaviour | UI |
 |------|-----------|-----|
@@ -773,8 +800,9 @@ make the gate tougher — it is a pathing decision, not a defensive one.
 
 ### Wall towers
 
-A **wall tower** is a single module converted to a ranged tower astride the
-wall (`Alanthor_WallTower`, SO `Wall/Tower/WallTower.asset`; unrelated to the
+A **wall tower** is a single module converted to a ranged tower on the
+wall — a run of curtain with a turret hanging off each face, the walk passing
+between them (2026-10-20) (`Alanthor_WallTower`, SO `Wall/Tower/WallTower.asset`; unrelated to the
 stand-alone Watch Tower). Stone levels only, the clear run of 3, a conversion
 price and timer on its SO, no worker.
 
@@ -878,9 +906,13 @@ under construction, or a cell whose segment is mid-gate-conversion.
 > `Age0/Buildings/Wall/WallModuleArt.asset` (curtain, hub, gate, wall tower,
 > ballista and trebuchet bastions; slot 0 = the timber palisade). Every level is
 > symmetrical — both faces carry the same masonry and parapet, and level 3's
-> roofed hoarding gallery runs along BOTH faces. Hubs are square bastions
-> flush with the walk at levels 1-2 and round towers under a slate cone at
-> level 3. The same tool authors the **Watch Tower** (`Tower/WatchTower.prefab`)
+> roofed hoarding gallery runs along BOTH faces. **Hubs are round bastions
+> flush with the walk at every level, with no crown ring; a wall tower is a
+> curtain run with one of the kit's bartizans (`Wall_Tower_L`) hung off each
+> face just outside the walkway (2026-10-20).** Re-author the wall alone with
+> `Waning Border > Art > Author Castle Wall Set Only` — the full menu also
+> rebuilds the Fortress and Watch Tower, which other tools have since
+> re-composed. The same tool authors the **Watch Tower** (`Tower/WatchTower.prefab`)
 > and the **Fortress** (`Fortress/Fortress.prefab`). `Preview Castle Prefabs`
 > renders all of it to `Temp/castle_preview/`.
 

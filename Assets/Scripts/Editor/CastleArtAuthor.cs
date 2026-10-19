@@ -65,8 +65,13 @@ namespace TheWaningBorder.EditorTools
 
         /// <summary>The kit's module: walls are 5 m long, 5 m tall.</summary>
         const float M = 5f;
-        /// <summary>The kit's solid block is 5.5 m square.</summary>
+        /// <summary>The kit's solid block is 5.5 m square...</summary>
         const float B = 5.5f;
+        /// <summary>...and 5 m tall (measured 2026-10-20: the "5.5 m cube"
+        /// was only its footprint). Squashing it by WalkHeight / B left every
+        /// curtain walk at 2.7 m in game, 0.3 m under the 3 m deck the men
+        /// stand on and the hub drums' floors.</summary>
+        const float BlockHeight = 5f;
         /// <summary>The game draws the kit at 0.6 (5 m kit module -> 3 m game module).</summary>
         const float GameScale = 0.6f;
         /// <summary>The Fortress's main mass, in blocks per side.</summary>
@@ -82,6 +87,10 @@ namespace TheWaningBorder.EditorTools
         const string Hoard = "Castle/SM_Bld_Castle_Hoarding_01";
         const string Gate = "Castle/SM_Bld_Castle_Wall_Gate_01";
         const string FloorSlab = "Castle/SM_Bld_Castle_Floor_Stone_01";
+        /// <summary>The kit's large bartizan: a corbelled turret that hangs
+        /// off a wall top, pivot at the walk, 3.8 m across.</summary>
+        const string Bartizan = "Castle/SM_Bld_Castle_Wall_Tower_L_01";
+        const float BartizanRadius = 1.9f;
         /// <summary>A plain slate cone (Round_06 is an onion dome — not this).</summary>
         const string ConeRoof = "Castle/SM_Bld_Castle_Roof_Cap_Round_05";
         const float ConeRoofWidth = 2.28f, ConeRoofHeight = 6.87f;
@@ -129,6 +138,35 @@ namespace TheWaningBorder.EditorTools
         [MenuItem("Waning Border/Art/Author Castle Prefabs")]
         public static void AuthorAll()
         {
+            AuthorWallSetOnly();
+
+            var watch = Save(BuildWatchTower(), TowerDir + "WatchTower.prefab");
+            BindBuilding(TowerDir + "Tower.asset", watch, presentationId: null);
+
+            var fortress = Save(BuildFortress(), FortressDir + "Fortress.prefab");
+            BindBuilding(FortressDir + "Fortress.asset", fortress, FortressPresentationId);
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("[CastleArtAuthor] wall set (3 levels x 5 parts), watch tower and Fortress authored and bound.");
+        }
+
+        /// <summary>
+        /// The stone wall set alone (curtain, hub, gate, wall tower, mount at
+        /// three levels) and its WallModuleArt binding. The Fortress prefab has
+        /// since been re-composed by FeraldisArtAuthor (every culture's variants), so the
+        /// full menu above would overwrite that work — re-author the wall
+        /// with this one (2026-10-20).
+        /// </summary>
+        [MenuItem("Waning Border/Art/Author Castle Wall Set Only")]
+        public static void AuthorWallSet()
+        {
+            AuthorWallSetOnly();
+            AssetDatabase.SaveAssets();
+            Debug.Log("[CastleArtAuthor] wall set (3 levels x 5 parts) authored and bound.");
+        }
+
+        static void AuthorWallSetOnly()
+        {
             if (!AssetDatabase.IsValidFolder(StoneDir.TrimEnd('/')))
                 AssetDatabase.CreateFolder(AlanthorWallDir.TrimEnd('/'), "Stone");
             _wallKitPieces.Clear();
@@ -150,15 +188,6 @@ namespace TheWaningBorder.EditorTools
             _collectWall = false;
             MakeWallMeshesReadable();
             BindWallConfig(curtain, hub, gate, tower, mount);
-
-            var watch = Save(BuildWatchTower(), TowerDir + "WatchTower.prefab");
-            BindBuilding(TowerDir + "Tower.asset", watch, presentationId: null);
-
-            var fortress = Save(BuildFortress(), FortressDir + "Fortress.prefab");
-            BindBuilding(FortressDir + "Fortress.asset", fortress, FortressPresentationId);
-
-            AssetDatabase.SaveAssets();
-            Debug.Log("[CastleArtAuthor] wall set (3 levels x 5 parts), watch tower and Fortress authored and bound.");
         }
 
         // ── Wall set ────────────────────────────────────────────────────
@@ -182,9 +211,9 @@ namespace TheWaningBorder.EditorTools
             // parapets reach a little past their 5 m and used to overlap the
             // next module coplanar and z-fight (2026-10-02).
             var body = Put(Block, parent, $"Curtain_Body{tag}", new Vector3(mid, 0f, 0f));
-            // The kit block is 5.5 m tall; squash it to the walk height so
-            // its top is the surface units stand on.
-            body.transform.localScale = new Vector3(len / B, WalkHeight / B, Depth(lv) / B);
+            // Squash the kit block to the walk height so its top is the
+            // surface units stand on (AlanthorWall.DeckHeight in game).
+            body.transform.localScale = new Vector3(len / B, WalkHeight / BlockHeight, Depth(lv) / B);
             string face = lv == 1 ? Wall : lv == 2 ? WallSlit : WallRough;
             Span(face, parent, $"FaceA{tag}", new Vector3(x0, 0f, -half), new Vector3(x1, 0f, -half));
             Span(face, parent, $"FaceB{tag}", new Vector3(x1, 0f, half), new Vector3(x0, 0f, half));
@@ -212,39 +241,39 @@ namespace TheWaningBorder.EditorTools
         }
 
         /// <summary>
-        /// The hub. Levels 1-2: a low round BASTION exactly as tall as the
-        /// walk, so the wall-walk runs straight over it — a junction, not a
-        /// tower. Level 3 (Shielded): a round TOWER under a slate cone, the
-        /// hub that shoots (docs/Design/Age_1_Alanthor.md § The stone wall).
+        /// The hub, EVERY level: a low round BASTION exactly as tall as the
+        /// walk, its floor flush with the wall-walk, so hub and curtain are one
+        /// continuous corridor the men on the wall walk straight across
+        /// (2026-10-20, docs/Design/Age_1_Alanthor.md § The stone wall). No
+        /// crown ring: a hub joins walls at any bearing, so a ring of merlons
+        /// would cross the walk wherever a curtain meets it — the curtains'
+        /// own parapets frame the walk up to the drum. Level 3 used to be a
+        /// round tower under a slate cone two walls tall; a Shielded hub
+        /// still fires, but it is drawn at deck height like the rest.
         /// Round, because a hub joins walls at any bearing and has no front.
         /// </summary>
         static GameObject BuildHub(int lv)
         {
             var root = new GameObject($"Hub_Stone_L{lv}");
-            if (lv < 3)
+            // A drum a little wider than the 4 m wall, one walk high; its
+            // radius is the hub's deck disc (AlanthorWall.HubDeckRadius).
+            float diameter = HubDrumDiameter / GameScale;
+            float s = diameter / (S.Radius * 2f);
+            float top = RoundTower(root.transform, "Hub", S, Vector3.zero, storeys: 1, slope: false,
+                                   crown: false, floor: true, scale: s, heightScale: WalkHeight / (M * s));
+            if (lv >= 2)
             {
-                // A drum a little wider than the 4 m wall, one walk high.
-                float diameter = 4.6f / GameScale;
-                float s = diameter / (S.Radius * 2f);
-                float top = RoundTower(root.transform, "Hub", S, Vector3.zero, storeys: 1, slope: false,
-                                       crown: true, floor: true, scale: s, heightScale: WalkHeight / (M * s));
-                if (lv == 2)
-                {
-                    Put(Banner, root.transform, "Stripe_BannerA", new Vector3(0f, top - 1.6f, -S.Radius * s - 0.1f), 180f);
-                    Put(Banner, root.transform, "Stripe_BannerB", new Vector3(0f, top - 1.6f, S.Radius * s + 0.1f));
-                }
-                return root;
+                Put(Banner, root.transform, "Stripe_BannerA", new Vector3(0f, top - 1.6f, -S.Radius * s - 0.1f), 180f);
+                Put(Banner, root.transform, "Stripe_BannerB", new Vector3(0f, top - 1.6f, S.Radius * s + 0.1f));
             }
-            float scale = 5.4f / GameScale / (S.Radius * 2f);
-            float towerTop = RoundTower(root.transform, "Hub", S, Vector3.zero, TowerStoreys(scale), slope: false,
-                                        crown: true, floor: true, scale: scale);
-            ConeOn(root.transform, Vector3.zero, towerTop, S.Radius * scale);
-            Put(Banner, root.transform, "Stripe_BannerA",
-                new Vector3(0f, towerTop - 2.6f, -S.Radius * scale - 0.1f), 180f);
-            Put(Banner, root.transform, "Stripe_BannerB",
-                new Vector3(0f, towerTop - 2.6f, S.Radius * scale + 0.1f));
             return root;
         }
+
+        /// <summary>The hub drum's diameter, game metres: a little wider than
+        /// the 4 m wall, and twice AlanthorWall.HubDeckRadius so the
+        /// deck cells a hub stamps all lie on the drum.</summary>
+        static float HubDrumDiameter =>
+            TheWaningBorder.Entities.AlanthorWall.HubDeckRadius * 2f;
 
         static GameObject BuildGate(int lv)
         {
@@ -258,13 +287,17 @@ namespace TheWaningBorder.EditorTools
             WallRun(root.transform, "R", M * 0.5f, M * 1.5f, lv);
             HidePortcullis(Put(Gate, root.transform, "Curtain_Gate", new Vector3(M * 0.5f, 0f, -half)));
             HidePortcullis(Put(Gate, root.transform, "GateB", new Vector3(-M * 0.5f, 0f, half), 180f));
-            var deck = Put(FloorSlab, root.transform, "PassageRoof", new Vector3(M * 0.5f, M + 0.25f, half));
+            // The passage roof IS the walk over the gate: its top (the kit
+            // slab's top face sits 0.03 above its pivot) flush with the
+            // flanks', so the corridor runs straight over the gate with no
+            // step (2026-10-20; it used to stand 0.5 m proud of them).
+            var deck = Put(FloorSlab, root.transform, "PassageRoof", new Vector3(M * 0.5f, M - 0.03f, half));
             deck.transform.localScale = new Vector3(1f, 1f, Depth(lv) / M);
             string edge = lv == 1 ? BattLow : Batt;
             Span(edge, root.transform, "GateEdgeA",
-                 new Vector3(-M * 0.5f, M + 0.45f, -half + 0.25f), new Vector3(M * 0.5f, M + 0.45f, -half + 0.25f));
+                 new Vector3(-M * 0.5f, M, -half + 0.25f), new Vector3(M * 0.5f, M, -half + 0.25f));
             Span(edge, root.transform, "GateEdgeB",
-                 new Vector3(M * 0.5f, M + 0.45f, half - 0.25f), new Vector3(-M * 0.5f, M + 0.45f, half - 0.25f));
+                 new Vector3(M * 0.5f, M, half - 0.25f), new Vector3(-M * 0.5f, M, half - 0.25f));
             if (lv >= 3)
             {
                 Put(Banner, root.transform, "Stripe_BannerL", new Vector3(-3.2f, M - 1.6f, -half - 0.2f), 180f);
@@ -275,22 +308,31 @@ namespace TheWaningBorder.EditorTools
             return root;
         }
 
-        /// <summary>A wall module with a round tower standing astride it.</summary>
+        /// <summary>
+        /// A wall module with a turret on EACH face (2026-10-20): the module
+        /// itself is an ordinary run, so the wall-walk crosses the tower at
+        /// deck height and the corridor never breaks; the turrets are the
+        /// kit's bartizans (Wall_Tower_L — corbelled, hung off the wall top,
+        /// rising a storey above the walk under their own cap), set just
+        /// outside the walkway so the men walk between them. Both faces, as
+        /// everywhere on the wall: a wall has no inside. Used to be one round
+        /// tower astride the run, which the walk ran straight into.
+        /// </summary>
         static GameObject BuildWallTower(int lv)
         {
             var root = new GameObject($"WallTower_Stone_L{lv}");
             WallRun(root.transform, "", -M * 0.5f, M * 0.5f, lv);
-            // The tower is a little wider than the wall it stands in.
-            float scale = (Depth(lv) + 1.6f) / (S.Radius * 2f);
-            float top = RoundTower(root.transform, "Turret", S, Vector3.zero, storeys: TowerStoreys(scale),
-                                   slope: false, crown: true, floor: true, scale: scale);
-            if (lv >= 3) ConeOn(root.transform, Vector3.zero, top, S.Radius * scale);
+            // Inner edge of each turret on the walkway's edge
+            // (AlanthorWall.DeckHalfWidth), the rest overhanging the face.
+            float deckHalf = TheWaningBorder.Entities.AlanthorWall.DeckHalfWidth / GameScale;
+            float across = deckHalf + BartizanRadius;
+            Put(Bartizan, root.transform, "TurretA", new Vector3(0f, M, -across), 180f);
+            Put(Bartizan, root.transform, "TurretB", new Vector3(0f, M, across));
             if (lv >= 2)
             {
-                Put(Banner, root.transform, "Stripe_BannerA",
-                    new Vector3(0f, top - 2.4f, -S.Radius * scale - 0.1f), 180f);
-                Put(Banner, root.transform, "Stripe_BannerB",
-                    new Vector3(0f, top - 2.4f, S.Radius * scale + 0.1f));
+                float y = M + 1.2f;
+                Put(Banner, root.transform, "Stripe_BannerA", new Vector3(0f, y, -across - BartizanRadius - 0.05f), 180f);
+                Put(Banner, root.transform, "Stripe_BannerB", new Vector3(0f, y, across + BartizanRadius + 0.05f));
             }
             return root;
         }
@@ -302,7 +344,7 @@ namespace TheWaningBorder.EditorTools
             var root = new GameObject($"Mount_Stone_L{lv}");
             float depth = Mathf.Max(B, Depth(lv) + 1f);
             Put(Block, root.transform, "Curtain_Bastion", Vector3.zero).transform.localScale =
-                new Vector3(depth / B, WalkHeight / B, 1f);   // top = the deck the engine stands on
+                new Vector3(depth / B, WalkHeight / BlockHeight, 1f);   // top = the deck the engine stands on
             string parapet = lv == 1 ? BattLow : Batt;
             float h = depth * 0.5f;
             Span(parapet, root.transform, "ParapetFront", new Vector3(h - 0.25f, M, -M * 0.5f), new Vector3(h - 0.25f, M, M * 0.5f));

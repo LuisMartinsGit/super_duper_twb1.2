@@ -97,15 +97,15 @@ namespace TheWaningBorder.Systems.Navigation
                 var gatePos = gateXfs[gi].Position;
                 int ownerId = (int)gateFactions[gi].Value;
 
-                // Centre cell + the two side cells (matches the convention
-                // in WallPortalDetectionSystem.OnUpdate).
-                int centreX = (int)math.floor((gatePos.x - grid.Origin.x) / grid.CellSize);
-                int centreZ = (int)math.floor((gatePos.z - grid.Origin.z) / grid.CellSize);
-                int insideX = centreX - 1;
-                int outsideX = centreX + 1;
-
-                int insideIdx = centreZ * grid.Width + insideX;
-                int outsideIdx = centreZ * grid.Width + outsideX;
+                // The same cells WallPortalDetectionSystem built the gate's
+                // portals on (across the wall for the ground, along it for
+                // the deck).
+                WallPortalDetectionSystem.GatePortalCells(grid, gatePos, gateXfs[gi].Rotation,
+                    out int2 gIn, out int2 gOut, out int2 dA, out int2 dB);
+                int insideIdx = gIn.y * grid.Width + gIn.x;
+                int outsideIdx = gOut.y * grid.Width + gOut.x;
+                int deckAIdx = dA.y * grid.Width + dA.x;
+                int deckBIdx = dB.y * grid.Width + dB.x;
 
                 int groundNode = -1;
                 int rampartNode = -1;
@@ -121,7 +121,7 @@ namespace TheWaningBorder.Systems.Navigation
                         groundNode = node.Id;
                     }
                     else if (node.PortalKind == PortalNode.KindGateRampart
-                        && (node.CellIndex == insideIdx || node.CellIndex == outsideIdx)
+                        && (node.CellIndex == deckAIdx || node.CellIndex == deckBIdx)
                         && rampartNode < 0)
                     {
                         rampartNode = node.Id;

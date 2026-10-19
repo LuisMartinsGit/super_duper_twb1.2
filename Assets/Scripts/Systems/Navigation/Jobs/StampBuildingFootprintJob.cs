@@ -292,7 +292,9 @@ namespace TheWaningBorder.Systems.Navigation
     ///   * across the wall: the STONE wall blocks 5 m of ground (its 4 m plus
     ///     a margin) and is walkable on the rampart layer over its ~3.2 m
     ///     walkway; a PALISADE blocks a 3 m band and has no deck.
-    ///   * a hub is a 5 m square (its 4.2 m drum), walkable on top when stone.
+    ///   * a hub blocks a 5 m square of ground (its drum); when stone, its
+    ///     deck is the drum's round top, a disc of AlanthorWall.HubDeckRadius
+    ///     flush with the walk (2026-10-20), so the corridor runs through it.
     ///   * a gate blocks its whole span except the middle third — the
     ///     opening — which is the conditional (owner-only) cell; its deck
     ///     runs over the passage roof.
@@ -332,13 +334,16 @@ namespace TheWaningBorder.Systems.Navigation
         public const float StoneHalfAcross = 2.5f;
         /// <summary>Half the walkable deck across a stone wall: the walkway
         /// between its two parapets.</summary>
-        public const float DeckHalfAcross = 1.6f;
+        public const float DeckHalfAcross = TheWaningBorder.Entities.AlanthorWall.DeckHalfWidth;
         /// <summary>Half the ground band a PALISADE blocks: 3 cells.</summary>
         public const float PalisadeHalfAcross = 1.5f;
         /// <summary>Half a module along the wall plus the 0.5 m lap.</summary>
         public const float ModuleHalfAlong = 2f;
         /// <summary>Half a hub's square (its 4.2 m drum, rounded up).</summary>
         public const float HubHalf = 2.5f;
+        /// <summary>Radius of a stone hub's deck disc (its drum top, flush
+        /// with the walk) — see AlanthorWall.HubDeckRadius.</summary>
+        public const float HubDeckRadius = TheWaningBorder.Entities.AlanthorWall.HubDeckRadius;
         /// <summary>Half the gate's opening along the wall — the middle
         /// third of a three-module gatehouse, plus the lap.</summary>
         public const float GateOpeningHalf = 2f;
@@ -376,11 +381,11 @@ namespace TheWaningBorder.Systems.Navigation
 
             byte ownerBits = (byte)((byte)faction.Value & NavCostField.FlagOwnerMask);
             StampFootprint(xf.Position, fwd, halfAlong, halfAcross, deckAlong, deckAcross,
-                           ownerBits, climb: IsClimbAccess != 0 && !palisade);
+                           ownerBits, climb: IsClimbAccess != 0 && !palisade, deckDisc: hub);
         }
 
         private void StampFootprint(float3 pos, float3 fwd, float halfAlong, float halfAcross,
-            float deckAlong, float deckAcross, byte ownerBits, bool climb)
+            float deckAlong, float deckAcross, byte ownerBits, bool climb, bool deckDisc)
         {
             float3 right = new float3(fwd.z, 0f, -fwd.x);
             float reach = math.sqrt(halfAlong * halfAlong + halfAcross * halfAcross);
@@ -428,8 +433,12 @@ namespace TheWaningBorder.Systems.Navigation
                     }
                     Flags[idxG] = newFlags;
 
-                    // Rampart: walkable over the wall-walk only.
-                    if (math.abs(along) <= deckAlong && math.abs(across) <= deckAcross)
+                    // Rampart: walkable over the wall-walk only — a hub's
+                    // round drum top, a module's walkway band.
+                    bool onDeck = deckDisc
+                        ? deckAcross > 0f && along * along + across * across <= HubDeckRadius * HubDeckRadius
+                        : math.abs(along) <= deckAlong && math.abs(across) <= deckAcross;
+                    if (onDeck)
                     {
                         Cost[idxR] = 1;
                         Flags[idxR] = (byte)(Flags[idxR] | NavCostField.FlagStaticWall);

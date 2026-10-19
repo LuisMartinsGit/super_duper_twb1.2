@@ -524,6 +524,9 @@ namespace TheWaningBorder.Systems.Combat
             int defenseValue = 0;
             if (em.HasComponent<Defense>(targetEntity))
                 defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(targetEntity), dmgType);
+            // A troop on a wall-walk carries more armour — judged where the
+            // shot LANDS (docs/Design/Combat_Pacing.md § Fighting from a wall-walk).
+            defenseValue += CombatDamageHelper.WallTopArmorBonus(em, targetEntity, defenseValue);
 
             // Veilstone debuff on defender (takes more damage from projectiles)
             float borderMod = 1.0f;
@@ -700,6 +703,7 @@ namespace TheWaningBorder.Systems.Combat
                 int defenseValue = 0;
                 if (em.HasComponent<Defense>(entities[i]))
                     defenseValue = CombatModifiers.GetDefenseValue(em.GetComponentData<Defense>(entities[i]), proj.DmgType);
+                defenseValue += CombatDamageHelper.WallTopArmorBonus(em, entities[i], defenseValue);
 
                 float borderMod = 1.0f;
                 if (em.HasComponent<BorderDebuff>(entities[i]))

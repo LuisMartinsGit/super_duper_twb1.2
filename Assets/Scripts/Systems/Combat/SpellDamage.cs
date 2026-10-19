@@ -82,6 +82,9 @@ namespace TheWaningBorder.Systems.Combat
             if (TransientState.Active<Fortified>(em, victim))
                 defense += (int)em.GetComponentData<Fortified>(victim).ArmorBonus;
             defense += CombatDamageHelper.GetSpellBuffArmorBonus(em, victim, baseDefense);
+            // A troop on a wall-walk carries more armour against spells too
+            // (docs/Design/Combat_Pacing.md § Fighting from a wall-walk).
+            defense += CombatDamageHelper.WallTopArmorBonus(em, victim, baseDefense);
 
             ArmorType armorType = em.HasComponent<ArmorTypeData>(victim)
                 ? em.GetComponentData<ArmorTypeData>(victim).Value

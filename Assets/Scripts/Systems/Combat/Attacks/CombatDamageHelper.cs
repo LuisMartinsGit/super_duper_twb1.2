@@ -188,6 +188,54 @@ namespace TheWaningBorder.Systems.Combat
             return bonus;
         }
 
+        // ── Fighting from a wall-walk (docs/Design/Combat_Pacing.md, 2026-10-20)
+        // A TROOP standing on a wall-walk (NavLayerIndex on the rampart layer —
+        // mid-climb does not count) deals more damage and carries more armour.
+        // Decided live from NavLayerIndex where the damage is resolved, so there
+        // is no component to keep in step and nothing for a save to carry. The
+        // two percentages live on WallGarrison.asset (WallGarrisonConfig).
+
+        /// <summary>True when <paramref name="e"/> is a unit standing on a
+        /// wall-walk — the same test PresentationSpawnSystem.IsOnWallLayer and
+        /// the battlements code use.</summary>
+        public static bool OnWallTop(EntityManager em, Entity e)
+            => e != Entity.Null && em.Exists(e)
+               && em.HasComponent<UnitTag>(e)
+               && em.HasComponent<NavLayerIndex>(e)
+               && em.GetComponentData<NavLayerIndex>(e).Layer == NavLayerIndex.LayerRampart;
+
+        /// <summary>Damage multiplier for a troop on a wall-walk
+        /// (1 + WallGarrisonConfig.wallTopDamagePct / 100).</summary>
+        public static float WallTopDamageMult
+            => 1f + TheWaningBorder.Entities.WallGarrisonConfig.I.wallTopDamagePct / 100f;
+
+        /// <summary>
+        /// The attacker-side multiplier on a weapon hit: the wall-walk bonus
+        /// when <paramref name="attacker"/> fights from a wall-walk, otherwise
+        /// <paramref name="heightMult"/> (HeightAdvantage / the melee height
+        /// modifier). The wall bonus REPLACES the height damage scaling rather
+        /// than stacking on it — a wall-top shooter is always above its target,
+        /// so stacking would pay the same elevation twice. (Range is not
+        /// touched: a wall-top shooter keeps HeightAdvantage's range.)
+        /// </summary>
+        public static float AttackerHeightOrWallMult(EntityManager em, Entity attacker, float heightMult)
+            => OnWallTop(em, attacker) ? WallTopDamageMult : heightMult;
+
+        /// <summary>
+        /// Extra armour for a troop on a wall-walk: WallGarrisonConfig.wallTopArmorPct
+        /// percent of its own armour for the incoming damage type
+        /// (<paramref name="baseDefense"/>), rounded — resolved exactly like
+        /// SpellBuff.ArmorPct in <see cref="GetSpellBuffArmorBonus(EntityManager, Entity, int)"/>.
+        /// 0 off the wall. Callers add it to the defence value BEFORE the
+        /// damage formula.
+        /// </summary>
+        public static int WallTopArmorBonus(EntityManager em, Entity target, int baseDefense)
+        {
+            if (baseDefense <= 0 || !OnWallTop(em, target)) return 0;
+            float pct = TheWaningBorder.Entities.WallGarrisonConfig.I.wallTopArmorPct;
+            return pct > 0f ? (int)math.round(baseDefense * pct / 100f) : 0;
+        }
+
         /// <summary>The target's own armor against <paramref name="dmgType"/>
         /// (0 without a Defense component), before any buff.</summary>
         public static int BaseDefense(EntityManager em, Entity target, DamageType dmgType)

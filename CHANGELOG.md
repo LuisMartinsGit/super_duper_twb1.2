@@ -9,6 +9,33 @@ build always name the same number.
 
 ---
 
+## [0.0.50] — 2026-10-20
+
+### Added
+- **Troops on a wall-walk deal +15 % damage and have +15 % armour.** Ranged
+  units up there keep their high-ground range bonus (the +15 % replaces the
+  high-ground damage bonus, they don't stack). Shown on the unit's stats
+  tooltip.
+- **The AI uses its towers and walls.** It garrisons its Watch Towers with
+  ranged units, sends archers (and melee when outnumbered) up onto a stretch
+  of stone wall when an enemy approaches and brings them down when the threat
+  is gone, and posts a few sentries on long walls in peacetime.
+
+### Changed
+- **One continuous wall-walk.** Stone wall hubs are now flush with the
+  curtain, so curtain, hubs, gate roof and wall towers form one corridor at
+  the same height. Wall towers carry a turret on each side of the walk.
+- **A wall-top order spreads the squad along the wall,** one soldier per
+  spot, centred on the click, instead of stacking them on one point.
+
+### Fixed
+- Gates opened for units walking on top of the wall; they now open only for
+  units passing through on the ground.
+- Units could climb at an access point whose walk didn't connect to where
+  they were sent, and stopped short of their spots on the wall.
+- On walls not running north–south, units didn't path through their own gate
+  and walked round the end of the wall instead.
+
 ## [0.0.49] — 2026-10-20
 
 ### Added

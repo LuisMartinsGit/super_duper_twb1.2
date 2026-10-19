@@ -511,3 +511,24 @@ MonoBehaviour:
   - 1.5
   - 3
   doctrineCounterResponseScale: 0.35
+  wallDefenceIntervalSeconds: 3
+  wallPostGraceSeconds: 25
+  wallPostMinFieldArmy: 6
+  towerGarrisonMaxRangedShare: 0.35
+  towerGarrisonDraftRadius: 120
+  towerThreatRadius: 35
+  wallStretchMeters: 24
+  wallThreatRadius: 40
+  wallThreatMinStrength: 60
+  wallManStrengthRatio: 0.8
+  wallManMin: 3
+  wallManMax: 12
+  wallManDraftRadius: 70
+  wallMaxMannedStretches: 3
+  wallMeleeOutnumberedRatio: 1.25
+  wallMeleeMax: 4
+  wallReleaseAfterSeconds: 25
+  wallReleaseInsetMeters: 8
+  wallPostSpacingMeters: 2
+  wallSentryPiecesPerSentry: 30
+  wallSentryMax: 4

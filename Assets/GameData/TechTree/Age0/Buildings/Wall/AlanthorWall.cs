@@ -96,6 +96,23 @@ namespace TheWaningBorder.Entities
         /// </summary>
         public const float DeckHeight = 3f;
 
+        /// <summary>
+        /// Half the walkable wall-walk across a stone curtain: the walkway
+        /// between its two parapets. The rampart stamp (StampWallLayersJob)
+        /// and the wall tower's art (its turrets stand just outside it) both
+        /// read this.
+        /// </summary>
+        public const float DeckHalfWidth = 1.6f;
+
+        /// <summary>
+        /// Radius of a stone hub's walkable top: its round drum, drawn at
+        /// this radius and FLUSH with the wall-walk at every level, so hub and
+        /// curtain are one corridor (docs/Design/Age_1_Alanthor.md § The
+        /// stone wall, 2026-10-20). The rampart stamp lays the hub's deck as
+        /// this disc, so no deck cell lies off the drum.
+        /// </summary>
+        public const float HubDeckRadius = 2.3f;
+
         /// <summary>Thickness of a wall piece of this kind across the wall.</summary>
         public static float DepthOf(bool palisade) => palisade ? WallWidth : StoneWallDepth;
 

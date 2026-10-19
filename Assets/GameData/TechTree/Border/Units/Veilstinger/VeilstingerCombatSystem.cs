@@ -335,14 +335,16 @@ namespace TheWaningBorder.Systems.Border
                         // same fire cycle. High-ground rule: each shot's
                         // damage is scaled by the height difference to ITS
                         // target (the two guns can hit different elevations).
-                        int primaryDmg = HeightAdvantage.ScaleDamage(dmg, myPos.y, targetPos.y);
+                        // From a wall-walk the wall bonus replaces it
+                        // (docs/Design/Combat_Pacing.md § Fighting from a wall-walk).
+                        int primaryDmg = math.max(1, (int)math.round(dmg * CombatDamageHelper.AttackerHeightOrWallMult(em, entity, HeightAdvantage.Multiplier(myPos.y, targetPos.y))));
                         CreateArcedShotFromGun(ref ecb, leftGunPos, targetPos,
                             dist, entity, myFaction, primaryDmg, time, tgt.Value, dmgType);
 
                         if (secondTarget != Entity.Null)
                         {
                             vs.Target2 = secondTarget;
-                            int secondDmg = HeightAdvantage.ScaleDamage(dmg, myPos.y, secondPos.y);
+                            int secondDmg = math.max(1, (int)math.round(dmg * CombatDamageHelper.AttackerHeightOrWallMult(em, entity, HeightAdvantage.Multiplier(myPos.y, secondPos.y))));
                             CreateArcedShotFromGun(ref ecb, rightGunPos, secondPos,
                                 bestDist, entity, myFaction, secondDmg, time, secondTarget, dmgType);
                         }
