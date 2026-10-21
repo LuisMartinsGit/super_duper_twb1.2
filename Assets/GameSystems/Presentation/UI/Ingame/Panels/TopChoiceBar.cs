@@ -1,6 +1,6 @@
 // TopChoiceBar.cs
 // Top-center controller for the two faction-level choices. Owns the gating
-// logic; the visuals are the authored CultureSelection prefabs:
+// logic; the visuals are authored prefabs:
 // - SPECIAL BUILDING CHOICE: while the local faction has picked no special
 //   yet (culture None, no Vault of Almiérra / Fiendstone Keep started),
 //   one button per choice building (authored
@@ -9,16 +9,11 @@
 //   placement runtime enforces exclusivity and the building self-constructs.
 //   Once any special is started the buttons disappear for the rest of the
 //   match (design: Age_0.md § Special buildings).
-// - CULTURE CHOICE: the authored CultureSelectionButton pill ("SELECT
-//   CULTURE"), visible until the culture is chosen. Enabled only when the
-//   faction's choice building is COMPLETED and the age-up cost is
-//   affordable; while the age-up timer runs it becomes a progress readout.
-//   Clicking opens the authored CultureSelectionMenu overlay (Esc or the
-//   added Cancel button closes it; coming-soon cultures render locked).
-//   Committing spends the cost and routes CommandRouter.IssueAgeUp so the
-//   era advance replicates in multiplayer.
-//   (The old code-built culture modal + "Advance to Era 2" pill were
-//   removed 2026-07-25 in favour of these prefabs.)
+// - AGE-UP READOUT: the authored CultureSelectionButton pill, a read-only
+//   progress readout once a landmark is started — THE AGE-UP IS THE
+//   LANDMARK (Age_0.md § Age-up by landmark), so there is no culture to
+//   choose. The CultureSelectionMenu overlay it used to open was deleted
+//   2026-10-20 (it was dead, and still popped up for observers).
 
 using System.Collections.Generic;
 using TMPro;
@@ -59,14 +54,6 @@ namespace TheWaningBorder.UI.Ingame
         /// 500x80 canvas units.
         /// </summary>
         private const float CultureButtonScale = 0.5f;
-
-        /// <summary>
-        /// Culture selection modal. HALF, not the quarter the pill gets: this
-        /// is a full-screen three-card chooser, and at 0.25 the cards land
-        /// around 140 screen px wide with unreadable body text. Drop this to
-        /// 0.25f if the smaller modal is wanted anyway.
-        /// </summary>
-        private const float CultureMenuScale = 0.5f;
 
         /// <summary>Gap from the top screen edge for the pinned widgets.</summary>
         private const float SpecialClusterTopMargin = 40f;
@@ -134,25 +121,11 @@ namespace TheWaningBorder.UI.Ingame
         private readonly List<AuthoredSpecialButton> _authoredSpecialButtons = new();
         private TMP_Text _authoredSpecialLabel;
 
-        private sealed class AuthoredCulturePanel
-        {
-            public byte Culture;
-            public Selectable Selectable;
-            public CanvasGroup Group;
-            /// <summary>"NOT AVAILABLE YET" overlay, shown only while locked.</summary>
-            public GameObject LockedOverlay;
-        }
-
-        private GameObject _authoredCulture;
-        private readonly List<AuthoredCulturePanel> _authoredCulturePanels = new();
-        private TMP_Text _authoredInstructions;
-
         // Authored "SELECT CULTURE" pill (CultureSelectionButton prefab).
         private GameObject _authoredCultureButton;
         private Button _authoredCultureButtonControl;
         private TMP_Text _authoredCultureButtonLabel;
         private string _authoredCultureButtonText = "Select Culture";
-        private bool _cultureReady;
 
         // PinTopCenter measures RENDERED bounds, so it only works once the
         // widget is active and the layout has resolved. Both stay false until
@@ -187,18 +160,8 @@ namespace TheWaningBorder.UI.Ingame
 
         // ── Construction ───────────────────────────────────────────────────
 
-        /// <summary>Set in Awake so PauseMenuPanel's Esc cascade can close the
-        /// culture modal without a scene lookup.</summary>
-        private static TopChoiceBar _instance;
-
-        private void OnDestroy()
-        {
-            if (_instance == this) _instance = null;
-        }
-
         private void Awake()
         {
-            _instance = this;
             _bar = GameUIKit.Rect(transform, "TopChoiceBar");
             _bar.anchorMin = new Vector2(0.5f, 1f);
             _bar.anchorMax = new Vector2(0.5f, 1f);
@@ -256,19 +219,16 @@ namespace TheWaningBorder.UI.Ingame
         /// <summary>
         /// Adopt the authored menu prefabs (already spawned under the host
         /// canvas by GameUIManager; any may be null). The special cluster
-        /// is re-anchored TOP-CENTER; the culture menu keeps its authored
-        /// full-screen layout (header top-center) and starts hidden; the
-        /// culture button pill is re-anchored top-center below the cluster.
+        /// is re-anchored TOP-CENTER; the age-up pill is re-anchored
+        /// top-center below the cluster.
         /// </summary>
-        public void BindAuthoredMenus(GameObject specialMenu, GameObject cultureMenu,
-            GameObject cultureButton = null)
+        public void BindAuthoredMenus(GameObject specialMenu, GameObject cultureButton = null)
         {
             if (specialMenu != null) BindAuthoredSpecial(specialMenu);
-            if (cultureMenu != null) BindAuthoredCulture(cultureMenu);
             if (cultureButton != null) BindAuthoredCultureButton(cultureButton);
             if (_authoredCultureButton == null)
                 TWBLog.Log("[GameUI] CultureSelectionButton prefab is not assigned — " +
-                    "culture selection cannot be opened from the HUD.");
+                    "the age-up progress has no readout on the HUD.");
         }
 
         private void BindAuthoredSpecial(GameObject menu)
@@ -277,7 +237,7 @@ namespace TheWaningBorder.UI.Ingame
             // inactive instance and Refresh activates it when it applies.
             _authoredSpecial = menu;
 
-            // Same ToggleGroup defusal as BindAuthoredCulture: a Synty
+            // The ToggleGroup defusal: a Synty
             // ToggleGroup with allowSwitchOff=false and no registered active
             // toggles throws in OnEnable every time this menu re-activates.
             foreach (var group in menu.GetComponentsInChildren<ToggleGroup>(true))
@@ -472,104 +432,6 @@ namespace TheWaningBorder.UI.Ingame
             return c != Cultures.None && !CultureConfig.IsComingSoon(c);
         }
 
-        private void BindAuthoredCulture(GameObject menu)
-        {
-            _authoredCulture = menu;
-
-            // The Synty template ships ToggleGroups with allowSwitchOff=false.
-            // When the menu re-activates with every toggle forced off (see
-            // OpenAuthoredCulture) — or with a group whose only toggles are
-            // inactive template leftovers — ToggleGroup.OnEnable's
-            // EnsureValidState indexes an empty toggle list and throws
-            // ArgumentOutOfRangeException. Selection is committed by our
-            // click handlers, not the groups, so switch-off is always fine.
-            foreach (var group in menu.GetComponentsInChildren<ToggleGroup>(true))
-                group.allowSwitchOff = true;
-
-            // The staging Animator parks the full-stretch root off-screen for
-            // its slide-in clip; visibility is ours now, so pin it in place.
-            var animator = menu.GetComponent<Animator>();
-            if (animator != null) animator.enabled = false;
-            var rt = (RectTransform)menu.transform;
-            rt.anchoredPosition = Vector2.zero;
-
-            // Shrink the CONTENT (header + culture cards + instructions), not
-            // the root: the root is the full-screen click blocker and has to
-            // keep covering the map.
-            var content = GameUIKit.FindDeep(menu.transform, "Content");
-            if (content != null)
-                content.localScale =
-                    new Vector3(CultureMenuScale, CultureMenuScale, 1f);
-            else
-                TWBLog.Log("[GameUI] CultureSelectionMenu: no \"Content\" node — " +
-                    "the menu renders at its authored (oversized) scale.");
-
-            var instructions = GameUIKit.FindDeep(menu.transform, "Label_Instructions");
-            if (instructions != null)
-                _authoredInstructions = instructions.GetComponentInChildren<TMP_Text>(true);
-
-            (string node, byte culture)[] panels =
-            {
-                ("Panel_Alanthor", Cultures.Alanthor),
-                ("Panel_Feraldis", Cultures.Feraldis),
-                ("Panel_Runai", Cultures.Runai),
-            };
-            foreach (var (node, culture) in panels)
-            {
-                var panel = GameUIKit.FindDeep(menu.transform, node);
-                if (panel == null)
-                {
-                    TWBLog.Log($"[GameUI] CultureSelectionMenu: node \"{node}\" not found.");
-                    continue;
-                }
-                var entry = new AuthoredCulturePanel { Culture = culture };
-                entry.Group = panel.gameObject.GetComponent<CanvasGroup>();
-                if (entry.Group == null) entry.Group = panel.gameObject.AddComponent<CanvasGroup>();
-                entry.Selectable = panel.GetComponentInChildren<Selectable>(true);
-                entry.LockedOverlay = BuildLockedOverlay(panel);
-
-                byte c = culture;
-                if (entry.Selectable is Toggle toggle)
-                    toggle.onValueChanged.AddListener(v => { if (v) CommitAgeUp(c); });
-                else if (entry.Selectable is Button button)
-                    button.onClick.AddListener(() => CommitAgeUp(c));
-                else
-                {
-                    // No Selectable authored — the whole panel becomes the button.
-                    panel.gameObject.AddComponent<UiClickRelay>().OnLeftClick = () => CommitAgeUp(c);
-                }
-                _authoredCulturePanels.Add(entry);
-            }
-            if (_authoredCulturePanels.Count == 0)
-            {
-                TWBLog.Log("[GameUI] CultureSelectionMenu: no culture panels bound — " +
-                    "falling back to the code-built modal.");
-                _authoredCulture = null;
-            }
-            else
-            {
-                BuildAuthoredCancel(menu.transform);
-            }
-        }
-
-        /// <summary>The authored menu ships no close control; add a themed
-        /// Cancel button bottom-center so the player can back out.</summary>
-        private void BuildAuthoredCancel(Transform menuRoot)
-        {
-            var cancel = GameUIKit.Rect(menuRoot, "cancel");
-            cancel.anchorMin = new Vector2(0.5f, 0f);
-            cancel.anchorMax = new Vector2(0.5f, 0f);
-            cancel.pivot = new Vector2(0.5f, 0f);
-            cancel.anchoredPosition = new Vector2(0f, 60f);
-            cancel.sizeDelta = new Vector2(300f, 80f);
-            var bg = GameUIKit.ButtonChrome(cancel, raycast: true);
-            var label = GameUIKit.Text(cancel, "label", Loc.T("Cancel (Esc)"), 30f,
-                GameUIKit.TextMain, TextAlignmentOptions.Center, wrap: false);
-            GameUIKit.Stretch(label.rectTransform);
-            UITooltip.Relay(bg.gameObject).OnLeftClick = CloseAuthoredCulture;
-            GameUIKit.StyleDanger(bg);   // every Cancel is red
-        }
-
         /// <summary>
         /// Adopt the authored "SELECT CULTURE" pill. Re-anchored top-center
         /// (below the special cluster's slot); visibility + interactability
@@ -602,152 +464,13 @@ namespace TheWaningBorder.UI.Ingame
                 && !string.IsNullOrWhiteSpace(_authoredCultureButtonLabel.text))
                 _authoredCultureButtonText = _authoredCultureButtonLabel.text;
 
-            _authoredCultureButtonControl.onClick.AddListener(() =>
-            {
-                if (_cultureReady) OpenCultureMenu();
-            });
-
-            UITooltip.Bind(_authoredCultureButtonControl.gameObject, CultureButtonTooltip);
-        }
-
-        /// <summary>Why the pill is (or is not) clickable, priced.</summary>
-        private string CultureButtonTooltip()
-        {
-            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated) return Loc.T("Choose your culture");
-            var em = world.EntityManager;
-            var faction = GameSettings.LocalPlayerFaction;
-
-            string cost = UIHelpers.FormatCostRich(CultureConfig.AgeUpCost,
-                EntityActionExtractor.GetFactionResourcesAsCostPublic(em, faction));
-            string body = "<b>" + Loc.T("Choose your culture") + "</b>\n"
-                + Loc.T("Advances the faction to Era 2 and unlocks its Age 1 buildings, units and upgrades.")
-                + "\n" + Loc.T("Cost: ") + cost;
-
-            if (BuildingFactory.GetCompletedFactionChoiceBuilding(em, faction) == null)
-                return body + "\n"
-                    + Loc.T("<color=#C08040>Finish your special building first.</color>");
-            if (!FactionEconomy.CanAfford(em, faction, CultureConfig.AgeUpCost))
-                return body + "\n" + Loc.T("<color=#C08040>Not enough resources.</color>");
-            return body;
-        }
-
-        private void OpenCultureMenu()
-        {
-            if (_authoredCulture == null)
-            {
-                TWBLog.Log("[GameUI] CultureSelectionMenu prefab is not assigned — " +
-                    "cannot open culture selection.");
-                return;
-            }
-            OpenAuthoredCulture();
-        }
-
-        private bool AuthoredCultureOpen =>
-            _authoredCulture != null && _authoredCulture.activeSelf;
-
-        private void OpenAuthoredCulture()
-        {
-            _authoredCulture.transform.SetAsLastSibling();
-            foreach (var p in _authoredCulturePanels)
-                if (p.Selectable is Toggle toggle) toggle.SetIsOnWithoutNotify(false);
-            _authoredCulture.SetActive(true);
-            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world != null && world.IsCreated)
-                RefreshAuthoredCulture(world.EntityManager, GameSettings.LocalPlayerFaction);
-        }
-
-        private void CloseAuthoredCulture()
-        {
-            if (AuthoredCultureOpen) _authoredCulture.SetActive(false);
-        }
-
-        private void RefreshAuthoredCulture(EntityManager em, Faction faction)
-        {
-            bool canAfford = FactionEconomy.CanAfford(em, faction, CultureConfig.AgeUpCost);
-            if (_authoredInstructions != null)
-                _authoredInstructions.text = (canAfford
-                        ? Loc.T("Choose your culture — this advances your faction to Era 2.   Cost: ")
-                        : Loc.T("Not enough resources to advance.   Cost: "))
-                    + UIHelpers.FormatCostRich(CultureConfig.AgeUpCost,
-                        EntityActionExtractor.GetFactionResourcesAsCostPublic(em, faction));
-
-            foreach (var p in _authoredCulturePanels)
-            {
-                bool locked = CultureConfig.IsComingSoon(p.Culture);
-                bool enabled = !locked && canAfford;
-                // 0.6 rather than the old 0.45: the overlay caption is a child
-                // of this CanvasGroup, so the card's alpha multiplies it and
-                // 0.45 left "NOT AVAILABLE YET" too faint to read.
-                p.Group.alpha = locked ? 0.6f : 1f;
-                p.Group.interactable = enabled;
-                if (p.Selectable != null) p.Selectable.interactable = enabled;
-                if (p.LockedOverlay != null && p.LockedOverlay.activeSelf != locked)
-                    p.LockedOverlay.SetActive(locked);
-            }
-        }
-
-        /// <summary>
-        /// Builds the "NOT AVAILABLE YET" band for a culture card. The
-        /// authored CultureSelection prefabs carry no such label, so the bar
-        /// adds one per card and just toggles it — the card still greys out
-        /// and goes non-interactable through its CanvasGroup, and
-        /// <see cref="CommitAgeUp"/> refuses locked cultures regardless.
-        /// </summary>
-        private static GameObject BuildLockedOverlay(Transform panel)
-        {
-            var go = new GameObject("Label_NotAvailableYet",
-                                    typeof(RectTransform), typeof(Image));
-            var rt = (RectTransform)go.transform;
-            rt.SetParent(panel, false);
-            // Full-width band across the middle of the card.
-            rt.anchorMin = new Vector2(0f, 0.5f);
-            rt.anchorMax = new Vector2(1f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.offsetMin = new Vector2(2f, -24f);
-            rt.offsetMax = new Vector2(-2f, 24f);
-            rt.SetAsLastSibling();
-
-            var backing = go.GetComponent<Image>();
-            backing.color = new Color(0f, 0f, 0f, 0.78f);
-            backing.raycastTarget = false;
-
-            var textGo = new GameObject("Text", typeof(RectTransform),
-                                        typeof(TextMeshProUGUI));
-            var trt = (RectTransform)textGo.transform;
-            trt.SetParent(rt, false);
-            trt.anchorMin = Vector2.zero;
-            trt.anchorMax = Vector2.one;
-            trt.offsetMin = new Vector2(4f, 2f);
-            trt.offsetMax = new Vector2(-4f, -2f);
-
-            var text = textGo.GetComponent<TextMeshProUGUI>();
-            text.text = Loc.T("NOT AVAILABLE YET");
-            text.alignment = TextAlignmentOptions.Center;
-            text.enableAutoSizing = true;
-            text.fontSizeMin = 8f;
-            text.fontSizeMax = 22f;
-            text.fontStyle = FontStyles.Bold;
-            text.color = new Color(1f, 0.88f, 0.62f, 1f);
-            text.raycastTarget = false;
-
-            go.SetActive(false);
-            return go;
+            _authoredCultureButtonControl.interactable = false;
+            UITooltip.Bind(_authoredCultureButtonControl.gameObject, () =>
+                "<b>" + Loc.T("Age-up") + "</b>\n"
+                + Loc.T("Your landmark's construction is the age-up: when it finishes, the faction advances to Era 2."));
         }
 
         // ── Refresh ────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Esc hook for PauseMenuPanel, which owns the key. Returns true when
-        /// the culture modal was open and has been closed, so the cascade
-        /// stops there instead of also opening the pause menu.
-        /// </summary>
-        public static bool CloseCultureMenu()
-        {
-            if (_instance == null || !_instance.AuthoredCultureOpen) return false;
-            _instance.CloseAuthoredCulture();
-            return true;
-        }
 
         private void Update()
         {
@@ -775,13 +498,11 @@ namespace TheWaningBorder.UI.Ingame
             if (hall == Entity.Null || culture != Cultures.None)
             {
                 HideAll();
-                if (AuthoredCultureOpen) CloseAuthoredCulture();
                 return;
             }
 
             RefreshSpecials(em, faction);
             RefreshCultureButton(em, faction, hall);
-            if (AuthoredCultureOpen) RefreshAuthoredCulture(em, faction);
         }
 
         private void HideAll()
@@ -793,7 +514,6 @@ namespace TheWaningBorder.UI.Ingame
             if (_authoredSpecial != null && _authoredSpecial.activeSelf)
                 _authoredSpecial.SetActive(false);
             _specialMenuShowing = false;
-            _cultureReady = false;
         }
 
         private void RefreshSpecials(EntityManager em, Faction faction)
@@ -888,11 +608,7 @@ namespace TheWaningBorder.UI.Ingame
             bool visible = !_specialMenuShowing;
             if (_authoredCultureButton.activeSelf != visible)
                 _authoredCultureButton.SetActive(visible);
-            if (!visible)
-            {
-                _cultureReady = false;
-                return;
-            }
+            if (!visible) return;
 
             var screen = new Vector2Int(Screen.width, Screen.height);
             if (_culturePinned && screen != _culturePinnedScreen) _culturePinned = false;
@@ -912,54 +628,17 @@ namespace TheWaningBorder.UI.Ingame
                 if (_authoredCultureButtonLabel != null)
                     _authoredCultureButtonLabel.text =
                         string.Format(Loc.T("Advancing {0}%"), (int)(pct * 100f));
-                _authoredCultureButtonControl.interactable = false;
-                _cultureReady = false;
                 return;
             }
 
             // THE AGE-UP IS THE LANDMARK (Age_0.md § Age-up by landmark): the
             // pill no longer opens a culture choice. It reports the landmark's
             // construction, which IS the age-up progress.
-            _cultureReady = false;
-            _authoredCultureButtonControl.interactable = false;
             float progress = BuildingFactory.GetFactionChoiceBuildingProgress(em, faction);
             if (_authoredCultureButtonLabel != null)
                 _authoredCultureButtonLabel.text = progress >= 0f
                     ? string.Format(Loc.T("Advancing {0}%"), (int)(progress * 100f))
                     : Loc.T(_authoredCultureButtonText);
-        }
-
-        // ── Commit ─────────────────────────────────────────────────────────
-
-        private void CommitAgeUp(byte culture)
-        {
-            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated) return;
-            var em = world.EntityManager;
-            var faction = GameSettings.LocalPlayerFaction;
-
-            // Defense in depth — the card is disabled for locked cultures.
-            if (CultureConfig.IsComingSoon(culture))
-            {
-                PlayerNotificationSystem.NotifyError(string.Format(
-                    Loc.T("{0} is coming soon"), CultureConfig.GetName(culture)));
-                return;
-            }
-
-            Entity hall = FindLocalHall(em, faction, out byte current);
-            if (hall == Entity.Null || current != Cultures.None) return;
-            if (em.HasComponent<AgeUpState>(hall)) return;
-
-            // Affordability CHECK only — AgeUpCommandDirect spends on every
-            // peer (docs/Multiplayer_LAN_Readiness.md).
-            if (!FactionEconomy.CanAfford(em, faction, CultureConfig.AgeUpCost))
-            {
-                PlayerNotificationSystem.NotifyError(Loc.T("Not enough resources to advance"));
-                return;
-            }
-
-            CommandRouter.IssueAgeUp(em, hall, culture);
-            CloseAuthoredCulture();
         }
 
         // ── Helpers ────────────────────────────────────────────────────────

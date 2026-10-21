@@ -344,7 +344,14 @@ namespace TheWaningBorder.Systems.Economy
                 .WithAll<ShardrootTag>()
                 .WithEntityAccess())
             {
-                if (health.ValueRO.Value > 0) continue;
+                // DYING, not just at 0 HP (2026-10-20). A heal that lands on a
+                // corpse (a Renewal regen tail ticking after the killing blow)
+                // put it back above 0 before this pass saw it; DeathSystem had
+                // already started its death and destroyed it two seconds
+                // later — with the artifact, no drop, no log (FiendstonePass
+                // 2026-10-20: Green's courier). A started death always drops.
+                bool dying = TransientState.Active<DeathAnimationState>(em, entity);
+                if (health.ValueRO.Value > 0 && !dying) continue;
                 // Not dead yet: DeathSystem applies Life Cling's HP floor
                 // AFTER this system runs, so a clinging king at 0 HP survives
                 // the tick. Dropping here made him lose the artifact and live

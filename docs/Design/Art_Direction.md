@@ -630,6 +630,98 @@ and max zoom and attached to its task.
 | 16 | Curse hold ring (§8.2) | `Rendering/Border/`, `TechTree/Border/LargeNode/` verb systems for the hold state |
 | 17 | Map-edge falloff on every shipped map | map scenes; `MapSceneSync` ship gate unchanged |
 
+## 13. One SO, one FBX, one .blend per building level (2026-10-20)
+
+Developer: "For every building and building level there must be a distinct SO,
+FBX, .BLEND. eg: Hut_Age_0, alanthor_House_lv1, alanthor_House_lv2,
+alanthor_House_lv3, with separate SO, FBX and .blend files for each." —
+"presentation layer should ONLY accept the prefabs through the SO, no
+exception. if something breaks, author a new SO, FBX and .blend."
+
+**The rule.**
+
+- Every building's **base form** (its BuildingDefSO — the Age 0 form of an
+  Age 0 building, the construction form of a building that only exists after
+  age-up) and **every level** of it (its BuildingLevelDefSO, per culture) has
+  its own model: one FBX exported from one .blend, referenced by that SO's
+  `prefab` field and by nothing else. Wall pieces (hub, curtain, gate, tower,
+  mount), emplacements, sect buildings and the Raise Anew structures follow
+  the same rule — no procedural geometry is left.
+- **The presentation layer takes a building's visual ONLY from its SO**: the
+  base SO's prefab while it stands at level 0 or is under construction, its
+  level SO's prefab at level N. No multi-variant prefab branches, no
+  procedural builders, no Resources ladder, no shared prefab between levels.
+  A missing prefab is a loud error (logged once per SO at spawn, and listed
+  by the binder's audit), never a fallback — if something breaks, a new SO,
+  FBX and .blend are authored.
+- **Names**: `<BuildingId>_Age_0` for the base form, `<culture>_<CulturedName>_lv<N>`
+  for a level (`Hut_Age_0`, `alanthor_House_lv1`). The FBX and .blend carry
+  the name; both live in the building's own `Art/` folder beside its SO.
+- **Style**: the Alanthor House's hand-painted kit (House_1/House_2 meshes and
+  textures), kitbashed by slice-and-repeat so tiles and bricks repeat instead
+  of stretching (`tools/blender/alanthor/`, the Garrison is the worked
+  example). **Age 0 forms carry no culture look** (Regions.md): the same
+  plaster, stone and timber, but plank roofs instead of the teal tiles — the
+  tiles arrive with the culture at age-up.
+- **Tracked in Git LFS**: the per-level FBX, .blend and the House textures
+  (`.gitattributes`); the vendor packs stay untracked.
+- **Order**: edition A (Age 0 + Alanthor) first, then Feraldis, then Runai;
+  the SO-only switch turns on per culture as its art lands.
+- **Exception — the Hut keeps its prefab** (developer, 2026-10-20: "Huts
+  should keep the prefab they had before"): the Age 0 Hut's base SO stays on
+  `HutAge0.prefab`; its culture levels (House, Slave Pens, Waystation) follow
+  the rule.
+- **The Shelter keeps its prefab too; the Fortress levels are new** (developer,
+  2026-10-20: "fortress is growing when upgraded" — the old castle art stood
+  nearly twice the Shelter's height at age-up and 30 % taller again by L3).
+  `alanthor_Fortress_lv1-3` (`tools/blender/alanthor/build_fortress.py`) stand
+  on one walled terrace of the footprint's size: L1 about the Shelter's
+  height, L2 the hall's upper roof tier and rear towers, L3 a third storey on
+  the towers — a level grows a little, never a size class.
+- **Walls are per PART per WALL LEVEL**, not per building level: the curtain
+  module, hub, gatehouse, wall tower and ballista / trebuchet mounts each have
+  one model per level in `Age0/Buildings/Wall/WallModuleArt.asset` (index 0
+  palisade, 1-3 the Stone Wall's levels), the only place wall art comes from.
+  Stone: `alanthor_StoneWall_<Part>_L1..3` in `Civs/Alanthor/Buildings/Wall/Art/`
+  (`tools/blender/alanthor/build_walls.py`, authored at game size: a 3 m ×
+  4 m module with its walk at 3 m, a 4.2 m hub, a 9 m gatehouse whose leaves
+  are named DoorLeft / DoorRight, mounts with a "Deck" empty; L2 adds
+  battlement hoods, L3 posts and lanterns). Palisade: its curtain, hub and
+  gate keep their timber prefabs (the part SOs'); its tower and mounts are
+  `Palisade_<Part>_L0` in `Age0/Buildings/Palisade/Art/`. An empty slot draws
+  nothing and logs `[Wall] no art for …` — the procedural wall builders and
+  the swept cross-section (`WallCurveMesh`) are deleted. The Feraldis log
+  wall stays a `cultureSets` entry (edition B).
+
+**The machinery (2026-10-20).**
+
+- `PresentationSpawnSystem.TryResolveBuildingVisual` is the one answer to
+  "which model does this building show now" (base SO at level 0 / under
+  construction, the culture's level SO at level N, `culturePrefabs` on the
+  base SO for a building with no ladder, `ChapelArt.asset` for chapels). The
+  spawn, `BuildingPrefabSwapSystem` (re-checks every 0.5 s and replaces the
+  view with the dissolve + flourish on any change — level-up, age-up, a site
+  finishing) use it.
+- **The placement ghost and the plan show the FINISHED look** (2026-10-21):
+  `PresentationSpawnSystem.ResolveFinishedVisual` — the faction's completed
+  culture at its faction-wide level of the type, a chapel's ChapelArt. The
+  plan used to show the level-0 base form, so an Age 1 ghost turned into the
+  Age 0 building the moment it was placed. Only a construction SITE rises
+  from the base form. The wall hub ghost is the hub art at the faction's
+  wall level (`CreateWallHubPreview`); a missing model is the footprint
+  cube, never a hand-picked `Resources` prefab.
+- **Waning Border > Art > Bind Building Art (SO only)**
+  (`Scripts/Editor/PrefabAuthoring/BuildingArtBinder.cs`) binds every Art/
+  FBX by its name, remaps the House materials, fills the wall slots and
+  writes an audit to `Temp/building-art-binder.txt`. Re-run after every
+  Blender export. It replaces Bind Wall Art and Author Castle Prefabs (the
+  Synty castle compositions, retired).
+- **Dropped with the multi-variant prefabs**: tech "Upgrades" visual groups
+  (a researched tech no longer adds props to a building).
+- **Not yet done**: Feraldis and Runai levels are split per-level prefabs
+  (one per SO, so the SO-only rule holds) but have no FBX / .blend of their
+  own yet; their art passes come with editions B and C.
+
 ## 12. Open questions
 
 1. **Which atlas does Age 0 sample?** The `*Variants.fbx` models reference

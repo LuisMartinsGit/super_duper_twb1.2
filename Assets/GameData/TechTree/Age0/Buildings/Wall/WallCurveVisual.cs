@@ -7,11 +7,10 @@
 // one structure three modules wide and draws its own masonry. Polls the sim
 // four times a second; nothing per frame.
 //
-// TWO sources of geometry, one result. When the curtain module's SO has a
-// prefab bound, the AUTHORED module is baked along the curve
-// by WallArtMesh and the materials come from the art. With no prefab bound,
-// WallCurveMesh sweeps the procedural cross-section and the palette below
-// colours it. Either way it is one mesh per segment.
+// The AUTHORED curtain module for the level (WallModuleArt.asset, the only
+// source of wall art — docs/Design/Art_Direction.md § 13) is baked along the
+// curve by WallArtMesh, one mesh per segment, with the art's materials. An
+// empty slot draws nothing and is reported as missing art.
 
 using System.Collections.Generic;
 using Unity.Entities;
@@ -44,17 +43,6 @@ namespace TheWaningBorder.Rendering
             return true;
         }
         bool _rebuildPending;
-
-        // Per-level palette: plinth / body / coping / crown / shields.
-        // docs/Design/Age_1_Alanthor.md § The three wall levels.
-        static readonly Color TimberDark  = new Color(0.30f, 0.20f, 0.12f);
-        static readonly Color Timber      = new Color(0.45f, 0.31f, 0.18f);
-        static readonly Color TimberPale  = new Color(0.55f, 0.41f, 0.25f);
-        static readonly Color StoneDark   = new Color(0.52f, 0.50f, 0.46f);
-        static readonly Color Stone       = new Color(0.78f, 0.76f, 0.72f);
-        static readonly Color Marble      = new Color(0.92f, 0.92f, 0.90f);
-        static readonly Color Iron        = new Color(0.34f, 0.35f, 0.39f);
-        static readonly Color Steel       = new Color(0.62f, 0.65f, 0.70f);
 
         MeshFilter _filter;
         MeshRenderer _renderer;
@@ -119,8 +107,7 @@ namespace TheWaningBorder.Rendering
         }
 
         /// <summary>
-        /// Point the renderer at the art's materials, or — with no art — at
-        /// one shared Lit slot per procedural band, tinted per level.
+        /// Point the renderer at the art's materials.
         /// </summary>
         void ReadArtLevel()
         {
@@ -152,44 +139,16 @@ namespace TheWaningBorder.Rendering
                 _tintedFor = owner;
                 return;
             }
-            var mats = new Material[WallCurveMesh.Bands];
-            for (int i = 0; i < mats.Length; i++) mats[i] = ProceduralMaterialHelper.BaseLit;
-            _renderer.sharedMaterials = mats;
-            ApplyPalette();
+            ReportMissing();
+            _renderer.sharedMaterials = System.Array.Empty<Material>();
         }
 
-        /// <summary>Colour the five bands for the current level.</summary>
-        void ApplyPalette()
+        static readonly HashSet<(byte, byte)> _reported = new HashSet<(byte, byte)>();
+        void ReportMissing()
         {
-            switch (_tier)
-            {
-                case TheWaningBorder.Entities.WallTiers.Shielded:
-                    Tint(0, StoneDark, 0.30f); Tint(1, Stone, 0.30f);
-                    Tint(2, Iron, 0.55f, metallic: 0.8f); Tint(3, Stone, 0.30f);
-                    Tint(4, Steel, 0.70f, metallic: 0.9f);   // the great shields
-                    break;
-                case TheWaningBorder.Entities.WallTiers.Battlemented:
-                    Tint(0, StoneDark, 0.30f); Tint(1, Stone, 0.30f);
-                    Tint(2, Marble, 0.45f); Tint(3, Stone, 0.30f);
-                    Tint(4, Timber, 0.20f);                  // the hoardings
-                    break;
-                case TheWaningBorder.Entities.WallTiers.Stone:
-                    Tint(0, StoneDark, 0.30f); Tint(1, Stone, 0.30f);
-                    Tint(2, Marble, 0.45f); Tint(3, Stone, 0.30f); Tint(4, Stone, 0.30f);
-                    break;
-                default:
-                    Tint(0, TimberDark, 0.20f); Tint(1, Timber, 0.20f);
-                    Tint(2, TimberDark, 0.20f); Tint(3, TimberPale, 0.20f); Tint(4, Timber, 0.20f);
-                    break;
-            }
-        }
-
-        void Tint(int slot, Color c, float smoothness, float metallic = 0f)
-        {
-            _mpb.Clear();
-            _mpb.SetColor("_BaseColor", c); _mpb.SetColor("_Color", c);
-            _mpb.SetFloat("_Metallic", metallic); _mpb.SetFloat("_Smoothness", smoothness);
-            _renderer.SetPropertyBlock(_mpb, slot);
+            if (_reported.Add((_tier, _culture)))
+                Debug.LogError($"[Wall] no curtain art at wall level {_tier} (culture {_culture}) - fill its " +
+                               "slot in WallModuleArt.asset (Waning Border > Art > Bind Building Art).");
         }
 
         /// <summary>The segment's construction progress, read straight from
@@ -272,6 +231,12 @@ namespace TheWaningBorder.Rendering
             _progress = progress;
 
             ReadArtLevel();
+            // A FINISHED wall changing level re-clads with the level-up wave
+            // every other building gets: the current look is snapshotted
+            // before the materials change, and the wave runs once the new
+            // mesh is built (end of Rebuild — possibly a later frame).
+            if (_tier != _builtTier && _builtProgress >= 1f && _waveOld == null)
+                _waveOld = SnapshotForWave();
             if (_tier != _builtTier || (_art != null && OwnerColor() != _tintedFor)) ApplyMaterials();
 
             // The root is placed by SyncTransforms after we first build; the
@@ -319,19 +284,58 @@ namespace TheWaningBorder.Rendering
             _builtProgress = _progress;
             _builtTier = _tier;
 
-            // The authored module wins whenever it is bound; the swept
-            // cross-section is what a wall looks like until then.
             if (_art == null) _art = WallModuleArt.For(_tier, _culture);
             if (_art != null && !_builtFromArt) { ApplyMaterials(); _builtFromArt = true; }
 
-            _mesh = _art != null
-                ? WallArtMesh.Build(_art, _curve, TheWaningBorder.Entities.AlanthorWall.HubInsetMetres,
-                                    _arcs, i => i < _openHalf.Count ? _openHalf[i] : -1f,
-                                    _progress, _mesh, transform.worldToLocalMatrix)
-                : WallCurveMesh.Build(_curve, TheWaningBorder.Entities.AlanthorWall.HubInsetMetres,
+            if (_art == null) { ReportMissing(); _filter.sharedMesh = null; return; }
+            _mesh = WallArtMesh.Build(_art, _curve, TheWaningBorder.Entities.AlanthorWall.HubInsetMetres,
                                       _arcs, i => i < _openHalf.Count ? _openHalf[i] : -1f,
-                                      _progress, _mesh, transform.worldToLocalMatrix, _tier);
+                                      _progress, _mesh, transform.worldToLocalMatrix);
             _filter.sharedMesh = _mesh;
+
+            if (_waveOld != null)
+            {
+                BuildingDissolveTransition.Begin(_waveOld, gameObject, 1.5f, OwnerColor());
+                _waveOld = null;
+            }
+        }
+
+        /// <summary>The old look waiting for its level-up wave (null when none).</summary>
+        GameObject _waveOld;
+
+        /// <summary>
+        /// A stand-alone copy of the curtain as it is drawn now — mesh,
+        /// materials and the per-slot colours — for the wave to dissolve out.
+        /// The copy owns its mesh (<see cref="OwnedMesh"/>), so it leaks
+        /// nothing when the wave destroys it.
+        /// </summary>
+        GameObject SnapshotForWave()
+        {
+            if (_mesh == null || _mesh.vertexCount == 0 || _renderer == null) return null;
+            var go = new GameObject(name + "_LevelUpOld");
+            go.transform.SetPositionAndRotation(transform.position, transform.rotation);
+            go.transform.localScale = transform.lossyScale;
+            var copy = Instantiate(_mesh);
+            go.AddComponent<MeshFilter>().sharedMesh = copy;
+            go.AddComponent<OwnedMesh>().Mesh = copy;
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.shadowCastingMode = _renderer.shadowCastingMode;
+            var mats = _renderer.sharedMaterials;
+            mr.sharedMaterials = mats;
+            var block = new MaterialPropertyBlock();
+            for (int i = 0; i < mats.Length; i++)
+            {
+                _renderer.GetPropertyBlock(block, i);
+                mr.SetPropertyBlock(block, i);
+            }
+            return go;
+        }
+
+        /// <summary>Destroys a snapshot's private mesh with it.</summary>
+        sealed class OwnedMesh : MonoBehaviour
+        {
+            public Mesh Mesh;
+            void OnDestroy() { if (Mesh != null) Destroy(Mesh); }
         }
 
         /// <summary>
@@ -365,6 +369,7 @@ namespace TheWaningBorder.Rendering
         void OnDestroy()
         {
             if (_mesh != null) Destroy(_mesh);
+            if (_waveOld != null) Destroy(_waveOld);
         }
     }
 }

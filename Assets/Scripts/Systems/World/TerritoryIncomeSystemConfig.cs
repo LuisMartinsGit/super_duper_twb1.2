@@ -81,6 +81,11 @@ namespace TheWaningBorder.Systems.World
         /// <summary>Per Guild, with Veilsteel Survey done, veilsteel a minute.</summary>
         public float guildSurveyVeilsteelPerTier;
 
+        /// <summary>Per hut (Alanthor Guild / Runai Trading Post), per
+        /// completed Supply Survey tier, supplies a minute — scaled by
+        /// guildSurveyLevelScale like the other surveys. Depleted huts pay it.</summary>
+        public float supplySurveyPerTier;
+
         /// <summary>Survey output scale by the Guild's level: entry 0 = L1,
         /// 1 = L2, 2 = L3.</summary>
         public float[] guildSurveyLevelScale;

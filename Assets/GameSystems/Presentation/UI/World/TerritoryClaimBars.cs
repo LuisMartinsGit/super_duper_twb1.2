@@ -127,10 +127,12 @@ namespace TheWaningBorder.UI.World
 
                 if (holder == me)
                 {
-                    if (contested)
-                        Add(t, string.Format(Loc.T("Contested {0}"), name), value, Dim(ColorOf(me)));
-                    else if (claimed && challenger != TerritoryOwnership.Natural && !locked)
+                    // A contested meter MOVES (the stronger army pushes it,
+                    // Territory_Claims.md § 2.2) — losing is shown first.
+                    if (claimed && challenger != TerritoryOwnership.Natural && !locked)
                         Add(t, string.Format(Loc.T("Losing {0}  {1}%"), name, pct), value, ColorOf(me));
+                    else if (contested)
+                        Add(t, string.Format(Loc.T("Contested {0}  {1}%"), name, pct), value, Dim(ColorOf(me)));
                     else if (!claimed && value > 0f)
                         Add(t, string.Format(Loc.T("Claiming {0}  {1}%"), name, pct), value, ColorOf(me));
                     else if (claimed && value < 99.5f && !locked)

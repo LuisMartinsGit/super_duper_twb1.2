@@ -225,6 +225,18 @@ namespace TheWaningBorder.Entities
             return Of(em, wallPiece);
         }
 
+        /// <summary>
+        /// <see cref="ArtLevelOf"/> for a piece not raised yet: the art level a
+        /// NEW piece of this kind would draw at for <paramref name="faction"/>
+        /// (the placement ghost).
+        /// </summary>
+        public static byte ArtLevelFor(EntityManager em, Faction faction, bool palisade)
+        {
+            if (palisade && HasPalisadeLevel(em, faction, out var level) && level != null && level.level > 0)
+                return (byte)Mathf.Min(level.level, MaxLevel);
+            return LevelFor(em, faction, palisade);
+        }
+
         /// <summary>The owner culture whose wall SET (WallModuleArt.asset
         /// `cultureSets`) a piece's art may come from: the faction's completed
         /// culture, Cultures.None before age-up or for an ownerless piece.</summary>

@@ -69,7 +69,10 @@ MonoBehaviour:
     siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 1509043138989130034, guid: a40c3ceca546f3c4887faaf4377de385, type: 3}
+  prefab: {fileID: 3396850927273225354, guid: 6c207a18a35d789449de99dbd512a73a, type: 3}
+  culturePrefabs:
+  - culture: Feraldis
+    prefab: {fileID: 8279015982744956637, guid: 98ee64e6bdcb5c44abf4b7678b51f150, type: 3}
   presentationId: 566
   prefabPath: 
   canUpgradeTo: []

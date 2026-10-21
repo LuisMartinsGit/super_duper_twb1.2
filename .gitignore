@@ -243,3 +243,18 @@ Assets/Resources/PerformanceTestRunInfo.json
 Assets/Resources/PerformanceTestRunInfo.json.meta
 Assets/Resources/PerformanceTestRunSettings.json
 Assets/Resources/PerformanceTestRunSettings.json.meta
+
+# Building art, one model per building level (docs/Design/Art_Direction.md § 13,
+# 2026-10-20): the per-level FBX and .blend in each building's Art/ folder ARE
+# tracked, through Git LFS (.gitattributes). Vendor FBX stay ignored above.
+!Assets/GameData/TechTree/**/Art/*.fbx
+!Assets/GameData/TechTree/**/Art/*.fbx.meta
+!Assets/GameData/TechTree/**/Art/*.blend
+!Assets/GameData/TechTree/**/Art/*.blend.meta
+# Wall pieces: one folder per piece per level (StoneWall/Lvl<N>/<Piece>/,
+# Palisade/Lvl0/<Piece>/), 2026-10-21.
+!Assets/GameData/TechTree/**/Lvl*/*/*.fbx
+!Assets/GameData/TechTree/**/Lvl*/*/*.fbx.meta
+!Assets/GameData/TechTree/**/Lvl*/*/*.blend
+!Assets/GameData/TechTree/**/Lvl*/*/*.blend.meta
+*.blend1

@@ -11,12 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: RenewalTower
-  m_EditorClassIdentifier:
-  id: 'Renewal_Tower'
-  displayName: 'Renewal Tower'
-  role: 'Raise Anew I - a modest, permanent watch post conjured mid-fight'
+  m_EditorClassIdentifier: 
+  id: Renewal_Tower
+  displayName: Renewal Tower
+  role: Raise Anew I - a modest, permanent watch post conjured mid-fight
+  description: 
   hp: 750
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 6
     ranged: 13
@@ -26,21 +27,34 @@ MonoBehaviour:
   lineOfSight: 28
   footprintCells: {x: 2, y: 2}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research: []
   minEra: 0
   cost:
     Supplies: 140
     Iron: 70
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
   attack:
     enabled: 1
     damage: 10
@@ -48,4 +62,11 @@ MonoBehaviour:
     range: 26
     cooldown: 1.8
     maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 919132149155446097, guid: 50ebe6f4495801942a8a74456c5d9704, type: 3}
+  culturePrefabs: []
   presentationId: 414
+  prefabPath: 
+  canUpgradeTo: []

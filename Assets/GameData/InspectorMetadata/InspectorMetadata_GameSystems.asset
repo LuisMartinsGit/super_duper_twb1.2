@@ -203,12 +203,9 @@ MonoBehaviour:
     - field: "specialBuildingMenu"
       header: 
       tooltip: "Special-building choice menu (Vault / Keep radial buttons). Shown top-center until a choice building is started; driven by TopChoiceBar, which hides its code-built buttons when this is assigned."
-    - field: "cultureSelectionMenu"
-      header: 
-      tooltip: "Culture selection menu (Panel_Alanthor / Panel_Feraldis / Panel_Runai). Opened by the culture selection button; driven by TopChoiceBar."
     - field: "cultureSelectionButton"
       header: 
-      tooltip: "Culture selection opener: the authored \"SELECT CULTURE\" pill (CultureSelection folder). Pinned top-center once a special building is started; opens the culture selection menu (TopChoiceBar)."
+      tooltip: "Age-up readout: the authored pill (CultureSelection folder). Pinned top-center once a landmark is started; shows its construction, which is the age-up (TopChoiceBar). Read-only."
     - field: "objectivesPanel"
       header: 
       tooltip: "Objectives panel (top-left): step rows Step_Special / Step_Culture / Step_Temple / Step_Military, driven by ObjectivesPanelBinder."

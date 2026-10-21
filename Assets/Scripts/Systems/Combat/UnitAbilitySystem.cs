@@ -233,6 +233,13 @@ namespace TheWaningBorder.Systems.Combat
                 .WithEntityAccess())
             {
                 hot.ValueRW.Elapsed += dt;
+                // Never heals the dead (see AlanthorSectEffectSystem.TickRegenTail).
+                if (health.ValueRO.Value <= 0)
+                {
+                    if (hot.ValueRO.Elapsed >= hot.ValueRO.Duration)
+                        TransientState.Clear<HealOverTime>(em, ecb, entity);
+                    continue;
+                }
 
                 // Calculate healing this frame based on proportion of duration elapsed
                 float healRate = hot.ValueRO.TotalHealing / hot.ValueRO.Duration;

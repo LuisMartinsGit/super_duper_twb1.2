@@ -1549,5 +1549,36 @@ namespace TheWaningBorder.AI
         /// pieces, at most wallSentryMax (0 = none).</summary>
         public int wallSentryPiecesPerSentry;
         public int wallSentryMax;
+
+        // ── The Sanctum army (Game_AI.md § 6t, 2026-10-20) ──
+        /// <summary>Raise dedicated armies that take and hold Sanctums.</summary>
+        public bool sanctumArmyEnabled;
+        /// <summary>Soldiers per Sanctum army, at least the claim's head
+        /// count (TerritoryOwnership.asset sanctumClaimUnits).</summary>
+        public int sanctumArmyMinSize;
+        /// <summary>Seconds between Sanctum-army thinks.</summary>
+        public float sanctumThinkInterval;
+        /// <summary>At most this many Sanctum armies (0 = one per Sanctum).</summary>
+        public int sanctumMaxArmies;
+        /// <summary>The army goes when its power is the known threat at the
+        /// Sanctum times this.</summary>
+        public float sanctumLaunchMargin;
+        /// <summary>Metres round the crystal the threat is read in.</summary>
+        public float sanctumThreatRadius;
+        /// <summary>Score penalty (metres) for a Sanctum a rival holds:
+        /// free ones first.</summary>
+        public float sanctumHostilePenalty;
+        /// <summary>Guards farther than this from the crystal walk back.</summary>
+        public float sanctumHoldRadius;
+        /// <summary>Seconds between re-orders of the garrison.</summary>
+        public float sanctumReorderSeconds;
+        /// <summary>An army that has not taken its Sanctum disbands below this.</summary>
+        public int sanctumDisbandBelow;
+        /// <summary>...and that Sanctum waits this long before another try.</summary>
+        public float sanctumRetrySeconds;
+        /// <summary>Towers the workers raise at a held Sanctum.</summary>
+        public int sanctumFortTowers;
+        /// <summary>Seconds between fortification checks.</summary>
+        public float sanctumFortCheckInterval;
     }
 }

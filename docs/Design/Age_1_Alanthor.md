@@ -284,6 +284,9 @@ decision 17): a developed hut ring is Alanthor's late-game mine.
 | **Veilstone Survey I** | Guild L2 | every Guild also produces veilstone | Iron Surveying I |
 | **Veilstone Survey II** | Guild L3 | more veilstone | Veilstone Survey I |
 | **Veilsteel Survey** | Guild L3 | every Guild also produces veilsteel | Veilstone Survey II |
+| **Supply Survey I** | Guild L1 | every Guild also produces supplies, depleted Guilds included (2026-10-20, [Veilstone_Economy.md §5.2](Veilstone_Economy.md)) | |
+| **Supply Survey II** | Guild L2 | more supplies | Supply Survey I |
+| **Supply Survey III** | Guild L3 | more supplies | Supply Survey II |
 
 The survey drips **scale with the hut's Guild level** (2026-08-11, "fully
 developed huts are the late-game mine"): map iron deposits are finite and run
@@ -728,7 +731,7 @@ there. **The accepted failure mode is that the hub CLIPS the curtain** — a
 straight wall with a tower sunk slightly into it reads as a wall; a wall that
 kinks at every third tower reads as broken geometry. This is also exactly why
 a wall piece **cannot be a prefab variant**: the pieces have to interpenetrate
-freely, so the art is swept and tiled at runtime (`WallCurveMesh` /
+freely, so the art is tiled along the curve at runtime (`WallArtMesh` /
 `WallModuleArt`), never assembled from fitted variants.
 
 **Why not a hub every few modules.** Intermediate hubs at one module's
@@ -899,43 +902,39 @@ under construction, or a cell whose segment is mid-gate-conversion.
 
 ### The wall's art
 
-> **Stone levels authored 2026-10-01, re-authored 2026-10-02.** `Waning Border
-> > Art > Author Castle Prefabs` (`Scripts/Editor/CastleArtAuthor.cs`) builds
-> the stone set from the Synty POLYGON Fantasy Kingdom castle kit into
-> `Civs/Alanthor/Buildings/Wall/Stone/` and binds it per level in
-> `Age0/Buildings/Wall/WallModuleArt.asset` (curtain, hub, gate, wall tower,
-> ballista and trebuchet bastions; slot 0 = the timber palisade). Every level is
-> symmetrical — both faces carry the same masonry and parapet, and level 3's
-> roofed hoarding gallery runs along BOTH faces. **Hubs are round bastions
-> flush with the walk at every level, with no crown ring; a wall tower is a
-> curtain run with one of the kit's bartizans (`Wall_Tower_L`) hung off each
-> face just outside the walkway (2026-10-20).** Re-author the wall alone with
-> `Waning Border > Art > Author Castle Wall Set Only` — the full menu also
-> rebuilds the Fortress and Watch Tower, which other tools have since
-> re-composed. The same tool authors the **Watch Tower** (`Tower/WatchTower.prefab`)
-> and the **Fortress** (`Fortress/Fortress.prefab`). `Preview Castle Prefabs`
-> renders all of it to `Temp/castle_preview/`.
+> **Re-authored 2026-10-20 in the House's architecture**
+> (docs/Design/Art_Direction.md § 13): one FBX + .blend per part per level,
+> `alanthor_StoneWall_<Part>_L1..3` in `Civs/Alanthor/Buildings/Wall/Art/`,
+> built by `tools/blender/alanthor/build_walls.py` (curtain, hub, gatehouse,
+> wall tower, ballista and trebuchet mounts) and bound per level in
+> `Age0/Buildings/Wall/WallModuleArt.asset` (slot 0 = the palisade: its timber
+> curtain / hub / gate plus `Palisade_<Part>_L0` tower and mounts). Every
+> level is symmetrical — both faces carry the same plaster-over-brick
+> facade and parapet; L2 adds battlement hoods along both parapets, L3 posts
+> and lanterns. The Synty castle-kit set (`Stone/`, Author Castle Prefabs)
+> is retired.
 
 **Where things live.** The shared hub/segment CODE, the Gate (a palisade takes
 gates too), the timber art and `WallModuleArt` stay in `Age0/Buildings/Wall/`
 — one machine, two kinds of content; the Stone Wall's content (`WallHub`,
-`WallSegment`, `Tower/`, `Stone/`, the level SOs and the `Battlements` /
+`WallSegment`, `Tower/`, `Art/`, the level SOs and the `Battlements` /
 `ShieldedRamparts` research) is in `Civs/Alanthor/Buildings/Wall/`. Every wall
-PIECE has its own SO and its own `prefab` + `presentationId`, so each piece's
-art binds independently and a piece with no art keeps its procedural visual.
+PIECE has its own SO and `presentationId`, but its ART comes only from its
+WallModuleArt slot for the level; an empty slot draws nothing and logs
+`[Wall] no art for …` (there is no procedural wall any more, 2026-10-20).
 
 **Textures do not travel in the FBX, and must not.** The FBX carries
 **geometry, UVs and material NAMES**, and each name is remapped to a `.mat`
 asset in the piece's folder (`Wooden_Stakes`, `Player_cloth` — base colour
 stays white, the player's colour is applied on top — and `GroundMaterial`).
 Re-exporting the mesh cannot disturb them, because the link is by name.
-**Binding:** run **`Waning Border > Walls > Bind Wall Art`** after adding or
-replacing an FBX; it re-applies the importer settings and the material remap a
-Blender re-export resets. Artist steps: [docs/Art_Pipeline_FBX.md](../Art_Pipeline_FBX.md).
+**Binding:** run **`Waning Border > Art > Bind Building Art (SO only)`** after
+adding or replacing an FBX; it re-applies the importer settings (Read/Write on)
+and the House material remap a Blender re-export resets, and fills the
+WallModuleArt slots from the file names. Artist steps: [docs/Art_Pipeline_FBX.md](../Art_Pipeline_FBX.md).
 
 **How it is drawn.** Still **one mesh per segment**: the authored module baked
-along the curve, one copy per sim cell (`WallArtMesh`), or the procedural
-cross-section swept along it when no prefab is bound (`WallCurveMesh`).
+along the curve, one copy per sim cell (`WallArtMesh`).
 `WallModuleArt` measures the module once and **fits its length to the sim
 module pitch**, so the art does not have to be authored to the game's numbers.
 

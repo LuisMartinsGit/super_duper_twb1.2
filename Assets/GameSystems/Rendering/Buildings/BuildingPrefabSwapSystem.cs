@@ -1,27 +1,26 @@
 // BuildingPrefabSwapSystem.cs
-// Swaps a building's visual GameObject when its BuildingUpgradeState.Level
-// changes. Lookup convention (matches the user's prefab naming in
-// Assets/Resources/Prefabs/Buildings/):
+// KEEPS EVERY PLAYER BUILDING'S VIEW ON ITS SO'S ANSWER (2026-10-20,
+// docs/Design/Art_Direction.md § 13 — "presentation layer should ONLY accept
+// the prefabs through the SO, no exception").
 //
-//   Prefabs/Buildings/{Base}_{cultureCode}_{level}            e.g. Hall_al_2
-//   Prefabs/Buildings/{base}_{cultureCode}_{level}_{variant}  e.g. house_al_2_1
+// Every ScanInterval it asks, for each finished player building, which model
+// its SOs say it shows now (PresentationSpawnSystem.TryResolveBuildingVisual:
+// the culture's level SO at level N, the base SO's culture look for a
+// building without a ladder, the base SO otherwise) and compares it with the
+// prefab its view was built from (BuildingVisualSource). When they differ —
+// a level-up, the age-up, a construction site finishing, a Veilstone Mine
+// converted into a Trading Outpost — the view is replaced by the new model,
+// fitted to the footprint, with the dissolve wave and the level-up flourish.
 //
-// The lookup order tries the canonical naming first, then a few fallback
-// variants. If nothing is found, the existing procedural visual is left
-// in place (per spec — "if the prefab is not present, use the current
-// sprite as a fallback").
-//
-// House variant {1, 2} is picked deterministically from the entity index
-// so a given house always shows the same variant across a session.
-//
-// Polls level vs cached level each Update; structural ECS changes are
-// not required because we only swap GameObjects, not entity components.
+// Replaced, 2026-10-20: the per-level cache, the in-place multi-variant
+// branch switch (BuildingVariantVisual), the Resources naming ladder
+// (Hall_al_N / house_al_N / Barracks_al_N) and the tech-visual sync.
 
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Transforms;
-using TheWaningBorder.Core.Settings;
+using TheWaningBorder.Core;
 
 namespace TheWaningBorder.Rendering
 {
@@ -29,45 +28,23 @@ namespace TheWaningBorder.Rendering
     {
         public static BuildingPrefabSwapSystem Instance { get; private set; }
 
-        // Last-known level per building. Drives the diff: if current !=
-        // cached, attempt a swap and update cache. Negative cache hit
-        // (no prefab found) writes the level too so we don't retry on
-        // every frame.
-        private readonly Dictionary<Entity, byte> _lastLevel = new();
-
-        // Resolved prefabs cached by path so Resources.Load runs at most
-        // once per (base, culture, level, variant) triple per session.
-        // null means "definitely-missing" — checked positively too.
-        private readonly Dictionary<string, GameObject> _prefabCache = new();
-
-        // Research-count snapshot per building, so the tech-visual sync only
-        // walks the prefab hierarchy when the faction actually finished a
-        // research since the last scan (SyncTechVisuals does per-tech
-        // GetComponentsInChildren searches — fine on a change, waste on a
-        // 0.5 s treadmill across every hut).
-        private readonly Dictionary<Entity, int> _lastTechCount = new();
-
-        // What GameObject we last registered with EntityViewManager for
-        // each entity. If on the next scan EntityViewManager's view is a
-        // DIFFERENT GameObject, our swap got clobbered (e.g.
-        // PresentationSpawnSystem.RefreshFactionVisuals respawned
-        // procedurally during age-up completion) and we need to re-swap.
-        private readonly Dictionary<Entity, GameObject> _registeredView = new();
-
-        // Throttle the scan — upgrades take 20-45s, no need to poll every
-        // frame. 0.5s feels instant after the upgrade completes.
+        /// <summary>Upgrades take 20-45 s; half a second reads as instant.</summary>
         private const float ScanInterval = 0.5f;
         private float _scanTimer;
 
         private Unity.Entities.World _world;
         private EntityManager _em;
+        /// <summary>Entities whose next replacement plays without the flourish
+        /// (the construction-complete hook already played one).</summary>
+        private readonly HashSet<Entity> _quiet = new HashSet<Entity>();
 
-        // Cached queries — CreateEntityQuery per frame leaks into the world's query registry.
-        private static readonly ComponentType[] UpgradeScanQueryTypes = {
-            ComponentType.ReadOnly<BuildingUpgradeState>(),
+        private static readonly ComponentType[] QT_Buildings =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
             ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>() };
-        private TheWaningBorder.Core.CachedEntityQuery _upgradeScanQuery;
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private CachedEntityQuery _buildings;
 
         void Awake()
         {
@@ -79,37 +56,19 @@ namespace TheWaningBorder.Rendering
         {
             _world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
             if (_world != null && _world.IsCreated) _em = _world.EntityManager;
-            TWBLog.Log("[BuildingPrefabSwap] system attached + ready (scan every "
-                + ScanInterval + "s)");
         }
 
         void OnDestroy() { if (Instance == this) Instance = null; }
 
-        /// <summary>
-        /// External pre-registration: PresentationSpawnSystem can spawn an
-        /// L1 prefab directly when the faction has already aged up, then
-        /// call this so the swap system's caches stay in sync — otherwise
-        /// the next scan would detect "level 0 cached, level 1 expected"
-        /// and re-instantiate the same prefab. Idempotent.
-        /// </summary>
-        public void RegisterPreSwapped(Entity entity, GameObject view, byte level)
-        {
-            if (entity == Entity.Null || view == null) return;
-            _registeredView[entity] = view;
-            _lastLevel[entity] = level;
-        }
+        /// <summary>Re-resolve every building on the next frame (the age-up).</summary>
+        public void RescanNow() => _scanTimer = ScanInterval;
 
-        /// <summary>
-        /// Look up the level-1 prefab path for a building so external
-        /// callers (PresentationSpawnSystem) can use the same lookup
-        /// ladder as the swap system. Returns null if no prefab found.
-        /// </summary>
-        public GameObject TryLoadLevel1Prefab(string buildingId, byte culture, int variant, out string resolvedPath)
+        /// <summary>Re-resolve on the next frame; <paramref name="flourish"/>
+        /// false = replace <paramref name="entity"/> without the gold burst.</summary>
+        public void RescanNow(Entity entity, bool flourish)
         {
-            resolvedPath = null;
-            string code = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.CultureCode(culture);
-            if (string.IsNullOrEmpty(code)) return null;
-            return ResolvePrefab(buildingId, code, level: 1, variant: variant, out resolvedPath);
+            if (!flourish) _quiet.Add(entity);
+            _scanTimer = ScanInterval;
         }
 
         void Update()
@@ -118,373 +77,90 @@ namespace TheWaningBorder.Rendering
             _scanTimer += Time.deltaTime;
             if (_scanTimer < ScanInterval) return;
             _scanTimer = 0f;
-
-            ScanAndSwap();
+            Scan();
         }
 
-        private void ScanAndSwap()
+        private void Scan()
         {
-            var query = _upgradeScanQuery.Get(_em, UpgradeScanQueryTypes);
-            using (var ents = query.ToEntityArray(Unity.Collections.Allocator.Temp))
+            if (EntityViewManager.Instance == null) return;
+            var q = _buildings.Get(_em, QT_Buildings);
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
             {
-                for (int i = 0; i < ents.Length; i++)
-                {
-                    // The Temple of Ridan has no levels (docs/Design/Religion.md)
-                    // and never carries BuildingUpgradeState.
-                    ProcessSwapCandidate(ents[i],
-                        _em.GetComponentData<BuildingUpgradeState>(ents[i]).Level);
-                }
+                var e = ents[i];
+                // A site keeps its base form while it rises; a dying building
+                // keeps the view its collapse is playing on.
+                if (_em.HasComponent<UnderConstruction>(e) || _em.HasComponent<BuildingCollapseState>(e)) continue;
+                if (_em.HasComponent<Health>(e) && _em.GetComponentData<Health>(e).Value <= 0) continue;
+                if (!PresentationSpawnSystem.TryResolveBuildingVisual(_em, e, out GameObject want) || want == null) continue;
+                var view = EntityViewManager.Instance.GetView(e);
+                if (view == null) continue;
+                var src = view.GetComponent<PresentationSpawnSystem.BuildingVisualSource>();
+                if (src != null && src.Prefab == want) continue;
+                ReplaceView(e, view, want, flourish: !_quiet.Remove(e));
             }
-
-            // Drop entries for despawned buildings so the dict doesn't grow.
-            // Cheap walk — only the buildings we've ever seen are in here.
-            if (_lastLevel.Count > 64) PruneDestroyed();
+            if (_quiet.Count > 64) _quiet.Clear();
         }
 
-        private void ProcessSwapCandidate(Entity e, byte level)
+        /// <summary>
+        /// Replace the view with a new instance of <paramref name="prefab"/>:
+        /// footprint-fitted, faction-coloured, selectable, lit, with the
+        /// damage shader — what the spawn gives every building — then the
+        /// dissolve from the old view.
+        /// </summary>
+        private void ReplaceView(Entity e, GameObject current, GameObject prefab, bool flourish)
         {
-            {
-                // Detect external clobber: if EntityViewManager's view differs
-                // from the one we registered, somebody else replaced our swap
-                // (e.g. AgeUpSystem.RefreshFactionVisuals at age-up complete).
-                // Clear our caches for this entity so the swap fires again.
-                if (_registeredView.TryGetValue(e, out var lastReg))
-                {
-                    var current = EntityViewManager.Instance != null
-                        ? EntityViewManager.Instance.GetView(e) : null;
-                    if (current != lastReg)
-                    {
-                        TWBLog.Log($"[BuildingPrefabSwap] view clobbered for entity {e.Index} — re-swapping");
-                        _lastLevel.Remove(e);
-                        _registeredView.Remove(e);
-                    }
-                }
-
-                // Tech visuals on multi-variant prefabs: reveal newly
-                // researched upgrade elements with the dissolve. Gated on the
-                // faction's completed-research count so the hierarchy search
-                // only runs when something actually finished.
-                var techView = EntityViewManager.Instance != null
-                    ? EntityViewManager.Instance.GetView(e) : null;
-                if (techView != null)
-                {
-                    var techVariant = techView.GetComponent<BuildingVariantVisual>();
-                    if (techVariant != null)
-                    {
-                        var techFac = _em.GetComponentData<FactionTag>(e).Value;
-                        var research = TheWaningBorder.Economy.FactionResearchState.Instance;
-                        int done = research != null ? research.GetCompletedCount(techFac) : 0;
-                        if (!_lastTechCount.TryGetValue(e, out int seen) || seen != done)
-                        {
-                            techVariant.SyncTechVisuals(techFac, FactionColors.Get(techFac),
-                                withTransition: true);
-                            _lastTechCount[e] = done;
-                        }
-                    }
-                }
-
-                if (_lastLevel.TryGetValue(e, out byte cached) && cached == level) return;
-                _lastLevel[e] = level;
-
-                if (level == 0) return; // base visual already in place
-
-                TrySwap(e, level);
-            }
-        }
-
-        private void TrySwap(Entity e, byte level)
-        {
-            // Multi-variant authored prefab: every culture/level model lives
-            // INSIDE the one visual (BuildingVariantVisual) — switch branches
-            // in place instead of loading a replacement prefab. Applies to
-            // any building type, not just the Hall/Barracks/Hut ladder.
-            var inPlaceView = EntityViewManager.Instance != null
-                ? EntityViewManager.Instance.GetView(e) : null;
-            if (inPlaceView != null)
-            {
-                var variantVisual = inPlaceView.GetComponent<BuildingVariantVisual>();
-                if (variantVisual != null)
-                {
-                    byte vCulture = ReadCulture(e);
-                    Color vAccent = _em.HasComponent<FactionTag>(e)
-                        ? FactionColors.Get(_em.GetComponentData<FactionTag>(e).Value)
-                        : new Color(1f, 0.85f, 0.45f);
-                    // Same dissolve wave + flourish pairing as the legacy
-                    // prefab-replacement path below.
-                    if (vCulture != Cultures.None
-                        && variantVisual.ShowVariantWithTransition(vCulture, level, vAccent))
-                    {
-                        // The new branch reveals with its earned tech
-                        // visuals already in place (no separate waves).
-                        var swapFac = _em.GetComponentData<FactionTag>(e).Value;
-                        variantVisual.SyncTechVisuals(swapFac, vAccent, withTransition: false);
-                        BuildingLevelUpEffect.Spawn(inPlaceView, vAccent);
-                        // The new level branch is different art from what the
-                        // stored fit was measured on — re-derive it.
-                        PresentationSpawnSystem.RefitVariantView(inPlaceView, e, _em);
-                        TWBLog.Log($"[BuildingPrefabSwap] in-place variant swap entity {e.Index} -> L{level}");
-                    }
-                    _registeredView[e] = inPlaceView;
-                    return;
-                }
-            }
-
-            string buildingId = ResolveBuildingId(e);
-            if (string.IsNullOrEmpty(buildingId))
-            {
-                TWBLog.Log($"[BuildingPrefabSwap] skip entity {e.Index}: not Hall/Barracks/Hut");
-                return;
-            }
-
-            byte culture = ReadCulture(e);
-            if (culture == Cultures.None)
-            {
-                TWBLog.Log($"[BuildingPrefabSwap] skip {buildingId} entity {e.Index}: faction has no culture");
-                return;
-            }
-            string code = BuildingUpgradeConfig.CultureCode(culture);
-            if (string.IsNullOrEmpty(code)) return;
-
-            int variant = (buildingId == "Hut") ? 1 + (Mathf.Abs(e.Index) % 2) : 0;
-
-            var prefab = ResolvePrefab(buildingId, code, level, variant, out string resolvedPath);
-            if (prefab == null)
-            {
-                TWBLog.Log($"[BuildingPrefabSwap] no prefab found for {buildingId}_{code}_{level}" +
-                          (variant > 0 ? $"_{variant}" : "") + " — keeping procedural visual");
-                return;
-            }
-
-            // Use entity transform as the source of truth for position/rotation.
-            // The prefab's authored scale is preserved via ProceduralScaleTag so
-            // PresentationSpawnSystem.SyncTransforms doesn't clobber it on the
-            // next frame — same pattern used for procedural unit visuals.
             var t = _em.GetComponentData<LocalTransform>(e);
             Vector3 pos = t.Position;
             pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
-
-            // Apply the +180° Y building visual offset on top of the
-            // entity's rotation — same convention as PresentationSpawnSystem.
-            // ECS LocalTransform.Rotation stays clean; SyncTransforms keeps
-            // re-applying this offset every frame for the swapped GameObject.
-            Quaternion entityRot = t.Rotation;
-            Quaternion visualRot = entityRot * Quaternion.Euler(0f, 180f, 0f);
+            // The +180° building visual offset, as PresentationSpawnSystem applies it.
+            Quaternion visualRot = (Quaternion)t.Rotation * Quaternion.Euler(0f, 180f, 0f);
 
             var newGo = Instantiate(prefab, pos, visualRot);
             newGo.SetActive(true);
-            newGo.name = $"Entity_{e.Index}_{buildingId}_L{level}";
+            newGo.name = $"Entity_{e.Index}_{prefab.name}";
 
-            // Preserve the prefab's authored scale across SyncTransforms ticks.
             var ps = prefab.transform.localScale;
-            float baseScale = (ps.x + ps.y + ps.z) / 3f;
-
-            // Re-fit to the grid footprint. This path replaces the visual of
-            // EVERY completed building (Lv0 -> culture Lv1, then level-ups)
-            // and used to carry only the authored scale — the spawn path's
-            // footprint fit was silently dropped on the swap, so finished
-            // buildings rendered at raw art scale (huts and barracks tiny,
-            // statue prefabs huge once the footprints doubled 2026-08-13).
-            // The centre offset re-anchors art whose pivot is off-centre.
+            float authored = (ps.x + ps.y + ps.z) / 3f;
+            float baseScale = authored;
             Vector3 centreOffset = Vector3.zero;
             if (_em.HasComponent<BuildingSize>(e))
             {
-                var footprint = _em.GetComponentData<BuildingSize>(e);
-                baseScale *= PresentationSpawnSystem.ComputeFootprintFitForSize(
-                    newGo, footprint.Width, footprint.Height, out centreOffset);
+                var size = _em.GetComponentData<BuildingSize>(e);
+                baseScale *= PresentationSpawnSystem.ComputeFootprintFitForSize(newGo, size.Width, size.Height, out centreOffset);
             }
-
             if (baseScale > 0.001f)
             {
-                var existing = newGo.GetComponent<ProceduralScaleTag>();
-                if (existing == null)
-                    existing = newGo.AddComponent<ProceduralScaleTag>();
-                existing.BaseScale = baseScale;
-                existing.AuthoredScale = (ps.x + ps.y + ps.z) / 3f;
-                existing.BaseOffset = centreOffset;
+                var tag = newGo.GetComponent<ProceduralScaleTag>() ?? newGo.AddComponent<ProceduralScaleTag>();
+                tag.BaseScale = baseScale;
+                tag.AuthoredScale = authored;
+                tag.BaseOffset = centreOffset;
             }
-            // Final scale = entity Scale × prefab BaseScale. Most entity Scale
-            // is 1.0 once construction completes; SyncTransforms reapplies
-            // every frame from LocalTransform.
-            float swapScale = t.Scale * baseScale;
-            newGo.transform.localScale = Vector3.one * swapScale;
-            // First-frame centring; SyncTransforms maintains it thereafter.
+            float scale = t.Scale * baseScale;
+            newGo.transform.localScale = Vector3.one * scale;
             if (centreOffset != Vector3.zero)
-                newGo.transform.position = pos - (visualRot * centreOffset) * swapScale;
+                newGo.transform.position = pos - (visualRot * centreOffset) * scale;
 
-            // Authored prefabs paint team-color regions with a flat marker
-            // (default pure blue). Replace with the faction color so each
-            // player's L1/L2/L3 buildings carry their lobby color. Applies the
-            // roof/stripe rule too, now that it lives in the marker — before,
-            // this path ran only the atlas swap and an upgraded building kept
-            // whatever colour its roof was authored with.
+            Color accent = new Color(1f, 0.85f, 0.45f);
             if (_em.HasComponent<FactionTag>(e))
             {
-                var fac = _em.GetComponentData<FactionTag>(e).Value;
-                BuildingFactionColorMarker.Apply(newGo, FactionColors.Get(fac));
+                accent = FactionColors.Get(_em.GetComponentData<FactionTag>(e).Value);
+                BuildingFactionColorMarker.Apply(newGo, accent);
             }
-
-            // Selection wiring. This path never did either of these, so once the
-            // dissolve destroyed the old visual (~1.5 s later) the upgraded
-            // building had no click target and no entity link at all — it could
-            // not be selected by clicking again, only by drag-select. Both are
-            // required for SelectionSystem's raycast → EntityReference walk.
             PresentationSpawnSystem.FitSelectionCollider(newGo, e, _em);
-            var swapRef = newGo.GetComponent<TheWaningBorder.Core.EntityReference>()
-                       ?? newGo.AddComponent<TheWaningBorder.Core.EntityReference>();
-            swapRef.Entity = e;
+            var reference = newGo.GetComponent<EntityReference>() ?? newGo.AddComponent<EntityReference>();
+            reference.Entity = e;
+            BuildingLanternLight.Attach(newGo, e, _em);
+            var dmg = newGo.GetComponent<BuildingDamageVisual>() ?? newGo.AddComponent<BuildingDamageVisual>();
+            dmg.Entity = e;
+            var source = newGo.GetComponent<PresentationSpawnSystem.BuildingVisualSource>()
+                      ?? newGo.AddComponent<PresentationSpawnSystem.BuildingVisualSource>();
+            source.Prefab = prefab;
 
-            var current = EntityViewManager.Instance != null
-                ? EntityViewManager.Instance.GetView(e) : null;
-
-            // Register the new view BEFORE the dissolve transition takes over
-            // so other systems reading EntityViewManager always see a valid
-            // GameObject during the brief overlap.
-            EntityViewManager.Instance?.RegisterView(e, newGo);
-            _registeredView[e] = newGo;
-
-            Color accent = _em.HasComponent<FactionTag>(e)
-                ? FactionColors.Get(_em.GetComponentData<FactionTag>(e).Value)
-                : new Color(1f, 0.85f, 0.45f);
-
-            // Wave-driven dissolve: the old visual is eaten away from the
-            // base up while the new visual reveals along the same front.
-            // The transition driver destroys `current` when it completes.
+            EntityViewManager.Instance.RegisterView(e, newGo);
             BuildingDissolveTransition.Begin(current, newGo, duration: 1.5f, edgeColor: accent);
-
-            // Level-up flourish: a quick gold pulse / spark burst at the start
-            // of the dissolve gives the wave a clear "trigger" cue.
-            BuildingLevelUpEffect.Spawn(newGo, accent);
-
-            TWBLog.Log($"[BuildingPrefabSwap] swapped {buildingId} entity {e.Index} → L{level} ({resolvedPath})");
-        }
-
-        private GameObject ResolvePrefab(string buildingId, string cultureCode, byte level, int variant,
-            out string resolvedPath)
-        {
-            resolvedPath = null;
-
-            // The level's own model, authored on its BuildingLevelDefSO
-            // (Civs/<Culture>/Buildings/<Cultured>/), wins over the Resources
-            // naming ladder below — which remains for cultures whose levels are
-            // still on the code tables.
-            if (global::TechCatalog.TryGetBuildingLevel(CultureByte(cultureCode), buildingId, level,
-                    out var levelDef) && levelDef.prefab != null)
-            {
-                resolvedPath = levelDef.name;
-                return levelDef.prefab;
-            }
-
-            var paths = BuildCandidatePaths(buildingId, cultureCode, level, variant);
-            for (int i = 0; i < paths.Count; i++)
-            {
-                var p = paths[i];
-                if (_prefabCache.TryGetValue(p, out var cached))
-                {
-                    if (cached != null) { resolvedPath = p; return cached; }
-                    continue;
-                }
-                var loaded = Resources.Load<GameObject>(p);
-                _prefabCache[p] = loaded; // cache hit OR negative-cache
-                if (loaded != null) { resolvedPath = p; return loaded; }
-            }
-            return null;
-        }
-
-        private static List<string> BuildCandidatePaths(string buildingId, string code, byte level, int variant)
-        {
-            var list = new List<string>(6);
-            string root = "Prefabs/Buildings/";
-
-            switch (buildingId)
-            {
-                case "Fortress":
-                case "Hall":   // PresentationSpawnSystem's name for pid 100 art
-                    // The capital's legacy per-level art keeps its old file
-                    // names (Resources/Prefabs/Buildings/Hall_al_N).
-                    list.Add($"{root}Hall_{code}_{level}");                 // Hall_al_2
-                    break;
-                case "Barracks":
-                    list.Add($"{root}Barracks_{code}_{level}");
-                    list.Add($"{root}{CultureFolder(code)}/Barracks_{code}_{level}");
-                    list.Add($"{root}{CultureFolder(code)}/BARACKS_{CultureFull(code)}"); // user's existing typo'd asset
-                    break;
-                case "Hut":
-                    if (variant > 0)
-                        list.Add($"{root}house_{code}_{level}_{variant}");  // house_al_2_1
-                    list.Add($"{root}house_{code}_{level}");                 // single-variant fallback
-                    list.Add($"{root}{CultureFolder(code)}/House");          // existing per-culture House.prefab
-                    break;
-            }
-            return list;
-        }
-
-        private static byte CultureByte(string code) => code switch
-        {
-            "al" => Cultures.Alanthor,
-            "ru" => Cultures.Runai,
-            "fe" => Cultures.Feraldis,
-            _    => Cultures.None,
-        };
-
-        private static string CultureFolder(string code) => code switch
-        {
-            "al" => "Alanthor",
-            "ru" => "Runai",
-            "fe" => "Feraldis",
-            _    => string.Empty,
-        };
-
-        private static string CultureFull(string code) => code switch
-        {
-            "al" => "alanthor",
-            "ru" => "runai",
-            "fe" => "feraldis",
-            _    => string.Empty,
-        };
-
-        private string ResolveBuildingId(Entity e)
-        {
-            if (_em.HasComponent<HallTag>(e))     return "Fortress";
-            if (_em.HasComponent<BarracksTag>(e)) return "Barracks";
-            if (_em.HasComponent<HutTag>(e))      return "Hut";
-            // The Archery Range is a copy-of-Barracks that carries its OWN tag,
-            // and PresentationSpawnSystem already maps its presentation id (511)
-            // onto the Barracks visual — including spawning Barracks_al_1 for an
-            // aged-up faction. This table has to agree with that one: while it
-            // didn't, every Archery Range fell out of the swap with "not
-            // Hall/Barracks/Hut", so it never advanced past the level it spawned
-            // at and never got the post-upgrade faction recolor either.
-            if (_em.HasComponent<ArcheryRangeTag>(e)) return "Barracks";
-            // The Mine has a level ladder of its own (Civs/<Culture>/Buildings/
-            // Mine/Mine_Lvl1..3). Only a culture whose level SO carries a prefab
-            // actually swaps — Feraldis (2026-10-13, tools/blender/feraldis/
-            // mine.py); the others keep the procedural pithead, because
-            // ResolvePrefab finds no prefab and BuildCandidatePaths lists none.
-            if (_em.HasComponent<MineTag>(e))      return "Mine";
-            return string.Empty;
-        }
-
-        private byte ReadCulture(Entity e)
-        {
-            if (!_em.HasComponent<FactionTag>(e)) return Cultures.None;
-            var faction = _em.GetComponentData<FactionTag>(e).Value;
-            // COMPLETED culture only — FactionColors flips at the age-up
-            // CLICK, and swapping every building 60s before the research
-            // finishes is exactly the bug (see CultureConfig.cs notes).
-            return CultureConfig.GetCompletedCulture(_em, faction);
-        }
-
-        private void PruneDestroyed()
-        {
-            var toRemove = new List<Entity>(8);
-            foreach (var kvp in _lastLevel)
-                if (!_em.Exists(kvp.Key)) toRemove.Add(kvp.Key);
-            for (int i = 0; i < toRemove.Count; i++)
-            {
-                _lastLevel.Remove(toRemove[i]);
-                _registeredView.Remove(toRemove[i]);
-                _lastTechCount.Remove(toRemove[i]);
-            }
+            if (flourish) BuildingLevelUpEffect.Spawn(newGo, accent);
+            TWBLog.Log($"[BuildingPrefabSwap] entity {e.Index} -> {prefab.name}");
         }
     }
 }

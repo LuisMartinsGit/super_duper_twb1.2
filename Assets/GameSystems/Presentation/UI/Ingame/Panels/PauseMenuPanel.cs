@@ -364,7 +364,6 @@ namespace TheWaningBorder.UI.Ingame
             if (GroundTargeting.IsActive || EntityTargeting.IsActive) return;
 
             if (PlanningModeOverlay.IsActive) { PlanningModeOverlay.Cancel(); return; }
-            if (TopChoiceBar.CloseCultureMenu()) return;
             if (TheWaningBorder.Input.RTSInputManager.CancelModesOrSelection()) return;
 
             Open();

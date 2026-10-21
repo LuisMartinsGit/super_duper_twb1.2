@@ -120,7 +120,11 @@ namespace TheWaningBorder.Systems.Sect
                 .Query<RefRW<SectRegenTail>, RefRW<Health>>().WithEntityAccess())
             {
                 int heal = (int)(health.ValueRO.Max * tail.ValueRO.FractionPerSecond * dt);
-                if (heal > 0)
+                // Never heals the dead: a corpse lifted above 0 HP is skipped
+                // by DeathSystem and by the Shardroot drop (2026-10-20).
+                bool dead = health.ValueRO.Value <= 0
+                    || TransientState.Active<DeathAnimationState>(em, e);
+                if (heal > 0 && !dead)
                 {
                     int v = health.ValueRO.Value + heal;
                     health.ValueRW.Value = v > health.ValueRO.Max ? health.ValueRO.Max : v;

@@ -112,9 +112,9 @@ namespace TheWaningBorder.Systems.Buildings
 
                 ecb.RemoveComponent<WallUpgradeState>(entity);
 
-                // Force visual respawn
+                // Re-clad as the converted piece, with the level-up wave.
                 var spawnSys = PresentationSpawnSystem.Instance;
-                if (spawnSys != null) spawnSys.ForceRespawn(entity);
+                if (spawnSys != null) spawnSys.ForceRespawnWithTransition(entity, flourish: true);
             }
 
             // ── Loop 2: per-segment Gate conversion (task-109 Phase 5) ──
@@ -210,7 +210,7 @@ namespace TheWaningBorder.Systems.Buildings
                 bool trebuchet = toMountKind[i] == 5;
                 TheWaningBorder.Entities.AlanthorWall.MountEmplacement(em, cell, trebuchet);
                 var mountSpawn = PresentationSpawnSystem.Instance;
-                if (mountSpawn != null) mountSpawn.ForceRespawn(cell);
+                if (mountSpawn != null) mountSpawn.ForceRespawnWithTransition(cell, flourish: true);
             }
             toMount.Dispose();
             toMountKind.Dispose();
@@ -223,7 +223,8 @@ namespace TheWaningBorder.Systems.Buildings
                 window.Dispose();
                 TheWaningBorder.Entities.AlanthorWall.MakeGate(em, pendingGates[i], list);
                 var spawn = PresentationSpawnSystem.Instance;
-                if (spawn != null && em.Exists(pendingGates[i])) spawn.ForceRespawn(pendingGates[i]);
+                if (spawn != null && em.Exists(pendingGates[i]))
+                    spawn.ForceRespawnWithTransition(pendingGates[i], flourish: true);
             }
             pendingGates.Dispose();
         }

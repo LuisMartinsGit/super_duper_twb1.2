@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Palisade
   displayName: Palisade
-  role: "A timber fence every culture can draw in Age 0 — Feraldis keep it for
+  role: "A timber fence every culture can draw in Age 0 \u2014 Feraldis keep it for
     the whole game"
   description: 
   hp: 600
@@ -33,6 +33,12 @@ MonoBehaviour:
   suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
@@ -57,9 +63,11 @@ MonoBehaviour:
     range: 22
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 1920977246509722645, guid: dca34225e27735a4b95c586f95ded66c, type: 3}
+  prefab: {fileID: 919132149155446097, guid: 9675002c5c2aafd41bd914f9197ae05d, type: 3}
+  culturePrefabs: []
   presentationId: 550
   prefabPath: 
   canUpgradeTo: []

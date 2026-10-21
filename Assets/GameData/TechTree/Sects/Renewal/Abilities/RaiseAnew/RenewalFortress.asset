@@ -11,12 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: RenewalFortress
-  m_EditorClassIdentifier:
-  id: 'Renewal_Fortress'
-  displayName: 'Renewal Fortress'
-  role: 'Raise Anew III - a permanent keep that anchors a position'
+  m_EditorClassIdentifier: 
+  id: Renewal_Fortress
+  displayName: Renewal Fortress
+  role: Raise Anew III - a permanent keep that anchors a position
+  description: 
   hp: 2600
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 12
     ranged: 20
@@ -26,21 +27,34 @@ MonoBehaviour:
   lineOfSight: 32
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research: []
   minEra: 0
   cost:
     Supplies: 600
     Iron: 300
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
   attack:
     enabled: 1
     damage: 20
@@ -48,4 +62,11 @@ MonoBehaviour:
     range: 30
     cooldown: 1.5
     maxTargets: 2
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 919132149155446097, guid: 9ec9540e3513931479db7d52b1ff7349, type: 3}
+  culturePrefabs: []
   presentationId: 416
+  prefabPath: 
+  canUpgradeTo: []

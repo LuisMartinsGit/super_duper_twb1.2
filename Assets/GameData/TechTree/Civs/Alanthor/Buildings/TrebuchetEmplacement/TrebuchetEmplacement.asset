@@ -12,33 +12,61 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: TrebuchetEmplacement
   m_EditorClassIdentifier: 
-  id: 'Alanthor_TrebuchetEmplacement'
-  displayName: 'Trebuchet Emplacement'
-  role: 'Fixed siege battery'
+  id: Alanthor_TrebuchetEmplacement
+  displayName: Trebuchet Emplacement
+  role: Fixed siege battery
+  description: 
   hp: 700
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 8
     ranged: 12
     siege: 0
     magic: 4
-  radius: 3.0
+  radius: 3
   lineOfSight: 26
   footprintCells: {x: 3, y: 3}
   buildTime: 55
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 3
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research: []
   minEra: 1
   cost:
     Supplies: 520
     Iron: 280
-    Crystal: 80
+    Veilstone: 80
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
+  attack:
+    enabled: 0
+    damage: 12
+    damageType: ranged
+    range: 22
+    cooldown: 1.5
+    maxTargets: 1
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 919132149155446097, guid: 63185108444545148ac9e64130128420, type: 3}
+  culturePrefabs: []
   presentationId: 571
+  prefabPath: 
+  canUpgradeTo: []

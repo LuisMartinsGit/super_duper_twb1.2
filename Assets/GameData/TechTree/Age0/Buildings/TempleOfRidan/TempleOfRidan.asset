@@ -66,7 +66,14 @@ MonoBehaviour:
     siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 3639883352473435982, guid: f36ca7115fd26e54cabf2e6ed9f98152, type: 3}
+  prefab: {fileID: 8615948163009206344, guid: 391a26d605778d541badafb0e88fe4ad, type: 3}
+  culturePrefabs:
+  - culture: Feraldis
+    prefab: {fileID: 7166492580214524436, guid: 80cea8e3c7dfc364cb8ff5b052842a32, type: 3}
+  - culture: Runai
+    prefab: {fileID: 6547244948071779011, guid: e1a450eb46f021948aef87ac65701441, type: 3}
+  - culture: Alanthor
+    prefab: {fileID: 919132149155446097, guid: 14e6b87fea02ae14ebf4237b6f21fcb0, type: 3}
   presentationId: 521
   prefabPath: 
   canUpgradeTo: []

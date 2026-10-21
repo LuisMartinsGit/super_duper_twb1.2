@@ -131,14 +131,33 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         /// quietly ship different scene lists and the batch one would carry
         /// two dozen scenario scenes to testers.
         /// </summary>
-        internal static string[] ScenesForPlayerBuild(string[] scenes)
+        internal static string[] ScenesForPlayerBuild(string[] scenes, string edition = null)
         {
-            if (scenes == null || MapRegistry.ShipScenarios) return scenes;
+            if (scenes == null) return scenes;
 
-            var kept = scenes.Where(s => !IsScenario(Normalize(s))).ToArray();
+            var kept = MapRegistry.ShipScenarios
+                ? scenes
+                : scenes.Where(s => !IsScenario(Normalize(s))).ToArray();
             if (kept.Length != scenes.Length)
                 Debug.Log($"[MapSceneSync] Player build: {scenes.Length - kept.Length} " +
                           "scenario scene(s) filtered out (ship gate).");
+
+            // An edition may ship fewer maps than the editor lists
+            // (MapRegistry.EditionAMapScenes).
+            var editionMaps = MapRegistry.MapScenesForEdition(edition);
+            if (editionMaps != null)
+            {
+                int before = kept.Length;
+                kept = kept.Where(s =>
+                {
+                    string path = Normalize(s);
+                    if (!path.StartsWith(MapRegistry.MapsRoot)) return true;
+                    string scene = Path.GetFileNameWithoutExtension(path);
+                    return editionMaps.Any(m => string.Equals(m, scene, System.StringComparison.OrdinalIgnoreCase));
+                }).ToArray();
+                Debug.Log($"[MapSceneSync] Player build: edition {edition} ships " +
+                          $"{string.Join(", ", editionMaps)}; {before - kept.Length} other map(s) filtered out.");
+            }
             return kept;
         }
 

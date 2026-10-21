@@ -219,6 +219,7 @@ flowchart TB
         a_t7{{"Mason Guild · L2"}}
         a_t3{{"Veilstone Tools · L3"}}
         a_t4{{"Veilsteel Tools · L3"}}
+        a_t9{{"Field Intelligence · L3 (all)"}}
     end
 
     subgraph Gar["Garrison L1-L3 (cultured Barracks)"]
@@ -333,6 +334,10 @@ flowchart TB
         a_gu_r1{{"Iron Reinforcements"}}
         a_gu_r2{{"Veilstone Walls · L2"}}
         a_gu_r3{{"Veilsteel Pylons · L3"}}
+        a_gu_s1{{"Supply Survey I"}}
+        a_gu_s2{{"Supply Survey II · L2"}}
+        a_gu_s3{{"Supply Survey III · L3"}}
+        a_gu_s1 --> a_gu_s2 --> a_gu_s3
         a_gu_i1 --> a_gu_i2 --> a_gu_i3
         a_gu_i1 --> a_gu_v1 --> a_gu_v2 --> a_gu_vs
         a_gu_r1 --> a_gu_r2 --> a_gu_r3

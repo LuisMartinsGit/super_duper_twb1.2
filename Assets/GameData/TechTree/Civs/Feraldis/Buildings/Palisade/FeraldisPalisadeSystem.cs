@@ -109,10 +109,19 @@ namespace TheWaningBorder.Feraldis
             // instanced pieces (cells, gates, towers) only read that when
             // their view is built, exactly as the stone wall's level applier
             // respawns what it promotes. The curved curtain re-clads itself.
+            // A standing piece raised by the age-up re-clads with the
+            // level-up wave; a site still rising (a palisade placed after the
+            // age-up, stamped on its first scan) just respawns.
             var spawn = PresentationSpawnSystem.Instance;
             if (spawn != null)
                 for (int i = 0; i < stamp.Length; i++)
-                    if (em.Exists(stamp[i])) spawn.ForceRespawn(stamp[i]);
+                {
+                    var s = stamp[i];
+                    if (!em.Exists(s)) continue;
+                    if (em.HasComponent<UnderConstruction>(s)) spawn.ForceRespawn(s);
+                    else spawn.ForceRespawnWithTransition(s,
+                        flourish: em.HasComponent<WallTowerTag>(s) || em.HasComponent<WallGateTag>(s));
+                }
             stamp.Dispose();
             stampMax.Dispose();
         }

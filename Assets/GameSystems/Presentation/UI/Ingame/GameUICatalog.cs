@@ -29,8 +29,6 @@ namespace TheWaningBorder.UI.Ingame
 
         public GameObject specialBuildingMenu;
 
-        public GameObject cultureSelectionMenu;
-
         public GameObject cultureSelectionButton;
 
         public GameObject objectivesPanel;

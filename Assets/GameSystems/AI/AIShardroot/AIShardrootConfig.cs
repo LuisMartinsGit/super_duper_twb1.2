@@ -60,6 +60,11 @@ namespace TheWaningBorder.AI
         /// the AI threw him away, and the Shardroot with him). 0 = never.</summary>
         public float kingRetreatHpFraction;
 
+        /// <summary>The same, for King Lexor as the Shardbound King (bearing
+        /// the Shardroot, leading the waves — 2026-10-20). 0 = use
+        /// kingRetreatHpFraction.</summary>
+        public float boundKingRetreatHpFraction;
+
         /// <summary>...and stays out until he has healed back to this
         /// fraction.</summary>
         public float kingRecoveredHpFraction;

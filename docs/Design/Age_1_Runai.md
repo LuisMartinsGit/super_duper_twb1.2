@@ -321,6 +321,14 @@ Every Runai tech is **faction-wide** (decision 31). Each trainer carries a
 weapon ladder, a veterancy ladder and — in place of an armour ladder — a
 **Stride ladder**; siege keeps an armour ladder.
 
+### 7.0 Trading Post (the cultured Gatherer's Hut)
+
+**Supply Survey I-III** (2026-10-20, gated Trading Post L1 / L2 / L3): every
+Trading Post also produces supplies a minute, drawn from no node, depleted
+posts included — the supply floor that outlives the nodes
+([Veilstone_Economy.md §5.2](Veilstone_Economy.md)). Outside the home
+territory it goes to the post's depot, like all Runai supply (§3.1).
+
 ### 7.1 Fortress
 
 Iron / Veilstone / Veilsteel Tools · **Pack Animals** (caravans carry more) ·

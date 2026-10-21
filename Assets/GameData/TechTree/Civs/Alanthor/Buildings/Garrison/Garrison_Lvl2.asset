@@ -29,6 +29,7 @@ MonoBehaviour:
   populationProvided: 0
   slotIncomePerMinute: 0
   interestMultiplier: 0
+  tradeRateMultiplier: 0
   attack:
     enabled: 0
     damage: 12
@@ -38,4 +39,4 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
-  prefab: {fileID: 5768537172830134139, guid: 8ee0d9fcf1426fb46aa8f297155faa67, type: 3}
+  prefab: {fileID: 919132149155446097, guid: 291bd65e3baefeb429128a85d8144e1f, type: 3}

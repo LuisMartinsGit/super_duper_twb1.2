@@ -88,11 +88,17 @@ namespace TheWaningBorder.AI
             if (where == AIShardroot.Where.Mine)
             {
                 s.Roster.Clear(); s.LaunchedAt = -1f;
-                if (em.HasComponent<ShardboundHeroTag>(holder)) { KingJoinsArmy(em, faction, king, now); return; }
+                if (em.HasComponent<ShardboundHeroTag>(holder))
+                {
+                    ClearShardrootSaving(faction);
+                    KingJoinsArmy(em, faction, king, now);
+                    return;
+                }
                 ReleaseFromMissions(faction, holder);
-                BringShardrootHome(em, faction, livingKing, holder, pos);
+                BringShardrootHome(em, faction, livingKing, holder, pos, now);
                 return;
             }
+            ClearShardrootSaving(faction);
 
             bool wanted = (where == AIShardroot.Where.Ground || where == AIShardroot.Where.Hostile)
                 && now >= cfg.earliestSeconds
@@ -170,7 +176,7 @@ namespace TheWaningBorder.AI
         /// the Hall when neither is open. The road is stamped on the carrier
         /// so only that building's delivery takes it.</summary>
         private void BringShardrootHome(EntityManager em, Faction faction, Entity king,
-            Entity holder, float3 pos)
+            Entity holder, float3 pos, float now)
         {
             bool hasHall = AIShardroot.TryNearestHall(em, faction, pos, out float3 hall);
             bool hasTemple = AIShardroot.TryNearestTemple(em, faction, pos, out Entity temple, out float3 templePos);
@@ -183,7 +189,18 @@ namespace TheWaningBorder.AI
             else if (kingRoad) intent = ShardrootIntent.Hall;
             else if (hasTemple) intent = ShardrootIntent.Temple;
             else if (hasHall) intent = ShardrootIntent.Hall;   // the placeholder champion
-            else return;
+            else { ClearShardrootSaving(faction); return; }
+
+            // THE PRICE IS SAVED FOR, AT HOME (2026-10-20, Game_AI.md § 6l).
+            // Enshrining and binding are paid on delivery, and a faction that
+            // cannot pay waits at the building — silently. Green (FiendstonePass,
+            // 2026-10-20) carried it for 43 minutes this way with a bank that
+            // never reached a tenth of the price. Developer's call: the bearer
+            // waits at home and the price becomes the faction's top saving.
+            var price = intent == ShardrootIntent.Temple
+                ? TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.EnshrinePrice
+                : TheWaningBorder.Entities.ShardboundKingConfig.I.BindPrice;
+            SaveForShardroot(em, faction, price, intent, now);
 
             if (em.HasComponent<ShardrootBearer>(holder))
             {
@@ -215,6 +232,46 @@ namespace TheWaningBorder.AI
             CommandRouter.IssueMove(em, holder, hall, CommandSource.AI);
             AILogger.Log(faction, "SHARDROOT",
                 $"we carry the Shardroot — bringing it to the Hall at ({hall.x:0},{hall.z:0})");
+        }
+
+        /// <summary>Savings key of the Shardroot's price (AIPivotalReserve).</summary>
+        private const string ShardrootReserveKey = "ShardrootPrice";
+        /// <summary>Above the Fortress and age-up saves (both 1): the price
+        /// is the faction's top saving while it holds the artifact.</summary>
+        private const int ShardrootReservePriority = 2;
+        private readonly Dictionary<int, float> _shardrootSaveLog = new Dictionary<int, float>();
+
+        /// <summary>
+        /// While the price is not in the bank: a STRICT pivotal goal (every
+        /// research, army growth and non-exempt building holds for it, with no
+        /// release cycle) and the top-priority budget reservation, re-armed
+        /// every think. Cleared the moment the bank can pay, so the delivery
+        /// spends it.
+        /// </summary>
+        private void SaveForShardroot(EntityManager em, Faction faction,
+            TheWaningBorder.Core.Cost price, byte intent, float now)
+        {
+            if (TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction, price))
+            {
+                ClearShardrootSaving(faction);
+                return;
+            }
+            AIPivotalReserve.Set(faction, ShardrootReserveKey, price, strict: true);
+            AIBudget.Reserve(faction, price, now, AIShardroot.Cfg.thinkInterval * 3f, ShardrootReservePriority);
+            if (!_shardrootSaveLog.TryGetValue((int)faction, out float next) || now >= next)
+            {
+                _shardrootSaveLog[(int)faction] = now + 60f;
+                AILogger.Log(faction, "SHARDROOT",
+                    $"saving for the {(intent == ShardrootIntent.Temple ? "enshrine" : "binding")} price " +
+                    $"({price.Supplies}s/{price.Iron}i/{price.Veilstone}v/{price.Veilsteel}vs) — the bearer waits at home");
+            }
+        }
+
+        private void ClearShardrootSaving(Faction faction)
+        {
+            if (!AIPivotalReserve.Has(faction, ShardrootReserveKey)) return;
+            AIPivotalReserve.Clear(faction, ShardrootReserveKey);
+            AIBudget.ClearReservation(faction, ShardrootReservePriority);
         }
 
         /// <summary>The king walks ONTO a pickup (plain move: his
@@ -265,9 +322,13 @@ namespace TheWaningBorder.AI
             float frac = hp.Max > 0 ? hp.Value / (float)hp.Max : 1f;
             bool bound = em.HasComponent<ShardboundKing>(king);
 
+            // The Shardbound King fights longer (2026-10-20): he leads the
+            // waves now, and his retreat threshold is his own.
+            float retreatAt = bound && cfg.boundKingRetreatHpFraction > 0f
+                ? cfg.boundKingRetreatHpFraction : cfg.kingRetreatHpFraction;
             if (!s.KingRetreat)
             {
-                if (frac > cfg.kingRetreatHpFraction) return;
+                if (frac > retreatAt) return;
                 s.KingRetreat = true;
                 AILogger.Log(faction, "SHARDROOT",
                     $"King Lexor{(bound ? " (Shardbound)" : "")} at {frac * 100f:F0}% health -- pulled back to heal");

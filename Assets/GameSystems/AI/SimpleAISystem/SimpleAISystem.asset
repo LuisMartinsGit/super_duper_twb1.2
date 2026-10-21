@@ -532,3 +532,16 @@ MonoBehaviour:
   wallPostSpacingMeters: 2
   wallSentryPiecesPerSentry: 30
   wallSentryMax: 4
+  sanctumArmyEnabled: 1
+  sanctumArmyMinSize: 30
+  sanctumThinkInterval: 5
+  sanctumMaxArmies: 0
+  sanctumLaunchMargin: 1.3
+  sanctumThreatRadius: 35
+  sanctumHostilePenalty: 300
+  sanctumHoldRadius: 18
+  sanctumReorderSeconds: 15
+  sanctumDisbandBelow: 8
+  sanctumRetrySeconds: 180
+  sanctumFortTowers: 3
+  sanctumFortCheckInterval: 20

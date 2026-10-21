@@ -644,6 +644,54 @@ public static class TechCatalog
     }
 
     /// <summary>presentationId -> prefab for the spawn path. False = no prefab assigned (caller uses a primitive).</summary>
+    /// <summary>
+    /// THE BUILDING'S VISUAL, FROM ITS SO ONLY (2026-10-20, Art_Direction.md
+    /// § 13). Level N (> 0, a culture complete): the culture's level SO's
+    /// model; a building with no ladder: its base SO's culture look, if it
+    /// has one; otherwise (level 0, under construction, no culture): the base
+    /// SO's model. No branches, no procedural art, no Resources ladder.
+    /// False with <paramref name="missing"/> naming the SO that lacks its
+    /// model — a data bug the caller reports loudly.
+    /// </summary>
+    public static bool TryGetBuildingVisual(string buildingId, string ladderId, byte culture, int level,
+        out GameObject prefab, out string missing)
+    {
+        EnsureLoaded();
+        prefab = null; missing = null;
+        if (string.IsNullOrEmpty(buildingId)) { missing = "(no building id)"; return false; }
+        _buildingSOsById.TryGetValue(buildingId, out var so);
+        string ladder = string.IsNullOrEmpty(ladderId) ? buildingId : ladderId;
+        if (level > 0 && culture != Cultures.None && HasBuildingLevels(culture, ladder))
+        {
+            if (TryGetBuildingLevel(culture, ladder, level, out var lvl))
+            {
+                if (lvl.prefab != null) { prefab = lvl.prefab; return true; }
+                missing = lvl.name; return false;
+            }
+            missing = $"{ladder} level {level} ({culture})"; return false;
+        }
+        if (so == null) { missing = buildingId + " (no SO)"; return false; }
+        if (culture != Cultures.None && level > 0 && so.culturePrefabs != null)
+        {
+            string cname = culture < CultureConfig.Names.Length ? CultureConfig.Names[culture] : null;
+            foreach (var cp in so.culturePrefabs)
+                if (cp.prefab != null && cp.culture == cname) { prefab = cp.prefab; return true; }
+        }
+        if (so.prefab != null) { prefab = so.prefab; return true; }
+        missing = so.name; return false;
+    }
+
+    /// <summary>The building SO carrying <paramref name="presentationId"/>
+    /// (first in catalog order) — the fallback for entities BuildingIds.Of
+    /// does not name.</summary>
+    public static string BuildingIdForPresentation(int presentationId)
+    {
+        EnsureLoaded();
+        foreach (var kv in _buildingSOsById)
+            if (kv.Value != null && kv.Value.presentationId == presentationId) return kv.Key;
+        return null;
+    }
+
     public static bool TryGetPrefab(int presentationId, out GameObject prefab)
     {
         EnsureLoaded();

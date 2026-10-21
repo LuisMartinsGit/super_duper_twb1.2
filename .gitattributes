@@ -1,0 +1,6 @@
+# Building art in Git LFS (docs/Design/Art_Direction.md § 13).
+Assets/GameData/TechTree/**/Art/*.fbx filter=lfs diff=lfs merge=lfs -text
+Assets/GameData/TechTree/**/Art/*.blend filter=lfs diff=lfs merge=lfs -text
+Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/Textures/**/*.png filter=lfs diff=lfs merge=lfs -text
+Assets/GameData/TechTree/**/Lvl*/*/*.fbx filter=lfs diff=lfs merge=lfs -text
+Assets/GameData/TechTree/**/Lvl*/*/*.blend filter=lfs diff=lfs merge=lfs -text

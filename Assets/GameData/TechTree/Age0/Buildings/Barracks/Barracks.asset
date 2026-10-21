@@ -34,6 +34,12 @@ MonoBehaviour:
   suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
@@ -79,6 +85,7 @@ MonoBehaviour:
     range: 22
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels:
   - level: 0
     variantName: Barracks
@@ -94,8 +101,11 @@ MonoBehaviour:
       range: 22
       cooldown: 1.5
       maxTargets: 1
+      siegeShotDamage: 0
+    lineOfSight: 0
   unitUpgrades: []
-  prefab: {fileID: 5787567608289956776, guid: 4d772238e3975234fa54124f03f14f47, type: 3}
+  prefab: {fileID: 5005883965838966086, guid: d63a69c703f32a344b94691911451f0b, type: 3}
+  culturePrefabs: []
   presentationId: 510
   prefabPath: 
   canUpgradeTo:

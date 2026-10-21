@@ -11,12 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
   m_Name: RenewalFortification
-  m_EditorClassIdentifier:
-  id: 'Renewal_Fortification'
-  displayName: 'Renewal Fortification'
-  role: 'Raise Anew II - a walled strongpoint, permanent, notably tougher than a tower'
+  m_EditorClassIdentifier: 
+  id: Renewal_Fortification
+  displayName: Renewal Fortification
+  role: Raise Anew II - a walled strongpoint, permanent, notably tougher than a tower
+  description: 
   hp: 1400
-  armorType: 'structure_human'
+  armorType: structure_human
   defense:
     melee: 9
     ranged: 16
@@ -26,21 +27,34 @@ MonoBehaviour:
   lineOfSight: 30
   footprintCells: {x: 3, y: 3}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research: []
   minEra: 0
   cost:
     Supplies: 300
     Iron: 150
-    Crystal: 0
+    Veilstone: 0
     Veilsteel: 0
   tags:
-  - 'Building'
+  - Building
   attack:
     enabled: 1
     damage: 14
@@ -48,4 +62,11 @@ MonoBehaviour:
     range: 28
     cooldown: 1.6
     maxTargets: 2
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 919132149155446097, guid: 2b6272521f96add47aebeffe53fdff72, type: 3}
+  culturePrefabs: []
   presentationId: 415
+  prefabPath: 
+  canUpgradeTo: []

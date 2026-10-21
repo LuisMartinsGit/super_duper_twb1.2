@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Sect_Treasury
   displayName: Treasury
-  role: "Prosperity sect building. Trains the Collector, recruits the Guildmaster."
+  role: Prosperity sect building. Trains the Collector, recruits the Guildmaster.
   description: 
   hp: 850
   armorType: structure_human
@@ -27,11 +27,24 @@ MonoBehaviour:
   lineOfSight: 15
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 1
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
   - Sect_Collector
   - Sect_Guildmaster
@@ -52,10 +65,11 @@ MonoBehaviour:
     range: 0
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 132257539594902, guid: d27d038eede1b46599d633b5d8f1309e, type: 3}
-  presentationId: 0
+  prefab: {fileID: 919132149155446097, guid: 6a9c67f7aed74054f9b629e4af3d889d, type: 3}
+  culturePrefabs: []
+  presentationId: 564
   prefabPath: 
   canUpgradeTo: []
-  maxPerFaction: 1

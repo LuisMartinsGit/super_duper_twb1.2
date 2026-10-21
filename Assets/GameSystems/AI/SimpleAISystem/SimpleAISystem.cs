@@ -225,6 +225,8 @@ namespace TheWaningBorder.AI
                 if (step == 1)
                 {
                     profile.SustainArmyCap += ArmyCapBonus(em, brain.Owner, profile.SustainArmyCap, now);
+                    // The Sanctum armies (§ 6t) are on top of the tier's army.
+                    profile.SustainArmyCap += SanctumArmyCapBonus(brain.Owner);
                     if (staged) _stageProfile[owner] = profile;
                 }
                 NoteProfile(brain.Owner, profile, brain.Personality);
@@ -442,6 +444,8 @@ namespace TheWaningBorder.AI
                     // strike for the artifact / bring it home / king rides out;
                     // Litharchs trained at the Temple and walked after the army.
                     TickShardroot(em, brain.Owner, ref aiState, now);
+                    // THE SANCTUM ARMY (2026-10-20, Game_AI.md § 6t).
+                    TickSanctumArmies(em, brain.Owner, ref aiState, now);
                     {
                         Entity home = FindFactionBuilding<HallTag>(em, brain.Owner);
                         if (home != Entity.Null && em.HasComponent<LocalTransform>(home))

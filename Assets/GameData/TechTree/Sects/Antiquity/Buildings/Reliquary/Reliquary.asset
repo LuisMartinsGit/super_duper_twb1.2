@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Sect_Reliquary
   displayName: Reliquary
-  role: "Antiquity sect building. Trains the Artificer, recruits the Archivist of Hours."
+  role: Antiquity sect building. Trains the Artificer, recruits the Archivist of
+    Hours.
   description: 
   hp: 900
   armorType: structure_human
@@ -27,11 +28,24 @@ MonoBehaviour:
   lineOfSight: 16
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 1
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
   - Sect_Artificer
   - Sect_ArchivistOfHours
@@ -52,10 +66,11 @@ MonoBehaviour:
     range: 0
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 285242069463, guid: 905f51450c10fe92afca2841af851b68, type: 3}
-  presentationId: 0
+  prefab: {fileID: 919132149155446097, guid: dc4579f52d85c8345978f99d3e3654ce, type: 3}
+  culturePrefabs: []
+  presentationId: 561
   prefabPath: 
   canUpgradeTo: []
-  maxPerFaction: 1

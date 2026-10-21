@@ -32,6 +32,11 @@ MonoBehaviour:
   suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
   maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 4
@@ -60,7 +65,8 @@ MonoBehaviour:
     siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 8533174137031809889, guid: 10df016867e8efa47882c5cb20374c65, type: 3}
+  prefab: {fileID: 4168343951168727018, guid: 10e203840001c68428d0c9d22b57455e, type: 3}
+  culturePrefabs: []
   presentationId: 354
   prefabPath: 
   canUpgradeTo: []

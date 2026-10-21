@@ -27,11 +27,24 @@ MonoBehaviour:
   lineOfSight: 18
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
   - Alanthor_Outrider
   - Alanthor_Cataphract
@@ -56,9 +69,11 @@ MonoBehaviour:
     range: 22
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 7473497023553055802, guid: 32d81834753f05e458dd6bd997599698, type: 3}
+  prefab: {fileID: 6736229823703575960, guid: f7cbe2acab12689479f5bc384a2c7ae1, type: 3}
+  culturePrefabs: []
   presentationId: 356
   prefabPath: 
   canUpgradeTo: []

@@ -148,16 +148,19 @@ namespace TheWaningBorder.Systems.Research
                 {
                     if (!em.HasComponent<Health>(unit)) return;
                     var hp = em.GetComponentData<Health>(unit);
+                    // A corpse (0 HP, dying) keeps its 0: lifting it above 0
+                    // hides it from DeathSystem and the Shardroot drop.
+                    bool dead = hp.Value <= 0;
                     if (pct)
                     {
                         hp.Max = Mathf.RoundToInt(hp.Max * mult);
-                        hp.Value = Mathf.RoundToInt(hp.Value * mult);
+                        if (!dead) hp.Value = Mathf.RoundToInt(hp.Value * mult);
                     }
                     else
                     {
                         // Bump current and max together so the HP ratio stays sane.
                         hp.Max += (int)v;
-                        hp.Value += (int)v;
+                        if (!dead) hp.Value += (int)v;
                     }
                     if (hp.Max < 1) hp.Max = 1;
                     if (hp.Value > hp.Max) hp.Value = hp.Max;

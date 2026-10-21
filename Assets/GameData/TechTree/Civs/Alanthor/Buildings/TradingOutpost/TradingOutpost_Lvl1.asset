@@ -22,14 +22,14 @@ MonoBehaviour:
     Veilstone: 0
     Veilsteel: 0
   upgradeSeconds: 20
-  hpMultiplier: 1.0
+  hpMultiplier: 1
   trainTimeMultiplier: 1
   attackCooldownMultiplier: 1
   maxTargets: 0
   populationProvided: 0
   slotIncomePerMinute: 0
   interestMultiplier: 0
-  tradeRateMultiplier: 1.0
+  tradeRateMultiplier: 1
   attack:
     enabled: 0
     damage: 0
@@ -39,4 +39,4 @@ MonoBehaviour:
     maxTargets: 0
     siegeShotDamage: 0
   lineOfSight: 0
-  prefab: {fileID: 5421486725868418053, guid: 184d26b7cd924a248861dbda4269a8e5, type: 3}
+  prefab: {fileID: 919132149155446097, guid: 686493999c89e0f43aba0f3c2bde48d3, type: 3}

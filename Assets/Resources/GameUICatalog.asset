@@ -20,7 +20,6 @@ MonoBehaviour:
   minimapPanel: {fileID: 5751338946779721562, guid: 9176c9cb4aae1274c9a1faa4112e2f18, type: 3}
   actionsPanel: {fileID: 7193735503970001100, guid: f2c2dad614d662341be16952a49423a8, type: 3}
   specialBuildingMenu: {fileID: 955989845005394636, guid: 2702b4cc2131009459028302a5205b42, type: 3}
-  cultureSelectionMenu: {fileID: 3128216853755069799, guid: f1c11be6345be6547afa40f074b757e4, type: 3}
   cultureSelectionButton: {fileID: 6277049818944615522, guid: dd8232a55b4be2743aa9ff5565cf7dd7, type: 3}
   objectivesPanel: {fileID: 5301000000000001, guid: 4f21c60e9a3b46d1a8b2d05c7e91aa02, type: 3}
   religionPanel: {fileID: 5302000000000001, guid: 4f21c60e9a3b46d1a8b2d05c7e91aa04, type: 3}

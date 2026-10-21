@@ -15,7 +15,6 @@ namespace TheWaningBorder.Systems.Work
     /// Ticks AgeUpState.Remaining on Hall entities each frame.
     /// When Remaining reaches 0, applies all age-up completion effects:
     ///   1. Set FactionProgress.Culture on the Hall
-    ///   2. Scale the Hall 1.3x
     ///   3. Set FactionEra to 2 on the faction bank entity
     ///   4. Grant RP if a Temple exists
     ///   5. Per-culture hut transforms (huts always persist; Alanthor huts get
@@ -89,13 +88,11 @@ namespace TheWaningBorder.Systems.Work
                     em.SetComponentData(hallEntity, progress);
                 }
 
-                // 2. Scale the Hall 1.3x
-                if (em.HasComponent<LocalTransform>(hallEntity))
-                {
-                    var lt = em.GetComponentData<LocalTransform>(hallEntity);
-                    lt.Scale = 1.3f;
-                    em.SetComponentData(hallEntity, lt);
-                }
+                // 2. (Removed 2026-10-20.) The capital used to be scaled 1.3x
+                //    here. Its visual is fitted to its build-grid footprint, so
+                //    the scale made the Fortress spill 30 % past its own cells at
+                //    every age-up. The Shelter -> Fortress change is the art's
+                //    Lv0 -> Lv1 branch, not the transform.
 
                 // 2b. THE SHELTER BECOMES THE FORTRESS. Same entity, renamed —
                 //     the rule the House and the Guild already follow.

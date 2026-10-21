@@ -345,6 +345,11 @@ namespace TheWaningBorder.UI.Ingame
                     TWBLog.Log("[GameUI] GameUICatalog.hud claim-bar sprites unassigned — no takeover bars.");
             }
 
+            // The end of the hunt: with Field Intelligence researched, the
+            // hostile soldiers and lifelines in every territory your army
+            // stands in are marked (Territory_Claims.md § 7.4).
+            gameObject.AddComponent<TheWaningBorder.UI.World.EndgameMarkers>();
+
             // Where the income comes from: hover a territory or a building
             // for its resources per minute (docs/Design/Veilstone_Economy.md).
             gameObject.AddComponent<TheWaningBorder.UI.World.IncomeOverlay>().Init(catalog.chrome);
@@ -403,13 +408,10 @@ namespace TheWaningBorder.UI.Ingame
             GameObject specialMenu = catalog.specialBuildingMenu != null
                 ? SpawnPanel(catalog.specialBuildingMenu, "GameUI_SpecialBuildingMenu")
                 : null;
-            GameObject cultureMenu = catalog.cultureSelectionMenu != null
-                ? SpawnPanel(catalog.cultureSelectionMenu, "GameUI_CultureSelectionMenu")
-                : null;
             GameObject cultureButton = catalog.cultureSelectionButton != null
                 ? SpawnPanel(catalog.cultureSelectionButton, "GameUI_CultureSelectionButton")
                 : null;
-            topBar.BindAuthoredMenus(specialMenu, cultureMenu, cultureButton);
+            topBar.BindAuthoredMenus(specialMenu, cultureButton);
 
             if (catalog.objectivesPanel != null)
             {

@@ -25,8 +25,9 @@
 Ground belongs to whoever **stands on it**. Every territory carries one
 ownership meter, 0-100. Military units fill it, an enemy standing alone drains
 it, and an empty, unbuilt territory decays back to nobody. Two hostile sides
-standing in the same territory **freeze** it — you take ground by clearing it,
-not by out-numbering on paper. Buildings **hold** ground against decay;
+standing in the same territory play a **tug of war** — the stronger army (by
+population) pushes the meter its way, at the difference in strength
+(§ 2.2, 2026-10-20; it used to freeze). Buildings **hold** ground against decay;
 buildings on resource nodes, and Fortresses, **lock** it so it cannot be
 drained at all. The curse plays by the same meter, counting double, and it
 builds its own nodes on resource nodes, which lock ground exactly as a player's
@@ -74,9 +75,9 @@ crystalling 1, veilstinger 2, godsplinter 3 (before the ×2).
 
 | Situation in the territory | Effect on the value |
 |---|---|
-| **Two or more mutually hostile sides** have weight > 0 (the curse is hostile to everyone) | **Frozen** — nothing moves, including decay |
-| Only the **holder** (or nobody holding yet, and one side present) has weight | rises by `weight × claimRate` (claimRate = 1), capped at 100 |
-| Only a **challenger** has weight | falls by `weight × claimRate`; at 0 the challenger becomes the holder and the value starts rising |
+| **Two or more mutually hostile sides** have weight > 0 | **Tug of war** (2026-10-20) — the strongest side moves the meter by `(its weight − the strongest hostile side's weight) × claimRate`, exactly as if it stood there alone with that much weight; equal weights move nothing |
+| Only the **holder's** side (or nobody holding yet, and one side present) has weight — or it is the stronger in a tug of war | rises by `weight × claimRate` (claimRate = 1), capped at 100 |
+| Only a **challenger's** side has weight — or it is the stronger in a tug of war | falls by `weight × claimRate`; at 0 the challenger becomes the holder and the value starts rising |
 | **Nobody** has weight, and the holder has **no finished building** there | falls by `decayRate` (**3**) |
 | Nobody has weight, and the holder has a finished building there | **Held** — no change |
 | The territory is **locked** (§3) | the value is pinned at 100; challengers cannot drain it |
@@ -85,11 +86,23 @@ So an unclaimed territory takes **100 points** to claim, and taking one
 somebody else has claimed takes **200** — drain, then fill. A standing claim is
 worth something.
 
-**Allies never contest each other** (Teams.md). An ally's units neither drain
-nor freeze the holder's meter, and add nothing to it: each faction claims for
-itself. Two allies standing in the same unclaimed territory: the first to put
-weight on it becomes the holder; the other's weight is ignored until the
-holder's weight there is zero.
+**The tug of war (2026-10-20).** Developer: "In large territories it is
+impossible to conquer because there is always an enemy present. Revert to army
+strength tug of war. Population is the value to compare." Until then two
+hostile sides on the same ground **froze** it, so one straggler in a corner of
+a large territory blocked a claim for good. Now strength is compared: each
+side's weight is its population weight (§ 2.1), the strongest side pushes by
+the **difference**, and a dead-even standoff holds still. One scout-sized
+remnant barely slows an army; two equal armies stand and fight for it. A
+**lock** (§ 3) still stops any drain, and ground with cursed cells still gains
+for nobody (§ 6.9.4), whoever is stronger.
+
+**A side is a coalition.** Allies never contest each other (Teams.md): their
+population **adds up** into one side's strength, so an ally standing on the
+holder's ground helps it hold, and allies attacking together push together.
+Only one member gains on the meter: the holder, when the holder's side is the
+stronger; otherwise the heaviest member of the stronger side that may take
+the ground (§ 10). Allies never drain each other.
 
 ### 2.3 What changes at the edges
 
@@ -764,6 +777,34 @@ it.
 expected to start falling (developer, 2026-10-08). The AI's side of that is the
 all-in doctrine ([Game_AI.md § 6n](Game_AI.md)).
 
+### 7.4 Field Intelligence — the end of the hunt (2026-10-20)
+
+Developer: "Endgame is a chase for the missing enemy assets. When an army is in
+a territory, create pointers to any remaining units/structures that impede
+victory, so that human players know where they are." Elimination needs every
+lifeline gone (§ 7) and a claim needs the hostile army outweighed (§ 2.2), and
+the last of either — a worker behind a hill, a wall stub, a squad in a large
+territory — turned the late game into a search.
+
+**Field Intelligence** is a Fortress research, **every culture**, gated to
+**Fortress L3** so it is an endgame tool (cost and time on its SO,
+`Age0/Buildings/Fortress/Research/FieldIntelligence`). Once researched, every
+territory in which at least one of your **soldiers** (a unit that weighs on the
+meter, § 2.1) stands shows a marker on everything hostile there that stands
+in your way:
+
+- **every hostile soldier** — what weighs against you on the meter;
+- **every hostile building and construction site** (walls included, plans
+  never — they are invisible to enemies) and **every hostile worker** — what
+  keeps a faction alive (§ 7).
+
+Markers appear **only on ground you have explored** (revealed at least once);
+the tech shows what you have mapped, it is no map hack. A marker sits over its
+target in the owner's colour (soldiers ▼, structures and workers ◆); a target
+off screen is an arrow on the screen edge pointing at it. The curse is never
+marked — it keeps no faction alive and weighs on no meter. Presentation only
+(`UI/World/EndgameMarkers.cs`); the AI has its own intel and does not need it.
+
 ## 8. Knobs
 
 All in `TerritoryOwnership.asset` / `BorderSettings.asset`:
@@ -811,7 +852,7 @@ and (2026-10-04, §6.8) `firstWaveSeconds`, `waveIntervalSeconds`,
 
 **There is no cap on how many territories you hold. You hold what you can
 defend.** Ground is kept by the meter (§2-§3) and nothing else: standing
-military fills it, a hostile side standing in it freezes it, empty unbuilt
+military fills it, a stronger hostile army drains it (the tug of war, § 2.2), empty unbuilt
 ground decays, and losing ownership collapses everything you built there.
 Spread an army too thin and its ground decays or is drained out from under it;
 a building holds a territory against decay, and an extractor or a Fortress

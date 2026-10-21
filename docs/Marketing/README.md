@@ -20,6 +20,7 @@
 | 03 | [Art_Hiring_Brief.md](03_Art_Hiring_Brief.md) | Recruitment brief. Updated with **demo-first art priorities** — Alanthor-only Tier 1, Runai/Feraldis deferred to Tier 2. |
 | 04 | [Where_To_Find_Artists.md](04_Where_To_Find_Artists.md) | Platforms ranked, message templates, portfolio evaluation, red flags, 6-week bootstrap workflow from search to first asset. |
 | 05 | [Demo_Scope.md](05_Demo_Scope.md) | **NEW.** Single source of truth for the Alanthor demo: what's in, what's out, content checklist by domain (code/art/UX), the 6 sect picks, risks, and how each cut becomes a marketing beat. |
+| 07 | [Social_Posts.md](07_Social_Posts.md) | **NEW 2026-10-19.** Draft bank of 25 social posts for **edition A (the demo)**: Age 0, Alanthor and the four House of Vaelith sects, plus a seven-post curse & Shardroot series. Channels are Bluesky / X / Reddit / Shorts / Steam / Discord, and each post is captioned with the imagery it needs, so it doubles as the trailer shot list. Written against the current design, not 01's May pitch. |
 | 06 | [Locked_Culture_UI_Spec.md](06_Locked_Culture_UI_Spec.md) | **NEW.** How the locked Runai/Feraldis cards appear on the age-up screen. The demo's single highest-conversion marketing surface — the moment a player goes from "engaged" to "wishlist clicked." |
 
 ## How to use these together

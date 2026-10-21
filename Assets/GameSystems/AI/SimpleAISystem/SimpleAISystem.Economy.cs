@@ -410,6 +410,9 @@ namespace TheWaningBorder.AI
         private static readonly string[] EconomyResearchLadder =
         {
             "StoneTools",                        // Fortress — gather speed (cheap opener)
+            // Supply Survey (2026-10-20): the supply floor that outlives the
+            // nodes — an AI whose huts ran dry stalled and fell to the curse.
+            "SupplySurvey1",                     // Gatherer's Hut — supply drip
             "IronSurveying1",                    // Gatherer's Hut — iron drip
             "DeepShafts",                        // Mine — +50% iron from worked slots
             "VeilstoneSurvey1",                  // Gatherer's Hut — veilstone drip
@@ -426,10 +429,12 @@ namespace TheWaningBorder.AI
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
             "Fletching", "StoneTippedArrows",    // Archery Range (Age 1) — range / T1
             "IronTools", "MasonGuild",           // Fortress (Alanthor) — T2 eco + building HP
+            "SupplySurvey2",                     // Gatherer's Hut — supply drip II (Guild L2)
             "IronSurveying2",                    // Gatherer's Hut — iron drip II
             "RichSeams",                         // Mine — +100% iron from worked slots
             "VeilstoneSurvey2",                  // Gatherer's Hut — veilstone drip II
             "VeilsteelSurvey",                   // Gatherer's Hut — veilsteel (maxed huts only)
+            "SupplySurvey3",                     // Gatherer's Hut — supply drip III (Guild L3)
             "IronSurveying3",                    // Gatherer's Hut — iron drip III
             "VeilstoneTools",                    // Fortress (Alanthor) — T3 eco
         };
@@ -489,13 +494,13 @@ namespace TheWaningBorder.AI
         /// </summary>
         private static readonly string[] RunaiEconomyResearchLadder =
         {
-            "StoneTools", "ArmedScouts", "Conscription", "StoneWeapons",
+            "StoneTools", "Runai_SupplySurvey1", "ArmedScouts", "Conscription", "StoneWeapons",
             "Runai_SwiftWheels", "Runai_Caravan2", "Runai_Escort1", "Runai_VeiledPilgrims",
             "Runai_PackAnimals", "Runai_StrongAxles", "Runai_Caravan3", "Runai_MarketRights",
-            "Runai_HunkerDown", "Runai_Escort2", "Runai_SwiftWheels2", "Runai_IronTools",
+            "Runai_SupplySurvey2", "Runai_HunkerDown", "Runai_Escort2", "Runai_SwiftWheels2", "Runai_IronTools",
             "Runai_LongHaulTariffs", "Runai_ConsecratedGround", "Runai_HushedVeil",
             "Runai_WagonArchers", "Runai_Caravan4", "Runai_HardenedEscorts", "Runai_ScalingHooks",
-            "Runai_Escort3", "Runai_Caravan5", "Runai_StrongAxles2", "Runai_HardenedEscorts2",
+            "Runai_SupplySurvey3", "Runai_Escort3", "Runai_Caravan5", "Runai_StrongAxles2", "Runai_HardenedEscorts2",
             "Runai_Communion", "Runai_RoadMarch", "Runai_EscortDuty", "Runai_VeilstoneTools",
             "Runai_Veilbound", "Runai_VoiceOfTheVeil", "Runai_VeilsteelTools",
         };
@@ -699,11 +704,12 @@ namespace TheWaningBorder.AI
                     continue;
                 if (IsResearchInFlight(em, faction, techId))
                     continue;
-                // The Survey line is the Alanthor Guild's, post-culture only
-                // (Age_0.md: in Age 0 the hut hosts no research). The tech data
-                // carries no culture gate, so the AI keeps to the design here.
+                // The surveys are post-culture only (Age_0.md: in Age 0 the hut
+                // hosts no research). Every survey SO carries its culture gate
+                // (Alanthor's Guild line, Runai's Supply Survey), checked just
+                // below; a culture-less faction never buys one.
                 if (techId.Contains("Survey")
-                    && CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor)
+                    && CultureConfig.GetCompletedCulture(em, faction) == Cultures.None)
                     continue;
                 // Another culture's tech is never ours to buy: skip it, so the
                 // log's "blocked at" names a step this faction could take.

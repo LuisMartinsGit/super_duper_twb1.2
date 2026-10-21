@@ -4,7 +4,10 @@
 // Once a second of lockstep time, every territory's meter moves by what is
 // standing in it:
 //
-//   two hostile sides present   -> FROZEN (decay included)
+//   hostile sides present       -> TUG OF WAR (2026-10-20): the strongest
+//                                  coalition (allies summed) acts as if alone
+//                                  with weight = its weight - the strongest
+//                                  hostile one's; a tie moves nothing
 //   only the holder present     -> fills by its weight, capped at 100
 //   only a challenger present   -> drains by its weight; at 0 it becomes the
 //                                  holder and starts filling
@@ -223,6 +226,11 @@ namespace TheWaningBorder.Systems.World
 
         // ── Tick ────────────────────────────────────────────────────────
 
+        // Tug-of-war scratch: coalition weight per leader side, and each
+        // present side's coalition leader (-1 absent).
+        private readonly float[] _coalW = new float[Sides];
+        private readonly int[] _coalOf = new int[Sides];
+
         private void Tick(EntityManager em, float dt)
         {
             int count = RegionMap.Count;
@@ -310,11 +318,37 @@ namespace TheWaningBorder.Systems.World
                 int loser = holder;
                 int challenger = TerritoryOwnership.Natural;
 
-                if (frozen)
+                // ── ARMY-STRENGTH TUG OF WAR (2026-10-20, Territory_Claims.md
+                // § 2.2). Two hostile sides on the same ground used to FREEZE
+                // it, so in a large territory one straggler blocked a claim
+                // forever. Now each side's strength is its population weight,
+                // allies summed into one coalition (the holder's allies help
+                // it hold); the meter moves toward the strongest coalition by
+                // (strongest - strongest hostile) x claimRate. A tie moves
+                // nothing. Fixed side order, so every peer agrees.
+                int lead = -1, rival = -1;
+                float leadW = 0f, rivalW = 0f;
+                for (int s = 0; s < Sides; s++) { _coalW[s] = 0f; _coalOf[s] = -1; }
+                for (int s = 0; s < Sides; s++)
                 {
-                    // Hostiles share the ground: nothing moves.
+                    int pop = _pop[t * Sides + s];
+                    if (pop <= 0) continue;
+                    int g = s;
+                    for (int o = 0; o < s; o++)
+                        if (_coalOf[o] == o && !Hostile(o, s)) { g = o; break; }
+                    _coalOf[s] = g;
+                    _coalW[g] += math.pow(pop, cfg.claimExponent);
                 }
-                else if (presentCount == 0)
+                for (int g = 0; g < Sides; g++)
+                    if (_coalOf[g] == g && _coalW[g] > leadW) { lead = g; leadW = _coalW[g]; }
+                if (lead >= 0)
+                    for (int g = 0; g < Sides; g++)
+                        if (g != lead && _coalOf[g] == g && Hostile(g, lead) && _coalW[g] > rivalW)
+                        { rival = g; rivalW = _coalW[g]; }
+                bool contested = rival >= 0;
+                float net = leadW - rivalW;
+
+                if (lead < 0)
                 {
                     if (!locked && !held && value > 0)
                     {
@@ -328,39 +362,36 @@ namespace TheWaningBorder.Systems.World
                         }
                     }
                 }
-                else
+                else if (net > 0f)
                 {
-                    // One side, or several mutually allied ones. The holder
-                    // fills if it is here; otherwise the heaviest challenger
-                    // (lowest side on a tie) is the one taking the ground.
                     // Only a side ALLOWED to take this ground may gain on it
                     // (Territory_Claims.md §10): aged up and bordering its
-                    // Fortress-connected ground. The holder
-                    // filling its own ground is always allowed.
+                    // Fortress-connected ground. The holder (or its
+                    // coalition) filling its own ground is always allowed.
                     // §6.9.4: ground with ANY cursed cell in it gains for
-                    // nobody — the holder's meter only holds.
+                    // nobody — the meter only holds.
                     if (TheWaningBorder.Systems.Border.CurseGroundSystem.TerritoryHasCurse(t))
                     {
-                        TerritoryOwnership.SetMeter(t, holder, value, claimed, locked, false,
+                        TerritoryOwnership.SetMeter(t, holder, value, claimed, locked, contested,
                             TerritoryOwnership.Natural);
                         continue;
                     }
+                    bool holderLeads = holderSide >= 0 && _coalOf[holderSide] == lead;
                     int gainer = -1;
-                    if (holderSide >= 0 && weight[holderSide] > 0f) gainer = holderSide;
+                    if (holderLeads) gainer = holderSide;
                     else
                         for (int s = 0; s < Sides; s++)
-                            if (weight[s] > 0f && MayTake(t, s)
-                                && (gainer < 0 || weight[s] > weight[gainer])) gainer = s;
+                            if (_coalOf[s] == lead && MayTake(t, s)
+                                && (gainer < 0 || _pop[t * Sides + s] > _pop[t * Sides + gainer])) gainer = s;
                     if (gainer < 0)
                     {
-                        NoticeRefusedClaim(t, firstPresent);
-                        TerritoryOwnership.SetMeter(t, holder, value, claimed,
-                            claimed && holderSide >= 0 && _hasLock[t * Sides + holderSide] != 0,
-                            false, TerritoryOwnership.Natural);
+                        NoticeRefusedClaim(t, lead);
+                        TerritoryOwnership.SetMeter(t, holder, value, claimed, locked, contested,
+                            TerritoryOwnership.Natural);
                         continue;
                     }
 
-                    int step = (int)math.round(weight[gainer] * rate);
+                    int step = (int)math.round(net * rate);
                     if (holderSide >= 0 && gainer != holderSide) challenger = HolderValue(gainer);
 
                     if (holderSide < 0)
@@ -384,6 +415,8 @@ namespace TheWaningBorder.Systems.World
                         }
                     }
                 }
+                // else: an even standoff — nothing moves.
+                frozen = contested;
 
                 bool justClaimed = false;
                 if (!claimed && holder != TerritoryOwnership.Natural && value >= TerritoryOwnership.MeterMax)
@@ -737,6 +770,20 @@ namespace TheWaningBorder.Systems.World
         /// Military units only (Territory_Claims.md §2.1): no Workers, Scouts,
         /// caravans, conscripts, dying bodies or temporary summons.
         /// </summary>
+        /// <summary>
+        /// Does this unit weigh on a territory meter (§ 2.1)? The census's own
+        /// rules for one entity: alive, a military unit, not disordered. Read
+        /// by the endgame markers (Field Intelligence) so they mark exactly
+        /// the soldiers that hold ground against you. Presentation may call it.
+        /// </summary>
+        public static bool CountsForClaim(EntityManager em, Entity e)
+        {
+            if (!em.Exists(e) || !em.HasComponent<UnitTag>(e) || !em.HasComponent<Health>(e)) return false;
+            if (em.GetComponentData<Health>(e).Value <= 0) return false;
+            if (em.HasComponent<SectDisordered>(e) && em.IsComponentEnabled<SectDisordered>(e)) return false;
+            return Counts(em, e, em.GetComponentData<UnitTag>(e).Class);
+        }
+
         private static bool Counts(EntityManager em, Entity e, UnitClass cls)
         {
             if (cls == UnitClass.Economy || cls == UnitClass.Worker || cls == UnitClass.Scout) return false;

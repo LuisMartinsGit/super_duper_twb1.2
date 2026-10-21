@@ -200,7 +200,8 @@ rotation and scale are baked in and Unity does not inherit a 100× node scale.
    **The ownership cloth's Base Color stays white.** The player's colour is
    applied on top per renderer; a tinted base would colour it twice. Bake it
    as a greyscale/white cloth and let the game colour it.
-4. **Run `Waning Border ▸ Walls ▸ Bind Wall Art`.** It re-applies everything a
+4. **Run `Waning Border ▸ Art ▸ Bind Building Art (SO only)`** (Bind Wall Art was
+   retired 2026-10-20). It re-applies everything a
    Blender re-export just wiped — Read/Write on (the wall bakes its modules
    into one mesh, which reads vertices), cameras and lights excluded, no rig,
    material remap — then rebuilds `Wall.prefab` and writes it into
@@ -272,7 +273,7 @@ its own footprint.
 | Grain size changes per island, or breaks at seams | A procedural node on `Texture Coordinate ▸ UV` is sized by each island's UV area. Use `Object` coordinates for consistent grain in metres |
 | Texture looks low-res in game although it is 2048² | The UV islands cover only a fraction of the map. Check coverage and scale the islands up to fill it |
 | Normal map looks inverted | Blender is OpenGL-handed and Unity agrees, so this is almost always a missing `Texture Type: Normal map` in Unity |
-| Wall renders untextured after a re-export | `isReadable` was reset. Re-run Bind Wall Art |
+| Wall renders untextured after a re-export | `isReadable` was reset. Re-run Bind Building Art |
 | Ownership part is the wrong colour | Its Base Color is not white, or the part is no longer named `*Ownership*` / `Player_*` |
 
 ---

@@ -30,11 +30,24 @@ MonoBehaviour:
   lineOfSight: 18
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
   - Alanthor_Archer
   - Alanthor_Crossbowman
@@ -67,6 +80,7 @@ MonoBehaviour:
     range: 22
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels:
   - level: 0
     variantName: Archery Range
@@ -82,8 +96,11 @@ MonoBehaviour:
       range: 22
       cooldown: 1.5
       maxTargets: 1
+      siegeShotDamage: 0
+    lineOfSight: 0
   unitUpgrades: []
-  prefab: {fileID: 2877800568521987754, guid: 2d4fa58a826abc544a16f951f38428a2, type: 3}
+  prefab: {fileID: 1283394964978168771, guid: d38a3eac58e013d469cf39f0fab5e4bf, type: 3}
+  culturePrefabs: []
   presentationId: 511
   prefabPath: 
   canUpgradeTo: []

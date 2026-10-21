@@ -138,6 +138,11 @@ in it. One version, three builds from the same commit:
 | **B** — developer | + Feraldis | `0.0.41B` / `v0.0.41B` | keys granted B |
 | **C** — developer | + Feraldis + Runai | `0.0.41C` / `v0.0.41C` | keys granted C |
 
+**Maps per edition (2026-10-21).** Edition A ships only **Fiendstone Pass** and
+**Yiel Lymwérra** (`MapRegistry.EditionAMapScenes`, applied to the player build
+by `MapSceneSync.ScenesForPlayerBuild`); B and C ship the full
+`MapRegistry.ShippingMapScenes` list. The editor keeps every map either way.
+
 **Versioning.** Every release bumps the one version (`bundleVersion`); the
 letter only names the edition. `0.0.41B` always means "the 0.0.41 demo plus
 Feraldis". An edition whose content did not change need not be *published*

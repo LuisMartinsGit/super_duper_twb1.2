@@ -69,7 +69,25 @@ namespace TheWaningBorder.Data
 
         public List<UnitUpgrade> unitUpgrades = new List<UnitUpgrade>();
 
+        /// <summary>The base form's model (Art_Direction.md § 13): the Age 0
+        /// form of an Age 0 building, the construction form of one that only
+        /// exists after age-up. The ONLY source of this building's visual at
+        /// level 0 — its levels' models are on its BuildingLevelDefSOs.</summary>
         public GameObject prefab;
+
+        /// <summary>A culture's own look for a building that has NO levels
+        /// (the Temple's Blood Altar, the Veilstone Mine's Feraldis form):
+        /// shown once the owner's culture is complete. Empty for a building
+        /// with a level ladder — its looks are the level SOs'.</summary>
+        public List<CulturePrefab> culturePrefabs = new List<CulturePrefab>();
+
+        [System.Serializable]
+        public struct CulturePrefab
+        {
+            public string culture;
+            public GameObject prefab;
+        }
+
         public int presentationId;
         public string prefabPath;
         public string[] canUpgradeTo;

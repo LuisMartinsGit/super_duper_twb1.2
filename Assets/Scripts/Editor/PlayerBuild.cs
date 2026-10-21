@@ -102,7 +102,8 @@ namespace TheWaningBorder.EditorTools
 
             // Enabled scenes only, then through the ship gate — see the header.
             var scenes = MapSceneSync.ScenesForPlayerBuild(
-                EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray());
+                EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
+                edition);
 
             if (scenes == null || scenes.Length == 0)
                 return "Build Settings has no enabled scenes.";

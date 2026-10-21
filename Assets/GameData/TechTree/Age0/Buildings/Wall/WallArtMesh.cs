@@ -1,6 +1,6 @@
 // WallArtMesh.cs
 // Bakes the authored wall module (WallModuleArt) along a segment's drawn
-// curve into ONE mesh — the art-driven twin of WallCurveMesh, and the path
+// curve into ONE mesh — the path
 // taken whenever the curtain module's SO has a prefab bound. Same contract, same call
 // site, same result shape: one mesh, one sub-mesh per material, spans whose
 // sim cell is gone or has become a gate left open.
@@ -76,7 +76,7 @@ namespace TheWaningBorder.Rendering
         /// <paramref name="curve"/> runs hub centre to hub centre and the wall
         /// occupies [inset, total − inset]; <paramref name="cellArcs"/> gives
         /// each sim cell's arc length and <paramref name="cellOpenHalf"/> answers
-        /// per cell index, exactly as WallCurveMesh takes them.
+        /// per cell index.
         /// <paramref name="heightScale"/> squashes the wall toward the ground
         /// while it is being built.
         /// </summary>

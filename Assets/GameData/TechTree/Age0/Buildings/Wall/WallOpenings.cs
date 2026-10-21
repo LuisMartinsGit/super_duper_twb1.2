@@ -1,6 +1,7 @@
 // WallOpenings.cs
 // Where a curved segment's swept curtain is SOLID, as runs of arc length —
-// shared by WallCurveMesh and WallArtMesh (2026-10-11).
+// used by WallArtMesh (2026-10-11; WallCurveMesh, the swept procedural
+// curtain it was shared with, was deleted 2026-10-20).
 //
 // Both builders used to decide per slice "which cell is nearest, is it
 // solid", on their own grid: WallCurveMesh per 0.25 m station, WallArtMesh

@@ -1263,7 +1263,8 @@ namespace TheWaningBorder.AI
             // usually the best defence there is.
             // THE ALL-IN (§ 6n): home is the home guard's; the army goes.
             bool allIn = AllInArmed(faction);
-            if (aiState.Posture == AIPosture.Defend && !overdue && !allIn)
+            bool kingLeads = _kingLeads != Entity.Null;
+            if (aiState.Posture == AIPosture.Defend && !overdue && !allIn && !kingLeads)
                 return false;
 
             // Pressure posture commits with a slightly smaller wave.
@@ -1364,6 +1365,13 @@ namespace TheWaningBorder.AI
                     });
                     idleMilitary.RemoveRange(canDraft, _lastFloorKept);
                 }
+            }
+
+            // The Shardbound King marches with the wave, whatever the floor.
+            if (kingLeads)
+            {
+                idleMilitary.Remove(_kingLeads);
+                idleMilitary.Insert(0, _kingLeads);
             }
 
             if (idleMilitary.Count < minUnits) return false; // wait for the army
@@ -1688,7 +1696,7 @@ namespace TheWaningBorder.AI
             // the best known defence by strengthWaveRatio (scaled by the
             // personality's riskMultiplier, the same appetite for risk the
             // target scorer reads) -- and not before, overdue or not.
-            if (strengthGate)
+            if (strengthGate && !kingLeads)
             {
                 int known = KnownDefenceAt(em, brainEntity, faction, targetPos, assault);
                 // ...and by the tier's strengthWaveRatioScale (Game_AI.md § 2):
@@ -1742,7 +1750,7 @@ namespace TheWaningBorder.AI
             else if (allIn && !assault.ShouldFight)
                 AILogger.Log(faction, "WAVE",
                     $"ALL-IN — attacking at ratio {assault.Ratio:0.00} (committed)");
-            else if (target != Entity.Null && !assault.ShouldFight && !overdue)
+            else if (target != Entity.Null && !assault.ShouldFight && !overdue && !kingLeads)
             {
                 AILogger.Log(faction, "WAVE",
                     $"hold — assault at ({targetPos.x:0},{targetPos.z:0}) unfavourable: " +
@@ -1751,7 +1759,7 @@ namespace TheWaningBorder.AI
                     $"ratio {assault.Ratio:0.00}");
                 return false;
             }
-            else if (!assault.ShouldFight && Cfg.waveOverdueMaxRatio > 0f && assault.Ratio > Cfg.waveOverdueMaxRatio)
+            else if (!assault.ShouldFight && !kingLeads && Cfg.waveOverdueMaxRatio > 0f && assault.Ratio > Cfg.waveOverdueMaxRatio)
             {
                 // OVERDUE IS NOT SUICIDAL (2026-10-05, Game_AI.md 6a). The
                 // overdue release used to override the assessment outright:
@@ -1885,6 +1893,7 @@ namespace TheWaningBorder.AI
             int share = idleMilitary.Count / bodies;
 
             var pool = new System.Collections.Generic.List<Entity>(idleMilitary);
+            if (kingLeads) pool.Remove(_kingLeads);   // the main army's, below
             var launched = new System.Collections.Generic.List<Mission>(bodies);
             for (int k = 0; k < sisters.Count; k++)
             {
@@ -1923,6 +1932,7 @@ namespace TheWaningBorder.AI
                 Group = group,
                 Primary = true,
             };
+            if (kingLeads) attack.Members.Add(_kingLeads);   // at the head
             attack.Members.AddRange(pool);
             launched.Add(attack);
             launchedSize = idleMilitary.Count;
@@ -3218,6 +3228,30 @@ namespace TheWaningBorder.AI
         private readonly System.Collections.Generic.Dictionary<(int, int, int), float> _reclaimCooldown
             = new System.Collections.Generic.Dictionary<(int, int, int), float>();
 
+        /// <summary>The Shardbound King leading the wave being launched
+        /// (TryLaunchAttack reads it), Entity.Null otherwise.</summary>
+        private Entity _kingLeads = Entity.Null;
+        private readonly System.Collections.Generic.Dictionary<int, float> _kingWaveRetryAt =
+            new System.Collections.Generic.Dictionary<int, float>();
+
+        /// <summary>
+        /// Our Shardbound King (the hero bearing the Shardroot), when he is
+        /// free to lead a wave: alive, not pulled back to heal, serving no
+        /// mission, and not inside the retry wait after a failed launch.
+        /// </summary>
+        private Entity ShardboundKingToLead(EntityManager em, Faction faction, float now)
+        {
+            if (!AIShardroot.Cfg.enabled) return Entity.Null;
+            if (_kingWaveRetryAt.TryGetValue((int)faction, out float at) && now < at) return Entity.Null;
+            if (AIShardroot.Locate(em, faction, out Entity holder, out _) != AIShardroot.Where.Mine) return Entity.Null;
+            if (holder == Entity.Null || !em.Exists(holder) || !em.HasComponent<ShardboundHeroTag>(holder)) return Entity.Null;
+            if (ShardrootFor(faction).KingRetreat) return Entity.Null;
+            if (TransientState.Active<UserMoveOrder>(em, holder)) return Entity.Null;
+            foreach (var m in MissionsFor(faction))
+                if (m.Members.Contains(holder)) return Entity.Null;
+            return holder;
+        }
+
         private void TickAttackWaves(EntityManager em, Entity brainEntity, Faction faction,
             ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality,
             AIDifficultyProfile profile, float now)
@@ -3245,14 +3279,20 @@ namespace TheWaningBorder.AI
             // own timer (Game_AI.md § 3b), between waves as well as with them.
             TickRaids(em, brainEntity, faction, ref aiState, settings, personality, now);
 
-            if (now < aiState.NextWaveTime) return;
+            // THE SHARDBOUND KING LEADS (2026-10-20, Game_AI.md § 6l):
+            // developer: "AI is too shy when attacking with the shardroot
+            // bearer." An idle Shardbound King launches a wave the moment the
+            // normal minimum is met — no cooldown, no claim yield, no strength
+            // or assessment hold — and marches at its head.
+            Entity kingLead = ShardboundKingToLead(em, faction, now);
+            if (now < aiState.NextWaveTime && kingLead == Entity.Null) return;
 
             // CLAIMS OUTRANK WAVES while open ground waits for soldiers and
             // nothing threatens home (Game_AI.md § 5b) — bounded, so a wave
             // still goes after claimWaveYieldMaxSeconds.
             // (Not under the all-in, § 6n: the claim squads are released.)
             bool allIn = AllInArmed(faction);
-            if (!allIn && ClaimsYieldWave(faction, aiState.Posture, now)) return;
+            if (!allIn && kingLead == Entity.Null && ClaimsYieldWave(faction, aiState.Posture, now)) return;
 
             // A TARGET, NOT A DOORSTEP (2026-09-12, Game_AI.md 8). WaveBaseUnits
             // is 4 to 6, so the bar was met the moment a couple of bodies came
@@ -3330,8 +3370,19 @@ namespace TheWaningBorder.AI
             // the bar is a token head count, never a share of the army.
             if (allIn) minUnits = math.max(2, Cfg.allInMinWaveUnits);
 
-            if (TryLaunchAttack(em, brainEntity, faction, minUnits, strengthGate,
-                    ref aiState, settings, personality, profile, now, out int waveSize))
+            _kingLeads = kingLead;
+            bool launchedWave = TryLaunchAttack(em, brainEntity, faction, minUnits, strengthGate,
+                    ref aiState, settings, personality, profile, now, out int waveSize);
+            _kingLeads = Entity.Null;
+            if (kingLead != Entity.Null)
+            {
+                if (launchedWave)
+                    AILogger.Log(faction, "SHARDROOT",
+                        $"the Shardbound King leads wave {aiState.WaveNumber + 1} ({waveSize} strong)");
+                else
+                    _kingWaveRetryAt[(int)faction] = now + Cfg.waveRetrySeconds;
+            }
+            if (launchedWave)
             {
                 aiState.WaveNumber++;
                 // PRESS THE ADVANTAGE (2026-08-04 playtest: "the winning

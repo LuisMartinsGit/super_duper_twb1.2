@@ -161,14 +161,6 @@ namespace TheWaningBorder.UI.Ingame
         private float _placementYaw;
         private const float YawStepDegrees = 15f;
 
-        // Prefab previews
-        private GameObject _prefabGatherersHut;
-        private GameObject _prefabHut;
-        private GameObject _prefabBarracks;
-        private GameObject _prefabTemple;
-        private GameObject _prefabVault;
-        private GameObject _prefabKeep;
-
         // Panel sizing
         public const float PanelWidth = 300f;
         public const float PanelHeight = 170f;
@@ -179,14 +171,6 @@ namespace TheWaningBorder.UI.Ingame
             _activeInstance = this;
             _world = EntityWorld.DefaultGameObjectInjectionWorld;
             _padding = new RectOffset(10, 10, 10, 10);
-
-            // Load preview prefabs
-            _prefabGatherersHut = Resources.Load<GameObject>("Prefabs/Buildings/GatherersHut");
-            _prefabHut = Resources.Load<GameObject>("Prefabs/Buildings/Hut");
-            _prefabBarracks = Resources.Load<GameObject>("Prefabs/Buildings/Barracks");
-            _prefabTemple = Resources.Load<GameObject>("Prefabs/Buildings/TempleOfRidan");
-            _prefabVault = Resources.Load<GameObject>("Prefabs/Runai/Buildings/VaultOfAlmierra");
-            _prefabKeep = Resources.Load<GameObject>("Prefabs/Feraldis/Buildings/FiendstoneKeep");
         }
 
         void Update()
@@ -390,8 +374,8 @@ namespace TheWaningBorder.UI.Ingame
                && (TechCatalog.TryGetBuilding(id, out var def) && def != null);
 
         /// <summary>
-        /// The special-handling flag for an id — walls draw, a few buildings
-        /// have hand-picked preview prefabs. <see cref="BuildType.Other"/> for
+        /// The special-handling flag for an id (walls draw).
+        /// <see cref="BuildType.Other"/> for
         /// everything else, which is NOT a fallback building: the id is.
         /// </summary>
         private static BuildType BuildTypeFor(string buildingId)
@@ -439,98 +423,55 @@ namespace TheWaningBorder.UI.Ingame
             _placementIsExactProcedural = false;
             _placementRefusal = PlacementRefusal.None;
 
-            // Culture for the preview: the COMPLETED culture only.
-            // FactionColors flips at click time (unit-tint preview), but
-            // buildings must not change until the age-up research finishes
-            // (AgeUpSystem writes FactionProgress.Culture on completion).
-            byte playerCulture = Cultures.None;
-            var cultureWorld = _world ?? EntityWorld.DefaultGameObjectInjectionWorld;
-            if (cultureWorld != null && cultureWorld.IsCreated)
-                playerCulture = CultureConfig.GetCompletedCulture(
-                    cultureWorld.EntityManager, GameSettings.LocalPlayerFaction);
-
-            // Get presentation ID for the current build type
-            int previewPid = GetPreviewPresentationId(_currentBuild, _currentBuildId);
-
-            // ── Upgrade-aware prefab-first preview ─────────────────────
-            // Mirror the actual spawn path: pre-age-up shows the L0 base
-            // prefab (Hall.prefab / Barracks.prefab / Hut.prefab); after
-            // culture is picked, show the L1 prefab (e.g. Hall_al_1) so
-            // the player previews exactly what they'll see once
-            // BuildingCultureAutoLevelSystem auto-bumps the new building.
-            GameObject upgradePreview = TryLoadUpgradePreviewPrefab(_currentBuild, playerCulture);
-            if (upgradePreview != null)
+            // THE GHOST IS THE FINISHED BUILDING (2026-10-20): the look this
+            // building will take once it completes for this faction — its
+            // completed culture (never the age-up click), its faction-wide
+            // level of the type (FactionBuildingLevels), from its SOs only
+            // (Art_Direction.md § 13) — PresentationSpawnSystem.ResolveFinishedVisual,
+            // the answer the plan it leaves behind shows too.
+            // Walls are drawn by their own tool (WallDrawTool); the hub ghost
+            // stays the footprint block below.
+            bool isWall = _currentBuild == BuildType.Wall || _currentBuild == BuildType.WallExtend;
+            var previewWorld = _world ?? EntityWorld.DefaultGameObjectInjectionWorld;
+            if (!isWall && previewWorld != null && previewWorld.IsCreated)
+                _placingInstance = PresentationSpawnSystem.CreateFinishedBuildingPreview(
+                    previewWorld.EntityManager, _currentBuildId, GameSettings.LocalPlayerFaction,
+                    out _placementIsExactProcedural);
+            else if (isWall && previewWorld != null && previewWorld.IsCreated)
             {
-                _placingInstance = Instantiate(upgradePreview);
-                _placingInstance.SetActive(true);
-            }
-            else
-            {
-
-            // Preview uses the building's SO prefab (resolved by PresentationId). Null falls
-            // through to the prefab switch / placeholder cube below.
-            GameObject procPreview = null;
-            // The ore extractors preview as the pithead they will be (MineVisual).
-            var mineKind = TheWaningBorder.Rendering.MineVisual.KindFor(_currentBuildId);
-            if (mineKind != null)
-            {
-                procPreview = TheWaningBorder.Rendering.MineVisual.Build(0, mineKind.Value);
-                _placementIsExactProcedural = true;
-            }
-            else if (previewPid > 0 && TechCatalog.TryGetPrefab(previewPid, out var soPrev) && soPrev != null)
-            {
-                procPreview = Instantiate(soPrev);
+                // The hub under the cursor is the hub art at the faction's wall
+                // level — already in the sim's frame and scale, so not refitted.
+                _placingInstance = PresentationSpawnSystem.CreateWallHubPreview(
+                    previewWorld.EntityManager, GameSettings.LocalPlayerFaction,
+                    _currentBuildId == AlanthorWall.PalisadeHubId);
+                _placementIsExactProcedural = _placingInstance != null;
             }
 
-            if (procPreview != null)
+            if (_placingInstance == null)
             {
-                _placingInstance = procPreview;
+                // No model on the SO (a data bug, already logged), or a wall
+                // hub: a cube the size of the footprint, so the ghost still
+                // reads as the ground it takes. Never a hand-picked prefab —
+                // building art comes from the SOs only.
+                var fbSize = BuildCommandHelper.GetBuildingSize(_currentBuildId);
+                _placementIsPlaceholderCube = true;
+                _placingInstance = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _placingInstance.transform.localScale =
+                    new Vector3(fbSize.x, math.max(fbSize.x, fbSize.y) * 0.5f, fbSize.y);
+                var r = _placingInstance.GetComponent<Renderer>();
+                if (r != null) r.material.color = new Color(0.5f, 0.4f, 0.2f, 0.5f);
             }
-            else
-            {
-                // Try loading prefab
-                var prefab = _currentBuild switch
-                {
-                    BuildType.GatherersHut => _prefabGatherersHut,
-                    BuildType.Hut => _prefabHut,
-                    BuildType.Barracks => _prefabBarracks,
-                    BuildType.Vault => _prefabVault,
-                    BuildType.Keep => _prefabKeep,
-                    _ => null
-                };
-
-                if (prefab != null)
-                {
-                    _placingInstance = Instantiate(prefab);
-                }
-                else
-                {
-                    // Final fallback: placeholder cube, sized to the actual
-                    // footprint rather than a fixed 2 m block so the ghost
-                    // reads as the ground the building will take.
-                    var fbSize = BuildCommandHelper.GetBuildingSize(_currentBuildId);
-                    _placementIsPlaceholderCube = true;
-                    _placingInstance = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    _placingInstance.transform.localScale =
-                        new Vector3(fbSize.x, math.max(fbSize.x, fbSize.y) * 0.5f, fbSize.y);
-                    var r = _placingInstance.GetComponent<Renderer>();
-                    if (r != null) r.material.color = new Color(0.5f, 0.4f, 0.2f, 0.5f);
-                }
-            }
-
-            } // end of else (no upgrade-aware prefab found)
 
             _placingInstance.name = "PlacementPreview";
 
             if (!_placementIsPlaceholderCube && !_placementIsExactProcedural)
             {
-                // Scale the ghost exactly like the real spawn: the runtime
-                // multiplies every prefab visual by ComputeFootprintFit, so a
+                // Scale the ghost exactly like the finished building: the
+                // runtime multiplies every prefab visual by the footprint fit,
+                // measured on the branch it SHOWS (RefitVariantView), so a
                 // preview without it renders up to 4x the finished building.
-                // Measured BEFORE the variant setup below so the ghost and the
-                // spawn see the same set of active renderers.
                 var fitSize = BuildCommandHelper.GetBuildingSize(_currentBuildId);
-                float fit = PresentationSpawnSystem.ComputeFootprintFitForSize(
+                float fit = PresentationSpawnSystem.ComputeFootprintFitForView(
                     _placingInstance, fitSize.x, fitSize.y, out Vector3 fitOffset);
                 _placingInstance.transform.localScale *= fit;
 
@@ -541,14 +482,6 @@ namespace TheWaningBorder.UI.Ingame
                 if (Mathf.Abs(fitOffset.y) > 0.001f)
                     for (int c = 0; c < _placingInstance.transform.childCount; c++)
                         _placingInstance.transform.GetChild(c).localPosition -= new Vector3(0f, fitOffset.y, 0f);
-
-                // Multi-variant prefabs author every culture branch active; the
-                // real spawn hides them via BuildingVariantVisual. Without the
-                // same setup the ghost shows Lv0 AND every level stacked.
-                var variant = TheWaningBorder.Rendering.BuildingVariantVisual
-                    .TrySetup(_placingInstance);
-                if (variant != null && playerCulture != Cultures.None)
-                    variant.ShowVariant(playerCulture, 1);
             }
 
             // Disable colliders on preview
@@ -1209,73 +1142,6 @@ namespace TheWaningBorder.UI.Ingame
             }
             return GameSettings.LocalPlayerFaction;
         }
-
-        // Cached preview-prefab lookups so Resources.Load runs at most once
-        // per (BuildType, culture) pair. null = "no upgrade-aware prefab present"
-        // (the existing procedural / explicit-prefab fallback applies).
-        private readonly System.Collections.Generic.Dictionary<(BuildType, byte), GameObject>
-            _previewPrefabCache = new();
-        private readonly System.Collections.Generic.HashSet<(BuildType, byte)>
-            _previewPrefabNegativeCache = new();
-
-        /// <summary>
-        /// Resolve the upgrade-aware preview prefab for the current build:
-        /// L0 base prefab when the player hasn't picked a culture yet, L1
-        /// prefab when they have (so the placement ghost matches the visual
-        /// the new building will assume the moment construction finishes
-        /// and BuildingCultureAutoLevelSystem auto-bumps it). Returns null
-        /// for build types not in the upgrade ladder OR when no matching
-        /// prefab is present in Resources — caller falls through to the
-        /// existing procedural / prefab-by-id path.
-        /// </summary>
-        private GameObject TryLoadUpgradePreviewPrefab(BuildType bt, byte culture)
-        {
-            // Barracks / Hut participate in the upgrade system. GatherersHut
-            // uses a single prefab regardless of culture (no _al_1, no _ru_1 etc.) —
-            // we route it through here too so the placement preview matches the
-            // real spawn instead of falling back to the procedural model.
-            string baseName = bt switch
-            {
-                BuildType.Hut          => "Hut",
-                BuildType.Barracks     => "Barracks",
-                BuildType.GatherersHut => "GatherersHut",
-                _                      => null,
-            };
-            if (baseName == null) return null;
-
-            var key = (bt, culture);
-            if (_previewPrefabCache.TryGetValue(key, out var cached)) return cached;
-            if (_previewPrefabNegativeCache.Contains(key)) return null;
-
-            // GatherersHut never evolves — always use the L0 prefab regardless of culture.
-            bool useL0Only = bt == BuildType.GatherersHut;
-            string code = useL0Only ? "" : TheWaningBorder.Core.Settings.BuildingUpgradeConfig.CultureCode(culture);
-            string path = string.IsNullOrEmpty(code)
-                ? $"Prefabs/Buildings/{baseName}"          // L0 — pre age-up (or culture-agnostic)
-                : $"Prefabs/Buildings/{baseName}_{code}_1"; // L1 — post age-up
-            var loaded = Resources.Load<GameObject>(path);
-            if (loaded == null)
-            {
-                _previewPrefabNegativeCache.Add(key);
-                return null;
-            }
-            _previewPrefabCache[key] = loaded;
-            return loaded;
-        }
-
-        /// <summary>
-        /// The PresentationId to preview a building with. Read from the
-        /// building's own recipe (BuildingFactory.GetPresentationId), the same
-        /// number the real spawn uses — the old per-BuildType table ended in
-        /// `_ => 102`, so every building it did not list (sect buildings, the
-        /// Temple) previewed as a Hut. Walls are procedural and answer 0.
-        /// </summary>
-        private static int GetPreviewPresentationId(BuildType t, string buildingId) => t switch
-        {
-            BuildType.Wall => 0,       // Procedural wall handled separately
-            BuildType.WallExtend => 0, // Same procedural hub mesh as Wall
-            _ => BuildingFactory.GetPresentationId(buildingId),
-        };
 
         // task-109: Alanthor wall primitives — only Alanthor_Wall (hub) and Alanthor_Tower
         //           (standalone watch tower) are placeable. Alanthor_WallTower and

@@ -117,6 +117,8 @@ namespace TheWaningBorder.EditorTools
                 int cards = StripTrailingAbilities(cultures);
                 int wallSets = StripWallCultureSets(cultures);
                 if (wallSets > 0) Debug.Log($"[EditionContent] Stripped {wallSets} wall culture set(s).");
+                int culturePrefabs = StripCulturePrefabs(cultures);
+                if (culturePrefabs > 0) Debug.Log($"[EditionContent] Stripped {culturePrefabs} building culture prefab(s).");
                 if (configs > 0 || cards > 0)
                     Debug.Log($"[EditionContent] Also stripped {configs} component config(s) and {cards} ability card(s).");
 
@@ -224,6 +226,30 @@ namespace TheWaningBorder.EditorTools
             Backup(WallArtPath);
             cfg.cultureSets = kept;
             EditorUtility.SetDirty(cfg);
+            return removed;
+        }
+
+        /// <summary>A shared building's BuildingDefSO.culturePrefabs names each
+        /// culture's finished look (the Temple of Ridan, the Veilstone Mine), and
+        /// that art sits in the Age 0 folder, outside the culture's own — so the
+        /// folder strip never sees it and its materials ride into the build.</summary>
+        private static int StripCulturePrefabs(string[] cultures)
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<TechTreeCatalog>(CatalogPath);
+            if (catalog == null) return 0;
+            int removed = 0;
+            foreach (var b in catalog.buildings)
+            {
+                if (b == null || b.culturePrefabs == null) continue;
+                int n = b.culturePrefabs.Count(cp => cultures.Any(c =>
+                    string.Equals((cp.culture ?? "").Trim(), c, StringComparison.OrdinalIgnoreCase)));
+                if (n == 0) continue;
+                Backup(AssetDatabase.GetAssetPath(b));
+                b.culturePrefabs.RemoveAll(cp => cultures.Any(c =>
+                    string.Equals((cp.culture ?? "").Trim(), c, StringComparison.OrdinalIgnoreCase)));
+                EditorUtility.SetDirty(b);
+                removed += n;
+            }
             return removed;
         }
 

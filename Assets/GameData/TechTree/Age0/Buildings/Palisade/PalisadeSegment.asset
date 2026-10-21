@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: PalisadeSegment
   displayName: Palisade Section
-  role: One 3 m palisade module. Paid per module when the fence is laid, never placed directly
+  role: One 3 m palisade module. Paid per module when the fence is laid, never placed
+    directly
   description: 
   hp: 200
   armorType: structure_human
@@ -32,6 +33,12 @@ MonoBehaviour:
   suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
@@ -56,9 +63,11 @@ MonoBehaviour:
     range: 22
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 1727425111562285257, guid: 534c12ca923191f49b940b83d7e1a0e8, type: 3}
+  prefab: {fileID: 919132149155446097, guid: 52c26060f2ce30e47ab336634643655b, type: 3}
+  culturePrefabs: []
   presentationId: 552
   prefabPath: 
   canUpgradeTo: []

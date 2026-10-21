@@ -473,6 +473,10 @@ namespace TheWaningBorder.World.Regions
         /// Read from TerritoryOwnership.asset.</summary>
         public static float HallWorkerRange => Cfg.hallWorkerRange;
 
+        /// <summary>Military heads a side must stand on a Sanctum to claim it
+        /// (§ 11.4) — read by the AI's Sanctum army to size itself.</summary>
+        public static int SanctumClaimUnits => Cfg.sanctumClaimUnits;
+
         /// <summary>
         /// True when this building's placement must name a worker standing
         /// near the site: the Hall, and only when the territory rules are on.

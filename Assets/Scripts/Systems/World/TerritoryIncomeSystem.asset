@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a856fd59fa94ef5b5c94394ed0a1169, type: 3}
   m_Name: TerritoryIncomeSystem
   m_EditorClassIdentifier: 
-  supplyNodeReserve: 1800
-  ironNodeReserve: 2400
-  veilstoneNodeReserve: 2500
+  supplyNodeReserve: 15000
+  ironNodeReserve: 7000
+  veilstoneNodeReserve: 4000
   pureReserveMultiplier: 1.8
   normalReserveMultiplier: 1
   poorReserveMultiplier: 0.4
@@ -30,6 +30,7 @@ MonoBehaviour:
   guildSurveyIronPerTier: 8
   guildSurveyVeilstonePerTier: 6
   guildSurveyVeilsteelPerTier: 3
+  supplySurveyPerTier: 20
   guildSurveyLevelScale:
   - 1
   - 1.25

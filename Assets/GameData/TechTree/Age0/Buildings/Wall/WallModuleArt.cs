@@ -8,7 +8,7 @@
 // The wall is still ONE mesh per segment — the thing the player asked for and
 // the thing that keeps a long wall at one draw call per material. What
 // changed is where the geometry comes from: instead of a cross-section swept
-// by WallCurveMesh, the authored module is BAKED along the same curve, one
+// by WallCurveMesh (deleted 2026-10-20 — wall art is SO-only), the authored module is BAKED along the same curve, one
 // copy per sim cell, and the copies are combined. Seamless, because the pitch
 // is the module's own measured length, and art-driven, because the module is
 // whatever the FBX says it is.
@@ -74,19 +74,13 @@ namespace TheWaningBorder.Rendering
             = new Dictionary<(GameObject, float, bool), WallModuleArt>();
 
         /// <summary>
-        /// The prepared CURTAIN module for a wall level, or null when that
-        /// level has no authored art and the procedural cross-section should
-        /// be swept instead.
-        ///
-        /// Every level resolves to the same presentation id today, because
-        /// there is one authored module (the wooden wall) and the stone and
-        /// reinforced levels are still swept. When their art lands they get
-        /// their own ids and this is where the tier picks between them — the
-        /// callers do not change.
+        /// The prepared CURTAIN module for a wall level, from its slot in
+        /// WallModuleArt.asset — the only place wall art comes from
+        /// (docs/Design/Art_Direction.md § 13). Null when the slot is empty,
+        /// which the callers report as missing art.
         /// </summary>
         public static WallModuleArt For(byte tier)
             => ForTier(WallPart.Curtain, tier,
-                       TheWaningBorder.Entities.AlanthorWall.InstancePresentationID,
                        TheWaningBorder.Entities.AlanthorWall.InstanceSpacing, orientAlongZ: true);
 
         /// <summary>The wall parts that carry per-level art.</summary>
@@ -117,21 +111,21 @@ namespace TheWaningBorder.Rendering
         public static GameObject TierPrefab(WallPart part, byte tier)
         {
             var cfg = Cfg;
-            if (cfg == null) return null;
-            var slots = part switch
+            if (cfg == null || cfg.pieces == null) return null;
+            if (tier == 0) return PieceModel(cfg, part, 0);
+            // Stone and up fall back DOWN to Stone, never to the palisade.
+            for (int t = System.Math.Min((int)tier, TheWaningBorder.Entities.WallTiers.MaxLevel); t >= 1; t--)
             {
-                WallPart.Curtain => cfg.curtain,
-                WallPart.Hub => cfg.hub,
-                WallPart.Gate => cfg.gate,
-                WallPart.Tower => cfg.tower,
-                WallPart.BallistaMount => cfg.ballistaMount,
-                _ => cfg.trebuchetMount,
-            };
-            if (slots == null || slots.Length == 0) return null;
-            if (tier == 0) return slots[0];
-            // Stone and up fall back DOWN to Stone, never to the palisade slot.
-            for (int t = System.Math.Min(tier, slots.Length - 1); t >= 1; t--)
-                if (slots[t] != null) return slots[t];
+                var p = PieceModel(cfg, part, t);
+                if (p != null) return p;
+            }
+            return null;
+        }
+
+        static GameObject PieceModel(WallModuleArtConfig cfg, WallPart part, int level)
+        {
+            foreach (var p in cfg.pieces)
+                if (p != null && p.part == part && p.level == level && p.prefab != null) return p.prefab;
             return null;
         }
 
@@ -172,56 +166,23 @@ namespace TheWaningBorder.Rendering
         /// <see cref="TierPrefab(WallPart, byte, byte)"/>.</summary>
         public static WallModuleArt For(byte tier, byte culture)
             => ForTier(WallPart.Curtain, tier,
-                       TheWaningBorder.Entities.AlanthorWall.InstancePresentationID,
                        TheWaningBorder.Entities.AlanthorWall.InstanceSpacing, orientAlongZ: true,
                        explicitScale: null, culture: culture);
 
         /// <summary>
-        /// A wall part's art at a wall level: the level's authored prefab when
-        /// there is one, else the part's own SO prefab by
-        /// <paramref name="fallbackPresentationId"/> (0 = none). Fitted exactly
-        /// as <see cref="ForPart"/> fits. <paramref name="culture"/> (the
-        /// owner's, Cultures.None = shared ladder) selects a culture's own
-        /// wall set when the asset has one.
+        /// A wall part's art at a wall level: that level's slot in
+        /// WallModuleArt.asset, fitted as <see cref="ForPrefab"/> fits; null
+        /// when the slot is empty. <paramref name="culture"/> (the owner's,
+        /// Cultures.None = shared ladder) selects a culture's own wall set when
+        /// the asset has one.
         /// </summary>
-        public static WallModuleArt ForTier(WallPart part, byte tier, int fallbackPresentationId,
+        public static WallModuleArt ForTier(WallPart part, byte tier,
             float fitLength, bool orientAlongZ, float? explicitScale = null, byte culture = Cultures.None)
-        {
-            var prefab = TierPrefab(part, tier, culture);
-            if (prefab != null) return ForPrefab(prefab, fitLength, orientAlongZ, explicitScale);
-            return fallbackPresentationId != 0
-                ? ForPart(fallbackPresentationId, fitLength, orientAlongZ, explicitScale)
-                : null;
-        }
+            => ForPrefab(TierPrefab(part, tier, culture), fitLength, orientAlongZ, explicitScale);
 
-        /// <summary>
-        /// Any authored wall part — hub, curtain module, gatehouse — measured
-        /// and fitted to the size the SIM uses for it. The prefab comes from
-        /// that piece's own SO, resolved by presentation id.
-        /// Returns null when that part has no art, which is the signal to
-        /// draw it procedurally.
-        /// </summary>
-        /// <param name="fitLength">What the model's longest horizontal axis
-        /// is scaled to: a module's pitch, a hub's diameter, a gate's span.
-        /// The art is fitted to the game rather than the other way round, so
-        /// a re-export at a different scale keeps working.</param>
-        /// <param name="orientAlongZ">True turns the longest horizontal axis
-        /// to +Z, which is how the wall runs. False leaves the model's own
-        /// facing — a hub is round and has no run to align to.</param>
-        /// <param name="explicitScale">Scale the model by THIS instead of
-        /// fitting it to <paramref name="fitLength"/>. How the hub, gate and
-        /// tower stay the same size as the curtain: they take the curtain's
-        /// scale, so a set authored at one scale is drawn at one scale. Fitting
-        /// each piece to its own footprint instead blew the hub up by the ratio
-        /// between its 4.2 m footprint and the 3 m module.</param>
-        public static WallModuleArt ForPart(int presentationId, float fitLength, bool orientAlongZ,
-                                            float? explicitScale = null)
-        {
-            if (!TechCatalog.TryGetPrefab(presentationId, out var prefab) || prefab == null) return null;
-            return ForPrefab(prefab, fitLength, orientAlongZ, explicitScale);
-        }
-
-        /// <summary><see cref="ForPart"/> for a prefab already in hand.</summary>
+        /// <summary>Any authored wall part — hub, curtain module, gatehouse — measured and
+        /// fitted to the size the SIM uses for it (<paramref name="fitLength"/>), or
+        /// scaled by <paramref name="explicitScale"/> to share the curtain's scale.</summary>
         public static WallModuleArt ForPrefab(GameObject prefab, float fitLength, bool orientAlongZ,
                                               float? explicitScale = null)
         {

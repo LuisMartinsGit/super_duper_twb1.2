@@ -9,6 +9,39 @@ build always name the same number.
 
 ---
 
+## [0.0.51] — 2026-10-21
+
+### Added
+- **Supply Survey I-III** at the Guild (Alanthor) and the Trading Post
+  (Runai): every hut then also produces supplies, depleted huts included, so
+  your supply income outlives the nodes.
+- **Field Intelligence** (Fortress level 3, every culture): marks every
+  hostile soldier, building, site and worker in each territory your soldiers
+  stand in, so the last stragglers of a beaten enemy can be found.
+- **The AI goes for the Sanctums.** It raises a dedicated army of at least 30
+  to seize a Sanctum, keeps it there as a garrison and builds towers round it.
+
+### Changed
+- **New art for every Alanthor building and level**, in the House's
+  hand-painted style, and for the stone wall (curtain, hubs, gatehouse,
+  towers and mounts, per wall level). Age 0 buildings have their own plain
+  look; the teal roofs arrive with the culture at age-up. The Fortress now
+  grows a little with each level instead of jumping in size.
+- **The placement ghost and the plan show the finished building** at your
+  culture and level, not the Age 0 form.
+- **Territory is a tug of war again.** Two hostile armies in one territory no
+  longer freeze its meter: the stronger side (by population, allies added
+  together) pushes it by the difference. A lone straggler no longer blocks a
+  claim.
+- **Demo edition maps:** the demo now ships Fiendstone Pass and Yiel
+  Lymwérra only.
+- The AI saves up for the Shardroot's price instead of carrying it around
+  unpaid, and a Shardbound King leads the attack waves.
+
+### Fixed
+- A Shardroot bearer healed back above 0 HP while dying was destroyed with the
+  artifact still on it; a dying bearer now always drops it.
+
 ## [0.0.50] — 2026-10-20
 
 ### Added

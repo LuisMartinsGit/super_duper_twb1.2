@@ -28,6 +28,8 @@ MonoBehaviour:
   radius: 0.5
   lineOfSight: 16
   footprintCells: {x: 2, y: 2}
+  buildTime: 20
+  populationProvided: 0
   suppliesPerTick: 0
   suppliesInterval: 0
   slotIncomePerMinute:
@@ -35,10 +37,19 @@ MonoBehaviour:
   - 135
   - 185
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
-  buildTime: 20
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains: []
   research:
   - IronSurveying1
@@ -65,9 +76,11 @@ MonoBehaviour:
     range: 22
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 4961374923939024580, guid: 0a9cd7a90e2ba824f87007803e5afb56, type: 3}
+  prefab: {fileID: 8236190217653087174, guid: a81fb0071198b30478fd380166842799, type: 3}
+  culturePrefabs: []
   presentationId: 101
   prefabPath: 
   canUpgradeTo: []

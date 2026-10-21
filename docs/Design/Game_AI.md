@@ -2594,6 +2594,31 @@ only heightened form, so both halves were one gap.
 
 Logs: `SHARDROOT: …`.
 
+### 6l.1 The price, the push, the drop (2026-10-20)
+
+Found in a 115-minute FiendstonePass match: Green carried the Shardroot for 43
+minutes, walking it to a Temple whose enshrine price its bank never reached a
+tenth of — the delivery waits silently — while every curse wave hunted it as
+the holder; and its courier, killed and then healed back above 0 HP by a
+Renewal regen tail, was destroyed by its death timer with the artifact on it.
+
+- **The price is saved for, at home** (developer's call). While the AI holds
+  the artifact and cannot pay its road's price (enshrine at the Temple, or the
+  binding at the Hall — on their SOs), the bearer waits at the building and
+  the price is the faction's **top saving**: a strict pivotal goal (research,
+  army growth and non-exempt buildings hold, no release cycle) and the
+  highest budget reservation, above the Fortress and the age-up. Cleared the
+  moment the bank can pay, or the artifact is lost. Log: `SHARDROOT: saving
+  for the ... price`.
+- **The Shardbound King leads a wave.** An idle Shardbound King launches an
+  attack wave as soon as the normal wave minimum is met — no wave cooldown,
+  no claim yield, no Defend-posture hold, no strength or assessment hold —
+  and marches in the main army. He is pulled back to heal at
+  `boundKingRetreatHpFraction` (`AIShardroot.asset`, 20 %) instead of the
+  ordinary `kingRetreatHpFraction`.
+- **A started death always drops** (simulation): the carrier drop fires when
+  the bearer is DYING, not only at 0 HP, and no heal lifts a corpse above 0.
+
 ## 6m. Litharchs heal the army (2026-10-07)
 
 Developer: "AI does not use Litharchs as healers." Three gates: the Temple was
@@ -2839,6 +2864,39 @@ The numbers are on `SimpleAISystem.asset` (§ "Manning the fortifications").
 Log category `WALLS` in the AI logs: `garrisoned N in WatchTower …`,
 `manned wall (N: r ranged, m melee) … vs threat T`, `threat gone — N unit(s)
 down off the wall`, `posted N sentry(ies) on the wall`.
+
+## 6t. The Sanctum army (2026-10-20)
+
+Developer: "AI should be actively trying to seize the sanctum territories" —
+"dedicated army, must stay and defend the sanctum. minimum size of 30.
+workers are dispatched to build fortifications there." No AI had ever taken a
+Sanctum: it is claimed by head count (`sanctumClaimUnits` soldiers standing,
+uncontested — Territory_Claims.md § 11.4), the claim squads are capped far
+below that, and a seen Sanctum (no resource node) left the claim candidates.
+
+- **One dedicated army per Sanctum**, at least `sanctumArmyMinSize` (30) and
+  never fewer than the claim's head count, raised once the faction has aged
+  up. Its soldiers are reserved — no wave, raid, defence or claim squad
+  drafts them.
+- **Target:** the best Sanctum not ours and not an ally's — free ones first
+  (`sanctumHostilePenalty`), nearest first; never one with cursed ground
+  (it gains for nobody). A rival's only when the army beats the known threat
+  there by `sanctumLaunchMargin`. One army forms at a time.
+- **Short of soldiers**, the army target and the army cap rise by what the
+  Sanctum army needs, so production builds it; the tier's standing floor
+  stays home.
+- **On the ground:** hostile soldiers in the territory are hunted (one keeps
+  it contested); otherwise the army stands round the crystal. Once the
+  Sanctum is ours the army **stays as its garrison** for good, topped back
+  up to the minimum, and retakes it if lost. An army that never took its
+  Sanctum and falls below `sanctumDisbandBelow` falls back; that Sanctum
+  waits `sanctumRetrySeconds`.
+- **Fortifications:** workers raise `sanctumFortTowers` of the culture's
+  towers at a held Sanctum — Alanthor Watch Towers, Runai Waystations.
+  Feraldis has no tower building (the Feraldis tower is retired).
+
+Config: the `sanctum*` block on `SimpleAISystem.asset`. Code:
+`SimpleAISystem.Sanctum.cs`. Log: `SANCTUM:`.
 
 ## 7. Scouting
 

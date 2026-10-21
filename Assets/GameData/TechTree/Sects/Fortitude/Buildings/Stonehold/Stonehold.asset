@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Sect_Stonehold
   displayName: Stonehold
-  role: "Fortitude sect building. Trains the Sallyguard, recruits the Warden."
+  role: Fortitude sect building. Trains the Sallyguard, recruits the Warden.
   description: 
   hp: 1800
   armorType: structure_human
@@ -27,11 +27,24 @@ MonoBehaviour:
   lineOfSight: 12
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 1
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
   - Sect_Sallyguard
   - Sect_Warden
@@ -52,10 +65,11 @@ MonoBehaviour:
     range: 0
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 108005872859578, guid: 8a28ac3999990b71108af940e62951ce, type: 3}
-  presentationId: 0
+  prefab: {fileID: 919132149155446097, guid: 46751ee4b98dcf94f9c33b9509e8ed93, type: 3}
+  culturePrefabs: []
+  presentationId: 563
   prefabPath: 
   canUpgradeTo: []
-  maxPerFaction: 1

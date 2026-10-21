@@ -1428,11 +1428,20 @@ namespace TheWaningBorder.Entities
             for (int i = 0; i < newTowerHubs.Count; i++)
                 if (em.Exists(newTowerHubs[i])) GiveHubTowerAttack(em, newTowerHubs[i]);
 
-            // Re-clad: the visuals read WallTier when they are built.
+            // Re-clad: the visuals read WallTier when they are built. With
+            // the level-up wave every other building gets; the gold burst
+            // only on the pieces that read as structures, not on every
+            // curtain run of a faction-wide re-clad.
             var spawn = PresentationSpawnSystem.Instance;
             if (spawn != null)
                 for (int i = 0; i < touched.Count; i++)
-                    if (em.Exists(touched[i])) spawn.ForceRespawn(touched[i]);
+                {
+                    var t = touched[i];
+                    if (!em.Exists(t)) continue;
+                    bool structure = em.HasComponent<WallHubTag>(t) || em.HasComponent<WallTowerTag>(t)
+                                     || em.HasComponent<WallGateTag>(t);
+                    spawn.ForceRespawnWithTransition(t, flourish: structure);
+                }
             return promoted;
         }
 

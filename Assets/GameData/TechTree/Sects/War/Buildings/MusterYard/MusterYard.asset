@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Sect_MusterYard
   displayName: Muster Yard
-  role: "War sect building. Trains the Warbreaker."
+  role: War sect building. Trains the Warbreaker.
   description: 
   hp: 1100
   armorType: structure_human
@@ -27,11 +27,24 @@ MonoBehaviour:
   lineOfSight: 14
   footprintCells: {x: 4, y: 4}
   buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
   slotIncomePerMinute: []
   interestPerMinute: 0
+  interestPrincipalCap: 0
+  interestMaxSeconds: 0
+  coffersRate: 0
+  merchantChartersRate: 0
+  sovereignBondsRate: 0
+  maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
   trains:
   - Sect_Warbreaker
   research:
@@ -51,9 +64,11 @@ MonoBehaviour:
     range: 0
     cooldown: 1.5
     maxTargets: 1
+    siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 26897775726564, guid: d117551f556013155bc7d2865bce485f, type: 3}
-  presentationId: 0
+  prefab: {fileID: 919132149155446097, guid: 418a55ec39d622f4aaec72bd0b1589ce, type: 3}
+  culturePrefabs: []
+  presentationId: 565
   prefabPath: 
   canUpgradeTo: []

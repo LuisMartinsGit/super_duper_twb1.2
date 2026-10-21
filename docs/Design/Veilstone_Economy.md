@@ -252,6 +252,32 @@ the Royal Stable, Plating (siege) at the Siege Yard — each gated by its host's
 level. Their prices are on the tech SOs, and they are **not** uniform across
 the ladders (decision 23: the upper tiers were raised).
 
+### 5.2 Supply Surveys — the supply floor (2026-10-20)
+
+Developer: "Supplies need to have a stable income value, otherwise AI players
+stall hard and get defeated by the curse. Fix: Supply Surveys technology
+(produces increasing amounts of supplies)." Supplies came almost entirely from
+supply nodes, every unit paid drawn from a finite reserve, so a hut ring went
+dry and its owner stalled. Two changes:
+
+- **Node reserves raised** (supply, iron and veilstone; the values are
+  `supplyNodeReserve` / `ironNodeReserve` / `veilstoneNodeReserve` on
+  `TerritoryIncomeSystem.asset`, still scaled by purity, § 11.2 of
+  Territory_Claims.md).
+- **Supply Survey I-III** — three tiers researched at the hut (the cultured
+  Gatherer's Hut) by **Alanthor (the Guild) and Runai (the Trading Post)**,
+  gated to hut L1 / L2 / L3, each requiring the previous. Each completed tier
+  makes **every hut** of the faction in a held territory pay a flat supply
+  trickle a minute, scaled by the hut's level — the same shape as the Guild
+  surveys (§ 5.1). It is **drawn from no node**, so a **depleted** hut keeps
+  paying it: the floor that outlives the nodes. Runai supply from outside the
+  home territory goes to the depot as all its supply does (Age_1_Runai.md).
+  **Feraldis has no Supply Survey**: its late-game supplies are raiding
+  (Age_1_Feraldis.md § 3.5). The per-tier rate is `supplySurveyPerTier` on
+  `TerritoryIncomeSystem.asset`, scaled by `guildSurveyLevelScale`; costs and
+  times are on the tech SOs (`Civs/Alanthor/Buildings/Guild/Research/SupplySurvey1-3`,
+  `Civs/Runai/Buildings/TradingPost/Research/Runai_SupplySurvey1-3`).
+
 ## 6. The iron pass (2026-10-02)
 
 > Two 30-minute 8-AI batches on Veilmarch ended with every faction sitting on a
