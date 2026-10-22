@@ -23,6 +23,8 @@ namespace TheWaningBorder.Rendering
         public float loopVolume;
         /// <summary>Volume of the burst, 0-1.</summary>
         public float burstVolume;
+        /// <summary>Volume of the burst played on every pulse after the landing one.</summary>
+        public float pulseVolume;
         /// <summary>Seconds the loop takes to fade in when a channel starts
         /// (or comes into view) and out when it ends.</summary>
         public float fadeSeconds;

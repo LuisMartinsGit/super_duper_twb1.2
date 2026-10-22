@@ -176,6 +176,15 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
         public int Owner;
     }
 
+    /// <summary>The cursed ground at one moment (2026-10-22): one bit per
+    /// cell of the curse raster (MatchRecord.CurseW x CurseH, row-major from
+    /// the south-west, LSB first), stored whenever it changed.</summary>
+    public struct CurseFrame
+    {
+        public float T;
+        public byte[] Bits;
+    }
+
     public sealed class MatchRecord
     {
         public const int Factions = 8;
@@ -211,6 +220,28 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
         public IReadOnlyList<RegionRec> Regions => RegionList;
         public IReadOnlyList<NodeRec> Nodes => NodeList;
         public IReadOnlyList<OwnerEvent> OwnerEvents => OwnerEventList;
+        internal readonly List<CurseFrame> CurseFrameList = new List<CurseFrame>();
+        /// <summary>The cursed ground over the match (Territory_Claims.md §6.9),
+        /// on its own raster — half the partition's resolution.</summary>
+        public IReadOnlyList<CurseFrame> CurseFrames => CurseFrameList;
+        public int CurseW { get; internal set; }
+        public int CurseH { get; internal set; }
+        public float CurseCell { get; internal set; }
+        public float CurseX0 { get; internal set; }
+        public float CurseZ0 { get; internal set; }
+
+        /// <summary>Index of the curse frame in force at <paramref name="t"/>,
+        /// or -1 before the first.</summary>
+        public int CurseFrameAt(float t)
+        {
+            int lo = 0, hi = CurseFrameList.Count;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                if (CurseFrameList[mid].T <= t) lo = mid + 1; else hi = mid;
+            }
+            return lo - 1;
+        }
 
         /// <summary>Partition raster (RegionMap.RegionAt at cell centres),
         /// row-major from the south-west, -1 = no territory. Null until ready.</summary>

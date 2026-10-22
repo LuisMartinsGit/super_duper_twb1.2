@@ -719,6 +719,13 @@ namespace TheWaningBorder.AI
 
                 case CardKind.Hospital:
                 {
+                    // The team's cap and spacing (FieldHospitalSystem.asset): a
+                    // cast the engine would refuse is never attempted.
+                    if (!TheWaningBorder.Entities.FieldHospital.CanDeploy(em, faction, ctx.Pos, out string hospWhy))
+                    {
+                        if (wantWhy) why = hospWhy;
+                        return Verdict.Hold;
+                    }
                     int n = AlliesWithin(em, ctx.Pos, radius, 0, false, out int miss, out int max, out int wounded);
                     float frac = max > 0 ? miss / (float)max : 0f;
                     if (frac >= skill.healMinMissingFraction && wounded >= Cfg.buffMinAllies) return Verdict.Cast;

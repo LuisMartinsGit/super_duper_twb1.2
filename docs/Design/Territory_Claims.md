@@ -612,52 +612,47 @@ lighter tier anywhere on cursed ground, the deep tier on cursed ground close
 to a living node (the inner part of `nodeAuraRadius`); buildings crumble only
 on deep ground.
 
-#### 6.9.7 The Litharch's Cleanse (2026-10-18)
+#### 6.9.7 The Litharch's Cleanse plants a Cleansing Ward (2026-10-22)
 
 Every Litharch has an active, **aimed** ability, **Cleanse**: the player (or
-the AI) picks a point within its reach and the Litharch **channels** there,
-pushing the curse back.
+the AI) picks a point within its reach and the Litharch **plants a Cleansing
+Ward** there — a small stone ward with a crystal on it. The Litharch is free
+the moment it lands; the ward does the work.
 
+- **The ward is a building** the player owns. It stands **until it is
+  destroyed** — it has no lifetime. Its HP, armour, body and sight are on
+  `CleanseWardSystem.asset` (beside the ability).
 - **The starting circle** (the ability's radius) is cleared of cursed ground
-  the moment the cast lands. **Stronger and immediate (2026-10-19)** —
-  developer: "cleansing should immediately clear curse from a 15 unit
-  diameter area, and further regress curse with sustained casting": the
-  starting circle is a **15 m diameter** (rule-level; the value is the
-  ability's `radius`), cleared on the cast's first tick, so a small patch is
-  gone before the channel has grown at all.
-- **It grows while the channel holds**: the cleared circle gains a constant
-  **area** a second, so its radius slows as it widens instead of running away
-  with the square of the radius, and it stops growing at a maximum radius.
-  The rate was raised with the 2026-10-19 pass so that sustained channelling
-  visibly pushes the edge back within seconds and reaches the maximum in
-  about a minute.
-- **It can be heard (2026-10-19)**: a channelling Litharch plays a positional
-  holy loop for as long as the channel holds, and a burst when the cast
-  lands, so a player can pick out a cleanse by ear. Presentation only — the
-  sound never touches the simulation — and only for a Litharch the local
-  player can see (fog); it follows the master volume. Clips and levels are on
-  `CleanseSfx.asset`, beside the ability.
-  Every creep step the whole circle ends clean — the curse cannot creep or
-  stain back into it while the channel holds.
-- **A falloff band** outside the circle is thinned too: a cursed cell in the
-  band clears with a chance that is 1 at the circle and falls to 0 at the
-  band's outer edge, so the cleared ground has a soft, organic edge.
-- **Allies inside the starting circle heal slowly** while it channels. The
-  Litharch stands and heals through the channel; it does not walk to patients.
-- **The channel ends** when the Litharch is **attacked** (an attacker lands a
-  hit — cursed-ground damage is not an attack), is given **any other order**
-  (move, attack, stop, hold, heal…), is stunned or dies.
-- **The cooldown starts when the channel ends.**
-- When it ends, the ground is ordinary ground again: a living node's creep can
-  re-curse it (§6.9.2). Cleansing holds the curse back; killing its node wins
-  the ground for good. Unlike the owned-ground fade (§6.9.8), Cleanse clears
-  **even inside a living node's circle** — that is the Litharch's power over
-  the fade — but once the channel stops holding it, the node's creep takes
-  that ground back.
+  the moment the ward lands, with its falloff band thinned at once.
+- **It pulses** every `pulseSeconds` (2 s, on the asset): each pulse clears
+  the circle again and **grows** it by a constant **area** a pulse (the
+  ability's rate times the pulse length), so the radius slows as it widens,
+  up to the ability's maximum radius. Between pulses a living node's creep
+  may stain the edge back; the next pulse takes it again — **the curse
+  retreats in bursts, in step with the ward's aura**, which the presentation
+  plays on the same pulse (a ring at the ward, scaled to the circle, and a
+  burst that can be heard: `CleanseWardVfx`, `CleanseSfx`).
+- **A falloff band** outside the circle is thinned on every pulse: a cursed
+  cell in the band clears with a chance that is 1 at the circle and falls to
+  0 at the band's outer edge, so the cleared ground keeps a soft edge.
+- **The curse goes for wards.** A curse unit with a ward in its scan picks it
+  before anything else (`TargetingSystem`, the ward flag), and an attack wave
+  sent at a faction strikes a ward in the territory before its production
+  buildings (`CurseTerritorySystem.Waves`). A ward is therefore something the
+  player must **defend**; left alone, the curse tears it down and takes the
+  ground back.
+- **A ward never decays** (§6.9.9): it stands on cursed ground by design.
+- **The cooldown** is charged at the cast, as for any card. There is no
+  channel to break: being hit or ordered away no longer matters.
+- A ward is not placeable from the build palette, costs nothing beyond the
+  cast, and counts for nothing in the Score.
 
-Every number — starting radius, reach, cooldown, area a second, maximum
-radius, falloff width and heal rate — is the ability's data
-(`TempleOfRidan/Units/Litharch/Abilities/Cleanse/Cleanse.asset`).
+Every number of the circle — starting radius, reach, cooldown, area a second,
+maximum radius, falloff width — is the ability's data
+(`TempleOfRidan/Units/Litharch/Abilities/Cleanse/Cleanse.asset`); the ward's
+own body, pulse and art are `CleanseWardSystem.asset`. The 2026-10-18 model
+(the Litharch channelling in place, healing allies in the circle, broken by a
+hit or an order) is retired; the `CleanseHeal` effect on the card is unused.
 
 The Litharch is the one non-hero unit allowed **two active abilities**: Cleanse
 from the start, and Deploy Field Hospital once the Sect of Renewal's research
@@ -674,6 +669,29 @@ node lives. It never fades **inside a living node's own circle**
 and its creep keeps fighting the fade at the edge. Runai do not shed the
 curse: they make their peace with it instead (Age_1_Runai.md). A faction in
 Age 0 has chosen no culture, so nothing fades for it yet.
+
+#### 6.9.9 Buildings on cursed ground decay (2026-10-22)
+
+Developer: "buildings on top of curse start to decay (they suffer from
+damage over time, they take more damage from enemies and work slower)."
+
+A **finished** player building whose position is on cursed ground:
+
+- **loses HP every second** — `dotPercentPerSecond` of its max HP a tick,
+  credited to nobody (a building the curse rots down is nobody's kill);
+- **takes more from every hit** — each hit is multiplied by
+  `damageTakenMultiplier`;
+- **works slower** — its training, its research and what it extracts run at
+  `workSpeedMultiplier` of their speed.
+
+Sites and plans are not finished and do not decay (the money is in the
+ground, not in a building). The **Cleansing Ward** (§6.9.7) and the **Runai
+Sanctuary** (it stands on cursed outcrops with Consecrated Ground) are exempt;
+so is everything the curse itself owns. The numbers are on
+`CursedGroundDecaySystem.asset` (`Border/CurseGround/`, read by
+`CursedGroundDecaySystem`; the hooks are `CursedGroundDecay.WorkSpeed` and
+`CursedGroundDecay.IncomingMultiplier`). Cleanse the ground and the decay
+stops the same second; the HP already lost stays lost until repaired.
 
 ### 6.10 The curse takes an army (2026-10-18)
 

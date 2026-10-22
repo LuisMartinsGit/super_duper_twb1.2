@@ -56,7 +56,6 @@ namespace TheWaningBorder.AI
         /// channelling)? The follow step leaves it alone.</summary>
         private bool OnCleanseErrand(EntityManager em, Entity h, float now)
         {
-            if (LitharchCleanse.IsChanneling(em, h)) return true;
             return _cleanseErrand.TryGetValue(h, out float until) && now < until;
         }
 
@@ -99,7 +98,6 @@ namespace TheWaningBorder.AI
             foreach (var h in healers)
             {
                 if (!em.HasComponent<LocalTransform>(h) || !em.HasComponent<UnitAbilities>(h)) continue;
-                if (LitharchCleanse.IsChanneling(em, h)) continue;
                 int slot = SlotOf(em.GetComponentData<UnitAbilities>(h), cleanse);
                 if (slot < 0 || !Ready(em, h, slot)) continue;
 
@@ -148,23 +146,10 @@ namespace TheWaningBorder.AI
             }
         }
 
-        /// <summary>Stop every channelling healer whose circle has reached its
-        /// maximum, or that has no cursed ground left within the circle, its
-        /// falloff band and <paramref name="margin"/> (Game_AI.md § 6n).</summary>
-        private void ReleaseFinishedCleanses(EntityManager em, List<Entity> healers, float margin)
-        {
-            foreach (var h in healers)
-            {
-                if (!LitharchCleanse.IsChanneling(em, h)) continue;
-                var c = em.GetComponentData<CleanseChannel>(h);
-                bool grown = c.Radius >= c.MaxRadius - 0.01f;
-                bool nothingLeft = !TheWaningBorder.Systems.Border.CurseGroundSystem.TryNearestCursed(
-                    c.Center, c.Radius + c.Falloff + math.max(0f, margin), null, out _);
-                if (!grown && !nothingLeft) continue;
-                CommandRouter.IssueStop(em, h, CommandSource.AI);
-                _cleanseErrand.Remove(h);
-            }
-        }
+        /// <summary>Nothing to release since 2026-10-22: a Cleanse plants a
+        /// ward that pulses on its own (Territory_Claims.md §6.9.7); the
+        /// Litharch is free the moment it lands.</summary>
+        private void ReleaseFinishedCleanses(EntityManager em, List<Entity> healers, float margin) { }
 
         private static int SlotOf(UnitAbilities ua, int idx)
         {

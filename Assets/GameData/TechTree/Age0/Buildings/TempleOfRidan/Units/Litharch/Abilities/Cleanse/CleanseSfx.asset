@@ -16,6 +16,7 @@ MonoBehaviour:
   burstClip: {fileID: 8300000, guid: e06b89d7227d4d50adbd977ff455604f, type: 3}
   loopVolume: 0.55
   burstVolume: 0.8
+  pulseVolume: 0.3
   fadeSeconds: 0.6
   minDistance: 30
   maxDistance: 120

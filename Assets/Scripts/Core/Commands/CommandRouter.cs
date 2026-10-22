@@ -2571,9 +2571,6 @@ namespace TheWaningBorder.Core.Commands
         /// </summary>
         public static void ClearAllCommands(EntityManager em, Entity unit)
         {
-            // Any order (stop, hold, heal, ...) ends a Litharch's Cleanse
-            // channel (Territory_Claims.md §6.9.7).
-            TheWaningBorder.Abilities.LitharchCleanse.Stop(em, unit);
             // Any other order drops a worker's build queue and cancels (with
             // a full refund) the plans in it that no other worker still holds
             // (docs/Design/Planned_Buildings.md §6). No-op for non-builders.

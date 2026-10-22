@@ -196,13 +196,14 @@ an ordinary right-click; so is any press on an enemy, a building, a wall top or
 a resource, and Shift (queueing) ignores the drag. The camera never uses the
 right button (pan is the middle button), so the two never compete.
 
-**Right-Drag length — the formation's width.** How far you drag sets how wide
-the army stands: a **short drag** (the cursor close to the point you pressed)
-makes a **broad** formation — each type of unit in a single long rank — and a
-**long drag** makes a **thin**, deep one, a few men wide. The ghost follows as
-you drag, so you see the width before you release; the direction still sets
-the facing. A plain right-click keeps the usual two-rank layout. The Wedge
-keeps its point and ignores the width.
+**Right-Drag length — the formation's width.** A **short drag** (under about
+5 m of ground) only turns the army: it keeps its usual layout and faces the
+way you dragged. Drag **farther** and the width follows: just past the dead
+zone the formation is at its **broadest** (at most a dozen men per rank, so
+never one endless line), and the farther you drag the **thinner and deeper**
+it stands, down to three per rank at about 30 m. The ghost follows as you
+drag, so you see the width before you release. A plain right-click keeps the
+usual two-rank layout. The Wedge keeps its point and ignores the width.
 
 **Shift + Right-Click** — Add an order to the END of each selected unit's
 queue instead of replacing what it is doing (up to **15** queued orders per
@@ -361,7 +362,9 @@ damage on hit.
 ### Special Combat Mechanics
 
 - **Healing** — Litharchs restore HP to allies in heal range. (Litharchs have **no attack** unless **Warrior Priests** is researched at the Temple of Ridan, per [Age_0.md](docs/Design/Age_0.md).)
-- **Cleanse** — every Litharch's aimed spell: pick a point in reach and the cursed ground in a 15 m wide circle there is cleared at once; keep the Litharch channelling and the cleared circle keeps growing. A holy hum plays while a visible Litharch channels. Being hit or given any order ends it; the cooldown starts then ([Territory_Claims.md §6.9.7](docs/Design/Territory_Claims.md)).
+- **Cleanse** — every Litharch's aimed spell: pick a point in reach and the Litharch plants a **Cleansing Ward** there. The ward clears the cursed ground in a 15 m wide circle at once, then **pulses every two seconds**, each pulse pushing the curse back a little farther (you see a ring and hear a burst with every pulse) until the circle reaches its full size. It stands until it is destroyed — and **the curse goes for wards first**, so defend it. The Litharch is free as soon as the ward lands ([Territory_Claims.md §6.9.7](docs/Design/Territory_Claims.md)).
+- **Cursed ground rots buildings** — a finished building standing on cursed ground loses HP every second, takes more damage from every hit and works at half speed (training, research, extraction). Cleanse the ground or lose the building ([Territory_Claims.md §6.9.9](docs/Design/Territory_Claims.md)).
+- **Field Hospitals are capped** — a team may keep two standing at once, at least 30 m apart; a cast past that is refused and costs no cooldown.
 - **Watch Tower garrison** (Alanthor) — up to 4 foot units inside a Watch Tower; each adds one target to its volley. Units ordered in from afar walk to the tower and go in on arrival; inside they leave the selection, and an **n/max** badge over the tower shows how many are in it. If the tower is destroyed they are put out alive around it.
 - **Spell Buffs** — Temporary status effects from sect spells (damage, cooldown, invulnerability).
 - **Mind Control** — Flips a unit's allegiance for a duration, then returns it.
@@ -409,15 +412,16 @@ ends.
 
 The **End Game** button lets you concede the match (recorded as a defeat).
 
-### After the Match — the Muster Rolls
+### After the Match — the Game Review
 
-The victory / defeat screen has a **Muster Rolls** button that opens the
+The victory / defeat screen has a **Game Review** button that opens the
 post-game report: a **Standings** table (Score with its Units / Buildings /
 Stockpile parts, K/D, kills, deaths, territories, Fortresses, techs) with the
 score over time, **Charts** of every faction's banks, army, population,
 buildings and territories over the match (click a faction in the legend to
 hide or show it), and a **Map** that replays the whole match from above —
-territories by owner, buildings, units and deaths — with Play / Pause, five
+territories by owner, the cursed ground spreading and receding, buildings,
+units and deaths — with Play / Pause, five
 speeds, a timeline scrubber, mouse-wheel zoom and drag to pan. **Close**
 returns to the victory screen. Every match is recorded for it automatically
 (docs/Design/Muster_Rolls_PostGame.md).

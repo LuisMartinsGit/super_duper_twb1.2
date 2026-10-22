@@ -121,11 +121,9 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
             creator.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 2 });
 
-            // Cleanse (Territory_Claims.md §6.9.7), from the SO's abilities, and
-            // its channel pre-added idle so starting one is a plain write.
+            // Cleanse (Territory_Claims.md §6.9.7), from the SO's abilities.
             creator.AddComponent(entity, TheWaningBorder.Abilities.AbilityAssignment.Build(def.abilities));
             creator.AddComponent(entity, default(TheWaningBorder.Abilities.AbilityCooldowns));
-            creator.AddComponent(entity, default(CleanseChannel));
 
             return entity;
         }

@@ -230,16 +230,6 @@ namespace TheWaningBorder.Systems.Combat
                 // An ordered attack (Warrior Priests Litharch) is also an order
                 // healing must not fight over the destination with.
                 if (TransientState.Active<AttackCommand>(em, entity)) continue;
-                // Channelling a Cleanse (Territory_Claims.md §6.9.7): it stands
-                // and heals through the channel, not by walking to patients —
-                // a step toward one would carry it off its circle.
-                if (TheWaningBorder.Abilities.LitharchCleanse.IsChanneling(em, entity))
-                {
-                    lithState.ValueRW.HealTarget = Entity.Null;
-                    lithState.ValueRW.IsHealing = 0;
-                    lithState.ValueRW.SteppingAway = 0;
-                    continue;
-                }
 
                 bool hold = lithIn[li].Hold != 0;
 

@@ -107,6 +107,7 @@ namespace TheWaningBorder.Systems.Border
             public float3 P;
             public bool Production;   // trains units (carries a RallyPoint)
             public bool Locking;      // finished, and LOCKS its territory (§3)
+            public bool Ward;         // a Cleansing Ward: struck first (§6.9.7)
         }
 
         private readonly List<PlayerBuilding> _playerBuildings = new();
@@ -138,6 +139,7 @@ namespace TheWaningBorder.Systems.Border
                     Production = em.HasComponent<RallyPoint>(ents[i]),
                     Locking = !em.HasComponent<UnderConstruction>(ents[i])
                               && global::TheWaningBorder.Systems.World.TerritoryClaimSystem.IsLocking(em, ents[i]),
+                    Ward = em.HasComponent<CleanseWardTag>(ents[i]),
                 });
             }
             _playerBuildings.Sort((a, b) => a.E.Index.CompareTo(b.E.Index));
@@ -181,8 +183,8 @@ namespace TheWaningBorder.Systems.Border
         /// territory (a conquest wave's objectives, §6.8).</summary>
         private int ObjectiveIn(Faction f, int territory, float3 from, bool lockingOnly = false)
         {
-            int bestProd = -1, bestAny = -1;
-            float dProd = float.MaxValue, dAny = float.MaxValue;
+            int bestProd = -1, bestAny = -1, bestWard = -1;
+            float dProd = float.MaxValue, dAny = float.MaxValue, dWard = float.MaxValue;
             for (int i = 0; i < _playerBuildings.Count; i++)
             {
                 var b = _playerBuildings[i];
@@ -192,7 +194,12 @@ namespace TheWaningBorder.Systems.Border
                 float d = Distance2(b.P, from);
                 if (d < dAny) { dAny = d; bestAny = i; }
                 if (b.Production && d < dProd) { dProd = d; bestProd = i; }
+                // A Cleansing Ward in the territory is struck before anything
+                // else (Territory_Claims.md §6.9.7): it is what pushes the
+                // curse back, and the player is meant to have to defend it.
+                if (b.Ward && d < dWard) { dWard = d; bestWard = i; }
             }
+            if (bestWard >= 0) return bestWard;
             return bestProd >= 0 ? bestProd : bestAny;
         }
 
@@ -205,6 +212,9 @@ namespace TheWaningBorder.Systems.Border
             {
                 if (_playerBuildings[i].F != f) continue;
                 float d = Distance2(_playerBuildings[i].P, from);
+                // A ward counts as a quarter of its distance (half, squared):
+                // the wave goes for it unless something else is much nearer.
+                if (_playerBuildings[i].Ward) d *= 0.25f;
                 if (d < bestD) { bestD = d; best = i; }
             }
             return best;

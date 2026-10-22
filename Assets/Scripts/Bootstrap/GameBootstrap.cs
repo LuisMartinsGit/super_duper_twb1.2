@@ -646,6 +646,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<TheWaningBorder.Rendering.UnitHealVfx>();
             managersGO.AddComponent<TheWaningBorder.Rendering.UnitCombatVfx>();   // hits, charge impacts, speed / attack buffs
             managersGO.AddComponent<TheWaningBorder.Rendering.RenewalVfx>();
+            managersGO.AddComponent<TheWaningBorder.Rendering.CleanseWardVfx>();  // the Cleansing Ward's pulse aura
             managersGO.AddComponent<TheWaningBorder.Rendering.ShardrootVfx>();
             managersGO.AddComponent<TheWaningBorder.Rendering.CleanseSfx>();     // a Litharch's Cleanse: loop + burst (presentation only)
             managersGO.AddComponent<SelectionSystem>();          // Click + box select

@@ -82,5 +82,9 @@ namespace TheWaningBorder.Input
         /// <summary>Most units per rank a short drag makes (the broad end); a
         /// block smaller than this simply stands in one rank.</summary>
         public int widthMaxColumns;
+
+        /// <summary>Drags shorter than this (ground metres) only set the facing
+        /// and keep the formation's usual width (2026-10-22).</summary>
+        public float widthDeadZoneMetres;
     }
 }

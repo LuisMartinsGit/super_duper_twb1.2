@@ -41,6 +41,8 @@ namespace TheWaningBorder.Abilities
             }
             m *= TheWaningBorder.Entities.ShardboundKingRules.IncomingMultiplier(em, target);
             m *= TheWaningBorder.Entities.ShardrootEmpowerment.IncomingMultiplier(em, target);
+            // A building on cursed ground takes more (Territory_Claims.md §6.9.9).
+            m *= TheWaningBorder.Systems.Border.CursedGroundDecay.IncomingMultiplier(em, target);
             return m;
         }
 
@@ -52,7 +54,7 @@ namespace TheWaningBorder.Abilities
         {
             if (damage <= 0) return damage;
             float m = IncomingMultiplier(em, target);
-            int scaled = m >= 1f ? damage : math.max(1, (int)(damage * m));
+            int scaled = math.abs(m - 1f) < 1e-4f ? damage : math.max(1, (int)(damage * m));
             // The Shardbound King's swarm cap (Curse_And_Shardroot.md § 3.1b), spent once per hit.
             return TheWaningBorder.Entities.ShardboundKingRules.CapIncoming(em, target, scaled);
         }

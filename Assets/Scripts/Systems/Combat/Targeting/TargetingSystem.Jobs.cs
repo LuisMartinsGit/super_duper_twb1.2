@@ -369,6 +369,8 @@ namespace TheWaningBorder.Systems.Combat
                             }
 
                             byte prio = ec.Prio;
+                            // The curse goes for a Cleansing Ward before anything else in reach.
+                            if (myFaction == Faction.Border && (flags & FlagWard) != 0) prio = byte.MaxValue;
                             if (dist < anyBestDist) { anyBest = cand; anyBestDist = dist; anyBestPrio = prio; }
                             if (prio > prioBestPrio || (prio == prioBestPrio && dist < prioBestDist))
                             {

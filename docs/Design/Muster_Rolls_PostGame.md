@@ -1,4 +1,7 @@
-# The Muster Rolls — post-game screen
+# The Game Review — post-game screen
+
+*Renamed from "Muster Rolls" on 2026-10-22 (the button, the page title and
+the menu say **Game Review**; the code keeps its `MusterRolls*` names).*
 
 *2026-10-08.* The match report that used to exist only as a browser page
 (`tools/twb-report-page.html`, fed by `tools/twb-match-data.py` from the
@@ -16,7 +19,7 @@ it). Three tabs; **Close** returns to whatever was underneath.
 |---|---|
 | **Standings** | one row per faction ranked by final Score: Score, Units, Buildings, Stockpile (docs/Design/Score.md), K/D, kills, deaths, territories, Fortresses, techs; the local player is marked, and the winner; below it the **Score over time** |
 | **Charts** | Units / Buildings / Stockpile score, K/D, the four banks (supplies, iron, veilstone, veilsteel), army units, population, buildings and territories over match time, one line per faction in its player colour; clicking a faction in the legend hides or shows it on every chart |
-| **Map** | the recorded match replayed from above: the map's lobby picture, territories tinted by their owner at the playhead (the curse in purple), resource nodes, buildings on their real footprints (sites translucent, level pips), units as class symbols (melee circle, ranged triangle, cavalry diamond, siege square, worker ring, hero and curse star; a fighting unit is backed in red), and a fading ring wherever a unit died. Play / Pause, the speeds on the config asset, a timeline scrubber, mouse-wheel zoom about the cursor and drag to pan. A sidebar shows the clock and each faction's units and buildings at the playhead |
+| **Map** | the recorded match replayed from above: the map's lobby picture, territories tinted by their owner at the playhead (the curse in purple), **the cursed ground itself as a purple layer that spreads and recedes with the playhead (2026-10-22: `MatchRecord.CurseFrames`, one bit a cell at half the partition's resolution, a frame whenever `CurseGroundSystem.Version` moved and the raster changed)**, resource nodes, buildings on their real footprints (sites translucent, level pips), units as class symbols (melee circle, ranged triangle, cavalry diamond, siege square, worker ring, hero and curse star; a fighting unit is backed in red), and a fading ring wherever a unit died. Play / Pause, the speeds on the config asset, a timeline scrubber, mouse-wheel zoom about the cursor and drag to pan. A sidebar shows the clock and each faction's units and buildings at the playhead |
 
 The map is the post-game view: it shows everything, with no fog of war.
 

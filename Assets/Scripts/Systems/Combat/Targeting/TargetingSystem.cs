@@ -136,6 +136,7 @@ namespace TheWaningBorder.Systems.Combat
         private const byte FlagHero = 8;     // HeroLevel (TargetPreference "Hero")
         private const byte FlagCivilian = 16; // Runai caravan / escort / trader-warrior (Veiled Pilgrims)
         private const byte FlagFlying = 32;   // FlyingTag: only ranged units and ballistas may pick it
+        private const byte FlagWard = 64;     // CleanseWardTag: the curse's preferred target (Territory_Claims.md §6.9.7)
 
         /// <summary>A FLYING target (docs/Design/Age_1_Runai.md §6.4) can be hit
         /// only by ranged units, ballistas and shooting buildings — never melee,
@@ -317,6 +318,7 @@ namespace TheWaningBorder.Systems.Combat
                 TraderWarrior = SystemAPI.GetComponentLookup<RunaiTraderWarrior>(true),
                 Escort = SystemAPI.GetComponentLookup<RunaiEscort>(true),
                 Flying = SystemAPI.GetComponentLookup<FlyingTag>(true),
+                Ward = SystemAPI.GetComponentLookup<CleanseWardTag>(true),
                 UnitTags = SystemAPI.GetComponentLookup<UnitTagsData>(true),
                 Unit = SystemAPI.GetComponentLookup<UnitTag>(true),
             };
@@ -513,6 +515,7 @@ namespace TheWaningBorder.Systems.Combat
                 if (caravan || lk.TraderWarrior.HasComponent(e)
                     || lk.Escort.HasComponent(e)) flags |= FlagCivilian;
                 if (lk.Flying.HasComponent(e)) flags |= FlagFlying;
+                if (lk.Ward.HasComponent(e)) flags |= FlagWard;
                 _cacheFlags[i] = flags;
                 _cacheTags[i] = lk.UnitTags.TryGetComponent(e, out var tags) ? tags.Mask : 0u;
 
@@ -799,6 +802,7 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public ComponentLookup<RunaiTraderWarrior> TraderWarrior;
             [ReadOnly] public ComponentLookup<RunaiEscort> Escort;
             [ReadOnly] public ComponentLookup<FlyingTag> Flying;
+            [ReadOnly] public ComponentLookup<CleanseWardTag> Ward;
             [ReadOnly] public ComponentLookup<UnitTagsData> UnitTags;
             [ReadOnly] public ComponentLookup<UnitTag> Unit;
         }

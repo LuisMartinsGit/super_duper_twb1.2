@@ -12,7 +12,8 @@
 //                owner, buildings, units, deaths, with play / pause, speeds,
 //                a scrubber, wheel zoom and drag pan.
 //
-// Opened from the victory panel's "Muster Rolls" button, or by anything else
+// The GAME REVIEW screen (renamed from Muster Rolls 2026-10-22; the class
+// names stay). Opened from the victory panel's "Game Review" button, or by anything else
 // through MusterRollsPanel.Open() (a replay that ends opens it too). Close
 // returns to whatever was under it. Spawned hidden by GameUIManager after the
 // victory panel, so it covers it.
@@ -202,7 +203,7 @@ namespace TheWaningBorder.UI.Ingame
             Place(panel, Vector2.zero, Vector2.one, new Vector2(Inset, Inset), new Vector2(-Inset, -Inset));
             GameUIKit.PanelChrome(panel);
 
-            var title = GameUIKit.Text(panel, "title", Loc.T("MUSTER ROLLS"), 64f, GameUIKit.Gold,
+            var title = GameUIKit.Text(panel, "title", Loc.T("GAME REVIEW"), 64f, GameUIKit.Gold,
                 TextAlignmentOptions.TopLeft, wrap: false);
             title.fontStyle = FontStyles.Bold;
             title.characterSpacing = 8f;

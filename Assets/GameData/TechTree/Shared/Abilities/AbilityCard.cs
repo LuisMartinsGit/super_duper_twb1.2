@@ -117,10 +117,10 @@ namespace TheWaningBorder.Abilities
         // The Litharch's Cleanse (Territory_Claims.md §6.9.7, 2026-10-18) —
         // LitharchCleanse. CleanseGround starts the channel; the other three
         // are its parameters, read off the card, and do nothing on their own.
-        CleanseGround = 46,        // channel: the aimed Radius circle is cleared, then grows by Value m² a second
+        CleanseGround = 46,        // plants a Cleansing Ward: the aimed Radius circle is cleared, then grows by Value m² a second (per pulse x pulseSeconds)
         CleanseFalloff = 47,       // width (m) of the falloff band outside the cleared circle
         CleanseMaxRadius = 48,     // the cleared circle stops growing at this radius (m)
-        CleanseHeal = 49,          // HP a second healed on allies inside the starting circle while it channels
+        CleanseHeal = 49,          // (unused since 2026-10-22: the ward does not heal)
     }
 
     /// <summary>

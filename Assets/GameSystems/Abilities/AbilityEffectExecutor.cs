@@ -183,6 +183,17 @@ namespace TheWaningBorder.Abilities
                                 ? em.GetComponentData<LocalTransform>(caster).Position : float3.zero;
                             Faction hpFac = em.HasComponent<FactionTag>(caster)
                                 ? em.GetComponentData<FactionTag>(caster).Value : default;
+                            // The team's cap and spacing (docs/Design/Sects.md,
+                            // FieldHospitalSystem.asset): a refused cast costs
+                            // nothing — the cooldown the lifecycle just charged
+                            // is given back.
+                            if (!TheWaningBorder.Entities.FieldHospital.CanDeploy(em, hpFac, hpPos, out string hpWhy))
+                            {
+                                AbilityCooldownUtil.Refund(em, caster, card);
+                                if (hpFac == GameSettings.LocalPlayerFaction)
+                                    TheWaningBorder.Core.SimSignals.Notify(hpWhy);
+                                break;
+                            }
                             TheWaningBorder.Entities.FieldHospital.Create(em, hpPos, hpFac);
                         }
                         break;
@@ -207,8 +218,8 @@ namespace TheWaningBorder.Abilities
                     case AbilityEffectKind.CurseVeilOffering:
                         TheWaningBorder.Systems.Border.VeilOffering.Offer(em, caster, card);
                         break;
-                    // The Litharch's Cleanse (Territory_Claims.md §6.9.7): starts the
-                    // channel; CleanseFalloff / MaxRadius / Heal are its parameters.
+                    // The Litharch's Cleanse (Territory_Claims.md §6.9.7): plants a
+                    // Cleansing Ward; CleanseFalloff / MaxRadius are its parameters.
                     case AbilityEffectKind.CleanseGround:
                         LitharchCleanse.Begin(em, caster, card, e.Value);
                         break;

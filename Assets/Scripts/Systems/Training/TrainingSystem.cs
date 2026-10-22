@@ -94,6 +94,9 @@ namespace TheWaningBorder.Systems.Training
             float boonSpeed = WarSectCostHelper.TrainingBoonSpeedMultiplier(em, building);
             if (boonSpeed > 1f) trainingTime /= boonSpeed;
 
+            // A building on cursed ground works slower (Territory_Claims.md §6.9.9).
+            trainingTime /= TheWaningBorder.Systems.Border.CursedGroundDecay.WorkSpeed(em, building);
+
             // Building upgrade: cultured Hall/Barracks train faster.
             // Multiplier is 1.0 at lvl 0 and shrinks per level.
             if (em.HasComponent<BuildingUpgradeState>(building))

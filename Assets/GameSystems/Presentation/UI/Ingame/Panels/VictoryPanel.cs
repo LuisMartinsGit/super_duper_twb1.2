@@ -125,7 +125,7 @@ namespace TheWaningBorder.UI.Ingame
             GameUIKit.FixHeight(_subtitle.gameObject, 44f);
 
             // The post-game report (docs/Design/Muster_Rolls_PostGame.md).
-            MakeButton(panel, "musterrolls", Loc.T("Muster Rolls"), () => MusterRollsPanel.Open());
+            MakeButton(panel, "musterrolls", Loc.T("Game Review"), () => MusterRollsPanel.Open());
 
             // Buttons other code adds through ExtraButtons.
             _extras = GameUIKit.Rect(panel, "extras");

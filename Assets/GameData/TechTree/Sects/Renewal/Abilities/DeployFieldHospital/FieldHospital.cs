@@ -29,6 +29,57 @@ namespace TheWaningBorder.Entities
         public const float BuildingRadius = 1.2f;
         public const float Sight = 10f;
 
+        static readonly ComponentType[] QT_Standing =
+        {
+            ComponentType.ReadOnly<FieldHospitalTag>(),
+            ComponentType.ReadOnly<FieldHospitalState>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static TheWaningBorder.Core.CachedEntityQuery QC_Standing;
+
+        /// <summary>
+        /// May <paramref name="faction"/> raise a hospital at <paramref name="position"/>?
+        /// No past the TEAM's cap of standing hospitals, and no within the
+        /// spacing of one of the team's (docs/Design/Sects.md, Renewal;
+        /// FieldHospitalSystem.asset). The reason names the rule broken.
+        /// </summary>
+        public static bool CanDeploy(EntityManager em, Faction faction, float3 position, out string reason)
+        {
+            reason = null;
+            var cfg = TheWaningBorder.Systems.Buildings.FieldHospitalSystemConfig.I;
+            if (cfg == null) return true;
+            int cap = cfg.capPerTeam;
+            float minD2 = cfg.minSpacingMetres * cfg.minSpacingMetres;
+            var q = QC_Standing.Get(em, QT_Standing);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            using var hps = q.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
+            using var sts = q.ToComponentDataArray<FieldHospitalState>(Unity.Collections.Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            int standing = 0;
+            for (int i = 0; i < facs.Length; i++)
+            {
+                if (hps[i].Value <= 0 || sts[i].TimeToLive <= 0f) continue;
+                if (!Alliances.AreAllied(faction, facs[i].Value)) continue;
+                standing++;
+                float2 d = xfs[i].Position.xz - position.xz;
+                if (minD2 > 0f && math.dot(d, d) < minD2)
+                {
+                    reason = string.Format(TheWaningBorder.Core.Localization.Loc.T(
+                        "Too close to another field hospital (keep {0} m apart)."), (int)cfg.minSpacingMetres);
+                    return false;
+                }
+            }
+            if (cap > 0 && standing >= cap)
+            {
+                reason = string.Format(TheWaningBorder.Core.Localization.Loc.T(
+                    "Your team already has {0} field hospital(s) standing."), cap);
+                return false;
+            }
+            return true;
+        }
+
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
             Entity e = em.CreateEntity();

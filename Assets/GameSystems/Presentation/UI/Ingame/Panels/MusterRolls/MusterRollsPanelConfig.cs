@@ -35,5 +35,7 @@ namespace TheWaningBorder.UI.Ingame
         public float chartLineWidth;
         /// <summary>The curse's colour on the map (territories, units, buildings).</summary>
         public Color curseColor;
+        /// <summary>Alpha of the cursed-ground layer on the review map.</summary>
+        public float curseGroundAlpha;
     }
 }

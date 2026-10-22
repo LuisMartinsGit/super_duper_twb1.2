@@ -28,3 +28,4 @@ MonoBehaviour:
   chartMaxPoints: 320
   chartLineWidth: 4
   curseColor: {r: 0.62, g: 0.3, b: 0.85, a: 1}
+  curseGroundAlpha: 0.55

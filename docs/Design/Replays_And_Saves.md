@@ -51,7 +51,7 @@ simulation and seeded.
   first second the replay stopped being the match that was played (something
   changed the world outside the command stream).
 - **End:** a replay of a decided match shows the same victory screen; one that
-  was quit shows *REPLAY ENDED*. Both offer **Muster Rolls** and **Watch
+  was quit shows *REPLAY ENDED*. Both offer **Game Review** and **Watch
   Again**.
 - **Build-bound:** a replay only plays on the build that recorded it (the
   file carries the build fingerprint: game version + lockstep protocol +
@@ -161,5 +161,5 @@ still load).
 | Load Game screen | `Scenes/Menus/MainMenu/SavedGamesScreen.cs`, `LoadGameMenuButton.cs` |
 | Headless verifier | `HeadlessBatch`: `-twbReplay <file>` (exit 0 identical, 42 diverged, 3 unreadable); `-twbSaveAt <s>` (save mid-match); `-twbResume <save> -twbLimit N`; `-twbOracle <save> -twbOracleReplay <replay>` (restore the snapshot, feed the uninterrupted match's commands, compare hashes — measures what a load does not carry) |
 
-The post-game Muster Rolls screen records every match and every replay on sim
+The post-game Game Review screen records every match and every replay on sim
 time: [Muster_Rolls_PostGame.md](Muster_Rolls_PostGame.md).

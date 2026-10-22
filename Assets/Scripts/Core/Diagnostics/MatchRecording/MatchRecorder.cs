@@ -79,6 +79,8 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
         private int _ownVersion = int.MinValue;
         private int[] _ownLast = Array.Empty<int>();
         private int _stamp;
+        private int _curseVersion = int.MinValue;
+        private byte[] _curseLast;
         private readonly Dictionary<Entity, int> _unitIndex = new Dictionary<Entity, int>();
         private readonly List<int> _liveUnits = new List<int>();
         private readonly List<int> _unitStamp = new List<int>();
@@ -188,6 +190,7 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
             {
                 _nextSeries = t + Mathf.Max(0.5f, cfg.seriesIntervalSeconds);
                 SampleSeries(em, t);
+                if (_partitionDone) SampleCurse(t);
             }
 
             // Stop on the RISING edge of the decided flag: a flag left set by
@@ -213,6 +216,8 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
             _nextPos = 0f;
             _nextSeries = 0f;
             _ownVersion = int.MinValue;
+            _curseVersion = int.MinValue;
+            _curseLast = null;
             _ownLast = Array.Empty<int>();
             _stamp = 0;
             _unitIndex.Clear();
@@ -320,6 +325,59 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
             _rec.TerritoryW = w;
             _rec.TerritoryH = h;
             _rec.TerritoryCells = cells;
+        }
+
+        /// <summary>The cursed ground (CurseGroundSystem), on the series
+        /// cadence, only when its version moved and the raster differs from
+        /// the last frame kept: half the partition's resolution, one bit a
+        /// cell (2026-10-22, the review map's curse layer).</summary>
+        private void SampleCurse(float t)
+        {
+            if (!TheWaningBorder.Systems.Border.CurseGroundSystem.Ready) return;
+            int version = TheWaningBorder.Systems.Border.CurseGroundSystem.Version;
+            if (version == _curseVersion) return;
+            _curseVersion = version;
+            if (_rec.TerritoryCells == null || _rec.TerritoryW <= 0) return;
+
+            if (_rec.CurseW <= 0)
+            {
+                _rec.CurseCell = _rec.TerritoryCell * 2f;
+                _rec.CurseX0 = _rec.TerritoryX0;
+                _rec.CurseZ0 = _rec.TerritoryZ0;
+                _rec.CurseW = Mathf.Max(1, (_rec.TerritoryW + 1) / 2);
+                _rec.CurseH = Mathf.Max(1, (_rec.TerritoryH + 1) / 2);
+            }
+            int w = _rec.CurseW, h = _rec.CurseH;
+            float cell = _rec.CurseCell;
+            var bits = new byte[(w * h + 7) / 8];
+            bool any = false;
+            float q = cell * 0.25f;
+            for (int j = 0; j < h; j++)
+            {
+                float z = _rec.CurseZ0 + (j + 0.5f) * cell;
+                for (int i = 0; i < w; i++)
+                {
+                    float x = _rec.CurseX0 + (i + 0.5f) * cell;
+                    // Four sub-samples, so a thin edge is not lost to the coarser raster.
+                    bool cursed = TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(x - q, z - q)
+                               || TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(x + q, z - q)
+                               || TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(x - q, z + q)
+                               || TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(x + q, z + q);
+                    if (!cursed) continue;
+                    int k = j * w + i;
+                    bits[k >> 3] |= (byte)(1 << (k & 7));
+                    any = true;
+                }
+            }
+            if (_curseLast != null && _curseLast.Length == bits.Length)
+            {
+                bool same = true;
+                for (int b = 0; b < bits.Length && same; b++) same = bits[b] == _curseLast[b];
+                if (same) return;
+            }
+            else if (_curseLast == null && !any) return;   // still nothing cursed: no frame yet
+            _curseLast = bits;
+            _rec.CurseFrameList.Add(new CurseFrame { T = t, Bits = bits });
         }
 
         /// <summary>Owner-change events, read only when

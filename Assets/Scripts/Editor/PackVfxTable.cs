@@ -55,6 +55,8 @@ namespace TheWaningBorder.EditorTools
             (Lana + "Regeneration/Regeneration_health_area.prefab", Renewal + "HandsOfPlenty/HandsOfPlenty_Landing.prefab"),
             (Lana + "Regeneration/Regeneration_health_loop.prefab", Renewal + "HandsOfPlenty/HandsOfPlenty_RegenTail.prefab"),
             (Lana + "Burst/Burst_rings.prefab", Renewal + "SecondWind/SecondWind_Landing.prefab"),
+            // The Cleansing Ward's pulse (Territory_Claims.md §6.9.7)
+            (Lana + "Burst/Burst_rings.prefab", T + "Age0/Buildings/TempleOfRidan/Units/Litharch/Abilities/Cleanse/CleanseWard_Pulse.prefab"),
             (Lana + "Shields/Shield_wind.prefab", Renewal + "SecondWind/SecondWind_Ward.prefab"),
             (Lana + "Burst/Poof_leaves.prefab", Renewal + "RaiseAnew/RaiseAnew_Landing.prefab"),
             (Lana + "Regeneration/Regeneration_health_area.prefab", Renewal + "DeployFieldHospital/DeployFieldHospital_Effect.prefab"),

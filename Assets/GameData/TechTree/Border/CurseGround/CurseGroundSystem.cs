@@ -67,7 +67,6 @@ namespace TheWaningBorder.Systems.Border
 
         private EntityQuery _nodeQuery;
         private EntityQuery _curseUnitQuery;
-        private EntityQuery _cleanseQuery;
         private readonly byte[] _cultures = new byte[64];
         private bool[] _fades = System.Array.Empty<bool>();
         private readonly List<int> _changeIdx = new List<int>(1024);
@@ -186,9 +185,6 @@ namespace TheWaningBorder.Systems.Border
                 .Build(this);
             _curseUnitQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<BorderUnitTag, LocalTransform, Health>()
-                .Build(this);
-            _cleanseQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<CleanseChannel>()
                 .Build(this);
         }
 
@@ -324,7 +320,6 @@ namespace TheWaningBorder.Systems.Border
             for (int c = 0; c < _changeIdx.Count; c++) SetFeed(_changeIdx[c], _changeFeed[c]);
 
             // 4. Litharchs' Cleanse: last, so a channelled circle ends every step clean.
-            ApplyCleanses();
 
             if (_step % 30 == 1)
             {
@@ -347,21 +342,6 @@ namespace TheWaningBorder.Systems.Border
                 int owner = TerritoryOwnership.OwnerOf(t);
                 byte culture = owner >= 0 && owner < _cultures.Length ? _cultures[owner] : Cultures.None;
                 _fades[t] = culture != Cultures.None && culture != Cultures.Runai;
-            }
-        }
-
-        /// <summary>Every running Cleanse clears its circle outright and its
-        /// falloff band by chance. Order-independent: clearing is idempotent
-        /// and every roll is a cell-and-step hash.</summary>
-        private void ApplyCleanses()
-        {
-            if (_cleanseQuery.IsEmpty) return;
-            using var chans = _cleanseQuery.ToComponentDataArray<CleanseChannel>(Allocator.Temp);
-            for (int k = 0; k < chans.Length; k++)
-            {
-                var c = chans[k];
-                if (c.Active == 0 || c.Radius <= 0f) continue;
-                ClearCircle(c.Center.x, c.Center.z, c.Radius, c.Falloff);
             }
         }
 

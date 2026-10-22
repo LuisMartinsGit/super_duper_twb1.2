@@ -278,6 +278,8 @@ namespace TheWaningBorder.Systems.Production
 
                     // Royal Index (Antiquity): all research 30% faster.
                     researchTime *= SectResearchEffects.ResearchTimeMultiplier(faction);
+                    // A building on cursed ground works slower (Territory_Claims.md §6.9.9).
+                    researchTime /= TheWaningBorder.Systems.Border.CursedGroundDecay.WorkSpeed(em, e);
 
                     Begin(em, e, ref ps, researchTime);
                     return;

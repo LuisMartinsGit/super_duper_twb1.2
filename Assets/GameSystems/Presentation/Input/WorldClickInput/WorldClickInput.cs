@@ -509,6 +509,10 @@ namespace TheWaningBorder.Input
         /// </summary>
         private int ColumnsForDrag(float metres, int broadest)
         {
+            // A short drag only turns the army (2026-10-22): inside the dead
+            // zone the layout keeps its usual width (0 = the planner's default),
+            // so a flick of the mouse no longer strings everyone out in one line.
+            if (metres < Cfg.widthDeadZoneMetres) return 0;
             int thin = math.clamp(Cfg.widthMinColumns, 1, math.max(1, broadest));
             float span = Cfg.widthFarMetres - Cfg.widthNearMetres;
             float t = span > 1e-3f ? math.saturate((metres - Cfg.widthNearMetres) / span) : 1f;

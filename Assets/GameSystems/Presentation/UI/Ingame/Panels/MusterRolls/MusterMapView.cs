@@ -26,6 +26,10 @@ namespace TheWaningBorder.UI.Ingame
         private RawImage _thumb;
         private RawImage _terrImage;
         private Texture2D _terrTex;
+        private RawImage _curseImage;
+        private Texture2D _curseTex;
+        private Color32[] _cursePx;
+        private int _curseStamp = -2;
         private Color32[] _terrPx;
         private bool[] _terrEdge;
         private int[] _owners;
@@ -65,6 +69,12 @@ namespace TheWaningBorder.UI.Ingame
             var tr = view._terrImage.rectTransform;
             tr.anchorMin = tr.anchorMax = new Vector2(0.5f, 0.5f);
             tr.pivot = Vector2.zero;
+
+            // The cursed ground, over the territories (2026-10-22).
+            view._curseImage = Raw(view._content, "curse");
+            var cr = view._curseImage.rectTransform;
+            cr.anchorMin = cr.anchorMax = new Vector2(0.5f, 0.5f);
+            cr.pivot = Vector2.zero;
 
             view._labelRoot = GameUIKit.Rect(view._content, "regionNames");
             GameUIKit.Stretch(view._labelRoot);
@@ -117,6 +127,7 @@ namespace TheWaningBorder.UI.Ingame
             _thumb.color = new Color(1f, 1f, 1f, cfg != null ? cfg.thumbnailAlpha : 0.85f);
 
             BuildTerritory();
+            BuildCurse();
 
             for (int i = 0; i < rec.Regions.Count; i++)
             {
@@ -175,6 +186,61 @@ namespace TheWaningBorder.UI.Ingame
             tr.sizeDelta = new Vector2(w * rec.TerritoryCell, h * rec.TerritoryCell);
         }
 
+        private void BuildCurse()
+        {
+            var rec = _rec;
+            _curseStamp = -2;
+            if (rec.CurseW <= 0 || rec.CurseH <= 0)
+            {
+                _curseImage.enabled = false;
+                return;
+            }
+            int w = rec.CurseW, h = rec.CurseH;
+            if (_curseTex == null || _curseTex.width != w || _curseTex.height != h)
+            {
+                if (_curseTex != null) Destroy(_curseTex);
+                _curseTex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+                {
+                    filterMode = FilterMode.Point,
+                    wrapMode = TextureWrapMode.Clamp,
+                    name = "GameReviewCurse",
+                };
+            }
+            _cursePx = new Color32[w * h];
+            _curseImage.texture = _curseTex;
+            _curseImage.enabled = true;
+            var cr = _curseImage.rectTransform;
+            cr.anchoredPosition = new Vector2(rec.CurseX0 - _centre.x, rec.CurseZ0 - _centre.y);
+            cr.sizeDelta = new Vector2(w * rec.CurseCell, h * rec.CurseCell);
+        }
+
+        /// <summary>The cursed ground at <paramref name="t"/>: the frame in
+        /// force, repainted only when it changes.</summary>
+        private void PaintCurse(float t)
+        {
+            var rec = _rec;
+            if (rec.CurseW <= 0) return;
+            // The record grows while a match is still being recorded: a
+            // raster that appeared after the bind needs its texture.
+            if (_curseTex == null || _cursePx == null || _cursePx.Length != rec.CurseW * rec.CurseH)
+            {
+                BuildCurse();
+                if (_curseTex == null) return;
+            }
+            int idx = rec.CurseFrameAt(t);
+            if (idx == _curseStamp) return;
+            _curseStamp = idx;
+            Color c = _cfg != null ? _cfg.curseColor : new Color(0.62f, 0.3f, 0.85f);
+            c.a = _cfg != null ? _cfg.curseGroundAlpha : 0.55f;
+            var on = (Color32)c;
+            var off = new Color32(0, 0, 0, 0);
+            byte[] bits = idx >= 0 ? rec.CurseFrames[idx].Bits : null;
+            for (int k = 0; k < _cursePx.Length; k++)
+                _cursePx[k] = bits != null && (bits[k >> 3] & (1 << (k & 7))) != 0 ? on : off;
+            _curseTex.SetPixels32(_cursePx);
+            _curseTex.Apply(false);
+        }
+
         private void PaintTerritory(float t)
         {
             var rec = _rec;
@@ -216,6 +282,7 @@ namespace TheWaningBorder.UI.Ingame
             ClampPan();
 
             PaintTerritory(t);
+            PaintCurse(t);
 
             if (!Mathf.Approximately(_labelZoom, s))
             {

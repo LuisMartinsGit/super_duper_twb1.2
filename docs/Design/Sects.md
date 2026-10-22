@@ -242,7 +242,12 @@ III survivors heal 25 % when it ends. **S / S / M**.
 **[BUILDING] Mending Hall** — damaged units inside heal over time; while it
 stands, your buildings slowly repair themselves out of combat.
 
-**[RESEARCH] Field Hospital** — Litharchs gain Deploy Field Hospital.
+**[RESEARCH] Field Hospital** — Litharchs gain Deploy Field Hospital. **A team
+(a faction and its allies) may keep at most `capPerTeam` hospitals standing at
+once, and no two closer than `minSpacingMetres` (`FieldHospitalSystem.asset`,
+2026-10-22)**: a cast past the cap or too close is refused and costs no
+cooldown. The AI used to stack them into an instant-heal zone under an army
+that could not be killed.
 
 **[UNIT] Scar Guard** — heavy melee shock. **Borrowed Breath:** more damage
 the lower its HP. Weak to ranged focus fire. Pairs with the Surgeon and

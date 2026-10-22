@@ -1134,8 +1134,10 @@ namespace TheWaningBorder.Systems.World
                     _builtEntity.Add(ents[i]);
                     // Slave crews (Feraldis) and the Alanthor sects (Embargo,
                     // Overtime, the Treasury) scale what an extractor earns.
+                    // A building on cursed ground works slower (Territory_Claims.md §6.9.9).
                     _builtCrew.Add(TheWaningBorder.Feraldis.FeraldisEconomy.IncomeMultiplier(em, ents[i])
-                                   * TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ExtractorMultiplier(em, ents[i]));
+                                   * TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ExtractorMultiplier(em, ents[i])
+                                   * TheWaningBorder.Systems.Border.CursedGroundDecay.WorkSpeed(em, ents[i]));
                 }
             }
         }

@@ -703,6 +703,11 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // Sect units. These pids already had PrefabPaths rows pointing
                 // at borrowed Synty/Litharch stand-ins; this switch runs first,
                 // so the authored rigs win without touching that dictionary.
+                // The Cleansing Ward (Territory_Claims.md §6.9.7): its prefab on
+                // CleanseWardSystem.asset, raised pre-built like the tent.
+                case TheWaningBorder.Entities.CleanseWard.PresentationID:
+                    authored = TheWaningBorder.Rendering.CleanseWardVisual.Build();
+                    authoredIsBuilding = true; spawnsFinished = true; break;
                 case 370: authored = TheWaningBorder.Rendering.ScarGuardVisual.Build(entity.Index + 370); break;
                 case 371: authored = TheWaningBorder.Rendering.CollectorVisual.Build(entity.Index + 371); break;
                 case 372: authored = TheWaningBorder.Rendering.SallyguardVisual.Build(entity.Index + 372); break;

@@ -9,6 +9,33 @@ build always name the same number.
 
 ---
 
+## [0.0.54] — 2026-10-22
+
+### Added
+- **The Cleansing Ward.** A Litharch's Cleanse now plants a ward at the aimed
+  point instead of channelling: a stone-and-crystal building that clears the
+  cursed ground around it at once and then pulses every two seconds, each
+  pulse pushing the curse back a little farther until its circle is full. It
+  stands until destroyed, and the curse goes for wards before anything else,
+  so defend them.
+- **Cursed ground rots buildings.** A finished building standing on cursed
+  ground loses HP every second, takes 50 % more from every hit and works at
+  half speed. Cleansing Wards and Runai Sanctuaries are exempt.
+- **The Game Review map shows the curse.** The post-match map now draws the
+  cursed ground itself spreading and receding with the playhead, not only the
+  territories the curse owns.
+
+### Changed
+- **Muster Rolls is now the Game Review** (button, page and menu).
+- **Field Hospitals are capped**: a team may keep two standing at once, at
+  least 30 m apart. A cast past that is refused and costs no cooldown. The AI
+  used to stack them into an instant-heal zone under an army that could not
+  be killed.
+- **Right-drag formation width is calmer**: a drag shorter than about 5 m only
+  turns the army and keeps its usual layout; past that the formation starts
+  at most twelve men per rank (it used to be forty, one endless line) and
+  thins as you drag farther.
+
 ## [0.0.53] — 2026-10-22
 
 ### Changed
