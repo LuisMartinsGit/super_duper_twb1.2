@@ -211,7 +211,8 @@ def faction_stats(d):
 # Metrics_Score.csv (docs/Design/Score.md): the same columns the match
 # extractor keeps, so the page's standings table reads one shape in both
 # modes. score = economy + strategy + military; kd = kills / max(1, deaths).
-SCORE_COLS = ("score", "economy", "strategy", "military", "kills", "deaths",
+SCORE_COLS = ("score", "units", "buildings", "stockpile", "eliminated",
+              "economy", "strategy", "military", "kills", "deaths",
               "razed", "territories", "fortresses", "techs", "levels", "earned",
               "incomePerMin")
 

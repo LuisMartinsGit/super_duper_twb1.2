@@ -1309,11 +1309,16 @@ def economy_of(hd):
 
 
 # -- the score (docs/Design/Score.md) ----------------------------------------
-# Metrics_Score.csv, one row per faction per 15 s sample:
-#   t,faction,score,economy,strategy,military,earned,incomePerMin,territories,
-#   fortresses,techs,levels,kills,deaths,razed,kd
-# score = economy + strategy + military; kd = kills / max(1, deaths).
-SCORE_COLS = ("score", "economy", "strategy", "military", "kills", "deaths",
+# Metrics_Score.csv, one row per faction per 15 s sample. Two shapes:
+#   since 0.0.52 (2026-10-22): t,faction,score,units,buildings,stockpile,
+#     eliminated,territories,fortresses,techs,kills,deaths,razed,kd
+#     score = units + buildings + stockpile (the price of what is owned)
+#   before: t,faction,score,economy,strategy,military,earned,incomePerMin,
+#     territories,fortresses,techs,levels,kills,deaths,razed,kd
+#     score = economy + strategy + military
+# A column the file lacks reads 0; the page shows whichever parts are present.
+SCORE_COLS = ("score", "units", "buildings", "stockpile", "eliminated",
+              "economy", "strategy", "military", "kills", "deaths",
               "razed", "territories", "fortresses", "techs", "levels", "earned",
               "incomePerMin")
 SCORE_CAP = 400
@@ -1367,13 +1372,16 @@ def score_of(hd):
     ts = thin(ts, SCORE_CAP)
     series, final = {}, {}
     for fa, by_t in per.items():
-        s = dict(s=[], e=[], st=[], m=[], kd=[])
+        s = dict(s=[], e=[], st=[], m=[], u=[], b=[], sp=[], kd=[])
         for t in ts:
             r = by_t.get(t)
             s["s"].append(r["score"] if r else None)
             s["e"].append(r["economy"] if r else None)
             s["st"].append(r["strategy"] if r else None)
             s["m"].append(r["military"] if r else None)
+            s["u"].append(r["units"] if r else None)
+            s["b"].append(r["buildings"] if r else None)
+            s["sp"].append(r["stockpile"] if r else None)
             s["kd"].append(r["kd"] if r else None)
         series[fa] = s
         final[fa] = by_t[max(by_t)]

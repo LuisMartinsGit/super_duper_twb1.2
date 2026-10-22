@@ -1889,9 +1889,19 @@ function renderScore(){
   sec.hidden=false;
   facs.sort(function(a,b){ return ((+F[b].score)||0)-((+F[a].score)||0) || a.localeCompare(b); });
   var lead=facs[0];
-  note.innerHTML='<b>Economy</b> (resources earned, weighted, plus income rate) + <b>Strategy</b> '+
-    '(territories, Fortresses, techs, building levels, age-up timing) + <b>Military</b> (kills and '+
-    'razed buildings, scaled by the kill/death ratio). '+
+  /* Two shapes of score (docs/Design/Score.md): since 0.0.52 the price of
+     what a faction owns (units / buildings / stockpile); before that
+     economy / strategy / military. The parts present decide the columns. */
+  var neo=facs.some(function(f){ var v=F[f]||{}; return ((+v.units)||0)+((+v.buildings)||0)+((+v.stockpile)||0)>0; });
+  var P=neo?[["units","Units"],["buildings","Buildings"],["stockpile","Stockpile"]]
+           :[["economy","Economy"],["strategy","Strategy"],["military","Military"]];
+  note.innerHTML=(neo
+    ? '<b>Units</b> (every living unit at its price, scaled by its researched stats) + <b>Buildings</b> '+
+      '(standing buildings at what they cost, with their level-ups) + <b>Stockpile</b> (the bank), at '+
+      'supplies 1 / iron 3 / veilstone 5 / veilsteel 10. A defeated faction scores 0; kills are shown, not scored. '
+    : '<b>Economy</b> (resources earned, weighted, plus income rate) + <b>Strategy</b> '+
+      '(territories, Fortresses, techs, building levels, age-up timing) + <b>Military</b> (kills and '+
+      'razed buildings, scaled by the kill/death ratio). ')+
     (m.live?'Standings at the latest snapshot':'Final standings')+': <span class="swatch" style="background:'+
     fhue(lead)+'"></span><b>'+esc(fnm(lead))+'</b> leads with '+fmtScore(F[lead].score)+'.';
   var rows=facs.map(function(f,i){
@@ -1900,16 +1910,15 @@ function renderScore(){
       '<td><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+
       (el!=null?' <span class="v bad" title="last seen in the metrics">eliminated '+mmss(el)+'</span>':'')+'</td>'+
       '<td class="num"><b>'+fmtScore(v.score)+'</b></td>'+
-      '<td class="num">'+fmtScore(v.economy)+'</td><td class="num">'+fmtScore(v.strategy)+'</td>'+
-      '<td class="num">'+fmtScore(v.military)+'</td>'+
+      P.map(function(p){ return '<td class="num">'+fmtScore(v[p[0]])+'</td>'; }).join("")+
       '<td class="num">'+(v.kills||0)+'/'+(v.deaths||0)+' <span style="color:var(--mute)">('+
         ((+v.kd)||0).toFixed(2)+')</span></td>'+
       '<td class="num">'+(v.territories||0)+'</td><td class="num">'+(v.fortresses||0)+'</td>'+
       '<td class="num">'+(v.techs||0)+'</td></tr>';
   }).join("");
   host.innerHTML='<div class="scroll"><table><thead><tr><th class="num">#</th><th>Faction</th>'+
-    '<th class="num">Score</th><th class="num">Economy</th><th class="num">Strategy</th>'+
-    '<th class="num">Military</th><th class="num" title="kills / deaths (ratio)">K/D</th>'+
+    '<th class="num">Score</th>'+P.map(function(p){ return '<th class="num">'+p[1]+'</th>'; }).join("")+
+    '<th class="num" title="kills / deaths (ratio)">K/D</th>'+
     '<th class="num">Territories</th><th class="num">Fortresses</th><th class="num">Techs</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
   /* score over time: one line per faction on the shared sample times, in
@@ -2590,9 +2599,11 @@ function liveApply(m,d){
     var sc=m.score, ti=sc.ts.length;
     if(ti&&sc.ts[ti-1]>=d.t) ti--; else sc.ts.push(d.t);
     Object.keys(SF).forEach(function(f){
-      var v=SF[f]||{}, s=(sc.f[f]=sc.f[f]||{s:[],e:[],st:[],m:[],kd:[]});
-      while(s.s.length<ti){ s.s.push(null); s.e.push(null); s.st.push(null); s.m.push(null); s.kd.push(null); }
-      s.s[ti]=v.score; s.e[ti]=v.economy; s.st[ti]=v.strategy; s.m[ti]=v.military; s.kd[ti]=v.kd;
+      var v=SF[f]||{}, s=(sc.f[f]=sc.f[f]||{s:[],e:[],st:[],m:[],u:[],b:[],sp:[],kd:[]});
+      while(s.s.length<ti){ s.s.push(null); s.e.push(null); s.st.push(null); s.m.push(null);
+        s.u.push(null); s.b.push(null); s.sp.push(null); s.kd.push(null); }
+      s.s[ti]=v.score; s.e[ti]=v.economy; s.st[ti]=v.strategy; s.m[ti]=v.military;
+      s.u[ti]=v.units; s.b[ti]=v.buildings; s.sp[ti]=v.stockpile; s.kd[ti]=v.kd;
     });
     sc.final=SF;
   } else m.score=null;
