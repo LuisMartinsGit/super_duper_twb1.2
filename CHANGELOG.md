@@ -9,6 +9,13 @@ build always name the same number.
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **Cleansing Wards follow the hospitals' rule:** a team keeps at most six
+  standing, at least 15 m apart. A cast past that is refused and costs no
+  cooldown, and the AI no longer stacks several wards on one spot.
+
 ## [0.0.54] — 2026-10-22
 
 ### Added

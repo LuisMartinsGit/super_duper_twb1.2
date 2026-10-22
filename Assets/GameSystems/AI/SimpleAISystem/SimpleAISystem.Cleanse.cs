@@ -105,6 +105,10 @@ namespace TheWaningBorder.AI
                 if (!TheWaningBorder.Systems.Border.CurseGroundSystem.TryNearestCursed(
                         p, cfg.cleanseSearchRadius, t => _cleanseTargets.Contains(t), out float3 spot))
                     continue;
+                // A ward already covers that ground, or the team is at its
+                // cap (CleanseWardSystem.asset): the engine would refuse the
+                // cast, so the Litharch is not sent.
+                if (!TheWaningBorder.Entities.CleanseWard.CanPlant(em, faction, spot, out _)) continue;
                 float dist = math.distance(p.xz, spot.xz);
 
                 // Aim INTO the patch: the starting circle clears at once, so

@@ -21,6 +21,14 @@ namespace TheWaningBorder.Systems.Border
         /// clearing happen together on each one.</summary>
         public float pulseSeconds;
 
+        // ── How many, how close (2026-10-22, the Field Hospital's rule) ──
+        /// <summary>Most wards a team (a faction and its allies) may have
+        /// standing at once; a cast past the cap is refused (0 = no cap).</summary>
+        public int capPerTeam;
+        /// <summary>Least distance (m) between two of the team's wards; a cast
+        /// closer than this to one is refused.</summary>
+        public float minSpacingMetres;
+
         // ── The ward as a building ──
         public int maxHealth;
         public float bodyRadius;

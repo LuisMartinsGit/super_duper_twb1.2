@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: CleanseWardSystem
   m_EditorClassIdentifier: 
   pulseSeconds: 2
+  capPerTeam: 6
+  minSpacingMetres: 15
   maxHealth: 500
   bodyRadius: 1
   sight: 10

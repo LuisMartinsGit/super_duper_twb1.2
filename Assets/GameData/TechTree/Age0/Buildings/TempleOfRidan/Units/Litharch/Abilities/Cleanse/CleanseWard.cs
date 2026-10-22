@@ -24,6 +24,54 @@ namespace TheWaningBorder.Entities
     {
         public const int PresentationID = 596;
 
+        static readonly ComponentType[] QT_Standing =
+        {
+            ComponentType.ReadOnly<CleanseWardTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static TheWaningBorder.Core.CachedEntityQuery QC_Standing;
+
+        /// <summary>
+        /// May <paramref name="faction"/> plant a ward at <paramref name="position"/>?
+        /// No past the TEAM's cap of standing wards, and no within the spacing
+        /// of one of the team's (CleanseWardSystem.asset — the Field Hospital's
+        /// rule, 2026-10-22). The reason names the rule broken.
+        /// </summary>
+        public static bool CanPlant(EntityManager em, Faction faction, float3 position, out string reason)
+        {
+            reason = null;
+            var cfg = TheWaningBorder.Systems.Border.CleanseWardSystemConfig.I;
+            if (cfg == null) return true;
+            float minD2 = cfg.minSpacingMetres * cfg.minSpacingMetres;
+            var q = QC_Standing.Get(em, QT_Standing);
+            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+            using var hps = q.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            int standing = 0;
+            for (int i = 0; i < facs.Length; i++)
+            {
+                if (hps[i].Value <= 0) continue;
+                if (!Alliances.AreAllied(faction, facs[i].Value)) continue;
+                standing++;
+                float2 d = xfs[i].Position.xz - position.xz;
+                if (minD2 > 0f && math.dot(d, d) < minD2)
+                {
+                    reason = string.Format(TheWaningBorder.Core.Localization.Loc.T(
+                        "Too close to another Cleansing Ward (keep {0} m apart)."), (int)cfg.minSpacingMetres);
+                    return false;
+                }
+            }
+            if (cfg.capPerTeam > 0 && standing >= cfg.capPerTeam)
+            {
+                reason = string.Format(TheWaningBorder.Core.Localization.Loc.T(
+                    "Your team already has {0} Cleansing Ward(s) standing."), cfg.capPerTeam);
+                return false;
+            }
+            return true;
+        }
+
         /// <summary>
         /// Plant a ward at <paramref name="position"/> for <paramref name="faction"/>.
         /// <paramref name="startRadius"/> is cleared at once; the circle then grows

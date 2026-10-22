@@ -641,6 +641,11 @@ the moment it lands; the ward does the work.
   buildings (`CurseTerritorySystem.Waves`). A ward is therefore something the
   player must **defend**; left alone, the curse tears it down and takes the
   ground back.
+- **How many, how close** — the Field Hospital's rule: a team (a faction and
+  its allies) keeps at most `capPerTeam` wards standing, and no two closer
+  than `minSpacingMetres` (`CleanseWardSystem.asset`). A cast past the cap or
+  too close is refused and costs no cooldown; the AI never sends a Litharch
+  to a spot it could not plant.
 - **A ward never decays** (§6.9.9): it stands on cursed ground by design.
 - **The cooldown** is charged at the cast, as for any card. There is no
   channel to break: being hit or ordered away no longer matters.

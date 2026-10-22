@@ -35,11 +35,21 @@ namespace TheWaningBorder.Abilities
                 aim = new float3(here.x + d.x / dist * card.Range, aim.y, here.z + d.y / dist * card.Range);
             aim.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(aim.x, aim.z);
 
+            var faction = em.GetComponentData<FactionTag>(caster).Value;
+            // The team's cap and spacing (CleanseWardSystem.asset): a refused
+            // cast costs nothing — the cooldown the lifecycle just charged is
+            // given back.
+            if (!TheWaningBorder.Entities.CleanseWard.CanPlant(em, faction, aim, out string why))
+            {
+                AbilityCooldownUtil.Refund(em, caster, card);
+                if (faction == GameSettings.LocalPlayerFaction) TheWaningBorder.Core.SimSignals.Notify(why);
+                return;
+            }
+
             var cfg = TheWaningBorder.Systems.Border.CleanseWardSystemConfig.I;
             float pulse = cfg != null ? math.max(0.25f, cfg.pulseSeconds) : 2f;
             float start = math.max(0f, card.Radius);
-            TheWaningBorder.Entities.CleanseWard.Create(em, aim,
-                em.GetComponentData<FactionTag>(caster).Value,
+            TheWaningBorder.Entities.CleanseWard.Create(em, aim, faction,
                 start,
                 math.max(start, card.EffectValue(AbilityEffectKind.CleanseMaxRadius, start)),
                 math.max(0f, areaPerSecond) * pulse,
