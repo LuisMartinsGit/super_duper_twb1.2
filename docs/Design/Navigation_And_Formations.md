@@ -167,6 +167,14 @@ When N ≥ 2 movable units receive one move / attack-move order:
     (remembered in `FormationSlotMemory`), treats the members of one
     just-arrived formation as that formation — never as "new faces", never
     split between two clusters — and leaves a settled formation alone.
+    **Units stay where they were placed (2026-10-22):** it tidies ONLY
+    units that have never taken an explicit order — freshly trained units
+    gathering at a rally point — and once it has formed them up they count
+    as ordered. A unit that has received any order (move, formation move,
+    attack, attack-move, patrol, stop, hold, a work order; from a player or
+    the AI) carries `PlacedByOrder` for life and is never re-arranged: an
+    army parked along a cliff edge stays exactly as the player placed it.
+    The rally walk itself is a plain destination, not an order.
 
 ## 3. Formation set (AoE4 parity)
 

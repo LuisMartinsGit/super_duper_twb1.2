@@ -181,6 +181,16 @@ public struct DesiredDestination : IComponentData
 public struct UserMoveOrder : IComponentData, IEnableableComponent { }
 
 /// <summary>
+/// The unit has been given an explicit order at least once (2026-10-22,
+/// Navigation_And_Formations.md §2.13): a move, formation move, attack,
+/// attack-move, patrol, stop or hold — from a player or the AI, through the
+/// order helpers. Set by every helper's Execute and NEVER cleared: units stay
+/// where they were placed. Only a freshly trained unit, walking to its rally
+/// point (which is a plain destination, not an order), lacks it, and the idle
+/// form-up may tidy only those — once, since its own formation move sets this.
+/// </summary>
+public struct PlacedByOrder : IComponentData, IEnableableComponent { }
+/// <summary>
 /// Marker tag for units executing an attack-move command.
 /// Units with this tag auto-acquire targets while moving.
 /// </summary>

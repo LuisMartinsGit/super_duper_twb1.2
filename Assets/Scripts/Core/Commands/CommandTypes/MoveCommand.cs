@@ -56,7 +56,8 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!em.Exists(unit)) return;
             // An emplaced engine is bolted to its wall deck: no move takes it.
             if (em.HasComponent<EmplacedEngineTag>(unit)) return;
-
+            // Placed by an order: the idle form-up leaves it where it ends up.
+            TransientState.SetFlag<PlacedByOrder>(em, unit);
             // A move order on a unit standing on a wall-walk brings it DOWN
             // the way it went up: it walks the deck to the nearest of its
             // side's hubs, towers or gates (or a breach) and climbs down

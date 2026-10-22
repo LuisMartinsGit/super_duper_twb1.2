@@ -31,7 +31,8 @@ namespace TheWaningBorder.Core.Commands.Types
         public static void Execute(EntityManager em, Entity unit, float3 destination)
         {
             if (!em.Exists(unit)) return;
-
+            // Placed by an order: the idle form-up leaves it where it ends up.
+            TransientState.SetFlag<PlacedByOrder>(em, unit);
             // Clear conflicting commands
             ClearConflictingCommands(em, unit);
 

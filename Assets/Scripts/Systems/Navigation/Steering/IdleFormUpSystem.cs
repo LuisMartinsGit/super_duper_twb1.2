@@ -112,6 +112,13 @@ namespace TheWaningBorder.Systems.Navigation
                 if (TransientState.Active<MoveCommand>(em, e)) continue;
                 if (TransientState.Active<AttackMoveCommand>(em, e)) continue;
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
+                // UNITS STAY WHERE THEY WERE PLACED (2026-10-22). A unit that
+                // has ever taken an explicit order — a player's or the AI's —
+                // is never tidied: an army parked along a cliff edge used to
+                // be re-formed into ranks a few seconds later. Only trained
+                // units walking to a rally point form up, and that once —
+                // the form-up's own formation move sets the flag.
+                if (TransientState.Active<PlacedByOrder>(em, e)) continue;
                 if (TransientState.Active<DeathAnimationState>(em, e)) continue;
                 if (TransientState.Active<BuildCommand>(em, e)) continue;
                 if (em.HasComponent<PatrolTag>(e)) continue;

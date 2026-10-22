@@ -35,7 +35,8 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!em.Exists(unit)) return;
             // An emplaced engine is bolted to its wall deck: no move takes it.
             if (em.HasComponent<EmplacedEngineTag>(unit)) return;
-
+            // Placed by an order: the idle form-up leaves it where it ends up.
+            TransientState.SetFlag<PlacedByOrder>(em, unit);
             // task-112 M3: snap onto the cost field via NavGridQuery (see
             // MoveCommandHelper for the rationale -- this replaces the
             // legacy NavMeshManager snap on the attack-move write side).

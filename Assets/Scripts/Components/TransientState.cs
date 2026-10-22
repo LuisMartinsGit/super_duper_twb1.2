@@ -255,6 +255,8 @@ public static class TransientState
         ComponentType.ReadWrite<GuardPoint>(),
         ComponentType.ReadWrite<UnitStance>(),
         ComponentType.ReadWrite<UnitEngagement>(),
+        // Set by the first explicit order, never cleared (2026-10-22).
+        ComponentType.ReadWrite<PlacedByOrder>(),
     };
 
     /// <summary>The six unit sets as one list, for EntityBuild's single
@@ -354,6 +356,7 @@ public static class TransientState
         em.SetComponentEnabled<GuardPoint>(e, false);
         em.SetComponentEnabled<UnitStance>(e, false);
         em.SetComponentEnabled<UnitEngagement>(e, false);
+        em.SetComponentEnabled<PlacedByOrder>(e, false);
     }
 
     /// <summary>Disable a Worker's pre-added work orders (BuildCommand,
@@ -454,5 +457,6 @@ public static class TransientState
         ecb.SetComponentEnabled<GuardPoint>(e, false);
         ecb.SetComponentEnabled<UnitStance>(e, false);
         ecb.SetComponentEnabled<UnitEngagement>(e, false);
+        ecb.SetComponentEnabled<PlacedByOrder>(e, false);
     }
 }

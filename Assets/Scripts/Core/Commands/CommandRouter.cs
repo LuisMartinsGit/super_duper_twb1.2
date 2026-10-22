@@ -2577,6 +2577,10 @@ namespace TheWaningBorder.Core.Commands
             TheWaningBorder.Entities.PlannedBuildings.ReleaseWorker(em, unit);
             // A walk into a garrison (2026-10-20) ends with any other order.
             TheWaningBorder.Entities.WallGarrison.CancelApproach(em, unit);
+            // Stop, Hold and the work orders come through here: the unit was
+            // placed by an order, and the idle form-up leaves it there.
+            if (em.HasComponent<PlacedByOrder>(unit))
+                TransientState.SetFlag<PlacedByOrder>(em, unit);
             TransientState.Clear<Types.MoveCommand>(em, unit);
             TransientState.Clear<Types.AttackCommand>(em, unit);
             TransientState.Clear<Types.BuildCommand>(em, unit);

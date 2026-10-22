@@ -220,11 +220,12 @@ the Aggressive stance; queue an attack-move if the route should fight. The
 queued route is drawn with the usual movement lines. Any ordinary order
 clears the queue.
 
-**Idle soldiers form up.** Four or more idle soldiers standing together (and
-nowhere near a fight) tidy themselves into ranks where they stand, in the
-formation shape they last marched in. A formation that has just arrived is
-left alone, and one formation is never split into two. Units on Hold
-Position are never moved.
+**Freshly trained soldiers form up; placed soldiers stay put.** Four or
+more newly trained soldiers gathered at a rally point (and nowhere near a
+fight) tidy themselves into ranks where they stand, once. Any soldier you
+have given an order to — a move, an attack, a patrol, a stop — stays exactly
+where it ends up, for the rest of the match: an army you line up along a
+cliff edge is never re-arranged behind your back.
 
 ### Control Groups
 

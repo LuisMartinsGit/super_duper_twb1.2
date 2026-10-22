@@ -12,6 +12,10 @@ build always name the same number.
 ## [Unreleased]
 
 ### Fixed
+- **Units stay where you place them.** The idle form-up no longer re-arranges
+  soldiers that have taken an order: an army lined up along a cliff edge used
+  to be tidied into ranks a few seconds later. Only freshly trained soldiers
+  gathering at a rally point still form up, once.
 - **An attack order on one enemy no longer sends the army off afterwards.**
   The order now supersedes the move the units were on (and their formation
   march), and once the target is dead they hold the field and fight what is

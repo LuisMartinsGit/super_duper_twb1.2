@@ -31,7 +31,8 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             if (!em.Exists(unit) || !em.Exists(target)) return;
             if (!em.HasComponent<LocalTransform>(target)) return;
-
+            // Placed by an order: the idle form-up leaves it where it ends up.
+            TransientState.SetFlag<PlacedByOrder>(em, unit);
             // The order supersedes whatever the unit was doing — its standing
             // move, its formation march, its work.
             ClearConflictingCommands(em, unit);
