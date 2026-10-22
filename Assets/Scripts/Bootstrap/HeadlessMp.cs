@@ -278,7 +278,7 @@ namespace TheWaningBorder.Bootstrap
                 _warmUntilWall = warm;
                 _warmSpeed = Mathf.Clamp(ArgInt(args, "-twbMpWarmSpeed", 4), 1, 8);
                 string wm = ArgStr(args, "-twbMpWarmMap");
-                _warmMap = !string.IsNullOrEmpty(wm) ? wm : "SunderedCrown";
+                _warmMap = !string.IsNullOrEmpty(wm) ? wm : "YielLymwerra";
                 _warmIdle = string.Equals(_warmMap, "none", StringComparison.OrdinalIgnoreCase);
                 // Different residue per peer is the whole point: vary the
                 // faction count and the seed with the peer index by default.

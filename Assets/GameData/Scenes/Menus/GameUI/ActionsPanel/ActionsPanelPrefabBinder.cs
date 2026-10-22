@@ -53,6 +53,18 @@ namespace TheWaningBorder.UI.Ingame
         private const int TrainSlots = 5;      // row 0
         private const int ResearchSlots = 10;  // rows 1-2
 
+        /// <summary>
+        /// THE BUILD PALETTE IS FOUR CATEGORY ROWS (2026-10-22): Economy /
+        /// Training / Special / Defense, one row each (BuildRowOf, BuildOrder).
+        /// The prefab authors three rows, so the palette clones a fourth from
+        /// the last authored button at bind time; building and unit modes
+        /// never touch it (they stay within SlotCount). In worker mode the
+        /// grid and its separator slide up one row pitch so the fourth row
+        /// keeps inside the frame (SetWorkerRows).
+        /// </summary>
+        private const int WorkerRows = 4;
+        private const int WorkerSlotCount = WorkerRows * Cols;
+
         /// <summary>Synthetic action id for the building level-up cell.</summary>
         private const string UpgradeActionId = "BuildingUpgrade";
 
@@ -71,14 +83,60 @@ namespace TheWaningBorder.UI.Ingame
 
         private static readonly HashSet<string> EconomyBuildings = new()
         {
-            "Hut", "GatherersHut", "Fortress", "Mine", "VeilstoneMine",
-            "Runai_Sanctuary",
+            "Hut", "GatherersHut", "Mine", "VeilstoneMine",
+            "Alanthor_TradingOutpost", "Feraldis_GreatForge", "Runai_Sanctuary",
             "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
         };
+        // The Fortress sits in the Defense row of the build palette
+        // (2026-10-22), so it is tinted with the row.
         private static readonly HashSet<string> DefenseBuildings = new()
         {
-            "Palisade", "Alanthor_Wall", "Alanthor_Tower", "Feraldis_Tower",
+            "Palisade", "Alanthor_Wall", "Alanthor_Tower", "Feraldis_Tower", "Fortress",
         };
+
+        // ── The build palette's four rows (2026-10-22) ────────────────────
+        // Economy / Training / Special / Defense, one grid row each, in this
+        // order within the row. An id the table does not name joins the row
+        // its colour category implies, after the named ones, in catalog
+        // order — so a new building is never dropped from the palette.
+        private enum BuildRow { Economy, Training, Special, Defense }
+
+        private static readonly string[][] BuildOrder =
+        {
+            // Economy: Guild, Mine, Trader's Post, House
+            new[] { "GatherersHut", "Mine", "Alanthor_TradingOutpost", "Hut",
+                    "Feraldis_GreatForge" },
+            // Training: Barracks, Archery Range, Royal Stables, Siege Yard
+            new[] { "Barracks", "ArcheryRange", "Alanthor_RoyalStable", "Alanthor_SiegeYard",
+                    "Feraldis_HallOfAxes", "Feraldis_Pasture", "Feraldis_SiegeYard",
+                    "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop" },
+            // Special: Temple, then the sect buildings
+            new[] { "TempleOfRidan", "Sect_Reliquary", "Sect_MendingHall", "Sect_Stonehold",
+                    "Sect_Treasury", "Sect_MusterYard", "Feraldis_WarTotem" },
+            // Defense: Towers, walls, Fortress
+            new[] { "Alanthor_Tower", "Feraldis_Tower", "Palisade", "Alanthor_Wall", "Fortress" },
+        };
+
+        private static BuildRow BuildRowOf(string id)
+        {
+            for (int r = 0; r < BuildOrder.Length; r++)
+                if (System.Array.IndexOf(BuildOrder[r], id) >= 0) return (BuildRow)r;
+            return BuildingCategory(id) switch
+            {
+                Category.Economy  => BuildRow.Economy,
+                Category.Defense  => BuildRow.Defense,
+                Category.Religion => BuildRow.Special,
+                _                 => BuildRow.Training,
+            };
+        }
+
+        /// <summary>Rank of an id inside its row: named ids first, in table
+        /// order; unnamed ones after, keeping their incoming order.</summary>
+        private static int BuildRankOf(string id, int row)
+        {
+            int i = System.Array.IndexOf(BuildOrder[row], id);
+            return i >= 0 ? i : BuildOrder[row].Length;
+        }
         private static readonly HashSet<string> ReligionBuildings = new()
         {
             "TempleOfRidan", "FiendstoneKeep", "VaultOfAlmierra", "ThessarasCrossing",
@@ -101,10 +159,19 @@ namespace TheWaningBorder.UI.Ingame
             public string Tooltip;
             public string ActionId;
             public string[] ChainIds;       // techs collapsed into this slot
+            public CanvasGroup Group;       // BlankSlot: active but invisible
         }
 
         private Slot[] _slots;
         private CanvasGroup _group;
+
+        // The authored grid / separator rects and their authored positions,
+        // for the one-row slide the worker palette applies (SetWorkerRows).
+        private RectTransform _gridRect;
+        private RectTransform _separatorRect;
+        private Vector2 _gridPosAuthored, _gridSizeAuthored, _separatorPosAuthored;
+        private float _rowPitch;
+        private bool _workerRows;
 
         private Dictionary<string, Sprite> _symbols;
         private static readonly Dictionary<Texture2D, Sprite> _spriteCache = new();
@@ -135,12 +202,38 @@ namespace TheWaningBorder.UI.Ingame
             }
 
             int count = Mathf.Min(grid.childCount, SlotCount);
-            _slots = new Slot[count];
-            for (int i = 0; i < count; i++)
-                _slots[i] = BindSlot(grid.GetChild(i));
             if (count < SlotCount)
                 TWBLog.Log($"[GameUI] ActionsPanel prefab: expected {SlotCount} buttons under " +
                     $"\"Actions\", found {count}.");
+
+            // The fourth (worker-only) row: pristine copies of the last
+            // authored button, cloned BEFORE any slot is bound so the clones
+            // carry no caption or listener of their own.
+            int total = count;
+            if (count > 0)
+            {
+                var template = grid.GetChild(count - 1).gameObject;
+                for (int i = count; i < WorkerSlotCount; i++)
+                {
+                    var clone = Instantiate(template, grid);
+                    clone.name = template.name + "_row" + (i / Cols);
+                    total++;
+                }
+            }
+            _slots = new Slot[total];
+            for (int i = 0; i < total; i++)
+                _slots[i] = BindSlot(grid.GetChild(i));
+
+            _gridRect = grid as RectTransform;
+            _separatorRect = GameUIKit.FindDeep(transform, "Separator") as RectTransform;
+            var layout = grid.GetComponent<GridLayoutGroup>();
+            _rowPitch = layout != null ? layout.cellSize.y + layout.spacing.y : 0f;
+            if (_gridRect != null)
+            {
+                _gridPosAuthored = _gridRect.anchoredPosition;
+                _gridSizeAuthored = _gridRect.sizeDelta;
+            }
+            if (_separatorRect != null) _separatorPosAuthored = _separatorRect.anchoredPosition;
 
             // Icons resolve through a callback rather than a captured
             // dictionary: Init() runs AFTER AddComponent has already fired
@@ -153,9 +246,29 @@ namespace TheWaningBorder.UI.Ingame
             Active = false;
         }
 
+        /// <summary>
+        /// Worker mode shows four rows: the grid's top edge and the separator
+        /// move up one row pitch (the bottom edge stays), so the cloned fourth
+        /// row lands where the authored third row sat. Every other mode gets
+        /// the authored rects back.
+        /// </summary>
+        private void SetWorkerRows(bool on)
+        {
+            if (_workerRows == on) return;
+            _workerRows = on;
+            if (_gridRect == null || _rowPitch <= 0f) return;
+            float extra = on ? _rowPitch * (WorkerRows - SlotCount / Cols) : 0f;
+            _gridRect.sizeDelta = _gridSizeAuthored + new Vector2(0f, extra);
+            _gridRect.anchoredPosition = _gridPosAuthored + new Vector2(0f, extra * 0.5f);
+            if (_separatorRect != null)
+                _separatorRect.anchoredPosition = _separatorPosAuthored + new Vector2(0f, extra);
+        }
+
         private Slot BindSlot(Transform root)
         {
             var slot = new Slot { Root = root.gameObject };
+            slot.Group = root.GetComponent<CanvasGroup>();
+            if (slot.Group == null) slot.Group = root.gameObject.AddComponent<CanvasGroup>();
 
             slot.Button = root.GetComponentInChildren<Button>(true);
             if (slot.Button != null)

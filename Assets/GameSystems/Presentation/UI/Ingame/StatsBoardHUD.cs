@@ -472,7 +472,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             Collect(em);
             var sb = new StringBuilder(1024);
-            sb.AppendLine("<b>Faction        Age/Cult  Supplies         Iron             Veilstone        Veilsteel        Pop       Terr(cut)  Mil/Eco  Bld(+site/plan)  Outposts b/f/s  RP (pts)   Score (eco/strat/mil)  K/D</b>");
+            sb.AppendLine("<b>Faction        Age/Cult  Supplies         Iron             Veilstone        Veilsteel        Pop       Terr(cut)  Mil/Eco  Bld(+site/plan)  Outposts b/f/s  RP (pts)   Score (units/bld/stock)  K/D</b>");
             for (int f = 0; f < MaxFactions; f++)
             {
                 var r = _rows[f];
@@ -494,7 +494,7 @@ namespace TheWaningBorder.UI.Ingame
                 sb.Append($"{r.Rp} ({r.RpHave}/{r.RpNeed})".PadRight(11));
                 // The Score (docs/Design/Score.md): MatchScoreSystem's latest sample.
                 if (TheWaningBorder.Core.Diagnostics.MatchScore.TryGet(fac, out var score))
-                    sb.Append($"{score.Score,6:F0} ({score.Economy:F0}/{score.Strategy:F0}/{score.Military:F0})  {score.Kd:F2}");
+                    sb.Append($"{score.Score,6:F0} ({score.Units:F0}/{score.Buildings:F0}/{score.Stockpile:F0})  {score.Kd:F2}");
                 sb.AppendLine();
             }
             _table.text = sb.ToString();

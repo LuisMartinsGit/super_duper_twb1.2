@@ -3,7 +3,7 @@
 // post-game report that used to exist only as a browser page fed by headless
 // logs (tools/twb-report-page.html). Three tabs over MatchRecord.Current,
 // which MatchRecorder fills in memory during EVERY match:
-//   * Standings  the score table (Score / Economy / Strategy / Military, K/D,
+//   * Standings  the score table (Score / Units / Buildings / Stockpile, K/D,
 //                kills, deaths, territories, Fortresses, techs) and the score
 //                over time;
 //   * Charts     economy and army charts, faction-coloured, with a legend
@@ -80,15 +80,15 @@ namespace TheWaningBorder.UI.Ingame
         private MatchRecord _rec;
 
         private static readonly string[] ColumnNames =
-            { "#", "Faction", "Score", "Economy", "Strategy", "Military", "K/D",
+            { "#", "Faction", "Score", "Units", "Buildings", "Stockpile", "K/D",
               "Kills", "Deaths", "Territories", "Fortresses", "Techs" };
         private static readonly float[] ColumnW =
             { 0.04f, 0.19f, 0.09f, 0.09f, 0.09f, 0.09f, 0.07f, 0.07f, 0.07f, 0.08f, 0.06f, 0.06f };
 
         private static readonly (RecordSeries s, string title)[] ChartDefs =
         {
-            (RecordSeries.Economy, "Economy score"), (RecordSeries.Strategy, "Strategy score"),
-            (RecordSeries.Military, "Military score"), (RecordSeries.KillDeath, "K/D"),
+            (RecordSeries.UnitsScore, "Units score"), (RecordSeries.BuildingsScore, "Buildings score"),
+            (RecordSeries.StockpileScore, "Stockpile score"), (RecordSeries.KillDeath, "K/D"),
             (RecordSeries.Supplies, "Supplies"), (RecordSeries.Iron, "Iron"),
             (RecordSeries.Veilstone, "Veilstone"), (RecordSeries.Veilsteel, "Veilsteel"),
             (RecordSeries.Army, "Army units"), (RecordSeries.Population, "Population"),
@@ -419,9 +419,9 @@ namespace TheWaningBorder.UI.Ingame
                     return name;
                 }
                 case 2: return MusterChart.Fmt(r.Last(RecordSeries.Score, f));
-                case 3: return MusterChart.Fmt(r.Last(RecordSeries.Economy, f));
-                case 4: return MusterChart.Fmt(r.Last(RecordSeries.Strategy, f));
-                case 5: return MusterChart.Fmt(r.Last(RecordSeries.Military, f));
+                case 3: return MusterChart.Fmt(r.Last(RecordSeries.UnitsScore, f));
+                case 4: return MusterChart.Fmt(r.Last(RecordSeries.BuildingsScore, f));
+                case 5: return MusterChart.Fmt(r.Last(RecordSeries.StockpileScore, f));
                 case 6: return r.Last(RecordSeries.KillDeath, f).ToString("0.00");
                 case 7: return MusterChart.Fmt(r.Last(RecordSeries.Kills, f));
                 case 8: return MusterChart.Fmt(r.Last(RecordSeries.Deaths, f));

@@ -47,7 +47,7 @@ namespace TheWaningBorder.EditorTools
                 slot.StartIndex = PlayerSlot.AutoStart;
                 slot.StartCulture = Cultures.Runai;
             }
-            GameSettings.SelectedMapScene = "HollowTable";
+            GameSettings.SelectedMapScene = "YielLymwerra";
             GameSettings.SpawnSeed = 20261014;
             GameSettings.FogOfWarEnabled = false;
             GameSettings.BorderEnabled = true;
@@ -59,7 +59,7 @@ namespace TheWaningBorder.EditorTools
             GameSettings.PerFactionStartCulture = false;
             GameSettings.StartCulture = Cultures.Runai;
             LobbyConfig.ApplyColorSelections();
-            Debug.Log("[RunaiProbe] launching on HollowTable (edition C, Age 2 Runai start, max resources)");
+            Debug.Log("[RunaiProbe] launching on YielLymwerra (edition C, Age 2 Runai start, max resources)");
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 

@@ -34,6 +34,7 @@ namespace TheWaningBorder.UI.Ingame
             slot.Click = click;
             slot.Tooltip = ExpandTooltip(b, em);
             if (!slot.Root.activeSelf) slot.Root.SetActive(true);
+            SetGroupVisible(slot, true);
             if (slot.Button != null) slot.Button.interactable = !locked;
 
             var baseCol = CategoryColor(cat);
@@ -71,6 +72,33 @@ namespace TheWaningBorder.UI.Ingame
             slot.Click = null;
             slot.Tooltip = null;
             if (slot.Root.activeSelf) slot.Root.SetActive(false);
+        }
+
+        /// <summary>
+        /// An EMPTY CELL that still takes its place in the grid. ClearSlot
+        /// deactivates the button, and the GridLayoutGroup skips inactive
+        /// children, so a cleared cell lets everything after it slide up —
+        /// which is exactly what a category row must not do. The blank keeps
+        /// the root active and hides it through its CanvasGroup instead.
+        /// </summary>
+        private void BlankSlot(Slot slot)
+        {
+            slot.ActionId = null;
+            slot.ChainIds = null;
+            slot.Click = null;
+            slot.Tooltip = null;
+            if (slot.Caption != null && slot.Caption.gameObject.activeSelf)
+                slot.Caption.gameObject.SetActive(false);
+            if (!slot.Root.activeSelf) slot.Root.SetActive(true);
+            SetGroupVisible(slot, false);
+        }
+
+        private static void SetGroupVisible(Slot slot, bool visible)
+        {
+            if (slot.Group == null) return;
+            slot.Group.alpha = visible ? 1f : 0f;
+            slot.Group.interactable = visible;
+            slot.Group.blocksRaycasts = visible;
         }
 
         /// <summary>The data layer's tooltips end in a bare "Cost: " line

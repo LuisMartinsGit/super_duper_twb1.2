@@ -384,9 +384,6 @@ namespace TheWaningBorder.Core.Localization
             // empty description.)
             // ============================================================
             t["Test Map"] = "Mapa de Teste";
-            t["Twin Spans"] = "Pontes Gémeas";
-            t["Hollow Table"] = "Meseta Oca";
-            t["Sundered Crown"] = "Coroa Partida";
             t["OPEN"] = "ABERTO";
             t["SMALL"] = "PEQUENO";
             t["SMALL / OPEN"] = "PEQUENO / ABERTO";

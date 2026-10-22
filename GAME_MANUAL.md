@@ -412,8 +412,8 @@ The **End Game** button lets you concede the match (recorded as a defeat).
 ### After the Match — the Muster Rolls
 
 The victory / defeat screen has a **Muster Rolls** button that opens the
-post-game report: a **Standings** table (Score with its Economy / Strategy /
-Military parts, K/D, kills, deaths, territories, Fortresses, techs) with the
+post-game report: a **Standings** table (Score with its Units / Buildings /
+Stockpile parts, K/D, kills, deaths, territories, Fortresses, techs) with the
 score over time, **Charts** of every faction's banks, army, population,
 buildings and territories over the match (click a faction in the legend to
 hide or show it), and a **Map** that replays the whole match from above —

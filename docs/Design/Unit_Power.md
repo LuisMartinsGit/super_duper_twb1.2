@@ -2,7 +2,10 @@
 
 One statistic per unit, for comparing units against each other and balancing
 them. Implemented in `Assets/Scripts/Data/TechTree/UnitPower.cs`; shown on the
-training button and in the selected-unit panel.
+training button and in the selected-unit panel. Its strength term
+(`UnitPower.CombatOf`, the `combat` line below on raw stats) is also what the
+Score uses to price a living unit by its researched stats
+([Score.md](Score.md), 2026-10-22).
 
 ## What it is
 

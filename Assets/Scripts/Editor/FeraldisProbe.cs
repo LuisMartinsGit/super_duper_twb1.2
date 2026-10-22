@@ -2,7 +2,7 @@
 // Test bed for the Feraldis redesign (docs/Design/Age_1_Feraldis.md):
 //
 //   Launch Feraldis Probe — from inside play mode, a 1-v-1 skirmish on
-//   HollowTable that STARTS in Age 1 with every faction already Feraldis
+//   YielLymwerra that STARTS in Age 1 with every faction already Feraldis
 //   (StartAgePromoter), edition B, fog off, curse on — both sides AI, the
 //   editor watching as an observer. Then, every ten seconds,
 //   one line per faction to the Console: resources, slaves / slave cap, slaves
@@ -53,7 +53,7 @@ namespace TheWaningBorder.EditorTools
                 slot.TeamIndex = Alliances.NoTeam;
                 slot.StartIndex = PlayerSlot.AutoStart;
             }
-            GameSettings.SelectedMapScene = "HollowTable";
+            GameSettings.SelectedMapScene = "YielLymwerra";
             GameSettings.SpawnSeed = 20261012;
             GameSettings.FogOfWarEnabled = false;
             GameSettings.BorderEnabled = true;
@@ -65,7 +65,7 @@ namespace TheWaningBorder.EditorTools
             GameSettings.StartCulture = Cultures.Feraldis;
             LobbyConfig.ApplyColorSelections();
 
-            Debug.Log("[FeraldisProbe] launching Feraldis probe on HollowTable (edition B, Age 1 Feraldis start)");
+            Debug.Log("[FeraldisProbe] launching Feraldis probe on YielLymwerra (edition B, Age 1 Feraldis start)");
             LoadingScreen.Show(GameSettings.SelectedMapScene);
 
             if (!_running)

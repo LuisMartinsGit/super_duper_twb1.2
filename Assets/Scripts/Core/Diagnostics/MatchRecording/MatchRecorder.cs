@@ -575,9 +575,9 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
                 MatchScore.TryGet(faction, out var sc);
 
                 Put(RecordSeries.Score, f, sc.Score);
-                Put(RecordSeries.Economy, f, sc.Economy);
-                Put(RecordSeries.Strategy, f, sc.Strategy);
-                Put(RecordSeries.Military, f, sc.Military);
+                Put(RecordSeries.UnitsScore, f, sc.Units);
+                Put(RecordSeries.BuildingsScore, f, sc.Buildings);
+                Put(RecordSeries.StockpileScore, f, sc.Stockpile);
                 Put(RecordSeries.KillDeath, f, MatchScore.KillsOf(faction) / (float)Mathf.Max(1, MatchScore.DeathsOf(faction)));
                 Put(RecordSeries.Kills, f, MatchScore.KillsOf(faction));
                 Put(RecordSeries.Deaths, f, MatchScore.DeathsOf(faction));

@@ -29,20 +29,76 @@ namespace TheWaningBorder.UI.Ingame
         private int RenderBuilder(EntityManager em, List<ActionButton> actions)
         {
             bool placing = WorkerCommandPanel.IsPlacingBuilding;
-            int used = 0;
-            for (int i = 0; i < actions.Count && used < _slots.Length; i++)
+            SetWorkerRows(true);
+
+            // Four category rows (BuildOrder): each row starts on a grid row
+            // of its own, padded with blanks; a row longer than the grid is
+            // wide wraps and the next category starts after it.
+            var rows = new List<ActionButton>[BuildOrder.Length];
+            for (int r = 0; r < rows.Length; r++) rows[r] = new List<ActionButton>();
+            for (int i = 0; i < actions.Count; i++)
             {
                 var b = actions[i];
                 if (!b.Enabled) continue;   // era-locked → hidden in this panel
-
-                string id = b.Id;
-                FillSlot(_slots[used++], b, BuildingCategory(id), null,
-                    placing ? null
-                            : (System.Action)(() => WorkerCommandPanel.TriggerBuildingPlacement(id)),
-                    em);
+                rows[(int)BuildRowOf(b.Id)].Add(b);
             }
-            for (int i = used; i < _slots.Length; i++) ClearSlot(_slots[i]);
+            for (int r = 0; r < rows.Length; r++)
+            {
+                int row = r;
+                // Stable: ties (unnamed ids) keep catalog order.
+                var list = rows[r];
+                var ranked = new List<(int rank, int idx, ActionButton b)>(list.Count);
+                for (int i = 0; i < list.Count; i++)
+                    ranked.Add((BuildRankOf(list[i].Id, row), i, list[i]));
+                ranked.Sort((x, y) => x.rank != y.rank ? x.rank.CompareTo(y.rank)
+                                                       : x.idx.CompareTo(y.idx));
+                for (int i = 0; i < list.Count; i++) list[i] = ranked[i].b;
+            }
+
+            int used = 0, cell = 0;
+            for (int r = 0; r < rows.Length && cell < _slots.Length; r++)
+            {
+                var list = rows[r];
+                if (list.Count == 0) continue;
+                for (int i = 0; i < list.Count && cell < _slots.Length; i++)
+                {
+                    var b = list[i];
+                    string id = b.Id;
+                    FillSlot(_slots[cell++], b, BuildingCategory(id), null,
+                        placing ? null
+                                : (System.Action)(() => WorkerCommandPanel.TriggerBuildingPlacement(id)),
+                        em);
+                    used++;
+                }
+                // Pad to the end of the grid row so the next category starts
+                // a fresh one (no padding after the last filled row).
+                bool more = false;
+                for (int q = r + 1; q < rows.Length && !more; q++) more = rows[q].Count > 0;
+                if (!more) break;
+                while (cell % Cols != 0 && cell < _slots.Length) BlankSlot(_slots[cell++]);
+            }
+            if (RowsOverflow(rows) && !_paletteOverflowLogged)
+            {
+                _paletteOverflowLogged = true;
+                TWBLog.Log($"[GameUI] ActionsPanel: the build palette needs more than " +
+                    $"{_slots.Length} cells — overflow dropped.");
+            }
+            for (int i = cell; i < _slots.Length; i++) ClearSlot(_slots[i]);
             return used;
+        }
+
+        private bool _paletteOverflowLogged;
+
+        /// <summary>True when the padded rows need more cells than the grid has.</summary>
+        private bool RowsOverflow(List<ActionButton>[] rows)
+        {
+            int cells = 0;
+            for (int r = 0; r < rows.Length; r++)
+            {
+                if (rows[r].Count == 0) continue;
+                cells = ((cells + Cols - 1) / Cols) * Cols + rows[r].Count;
+            }
+            return cells > _slots.Length;
         }
 
         /// <summary>
@@ -63,6 +119,7 @@ namespace TheWaningBorder.UI.Ingame
                     movable = em.Exists(sel[i]) && em.HasComponent<MoveSpeed>(sel[i]);
             if (!movable) return -1;
 
+            SetWorkerRows(false);
             int current = (int)TheWaningBorder.Input.FormationInput.CurrentShape;
             int count = Mathf.Min(4, _slots.Length);
             for (int i = 0; i < count; i++)
@@ -220,6 +277,7 @@ namespace TheWaningBorder.UI.Ingame
         /// when this selection is not one the authored panel owns.</summary>
         private int RenderBuilding(EntityManager em)
         {
+            SetWorkerRows(false);
             var info = EntityActionExtractor.GetActionInfo(_entity, em);
             bool hasLayout = BuildingActionLayouts.TryResolve(_entity, em, out var layoutSlots);
 
@@ -303,7 +361,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!upgrade.Show) return 0;
 
             int index = -1;
-            for (int i = _slots.Length - 1; i >= 0; i--)
+            for (int i = Mathf.Min(_slots.Length, SlotCount) - 1; i >= 0; i--)
                 if (!_slots[i].Root.activeSelf) { index = i; break; }
             if (index < 0)
             {

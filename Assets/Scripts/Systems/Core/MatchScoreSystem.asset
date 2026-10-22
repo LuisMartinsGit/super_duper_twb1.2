@@ -14,18 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   sampleIntervalSeconds: 15
   weightSupplies: 1
-  weightIron: 1
-  weightVeilstone: 2
-  weightVeilsteel: 4
-  pointsPerHundredEarned: 1
-  pointsPerHundredIncomePerMinute: 5
-  pointsPerTerritory: 60
-  pointsPerFortress: 120
-  pointsPerTech: 25
-  pointsPerBuildingLevel: 8
-  ageUpBonusMax: 300
-  ageUpBonusDecayPerMinute: 15
-  pointsPerKill: 12
-  pointsPerRazedBuilding: 25
-  kdFactorMin: 0.5
-  kdFactorMax: 2
+  weightIron: 3
+  weightVeilstone: 5
+  weightVeilsteel: 10

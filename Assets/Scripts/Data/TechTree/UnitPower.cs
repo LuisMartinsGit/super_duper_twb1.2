@@ -107,24 +107,50 @@ namespace TheWaningBorder.Data
             var b = new UnitPowerBreakdown();
             if (def == null) return b;
 
+            float avgDef = def.defense == null ? 0f
+                : (def.defense.melee + def.defense.ranged
+                   + def.defense.siege + def.defense.magic) / 4f;
+            b.Combat = CombatOf(def.damage, def.attackCooldown, def.aimTime, def.aoeRadius,
+                def.healsPerSecond, def.buildSpeed, avgDef, def.hp,
+                Math.Max(def.attackRange, def.siegeRange), out b.Dps, out b.EffectiveHp);
+            b.Investment = InvestmentOf(def);
+            if (b.Combat <= 0f)
+            {
+                // No output of any kind. Not measurable — see the field docs.
+                return b;
+            }
+            b.Power = Scale * b.Combat / b.Investment;
+            b.Measurable = true;
+            return b;
+        }
+
+        /// <summary>
+        /// The strength term on raw stats — the SO's (Breakdown) or a live
+        /// entity's (the Score, docs/Design/Score.md, which prices a unit by
+        /// how its researched stats compare with its SO's). 0 when the unit
+        /// has no offence of any kind.
+        /// </summary>
+        public static float CombatOf(float damage, float attackCooldown, float aimTime, float aoeRadius,
+            float healsPerSecond, float buildSpeed, float avgDefense, float hp, float range,
+            out float dps, out float effectiveHp)
+        {
             // ── Offence ──────────────────────────────────────────────────
             // Aim time is part of the cycle, not an alternative to cooldown:
             // an archer that winds up for 0.5 s and then waits 1.5 s fires
             // every 2 s, and treating those as competing floors flattered every
             // ranged unit in the roster.
-            float cycle = Math.Max(def.attackCooldown + def.aimTime, MinCycle);
-            b.Dps = def.damage > 0f ? def.damage / cycle : 0f;
+            float cycle = Math.Max(attackCooldown + aimTime, MinCycle);
+            dps = damage > 0f ? damage / cycle : 0f;
 
             // Splash multiplies what each shot is worth.
-            float aoe = 1f + Math.Max(0f, def.aoeRadius) / AoeDivisor;
+            float aoe = 1f + Math.Max(0f, aoeRadius) / AoeDivisor;
 
             // Support output on the same scale as damage: a point of healing is
             // a point of damage undone, and a worker's throughput is what it
             // contributes to the fight it is not in.
-            float utility = Math.Max(0f, def.healsPerSecond)
-                          + Math.Max(0f, def.buildSpeed) * 0.5f;
+            float utility = Math.Max(0f, healsPerSecond) + Math.Max(0f, buildSpeed) * 0.5f;
 
-            float offence = b.Dps * aoe + utility;
+            float offence = dps * aoe + utility;
 
             // ── Durability ───────────────────────────────────────────────
             // Armor is SUBTRACTED from each hit, so N armor multiplies how long
@@ -136,22 +162,14 @@ namespace TheWaningBorder.Data
             // 2026-08-28 was wrong by that much.
             //
             // Averaged across the four damage types because the metric does not
-            // know what the unit will be shot by.
-            float avgDef = def.defense == null ? 0f
-                : (def.defense.melee + def.defense.ranged
-                   + def.defense.siege + def.defense.magic) / 4f;
-            // Clamped so armor at or above the reference attack does not divide
-            // by zero or go negative. The floor is the game's own minimum-damage
-            // rule: a hit always lands for at least 1.
-            float perHit = Math.Max(1f, ReferenceAttack - Math.Max(0f, avgDef));
-            b.EffectiveHp = Math.Max(1f, def.hp) * (ReferenceAttack / perHit);
+            // know what the unit will be shot by. Clamped so armor at or above
+            // the reference attack does not divide by zero or go negative; the
+            // floor is the game's own minimum-damage rule: a hit always lands
+            // for at least 1.
+            float perHit = Math.Max(1f, ReferenceAttack - Math.Max(0f, avgDefense));
+            effectiveHp = Math.Max(1f, hp) * (ReferenceAttack / perHit);
 
-            if (offence <= 0f)
-            {
-                // No output of any kind. Not measurable — see the field docs.
-                b.Investment = InvestmentOf(def);
-                return b;
-            }
+            if (offence <= 0f) return 0f;
 
             // ── Combat ───────────────────────────────────────────────────
             // Geometric mean, not a product or a sum. A glass cannon and a
@@ -159,13 +177,8 @@ namespace TheWaningBorder.Data
             // and lose to respectively; a product lets one dimension run away
             // with the number, and a sum lets a unit with no offence at all
             // still look like a fighter because it has health.
-            float reach = 1f + Math.Max(def.attackRange, def.siegeRange) / ReachDivisor;
-            b.Combat = (float)Math.Sqrt(offence * b.EffectiveHp) * reach;
-
-            b.Investment = InvestmentOf(def);
-            b.Power = Scale * b.Combat / b.Investment;
-            b.Measurable = true;
-            return b;
+            float reach = 1f + Math.Max(0f, range) / ReachDivisor;
+            return (float)Math.Sqrt(offence * effectiveHp) * reach;
         }
 
         /// <summary>Cost and training time on one supplies-equivalent scale.</summary>

@@ -31,7 +31,7 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
     /// <summary>The per-faction series sampled every series interval.</summary>
     public enum RecordSeries : byte
     {
-        Score, Economy, Strategy, Military, KillDeath, Kills, Deaths,
+        Score, UnitsScore, BuildingsScore, StockpileScore, KillDeath, Kills, Deaths,
         Supplies, Iron, Veilstone, Veilsteel,
         Population, PopulationMax, Army, Workers, Buildings,
         Territories, Fortresses, Techs,

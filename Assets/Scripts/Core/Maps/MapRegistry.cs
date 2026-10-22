@@ -104,20 +104,9 @@ namespace TheWaningBorder.Core.Maps
         /// </summary>
         public static readonly string[] ShippingMapScenes =
         {
-            "SunderedCrown",   // 4P free-for-all
-            "HollowTable",     // 1v1 duel, one central well
-            "TwinSpans",       // 3v3 river, two crossings, four bridgehead wells
-            "SunderedReach",   // 3P, 704 m (4x Twin Spans' area), 10 regions
-            "Veilmarch",       // 8P, 1024 m open field, eight homes on the ring,
-                               // two wells on the east-west axis. This WAS
-                               // "VeilmarchGrand"; the 4-player Veilmarch was
-                               // the same field with four of the same homes and
-                               // is deleted (2026-09-24) — PlayerCount is a
-                               // lobby MAXIMUM, so the 8-start ring already
-                               // covers every count the 4P map did.
-            "MirrorMarches",   // 4P, 512 m, mirrored on both axes: corner
-                               // homes, square territories, curse in the
-                               // centre four — the fair test map (2026-10-05)
+            // The canon maps only (2026-10-22): Sundered Crown, Hollow
+            // Table, Twin Spans, Sundered Reach, Veilmarch and Mirror
+            // Marches are deleted from the project, every edition.
             "FiendstonePass",  // 6P, 1024 m, cliff shelves over a river with
                                // three fords; ramps are the chokes, 14 rich
                                // pockets (2026-10-16)
@@ -261,7 +250,7 @@ namespace TheWaningBorder.Core.Maps
                     "File → Build Settings → Scenes in Build.");
                 // Keep Default/IndexOf safe with a placeholder pointing at the
                 // map the build is supposed to ship.
-                _maps.Add(new MapEntry("Sundered Crown", "SunderedCrown", procedural: false));
+                _maps.Add(new MapEntry("Yiel Lymwérra", "YielLymwerra", procedural: false));
             }
 
 #if UNITY_EDITOR

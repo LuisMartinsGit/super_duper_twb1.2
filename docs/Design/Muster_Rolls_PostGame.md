@@ -14,8 +14,8 @@ it). Three tabs; **Close** returns to whatever was underneath.
 
 | Tab | Shows |
 |---|---|
-| **Standings** | one row per faction ranked by final Score: Score, Economy, Strategy, Military (docs/Design/Score.md), K/D, kills, deaths, territories, Fortresses, techs; the local player is marked, and the winner; below it the **Score over time** |
-| **Charts** | Economy / Strategy / Military score, K/D, the four banks (supplies, iron, veilstone, veilsteel), army units, population, buildings and territories over match time, one line per faction in its player colour; clicking a faction in the legend hides or shows it on every chart |
+| **Standings** | one row per faction ranked by final Score: Score, Units, Buildings, Stockpile (docs/Design/Score.md), K/D, kills, deaths, territories, Fortresses, techs; the local player is marked, and the winner; below it the **Score over time** |
+| **Charts** | Units / Buildings / Stockpile score, K/D, the four banks (supplies, iron, veilstone, veilsteel), army units, population, buildings and territories over match time, one line per faction in its player colour; clicking a faction in the legend hides or shows it on every chart |
 | **Map** | the recorded match replayed from above: the map's lobby picture, territories tinted by their owner at the playhead (the curse in purple), resource nodes, buildings on their real footprints (sites translucent, level pips), units as class symbols (melee circle, ranged triangle, cavalry diamond, siege square, worker ring, hero and curse star; a fighting unit is backed in red), and a fading ring wherever a unit died. Play / Pause, the speeds on the config asset, a timeline scrubber, mouse-wheel zoom about the cursor and drag to pan. A sidebar shows the clock and each faction's units and buildings at the playhead |
 
 The map is the post-game view: it shows everything, with no fog of war.

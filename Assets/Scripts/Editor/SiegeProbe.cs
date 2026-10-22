@@ -146,7 +146,7 @@ namespace TheWaningBorder.EditorTools
         /// Human (Blue) vs one Normal AI on Hollow Table, curse on, fog off —
         /// SkirmishPanel.StartGame with the roster it would build by default.
         /// </summary>
-        [MenuItem("Waning Border/Debug/Launch Quick Skirmish (HollowTable vs 1 AI)")]
+        [MenuItem("Waning Border/Debug/Launch Quick Skirmish (YielLymwerra vs 1 AI)")]
         public static void LaunchQuickSkirmish()
         {
             if (!EditorApplication.isPlaying)
@@ -160,7 +160,7 @@ namespace TheWaningBorder.EditorTools
             GameSettings.Mode = GameMode.FreeForAll;
             GameSettings.TotalPlayers = 2;
             LobbyConfig.SetupSinglePlayer(2);
-            GameSettings.SelectedMapScene = "HollowTable";
+            GameSettings.SelectedMapScene = "YielLymwerra";
             GameSettings.SpawnSeed = 20260907;
             GameSettings.FogOfWarEnabled = false;
             GameSettings.BorderEnabled = true;
@@ -169,7 +169,7 @@ namespace TheWaningBorder.EditorTools
             GameSettings.TutorialActive = false;
             LobbyConfig.ApplyColorSelections();
 
-            Debug.Log("[SiegeProbe] launching quick skirmish on HollowTable, seed " + GameSettings.SpawnSeed);
+            Debug.Log("[SiegeProbe] launching quick skirmish on YielLymwerra, seed " + GameSettings.SpawnSeed);
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 
@@ -193,7 +193,7 @@ namespace TheWaningBorder.EditorTools
             GameSettings.TotalPlayers = 2;
             LobbyConfig.SetupSinglePlayer(2);
             LobbyConfig.Slots[1].AIDifficulty = LobbyAIDifficulty.Hard;
-            GameSettings.SelectedMapScene = "HollowTable";
+            GameSettings.SelectedMapScene = "YielLymwerra";
             GameSettings.SpawnSeed = 20260907;
             GameSettings.FogOfWarEnabled = false;
             GameSettings.BorderEnabled = false;
@@ -202,7 +202,7 @@ namespace TheWaningBorder.EditorTools
             GameSettings.TutorialActive = false;
             LobbyConfig.ApplyColorSelections();
 
-            Debug.Log("[SiegeProbe] launching HARD skirmish (no curse) on HollowTable, seed " + GameSettings.SpawnSeed);
+            Debug.Log("[SiegeProbe] launching HARD skirmish (no curse) on YielLymwerra, seed " + GameSettings.SpawnSeed);
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 
@@ -215,7 +215,7 @@ namespace TheWaningBorder.EditorTools
         /// Alliances.NoTeam, which the hostility table reads as "fights alone,
         /// hostile to everyone" (docs/Design/Teams.md).
         /// </summary>
-        [MenuItem("Waning Border/Debug/Launch 4-AI FFA (Sundered Crown)")]
+        [MenuItem("Waning Border/Debug/Launch 4-AI FFA (Moatwatch)")]
         public static void LaunchFfaFourAI()
         {
             if (!EditorApplication.isPlaying)
@@ -237,7 +237,7 @@ namespace TheWaningBorder.EditorTools
                 slot.TeamIndex = Alliances.NoTeam;       // every faction alone
                 slot.StartIndex = PlayerSlot.AutoStart;
             }
-            GameSettings.SelectedMapScene = "SunderedCrown";
+            GameSettings.SelectedMapScene = "Moatwatch";
             GameSettings.SpawnSeed = 20260908;
             GameSettings.FogOfWarEnabled = true;         // the AI's recon path is part of the test
             GameSettings.BorderEnabled = true;           // curse on: the shipped setting
@@ -246,17 +246,17 @@ namespace TheWaningBorder.EditorTools
             GameSettings.TutorialActive = false;
             LobbyConfig.ApplyColorSelections();
 
-            Debug.Log("[FFA] launching 4-AI free-for-all on SunderedCrown, seed "
+            Debug.Log("[FFA] launching 4-AI free-for-all on Moatwatch, seed "
                       + GameSettings.SpawnSeed + " (Hard x4, curse on, fog on)");
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 
         /// <summary>
         /// The performance stress case (2026-10-10): eight Hard AIs on
-        /// Veilmarch with full banks, curse on — the match whose Perf.log
+        /// Highfold with full banks, curse on — the match whose Perf.log
         /// showed the road network and the sim tick sinking late-game.
         /// </summary>
-        [MenuItem("Waning Border/Debug/Launch 8-AI FFA (Veilmarch, max resources)")]
+        [MenuItem("Waning Border/Debug/Launch 8-AI FFA (Highfold, max resources)")]
         public static void LaunchFfaEightAI()
         {
             if (!EditorApplication.isPlaying)
@@ -278,7 +278,7 @@ namespace TheWaningBorder.EditorTools
                 slot.TeamIndex = Alliances.NoTeam;
                 slot.StartIndex = PlayerSlot.AutoStart;
             }
-            GameSettings.SelectedMapScene = "Veilmarch";
+            GameSettings.SelectedMapScene = "Highfold";
             GameSettings.SpawnSeed = 20261010;
             GameSettings.FogOfWarEnabled = true;
             GameSettings.BorderEnabled = true;
@@ -288,18 +288,18 @@ namespace TheWaningBorder.EditorTools
             GameSettings.TutorialActive = false;
             LobbyConfig.ApplyColorSelections();
 
-            Debug.Log("[FFA] launching 8-AI free-for-all on Veilmarch, max resources, seed "
+            Debug.Log("[FFA] launching 8-AI free-for-all on Highfold, max resources, seed "
                       + GameSettings.SpawnSeed);
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 
         /// <summary>
-        /// The fog-of-war test case (2026-10-16): Veilmarch, the largest map,
+        /// The fog-of-war test case (2026-10-16): Highfold, the largest map,
         /// fog ON and seen FROM BLUE (not an observer, so the overlay is
         /// drawn) — while Blue is AI-driven too, so its units actually walk
         /// and the fog edge can be watched following them.
         /// </summary>
-        [MenuItem("Waning Border/Debug/Launch Fog Test (Veilmarch, view Blue, 8 AI)")]
+        [MenuItem("Waning Border/Debug/Launch Fog Test (Highfold, view Blue, 8 AI)")]
         public static void LaunchFogTest()
         {
             if (!EditorApplication.isPlaying)
@@ -321,7 +321,7 @@ namespace TheWaningBorder.EditorTools
                 slot.TeamIndex = Alliances.NoTeam;
                 slot.StartIndex = PlayerSlot.AutoStart;
             }
-            GameSettings.SelectedMapScene = "Veilmarch";
+            GameSettings.SelectedMapScene = "Highfold";
             GameSettings.SpawnSeed = 20261016;
             GameSettings.FogOfWarEnabled = true;
             GameSettings.BorderEnabled = true;
@@ -331,14 +331,14 @@ namespace TheWaningBorder.EditorTools
             GameSettings.TutorialActive = false;
             LobbyConfig.ApplyColorSelections();
 
-            Debug.Log("[FogTest] launching Veilmarch, fog on, viewing Blue, seed " + GameSettings.SpawnSeed);
+            Debug.Log("[FogTest] launching Highfold, fog on, viewing Blue, seed " + GameSettings.SpawnSeed);
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 
         /// <summary>The curse-look test (2026-10-16): the fog test without
-        /// fog, so the curse territory Veilmarch starts with is visible — pair
+        /// fog, so the curse territory Highfold starts with is visible — pair
         /// with Debug > Focus Camera On Curse.</summary>
-        [MenuItem("Waning Border/Debug/Launch Curse Look Test (Veilmarch, no fog)")]
+        [MenuItem("Waning Border/Debug/Launch Curse Look Test (Highfold, no fog)")]
         public static void LaunchCurseLookTest()
         {
             LaunchFogTest();

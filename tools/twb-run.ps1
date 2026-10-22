@@ -23,7 +23,7 @@
     NO CODE CHANGE IS NEEDED FOR CONCURRENCY. LogPaths claims a per-process
     instance slot via a .instance<N>.lock file and MatchLogSession.Begin
     appends that slot to the folder name, so workers write to
-    <stamp>_Veilmarch, <stamp>_Veilmarch-2, and so on.
+    <stamp>_Moatwatch, <stamp>_Moatwatch-2, and so on.
 
     ACCELERATION HAS A CEILING, AND CONTENTION LOWERS IT. Everything
     integrates on deltaTime -- steering, arrival, separation, the formation
@@ -78,13 +78,13 @@ param(
 
     # ── what kind of game ─────────────────────────────────────────────────
     # 0 = AS MANY AS THE MAP HAS STARTS. -twbPlayers is NOT clamped by the
-    # game: ask for four on Hollow Table, which authors two, and the two
+    # game: ask for four on Yiel Lymwerra, which authors two, and the two
     # extra factions fall through to procedural placement on a hand-built
     # map. Auto reads the count off the map instead, so a rotation across
     # maps of different sizes stays a fair test on every one of them.
     [int]$Players = 0,
     [string]$Map = "",          # "" = rotate MapRotation; else pin one
-    [string[]]$MapRotation = @("Veilmarch", "SunderedCrown", "HollowTable", "TwinSpans", "SunderedReach"),
+    [string[]]$MapRotation = @("FiendstonePass", "YielLymwerra", "Moatwatch", "Highfold", "BrokenOath", "TrineHollow"),
     [int]$Age = 0,
     [switch]$Rich,              # every faction pinned at the resource cap (diagnostic)
     [switch]$Trace,             # single mode: write MapTrace.txt for the replay
@@ -109,7 +109,7 @@ param(
     [switch]$Monkey,            # clients rotate every command type
     [int]$Warm = 0,             # >0: warm-up skirmish for this many wall-seconds first
     [string]$WarmPeers = "",
-    [string]$WarmMaps = "SunderedCrown,HollowTable,Veilmarch",
+    [string]$WarmMaps = "YielLymwerra,Moatwatch,Highfold",
 
     # ── loop only ─────────────────────────────────────────────────────────
     [string]$StopFile = "",
@@ -132,14 +132,12 @@ function MapFor([int]$n) {
 # Player starts authored per map (MapInfo.PlayerCount, which the lobby
 # treats as a MAXIMUM). Keep in step with the MapInfo assets.
 $MapPlayers = @{
-    "HollowTable"   = 2
-    "SunderedReach" = 3
-    "SunderedCrown" = 4
-    "TwinSpans"     = 6
-    "Veilmarch"     = 8
-    "MirrorMarches" = 8
     "FiendstonePass" = 6
-    "YielLymwerra"  = 2
+    "YielLymwerra"   = 2
+    "Moatwatch"      = 4
+    "Highfold"       = 8
+    "BrokenOath"     = 5
+    "TrineHollow"    = 3
 }
 
 function PlayersFor([string]$m) {

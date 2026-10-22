@@ -2,7 +2,7 @@
 // Test bed for the one-SO-one-model building art (docs/Design/Art_Direction.md
 // § 13, 2026-10-20), from inside play mode:
 //
-//   Launch      — HollowTable, edition A, both seats AI and already Alanthor
+//   Launch      — YielLymwerra, edition A, both seats AI and already Alanthor
 //                 in Age 1 (fog off, the editor observing): every starting
 //                 building spawns through the SO path.
 //   Raise Lv2/3 — Blue's buildings of every Alanthor ladder to that faction
@@ -55,7 +55,7 @@ namespace TheWaningBorder.EditorTools
                 slot.TeamIndex = Alliances.NoTeam;
                 slot.StartIndex = PlayerSlot.AutoStart;
             }
-            GameSettings.SelectedMapScene = "HollowTable";
+            GameSettings.SelectedMapScene = "YielLymwerra";
             GameSettings.SpawnSeed = 20261020;
             GameSettings.FogOfWarEnabled = false;
             GameSettings.BorderEnabled = true;
@@ -66,7 +66,7 @@ namespace TheWaningBorder.EditorTools
             GameSettings.PerFactionStartCulture = false;
             GameSettings.StartCulture = Cultures.Alanthor;
             LobbyConfig.ApplyColorSelections();
-            Debug.Log("[AlanthorArtProbe] launching HollowTable, edition A, Age 1 Alanthor start");
+            Debug.Log("[AlanthorArtProbe] launching YielLymwerra, edition A, Age 1 Alanthor start");
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 

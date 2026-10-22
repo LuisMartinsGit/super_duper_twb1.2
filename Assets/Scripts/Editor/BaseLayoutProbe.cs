@@ -1,6 +1,6 @@
 // BaseLayoutProbe.cs
 // Debug menu for the AI's drawn base layout (docs/Design/Game_AI.md § 6g):
-// a Mirror Marches skirmish with maximum starting resources against one AI,
+// a Moatwatch skirmish with maximum starting resources against one AI,
 // a camera jump onto that AI's capital, and a dump of every building it owns
 // as an offset from the capital in 2 m build cells (the same frame as the
 // layout grid in AIBaseTemplate.asset: x east, rows SOUTH).
@@ -20,7 +20,7 @@ namespace TheWaningBorder.EditorTools
 {
     public static class BaseLayoutProbe
     {
-        [MenuItem("Waning Border/Debug/Launch Base Layout Test (Mirror Marches, max resources)")]
+        [MenuItem("Waning Border/Debug/Launch Base Layout Test (Moatwatch, max resources)")]
         public static void Launch()
         {
             if (!EditorApplication.isPlaying)
@@ -39,7 +39,7 @@ namespace TheWaningBorder.EditorTools
                 ai.Type = SlotType.AI;                    // slot 0 too: two AI towns to compare
                 ai.AIDifficulty = LobbyAIDifficulty.Hard;
             }
-            GameSettings.SelectedMapScene = "MirrorMarches";
+            GameSettings.SelectedMapScene = "Moatwatch";
             GameSettings.SpawnSeed = 20261006;
             GameSettings.FogOfWarEnabled = false;
             GameSettings.BorderEnabled = false;          // no curse: watch the base, not a war
@@ -48,7 +48,7 @@ namespace TheWaningBorder.EditorTools
             GameSettings.LocalPlayerFaction = Faction.Blue;
             GameSettings.TutorialActive = false;
             LobbyConfig.ApplyColorSelections();
-            Debug.Log("[BaseLayoutProbe] launching Mirror Marches, max resources, two Hard AIs, curse off");
+            Debug.Log("[BaseLayoutProbe] launching Moatwatch, max resources, two Hard AIs, curse off");
             LoadingScreen.Show(GameSettings.SelectedMapScene);
         }
 

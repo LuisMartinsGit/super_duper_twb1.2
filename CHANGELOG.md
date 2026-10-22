@@ -9,6 +9,29 @@ build always name the same number.
 
 ---
 
+## [0.0.52] — 2026-10-22
+
+### Changed
+- **Six maps are gone, every edition:** Sundered Crown, Hollow Table, Twin
+  Spans, Sundered Reach, Veilmarch and Mirror Marches are deleted from the
+  project. The canon maps are Fiendstone Pass, Yiel Lymwérra, Moatwatch,
+  Highfold, Broken Oath and Trine Hollow (the demo still ships the first
+  two).
+- **The Score is the price of what you own.** Living units at their price,
+  scaled by their researched stats; standing buildings and their level-ups
+  at what they cost; your stockpile — supplies 1, iron 3, veilstone 5,
+  veilsteel 10. Kills and the kill/death ratio no longer feed it (a walled-in
+  faction farming curse waves used to outscore the one holding the map), and
+  a defeated faction scores 0.
+- **The build palette is four rows:** Economy (Guild, Mine, Trader's Post,
+  House), Training (Barracks, Archery Range, Royal Stables, Siege Yard),
+  Special (Temple and the sect buildings) and Defense (towers, walls,
+  Fortress).
+
+### Fixed
+- Extending a wall after placing a Mine no longer turns the wall into a mine
+  ghost that cannot be placed.
+
 ## [0.0.51] — 2026-10-21
 
 ### Added

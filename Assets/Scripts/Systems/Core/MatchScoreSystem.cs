@@ -3,22 +3,31 @@
 // sampleIntervalSeconds of sim time and publishes it to MatchScore. Derived
 // only — nothing in the simulation reads a score back.
 //
-//   Economy  = earned/100 x pointsPerHundredEarned
-//            + incomePerMin/100 x pointsPerHundredIncomePerMinute
-//   Strategy = territories x pt + fortresses x pf + techs x ptech
-//            + building levels x pl + age-up bonus
-//   Military = (kills x pk + razed x pr) x clamp(K/D, kdMin, kdMax)
+//   Score = Units + Buildings + Stockpile                  (2026-10-22)
 //
-// "Earned" is the EconomyLedger's lifetime income (every source but refunds
-// and the untracked residual), weighted per resource; the ledger keeps
-// lifetime totals for exactly this, whether or not the match metrics run.
+//   Units      every living unit at its SO price x (combat now / combat on
+//              the SO) — UnitPower.CombatOf on the live Damage /
+//              AttackCooldown / Health.Max / Defense / range, so research,
+//              ranks and hero levels show through the units they improved
+//              and are worth nothing once those units are gone
+//   Buildings  every standing building at what it was paid (wall modules at
+//              the curtain price) + the faction-wide level-ups of every type
+//              the faction still owns
+//   Stockpile  the bank
+//
+// Every price is converted with the one resource ladder on the asset
+// (supplies / iron / veilstone / veilsteel). A defeated faction scores 0.
+// Kills, deaths, razed buildings and the tech count are still counted for
+// the readers but feed no part of the Score.
 
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Core;
 using TheWaningBorder.Core.Diagnostics;
+using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Systems.Buildings;
 using TheWaningBorder.World.Regions;
 
 namespace TheWaningBorder.Systems.Core
@@ -26,19 +35,21 @@ namespace TheWaningBorder.Systems.Core
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     public partial class MatchScoreSystem : SystemBase
     {
-        private EntityQuery _fortresses;
-        private EntityQuery _levelled;
+        private EntityQuery _units;
+        private EntityQuery _buildings;
+        private EntityQuery _verdict;
         private float _next;
         private int _epoch = -1;
-        private readonly float[] _prevEarned = new float[MatchScore.Factions];
-        private float _prevSampleTime;
 
         protected override void OnCreate()
         {
-            _fortresses = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<FortressTag, FactionTag>().WithNone<UnderConstruction>().Build(this);
-            _levelled = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<BuildingTag, FactionTag, BuildingUpgradeState>().Build(this);
+            _units = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<FactionTag, UnitTypeId, Health>().Build(this);
+            _buildings = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<BuildingTag, FactionTag, Health>()
+                .WithNone<UnderConstruction, PlannedBuilding>().Build(this);
+            _verdict = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<MatchVerdictState>().Build(this);
         }
 
         protected override void OnUpdate()
@@ -51,96 +62,181 @@ namespace TheWaningBorder.Systems.Core
             {
                 _epoch = SimCadence.Epoch;
                 MatchScore.ResetForMatch();
+                // The ledger's lifetime totals are per match (the HUD's
+                // lumpy-income readout reads them); this is where they reset.
                 EconomyLedger.ResetLifetime();
-                System.Array.Clear(_prevEarned, 0, _prevEarned.Length);
                 _next = 0f;
-                _prevSampleTime = 0f;
             }
 
             float now = SimClock.Now;
             if (now < _next) return;
             _next = now + math.max(1f, cfg.sampleIntervalSeconds);
-            float dtMin = math.max(1f / 60f, (now - _prevSampleTime) / 60f);
-            _prevSampleTime = now;
 
             var em = EntityManager;
-            var fortCount = new int[MatchScore.Factions];
-            using (var facs = _fortresses.ToComponentDataArray<FactionTag>(Allocator.Temp))
-                for (int i = 0; i < facs.Length; i++)
+
+            // ── Who is out of the match ──
+            var eliminated = new bool[MatchScore.Factions];
+            if (!_verdict.IsEmptyIgnoreFilter)
+            {
+                using var verdicts = _verdict.ToEntityArray(Allocator.Temp);
+                if (verdicts.Length > 0 && em.HasBuffer<EliminatedFactionRecord>(verdicts[0]))
                 {
-                    int f = (int)facs[i].Value;
-                    if (f >= 0 && f < MatchScore.Factions) fortCount[f]++;
+                    var buf = em.GetBuffer<EliminatedFactionRecord>(verdicts[0], true);
+                    for (int i = 0; i < buf.Length; i++)
+                    {
+                        int f = (int)buf[i].Value;
+                        if (f >= 0 && f < MatchScore.Factions) eliminated[f] = true;
+                    }
                 }
-            var levelSum = new int[MatchScore.Factions];
-            using (var facs = _levelled.ToComponentDataArray<FactionTag>(Allocator.Temp))
-            using (var lvls = _levelled.ToComponentDataArray<BuildingUpgradeState>(Allocator.Temp))
-                for (int i = 0; i < facs.Length; i++)
+            }
+
+            // ── Units: the living, at their SO price scaled by their stats ──
+            var unitValue = new float[MatchScore.Factions];
+            using (var ents = _units.ToEntityArray(Allocator.Temp))
+            using (var facs = _units.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var ids = _units.ToComponentDataArray<UnitTypeId>(Allocator.Temp))
+            using (var hps = _units.ToComponentDataArray<Health>(Allocator.Temp))
+                for (int i = 0; i < ents.Length; i++)
                 {
                     int f = (int)facs[i].Value;
-                    if (f >= 0 && f < MatchScore.Factions) levelSum[f] += lvls[i].Level;
+                    if (f < 0 || f >= MatchScore.Factions || hps[i].Value <= 0) continue;
+                    if (!TechCatalog.TryGetUnit(ids[i].Value.ToString(), out var def) || def == null) continue;
+                    unitValue[f] += Points(cfg, def.cost) * StrengthRatio(em, ents[i], def, hps[i]);
+                }
+
+            // ── Buildings: the standing, at what they were paid ──
+            var buildingValue = new float[MatchScore.Factions];
+            var fortCount = new int[MatchScore.Factions];
+            using (var ents = _buildings.ToEntityArray(Allocator.Temp))
+            using (var facs = _buildings.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var hps = _buildings.ToComponentDataArray<Health>(Allocator.Temp))
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    int f = (int)facs[i].Value;
+                    if (f < 0 || f >= MatchScore.Factions || hps[i].Value <= 0) continue;
+                    var e = ents[i];
+                    // A wall SEGMENT is the container of its modules; the
+                    // modules (instances) carry the curtain price, the hub
+                    // its own, so the segment itself is worth nothing twice.
+                    if (em.HasComponent<WallSegmentTag>(e)) continue;
+                    if (em.HasComponent<FortressTag>(e)) fortCount[f]++;
+                    if (em.HasComponent<WallInstanceTag>(e))
+                    {
+                        buildingValue[f] += Points(cfg, TheWaningBorder.Core.Commands.CommandRouter
+                            .WallModuleCost(em.HasComponent<PalisadeTag>(e)));
+                        continue;
+                    }
+                    string id = TheWaningBorder.Entities.BuildingIds.Of(e, em)
+                                ?? BuildCosts.IdFromEntity(em, e);
+                    if (string.IsNullOrEmpty(id)) continue;
+                    if (BuildCosts.TryGetPaid(em, e, id, out var paid))
+                        buildingValue[f] += Points(cfg, paid);
+                    else if (TechCatalog.TryGetBuilding(id, out var bdef) && bdef != null)
+                        buildingValue[f] += Points(cfg, bdef.cost);
                 }
 
             var research = FactionResearchState.Instance;
-            float minute = now / 60f;
 
             for (int f = 0; f < MatchScore.Factions; f++)
             {
                 var faction = (Faction)f;
                 if (!FactionEconomy.TryGetBank(em, faction, out var bank)) continue;
 
-                if (em.HasComponent<FactionEra>(bank) && em.GetComponentData<FactionEra>(bank).Value >= 2)
-                    MatchScore.NoteAgeUp(faction, minute);
-
-                // ── Economy ──
-                float earned = 0f;
-                for (int s = 0; s < (int)IncomeSource.Count; s++)
+                // ── Buildings, continued: the faction-wide level-ups of every
+                // type it still owns (paid once per type, docs/Design/Overview.md
+                // § Building levels) ──
+                float levelValue = 0f;
+                byte culture = CultureConfig.GetCompletedCulture(em, faction);
+                if (culture != Cultures.None && em.HasBuffer<FactionBuildingLevel>(bank))
                 {
-                    var src = (IncomeSource)s;
-                    if (src == IncomeSource.Refund || src == IncomeSource.Other) continue;
-                    earned += EconomyLedger.LifetimeIncomeOf(f, src, 0) * cfg.weightSupplies
-                            + EconomyLedger.LifetimeIncomeOf(f, src, 1) * cfg.weightIron
-                            + EconomyLedger.LifetimeIncomeOf(f, src, 2) * cfg.weightVeilstone
-                            + EconomyLedger.LifetimeIncomeOf(f, src, 3) * cfg.weightVeilsteel;
+                    var rows = em.GetBuffer<FactionBuildingLevel>(bank, true);
+                    for (int i = 0; i < rows.Length; i++)
+                    {
+                        if (rows[i].Level < 2) continue;
+                        string ladder = rows[i].BuildingId.ToString();
+                        if (FactionBuildingLevels.CountOwned(em, faction, ladder) <= 0) continue;
+                        for (int l = 2; l <= rows[i].Level; l++)
+                            if (TechCatalog.TryGetBuildingLevel(culture, ladder, l, out var lvl) && lvl != null)
+                                levelValue += Points(cfg, lvl.upgradeCost);
+                    }
                 }
-                float incomePerMin = math.max(0f, earned - _prevEarned[f]) / dtMin;
-                _prevEarned[f] = earned;
-                float economy = earned / 100f * cfg.pointsPerHundredEarned
-                              + incomePerMin / 100f * cfg.pointsPerHundredIncomePerMinute;
 
-                // ── Strategy ──
-                int territories = TerritoryOwnership.Ready ? TerritoryOwnership.CountOf(faction) : 0;
-                int techs = research != null ? research.GetCompletedCount(faction) : 0;
-                float ageUpMinute = MatchScore.AgeUpMinuteOf(faction);
-                float ageBonus = ageUpMinute >= 0f
-                    ? math.max(0f, cfg.ageUpBonusMax - cfg.ageUpBonusDecayPerMinute * ageUpMinute) : 0f;
-                float strategy = territories * cfg.pointsPerTerritory
-                               + fortCount[f] * cfg.pointsPerFortress
-                               + techs * cfg.pointsPerTech
-                               + levelSum[f] * cfg.pointsPerBuildingLevel
-                               + ageBonus;
+                // ── Stockpile ──
+                float stock = 0f;
+                if (em.HasComponent<FactionResources>(bank))
+                {
+                    var r = em.GetComponentData<FactionResources>(bank);
+                    stock = r.Supplies * cfg.weightSupplies + r.Iron * cfg.weightIron
+                          + r.Veilstone * cfg.weightVeilstone + r.Veilsteel * cfg.weightVeilsteel;
+                }
 
-                // ── Military ──
+                // ── Shown, not scored ──
                 int kills = MatchScore.KillsOf(faction), deaths = MatchScore.DeathsOf(faction);
                 int razed = MatchScore.RazedOf(faction);
                 float kd = kills / (float)math.max(1, deaths);
-                float kdFactor = math.clamp(kd, math.min(cfg.kdFactorMin, cfg.kdFactorMax),
-                                                math.max(cfg.kdFactorMin, cfg.kdFactorMax));
-                float military = (kills * cfg.pointsPerKill + razed * cfg.pointsPerRazedBuilding) * kdFactor;
+                int territories = TerritoryOwnership.Ready ? TerritoryOwnership.CountOf(faction) : 0;
+                int techs = research != null ? research.GetCompletedCount(faction) : 0;
 
-                // A faction with nothing earned, nothing held and nothing
-                // fought is not in the match (an empty slot).
-                bool live = earned > 0f || territories > 0 || kills + deaths > 0 || fortCount[f] > 0;
+                float units = unitValue[f];
+                float buildings = buildingValue[f] + levelValue;
+                if (eliminated[f]) { units = 0f; buildings = 0f; stock = 0f; }
+                float score = units + buildings + stock;
+
+                // A faction with nothing on the map, nothing banked and
+                // nothing fought is not in the match (an empty slot).
+                bool live = score > 0f || eliminated[f] || kills + deaths > 0 || territories > 0;
                 var row = new ScoreRow
                 {
-                    Live = live,
-                    Economy = economy, Strategy = strategy, Military = military,
-                    Score = economy + strategy + military,
-                    Earned = earned, IncomePerMin = incomePerMin,
-                    Territories = territories, Fortresses = fortCount[f], Techs = techs, Levels = levelSum[f],
+                    Live = live, Eliminated = eliminated[f],
+                    Units = units, Buildings = buildings, Stockpile = stock,
+                    Score = score,
+                    Territories = territories, Fortresses = fortCount[f], Techs = techs,
                     Kills = kills, Deaths = deaths, Razed = razed, Kd = kd,
                 };
                 MatchScore.Publish(faction, row, now);
             }
         }
+
+        /// <summary>
+        /// How much stronger the unit is now than its SO says: the Power
+        /// number's strength term on the live components the tech effects
+        /// write (Damage, AttackCooldown, Health.Max, Defense, ArcherState
+        /// range) over the same term on the SO. 1 when the SO has no
+        /// measurable output (a Scout, a Ledger) or the entity lacks the
+        /// components — the unit then counts at its plain price.
+        /// </summary>
+        private static float StrengthRatio(EntityManager em, Entity e, UnitDef def, in Health hp)
+        {
+            float baseDef = def.defense == null ? 0f
+                : (def.defense.melee + def.defense.ranged + def.defense.siege + def.defense.magic) / 4f;
+            float baseRange = math.max(def.attackRange, def.siegeRange);
+            float baseCombat = UnitPower.CombatOf(def.damage, def.attackCooldown, def.aimTime, def.aoeRadius,
+                def.healsPerSecond, def.buildSpeed, baseDef, def.hp, baseRange, out _, out _);
+            if (baseCombat <= 0f) return 1f;
+
+            float damage = em.HasComponent<Damage>(e) ? em.GetComponentData<Damage>(e).Value : def.damage;
+            float cooldown = em.HasComponent<AttackCooldown>(e)
+                ? em.GetComponentData<AttackCooldown>(e).Cooldown : def.attackCooldown;
+            float avgDef = baseDef;
+            if (em.HasComponent<Defense>(e))
+            {
+                var d = em.GetComponentData<Defense>(e);
+                avgDef = (d.Melee + d.Ranged + d.Siege + d.Magic) / 4f;
+            }
+            float range = em.HasComponent<ArcherState>(e)
+                ? math.max(em.GetComponentData<ArcherState>(e).MaxRange, def.siegeRange) : baseRange;
+            float liveCombat = UnitPower.CombatOf(damage, cooldown, def.aimTime, def.aoeRadius,
+                def.healsPerSecond, def.buildSpeed, avgDef, hp.Max, range, out _, out _);
+            return liveCombat <= 0f ? 1f : liveCombat / baseCombat;
+        }
+
+        private static float Points(MatchScoreSystemConfig cfg, CostBlock c)
+            => c == null ? 0f
+             : c.Supplies * cfg.weightSupplies + c.Iron * cfg.weightIron
+             + c.Veilstone * cfg.weightVeilstone + c.Veilsteel * cfg.weightVeilsteel;
+
+        private static float Points(MatchScoreSystemConfig cfg, Cost c)
+            => c.Supplies * cfg.weightSupplies + c.Iron * cfg.weightIron
+             + c.Veilstone * cfg.weightVeilstone + c.Veilsteel * cfg.weightVeilsteel;
     }
 }

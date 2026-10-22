@@ -21,13 +21,12 @@ namespace TheWaningBorder.Core.Diagnostics
     public struct ScoreRow
     {
         public bool Live;
-        public float Score, Economy, Strategy, Military;
-        /// <summary>Weighted resources earned over the match (refunds and the
-        /// untracked residual excluded).</summary>
-        public float Earned;
-        /// <summary>Weighted income over the last sample, per minute.</summary>
-        public float IncomePerMin;
-        public int Territories, Fortresses, Techs, Levels;
+        /// <summary>Named by the elimination record: every part reads 0.</summary>
+        public bool Eliminated;
+        /// <summary>Score = Units + Buildings + Stockpile (docs/Design/Score.md).</summary>
+        public float Score, Units, Buildings, Stockpile;
+        public int Territories, Fortresses, Techs;
+        /// <summary>Shown, not scored.</summary>
         public int Kills, Deaths, Razed;
         /// <summary>Kills / max(1, deaths).</summary>
         public float Kd;
@@ -41,8 +40,6 @@ namespace TheWaningBorder.Core.Diagnostics
         private static readonly int[] _kills = new int[Factions];
         private static readonly int[] _deaths = new int[Factions];
         private static readonly int[] _razed = new int[Factions];
-        /// <summary>Match minute the faction reached era 2; -1 = not yet.</summary>
-        private static readonly float[] _ageUpMinute = new float[Factions];
 
         /// <summary>Sim time of the last sample, for readers that want to
         /// know how fresh the rows are.</summary>
@@ -55,7 +52,6 @@ namespace TheWaningBorder.Core.Diagnostics
             System.Array.Clear(_kills, 0, _kills.Length);
             System.Array.Clear(_deaths, 0, _deaths.Length);
             System.Array.Clear(_razed, 0, _razed.Length);
-            for (int i = 0; i < _ageUpMinute.Length; i++) _ageUpMinute[i] = -1f;
             LastSampleTime = -1f;
         }
 
@@ -77,19 +73,9 @@ namespace TheWaningBorder.Core.Diagnostics
             if (attributed && k != v && k >= 0 && k < Factions) _razed[k]++;
         }
 
-        /// <summary>The faction reached era 2 at this match minute (first
-        /// call wins).</summary>
-        public static void NoteAgeUp(Faction faction, float matchMinute)
-        {
-            int f = (int)faction;
-            if (f >= 0 && f < Factions && _ageUpMinute[f] < 0f) _ageUpMinute[f] = matchMinute;
-        }
-
         public static int KillsOf(Faction f) => (int)f >= 0 && (int)f < Factions ? _kills[(int)f] : 0;
         public static int DeathsOf(Faction f) => (int)f >= 0 && (int)f < Factions ? _deaths[(int)f] : 0;
         public static int RazedOf(Faction f) => (int)f >= 0 && (int)f < Factions ? _razed[(int)f] : 0;
-        /// <summary>Match minute of the age-up, or -1.</summary>
-        public static float AgeUpMinuteOf(Faction f) => (int)f >= 0 && (int)f < Factions ? _ageUpMinute[(int)f] : -1f;
 
         // ── the rows ──
 
@@ -112,7 +98,7 @@ namespace TheWaningBorder.Core.Diagnostics
 
         /// <summary>The CSV header MatchMetrics writes (Metrics_Score.csv).</summary>
         public const string CsvHeader =
-            "t,faction,score,economy,strategy,military,earned,incomePerMin,territories,fortresses,techs,levels,kills,deaths,razed,kd\n";
+            "t,faction,score,units,buildings,stockpile,eliminated,territories,fortresses,techs,kills,deaths,razed,kd\n";
 
         /// <summary>One CSV row per live faction, for the sample at <paramref name="t"/>.</summary>
         public static void AppendCsvRows(StringBuilder sb, float t)
@@ -125,13 +111,12 @@ namespace TheWaningBorder.Core.Diagnostics
                 if (!r.Live) continue;
                 sb.Append(ts).Append(',').Append((Faction)f).Append(',')
                   .Append(r.Score.ToString("F0", ci)).Append(',')
-                  .Append(r.Economy.ToString("F0", ci)).Append(',')
-                  .Append(r.Strategy.ToString("F0", ci)).Append(',')
-                  .Append(r.Military.ToString("F0", ci)).Append(',')
-                  .Append(r.Earned.ToString("F0", ci)).Append(',')
-                  .Append(r.IncomePerMin.ToString("F0", ci)).Append(',')
+                  .Append(r.Units.ToString("F0", ci)).Append(',')
+                  .Append(r.Buildings.ToString("F0", ci)).Append(',')
+                  .Append(r.Stockpile.ToString("F0", ci)).Append(',')
+                  .Append(r.Eliminated ? 1 : 0).Append(',')
                   .Append(r.Territories).Append(',').Append(r.Fortresses).Append(',')
-                  .Append(r.Techs).Append(',').Append(r.Levels).Append(',')
+                  .Append(r.Techs).Append(',')
                   .Append(r.Kills).Append(',').Append(r.Deaths).Append(',').Append(r.Razed).Append(',')
                   .Append(r.Kd.ToString("F2", ci)).Append('\n');
             }
@@ -151,9 +136,10 @@ namespace TheWaningBorder.Core.Diagnostics
                 if (any) sb.Append(", ");
                 any = true;
                 sb.Append((Faction)f).Append(' ').Append(r.Score.ToString("F0", ci))
-                  .Append(" (economy ").Append(r.Economy.ToString("F0", ci))
-                  .Append(" / strategy ").Append(r.Strategy.ToString("F0", ci))
-                  .Append(" / military ").Append(r.Military.ToString("F0", ci)).Append(')');
+                  .Append(" (units ").Append(r.Units.ToString("F0", ci))
+                  .Append(" / buildings ").Append(r.Buildings.ToString("F0", ci))
+                  .Append(" / stockpile ").Append(r.Stockpile.ToString("F0", ci))
+                  .Append(r.Eliminated ? ", defeated)" : ")");
             }
             return any ? "Score       : " + sb : null;
         }

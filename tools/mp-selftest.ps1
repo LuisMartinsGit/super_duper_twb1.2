@@ -28,7 +28,7 @@ param(
     [int]$Tick = 900,          # 30 s in: past world-ready, before anything dies
     [int]$LimitSec = 120,
     [int]$BasePort = 18300,    # clear of both hunt lanes
-    [string]$Map = "HollowTable",
+    [string]$Map = "YielLymwerra",
     [int]$Seed = 777001
 )
 
