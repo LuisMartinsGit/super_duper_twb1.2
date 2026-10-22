@@ -9,7 +9,7 @@ build always name the same number.
 
 ---
 
-## [Unreleased]
+## [0.0.55] — 2026-10-22
 
 ### Fixed
 - **Units stay where you place them.** The idle form-up no longer re-arranges
