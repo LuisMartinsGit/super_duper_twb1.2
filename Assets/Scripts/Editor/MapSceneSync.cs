@@ -143,7 +143,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                           "scenario scene(s) filtered out (ship gate).");
 
             // An edition may ship fewer maps than the editor lists
-            // (MapRegistry.EditionAMapScenes).
+            // (MapRegistry.MapScenesForEdition).
             var editionMaps = MapRegistry.MapScenesForEdition(edition);
             if (editionMaps != null)
             {

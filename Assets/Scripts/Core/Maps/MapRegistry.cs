@@ -124,22 +124,14 @@ namespace TheWaningBorder.Core.Maps
         };
 
         /// <summary>
-        /// The maps edition A (the demo) ships — a subset of
-        /// <see cref="ShippingMapScenes"/> (developer, 2026-10-21: "Version A
-        /// must ... contain only Yiel Lymwérra and Fiendstone pass maps").
-        /// Applied to the PLAYER build only (MapSceneSync.ScenesForPlayerBuild),
-        /// so every map stays selectable in the editor. B and C ship the full list.
+        /// The maps an edition's player build may carry, or null for the
+        /// whole <see cref="ShippingMapScenes"/> list. Every edition ships
+        /// every canon map (developer, 2026-10-22: "the demo should have all
+        /// six maps"); from 2026-10-21 to 0.0.52 the demo carried only
+        /// Fiendstone Pass and Yiel Lymwérra. The hook stays so an edition
+        /// can be narrowed again without touching MapSceneSync.
         /// </summary>
-        public static readonly string[] EditionAMapScenes =
-        {
-            "FiendstonePass",
-            "YielLymwerra",
-        };
-
-        /// <summary>The maps an edition's player build may carry, or null for
-        /// the whole <see cref="ShippingMapScenes"/> list.</summary>
-        public static string[] MapScenesForEdition(string edition)
-            => edition == "A" ? EditionAMapScenes : null;
+        public static string[] MapScenesForEdition(string edition) => null;
 
         /// <summary>
         /// True if a scene belongs in Build Settings under the current ship

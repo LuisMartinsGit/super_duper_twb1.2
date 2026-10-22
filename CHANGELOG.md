@@ -9,14 +9,20 @@ build always name the same number.
 
 ---
 
+## [0.0.53] — 2026-10-22
+
+### Changed
+- **The demo ships all six canon maps** — Fiendstone Pass, Yiel Lymwérra,
+  Moatwatch, Highfold, Broken Oath and Trine Hollow — the same list as the
+  developer editions. 0.0.52 had carried only the first two.
+
 ## [0.0.52] — 2026-10-22
 
 ### Changed
 - **Six maps are gone, every edition:** Sundered Crown, Hollow Table, Twin
   Spans, Sundered Reach, Veilmarch and Mirror Marches are deleted from the
   project. The canon maps are Fiendstone Pass, Yiel Lymwérra, Moatwatch,
-  Highfold, Broken Oath and Trine Hollow (the demo still ships the first
-  two).
+  Highfold, Broken Oath and Trine Hollow.
 - **The Score is the price of what you own.** Living units at their price,
   scaled by their researched stats; standing buildings and their level-ups
   at what they cost; your stockpile — supplies 1, iron 3, veilstone 5,
