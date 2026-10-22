@@ -32,14 +32,17 @@ namespace TheWaningBorder.Core.Commands.Types
             if (!em.Exists(unit) || !em.Exists(target)) return;
             if (!em.HasComponent<LocalTransform>(target)) return;
 
-            // Clear conflicting commands (but NOT MoveCommand - combat system handles chasing)
+            // The order supersedes whatever the unit was doing — its standing
+            // move, its formation march, its work.
             ClearConflictingCommands(em, unit);
-
             // Set up attack
             SetupAttack(em, unit, target);
-
-            // Set guard point to current position (unit will return here after combat)
-            SetGuardPointToCurrent(em, unit);
+            // THE FIGHT IS WHERE THE UNIT WAS TOLD TO BE (2026-10-22,
+            // Stances.md §2): the guard point moves to the target. It used to
+            // keep the previous move's destination, so an army ordered onto
+            // one enemy killed it and then walked off to the old destination,
+            // ignoring the rest of the enemy army around it.
+            SetGuardPointAtTarget(em, unit, target);
         }
 
         /// <summary>
@@ -69,10 +72,16 @@ namespace TheWaningBorder.Core.Commands.Types
         private static void ClearConflictingCommands(EntityManager em, Entity unit)
         {
             // Attack installs AttackCommand/Target itself, so it must NOT
-            // clear combat here — only the work orders, plus the player-move
-            // shield so the combat system can take the unit over.
+            // clear combat here — only the work orders, and (2026-10-22) the
+            // standing movement: the plain move or attack-move the unit was
+            // on, the player-move shield, and its formation membership. An
+            // attack order is a new order; nothing of the old one may pull
+            // the unit back to the old destination once the target is dead.
             CommandCleanup.ClearWorkOrders(em, unit);
-            TransientState.Clear<UserMoveOrder>(em, unit);
+            CommandCleanup.ClearMovement(em, unit);
+            TransientState.Clear<FormationMemberState>(em, unit);
+            TransientState.Clear<FormationSpeedOverride>(em, unit);
+            TransientState.Clear<FormationSlotMemory>(em, unit);
         }
 
         private static void SetupAttack(EntityManager em, Entity unit, Entity target)
@@ -98,37 +107,19 @@ namespace TheWaningBorder.Core.Commands.Types
             }
         }
 
-        private static void SetGuardPointToCurrent(EntityManager em, Entity unit)
+        /// <summary>The guard point goes to the target: where the unit was
+        /// told to fight. When the target dies the targeting system moves it
+        /// again, to wherever the unit then stands (TargetingSystem.Commands),
+        /// so the unit holds the field and takes on what is left of the
+        /// enemy within its leash instead of walking off.</summary>
+        private static void SetGuardPointAtTarget(EntityManager em, Entity unit, Entity target)
         {
-            if (!em.HasComponent<LocalTransform>(unit)) return;
-
-            // If the unit already has a guard point (e.g., from a move command),
-            // keep it — the unit should return to its intended destination after combat,
-            // not to where it happened to be when attacked.
+            if (!em.HasComponent<LocalTransform>(target)) return;
+            var pos = em.GetComponentData<LocalTransform>(target).Position;
             if (TransientState.Active<GuardPoint>(em, unit))
-            {
-                var existing = em.GetComponentData<GuardPoint>(unit);
-                if (existing.Has != 0) return; // Preserve existing guard point
-            }
-
-            var pos = em.GetComponentData<LocalTransform>(unit).Position;
-
-            if (TransientState.Active<GuardPoint>(em, unit))
-            {
-                em.SetComponentData(unit, new GuardPoint
-                {
-                    Position = pos,
-                    Has = 1
-                });
-            }
+                em.SetComponentData(unit, new GuardPoint { Position = pos, Has = 1 });
             else
-            {
-                TransientState.Set(em, unit, new GuardPoint
-                {
-                    Position = pos,
-                    Has = 1
-                });
-            }
+                TransientState.Set(em, unit, new GuardPoint { Position = pos, Has = 1 });
         }
     }
 }

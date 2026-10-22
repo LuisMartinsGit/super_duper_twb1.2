@@ -92,8 +92,14 @@ The guard point is where the unit was last told to be:
   stance **there** — Aggressive by default, so it engages what comes into
   sight but is leashed back to this point);
 - where it stood when set to **Hold**;
-- the destination of an **attack-move** or the current patrol waypoint.
-
+- the destination of an **attack-move** or the current patrol waypoint;
+- the **target of an explicit attack order** (2026-10-22), and, once that
+  target dies, **wherever the unit then stands** — so an army ordered onto
+  one enemy holds the field and takes on the rest of the enemy army inside
+  its leash. It used to keep the destination of the move it was on before
+  the order, kill the one target and walk off to it, ignoring everything
+  else. An attack order also takes the unit out of its formation march and
+  drops the standing move: a new order, nothing of the old one left.
 ## 3. The chase leash
 
 Only an **automatically acquired** target that the unit is allowed to

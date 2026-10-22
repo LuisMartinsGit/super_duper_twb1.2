@@ -91,20 +91,20 @@ namespace TheWaningBorder.Systems.Combat
                 }
 
                 var target = attackCmd.ValueRO.Target;
-
                 // Validate target exists
                 if (target == Entity.Null || !em.Exists(target))
                 {
+                    HoldTheField(em, ref ecb, entity, transform.ValueRO.Position);
                     TransientState.Clear<AttackCommand>(em, ecb, entity);
                     continue;
                 }
-
                 // Validate target is alive
                 if (em.HasComponent<Health>(target))
                 {
                     var targetHealth = em.GetComponentData<Health>(target);
                     if (targetHealth.Value <= 0)
                     {
+                        HoldTheField(em, ref ecb, entity, transform.ValueRO.Position);
                         TransientState.Clear<AttackCommand>(em, ecb, entity);
                         continue;
                     }
@@ -144,6 +144,25 @@ namespace TheWaningBorder.Systems.Combat
                 }
             }
         }
+        /// <summary>
+        /// An ORDERED target is gone (2026-10-22, Stances.md §2): the unit's
+        /// guard point becomes where it stands, so it holds the field and
+        /// takes on the rest of the enemy inside its leash instead of walking
+        /// back to a stale point. An AUTO-acquired target (an attack-mover's
+        /// or patroller's, UnitEngagement.AutoTarget) leaves the guard point
+        /// alone: that is its march destination, and the march resumes.
+        /// </summary>
+        private static void HoldTheField(EntityManager em, ref EntityCommandBuffer ecb, Entity entity, float3 here)
+        {
+            if (TransientState.Active<UnitEngagement>(em, entity)
+                && em.GetComponentData<UnitEngagement>(entity).AutoTarget != Entity.Null) return;
+            if (TransientState.Active<AttackMoveCommand>(em, entity) || em.HasComponent<PatrolTag>(entity)) return;
+            if (TransientState.Active<GuardPoint>(em, entity))
+                ecb.SetComponent(entity, new GuardPoint { Position = here, Has = 1 });
+            else
+                TransientState.Set(ecb, entity, new GuardPoint { Position = here, Has = 1 });
+        }
+
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         private void CleanupStaleCommands(ref SystemState state, ref EntityCommandBuffer ecb)
         {

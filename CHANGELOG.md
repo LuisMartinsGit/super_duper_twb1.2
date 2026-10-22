@@ -11,6 +11,13 @@ build always name the same number.
 
 ## [Unreleased]
 
+### Fixed
+- **An attack order on one enemy no longer sends the army off afterwards.**
+  The order now supersedes the move the units were on (and their formation
+  march), and once the target is dead they hold the field and fight what is
+  left of the enemy army around them instead of walking to the old
+  destination.
+
 ### Changed
 - **Cleansing Wards follow the hospitals' rule:** a team keeps at most six
   standing, at least 15 m apart. A cast past that is refused and costs no
