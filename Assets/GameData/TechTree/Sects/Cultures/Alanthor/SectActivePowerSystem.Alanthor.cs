@@ -159,9 +159,14 @@ namespace TheWaningBorder.Systems.Sect
         /// everyone near them — their own side's units AND buildings included
         /// — while everyone may attack them. Duration 0 means Lv III — until
         /// killed. Only the caster's own units are spared (2026-10-19).
+        ///
+        /// Only <paramref name="share"/> of the eligible units in the circle
+        /// go mad (2026-10-24: 30 %), picked by a shuffle seeded from the cast
+        /// so every lockstep peer picks the same ones. A Heal cures them
+        /// (<see cref="CureFriendlyFire"/>).
         /// </summary>
         private static void ApplyHostileConversion(EntityManager em, Faction faction,
-            float3 center, float radius, float duration)
+            float3 center, float radius, float duration, float share)
         {
             float r2 = radius * radius;
             float stored = duration > 0f ? duration : SectEffectDuration.Permanent;
@@ -169,8 +174,9 @@ namespace TheWaningBorder.Systems.Sect
 
             var query = QC_UnitTagLocalTransformFactionTag.Get(em, QT_UnitTagLocalTransformFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
 
+            // Every eligible unit first, then the share of them that turns.
+            var eligible = new NativeList<Entity>(entities.Length, Allocator.Temp);
             for (int i = 0; i < entities.Length; i++)
             {
                 var e = entities[i];
@@ -186,7 +192,30 @@ namespace TheWaningBorder.Systems.Sect
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;
                 if (dx * dx + dz * dz > r2) continue;
+                eligible.Add(e);
+            }
 
+            // Deterministic order (entity index), then a partial shuffle
+            // seeded from the cast itself — no UnityEngine.Random in the sim.
+            eligible.Sort(new EntityIndexComparer());
+            int take = share > 0f && share < 1f
+                ? math.min(eligible.Length, (int)math.ceil(eligible.Length * share))
+                : eligible.Length;
+            uint seed = math.hash(new float4(center.x, center.z, (float)faction, eligible.Length)) | 1u;
+            var rng = new Unity.Mathematics.Random(seed);
+            for (int i = 0; i < take; i++)
+            {
+                int j = rng.NextInt(i, eligible.Length);
+                var tmp = eligible[i];
+                eligible[i] = eligible[j];
+                eligible[j] = tmp;
+            }
+
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            for (int i = 0; i < take; i++)
+            {
+                var e = eligible[i];
+                var owner = em.GetComponentData<FactionTag>(e).Value;
                 bool hadNoControl = em.HasComponent<NotControllableTag>(e);
                 TransientState.Set(ecb, e, new SectDisordered
                 {
@@ -204,12 +233,32 @@ namespace TheWaningBorder.Systems.Sect
                 hit++;
                 if (owner == GameSettings.LocalPlayerFaction) mine++;
             }
+            eligible.Dispose();
 
             ecb.Playback(em);
             ecb.Dispose();
             if (mine > 0 && !GameSettings.IsSpectating)
                 TheWaningBorder.Core.SimSignals.Announce(string.Format(
                     TheWaningBorder.Core.Localization.Loc.T("Friendly Fire! {0} of your units turned on their own side"), mine));
+        }
+
+        private struct EntityIndexComparer : System.Collections.Generic.IComparer<Entity>
+        {
+            public int Compare(Entity a, Entity b) => a.Index.CompareTo(b.Index);
+        }
+
+        /// <summary>
+        /// End Friendly Fire on <paramref name="e"/> now — the Heal power's
+        /// cure (2026-10-24). Gives the unit back to its owner exactly as the
+        /// expiry in AlanthorSectEffectSystem does.
+        /// </summary>
+        private static void CureFriendlyFire(EntityManager em, EntityCommandBuffer ecb, Entity e)
+        {
+            if (!TransientState.Active<SectDisordered>(em, e)) return;
+            var d = em.GetComponentData<SectDisordered>(e);
+            if (d.AddedNoControl != 0 && em.HasComponent<NotControllableTag>(e))
+                ecb.RemoveComponent<NotControllableTag>(e);
+            ecb.SetComponentEnabled<SectDisordered>(e, false);
         }
 
         // ── Renewal ─────────────────────────────────────────────────────────
@@ -242,6 +291,10 @@ namespace TheWaningBorder.Systems.Sect
                 if (hp.Value <= 0) continue;            // dead, and DeathSystem owns it
                 hp.Value = math.min(hp.Max, hp.Value + (int)(hp.Max * fraction));
                 em.SetComponentData(e, hp);
+
+                // The Heal cures Friendly Fire (2026-10-24). A maddened unit
+                // keeps its owner, so its own side's Heal reaches it here.
+                CureFriendlyFire(em, ecb, e);
 
                 if (duration <= 0f) continue;
                 // The tail restores the same fraction again, spread over the
@@ -325,14 +378,15 @@ namespace TheWaningBorder.Systems.Sect
 
         /// <summary>Second Wind. Allied units in the circle cannot drop below 1 HP.</summary>
         private static void ApplyDeathWard(EntityManager em, Faction faction,
-            float3 center, float radius, float healOnExpiry, float duration)
+            float3 center, float radius, float healOnExpiry, float duration, float damageTaken)
         {
             StampOnAlliedUnits(em, faction, center, radius, (ecb, e) =>
             {
                 var ward = new SectDeathWard
                 {
-                    TimeRemaining = duration,
-                    HealOnExpiry  = healOnExpiry,
+                    TimeRemaining   = duration,
+                    HealOnExpiry    = healOnExpiry,
+                    DamageTakenMult = damageTaken,
                 };
                 TransientState.Set(ecb, e, ward);
             });

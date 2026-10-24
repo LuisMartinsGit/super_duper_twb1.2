@@ -39,6 +39,13 @@ namespace TheWaningBorder.Abilities
                 float b = em.GetComponentData<SpellBuff>(target).DamageTakenMultiplier;
                 if (b > 0f && b < 1f) m = b;
             }
+            // Lifeline (Sects.md, Renewal [B], 2026-10-24): warded units take
+            // the ward's fraction of every hit and tick.
+            if (TransientState.Active<SectDeathWard>(em, target))
+            {
+                float w = em.GetComponentData<SectDeathWard>(target).DamageTakenMult;
+                if (w > 0f && w < 1f) m *= w;
+            }
             m *= TheWaningBorder.Entities.ShardboundKingRules.IncomingMultiplier(em, target);
             m *= TheWaningBorder.Entities.ShardrootEmpowerment.IncomingMultiplier(em, target);
             // A building on cursed ground takes more (Territory_Claims.md §6.9.9).

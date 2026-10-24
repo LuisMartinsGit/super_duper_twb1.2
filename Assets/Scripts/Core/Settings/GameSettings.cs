@@ -418,6 +418,11 @@ public static class GameSettings
     /// until they make one, and then PencilOutline.asset's own switch decides.</summary>
     public static bool? InkOutlines = null;
 
+    /// <summary>In-match HUD size multiplier (Settings > Gameplay > HUD
+    /// Scale). Pushed from PlayerProfile at boot; read by HudCanvas when a
+    /// HUD canvas is built.</summary>
+    public static float HudScale = 1.1f;
+
     // ==================== Map Settings ====================
 
     /// <summary>

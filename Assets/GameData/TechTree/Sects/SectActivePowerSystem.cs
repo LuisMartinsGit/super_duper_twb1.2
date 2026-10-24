@@ -664,7 +664,7 @@ namespace TheWaningBorder.Systems.Sect
                     ApplyBuildingShutdown(em, faction, pos, radius, duration);
                     break;
                 case SectActivePowerKind.HostileConversion:
-                    ApplyHostileConversion(em, faction, pos, radius, duration);
+                    ApplyHostileConversion(em, faction, pos, radius, duration, secondary);
                     break;
                 case SectActivePowerKind.AttainderStrike:
                     // Magnitude is damage PER KILL the target has taken from
@@ -690,7 +690,7 @@ namespace TheWaningBorder.Systems.Sect
                     RaiseWatchTowers(em, faction, pos, radius, (byte)magnitude, duration);
                     break;
                 case SectActivePowerKind.DeathWard:
-                    ApplyDeathWard(em, faction, pos, radius, magnitude, duration);
+                    ApplyDeathWard(em, faction, pos, radius, magnitude, duration, secondary);
                     break;
                 case SectActivePowerKind.Veil:
                     ApplyVeil(em, faction, pos, radius, magnitude, duration);

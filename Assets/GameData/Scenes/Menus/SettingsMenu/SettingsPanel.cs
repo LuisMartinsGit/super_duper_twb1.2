@@ -47,6 +47,7 @@ namespace TheWaningBorder.UI.Menus.Panels
         TMP_Dropdown _resolution;
         TMP_Dropdown _healthBars;
         TMP_Dropdown _dragPriority;
+        TMP_Dropdown _hudScale;
         Button _fullscreenToggle;
         TMP_Text _fullscreenState;
         Button _inkToggle;
@@ -96,6 +97,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             GameSettings.DragPriority = ClampDragPriority(PlayerProfile.DragPriority);
             GameSettings.InkOutlines = PlayerProfile.InkOutlines < 0
                 ? (bool?)null : PlayerProfile.InkOutlines == 1;
+            GameSettings.HudScale = PlayerProfile.HudScale;
 
             AudioListener.volume = Mathf.Clamp01(PlayerProfile.MasterVolume / 100f);
 
@@ -125,6 +127,17 @@ namespace TheWaningBorder.UI.Menus.Panels
             "Economy", "Military", "Off",
         };
 
+        /// <summary>HUD Scale choices; index-matched with their labels.</summary>
+        static readonly float[] HudScaleValues = { 0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f, 1.4f, 1.5f };
+
+        static int HudScaleIndex(float v)
+        {
+            int best = 0;
+            for (int i = 1; i < HudScaleValues.Length; i++)
+                if (Mathf.Abs(HudScaleValues[i] - v) < Mathf.Abs(HudScaleValues[best] - v)) best = i;
+            return best;
+        }
+
         #endregion
 
         #region Lifecycle
@@ -136,6 +149,7 @@ namespace TheWaningBorder.UI.Menus.Panels
             _resolution       = Find<TMP_Dropdown>("ResolutionDropdown");
             _healthBars       = Find<TMP_Dropdown>("HealthBarsDropdown");
             _dragPriority     = Find<TMP_Dropdown>("DragPriorityDropdown");
+            _hudScale         = BuildHudScaleRow();
             _fullscreenToggle = Find<Button>("FullscreenToggle");
             _fullscreenState  = Find<TMP_Text>("FullscreenState");
             _inkToggle        = Find<Button>("InkOutlinesToggle");
@@ -189,6 +203,42 @@ namespace TheWaningBorder.UI.Menus.Panels
 
             _statusTimer -= Time.unscaledDeltaTime;
             if (_statusTimer <= 0f && _status != null) _status.text = string.Empty;
+        }
+
+        /// <summary>
+        /// The HUD SCALE row, cloned at runtime from the Drag Selection row so
+        /// it carries the authored look without a scene re-bake (2026-10-24).
+        /// </summary>
+        TMP_Dropdown BuildHudScaleRow()
+        {
+            Transform source = null;
+            foreach (var t in GetComponentsInChildren<Transform>(true))
+                if (t.name == "DragPriorityRow") { source = t; break; }
+            if (source == null)
+            {
+                Debug.LogWarning("[Settings] no 'DragPriorityRow' to clone — HUD Scale will not show.");
+                return null;
+            }
+
+            var row = Instantiate(source.gameObject, source.parent, false);
+            row.name = "HudScaleRow";
+            row.transform.SetSiblingIndex(source.GetSiblingIndex() + 1);
+
+            TMP_Dropdown dd = null;
+            foreach (var d in row.GetComponentsInChildren<TMP_Dropdown>(true))
+            {
+                d.gameObject.name = "HudScaleDropdown";
+                d.onValueChanged.RemoveAllListeners();
+                dd = d;
+                break;
+            }
+            foreach (var txt in row.GetComponentsInChildren<TMP_Text>(true))
+            {
+                if (txt.gameObject.name == "Label") txt.text = Loc.T("HUD SCALE");
+                else if (txt.gameObject.name == "Caption")
+                    txt.text = Loc.T("How large the in-match interface is drawn. Applies to the next match.");
+            }
+            return dd;
         }
 
         #endregion
@@ -253,6 +303,14 @@ namespace TheWaningBorder.UI.Menus.Panels
 
             FillEnumDropdown(_healthBars, HealthBarLabels, PlayerProfile.HealthBars);
             FillEnumDropdown(_dragPriority, DragPriorityLabels, PlayerProfile.DragPriority);
+            if (_hudScale != null)
+            {
+                _hudScale.ClearOptions();
+                var opts = new List<string>(HudScaleValues.Length);
+                foreach (var v in HudScaleValues) opts.Add($"{Mathf.RoundToInt(v * 100f)}%");
+                _hudScale.AddOptions(opts);
+                _hudScale.SetValueWithoutNotify(HudScaleIndex(PlayerProfile.HudScale));
+            }
 
             _fullscreen = PlayerProfile.Fullscreen >= 0
                 ? PlayerProfile.Fullscreen == 1 : Screen.fullScreen;
@@ -363,6 +421,13 @@ namespace TheWaningBorder.UI.Menus.Panels
             {
                 PlayerProfile.DragPriority = _dragPriority.value;
                 GameSettings.DragPriority = ClampDragPriority(_dragPriority.value);
+            }
+
+            if (_hudScale != null)
+            {
+                float scale = HudScaleValues[Mathf.Clamp(_hudScale.value, 0, HudScaleValues.Length - 1)];
+                PlayerProfile.HudScale = scale;
+                GameSettings.HudScale = scale;
             }
 
             if (_quality != null)

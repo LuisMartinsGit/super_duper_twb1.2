@@ -57,15 +57,17 @@ namespace TheWaningBorder.Economy
                 default:
                     return level switch
                     {
+                        // Secondary = the share of the enemy units in the
+                        // circle that go mad (2026-10-24: 30 %, not all).
                         1 => Spec(SectActivePowerKind.HostileConversion, SectRadius.Small, "Friendly Fire",
-                                  "Enemy units in a small area go mad for 8s: their owner loses control and they attack everyone near them, their own side included.",
-                                  duration: 8f, cooldown: SpellLadder.FriendlyFireCooldown),
+                                  "30% of the enemy units in a small area go mad for 8s: their owner loses control and they attack everyone near them, their own side included. A Heal cures them.",
+                                  duration: 8f, cooldown: SpellLadder.FriendlyFireCooldown, secondary: 0.30f),
                         2 => Spec(SectActivePowerKind.HostileConversion, SectRadius.Medium, "Friendly Fire",
-                                  "Enemy units in a medium area go mad for 20s: their owner loses control and they attack everyone near them, their own side included.",
-                                  duration: 20f, cooldown: SpellLadder.FriendlyFireCooldown),
+                                  "30% of the enemy units in a medium area go mad for 20s: their owner loses control and they attack everyone near them, their own side included. A Heal cures them.",
+                                  duration: 20f, cooldown: SpellLadder.FriendlyFireCooldown, secondary: 0.30f),
                         _ => Spec(SectActivePowerKind.HostileConversion, SectRadius.Large, "Friendly Fire",
-                                  "Enemy units in a large area go mad until killed: their owner loses control and they attack everyone near them, their own side included.",
-                                  duration: Permanent, cooldown: SpellLadder.FriendlyFireCooldown),
+                                  "30% of the enemy units in a large area go mad until killed or healed: their owner loses control and they attack everyone near them, their own side included.",
+                                  duration: Permanent, cooldown: SpellLadder.FriendlyFireCooldown, secondary: 0.30f),
                     };
             }
         }
@@ -82,29 +84,31 @@ namespace TheWaningBorder.Economy
                     return level switch
                     {
                         1 => Spec(SectActivePowerKind.HealCirclePercent, SectRadius.Small, "Heal",
-                                  "Restore 30% of max HP to your units and buildings in a small area.",
+                                  "Restore 30% of max HP to your units and buildings in a small area, and cure Friendly Fire.",
                                   magnitude: 0.30f, cooldown: SpellLadder.SectTacticalCooldown),
                         2 => Spec(SectActivePowerKind.HealCirclePercent, SectRadius.Medium, "Heal",
-                                  "Restore 40% of max HP in a medium area.",
+                                  "Restore 40% of max HP in a medium area, and cure Friendly Fire.",
                                   magnitude: 0.40f, cooldown: SpellLadder.SectTacticalCooldown),
                         _ => Spec(SectActivePowerKind.HealCirclePercent, SectRadius.Medium, "Heal",
-                                  "Restore 60% of max HP in a medium area.",
+                                  "Restore 60% of max HP in a medium area, and cure Friendly Fire.",
                                   magnitude: 0.60f, cooldown: SpellLadder.SectTacticalCooldown),
                     };
 
-                // Lifeline — cannot drop below 1 HP (Magnitude = heal on expiry).
+                // Lifeline — cannot drop below 1 HP and takes 50 % less
+                // damage (2026-10-24). Magnitude = heal on expiry, Secondary =
+                // the damage-taken multiplier.
                 case 2:
                     return level switch
                     {
                         1 => Spec(SectActivePowerKind.DeathWard, SectRadius.Small, "Lifeline",
-                                  "Your units in a small area cannot drop below 1 HP for 6s.",
-                                  duration: 6f, cooldown: SpellLadder.SectTacticalCooldown),
+                                  "Your units in a small area take 50% less damage and cannot drop below 1 HP for 6s.",
+                                  duration: 6f, cooldown: SpellLadder.SectTacticalCooldown, secondary: 0.5f),
                         2 => Spec(SectActivePowerKind.DeathWard, SectRadius.Small, "Lifeline",
-                                  "Your units in a small area cannot drop below 1 HP for 12s.",
-                                  duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
+                                  "Your units in a small area take 50% less damage and cannot drop below 1 HP for 12s.",
+                                  duration: 12f, cooldown: SpellLadder.SectTacticalCooldown, secondary: 0.5f),
                         _ => Spec(SectActivePowerKind.DeathWard, SectRadius.Medium, "Lifeline",
-                                  "Medium area, 12s; survivors heal 25% when it ends.",
-                                  magnitude: 0.25f, duration: 12f, cooldown: SpellLadder.SectTacticalCooldown),
+                                  "Medium area, 12s: 50% less damage taken, cannot drop below 1 HP; survivors heal 25% when it ends.",
+                                  magnitude: 0.25f, duration: 12f, cooldown: SpellLadder.SectTacticalCooldown, secondary: 0.5f),
                     };
 
                 // Revive — the recently fallen return weakened.

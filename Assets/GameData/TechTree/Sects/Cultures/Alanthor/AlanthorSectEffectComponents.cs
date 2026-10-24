@@ -77,6 +77,10 @@ public struct SectDeathWard : IComponentData, IEnableableComponent
 {
     public float TimeRemaining;
     public float HealOnExpiry;
+    /// <summary>Incoming-damage multiplier while warded (Lifeline: 0.5 =
+    /// 50 % less, 2026-10-24); 0 or 1 = no reduction. Read by
+    /// AbilityDamageHooks.IncomingMultiplier.</summary>
+    public float DamageTakenMult;
 }
 
 // SectConjuredTower is GONE (docs/Design/Sects.md §4). Raise Anew now raises

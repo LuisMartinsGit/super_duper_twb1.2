@@ -70,7 +70,9 @@ namespace TheWaningBorder.UI.Common
             if (scaler == null) return;
 
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = reference;
+            // HUD Scale (Settings, 2026-10-24): a smaller reference frame is
+            // a larger HUD. Edge-anchored panels keep their edges.
+            scaler.referenceResolution = reference / UserScale;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
 
             // Unused by Expand, but a stale 0 here is the first thing the next
@@ -91,8 +93,11 @@ namespace TheWaningBorder.UI.Common
         public static float ScaleFactor(Vector2 reference)
         {
             if (reference.x <= 0f || reference.y <= 0f) return 1f;
-            return Mathf.Min(Screen.width / reference.x, Screen.height / reference.y);
+            return Mathf.Min(Screen.width / reference.x, Screen.height / reference.y) * UserScale;
         }
+
+        /// <summary>The player's HUD Scale setting, clamped to a safe range.</summary>
+        public static float UserScale => Mathf.Clamp(GameSettings.HudScale, 0.5f, 2f);
 
         /// <summary>
         /// Re-express a panel's authored placement as an offset from the

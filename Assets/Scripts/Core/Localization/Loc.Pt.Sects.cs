@@ -218,6 +218,12 @@ namespace TheWaningBorder.Core.Localization
                 "As unidades numa área pequena não podem descer abaixo de 1 HP durante 6s.";
             t["Units in a small area cannot drop below 1 HP for 12s."] =
                 "As unidades numa área pequena não podem descer abaixo de 1 HP durante 12s.";
+            t["Your units in a small area take 50% less damage and cannot drop below 1 HP for 6s."] =
+                "As tuas unidades numa área pequena sofrem menos 50% de dano e não podem descer abaixo de 1 HP durante 6s.";
+            t["Your units in a small area take 50% less damage and cannot drop below 1 HP for 12s."] =
+                "As tuas unidades numa área pequena sofrem menos 50% de dano e não podem descer abaixo de 1 HP durante 12s.";
+            t["Medium area, 12s: 50% less damage taken, cannot drop below 1 HP; survivors heal 25% when it ends."] =
+                "Área média, 12s: menos 50% de dano sofrido, não podem descer abaixo de 1 HP; os sobreviventes curam 25% quando termina.";
             t["Medium area, 12s; survivors heal 25% when it ends."] =
                 "Área média, 12s; os sobreviventes curam 25% quando termina.";
 

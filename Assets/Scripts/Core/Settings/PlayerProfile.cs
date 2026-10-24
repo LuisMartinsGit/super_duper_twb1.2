@@ -62,6 +62,11 @@ namespace TheWaningBorder.Core.Config
             /// PencilOutline.asset), 0 = off, 1 = on.</summary>
             public int InkOutlines = -1;
 
+            /// <summary>In-match HUD size multiplier (Settings > Gameplay >
+            /// HUD Scale, 2026-10-24). 1.1 by default: a little larger than
+            /// the authored 3840x2160 frame, which read small.</summary>
+            public float HudScale = 1.1f;
+
             /// <summary>The player has been asked for a name and answered.
             /// Persisted, because "have we asked yet" has to survive the
             /// process that asked — see PlayerProfile.NameConfirmed.</summary>
@@ -133,6 +138,13 @@ namespace TheWaningBorder.Core.Config
         {
             get => Load().InkOutlines;
             set { Load().InkOutlines = value; }
+        }
+
+        /// <summary>HUD size multiplier, clamped to the Settings range.</summary>
+        public static float HudScale
+        {
+            get => UnityEngine.Mathf.Clamp(Load().HudScale <= 0f ? 1.1f : Load().HudScale, 0.5f, 2f);
+            set { Load().HudScale = UnityEngine.Mathf.Clamp(value, 0.5f, 2f); }
         }
 
         public static int GraphicsQuality

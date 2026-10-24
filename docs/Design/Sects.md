@@ -179,8 +179,10 @@ inside your territory, half of it outside. Both players can see which applies.
 **[B] Embargo** — one enemy building stops training, research and income;
 queue progress is kept. **Always single target**; lasts **20 / 30 / 40 s**.
 
-**[★] Friendly Fire** — enemy units in the area go mad for **8 s / 20 s /
-until killed**. **S / M / L**. *(Reworked 2026-10-18, developer: "Units
+**[★] Friendly Fire** — **30 % of the enemy units in the area** (2026-10-24,
+developer: "must affect only 30% of the units in a radius"; picked by a
+shuffle seeded from the cast, so every lockstep peer agrees) go mad for
+**8 s / 20 s / until killed**. **A Heal cures them** (Renewal [A]). **S / M / L**. *(Reworked 2026-10-18, developer: "Units
 targeted by friendly fire do not change ownership. They target each other and
 become uncontrollable. I want the player to read it as 'my army committed
 suicide' and not 'my army got conquered by the curse'.")*
@@ -230,9 +232,11 @@ Healers of the poor; their magic is rewind — a mended wound is a body
 returned to an earlier moment.
 
 **[A] Heal** — restore **30 % / 40 % / 60 %** of max HP. **S / M / M**,
-allied units and buildings.
+allied units and buildings. **It also cures Friendly Fire** on every unit it
+reaches (2026-10-24, developer: "Healing spell removes Friendly fire").
 
-**[B] Lifeline** — allies cannot drop below 1 HP for **6 / 12 / 12 s**; at
+**[B] Lifeline** — allies **take 50 % less damage** (2026-10-24) and cannot
+drop below 1 HP for **6 / 12 / 12 s**; at
 III survivors heal 25 % when it ends. **S / S / M**.
 
 **[★] Revive** — your units that died in the area in the last

@@ -15,6 +15,9 @@ namespace TheWaningBorder.Core.Localization
             t["Whose health you see without pointing at them."] =
                 "De quem vê a vida sem apontar para eles.";
             t["DRAG SELECTION"] = "SELEÇÃO POR ARRASTO";
+            t["HUD SCALE"] = "ESCALA DA INTERFACE";
+            t["How large the in-match interface is drawn. Applies to the next match."] =
+                "O tamanho da interface durante a partida. Aplica-se à próxima partida.";
             t["What a box-select keeps when it catches both kinds. Hold Ctrl or Alt to take everything."] =
                 "O que a seleção por caixa mantém quando apanha os dois tipos. Ctrl ou Alt leva tudo.";
             // Health-bar modes
