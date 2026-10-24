@@ -9,6 +9,21 @@ build always name the same number.
 
 ---
 
+## [0.0.56] — 2026-10-24
+
+### Added
+- **HUD Scale setting.** Settings > Gameplay now has a HUD Scale choice from
+  80 % to 150 %. The default is 110 %, a little larger than before. It applies
+  from the next match.
+
+### Changed
+- **Friendly Fire maddens 30 % of the enemy units in its area,** not all of
+  them.
+- **Heal cures Friendly Fire.** A maddened unit caught in its own side's Heal
+  comes back under its owner's control at once.
+- **Lifeline also halves the damage its units take,** on top of keeping them
+  above 1 HP.
+
 ## [0.0.55] — 2026-10-22
 
 ### Fixed
