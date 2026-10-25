@@ -322,12 +322,12 @@ canvas.chart.tall{height:200px}
 (function(){
 "use strict";
 var DOC = JSON.parse(document.getElementById("data").textContent);
-/* A match is replayable when it has per-unit tracks or sampled frames; the
-   extractor says which (hasReplay), and a page built before it said so falls
-   back to counting frames. In a FOLDER build each entry here is a light
-   summary and carries `file`, its full record, fetched on selection. */
+/* A match is shown when it is TRACED and replayable (hasReplay); sampled
+   matches are not shown at all (2026-10-25). In a FOLDER build each entry
+   here is a light summary and carries `file`, its full record, fetched on
+   selection. */
 var M = (DOC.matches||[]).filter(function(m){
-  return m.hasReplay!=null ? !!m.hasReplay : (m.frames||[]).length > 1; });
+  return m.fidelity==="trace" && !!m.hasReplay; });
 var sel = 0;
 
 /* CSS custom properties, cached. getComputedStyle is a style recalc, and the
@@ -585,8 +585,8 @@ function bindView(){
 }
 
 /* ── symbols: what a thing IS and what LEVEL it is (2026-10-03) ─────────
-   A building's kind comes from its tech-tree id (MapTrace "type", or the
-   Metrics_BuildingEvents id on a sampled match), and from its display name
+   A building's kind comes from its tech-tree id (MapTrace "type"), and
+   from its display name
    on a trace written before the type was recorded. */
 function bkind(b){
   var s=String(b.ty||b.id||"").toLowerCase().replace(/[^a-z]/g,"");
@@ -1466,10 +1466,10 @@ function draw(){
      a stranger -- and is hidden before its first keyframe and after its last
      (spawn and death). Nothing is sampled away: every unit alive at t is
      drawn, or counted into its formation glyph when zoomed out.
-     Sampled matches -- recorded before the trace existed -- still carry
-     frames with id 0 on every point, and are SNAPPED rather than tweened. A
-     15 s sample honestly shown as a slideshow beats a smooth animation of
-     something that never happened.
+     TRACED MATCHES ONLY (2026-10-25, developer: "remove the old mode"):
+     the 15 s sampled-frame matches are gone from the page and the
+     extractor. m.frames now carries only a LIVE snapshot -- one frame,
+     every unit at the snapshot second -- drawn as it stands.
      SHAPE IS TYPE: a track's type index (or m.utype on an old frame) points
      into m.utypes; no entry draws the plain dot it always did. */
   var fr=m.frames||[];
@@ -1509,18 +1509,15 @@ function draw(){
     var i=0; while(i<fr.length-1 && fr[i+1].t<=t) i++;
     var a=fr[i], b2=fr[Math.min(i+1,fr.length-1)], a0=fr[Math.max(0,i-1)];
     var span=(b2.t-a.t)||1, f=Math.max(0,Math.min(1,(t-a.t)/span));
-    var tween=(m.fidelity==="trace");
     Object.keys(a.u).forEach(function(fa){
-      var pa=a.u[fa]||[], pb=(b2.u&&b2.u[fa])||[];
-      var c=fhue(fa), nxt=null, prv=null;
-      if(tween){ nxt={}; for(var j=0;j<pb.length;j++) nxt[pb[j][0]]=pb[j]; }
+      var pa=a.u[fa]||[];
+      var c=fhue(fa), prv=null;
       /* positions this instant, then (zoomed out) the formation groups */
       var P=new Array(pa.length);
       for(var n=0;n<pa.length;n++){
-        var cur=pa[n], q=(tween&&nxt[cur[0]])||cur;
-        var ti=UM[cur[0]];
-        P[n]={x:cur[1]+(q[1]-cur[1])*f, z:cur[2]+(q[2]-cur[2])*f, fl:cur[3]|0,
-              sh:(ti==null)?"dot":m._ush[ti], c:cur, q:q};
+        var cur=pa[n], ti=UM[cur[0]];
+        P[n]={x:cur[1], z:cur[2], fl:cur[3]|0,
+              sh:(ti==null)?"dot":m._ush[ti], c:cur, q:cur};
       }
       var grouped=null;
       if(aggregate && a.fg){
@@ -1643,7 +1640,7 @@ function draw(){
         "\nunits in match "+TRK.n+" | keyframes "+TRK.K+" | tol "+((m.trackInfo||{}).tol||"?")+" m"+
         "\ndraw "+DBG.ms.toFixed(2)+" ms | "+(R.fps?R.fps.toFixed(0):"-")+" fps | "+R.speed+"x"+
         "\n"+DBG.lay+(DBG.bench?"\n"+DBG.bench:"");
-    } else el.textContent="sampled frames (no tracks) | draw "+DBG.ms.toFixed(2)+" ms";
+    } else el.textContent="live snapshot (no tracks) | draw "+DBG.ms.toFixed(2)+" ms";
   }
 
   renderRoster(false);
@@ -2279,24 +2276,20 @@ function renderHead(){
         '<span>'+(m.liveN||0)+' units drawn'+(m.liveCap?' (thinned: '+esc(m.liveCap)+')':'')+'</span>'
       : '<span>'+m.peers+' peers</span>'+
     '<span>'+esc(m.build)+'</span>'+
-    '<span>positions every <b>'+(m.fidelity==="trace"?"1 s":"15 s")+'</b></span>'+
+    '<span>positions every <b>1 s</b></span>'+
     '<span>'+(forked(m)
       ? '<b class="warn">forked at tick '+(d.forkTick!=null?d.forkTick:d.flagTick)+'</b>'
       : '<b>'+(d.compared||0).toLocaleString()+' tick rows agreed</b>')+'</span>')+
     scoreSpec(m);
-  document.getElementById("lede").innerHTML= m.fidelity==="trace"
-    ? 'Every unit, all of them, recorded once a second with its state and drawn along its own '+
+  document.getElementById("lede").innerHTML=
+      'Every unit, all of them, recorded once a second with its state and drawn along its own '+
       'track: between keyframes it moves in a straight line at a steady pace, and the keyframes are '+
       'kept so that line never strays more than <b>'+(((m.trackInfo||{}).tol)||"0.75")+' m</b> from where '+
       'the game had it. A <b>gold ring</b> is a unit in '+
       'formation; a <b>red halo</b> is one with a target. Buildings are drawn at their real '+
       'footprint on the 2 m build grid, and the map’s regions and resource nodes are the ones the '+
       'match actually had. A unit’s shape is its class and a building’s glyph its type, with gold pips '+
-      'for its level (see the legend). Drag to pan, scroll or pinch to zoom.'
-    : 'Recorded before the trace existed, so units are sampled every 15 s without formation or '+
-      'combat state — but the map underneath is real: true world extent, every resource node '+
-      'from the map asset, and every building at its true footprint on the 2 m build grid, marked '+
-      'with its type. Drag to pan, scroll or pinch to zoom.';
+      'for its level (see the legend). Drag to pan, scroll or pinch to zoom.';
   /* THE LEGEND IS DRAWN BY THE SAME CODE AS THE MAP (markURL), so a symbol
      here can never disagree with a symbol there. */
   var mu=css("--mute");

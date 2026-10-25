@@ -24,7 +24,7 @@ because a four-peer lockstep match is ONE match seen four times -- carrying:
   * the per-faction SCORE (economy / strategy / military, docs/Design/Score.md)
     over time and where it ended, from Metrics_Score.csv
   * everything needed to REPLAY the match on a map: a track per unit
-    (traced matches; sampled position frames otherwise), building add/remove
+    (traced matches only, 2026-10-25), building add/remove
     events, and death events
   * the end-of-match rolls the old batch reports were built on: what each
     faction had STANDING (Metrics_Buildings), what it had RESEARCHED
@@ -72,9 +72,6 @@ MAX_MATCHES = 40          # newest first; the page has to stay openable
 # never drops units.
 TRACK_TOL = 0.75
 TRACK_CAP = 12 * 1000 * 1000
-# Sampled (pre-trace) matches still have frames, and still have a budget.
-SAMPLED_TOTAL_BUDGET = 200000
-SAMPLED_SHARE = 60000
 # Death events per match. thin() keeps an EVEN spread and always keeps the
 # last row, so a capped list still ends where the match ended.
 DEATH_TOTAL_BUDGET = 30000
@@ -1488,42 +1485,6 @@ def build(match):
         if gone and tmax_all > 0:
             eliminated[k] = last["t"]
 
-    # Replay frames. Positions are already integers; keep them that way.
-    frames = defaultdict(lambda: defaultdict(list))
-    for r in read_csv(os.path.join(hd, "Metrics_UnitPositions.csv")):
-        frames[i_(r["t"])][r["faction"]].append([i_(r["x"]), i_(r["z"])])
-    replay = [dict(t=t, u={fa: pts for fa, pts in fs.items()})
-              for t, fs in sorted(frames.items())]
-
-    # THIN, NEVER TRUNCATE -- AND SPEND THE BUDGET ON TIME, NOT ON DOTS.
-    #
-    # A three-hour match samples 720 position frames; forty of those in one
-    # page is tens of megabytes and the artifact stops opening. The first
-    # version dropped whole frames, which for a 3 h match meant one frame
-    # every two minutes and units that teleport across the map -- useless for
-    # the long runs that exist to be watched.
-    #
-    # Temporal resolution is what makes a replay readable, so the budget goes
-    # there: cap how many units each faction contributes to a frame, keeping
-    # an EVEN SPATIAL SPREAD rather than the first N (which would be whatever
-    # order the chunks happened to be in, i.e. one corner of the map), and
-    # only drop frames if that still is not enough. Cutting the tail is never
-    # an option: it would hide exactly the late-game state these runs reach.
-    POINT_BUDGET = SAMPLED_SHARE
-    PER_FACTION_CAP = 70
-
-    def _points(rs):
-        return sum(len(p) for r in rs for p in r["u"].values())
-
-    if _points(replay) > POINT_BUDGET:
-        for fr in replay:
-            for fa, pts in fr["u"].items():
-                if len(pts) > PER_FACTION_CAP:
-                    step = len(pts) / float(PER_FACTION_CAP)
-                    fr["u"][fa] = [pts[int(i * step)] for i in range(PER_FACTION_CAP)]
-    while len(replay) > 240 and _points(replay) > POINT_BUDGET:
-        replay = replay[::2]
-
     builds = [dict(t=i_(r["t"]), f=r["faction"], id=r["buildingId"],
                    x=i_(r["x"]), z=i_(r["z"]), e=r["event"])
               for r in read_csv(os.path.join(hd, "Metrics_BuildingEvents.csv"))]
@@ -1540,10 +1501,8 @@ def build(match):
 
     # Map extent from whatever the match actually touched, padded. Reading it
     # from MapInfo would be better but that asset is not on the log path.
-    xs = [p[0] for fr in replay for pts in fr["u"].values() for p in pts] \
-        + [b["x"] for b in builds] + [d["x"] for d in deaths]
-    zs = [p[1] for fr in replay for pts in fr["u"].values() for p in pts] \
-        + [b["z"] for b in builds] + [d["z"] for d in deaths]
+    xs = [b["x"] for b in builds] + [d["x"] for d in deaths]
+    zs = [b["z"] for b in builds] + [d["z"] for d in deaths]
     if xs and zs:
         pad = 40
         ext = [min(xs) - pad, min(zs) - pad, max(xs) + pad, max(zs) + pad]
@@ -1553,10 +1512,15 @@ def build(match):
     # -- THE MAP ITSELF --------------------------------------------------
     world, foot = world_and_footprints(hd)
     trace = read_trace(hd)
+    if not trace:
+        # TRACED MATCHES ONLY (2026-10-25, developer: "remove the old mode").
+        # The 15 s Metrics_UnitPositions reconstruction is gone; every
+        # headless run carries -Trace, and main() skips a match without one.
+        raise ValueError("no MapTrace.txt: untraced matches are not reported")
     if world is None:
         world = ext                      # fall back to what moved
-    nodes = trace["nodes"] if trace else map_nodes(match["map"], world)
-    regions = trace["regions"] if trace else []
+    nodes = trace["nodes"]
+    regions = trace["regions"]
     utypes, utype, ulv = [], {}, {}
     tracks, tfac, frame_dt, track_info = None, [], [], None
 
@@ -1632,35 +1596,6 @@ def build(match):
                 rec["lv"] = lv_all[k][:40]
             blds.append(rec)
         fidelity = "trace"
-    else:
-        # Reconstructed: 15 s position samples, no identity, no state, but
-        # real footprints from the cost stamp and the real map underneath.
-        # NO IDENTITY HERE, so id 0 on every point and the page must NOT
-        # tween these -- see the note above. A 15 s sample snapped in place
-        # reads as a slideshow, which is honest; tweening it reads as units
-        # sprinting to a neighbour's position and back, which is a lie.
-        frames = [dict(t=fr["t"], u={fa: [[0, p[0], p[1], 0] for p in pts]
-                                     for fa, pts in fr["u"].items()})
-                  for fr in replay]
-        live, blds = {}, []
-        for b in builds:
-            key = (b["f"], b["id"], b["x"], b["z"])
-            if b["e"] == "add":
-                wh = foot.get(b["id"], [4, 4])
-                rec = dict(t0=b["t"], t1=None, f=b["f"], id=b["id"], ty=b["id"],
-                           x=b["x"], z=b["z"], w=wh[0], h=wh[1])
-                # Metrics_BuildingEvents truncates to whole metres, and a
-                # snapped centre always IS a whole metre, so the test is exact.
-                if not WALLISH.search(b["id"]):
-                    g = grid_cells(b["x"], b["z"], wh[0], wh[1])
-                    if g:
-                        rec["g"] = g
-                live[key] = rec
-                blds.append(rec)
-            elif key in live:
-                live[key]["t1"] = b["t"]
-                del live[key]
-        fidelity = "sampled"
 
     ai = {}
     for fa in FACTIONS:
@@ -1797,8 +1732,8 @@ def build(match):
         # The cursed ground over time (MapTrace KG/KS/KR); None before 2026-10-17.
         curseGround=(trace or {}).get("curse"),
         frames=frames, fidelity=fidelity,
-        # Per-unit tracks (traced matches; see "per-unit tracks"). `frames`
-        # is then empty and only sampled matches carry it.
+        # Per-unit tracks (see "per-unit tracks"). `frames` stays empty: only
+        # the page's live snapshots fill it.
         tracks=tracks, ft=frame_dt, tfac=tfac, trackInfo=track_info,
         hasReplay=bool(tracks) or len(frames) > 1,
         waveList=wavelist, composition=composition, structures=structures,
@@ -1844,15 +1779,13 @@ def main():
         older = allmatches[MAX_MATCHES:]
     # Divide the page's budgets among the matches that will be in it -- unless
     # each match is its own file (--per-match), when nothing is shared.
-    global SAMPLED_SHARE, DEATH_CAP, AI_SERIES_CAP, AI_EVENT_CAP
+    global DEATH_CAP, AI_SERIES_CAP, AI_EVENT_CAP
     if PER_MATCH:
-        SAMPLED_SHARE = 60000
         DEATH_CAP = 20000
         AI_SERIES_CAP = 400
         AI_EVENT_CAP = 300
     else:
         n = max(1, len(matches))
-        SAMPLED_SHARE = max(12000, SAMPLED_TOTAL_BUDGET // n)
         DEATH_CAP = max(600, DEATH_TOTAL_BUDGET // n)
         AI_SERIES_CAP = max(80, AI_SERIES_TOTAL // n)
         AI_EVENT_CAP = max(60, 1800 // n)
@@ -1860,6 +1793,10 @@ def main():
     records = []
     records_tail = []      # cheap verdicts for everything past the window
     for m in matches:
+        hostdir = next((p for p in m["peers"] if p["role"] == "host"), m["peers"][0])["dir"]
+        if not os.path.exists(os.path.join(hostdir, "MapTrace.txt")):
+            print("  %s: skipped -- no MapTrace.txt (run with -Trace)" % m["key"])
+            continue
         try:
             records.append(build(m))
         except Exception as e:
