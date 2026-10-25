@@ -9,6 +9,18 @@ build always name the same number.
 
 ---
 
+## [0.0.58] — 2026-10-25
+
+### Fixed
+- **Units no longer get stuck on concave cliff corners.** A unit walking into
+  a cliff or wall now slides along it instead of stopping, and armies no
+  longer aim their men through the corners of a cliff edge, which is what
+  stalled them and strung formations out on the march.
+- **Armies form up on ground they can reach.** A formation ordered next to
+  a mountain or a cliff no longer puts some of its men inside the rock or on
+  the shelf below; those men were trapped at the edge and then trailed
+  behind the army one by one.
+
 ## [0.0.57] — 2026-10-25
 
 ### Added
