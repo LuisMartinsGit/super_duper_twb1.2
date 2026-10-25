@@ -539,6 +539,7 @@ namespace TheWaningBorder.Systems.Navigation
                 // Multi-distance sweep along forward direction. Record HOW FAR
                 // the blockage is — the response is scaled by it below.
                 float hitDist = ObstacleLookAhead;
+                int hitX = 0, hitZ = 0;
                 for (float probe = 0.5f; probe <= ObstacleLookAhead; probe += 0.5f)
                 {
                     float3 sample = pos + fwd * probe;
@@ -549,6 +550,7 @@ namespace TheWaningBorder.Systems.Navigation
                     {
                         wallBlockedAhead = true;
                         hitDist = probe;
+                        hitX = sx; hitZ = sz;
                         break;
                     }
                 }
@@ -589,7 +591,28 @@ namespace TheWaningBorder.Systems.Navigation
                     float urgency = math.saturate(1f - hitDist / ObstacleLookAhead);
                     float3 flowKeep = fwd * (FlowWeight * arrivalScale * (1f - urgency));
 
-                    if (rightClear)
+                    // SLIDE THE WAY THE FLOW IS GOING (2026-10-25). The side
+                    // used to be "right if clear, else left" whatever the wall
+                    // did: a unit following the flow round a mountain edge that
+                    // bends left was turned RIGHT, away from the way round --
+                    // and in a concave corner right leads deeper into the
+                    // pocket. Telemetry on Fiendstone Pass: units crawling at
+                    // painted-mountain edges were steered a median 78 degrees
+                    // off their flow, half of them into impassable ground. The
+                    // wall's own tangent (from the blocked cells round the hit)
+                    // signed along the flow is the slide; the fixed side order
+                    // below is kept only for a head-on hit, where the wall
+                    // gives no direction.
+                    float3 tangent = WallTangent(hitX, hitZ, fwd, selfFactionIdx);
+                    bool tangentClear = math.lengthsq(tangent) > 0f
+                        && !IsWorldBlocked(pos + tangent * SideProbeDist, selfFactionIdx);
+
+                    if (tangentClear)
+                    {
+                        force = tangent * ((FlowWeight + ObstacleAvoidanceWeight) * urgency)
+                              + flowKeep + sepCopy;
+                    }
+                    else if (rightClear)
                     {
                         force = perpRight * ((FlowWeight + ObstacleAvoidanceWeight) * urgency)
                               + flowKeep + sepCopy;
@@ -694,6 +717,37 @@ namespace TheWaningBorder.Systems.Navigation
         // World-space wrapper around IsCellBlocked: maps a world position to
         // its cost-field cell and reports blocked. Out-of-grid samples are
         // treated as NOT blocked so map-edge units aren't shoved inward.
+        /// <summary>Below this |cos| between the flow and the wall tangent the
+        /// hit is head-on: the wall says nothing about which way to go.</summary>
+        private const float HeadOnCos = 0.1f;
+
+        /// <summary>
+        /// The direction along the wall at blocked cell (hx, hz) that the flow
+        /// <paramref name="fwd"/> is heading, or zero for a head-on hit. The
+        /// wall normal is the sum of the directions to the OPEN cells of the
+        /// 3 x 3 round the hit (it points out of the obstacle); the tangent is
+        /// its perpendicular, signed to agree with the flow. Integer cell
+        /// reads and a fixed summation order: deterministic.
+        /// </summary>
+        private float3 WallTangent(int hx, int hz, float3 fwd, byte selfFactionIdx)
+        {
+            float nx = 0f, nz = 0f;
+            for (int dz = -1; dz <= 1; dz++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dz == 0) continue;
+                int cx = hx + dx, cz = hz + dz;
+                if (cx < 0 || cx >= CostWidth || cz < 0 || cz >= CostHeight) continue;
+                if (!IsCellBlocked(cx, cz, selfFactionIdx)) { nx += dx; nz += dz; }
+            }
+            float len = math.sqrt(nx * nx + nz * nz);
+            if (len < 1e-4f) return float3.zero;          // buried: no wall face
+            float3 t = new float3(-nz / len, 0f, nx / len);
+            float c = math.dot(t, fwd);
+            if (math.abs(c) < HeadOnCos) return float3.zero;
+            return c > 0f ? t : -t;
+        }
+
         private bool IsWorldBlocked(float3 world, byte selfFactionIdx)
         {
             int sx = (int)math.floor((world.x - GridOrigin.x) / GridCellSize);

@@ -18,6 +18,32 @@ for sources. Where this doc and code disagree, this doc wins.
 - **Best path**: flow-field integration is cost-optimal over the grid by
   construction (octile metric, terrain weights, wall-clearance penalty).
   LOS-to-goal short-circuit gives straight any-angle movement on open ground.
+- **A line of sight never squeezes through a corner** (2026-10-25). Every
+  straight-line test on the grid — the flow LOS shortcut and a formation
+  member's view of its spot — refuses a diagonal step between two blocked
+  cells, the same octile rule as the flow field. A cliff edge at any angle is
+  a staircase of cells; without this a line "saw" through each stair corner
+  and units walked into concave cliff corners and stopped.
+- **Formation slots lie on ground the army can reach** (2026-10-25). Slots
+  are resolved inside the patch of walkable ground connected to the
+  destination (a 4-connected flood out to the formation's radius plus a
+  margin), each taking the nearest free reachable cell. Before, a slot with no
+  standable ground within a small ring search kept its authored place inside
+  the rock, and "standable" also accepted the shelf below a cliff — so armies
+  mustering at a mountain edge left men pressed against it, who then trickled
+  after the army one by one.
+- **Steering slides along a wall the way the flow is going** (2026-10-25).
+  When the look-ahead finds blocked ground, the side to slide to is the
+  wall's own tangent (from the blocked cells round the hit) signed to agree
+  with the flow — not "right if clear, else left", which turned units
+  following the flow round a mountain edge away from the way round and, in a
+  concave corner, deeper into the pocket. The fixed side order remains only
+  for a head-on hit, where the wall gives no direction.
+- **A blocked step slides along the obstacle** (2026-10-25). When the next
+  position is impassable (cost field, terrain mask, bridge deck rule, ledge
+  guard — one test, `UnitIntegratorSystem.StepBlocked`) the unit takes the
+  free axis of its step, the larger first, instead of standing still; only a
+  step with no free axis falls to the stuck tiers (wait, sidestep, escape).
 - Determinism (lockstep multiplayer) is a hard constraint: integer math in
   fields, locked force order in steering, fixed iteration orders.
 

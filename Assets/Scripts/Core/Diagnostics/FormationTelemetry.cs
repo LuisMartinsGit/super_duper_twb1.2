@@ -21,7 +21,16 @@
 // beside Console.log and Timeline.csv for the same run.
 //
 // OFF by default. FormationOctagonDriver turns it on, and Enabled is public so
-// any other test can.
+// any other test can; a headless match takes -twbFormationTelemetry (Install,
+// one sample a second).
+//
+// WHERE THE SPEED GOES (2026-10-25). actual < commanded says something
+// downstream eats the step but not WHAT, so each row also carries the
+// candidates: bendDeg (the angle steering turned the formation's wanted
+// direction through -- separation / avoidance), stuck (the integrator's
+// blocked-step counter), aheadBlocked (a unit could not stand one metre along
+// the steered direction) and foreign (units of another formation, or none,
+// within ForeignRadius).
 
 using System.Collections.Generic;
 using System.Globalization;
@@ -43,6 +52,32 @@ namespace TheWaningBorder.Core.Diagnostics
         /// <summary>Rows are buffered and flushed in batches — a file write per
         /// unit per frame would be measuring the profiler, not the game.</summary>
         private const int FlushEveryRows = 600;
+
+        /// <summary>Seconds between samples; 0 = every frame.</summary>
+        public static float Period;
+        /// <summary>Radius (m) the foreign-neighbour count looks in.</summary>
+        private const float ForeignRadius = 1.5f;
+
+        /// <summary>A headless match's switch: one sample every
+        /// <paramref name="period"/> seconds.</summary>
+        public static void Install(float period)
+        {
+            Period = period;
+            Enabled = true;
+            var go = new GameObject("FormationTelemetry");
+            DontDestroyOnLoad(go);
+            go.AddComponent<FormationTelemetry>();
+        }
+
+        private float _next;
+        private float _lastSim = -1f;
+        private static readonly ComponentType[] UnitTypes =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private CachedEntityQuery _unitQuery;
+        private readonly Dictionary<long, List<(Entity e, float3 p)>> _cells = new();
 
         private readonly StringBuilder _buf = new StringBuilder(1 << 16);
         private readonly Dictionary<Entity, float3> _lastPos = new();
@@ -69,15 +104,30 @@ namespace TheWaningBorder.Core.Diagnostics
             }
             var em = _world.EntityManager;
 
-            float dt = Time.deltaTime;
-            if (dt <= 0f) return;
+            // SIM time, not frame time: a headless frame at 3x steps the
+            // simulation zero, one or several times, so a frame delta would
+            // read false stops and spikes.
+            float simNow = TheWaningBorder.Core.SimClock.Now;
+            if (_lastSim < 0f || simNow < _lastSim) { _lastSim = simNow; return; }
+            float dt = simNow - _lastSim;
+            if (dt <= 0f) return;            // no sim step this frame
+            _lastSim = simNow;
             _t += dt;
+            if (Period > 0f)
+            {
+                // Sampled: speed is still over ONE frame (positions are kept
+                // current every frame), but a row is written once a period.
+                if (_t < _next) { RememberPositions(em); return; }
+                _next = _t + Period;
+            }
+            BucketUnits(em);
 
             if (!_headerWritten)
             {
                 _buf.AppendLine("t,group,unit,leaderX,leaderZ,leaderSpeed,groupSpeed,"
                               + "posX,posZ,spotX,spotZ,offset,alongOffset,lateralOffset,"
-                              + "nominalSpeed,commandedSpeed,actualSpeed,tier");
+                              + "nominalSpeed,commandedSpeed,actualSpeed,tier,"
+                              + "bendDeg,stuck,aheadBlocked,foreign");
                 _headerWritten = true;
             }
 
@@ -127,13 +177,98 @@ namespace TheWaningBorder.Core.Diagnostics
                         : along < -0.15f ? "ahead"
                         : offset <= 0.15f ? "inplace" : "closing";
 
+                    float bend = 0f;
+                    float3 steer = float3.zero;
+                    if (TransientState.Active<SteeringDesiredDir>(em, u))
+                        steer = em.GetComponentData<SteeringDesiredDir>(u).Value;
+                    steer.y = 0f;
+                    if (TransientState.Active<FlowDesiredDir>(em, u) && math.lengthsq(steer) > 1e-6f)
+                    {
+                        var fd = em.GetComponentData<FlowDesiredDir>(u);
+                        float3 fv = new float3(fd.Value.x, 0f, fd.Value.z);
+                        if (fd.HasValue != 0 && math.lengthsq(fv) > 1e-6f)
+                            bend = math.degrees(math.acos(math.clamp(
+                                math.dot(math.normalize(fv), math.normalize(steer)), -1f, 1f)));
+                    }
+                    int stuck = em.HasComponent<StuckState>(u) ? em.GetComponentData<StuckState>(u).Counter : 0;
+                    bool aheadBlocked = math.lengthsq(steer) > 1e-6f
+                        && !TheWaningBorder.Systems.Navigation.NavGridQuery.IsWorldStandable(
+                               pos + math.normalize(steer));
+                    int foreign = ForeignNear(em, u, pos, ge);
+
                     Row(_t, ge.Index, u.Index, g.LeaderPos, leaderSpeed, g.GroupSpeed,
                         pos, spot, offset, along, lateral,
                         nominal, commanded, actual, tier);
+                    _buf.Length--;   // reopen the row for the cause columns
+                    _buf.Append(',').Append(bend.ToString("0.0", CultureInfo.InvariantCulture))
+                        .Append(',').Append(stuck)
+                        .Append(',').Append(aheadBlocked ? 1 : 0)
+                        .Append(',').Append(foreign).Append('\n');
                 }
             }
 
             if (_pending >= FlushEveryRows) Flush();
+        }
+
+        /// <summary>Keep every member's last position current between
+        /// samples, so a sample's speed is over ONE frame.</summary>
+        private void RememberPositions(EntityManager em)
+        {
+            var q = _groupQuery.Get(em, GroupTypes);
+            using var groups = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            for (int gi = 0; gi < groups.Length; gi++)
+            {
+                var ge = groups[gi];
+                if (!em.Exists(ge) || !em.HasBuffer<FormationMember>(ge)) continue;
+                _lastPos[ge] = em.GetComponentData<FormationGroup>(ge).LeaderPos;
+                var members = em.GetBuffer<FormationMember>(ge);
+                for (int i = 0; i < members.Length; i++)
+                {
+                    var u = members[i].Unit;
+                    if (u != Entity.Null && em.Exists(u) && em.HasComponent<LocalTransform>(u))
+                        _lastPos[u] = em.GetComponentData<LocalTransform>(u).Position;
+                }
+            }
+        }
+
+        private static long CellKey(int cx, int cz) => ((long)cx << 32) ^ (uint)cz;
+
+        private void BucketUnits(EntityManager em)
+        {
+            foreach (var l in _cells.Values) l.Clear();
+            var q = _unitQuery.Get(em, UnitTypes);
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var p = xfs[i].Position;
+                long k = CellKey((int)math.floor(p.x / ForeignRadius), (int)math.floor(p.z / ForeignRadius));
+                if (!_cells.TryGetValue(k, out var l)) _cells[k] = l = new List<(Entity, float3)>();
+                l.Add((ents[i], p));
+            }
+        }
+
+        /// <summary>Units within ForeignRadius that are NOT members of
+        /// <paramref name="group"/> (another formation's, or loose).</summary>
+        private int ForeignNear(EntityManager em, Entity self, float3 pos, Entity group)
+        {
+            int n = 0;
+            int cx = (int)math.floor(pos.x / ForeignRadius), cz = (int)math.floor(pos.z / ForeignRadius);
+            for (int dx = -1; dx <= 1; dx++)
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                if (!_cells.TryGetValue(CellKey(cx + dx, cz + dz), out var l)) continue;
+                foreach (var (e, p) in l)
+                {
+                    if (e == self) continue;
+                    float ddx = p.x - pos.x, ddz = p.z - pos.z;
+                    if (ddx * ddx + ddz * ddz > ForeignRadius * ForeignRadius) continue;
+                    bool mate = TransientState.Active<FormationMemberState>(em, e)
+                        && em.GetComponentData<FormationMemberState>(e).Group == group;
+                    if (!mate) n++;
+                }
+            }
+            return n;
         }
 
         /// <summary>Achieved speed from the position delta. Falls back to 0 on

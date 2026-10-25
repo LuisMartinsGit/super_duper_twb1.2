@@ -938,8 +938,20 @@ namespace TheWaningBorder.Systems.Navigation
                 if (c == NavCostField.CostBridgeDeckOnly) return false;
                 if (x == x1 && z == z1) return true;
                 int e2 = err * 2;
-                if (e2 > -dz) { err -= dz; x += sx; }
-                if (e2 < dx) { err += dx; z += sz; }
+                // NO CORNER SQUEEZE (2026-10-25). A diagonal Bresenham step
+                // passed between two blocked cells, so a line along or across
+                // a staircased cliff edge "saw" through every stair corner
+                // while the unit's real straight path walked into them -- and
+                // stopped at each concave corner. Same rule as the flow
+                // field's octile step (IntegrationDijkstraJob): a diagonal
+                // needs both cardinals beside it open.
+                bool stepX = e2 > -dz, stepZ = e2 < dx;
+                if (stepX && stepZ
+                    && (Cost[z * Grid.Width + x + sx] == NavCostField.CostImpassable
+                        || Cost[(z + sz) * Grid.Width + x] == NavCostField.CostImpassable))
+                    return false;
+                if (stepX) { err -= dz; x += sx; }
+                if (stepZ) { err += dx; z += sz; }
             }
             return false;
         }

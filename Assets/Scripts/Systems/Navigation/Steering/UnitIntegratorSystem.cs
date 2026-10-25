@@ -682,55 +682,35 @@ namespace TheWaningBorder.Systems.Navigation
             float step = math.min(speed * arriveScale * Dt, dist);
             float3 nextPos = pos + smoothedDir * step;
 
-            // === COST-FIELD PASSABILITY ===
-            // Faction-aware: a gate cell (CostConditional) admits only its owner.
-            bool blocked = false;
+            // === PASSABILITY (cost field, terrain mask, bridge deck, ledge) ===
             byte navFaction = Faction.HasComponent(entity)
                 ? (byte)Faction[entity].Value
                 : (byte)0xFF; // no faction -> never matches an owner
-            int2 nextCell = WorldToCellInt2(nextPos);
-            if (!flying && nextCell.x != int.MinValue
-                && !IsCellPassableFor(nextCell, unitLayer, navFaction))
-            {
-                // Only enforce the cost-field block if the unit's current
-                // cell IS passable -- units that spawn inside a building
-                // need to walk OUT through their own footprint.
-                int2 currentCell = WorldToCellInt2(pos);
-                if (currentCell.x != int.MinValue
-                    && IsCellPassableFor(currentCell, unitLayer, navFaction))
-                    blocked = true;
-            }
+            bool blocked = !flying
+                && StepBlocked(pos, nextPos, t.Position.y, unitLayer, navFaction, onRampart);
 
-            // === TERRAIN CHECK (ground only — the rampart deck is flat) ===
-            // Backstop against cost-grid rounding at cell edges, against the
-            // SAME PassabilityGrid mask the pathfinding bake uses. Gated on
-            // the mask being READY: an unbuilt mask reads all-walkable.
-            if (!blocked && !onRampart && !flying && Mask.Ready != 0)
+            // === WALL SLIDE (2026-10-25) ===
+            // A blocked step used to be NO step: the unit stood still, then
+            // jittered left-right sidesteps, and a formation member (whose
+            // stuck counter is reset rather than its order dropped) did that
+            // for good. A cliff edge at any angle is a staircase of cells, so
+            // every concave corner of it caught units marching along or into
+            // it. Slide instead: take the free axis of the blocked step, the
+            // larger component first, under the very same rules as the step.
+            if (blocked)
             {
-                var cell = Mask.WorldToCell(nextPos);
-                if (Mask.GetCell(cell) == TheWaningBorder.World.Terrain.PassabilityGrid.TerrainBlocked)
-                {
-                    blocked = true;
-                }
-                else if (Mask.IsBridgeDeckOnly(cell))
-                {
-                    // Deck-only cell: admit the step only when the deck is
-                    // within step-up reach (same MountStepLimit rule as the
-                    // height snap, so admission and snap never disagree).
-                    bool onDeck = Surface.BridgeCount > 0
-                        && Surface.TryGetDeckHeight(nextPos.x, nextPos.z, out float deckY)
-                        && deckY - t.Position.y
-                            <= TheWaningBorder.World.Terrain.BridgeSurface.MountStepLimit;
-                    if (!onDeck) blocked = true;
-                }
-
-                // === LEDGE GUARD === units leave a bridge via its ramps.
-                if (!blocked)
-                {
-                    float nextSurf = Surface.SurfaceHeight(nextPos.x, nextPos.z, t.Position.y);
-                    if (t.Position.y - nextSurf > MaxLedgeDrop)
-                        blocked = true;
-                }
+                float3 d = nextPos - pos;
+                float3 sx = new float3(pos.x + d.x, nextPos.y, pos.z);
+                float3 sz = new float3(pos.x, nextPos.y, pos.z + d.z);
+                bool xFirst = math.abs(d.x) >= math.abs(d.z);
+                float3 a = xFirst ? sx : sz, b = xFirst ? sz : sx;
+                float minSlide = step * MinSlideFraction;
+                if (math.distancesq(a, pos) >= minSlide * minSlide
+                    && !StepBlocked(pos, a, t.Position.y, unitLayer, navFaction, onRampart))
+                { nextPos = a; blocked = false; }
+                else if (math.distancesq(b, pos) >= minSlide * minSlide
+                    && !StepBlocked(pos, b, t.Position.y, unitLayer, navFaction, onRampart))
+                { nextPos = b; blocked = false; }
             }
 
             // === STUCK DETECTION ===
@@ -850,6 +830,56 @@ namespace TheWaningBorder.Systems.Navigation
             t.Position = nextPos;
             OutXf[k] = t;
             OutFlag[k] = 1;
+        }
+
+        /// <summary>Shortest slide worth taking, as a share of the full step:
+        /// below it the free axis is a grazing sliver, not a way along the
+        /// wall.</summary>
+        private const float MinSlideFraction = 0.2f;
+
+        /// <summary>
+        /// Can a unit step from <paramref name="pos"/> to <paramref name="next"/>?
+        /// The cost field (faction-aware: a gate admits its owner; enforced
+        /// only from a passable cell, so a unit spawned inside a footprint can
+        /// walk out), then on the ground the terrain mask the bake uses, the
+        /// bridge-deck step-up rule and the ledge guard. ONE test for the step
+        /// and the wall slide, so a slide can never take a step the step would
+        /// refuse.
+        /// </summary>
+        private bool StepBlocked(float3 pos, float3 next, float curY, byte unitLayer,
+            byte navFaction, bool onRampart)
+        {
+            int2 nextCell = WorldToCellInt2(next);
+            if (nextCell.x != int.MinValue && !IsCellPassableFor(nextCell, unitLayer, navFaction))
+            {
+                int2 currentCell = WorldToCellInt2(pos);
+                if (currentCell.x != int.MinValue
+                    && IsCellPassableFor(currentCell, unitLayer, navFaction))
+                    return true;
+            }
+
+            // === TERRAIN CHECK (ground only — the rampart deck is flat) ===
+            // Backstop against cost-grid rounding at cell edges, against the
+            // SAME PassabilityGrid mask the pathfinding bake uses. Gated on
+            // the mask being READY: an unbuilt mask reads all-walkable.
+            if (onRampart || Mask.Ready == 0) return false;
+            var cell = Mask.WorldToCell(next);
+            if (Mask.GetCell(cell) == TheWaningBorder.World.Terrain.PassabilityGrid.TerrainBlocked)
+                return true;
+            if (Mask.IsBridgeDeckOnly(cell))
+            {
+                // Deck-only cell: admit the step only when the deck is within
+                // step-up reach (same MountStepLimit rule as the height snap,
+                // so admission and snap never disagree).
+                bool onDeck = Surface.BridgeCount > 0
+                    && Surface.TryGetDeckHeight(next.x, next.z, out float deckY)
+                    && deckY - curY <= TheWaningBorder.World.Terrain.BridgeSurface.MountStepLimit;
+                if (!onDeck) return true;
+            }
+
+            // === LEDGE GUARD === units leave a bridge via its ramps.
+            float nextSurf = Surface.SurfaceHeight(next.x, next.z, curY);
+            return curY - nextSurf > MaxLedgeDrop;
         }
 
         // ── Crowded arrival ─────────────────────────────────────────────

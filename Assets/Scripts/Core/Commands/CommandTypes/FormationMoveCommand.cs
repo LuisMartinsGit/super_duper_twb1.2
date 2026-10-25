@@ -684,12 +684,23 @@ namespace TheWaningBorder.Core.Commands.Types
             // piled onto one point and churned. Resolve each slot to distinct,
             // standable ground here instead.
             var claimedSlots = new List<float2>(count);
+            // SLOTS ON GROUND THE ARMY CAN REACH (2026-10-25). Standable is
+            // not enough: on Fiendstone Pass the AI's muster point sits at a
+            // painted-mountain edge, so part of a large box fell inside the
+            // mountain (no standable cell within the ring search -> the slot
+            // kept its authored place IN the rock) or on the shelf below a
+            // cliff (standable, metres away, a long walk round). Those men
+            // pressed against the edge until the muster timed out, then
+            // trickled after the army one by one. Slots are now taken only
+            // from the ground connected to the destination within the
+            // formation's own reach.
+            var reach = ReachablePatch(destination, layoutRadius + SlotReachMargin);
 
             for (int i = 0; i < count; i++)
             {
                 float2 s = slotLocal[unitSlot[i]];
                 float3 want = destination + right * s.x + facing * s.y;
-                float3 resolved = ResolveSlot(want, claimedSlots);
+                float3 resolved = ResolveSlot(want, claimedSlots, reach, destination);
 
                 // Re-derive the LEADER-LOCAL offset from where the slot
                 // actually ended up. FormationGroupSystem steers each member to
@@ -900,7 +911,97 @@ namespace TheWaningBorder.Core.Commands.Types
         /// near its authored position as the terrain allows and removes the
         /// directional bias entirely.
         /// </summary>
-        private static float3 ResolveSlot(float3 want, List<float2> claimed)
+        /// <summary>Metres beyond the formation's own radius the reachable
+        /// patch extends, so a slot pushed off rock has somewhere to go.</summary>
+        private const float SlotReachMargin = 12f;
+
+        /// <summary>
+        /// The nav cells a unit standing at <paramref name="centre"/> can walk
+        /// to without leaving a disc of <paramref name="radius"/>: a breadth-
+        /// first flood over standable cells (4-connected, so it never slips
+        /// through a corner). Null when the centre itself is not standable
+        /// ground (a wall-walk deck) -- the caller then keeps the old rule.
+        /// Fixed neighbour order: deterministic on every lockstep peer.
+        /// </summary>
+        private static HashSet<int2> ReachablePatch(float3 centre, float radius)
+        {
+            int2 c0 = NavGridQuery.WorldToCellInt2(centre);
+            if (c0.x == int.MinValue || !NavGridQuery.IsWorldStandable(centre)) return null;
+            float cell = math.max(0.25f, math.distance(NavGridQuery.CellCenter(c0),
+                NavGridQuery.CellCenter(c0 + new int2(1, 0))));
+            int rCells = (int)math.ceil(radius / cell);
+            var seen = new HashSet<int2> { c0 };
+            var queue = new Queue<int2>();
+            queue.Enqueue(c0);
+            var dirs = new[] { new int2(1, 0), new int2(-1, 0), new int2(0, 1), new int2(0, -1) };
+            while (queue.Count > 0)
+            {
+                int2 c = queue.Dequeue();
+                for (int d = 0; d < 4; d++)
+                {
+                    int2 n = c + dirs[d];
+                    int2 off = n - c0;
+                    if (off.x * off.x + off.y * off.y > rCells * rCells) continue;
+                    if (seen.Contains(n)) continue;
+                    if (!NavGridQuery.IsCellPassable(n)) continue;
+                    if (!NavGridQuery.IsWorldStandable(NavGridQuery.CellCenter(n))) continue;
+                    seen.Add(n);
+                    queue.Enqueue(n);
+                }
+            }
+            return seen;
+        }
+
+        private static float3 ResolveSlot(float3 want, List<float2> claimed,
+            HashSet<int2> reach, float3 destination)
+        {
+            if (reach == null) return ResolveSlotStandable(want, claimed);
+
+            int2 wc = NavGridQuery.WorldToCellInt2(want);
+            if (reach.Contains(wc) && !TooClose(want, claimed))
+            {
+                claimed.Add(new float2(want.x, want.z));
+                return want;
+            }
+
+            // The closest reachable cell centre that keeps the spacing.
+            // Scanned in the patch's own deterministic enumeration order is
+            // NOT stable across peers (HashSet order), so scan rings around
+            // the wanted cell instead and keep the first strictly-closest.
+            bool have = false;
+            float bestD2 = float.MaxValue;
+            float3 best = destination;
+            int maxRing = 0;
+            foreach (var c in reach)
+            {
+                int2 o = c - wc;
+                maxRing = math.max(maxRing, math.max(math.abs(o.x), math.abs(o.y)));
+            }
+            for (int r = 1; r <= maxRing && !have; r++)
+            {
+                for (int dz = -r; dz <= r; dz++)
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    if (math.max(math.abs(dx), math.abs(dz)) != r) continue;
+                    int2 cc = wc + new int2(dx, dz);
+                    if (!reach.Contains(cc)) continue;
+                    float3 cand = NavGridQuery.CellCenter(cc);
+                    cand.y = want.y;
+                    if (TooClose(cand, claimed)) continue;
+                    float ddx = cand.x - want.x, ddz = cand.z - want.z;
+                    float d2 = ddx * ddx + ddz * ddz;
+                    if (d2 < bestD2) { bestD2 = d2; best = cand; have = true; }
+                }
+            }
+            // Nothing free in the whole patch (a crowd larger than its
+            // ground): the destination itself, never a cell in the rock.
+            claimed.Add(new float2(best.x, best.z));
+            return best;
+        }
+
+        /// <summary>The rule before the reachable patch, kept for orders whose
+        /// destination is not standable ground (a wall-walk deck).</summary>
+        private static float3 ResolveSlotStandable(float3 want, List<float2> claimed)
         {
             if (NavGridQuery.IsWorldStandable(want) && !TooClose(want, claimed))
             {

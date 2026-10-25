@@ -88,6 +88,7 @@ param(
     [int]$Age = 0,
     [switch]$Rich,              # every faction pinned at the resource cap (diagnostic)
     [switch]$Trace,             # single mode: write MapTrace.txt for the replay
+    [switch]$FormationTelemetry, # single mode: Formation.csv, every formation member once a second
 
     # ── AI difficulty and run label (single / loop-single only) ─────────
     # -Difficulty sets every AI; -FactionDifficulty overrides per colour,
@@ -244,6 +245,7 @@ function Invoke-Single {
                 $tp = if ($Limit -le 0 -or $Limit -gt 3600) { 2 } else { 1 }
                 $argList += @("-twbTrace", "-twbTracePeriod", $tp)
             }
+            if ($FormationTelemetry) { $argList += "-twbFormationTelemetry" }
             $p = Start-Process -FilePath $exePath -PassThru -ArgumentList $argList
             $running[$p.Id] = @{ Proc = $p; Seed = $runSeed; Map = $thisMap; Start = Get-Date }
             Write-Host ("  start seed {0} {1} x{2}  ({3} in flight, {4} launched)" -f $runSeed, $thisMap, $thisPlayers, $running.Count, $launched)

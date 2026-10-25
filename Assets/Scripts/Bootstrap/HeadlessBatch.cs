@@ -229,6 +229,11 @@ namespace TheWaningBorder.Bootstrap
             if (Array.IndexOf(args, "-twbTrace") >= 0)
                 MapTrace.Install(ArgInt(args, "-twbTracePeriod", 0));
 
+            // -twbFormationTelemetry: Formation.csv, every formation member once
+            // a second -- commanded vs achieved speed and where the rest went.
+            if (Array.IndexOf(args, "-twbFormationTelemetry") >= 0)
+                TheWaningBorder.Core.Diagnostics.FormationTelemetry.Install(1f);
+
             // timeScale directly rather than PlayerProfile.GameSpeed: the
             // profile clamps at 2x for the human-facing setting, and a batch
             // run is not that setting.
