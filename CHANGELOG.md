@@ -9,6 +9,56 @@ build always name the same number.
 
 ---
 
+## [0.0.57] — 2026-10-25
+
+### Added
+- **Soldiers stand by their neighbours.** When a unit is hit, every idle
+  soldier of its side standing right next to it goes for the attacker and
+  walks back to its post afterwards. Aggressive and Defensive units join in;
+  units on Hold, units already fighting or moving, workers, scouts and
+  healers do not, and neither do allies' units.
+- **A shot gives the shooter away.** When an arrow, bolt or siege shot hits
+  one of your units, the shooter is revealed to you through the fog for a few
+  seconds (stealthed shooters excepted). Team-mates see it too.
+- **A blocked claim shows what blocks it.** While your soldiers are taking a
+  territory that its owner's Fortress or node buildings lock, those structures
+  are revealed through the fog and marked on screen until the block is gone —
+  no more hunting a large territory for the last extractor. When cursed
+  ground is what stops the claim, you see every cursed patch in that
+  territory through the fog, and its curse nodes are marked.
+- **The AI finishes a beaten player.** When a rival is clearly beaten by what
+  an AI has seen — few territories and a small army next to its own — the AI
+  commits to eliminating it: every wave goes for its capital, waves follow
+  each other quickly, the army holds a winning fight instead of falling back
+  and does not walk home when an attack runs long. A Shardroot siege that keeps
+  failing gives way to it, and a rival that beats off three attacks in a row is
+  left alone for a while instead of being attacked again at once.
+
+### Fixed
+- **The AI only attacks what it has seen.** Waves, raids, follow-up targets,
+  claim reconquests, Sanctum armies and its choice of victim no longer read
+  enemy buildings, soldiers or army sizes through the fog; follow-up targets
+  also stay on the AI's current war instead of drifting onto a third player.
+- **Units sent to the same spot stop instead of shoving forever.** Since
+  0.0.50 a group sent to one point outside a formation could stand there
+  jostling with no one ever arriving — the AI then counted them as busy, and
+  its armies failed to gather. Fixed; men spreading along a wall-walk still
+  walk past each other to their places.
+- **AI armies wait for their far-off soldiers before marching.** The muster
+  used to leave after a fixed wait, often before soldiers drafted from distant
+  territories arrived; the wait now grows with how far they start (capped).
+- **AI armies no longer jam against a mountain at the edge of their base.**
+  On some starts the AI's gathering point fell inside impassable ground, so
+  its soldiers piled up at the edge every match; the point is now kept on
+  walkable ground.
+
+### Changed
+- **Catapults cost more and take more room.** The Catapult's price and its
+  population count are raised (Catapult unit data).
+- **Saved games from 0.0.56 and earlier can't be loaded** (the save format
+  changed with the new reveal and assist rules), and neither can their replays.
+
+
 ## [0.0.56] — 2026-10-24
 
 ### Added
