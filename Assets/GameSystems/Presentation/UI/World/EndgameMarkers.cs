@@ -15,6 +15,13 @@
 // in the owner's colour. A marker on screen sits over its target; one off
 // screen is an arrow on the screen edge pointing at it.
 //
+// A BLOCKED CLAIM SHOWS WHAT BLOCKS IT (Territory_Claims.md § 3.1,
+// 2026-10-25): every structure the simulation has revealed to the local
+// player (or a team-mate) because it locks a territory that player is taking
+// — FogReveal's lock timer, granted by TerritoryClaimSystem — is marked with
+// a diamond as well, with no research needed and in the blocker's colour
+// (the curse's included).
+//
 // Presentation only: reads the world, writes nothing. The target list is
 // rebuilt twice a second; positions are read every frame, so moving units
 // are tracked.
@@ -61,6 +68,7 @@ namespace TheWaningBorder.UI.World
         private readonly List<Target> _targets = new List<Target>();
         private readonly List<Image> _pool = new List<Image>();
         private readonly HashSet<int> _myTerritories = new HashSet<int>();
+        private readonly HashSet<Entity> _blockers = new HashSet<Entity>();
         private RectTransform _canvasRoot;
         private Sprite _triangle, _diamond;
         private float _next;
@@ -80,6 +88,14 @@ namespace TheWaningBorder.UI.World
             ComponentType.ReadOnly<LocalTransform>(),
         };
         private static CachedEntityQuery QC_Buildings;
+
+        private static readonly ComponentType[] QT_Revealed =
+        {
+            ComponentType.ReadOnly<FogReveal>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private static CachedEntityQuery QC_Revealed;
 
         private void Awake()
         {
@@ -116,8 +132,10 @@ namespace TheWaningBorder.UI.World
         {
             _targets.Clear();
             _myTerritories.Clear();
+            _blockers.Clear();
             if (GameSettings.IsSpectating || !RegionMap.Ready) return;
             var me = GameSettings.LocalPlayerFaction;
+            AddClaimBlockers(em, me);
             var research = TheWaningBorder.Economy.FactionResearchState.Instance;
             if (research == null || !research.HasResearched(me, TechId)) return;
 
@@ -163,8 +181,31 @@ namespace TheWaningBorder.UI.World
                 // A wall segment is the graph edge, not a piece — its cells
                 // and hubs are marked instead.
                 if (em.HasComponent<WallSegmentTag>(e)) continue;
+                if (_blockers.Contains(e)) continue;   // already marked as a claim blocker
                 if (!Inside(me, bXfs[i].Position)) continue;
                 _targets.Add(new Target { Entity = e, Structure = true, Color = FactionColors.Get(f) });
+            }
+        }
+
+        /// <summary>Territory_Claims.md § 3.1: the structures blocking a claim of
+        /// mine or a team-mate's, as the simulation revealed them.</summary>
+        private void AddClaimBlockers(EntityManager em, Faction me)
+        {
+            var q = QC_Revealed.Get(em, QT_Revealed);
+            if (q.IsEmpty) return;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var reveals = q.ToComponentDataArray<FogReveal>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < ents.Length && _targets.Count < MaxMarkers; i++)
+            {
+                bool forUs = false;
+                for (int f = 0; f < FogReveal.Players && !forUs; f++)
+                    forUs = reveals[i].LockRevealedTo(f) && ((Faction)f == me || Alliances.AreAllied(me, (Faction)f));
+                if (!forUs) continue;
+                var e = ents[i];
+                if (em.HasComponent<Health>(e) && em.GetComponentData<Health>(e).Value <= 0) continue;
+                _blockers.Add(e);
+                _targets.Add(new Target { Entity = e, Structure = true, Color = FactionColors.Get(facs[i].Value) });
             }
         }
 

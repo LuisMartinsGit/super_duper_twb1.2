@@ -54,7 +54,10 @@ namespace TheWaningBorder.Core.Save
         // 6 (2026-10-20): WallGarrisonedIn gained At / Half (where the
         //   building stood, so a destroyed tower ejects its men) and the
         //   GarrisonApproach component (a garrison order walks there first).
-        public const int SaveFormatVersion = 6;
+        // 7 (2026-10-25): FogReveal pre-added on every unit and building (a
+        //   shot reveals its shooter, a blocked claim its blockers) and the
+        //   stance assist state — a format-6 snapshot has neither.
+        public const int SaveFormatVersion = 7;
 
         /// <summary>Same value; kept for existing callers.</summary>
         public const int CurrentFormat = SaveFormatVersion;

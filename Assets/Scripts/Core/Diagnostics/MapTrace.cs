@@ -226,7 +226,10 @@ namespace TheWaningBorder.Core.Diagnostics
                 _w.Flush();
             }
 
-            float t = MatchMetrics.MatchTime;
+            // MatchMetrics keeps the clock only while it is enabled; a replay
+            // verify runs without it (2026-10-25), and the trace stopped at
+            // its first frame. The sim clock is the same match time.
+            float t = MatchMetrics.Enabled ? MatchMetrics.MatchTime : TheWaningBorder.Core.SimClock.Now;
             // Ownership is an event stream, so it is checked every frame
             // (one int compare) rather than at the sample period.
             if (_header) WriteOwnership(F(t));

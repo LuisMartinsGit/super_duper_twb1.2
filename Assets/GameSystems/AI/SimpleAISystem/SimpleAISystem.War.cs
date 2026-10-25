@@ -32,11 +32,31 @@ namespace TheWaningBorder.AI
         private readonly Dictionary<int, War> _wars = new Dictionary<int, War>();
         private int _warEpoch = int.MinValue;
 
+        /// <summary>THE SHELF (2026-10-25, Game_AI.md § 6i/§ 6u): (hunter,
+        /// victim) -> match time until which a victim that beat off
+        /// warMaxFailures attacks in a row is not re-picked by the hunt, the
+        /// finish or a yielding Shardroot siege. Without it the hunt re-declared
+        /// the same war the moment it was abandoned — Green "abandoned" its war
+        /// on Purple three times in the 2026-10-25 match and restarted it in
+        /// the same think every time.</summary>
+        private readonly Dictionary<(int, int), float> _warShelf = new Dictionary<(int, int), float>();
+        /// <summary>The match clock of the current think (set by TickAllInDoctrine).</summary>
+        private float _warClock;
+
         private void EnsureWarEpoch()
         {
             if (_warEpoch == SimCadence.Epoch) return;
             _warEpoch = SimCadence.Epoch;
             _wars.Clear();
+            _warShelf.Clear();
+        }
+
+        /// <summary>Did <paramref name="victim"/> beat off this faction's last
+        /// war on it less than warShelfSeconds ago?</summary>
+        private bool WarShelved(Faction faction, Faction victim, float now)
+        {
+            EnsureWarEpoch();
+            return _warShelf.TryGetValue(((int)faction, (int)victim), out float until) && now < until;
         }
 
         /// <summary>The faction's current war victim, if it has one that is
@@ -54,8 +74,11 @@ namespace TheWaningBorder.AI
             }
             if (w.Failures >= System.Math.Max(1, Cfg.warMaxFailures))
             {
+                float shelf = math.max(0f, Cfg.warShelfSeconds);
+                if (shelf > 0f) _warShelf[((int)faction, (int)w.Victim)] = _warClock + shelf;
                 AILogger.Log(faction, "WAR",
-                    $"war on {w.Victim} abandoned after {w.Failures} failed attack(s)");
+                    $"war on {w.Victim} abandoned after {w.Failures} failed attack(s)" +
+                    (shelf > 0f ? $" — shelved for {shelf:0}s" : ""));
                 _wars.Remove((int)faction);
                 return false;
             }
@@ -75,7 +98,9 @@ namespace TheWaningBorder.AI
                 if (!hunting)
                 {
                     _wars[(int)faction] = new War { Victim = prey, Since = now };
-                    AILogger.Log(faction, "WAR", $"war on {prey} — the hunt: it holds next to nothing");
+                    AILogger.Log(faction, "WAR", FinishingVictim(faction, out var fv) && fv == prey
+                        ? $"war on {prey} — finish it: it is beaten (§ 6u)"
+                        : $"war on {prey} — the hunt: it holds next to nothing");
                 }
                 return prey;
             }
@@ -118,7 +143,8 @@ namespace TheWaningBorder.AI
                 var v = kv.Value.Victim;
                 if (attacker == faction || v == faction) continue;
                 if (!Alliances.AreHostile(faction, v)) continue;
-                int vs = BoardScore(em, v), ascore = BoardScore(em, attacker);
+                // § 6v: the board as THIS faction has seen it.
+                int vs = KnownBoardScore(em, faction, v), ascore = KnownBoardScore(em, faction, attacker);
                 if (vs < 0 || ascore <= 0) continue;
                 if (vs > Cfg.pileOnLosingShare * ascore) continue;
                 if (vs >= best) continue;

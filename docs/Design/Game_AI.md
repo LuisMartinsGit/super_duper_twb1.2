@@ -1805,6 +1805,19 @@ wall in the way (2026-10-05).** Three findings from Mirror Marches M1-M6:
   march alone took 500-1500 s, so missions timed out on arrival. A mission's
   deadline is now the flat timeout plus the march at
   `missionMarchSpeedForTimeout`, re-armed at every chain.
+- **The muster waits for its farthest man** (2026-10-25). Its wait was a flat
+  `musterTimeoutSeconds`, less than the walk of a soldier drafted from a far
+  territory, so a third of the musters on Fiendstone Pass left without part of
+  the army. The wait is now that base plus the farthest member's walk to the
+  muster point at `musterWalkSpeed`, never more than
+  `musterTimeoutMaxSeconds` (all on `SimpleAISystem.asset`); the army still
+  leaves the moment `musterGatherFraction` of it has gathered.
+- **Muster and stage points are on ground men can stand on** (2026-10-25).
+  Both are a straight step from the base toward the objective, and on
+  Fiendstone Pass two starts' muster points fell inside the painted mountain:
+  the army jammed at the edge in every match, re-sent there by every straggler
+  sweep. A point that is not standable is walked back toward the army's own
+  side until it is.
 - The wave bar read half of DesiredMilitary — 200 from the age-up on — and
   was clamped to a third of the population cap, so the tier that houses
   fastest had the highest bar: Expert's read 66-73 by minute 15 against
@@ -2503,6 +2516,14 @@ abandoned after N failed attack(s)`.
   buildings (what it keeps rebuilding) and goes for its Hall and the
   lifelines round it. Seven AIs at war with one beaten faction had spent an
   hour razing the huts it rebuilt outside its walls.
+- *The shelf (2026-10-25).* A war abandoned after `warMaxFailures` failed
+  attacks shelves its victim for `warShelfSeconds`: the hunt (§ 6o) and the
+  finish (§ 6u) do not pick it again, and a Shardroot siege (§ 6p) may yield
+  to the finish. Before the shelf the hunt re-declared the same war in the
+  think it was abandoned (Green, three times on Purple, 2026-10-25). Log:
+  `WAR: war on X abandoned after N failed attack(s) — shelved for Ns`.
+- *The chain follows the war and the eyes (2026-10-25).* The raze chain's
+  next building must belong to the war victim and must have been seen (§ 6v).
 
 ## 6j. The army grows with the bank; the pile-on (2026-10-07)
 
@@ -2736,6 +2757,14 @@ the objective is the enshrining Temple itself. A Shardroot strike (§ 6l)
 still goes for an artifact on the ground. When the holder falls, wars resume
 by the usual rules.
 
+**The one exception (2026-10-25, § 6u).** When this AI's war on the holder
+has been shelved (§ 6i: `warMaxFailures` attacks in a row beaten off) and
+another hostile is beaten (§ 6u), the AI finishes the beaten one instead —
+unless the holder's ascension countdown runs, which is never yielded. In the
+2026-10-25 FiendstonePass match three AIs sieged the holder's walled base for
+63 minutes in 4-7-unit waves while both humans sat on 2-3 territories with
+armies of 0-60.
+
 ## 6q. A full army attacks (2026-10-09)
 
 The v8 batch: survivors sat at a third of their population cap on 20-60k
@@ -2897,6 +2926,87 @@ below that, and a seen Sanctum (no resource node) left the claim candidates.
 
 Config: the `sanctum*` block on `SimpleAISystem.asset`. Code:
 `SimpleAISystem.Sanctum.cs`. Log: `SANCTUM:`.
+
+## 6u. Finish the beaten (2026-10-25)
+
+Developer: "AI does not fully pursue players. Both human players in this game
+had a terrible performance and the AI never moved in to finish them off."
+Measured in the 2026-10-25 6-player FiendstonePass match (90 min): of the
+four AIs' 90 wave launches only 24 went at a human; from minute 27 every
+launch of Green, Yellow and Orange went at the Shardroot holder (§ 6p),
+whose wall-and-tower base read 2,500-3,100 known defence, while Blue held
+2-3 territories with 0-20 soldiers between minutes 19 and 40. 50 attack
+missions timed out — up to 99 alive — and walked home; each timeout counted
+against the war, the war was abandoned, and the hunt re-declared it at once.
+
+**Beaten.** From `finishAfterSeconds`, an aged-up AI with at least
+`finishMinArmy` soldiers judges each hostile player by **what it knows**
+(§ 6v): beaten when its territories (public) are at most
+`finishTerritoryShare` of ours AND the strength of its soldiers **seen** in
+the last `finishIntelMaxAgeSeconds` is at most `finishArmyShare` of our
+army's, AND something of it was seen in that window (no verdict on a faction
+nobody has looked at lately). Both shares are divided by the tier's
+`strengthWaveRatioScale` (§ 2): a cautious tier waits for a weaker victim,
+Expert finishes sooner. A shelved victim (§ 6i) is skipped. The nearest
+beaten one — by its capital as last seen, its start, or its nearest held
+territory — is the one finished.
+
+**Finishing it.** The beaten faction becomes the war victim ahead of the hunt
+and the pile-on, and ahead of a shelved Shardroot siege (§ 6p); the all-in
+(§ 6n) arms against it (home guard instead of the standing floor, claim
+squads and wall guards released, strength gate only past
+`allInMaxEnemyRatio`). On top of the all-in:
+1. **For the capital.** The wave skips the opportunity detour and the income
+   ranking and goes for the throat (§ 6i): the Hall as last seen, else the
+   start Hall (public), else the victim's nearest held territory.
+2. **Follow-ups.** The next wave is never more than
+   `finishWaveIntervalSeconds` away.
+3. **Hold the fight.** Both retreat tests use at least `finishRetreatRatio`.
+4. **No walking home.** An attack that times out with at least
+   `finishPressMinUnits` alive logs the failure (so a real stalemate is still
+   shelved after `warMaxFailures`) and presses on to the capital.
+5. **No new Sanctum army** (§ 6t) is raised while finishing; standing
+   garrisons stay.
+
+Logs: `FINISH: X is beaten (…) — every wave for its capital until it falls`,
+`WAR: war on X — finish it`, `WAVE: … [finish: X is beaten — for its
+capital]`, `WAVE: finish: timed out … pressing on to …`, `FINISH: finishing X
+stops — …`. Knobs: the `finish*` block and `warShelfSeconds` on
+`SimpleAISystem.asset`. Code: `SimpleAISystem.AllIn.cs` (`TryFindBeaten`),
+`War.cs` (the shelf), `Military.cs`.
+
+## 6v. The AI attacks only what it has seen (2026-10-25)
+
+Developer: "AI is targeting things it never saw." The AI's knowledge is its
+**sighting memory** — the `EnemySightingRecord` buffer IntelSystem fills from
+what stands inside the faction's (team-merged) sim-side fog VISIBLE grid;
+buildings stay remembered until they die, soldiers age out — plus what is in
+vision right now (`FogOfWarManager.IsVisible`), plus public knowledge (start
+positions, territory ownership, the Shardroot beacon). "Explored ground"
+(`IsRevealed` / `IsKnownGround`) is **not** knowledge of an entity: a
+building raised there later was never seen. Destinations and victim reads
+that went round this, now fixed (`SimpleAISystem.Seen.cs` holds the helpers):
+
+- the raze chain's next building (no fog test, no war filter: 27 picks in the
+  2026-10-25 match, 26 of them Purple's, mostly onto buildings far from its
+  war victim);
+- the legacy target ladder's huts and Halls (explored ground only);
+- the scored wave target — a mobile target must be visible where it stands
+  now, since the wave marches on its live position;
+- claim reconquest candidates and the reconquest squad's next building;
+- the Sanctum army's hostile soldier, and the economy defence's challenger
+  unit (now: only one in vision);
+- the victim pickers (`LeadingHostileFaction`, `WeakestHostileFaction`, the
+  pile-on) — the army count is the soldiers seen, not the live count;
+- `KnownDefenceAt` and the target scorer's defender probe — the live read
+  only while the place is in vision, otherwise what was recorded there.
+
+With no sighting of a victim, waves march on its start (public) or its held
+ground (public), and any other unseen objective still converts into a recon
+request first (§ 6a). Still live (strength estimates, not destinations):
+`AIEngagement.AssessAssault` at a far objective, the soft-target and
+safe-ground strength checks, `ReadBoard` in the plan layer, IntelSystem's
+building garrison tally, and the curse-node pickers.
 
 ## 7. Scouting
 

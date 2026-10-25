@@ -365,6 +365,9 @@ namespace TheWaningBorder.AI
                         if ((int)ufacs[i].Value != ch) continue;
                         var p = uxfs[i].Position;
                         if (RegionMap.RegionAt(p.x, p.z) != r) continue;
+                        // The meter's challenger is public; WHERE it stands
+                        // is not (2026-10-25, Game_AI.md § 6v).
+                        if (!VisibleNow(faction, p)) continue;
                         float dd = (p.x - seed.x) * (p.x - seed.x) + (p.z - seed.y) * (p.z - seed.y);
                         if (dd < bd) { bd = dd; best = uents[i]; bestAt = p; }
                     }

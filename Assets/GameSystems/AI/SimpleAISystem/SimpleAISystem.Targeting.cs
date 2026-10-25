@@ -184,11 +184,15 @@ namespace TheWaningBorder.AI
                            || rec.Category == IntelCategory.Caravan;
                 if (fogMgr != null)
                 {
+                    // A mobile target must be in vision WHERE IT STANDS NOW:
+                    // the caller marches on its live position, and a unit
+                    // seen at the record's spot may have walked into the fog
+                    // since (2026-10-25, Game_AI.md § 6v). A static one is
+                    // remembered (it is in the buffer, so it was seen).
                     Vector3 p = (Vector3)rec.Position;
-                    bool seen = mobile
-                        ? fogMgr.IsVisible(myFaction, p)
-                        : fogMgr.IsRevealed(myFaction, p);
-                    if (!seen) continue;
+                    if (mobile && em.HasComponent<LocalTransform>(rec.Enemy))
+                        p = (Vector3)em.GetComponentData<LocalTransform>(rec.Enemy).Position;
+                    if (mobile && !fogMgr.IsVisible(myFaction, p)) continue;
                 }
 
                 // Ground a previous wave marched to and could not resolve
@@ -197,7 +201,7 @@ namespace TheWaningBorder.AI
                 // the army commutes to it until the match ends.
                 if (WaveTargetBlocked(myFaction, rec.Position, now)) continue;
 
-                float score = TargetScorer.Score(em, settings, personality.riskMultiplier, originPos, rec, now);
+                float score = TargetScorer.Score(em, settings, personality.riskMultiplier, originPos, rec, now, myFaction);
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -236,8 +240,12 @@ namespace TheWaningBorder.AI
         /// ghost" rule for buildings), so the AI can march toward a last-seen
         /// hive even after the scout moves on.
         /// </summary>
-        private static Entity ChooseAttackTarget(EntityManager em, Faction myFaction, float3 originPos)
+        private static Entity ChooseAttackTarget(EntityManager em, Entity brainEntity, Faction myFaction, float3 originPos)
         {
+            // SEEN, NOT JUST REVEALED (2026-10-25, Game_AI.md § 6v): a hut or
+            // Hall raised on ground explored earlier is "revealed" but nobody
+            // ever saw it. Statics now need a sighting in the brain's memory.
+            FillSeen(em, brainEntity);
             // 1. Visible enemy workers — most actionable raid target.
             Entity t = FindClosestEnemyOf<WorkerTag>(em, myFaction, originPos, requireCurrentVisibility: true);
             if (t != Entity.Null) return t;
@@ -338,7 +346,7 @@ namespace TheWaningBorder.AI
                     Vector3 pos = (Vector3)xfs[i].Position;
                     bool seen = requireCurrentVisibility
                         ? fogMgr.IsVisible(myFaction, pos)
-                        : fogMgr.IsRevealed(myFaction, pos);
+                        : SeenOrVisible(myFaction, ents[i], xfs[i].Position);   // § 6v
                     if (!seen) continue;
                 }
 

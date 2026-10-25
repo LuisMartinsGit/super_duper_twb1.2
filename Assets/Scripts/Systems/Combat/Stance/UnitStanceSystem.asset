@@ -16,3 +16,5 @@ MonoBehaviour:
   retaliationWindow: 5
   leashReacquireCooldown: 1.5
   underFireWindow: 2.5
+  assistRadius: 5
+  assistWindow: 1

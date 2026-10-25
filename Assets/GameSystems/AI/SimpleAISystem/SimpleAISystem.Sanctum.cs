@@ -136,6 +136,9 @@ namespace TheWaningBorder.AI
             foreach (var a in armies) forming |= !a.Claimed;
             int maxArmies = Cfg.sanctumMaxArmies > 0 ? Cfg.sanctumMaxArmies : int.MaxValue;
             if (forming || armies.Count >= maxArmies) { _sanctumWanted.Remove(key); return; }
+            // FINISHING A BEATEN FACTION (§ 6u): no NEW Sanctum army drafts
+            // 30+ soldiers out of the push; the garrisons already standing stay.
+            if (FinishingVictim(faction, out _)) { _sanctumWanted.Remove(key); return; }
 
             RaiseSanctumArmy(em, faction, ref aiState, armies, now);
         }
@@ -358,6 +361,9 @@ namespace TheWaningBorder.AI
                 if (f == faction || f == Faction.Border || !Alliances.AreHostile(faction, f)) continue;
                 var p = xfs[i].Position;
                 if (RegionMap.RegionAt(p.x, p.z) != t) continue;
+                // Only a soldier in vision (2026-10-25, Game_AI.md § 6v): the
+                // march from home used to beeline onto a soldier nobody saw.
+                if (!VisibleNow(faction, p)) continue;
                 if (!TheWaningBorder.Systems.World.TerritoryClaimSystem.CountsForClaim(em, ents[i])) continue;
                 float d = math.distancesq(p.xz, from.xz);
                 if (d < bestD) { bestD = d; at = p; }

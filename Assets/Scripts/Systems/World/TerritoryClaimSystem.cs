@@ -131,6 +131,30 @@ namespace TheWaningBorder.Systems.World
         private byte[] _hasBuilding = System.Array.Empty<byte>();
         private byte[] _hasLock = System.Array.Empty<byte>();
 
+        // ── A blocked claim shows what blocks it (Territory_Claims.md §3.1,
+        // 2026-10-25). Per territory, this tick: the player sides whose claim
+        // is blocked (bit = side) and the side whose LOCKING structures block
+        // it (the holder, or the curse for cursed ground). The lockers are
+        // listed by GatherBuildings; the reveal is granted after the meter
+        // pass, in that list's order — each grant only ORs a bit into its own
+        // entity, so the order changes nothing.
+        private byte[] _blockMask = System.Array.Empty<byte>();
+        private int[] _blockBy = System.Array.Empty<int>();
+        private struct Locker { public Entity E; public int T; public int Side; }
+        private readonly System.Collections.Generic.List<Locker> _lockers =
+            new System.Collections.Generic.List<Locker>(64);
+
+        /// <summary>Per territory, the player sides (bit = side) whose claim on
+        /// it the CURSED GROUND blocked on the last claim tick
+        /// (Territory_Claims.md §3.1). Published for the fog, which shows those
+        /// sides every cursed cell of the territory. Only this system writes it.</summary>
+        private static byte[] _curseBlocked = System.Array.Empty<byte>();
+
+        /// <summary>The sides (bit = side) whose claim on <paramref name="t"/>
+        /// cursed ground blocked on the last claim tick.</summary>
+        public static byte CurseBlockedSides(int t)
+            => (uint)t < (uint)_curseBlocked.Length ? _curseBlocked[t] : (byte)0;
+
         private static TerritoryOwnershipConfig _cfg;
         private static TerritoryOwnershipConfig Cfg =>
             _cfg != null ? _cfg
@@ -190,6 +214,7 @@ namespace TheWaningBorder.Systems.World
                 for (int i = 0; i < _sanctumSide.Length; i++) _sanctumSide[i] = -1;
                 _regionMemo.Clear();
                 _regionMemoNext.Clear();
+                System.Array.Clear(_curseBlocked, 0, _curseBlocked.Length);
             }
             if (!TerritoryOwnership.EnsureMeter()) return;
 
@@ -243,6 +268,12 @@ namespace TheWaningBorder.Systems.World
             }
             System.Array.Clear(_hasBuilding, 0, cells);
             System.Array.Clear(_hasLock, 0, cells);
+            if (_blockMask.Length != count)
+            {
+                _blockMask = new byte[count];
+                _blockBy = new int[count];
+            }
+            System.Array.Clear(_blockMask, 0, count);
 
             // This second's census becomes the meter's input; the next one
             // starts empty.
@@ -372,6 +403,15 @@ namespace TheWaningBorder.Systems.World
                     // nobody — the meter only holds.
                     if (TheWaningBorder.Systems.Border.CurseGroundSystem.TerritoryHasCurse(t))
                     {
+                        // §3.1: every leading side that is trying to take
+                        // (or still finishing its claim on) this ground sees
+                        // the curse nodes keeping it cursed.
+                        for (int s = 0; s < CurseSide; s++)
+                        {
+                            if (_coalOf[s] != lead || _pop[t * Sides + s] <= 0) continue;
+                            if (s == holderSide ? claimed : !MayTake(t, s)) continue;
+                            RecordBlock(t, s, CurseSide);
+                        }
                         TerritoryOwnership.SetMeter(t, holder, value, claimed, locked, contested,
                             TerritoryOwnership.Natural);
                         continue;
@@ -403,7 +443,13 @@ namespace TheWaningBorder.Systems.World
                     {
                         value = math.min(TerritoryOwnership.MeterMax, value + step);
                     }
-                    else if (!locked)
+                    else if (locked)
+                    {
+                        // §3.1: the drain is pinned by the holder's locks —
+                        // show them to the side that would drain it.
+                        RecordBlock(t, gainer, holderSide);
+                    }
+                    else
                     {
                         value -= step;
                         if (value <= 0)
@@ -439,6 +485,11 @@ namespace TheWaningBorder.Systems.World
                 }
                 if (justClaimed) Announce(t, holder, lost: false);
             }
+
+            RevealBlockers(em);
+            if (_curseBlocked.Length != count) _curseBlocked = new byte[count];
+            for (int t = 0; t < count; t++)
+                _curseBlocked[t] = _blockBy[t] == CurseSide ? _blockMask[t] : (byte)0;
 
             TerritoryOwnership.Publish();
             if (anyLoss) UnityEngine.Debug.Log("[TerritoryClaim] ownership lost — buildings collapsed.");
@@ -478,7 +529,11 @@ namespace TheWaningBorder.Systems.World
                     if (s != holderSide && !MayTake(t, s)) continue;
                     claimant = s; best = heads;
                 }
-            if (claimant >= 0 && claimant != holderSide && lockedByHolder) claimant = -1;
+            if (claimant >= 0 && claimant != holderSide && lockedByHolder)
+            {
+                RecordBlock(t, claimant, holderSide);   // §3.1
+                claimant = -1;
+            }
 
             // Nobody taking it (or the holder standing on its own ground).
             if (claimant < 0 || (claimed && claimant == holderSide))
@@ -843,8 +898,35 @@ namespace TheWaningBorder.Systems.World
             return t;
         }
 
+        /// <summary>Territory_Claims.md §3.1: <paramref name="side"/>'s claim on
+        /// <paramref name="t"/> is blocked by <paramref name="by"/>'s locks.</summary>
+        private void RecordBlock(int t, int side, int by)
+        {
+            if (side < 0 || side >= CurseSide || by < 0 || by >= Sides || by == side) return;
+            if (_blockMask[t] != 0 && _blockBy[t] != by) return;   // one blocker side per territory
+            _blockMask[t] |= (byte)(1 << side);
+            _blockBy[t] = by;
+        }
+
+        /// <summary>Reveal every locking structure of the blocking side to the
+        /// blocked sides (FogReveal, refreshed every claim tick while the
+        /// block lasts; FogRevealSystem.asset sets how long one tick keeps it).</summary>
+        private void RevealBlockers(EntityManager em)
+        {
+            for (int i = 0; i < _lockers.Count; i++)
+            {
+                var l = _lockers[i];
+                byte mask = _blockMask[l.T];
+                if (mask == 0 || _blockBy[l.T] != l.Side || !em.Exists(l.E)) continue;
+                for (int s = 0; s < CurseSide; s++)
+                    if ((mask & (1 << s)) != 0)
+                        FogRevealGrant.Mark(em, l.E, (Faction)s, byLock: true);
+            }
+        }
+
         private void GatherBuildings(EntityManager em)
         {
+            _lockers.Clear();
             using var ents = _buildingQuery.ToEntityArray(Allocator.Temp);
             using var facs = _buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var xfs = _buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -876,7 +958,11 @@ namespace TheWaningBorder.Systems.World
                 if (t == RegionMap.None) continue;
 
                 _hasBuilding[t * Sides + side] = 1;
-                if (IsLocking(em, e)) _hasLock[t * Sides + side] = 1;
+                if (IsLocking(em, e))
+                {
+                    _hasLock[t * Sides + side] = 1;
+                    _lockers.Add(new Locker { E = e, T = t, Side = side });
+                }
             }
         }
 

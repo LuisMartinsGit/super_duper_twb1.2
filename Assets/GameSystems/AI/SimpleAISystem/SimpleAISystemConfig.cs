@@ -644,6 +644,11 @@ namespace TheWaningBorder.AI
         public float musterGatherFraction;
         /// <summary>Longest the army waits at the muster for stragglers.</summary>
         public float musterTimeoutSeconds;
+        /// <summary>Walk speed (m/s) the muster budget assumes for its
+        /// farthest member — a little under a soldier's, for the crowd.</summary>
+        public float musterWalkSpeed;
+        /// <summary>Longest any muster waits, however far its men start.</summary>
+        public float musterTimeoutMaxSeconds;
         /// <summary>Seconds between straggler sweeps on the march: any member
         /// travelling outside the formation is folded back in by re-issuing
         /// the leg's order to the whole army.</summary>
@@ -1475,6 +1480,37 @@ namespace TheWaningBorder.AI
         /// <summary>A hostile is also prey when it holds at most this share
         /// of the hunter's territories (0 = only the absolute bar).</summary>
         public float preyMaxShareOfHunter;
+
+        // ── Finish the beaten (Game_AI.md § 6u, 2026-10-25) ──
+
+        /// <summary>Match seconds from which a beaten faction is finished
+        /// (0 = never).</summary>
+        public float finishAfterSeconds;
+        /// <summary>Only an army of at least this many units finishes anyone.</summary>
+        public int finishMinArmy;
+        /// <summary>Beaten: the victim holds at most this share of our
+        /// territories (divided by the tier's strengthWaveRatioScale).</summary>
+        public float finishTerritoryShare;
+        /// <summary>Beaten: the victim's soldiers SEEN in the intel window sum
+        /// to at most this share of our army's strength (divided by the tier's
+        /// strengthWaveRatioScale).</summary>
+        public float finishArmyShare;
+        /// <summary>The intel window: the known army is the soldiers seen in
+        /// the last this-many seconds, and something of the victim must have
+        /// been seen in it.</summary>
+        public float finishIntelMaxAgeSeconds;
+        /// <summary>While finishing, the next wave is never further away.</summary>
+        public float finishWaveIntervalSeconds;
+        /// <summary>While finishing, both retreat tests use at least this
+        /// enemy/own power ratio.</summary>
+        public float finishRetreatRatio;
+        /// <summary>A finishing attack that times out with at least this many
+        /// alive presses on to the victim's capital instead of walking home.</summary>
+        public int finishPressMinUnits;
+        /// <summary>A war abandoned after warMaxFailures failed attacks shelves
+        /// its victim for this many seconds: the hunt, the finish and a
+        /// yielding Shardroot siege do not re-pick it (0 = no shelf).</summary>
+        public float warShelfSeconds;
 
         // ── A full army attacks (Game_AI.md § 6q, 2026-10-09) ──
 

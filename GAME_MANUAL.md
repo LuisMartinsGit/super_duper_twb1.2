@@ -317,6 +317,14 @@ Idle units pick their own targets by **stance** (see
   stuck recovery; the unit keeps after the target you gave it.
 - **Attack-move and patrol** fight their way along with the Aggressive rules,
   whatever the stance, and resume the march after each fight.
+- **Soldiers stand by their neighbours.** When one of your units is hit,
+  your idle soldiers standing right next to it (Aggressive or Defensive,
+  not Hold) go for the attacker, then walk back to their post. Units that
+  are fighting or that you sent somewhere carry on; workers, scouts and
+  healers stay put; allies' units do not join in.
+- **Shooting gives a shooter away.** When an arrow, bolt or siege shot hits
+  one of your units, you see the shooter for a few seconds, even in the fog
+  (stealthed units excepted). It works both ways.
 
 ### Damage Formula
 
@@ -365,6 +373,7 @@ damage on hit.
 - **Healing** — Litharchs restore HP to allies in heal range. (Litharchs have **no attack** unless **Warrior Priests** is researched at the Temple of Ridan, per [Age_0.md](docs/Design/Age_0.md).)
 - **Cleanse** — every Litharch's aimed spell: pick a point in reach and the Litharch plants a **Cleansing Ward** there. The ward clears the cursed ground in a 15 m wide circle at once, then **pulses every two seconds**, each pulse pushing the curse back a little farther (you see a ring and hear a burst with every pulse) until the circle reaches its full size. It stands until it is destroyed — and **the curse goes for wards first**, so defend it. A team keeps at most six wards standing, 15 m apart; a cast past that is refused and costs no cooldown. The Litharch is free as soon as the ward lands ([Territory_Claims.md §6.9.7](docs/Design/Territory_Claims.md)).
 - **Cursed ground rots buildings** — a finished building standing on cursed ground loses HP every second, takes more damage from every hit and works at half speed (training, research, extraction). Cleanse the ground or lose the building ([Territory_Claims.md §6.9.9](docs/Design/Territory_Claims.md)).
+- **A blocked claim shows what blocks it** — while your soldiers are taking a territory and the meter will not move because its owner's Fortress or node buildings lock it (or because the territory has cursed ground in it), those structures are revealed to you through the fog and marked with a diamond (an arrow on the screen edge when off screen), for as long as the block lasts. When it is the curse that blocks you, you also see **all the cursed ground in that territory** through the fog, so you know exactly what to cleanse, plus its curse nodes. Your team-mates see them too ([Territory_Claims.md §3.1](docs/Design/Territory_Claims.md)).
 - **Field Hospitals are capped** — a team may keep two standing at once, at least 30 m apart; a cast past that is refused and costs no cooldown.
 - **Watch Tower garrison** (Alanthor) — up to 4 foot units inside a Watch Tower; each adds one target to its volley. Units ordered in from afar walk to the tower and go in on arrival; inside they leave the selection, and an **n/max** badge over the tower shows how many are in it. If the tower is destroyed they are put out alive around it.
 - **Spell Buffs** — Temporary status effects from sect spells (damage, cooldown, invulnerability).

@@ -92,6 +92,8 @@ namespace TheWaningBorder.Systems.Combat
                 RetaliationWindow = _cfg.retaliationWindow,
                 LeashReacquireCooldown = _cfg.leashReacquireCooldown,
                 UnderFireWindow = _cfg.underFireWindow,
+                AssistRadius = _cfg.assistRadius,
+                AssistWindow = _cfg.assistWindow,
             };
             if (SystemAPI.TryGetSingletonEntity<StanceSettings>(out var single))
                 em.SetComponentData(single, s);

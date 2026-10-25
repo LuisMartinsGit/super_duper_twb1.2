@@ -33,11 +33,11 @@ the player picks another stance.
 - *Attacking it* means: the enemy **hit it within the last 5 s**
   (`retaliationWindow`; it is the unit's `LastAttackerEntity`), **or** the
   enemy's own target is this unit (its shot may still be in the air).
-  Defensive does **not** engage an enemy that is merely in range, nor one
-  attacking a friend next to it — "return fire" means fire aimed at *it*.
-  (Decision 2026-09-26: attackers only. A defensive archer line does not
-  cover the melee in front of it on its own — give it an order, or set it
-  Aggressive.)
+  Defensive does **not** engage an enemy that is merely in range — "return
+  fire" means fire aimed at *it*. (Decision 2026-09-26: attackers only.)
+  The one exception is the **assist rule** of [§1c](#1c-standing-by-a-struck-neighbour)
+  (2026-10-25): an idle Defensive unit standing right next to a friend that
+  is being hit goes for that friend's attacker.
 - *Attack reach* is the unit's own: melee `1.5 m` to the target's surface,
   ranged the unit's `MaxRange` (ArcherState). A Defensive unit whose
   attacker steps out of reach lets it go; it never follows. (A ranged unit
@@ -82,6 +82,48 @@ inside heal range (never onto the patient), prefers patients not in melee
 contact, and steps away from an armed enemy that comes within 5 m. On Hold
 it heals only what is already in range and never steps away; an ordered
 heal is followed on every stance; a move order always wins.
+
+### 1c. Standing by a struck neighbour
+
+> **Added 2026-10-25 (playtest request).** A soldier who sees the man beside
+> him cut down does not stand and watch.
+
+When a unit is **attacked** — it lost health within the last `assistWindow`
+and something is recorded as its attacker (`LastAttackerEntity`, the last
+thing that damaged it) — every **idle** soldier of the **same faction** within
+`assistRadius` of it goes for that attacker, then walks back to its own guard
+point (§2) when the attacker dies or the leash (§3) breaks.
+
+- **Who assists:** Aggressive and **Defensive** units. **Hold never does**
+  (Hold is completely passive, §1). Support units (§1b), fixed mounts (§1a),
+  men on a wall-walk, scouts, workers, economy and zero-damage units never do
+  — they stay where they are. The curse's units never do (their wave logic
+  drives them, §4).
+- **Idle** means exactly what auto-acquisition already requires: no target,
+  no order (attack, move, queued move, a live destination), not on an
+  attack-move or patrol (those already fight by the Aggressive rules), and
+  not inside the post-leash re-acquire cooldown. A unit **already fighting
+  keeps its fight**, and **a player's move order is never interrupted**.
+- **Same faction only** — an ally's units are its own player's to command and
+  do not join in (decision 2026-10-25; allies still share sight,
+  [Teams.md](Teams.md)).
+- **The attacker must be one this unit could pick on its own:** alive, hostile
+  to it (`Alliances.AreHostile` / the Friendly Fire rogue bucket), not veiled,
+  not hidden by stealth, a wall piece only for siege, a flyer only for units
+  that hit the air, a building only for a buildings-only ram — and within the
+  Aggressive leash of the unit's guard point (otherwise the chase would break
+  at once).
+- **The engagement is an ordinary auto engagement** with the Aggressive leash
+  anchored at the guard point — for a Defensive unit too, which otherwise
+  never pursues. So the leash, the walk home and the re-acquire cooldown are
+  exactly §3's. The assist **outranks the unit's own stance pick** that tick.
+- If several struck friends are in reach, the **nearest** one's attacker wins
+  (ties in the peer-stable network-id order of the targeting grid), so the
+  choice is the same on every lockstep peer.
+
+Implementation: the assist search runs inside TargetingSystem's acquire plan
+(`TargetingSystem.Assist.cs`), on the unit's acquisition stagger tick, over the
+same (cell, faction) grid as the enemy scan — its own faction's buckets.
 
 ## 2. The guard point
 
@@ -193,7 +235,11 @@ ticks by network id, so it is identical on every peer.
 All in `UnitStanceSystem.asset` (`UnitStanceSystemConfig`):
 `aggressiveLeash` (30 m), `retaliationWindow` (5 s — how long a hit counts
 as "attacking me" for return fire), `leashReacquireCooldown` (1.5 s),
-`underFireWindow` (2.5 s — formation attack-move retaliation).
+`underFireWindow` (2.5 s — formation attack-move retaliation),
+`assistRadius` (how close an idle friend must stand to a struck unit to join
+in, §1c) and `assistWindow` (how long after a hit the struck unit still counts
+as attacked, §1c — longer than the acquisition stagger, or a neighbour could
+miss it).
 The Defensive-only `defensiveLeash`, `defensiveAcquireMargin` and
 `defensiveAssistRadius` were removed with the 2026-09-26 rework.
 Litharch positioning: `LitharchHealingSystem.asset`.

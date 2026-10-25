@@ -257,6 +257,8 @@ public static class TransientState
         ComponentType.ReadWrite<UnitEngagement>(),
         // Set by the first explicit order, never cleared (2026-10-22).
         ComponentType.ReadWrite<PlacedByOrder>(),
+        // Temporary fog reveal (Combat_Pacing.md, Territory_Claims.md §3.1, 2026-10-25).
+        ComponentType.ReadWrite<FogReveal>(),
     };
 
     /// <summary>The six unit sets as one list, for EntityBuild's single
@@ -357,6 +359,7 @@ public static class TransientState
         em.SetComponentEnabled<UnitStance>(e, false);
         em.SetComponentEnabled<UnitEngagement>(e, false);
         em.SetComponentEnabled<PlacedByOrder>(e, false);
+        em.SetComponentEnabled<FogReveal>(e, false);
     }
 
     /// <summary>Disable a Worker's pre-added work orders (BuildCommand,
@@ -458,5 +461,6 @@ public static class TransientState
         ecb.SetComponentEnabled<UnitStance>(e, false);
         ecb.SetComponentEnabled<UnitEngagement>(e, false);
         ecb.SetComponentEnabled<PlacedByOrder>(e, false);
+        ecb.SetComponentEnabled<FogReveal>(e, false);
     }
 }

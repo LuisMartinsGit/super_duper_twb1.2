@@ -1037,13 +1037,19 @@ namespace TheWaningBorder.AI
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             float best = float.MaxValue;
             bool found = false;
+            // SEEN, NOT EXPLORED (2026-10-25, Game_AI.md § 6v): both the
+            // candidate test (knownOnly) and the squad's retarget used to take
+            // any live building in the territory — explored ground, or no
+            // fog test at all. Only what the faction has seen or sees now.
+            // (knownOnly is kept for the callers; both paths are fog-honest.)
+            FillSeen(em, FindBrainEntity(em, faction));
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value == Faction.Border || !Alliances.AreHostile(faction, facs[i].Value)) continue;
                 if (em.HasComponent<Health>(ents[i]) && em.GetComponentData<Health>(ents[i]).Value <= 0f) continue;
                 var p = xfs[i].Position;
                 if (RegionMap.RegionAt(p.x, p.z) != r) continue;
-                if (knownOnly && !AICommon.IsKnownGround(faction, p)) continue;
+                if (!SeenOrVisible(faction, ents[i], p)) continue;
                 float d = math.distancesq(p.xz, from.xz);
                 if (d < best) { best = d; at = p; found = true; }
             }

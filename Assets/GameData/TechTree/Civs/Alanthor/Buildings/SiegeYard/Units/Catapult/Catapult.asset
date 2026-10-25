@@ -36,10 +36,10 @@ MonoBehaviour:
   projectileSpeed: 26
   cost:
     Supplies: 0
-    Iron: 44
-    Veilstone: 121
+    Iron: 66
+    Veilstone: 182
     Veilsteel: 0
-  populationCost: 2
+  populationCost: 4
   minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0

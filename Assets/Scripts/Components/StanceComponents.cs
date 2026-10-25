@@ -83,4 +83,10 @@ public struct StanceSettings : IComponentData
     public float RetaliationWindow;
     public float LeashReacquireCooldown;
     public float UnderFireWindow;
+    /// <summary>Stances.md §1c — how close an idle friend must stand to a
+    /// struck unit to go for its attacker (m).</summary>
+    public float AssistRadius;
+    /// <summary>Stances.md §1c — how long after a hit the struck unit still
+    /// counts as attacked (s).</summary>
+    public float AssistWindow;
 }

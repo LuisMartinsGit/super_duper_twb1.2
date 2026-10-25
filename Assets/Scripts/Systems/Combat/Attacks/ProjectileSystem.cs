@@ -590,6 +590,9 @@ namespace TheWaningBorder.Systems.Combat
             // back (docs/Design/Sects.md).
             CombatDamageHelper.RecordDamageDealt(em, ecb, shooter, appliedDamage);
 
+            // A shot gives the shooter away (docs/Design/Combat_Pacing.md).
+            RevealShooter(em, ecb, shooter, targetEntity, appliedDamage);
+
             // DamageReflect: target's SpellBuff bounces a fraction of the dealt
             // damage back at the attacker. Moved here from RangedCombatSystem
             // (was at fire time) so missed/dodged shots no longer punish the
@@ -731,6 +734,7 @@ namespace TheWaningBorder.Systems.Combat
                 // Match-long damage ledger — Wrath's Spite pools this and pays
                 // it back (docs/Design/Sects.md).
                 CombatDamageHelper.RecordDamageDealt(em, ecb, shooter, splashDmg);
+                RevealShooter(em, ecb, shooter, entities[i], splashDmg);
 
                 // Track last damager for kill credit
                 if (em.HasComponent<LastDamagedByFaction>(entities[i]))
@@ -752,6 +756,24 @@ namespace TheWaningBorder.Systems.Combat
                         TransientState.Set(ecb, entities[i], new LastAttackerEntity { Value = shooter });
                 }
             }
+        }
+
+        /// <summary>
+        /// A SHOT GIVES THE SHOOTER AWAY (docs/Design/Combat_Pacing.md, 2026-10-25):
+        /// a projectile that damages a UNIT reveals whoever loosed it — a unit
+        /// or a shooting building — to the victim's owner for a few seconds
+        /// (FogRevealSystem.asset). Own-side hits (a frenzied shooter) and the
+        /// curse as victim (it has no fog) reveal nothing.
+        /// </summary>
+        private static void RevealShooter(EntityManager em, EntityCommandBuffer ecb,
+            Entity shooter, Entity victim, int damage)
+        {
+            if (damage <= 0 || shooter == Entity.Null || !em.Exists(shooter)) return;
+            if (!em.HasComponent<UnitTag>(victim) || !em.HasComponent<FactionTag>(victim)) return;
+            if (!em.HasComponent<FactionTag>(shooter)) return;
+            var viewer = em.GetComponentData<FactionTag>(victim).Value;
+            if (viewer == em.GetComponentData<FactionTag>(shooter).Value) return;
+            FogRevealGrant.Mark(em, ecb, shooter, viewer, byLock: false);
         }
 
         /// <summary>

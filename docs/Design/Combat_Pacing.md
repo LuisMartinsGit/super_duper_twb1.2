@@ -396,6 +396,31 @@ Implementation: `GameSystems/Rendering/Vfx/ArrowTrailTiers.cs`. The tech id for
 tier 4 is `ShardTippedArrows`, not "VeilsteelTipped" — older name, same tier,
 and Veilsteel is what it costs.
 
+### A shot gives the shooter away (2026-10-25)
+
+When a **unit** takes damage from a **projectile** — an arrow, a bolt, a siege
+stone, a splash or a piercing pass, whoever loosed it (a unit or a shooting
+building) — the **shooter is revealed to the victim's owner**: a small circle
+of sight stands on the shooter, moving with it, for a few seconds after the
+last such hit. An archer line can no longer bleed an army from the fog without
+being seen; the victim's side sees where the arrows come from and can answer.
+
+- The reveal is **fog only**. It grants no other knowledge and no targeting
+  exception: a stealthed shooter stays hidden by the stealth rule (only a
+  unit right beside it sees it), exactly as before.
+- It goes to the **victim's faction**; team-mates get it through the ordinary
+  shared-sight merge ([Teams.md](Teams.md) § Line of sight). The curse has no
+  fog and gets nothing.
+- Melee and spells reveal nothing (a melee attacker is standing next to its
+  victim). A building hit by arrows reveals nothing — its own sight is
+  usually wide, and the rule is about armies.
+- Each hit refreshes the victim faction's timer on that shooter.
+- Tunables: `FogRevealSystem.asset` (`rangedHitDuration`, `revealRadius`).
+  Implementation: `Scripts/Systems/World/Reveal/` (`FogReveal`, marked at
+  impact in `ProjectileSystem`, counted down by `FogRevealSystem`) and the
+  stamp in `FogOfWarSystem`. The same reveal shows the structures that block
+  a claim ([Territory_Claims.md](Territory_Claims.md) §3.1).
+
 ---
 
 ## The Wall Rule

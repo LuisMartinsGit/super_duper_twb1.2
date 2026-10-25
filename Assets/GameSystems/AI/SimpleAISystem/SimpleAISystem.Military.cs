@@ -93,6 +93,10 @@ namespace TheWaningBorder.AI
             /// <summary>When the current leg began — muster, stage or strike.
             /// Its own clock, so a long muster does not eat the stage timeout.</summary>
             public float LegStartTime;
+            /// <summary>How long this muster may wait for stragglers: the
+            /// base wait plus the farthest member's walk to the muster point
+            /// (MusterBudget), capped. 0 = the base wait alone.</summary>
+            public float MusterWait;
             public float NextRegroupTime;
             /// <summary>Sim time the mission is over if its objective still
             /// stands: launch (or the last chain) + missionTimeoutSeconds +
@@ -252,7 +256,7 @@ namespace TheWaningBorder.AI
             {
                 var f = (Faction)i;
                 if (f == mine || !Alliances.AreHostile(mine, f)) continue;
-                int score = BoardScore(em, f);
+                int score = KnownBoardScore(em, mine, f);   // § 6v: what we have seen
                 if (score < 0) continue;
                 if (score > bestScore) { second = bestScore; bestScore = score; best = f; }
                 else if (score > second) second = score;
@@ -260,7 +264,7 @@ namespace TheWaningBorder.AI
             if (bestScore < 0) return mine;
             // My own standing counts toward "second": a leader ahead of every
             // rival but behind ME is my problem to keep, not to attack.
-            second = math.max(second, BoardScore(em, mine));
+            second = math.max(second, KnownBoardScore(em, mine, mine));
             return bestScore >= Cfg.leadMargin * math.max(1, second) ? best : mine;
         }
 
@@ -273,7 +277,7 @@ namespace TheWaningBorder.AI
             {
                 var f = (Faction)i;
                 if (f == mine || !Alliances.AreHostile(mine, f)) continue;
-                int score = BoardScore(em, f);
+                int score = KnownBoardScore(em, mine, f);   // § 6v: what we have seen
                 if (score < 0 || score >= worstScore) continue;
                 worstScore = score;
                 worst = f;
@@ -875,8 +879,8 @@ namespace TheWaningBorder.AI
             // then strikes as one body (the commit in TickMissions).
             if (approachDist > Cfg.stagingDistance * 2f)
             {
-                attack.StagePos = AICurseRoute.OutOfCurse(em,
-                    targetPos + (fromTarget / approachDist) * Cfg.stagingDistance);
+                attack.StagePos = StandableToward(AICurseRoute.OutOfCurse(em,
+                    targetPos + (fromTarget / approachDist) * Cfg.stagingDistance), originPos);
                 // MUSTER FIRST (2026-09-07). The army was dispatched from
                 // wherever it stood, and the formation plan makes members
                 // only of units already close to the centroid — so a base
@@ -884,8 +888,10 @@ namespace TheWaningBorder.AI
                 // point one by one. Form up outside the gate, THEN march.
                 // Same shape the curse waves get from spawning compact.
                 attack.Phase = MissionPhase.Mustering;
-                attack.MusterPos = originPos - (fromTarget / approachDist) * Cfg.musterDistance;
+                attack.MusterPos = StandableToward(
+                    originPos - (fromTarget / approachDist) * Cfg.musterDistance, originPos);
                 attack.LegStartTime = now;
+                attack.MusterWait = MusterBudget(em, attack.Members, attack.MusterPos);
                 CommandRouter.IssueFormationMove(
                     em, attack.Members, attack.MusterPos, FormationShape.Box, CommandSource.AI);
             }
@@ -1015,10 +1021,19 @@ namespace TheWaningBorder.AI
                 $"{_breachFoot.Count} covering");
         }
 
-        private static Entity FindNearestHostileBuilding(EntityManager em, Faction faction,
+        /// <summary>The nearest hostile player building within
+        /// <paramref name="radius"/> of <paramref name="around"/> that this
+        /// faction has SEEN (sighting memory) or sees now, and that its war
+        /// allows (§ 6i). FOG-HONEST SINCE 2026-10-25 (§ 6v): this read the
+        /// live table with no fog test at all, so a 90 m chain radius
+        /// "pressed on" to buildings no unit had ever seen — and with no war
+        /// filter, to a third faction's (Purple's waves on Blue chained 26
+        /// times onto buildings round its own side of the map).</summary>
+        private Entity FindNearestHostileBuilding(EntityManager em, Entity brainEntity, Faction faction,
             float3 around, float radius, out float3 pos)
         {
             pos = default;
+            FillSeen(em, brainEntity);
             var q = QC_BuildingTagFactionTagLocalTransform.Get(em, QT_BuildingTagFactionTagLocalTransform);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -1040,6 +1055,8 @@ namespace TheWaningBorder.AI
                 float dz = xfs[i].Position.z - around.z;
                 float d2 = dx * dx + dz * dz;
                 if (d2 >= bestD2) continue;
+                if (!SeenOrVisible(faction, ents[i], xfs[i].Position)) continue;   // § 6v
+                if (!WarAllows(em, faction, facs[i].Value)) continue;              // § 6i
                 bestD2 = d2;
                 best = ents[i];
                 pos = xfs[i].Position;
@@ -1159,6 +1176,24 @@ namespace TheWaningBorder.AI
         /// number whenever the bar was 4 (operator question, 2026-09-12:
         /// "what does wave size 6 mean?" -- it meant nothing about the wave).
         /// </summary>
+        /// <summary>§ 6u: where a finishing push goes — the victim's capital
+        /// as the scouts last saw it, else its start Hall (start positions are
+        /// public), else its nearest held territory (ownership is public).</summary>
+        private static bool TryFinishObjective(EntityManager em, Entity brainEntity, Faction faction,
+            Faction victim, float3 from, out float3 pos, out Entity ent, out string what)
+        {
+            if (TryNearestHallSighting(em, brainEntity, victim, from, out pos, out _, out ent))
+            { what = $"{victim}'s capital"; return true; }
+            Entity sh = FindEnemyStartHall(em, faction, from, victim);
+            if (sh != Entity.Null && em.HasComponent<LocalTransform>(sh))
+            {
+                ent = sh; pos = em.GetComponentData<LocalTransform>(sh).Position;
+                what = $"{victim}'s start"; return true;
+            }
+            ent = Entity.Null;
+            return TryVictimGround(em, victim, from, new float3(float.MaxValue, 0f, float.MaxValue), out pos, out what);
+        }
+
         /// <summary>
         /// The best known estimate of what defends <paramref name="pos"/>
         /// (Game_AI.md 6a, the strength-gated wave): the larger of the live
@@ -1173,13 +1208,19 @@ namespace TheWaningBorder.AI
         private static int KnownDefenceAt(EntityManager em, Entity brainEntity, Faction faction,
             float3 pos, in EngagementAssessment live)
         {
-            int best = live.EnemyPower;
+            // FOG-HONEST (2026-10-25, Game_AI.md § 6v): the live assessment
+            // counts only while the objective is in vision; otherwise what the
+            // scouts reported there, plus the static defences of a place whose
+            // buildings have been seen.
+            bool inView = VisibleNow(faction, pos);
+            int best = inView ? live.EnemyPower : 0;
             if (!em.HasBuffer<EnemySightingRecord>(brainEntity)) return best;
             var sbuf = em.GetBuffer<EnemySightingRecord>(brainEntity);
             float simNow = (float)TheWaningBorder.Core.SimClock.Now;
             float r = AIEngagement.DefaultAssessRadius;
             float r2 = r * r;
             int garrison = 0, mobile = 0;
+            bool baseSeen = false;
             for (int i = 0; i < sbuf.Length; i++)
             {
                 var s = sbuf[i];
@@ -1196,8 +1237,11 @@ namespace TheWaningBorder.AI
                           || s.Category == IntelCategory.EcoBuilding)
                          && s.EstStrength > garrison)
                     garrison = s.EstStrength;   // a building's tally IS its garrison
+                if (s.Category == IntelCategory.Hall || s.Category == IntelCategory.MilitaryBuilding
+                    || s.Category == IntelCategory.EcoBuilding)
+                    baseSeen = true;
             }
-            int scouted = math.max(garrison, mobile) + live.EnemyStaticPower;
+            int scouted = math.max(garrison, mobile) + (inView || baseSeen ? live.EnemyStaticPower : 0);
             return math.max(best, scouted);
         }
 
@@ -1393,7 +1437,7 @@ namespace TheWaningBorder.AI
             }
 
             if (!scored)
-                target = ChooseAttackTarget(em, faction, originPos);
+                target = ChooseAttackTarget(em, brainEntity, faction, originPos);
             float3 targetPos = target != Entity.Null
                 && em.HasComponent<LocalTransform>(target)
                 ? em.GetComponentData<LocalTransform>(target).Position
@@ -1439,9 +1483,12 @@ namespace TheWaningBorder.AI
                     hostiles++;
             }
             bool closeout = hostiles <= 1 || now > Cfg.closeoutAfterSeconds;
+            // FINISH THE BEATEN (§ 6u): no stray-building detour, no income
+            // ranking — the wave goes for the beaten victim's capital.
+            bool finishing = FinishingVictim(faction, out Faction finishV);
 
             bool opportunity = false;
-            if (!closeout && em.HasBuffer<EnemySightingRecord>(brainEntity))
+            if (!closeout && !finishing && em.HasBuffer<EnemySightingRecord>(brainEntity))
             {
                 var sbuf = em.GetBuffer<EnemySightingRecord>(brainEntity);
                 float simNow = (float)TheWaningBorder.Core.SimClock.Now;
@@ -1527,6 +1574,11 @@ namespace TheWaningBorder.AI
                     bool crippled = closeout && Cfg.crippledTerritories > 0
                         && TerritoriesHeld(victim) <= Cfg.crippledTerritories;
                     if (crippled) _lastDoctrine = $"closeout: {victim} is beaten — for the throat";
+                    if (finishing && victim == finishV)
+                    {
+                        crippled = true;
+                        _lastDoctrine = $"finish: {victim} is beaten — for its capital";
+                    }
                     if (!crippled && TryNearestUnwalledSighting(em, brainEntity, faction, victim, originPos, now,
                             out float3 uPos, out Entity uEnt, out string uWhat))
                     {
@@ -1621,7 +1673,7 @@ namespace TheWaningBorder.AI
                 // blind on the start Hall for 25 minutes with the doctrine
                 // never firing. The opportunity hijack above is already an
                 // income strike.
-                if (profile.IncomeTargeting && now <= Cfg.closeoutAfterSeconds)
+                if (profile.IncomeTargeting && now <= Cfg.closeoutAfterSeconds && !finishing)
                 {
                     RankIncomeTargets(em, brainEntity, faction, victim, originPos, now,
                         personality != null ? personality.riskMultiplier : 1f, settings, _scratchIncome);
@@ -2203,9 +2255,11 @@ namespace TheWaningBorder.AI
                 if (approachDist > Cfg.stagingDistance * 2f)
                 {
                     column.Phase = MissionPhase.Mustering;
-                    column.StagePos = AICurseRoute.OutOfCurse(em,
-                        aiState.WaveTarget + (fromTarget / approachDist) * Cfg.stagingDistance);
-                    column.MusterPos = from - (fromTarget / approachDist) * Cfg.musterDistance;
+                    column.StagePos = StandableToward(AICurseRoute.OutOfCurse(em,
+                        aiState.WaveTarget + (fromTarget / approachDist) * Cfg.stagingDistance), from);
+                    column.MusterPos = StandableToward(
+                        from - (fromTarget / approachDist) * Cfg.musterDistance, from);
+                    column.MusterWait = MusterBudget(em, column.Members, column.MusterPos);
                     CommandRouter.IssueFormationMove(
                         em, column.Members, column.MusterPos, FormationShape.Box, CommandSource.AI);
                 }
@@ -2310,7 +2364,7 @@ namespace TheWaningBorder.AI
                     // honest: chain onto whatever hostile building stands
                     // near the site...
                     Entity nextT = FindNearestHostileBuilding(
-                        em, faction, mission.TargetPos, Cfg.razeChainRadius, out float3 nextPos);
+                        em, brainEntity, faction, mission.TargetPos, Cfg.razeChainRadius, out float3 nextPos);
                     // ...and an EMPTY site sends the army to the next
                     // scouted threat instead of home: march (formation
                     // move), and strike on contact via the staging commit.
@@ -2450,6 +2504,44 @@ namespace TheWaningBorder.AI
                     continue;
                 }
 
+                // A FINISHING PUSH DOES NOT WALK HOME (§ 6u, 2026-10-25). In the
+                // 2026-10-25 match 50 attack missions timed out with armies of
+                // up to 99 alive and walked home — Green's 66 at Red's mine,
+                // Purple's 39 at Blue's start — so a beaten faction always got
+                // its breathing space back. A finishing army that times out
+                // still standing (finishPressMinUnits) logs the failure (the
+                // war's count, so a real stalemate is still shelved) and
+                // presses on to the victim's capital as last seen, its start
+                // (public), or its nearest held ground (public).
+                bool failureNoted = false;
+                if (timedOut && !objectiveDown && mission.Type == MissionType.Attack
+                    && mission.Members.Count >= math.max(1, Cfg.finishPressMinUnits)
+                    && FinishingVictim(faction, out Faction pressV))
+                {
+                    NoteWarFailure(faction, faction);
+                    failureNoted = true;
+                    float3 from = math.lengthsq(mission.LastCentroid) > 1e-4f ? mission.LastCentroid : mission.TargetPos;
+                    if (TryGetWarVictim(em, faction, out Faction pressWar) && pressWar == pressV
+                        && TryFinishObjective(em, brainEntity, faction, pressV, from,
+                               out float3 pressPos, out Entity pressEnt, out string pressWhat))
+                    {
+                        AILogger.Log(faction, "WAVE",
+                            $"finish: timed out at ({mission.TargetPos.x:0},{mission.TargetPos.z:0}) with " +
+                            $"{mission.Members.Count} alive — pressing on to {pressWhat} ({pressPos.x:0},{pressPos.z:0})");
+                        mission.Deadline = DeadlineFor(now, from, pressPos);
+                        mission.Breaching = false;
+                        mission.StalledSince = now;
+                        mission.Target = pressEnt;
+                        mission.TargetPos = pressPos;
+                        if (OwnsWaveTarget(missions, mission)) aiState.WaveTarget = pressPos;
+                        mission.StartTime = now;
+                        mission.LegStartTime = now;
+                        mission.Phase = MissionPhase.Striking;
+                        March(em, faction, mission, pressPos, true, from);
+                        continue;
+                    }
+                }
+
                 if (objectiveDown || timedOut)
                 {
                     if (objectiveDown && !timedOut && mission.Type == MissionType.Attack)
@@ -2462,7 +2554,7 @@ namespace TheWaningBorder.AI
                     // and the scorer has no other way to learn it.
                     if (timedOut && !objectiveDown)
                     {
-                        if (mission.Type == MissionType.Attack) NoteWarFailure(faction, faction);
+                        if (mission.Type == MissionType.Attack && !failureNoted) NoteWarFailure(faction, faction);
                         var (bcx, bcz) = WaveCell(mission.TargetPos);
                         _waveBlocked[((int)faction, bcx, bcz)] = now + WaveBlockSeconds;
                         AILogger.Log(faction, "WAVE",
@@ -2536,7 +2628,8 @@ namespace TheWaningBorder.AI
                     // muster re-orders and no departure until it disengages.
                     if (mission.Engaged) continue;
                     float fraction = FractionWithin(em, mission, mission.MusterPos, GatherRadius(mission.Members.Count));
-                    bool musterTimedOut = now - mission.LegStartTime > Cfg.musterTimeoutSeconds;
+                    bool musterTimedOut = now - mission.LegStartTime
+                        > math.max(Cfg.musterTimeoutSeconds, mission.MusterWait);
                     if (fraction >= Cfg.musterGatherFraction || musterTimedOut)
                     {
                         mission.Phase = MissionPhase.Staging;
@@ -3252,6 +3345,58 @@ namespace TheWaningBorder.AI
             return holder;
         }
 
+        /// <summary>
+        /// A GATHERING POINT MEN CAN STAND ON (2026-10-25). Muster and stage
+        /// points are a straight step from the base toward the objective, so
+        /// on a cliff-and-mountain map they could land inside impassable
+        /// ground (Fiendstone Pass: a few metres off two starts, into the
+        /// painted mountain). The army walked to the nearest edge, could
+        /// never arrive, and every straggler sweep re-sent it there — a
+        /// standing jam at the same spot in every match. Walk the point back
+        /// toward <paramref name="toward"/> (the army's own side, standable)
+        /// in StandableStepMetres steps until a unit can stand on it.
+        /// </summary>
+        private const float StandableStepMetres = 2f;
+        private static float3 StandableToward(float3 p, float3 toward)
+        {
+            if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsWorldStandable(p)) return p;
+            float3 d = toward - p; d.y = 0f;
+            float len = math.length(d);
+            if (len < 1e-3f) return p;
+            d /= len;
+            for (float s = StandableStepMetres; s < len; s += StandableStepMetres)
+            {
+                float3 q = p + d * s;
+                if (TheWaningBorder.Systems.Navigation.NavGridQuery.IsWorldStandable(q)) return q;
+            }
+            return toward;
+        }
+
+        /// <summary>
+        /// THE MUSTER WAITS FOR THE FARTHEST MAN (2026-10-25). The wait was a
+        /// flat musterTimeoutSeconds, which on a 1 km map is less than the
+        /// walk of a soldier drafted from a far territory (claim squads,
+        /// Sanctum garrisons, tower posts) — a third of the musters left
+        /// without him. The budget is the base wait plus the farthest
+        /// member's straight-line walk at musterWalkSpeed, capped at
+        /// musterTimeoutMaxSeconds so a man who cannot arrive never holds
+        /// the wave for good.
+        /// </summary>
+        private static float MusterBudget(EntityManager em,
+            System.Collections.Generic.List<Entity> members, float3 musterPos)
+        {
+            float far = 0f;
+            for (int i = 0; i < members.Count; i++)
+            {
+                if (!em.HasComponent<LocalTransform>(members[i])) continue;
+                float3 d = em.GetComponentData<LocalTransform>(members[i]).Position - musterPos;
+                far = math.max(far, math.sqrt(d.x * d.x + d.z * d.z));
+            }
+            float walk = Cfg.musterWalkSpeed > 0f ? far / Cfg.musterWalkSpeed : 0f;
+            return math.min(Cfg.musterTimeoutSeconds + walk,
+                math.max(Cfg.musterTimeoutSeconds, Cfg.musterTimeoutMaxSeconds));
+        }
+
         private void TickAttackWaves(EntityManager em, Entity brainEntity, Faction faction,
             ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality,
             AIDifficultyProfile profile, float now)
@@ -3395,6 +3540,9 @@ namespace TheWaningBorder.AI
                     * (aiState.Posture == AIPosture.Pressure ? 0.5f : 1f);
                 if (allIn && Cfg.allInWaveIntervalSeconds > 0f)
                     interval = math.min(interval, Cfg.allInWaveIntervalSeconds);
+                // FINISHING (§ 6u): follow-ups come faster still.
+                if (FinishingVictim(faction, out _) && Cfg.finishWaveIntervalSeconds > 0f)
+                    interval = math.min(interval, Cfg.finishWaveIntervalSeconds);
                 aiState.NextWaveTime = now + interval;
                 AILogger.Log(faction, "WAVE",
                     $"wave {aiState.WaveNumber} LAUNCHED at {(int)now}s with {waveSize} unit(s) " +

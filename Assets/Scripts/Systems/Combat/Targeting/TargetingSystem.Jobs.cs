@@ -117,6 +117,12 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public ComponentLookup<LitharchState> Litharch;
             [ReadOnly] public ComponentLookup<SectVeiled> Veiled;
             [ReadOnly] public ComponentLookup<SectDisordered> Disordered;
+            // The assist rule's reads of the ATTACKER (TargetingSystem.Assist.cs).
+            [ReadOnly] public ComponentLookup<Health> Health;
+            [ReadOnly] public ComponentLookup<WallTag> Wall;
+            [ReadOnly] public ComponentLookup<FlyingTag> Flying;
+            [ReadOnly] public ComponentLookup<NodeUntargetable> NodeUntargetable;
+            [ReadOnly] public ComponentLookup<NodeNoAutoAcquire> NodeNoAutoAcquire;
             [ReadOnly] public EntityStorageInfoLookup Storage;
 
             public static bool On<T>(in ComponentLookup<T> lk, Entity e)
@@ -243,6 +249,11 @@ namespace TheWaningBorder.Systems.Combat
             Litharch = SystemAPI.GetComponentLookup<LitharchState>(true),
             Veiled = SystemAPI.GetComponentLookup<SectVeiled>(true),
             Disordered = SystemAPI.GetComponentLookup<SectDisordered>(true),
+            Health = SystemAPI.GetComponentLookup<Health>(true),
+            Wall = SystemAPI.GetComponentLookup<WallTag>(true),
+            Flying = SystemAPI.GetComponentLookup<FlyingTag>(true),
+            NodeUntargetable = SystemAPI.GetComponentLookup<NodeUntargetable>(true),
+            NodeNoAutoAcquire = SystemAPI.GetComponentLookup<NodeNoAutoAcquire>(true),
             Storage = SystemAPI.GetEntityStorageInfoLookup(),
         };
 
@@ -556,6 +567,41 @@ namespace TheWaningBorder.Systems.Combat
                             return;
                         }
                         if (rules.Leash > 0f && distFromGuard > rules.Leash) return;
+                    }
+                }
+
+                // ASSIST (Stances.md §1c): an idle Aggressive / Defensive
+                // soldier goes for the attacker of a struck friend beside it,
+                // before its own stance pick. Hold already returned (Acquire
+                // 0); fixed mounts, wall-walk men, support units and the
+                // curse's units never assist.
+                if (!isActiveScanner
+                    && cls != UnitClass.Support
+                    && myFaction != Faction.Border
+                    && !Lk.IsFixedMount(entity)
+                    && !Lk.IsOnRampart(entity)
+                    && !UnitLookups.On(in Lk.Disordered, entity))
+                {
+                    var assist = FindAssistTarget(entity, myPos, myFaction, anchor,
+                        in rules, in Lk, in Scan, in Settings, Clock);
+                    if (assist != Entity.Null)
+                    {
+                        plan.Kind = PlanScan;
+                        plan.Scanner = 0;
+                        plan.MyFaction = myFaction;
+                        plan.MyPos = myPos;
+                        plan.Pos = anchor;
+                        plan.Rules = rules;
+                        // A pursuit, whatever the stance: chase it, leashed
+                        // from the guard point, then walk home (§3).
+                        plan.Rules.Leash = Settings.AggressiveLeash;
+                        // Through the preferred-target slot: PickFromScan
+                        // takes it outright and records the attacker count.
+                        plan.Scan = default;
+                        plan.Scan.AnyBest = assist;
+                        plan.Scan.AnyBestDist = 0f;
+                        plan.Scan.PrefBest = assist;
+                        return;
                     }
                 }
 

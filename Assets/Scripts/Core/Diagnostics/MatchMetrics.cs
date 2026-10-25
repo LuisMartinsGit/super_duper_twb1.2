@@ -31,6 +31,11 @@
 //   Metrics_Income.csv     per sample: GROSS income by source and spending
 //                          by category, per faction, over the sample period
 //                          (fed by EconomyLedger; 2026-10-04)
+//   Metrics_Stuck.csv      per sample: units walking an order (moving), those
+//                          that covered under StuckMoveMetres since the last
+//                          sample while still far from their goal (stalled),
+//                          and those stalled four samples running (stuck)
+//                          — the pathing health readout (2026-10-25)
 // ─────────────────────────────────────────────────────────────────────────
 
 using System.Collections.Generic;
@@ -67,6 +72,14 @@ namespace TheWaningBorder.Core.Diagnostics
             ComponentType.ReadOnly<LocalTransform>(),
         };
         static CachedEntityQuery QC_UnitTypeIdFactionTagLocalTransform;
+        static readonly ComponentType[] QT_Walkers =
+        {
+            ComponentType.ReadOnly<UnitTypeId>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<DesiredDestination>(),
+        };
+        static CachedEntityQuery QC_Walkers;
 
         #region Cached queries
 
@@ -149,6 +162,7 @@ namespace TheWaningBorder.Core.Diagnostics
             _meleeHits.Clear();
             _flankHits.Clear();
             _deathEvents.Clear();
+            _walkPrev.Clear();
             EconomyLedger.Reset();
             _prevBankValid = false;
         }
@@ -197,6 +211,60 @@ namespace TheWaningBorder.Core.Diagnostics
             Write("Metrics_Income.csv",
                 "t,faction,flow,source,supplies,iron,veilstone,veilsteel\n");
             Write("Metrics_Score.csv", MatchScore.CsvHeader);
+            Write("Metrics_Stuck.csv", "t,faction,moving,stalled,stuck\n");
+        }
+
+        // ── pathing health (2026-10-25) ──
+        // A unit with a live destination that has not covered StuckMoveMetres
+        // in a whole sample period, while still StuckGoalMetres or more from
+        // its goal, is stalled; four periods running, stuck.
+        private const float StuckMoveMetres = 1.5f;
+        private const float StuckGoalMetres = 4f;
+        private readonly Dictionary<Entity, (Unity.Mathematics.float3 pos, int stalls)> _walkPrev
+            = new Dictionary<Entity, (Unity.Mathematics.float3, int)>();
+
+        private void SampleStuck(EntityManager em, string tStr)
+        {
+            var q = QC_Walkers.Get(em, QT_Walkers);
+            var moving = new int[8]; var stalled = new int[8]; var stuck = new int[8];
+            var seen = new Dictionary<Entity, (Unity.Mathematics.float3, int)>();
+            using (var ents = q.ToEntityArray(Allocator.Temp))
+            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+            using (var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp))
+            using (var dds = q.ToComponentDataArray<DesiredDestination>(Allocator.Temp))
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    int f = (int)facs[i].Value;
+                    if (f < 0 || f > 7 || dds[i].Has == 0) continue;
+                    var p = xfs[i].Position;
+                    var g = dds[i].Position;
+                    float gx = g.x - p.x, gz = g.z - p.z;
+                    if (gx * gx + gz * gz < StuckGoalMetres * StuckGoalMetres) continue;
+                    moving[f]++;
+                    int stalls = 0;
+                    if (_walkPrev.TryGetValue(ents[i], out var prev))
+                    {
+                        float dx = p.x - prev.pos.x, dz = p.z - prev.pos.z;
+                        if (dx * dx + dz * dz < StuckMoveMetres * StuckMoveMetres)
+                        {
+                            stalls = prev.stalls + 1;
+                            stalled[f]++;
+                            if (stalls >= 4) stuck[f]++;
+                        }
+                    }
+                    seen[ents[i]] = (p, stalls);
+                }
+            _walkPrev.Clear();
+            foreach (var kv in seen) _walkPrev[kv.Key] = kv.Value;
+
+            var sb = new StringBuilder();
+            for (int f = 0; f < 8; f++)
+            {
+                if (moving[f] == 0) continue;
+                sb.Append(tStr).Append(',').Append((Faction)f).Append(',').Append(moving[f])
+                  .Append(',').Append(stalled[f]).Append(',').Append(stuck[f]).Append('\n');
+            }
+            if (sb.Length > 0) Write("Metrics_Stuck.csv", sb.ToString());
         }
 
         // ── income / spending ledger (2026-10-04) ──
@@ -459,6 +527,7 @@ namespace TheWaningBorder.Core.Diagnostics
 
             Write("Metrics_Faction.csv", fac.ToString());
             Write("Metrics_Income.csv", inc.ToString());
+            SampleStuck(em, tStr);
             // The period is closed: every faction's rows are written and its
             // bank snapshot taken. A faction skipped above (no units, no
             // buildings) has its period discarded with the reset.

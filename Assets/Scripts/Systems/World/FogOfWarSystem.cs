@@ -45,6 +45,8 @@ namespace TheWaningBorder.Systems.Visibility
         private EntityQuery _eagleQuery;
         private EntityQuery _shardrootQuery;
         private EntityQuery _embeddedQuery;
+        private EntityQuery _revealQuery;
+        private TheWaningBorder.Systems.World.FogRevealSystemConfig _revealCfg;
         private readonly System.Collections.Generic.List<float3> _shardrootSpots =
             new System.Collections.Generic.List<float3>(2);
 
@@ -92,6 +94,11 @@ namespace TheWaningBorder.Systems.Visibility
             _embeddedQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<ShardrootEmbedded, LocalTransform>()
                 .Build(this);
+            // Temporary reveals (FogReveal enabled only): a shooter that hit
+            // a faction's unit, a structure blocking a faction's claim.
+            _revealQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<FogReveal, LocalTransform>()
+                .Build(this);
         }
 
         protected override void OnUpdate()
@@ -119,6 +126,7 @@ namespace TheWaningBorder.Systems.Visibility
                 mobiles = grown;
             }
             AppendShardrootReveal(ref mobiles);
+            AppendTemporaryReveals(ref mobiles);
             mgr.SetLiveSight(mobiles, mobiles.Length);
             int unitCount = mobiles.Length;
 
@@ -235,6 +243,64 @@ namespace TheWaningBorder.Systems.Visibility
             mobiles = grown;
         }
 
+        /// <summary>
+        /// TEMPORARY REVEALS (2026-10-25): every entity whose FogReveal timer
+        /// runs for a faction gets a small circle of sight for that faction —
+        /// a shooter that hit its unit (Combat_Pacing.md § A shot gives the
+        /// shooter away), a structure blocking its claim (Territory_Claims.md
+        /// §3.1). Team-mates get it through the shared-sight merge. A
+        /// building's circle also covers its footprint.
+        /// </summary>
+        private void AppendTemporaryReveals(ref NativeArray<FogOfWarManager.StampCommand> mobiles)
+        {
+            if (_revealQuery.IsEmpty) return;
+            if (_revealCfg == null)
+                _revealCfg = TheWaningBorder.Core.Settings.ComponentConfig
+                    .Require<TheWaningBorder.Systems.World.FogRevealSystemConfig>();
+            if (_revealCfg == null) return;
+            float baseR = _revealCfg.revealRadius;
+            if (!(baseR > 0f)) return;
+
+            var em = EntityManager;
+            using var ents = _revealQuery.ToEntityArray(Allocator.Temp);
+            using var reveals = _revealQuery.ToComponentDataArray<FogReveal>(Allocator.Temp);
+            using var xfs = _revealQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            int extra = 0;
+            for (int i = 0; i < reveals.Length; i++)
+                for (int f = 0; f < FogReveal.Players; f++)
+                    if (reveals[i].RevealedTo(f)) extra++;
+            if (extra == 0) return;
+
+            var grown = new NativeArray<FogOfWarManager.StampCommand>(
+                mobiles.Length + extra, Allocator.TempJob);
+            NativeArray<FogOfWarManager.StampCommand>.Copy(mobiles, grown, mobiles.Length);
+            int at = mobiles.Length;
+            for (int i = 0; i < reveals.Length; i++)
+            {
+                float r = baseR;
+                if (em.HasComponent<BuildingSize>(ents[i]))
+                {
+                    var bs = em.GetComponentData<BuildingSize>(ents[i]);
+                    r += 0.5f * math.sqrt(bs.Width * bs.Width + bs.Height * bs.Height);
+                }
+                var p = xfs[i].Position;
+                for (int f = 0; f < FogReveal.Players; f++)
+                {
+                    if (!reveals[i].RevealedTo(f)) continue;
+                    grown[at++] = new FogOfWarManager.StampCommand
+                    {
+                        Position = new Vector3(p.x, p.y, p.z),
+                        Radius = r,
+                        Faction = (Faction)f,
+                        Source = ents[i],
+                    };
+                }
+            }
+            mobiles.Dispose();
+            mobiles = grown;
+        }
+
         private bool[] _territorySight = System.Array.Empty<bool>();
 
         /// <summary>
@@ -267,7 +333,33 @@ namespace TheWaningBorder.Systems.Visibility
                 }
             }
             mgr.SetTerritorySight(_territorySight, count, hash);
+
+            // A CLAIM BLOCKED BY CURSED GROUND (Territory_Claims.md §3.1,
+            // 2026-10-25): the blocked side sees every cursed cell of that
+            // territory. Which territory is blocked for whom is the claim
+            // system's sim-side verdict; drawing it is this pass. The cursed
+            // ground's version joins the hash, so the layer is re-cut when
+            // the curse creeps or recedes while a block lasts.
+            if (_curseSight.Length != players * count)
+                _curseSight = new bool[players * count];
+            ulong cHash = 0xCBF29CE484222325UL;
+            bool anyCurse = false;
+            for (int t = 0; t < count; t++)
+            {
+                byte mask = TheWaningBorder.Systems.World.TerritoryClaimSystem.CurseBlockedSides(t);
+                for (int f = 0; f < players; f++)
+                {
+                    bool on = (mask & (1 << f)) != 0;
+                    _curseSight[f * count + t] = on;
+                    if (on) { anyCurse = true; cHash = (cHash ^ (ulong)(f * count + t + 1)) * 0x100000001B3UL; }
+                }
+            }
+            if (anyCurse)
+                cHash = (cHash ^ (ulong)(uint)TheWaningBorder.Systems.Border.CurseGroundSystem.Version) * 0x100000001B3UL;
+            mgr.SetCurseSight(_curseSight, count, cHash);
         }
+
+        private bool[] _curseSight = System.Array.Empty<bool>();
 
         /// <summary>Where the artifact physically stands: its holder, or the
         /// wall / tower module a garrisoned holder is inside.</summary>

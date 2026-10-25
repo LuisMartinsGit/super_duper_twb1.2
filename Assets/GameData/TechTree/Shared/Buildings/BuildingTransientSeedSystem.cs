@@ -61,6 +61,11 @@ namespace TheWaningBorder.Systems.Buildings
             // Alanthor sect powers (Sects.md §4, 2026-10-15).
             ComponentType.ReadWrite<OvertimeBoost>(),
             ComponentType.ReadWrite<WardDischargeCharge>(),
+            // Temporary fog reveal: a shooting tower, a claim-blocking
+            // structure (Territory_Claims.md §3.1). With it the list plus
+            // BuildingDamageState + the seeded tag is 15 — ComponentTypeSet's
+            // limit: a further transient needs a second add.
+            ComponentType.ReadWrite<FogReveal>(),
         };
 
         protected override void OnCreate()

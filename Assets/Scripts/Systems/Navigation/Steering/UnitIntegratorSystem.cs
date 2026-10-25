@@ -890,7 +890,17 @@ namespace TheWaningBorder.Systems.Navigation
                         // SelectionOrders.DeckSlots) stopped short wherever
                         // a man bound further along walked over another's
                         // slot (2026-10-20).
-                        if (Active(ref UserMove, other)) continue;
+                        //
+                        // ON THE WALL-WALK ONLY (2026-10-25). On the ground
+                        // every AI move is a UserMoveOrder too, so a dozen
+                        // men sent to ONE point never counted each other:
+                        // the crowd shoved the nearest off the exact spot,
+                        // nobody arrived, and they jostled there for good —
+                        // the AI then saw them as busy and its musters timed
+                        // out. On the ground a mover holding the point
+                        // blocks us again, as before.
+                        if (Active(ref UserMove, other) && Layer.HasComponent(other)
+                            && Layer[other].Layer == NavLayerIndex.LayerRampart) continue;
 
                         float3 op = Xform[other].Position;
 

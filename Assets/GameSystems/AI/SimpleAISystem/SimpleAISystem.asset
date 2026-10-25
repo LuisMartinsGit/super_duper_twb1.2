@@ -130,6 +130,8 @@ MonoBehaviour:
   musterDistance: 22
   musterGatherFraction: 0.85
   musterTimeoutSeconds: 45
+  musterWalkSpeed: 3
+  musterTimeoutMaxSeconds: 120
   regroupInterval: 5
   regroupLooseFraction: 0.25
   reinforceMergeRadius: 35
@@ -483,6 +485,15 @@ MonoBehaviour:
   preyMaxTerritories: 2
   preyHunterMinTerritories: 5
   preyMaxShareOfHunter: 0.4
+  finishAfterSeconds: 720
+  finishMinArmy: 20
+  finishTerritoryShare: 0.5
+  finishArmyShare: 0.4
+  finishIntelMaxAgeSeconds: 180
+  finishWaveIntervalSeconds: 40
+  finishRetreatRatio: 4
+  finishPressMinUnits: 8
+  warShelfSeconds: 600
   maxedPopShare: 0.85
   maxedBankSupplies: 15000
   doctrineNames:

@@ -104,6 +104,11 @@ namespace TheWaningBorder.Bootstrap
             string replayArg = ArgStr(args, "-twbReplay");
             if (!string.IsNullOrEmpty(replayArg))
             {
+                // A replay can be traced too (2026-10-25): re-simulating a
+                // tester's match with -twbTrace is the only way to get the
+                // per-unit feed of a game nobody recorded one for.
+                if (Array.IndexOf(args, "-twbTrace") >= 0)
+                    MapTrace.Install(ArgInt(args, "-twbTracePeriod", 0));
                 BeginReplayVerify(replayArg);
                 return;
             }

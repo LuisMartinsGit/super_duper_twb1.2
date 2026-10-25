@@ -31,5 +31,17 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>A unit hit within this long (s) counts as under fire: a
         /// marching attack-move formation member fights back.</summary>
         public float underFireWindow;
+
+        /// <summary>ASSIST (Stances.md §1c): an idle Aggressive / Defensive
+        /// unit within this distance (m, centre to centre) of a friend of its
+        /// own faction that is being attacked goes for that friend's
+        /// attacker.</summary>
+        public float assistRadius;
+
+        /// <summary>ASSIST: a unit counts as "being attacked" for this long (s)
+        /// after it last lost health. Must exceed the acquisition stagger
+        /// (TargetingSystem.AcquireStagger ticks) or a neighbour scanning on
+        /// a later phase could miss the hit.</summary>
+        public float assistWindow;
     }
 }

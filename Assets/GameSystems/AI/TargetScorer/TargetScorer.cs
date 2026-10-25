@@ -21,12 +21,20 @@ namespace TheWaningBorder.AI
     {
         public static float Score(
             EntityManager em, AISettingsSO s, float riskMultiplier,
-            float3 origin, in EnemySightingRecord rec, float now)
+            float3 origin, in EnemySightingRecord rec, float now, Faction observer)
         {
             float score = s.CategoryWeight(rec.Category);
 
-            int defenders = TacticalQuery.FactionStrengthInRadius(
-                em, rec.OwnerFaction, rec.Position, s.defenseProbeRadius);
+            // FOG-HONEST (2026-10-25, Game_AI.md § 6v): the live defenders are
+            // read only while the place is in the observer's vision; otherwise
+            // the score uses what the sighting recorded there (a building's
+            // record carries the garrison seen round it).
+            var fog = TheWaningBorder.World.FogOfWar.FogOfWarManager.Instance;
+            bool inView = fog == null
+                || fog.IsVisible(observer, new UnityEngine.Vector3(rec.Position.x, 0f, rec.Position.z));
+            int defenders = inView
+                ? TacticalQuery.FactionStrengthInRadius(em, rec.OwnerFaction, rec.Position, s.defenseProbeRadius)
+                : math.max(0, rec.EstStrength);
             score -= defenders * s.riskPerDefenseStrength * riskMultiplier;
 
             float dx = rec.Position.x - origin.x;

@@ -124,6 +124,15 @@ When N ≥ 2 movable units receive one move / attack-move order:
      from the steering arrival fade, and the crowd-arrival rule ignores
      formation-mates as blockers (they cannot push it, so they cannot stop it
      reaching its slot); a foreign unit on its slot still settles it.
+   - **A unit still walking an order holds the point it stands on, on the
+     ground** (2026-10-25). The crowd-arrival rule lets a mover stop short
+     when another unit sits on its goal. From 2026-10-20 a unit itself still
+     walking a move was never such a blocker, so that a file spread along a
+     wall-walk would not stop short where a man bound further on crossed
+     another's slot. That exemption now applies only ON THE WALL-WALK: on the
+     ground every AI move is such an order, and a dozen men sent to one point
+     never counted each other, so none arrived and they jostled there for
+     good (the AI's musters timed out waiting for them).
 10. **Combat pulls a member out of rank, not out of the group**: a member
     that auto-acquires a target fights individually at its own speed, but
     stays on the group's roster; when its target dies or is dropped (leash)

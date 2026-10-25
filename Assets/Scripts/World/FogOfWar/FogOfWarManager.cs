@@ -439,7 +439,10 @@ namespace TheWaningBorder.World.FogOfWar
             // Cartography's held territories, exactly on their cells, into
             // the same layer (and Revealed) - see StampTerritorySight.
             if (terrKey != 0)
+            {
                 StampTerritorySight((byte*)_static.GetUnsafePtr(), (byte*)_revealed.GetUnsafePtr(), cells);
+                StampCurseSight((byte*)_static.GetUnsafePtr(), (byte*)_revealed.GetUnsafePtr(), cells);
+            }
             _staticTerrKey = terrKey;
 
             _staticHash = hash;
@@ -487,6 +490,32 @@ namespace TheWaningBorder.World.FogOfWar
         bool _terrAny;
         ulong _staticTerrKey;
 
+        // ── Cursed-ground sight (2026-10-25, Territory_Claims.md §3.1) ──
+        // A faction whose claim on a territory is blocked by cursed ground
+        // sees every CURSED cell of that territory (not the rest of it). Same
+        // territory runs as Cartography; each run's cells are tested against
+        // CurseGroundSystem when the static layer is rebuilt, which happens
+        // only when the set or the cursed ground changes (the caller folds
+        // CurseGroundSystem.Version into the hash).
+        bool[] _curseSight = Array.Empty<bool>();   // [faction * count + territory]
+        int _curseSightCount;
+        ulong _curseSightHash;
+        bool _curseAny;
+
+        /// <summary>Which territories' cursed ground each faction sees this
+        /// pass, as [faction * territoryCount + territory]. Called by
+        /// FogOfWarSystem every reveal pass.</summary>
+        public void SetCurseSight(bool[] sight, int territoryCount, ulong hash)
+        {
+            _curseSight = sight ?? Array.Empty<bool>();
+            _curseSightCount = territoryCount;
+            _curseSightHash = hash;
+            _curseAny = false;
+            for (int i = 0; i < _curseSight.Length; i++)
+                if (_curseSight[i]) { _curseAny = true; break; }
+            if (_curseAny) AdvanceTerritoryMask();
+        }
+
         /// <summary>
         /// Which territories each faction sees whole this pass, as
         /// [faction * territoryCount + territory] — its OWN holdings; team
@@ -509,8 +538,12 @@ namespace TheWaningBorder.World.FogOfWar
         /// changes with the sighted set and with every re-cut cell mask.</summary>
         ulong TerritoryKey()
         {
-            if (!_terrAny || !_terrReady || _terrSightCount != _terrMapCount) return 0UL;
-            ulong z = _terrSightHash ^ ((ulong)(uint)_terrBuildId << 32) ^ 0x9E3779B97F4A7C15UL;
+            bool terr = _terrAny && _terrSightCount == _terrMapCount;
+            bool curse = _curseAny && _curseSightCount == _terrMapCount;
+            if (!_terrReady || !(terr || curse)) return 0UL;
+            ulong z = (terr ? _terrSightHash : 0UL)
+                      ^ (curse ? (_curseSightHash * 0x100000001B3UL) ^ 0xC2B2AE3D27D4EB4FUL : 0UL)
+                      ^ ((ulong)(uint)_terrBuildId << 32) ^ 0x9E3779B97F4A7C15UL;
             z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
             z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
             return (z ^ (z >> 31)) | 1UL;
@@ -519,10 +552,47 @@ namespace TheWaningBorder.World.FogOfWar
         bool FactionHasTerritorySight(int f)
         {
             int n = _terrSightCount, o = f * n;
-            if (n > _terrRunCount.Length || o + n > _terrSight.Length) return false;
-            for (int t = 0; t < n; t++)
-                if (_terrSight[o + t] && _terrRunCount[t] > 0) return true;
+            if (n <= _terrRunCount.Length && o + n <= _terrSight.Length)
+                for (int t = 0; t < n; t++)
+                    if (_terrSight[o + t] && _terrRunCount[t] > 0) return true;
+            n = _curseSightCount; o = f * n;
+            if (n <= _terrRunCount.Length && o + n <= _curseSight.Length)
+                for (int t = 0; t < n; t++)
+                    if (_curseSight[o + t] && _terrRunCount[t] > 0) return true;
             return false;
+        }
+
+        /// <summary>The cursed cells of each curse-sighted territory, into the
+        /// static layer and Revealed. One CurseGroundSystem test per fog cell
+        /// of those territories, on a static rebuild only.</summary>
+        unsafe void StampCurseSight(byte* vis, byte* rev, int cells)
+        {
+            int n = _curseSightCount;
+            if (n > _terrRunCount.Length || !TheWaningBorder.Systems.Border.CurseGroundSystem.Ready) return;
+            for (int f = 0; f < MaxFactions; f++)
+            {
+                int o = f * n;
+                if (o + n > _curseSight.Length) break;
+                long fo = (long)f * cells;
+                for (int t = 0; t < n; t++)
+                {
+                    if (!_curseSight[o + t]) continue;
+                    int s = _terrRunStart[t], e = s + _terrRunCount[t];
+                    for (int k = s; k < e; k++)
+                    {
+                        var run = _terrRuns[k];
+                        int y = run.x / _w, x0 = run.x - y * _w;
+                        float wz = WorldMin.y + (y + 0.5f) * CellSize;
+                        for (int i = 0; i < run.y; i++)
+                        {
+                            float wx = WorldMin.x + (x0 + i + 0.5f) * CellSize;
+                            if (!TheWaningBorder.Systems.Border.CurseGroundSystem.IsCursed(wx, wz)) continue;
+                            vis[fo + run.x + i] = 255;
+                            rev[fo + run.x + i] = 255;
+                        }
+                    }
+                }
+            }
         }
 
         unsafe void StampTerritorySight(byte* vis, byte* rev, int cells)

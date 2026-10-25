@@ -39,6 +39,10 @@ Allies see through each other's eyes. Anything visible to any member of a team
 is visible to every member: fog of war, the minimap, and the
 visible/revealed/ghosted state of enemy units all resolve against the **team's**
 combined vision rather than the single faction's.
+That includes a shooter revealed by hitting one member's unit
+([Combat_Pacing.md](Combat_Pacing.md) § A shot gives the shooter away).
+Allied soldiers do **not** join in each other's fights on their own — the
+assist rule of [Stances.md](Stances.md) §1c is same-faction only.
 
 This is vision only. It does not share control, resources, population, research,
 influence or buildings.

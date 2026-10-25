@@ -136,6 +136,51 @@ exactly to the territory's border and nothing beyond), for you and your
 team-mates, and counts as seen for every simulation sight test (sect powers'
 aim rule). Lose the territory and it falls back to explored (remembered) fog.
 
+### 3.1 A blocked claim shows what blocks it (2026-10-25)
+
+> **Playtest request.** In a large territory, finding the one extractor that
+> locks it was a bothersome hunt — one the AI never has to make.
+
+While a player is **conquering** a territory and the meter will not move for
+it because of a structure, the structures responsible are **revealed to that
+player** — visible through the fog and marked on screen — for as long as the
+block lasts:
+
+- **Locked** (this section's table): the player's coalition leads the tug of
+  war (§2.2), it is the side that would drain the meter, and the holder's
+  locking structures stand. Every one of the **holder's locking structures in
+  that territory** (Fortress, node buildings, Trading Outposts, Sanctuaries)
+  is revealed.
+- **Cursed** (§6.9.4): the player's coalition leads on ground with cursed
+  cells in it, so the meter cannot rise. The player sees **the cursed ground
+  itself** — every cursed cell of that territory, exactly where it lies, is
+  visible through the fog (and stays explored afterwards), so the player can
+  see what must be cleansed — and every **living curse node in that
+  territory** is revealed and marked as well. Only the cursed cells are
+  shown, not the rest of the territory; anything standing on them is seen
+  like anything else in sight. The shown area follows the curse as it creeps
+  or recedes while the block lasts.
+- "Conquering" means exactly what the meter means by it: soldiers that count
+  for the claim (§2.1) standing in the territory, a coalition that leads, and
+  a side allowed to take the ground (§10 — aged up, bordering its
+  Fortress-connected ground). A holder filling its own claimed ground
+  conquers nothing; one still filling an unclaimed claim does.
+- The reveal goes to the conquering side; its **team-mates** see it through
+  the shared sight ([Teams.md](Teams.md)). It ends shortly after the block
+  does — the structure is razed, the soldiers leave, or the curse is gone.
+- **What** is revealed is decided by the claim tick on the lockstep clock
+  (TerritoryClaimSystem), from simulation state only; the fog stamp and the
+  markers are presentation. Markers: `UI/World/EndgameMarkers.cs` draws a
+  diamond (off screen: an edge arrow) on every revealed blocker, without the
+  Field Intelligence research §7.4 needs. The cursed cells go into the fog
+  grid (`FogOfWarManager.SetCurseSight`, fed by `FogOfWarSystem` from
+  `TerritoryClaimSystem.CurseBlockedSides`), re-cut only when the blocked set
+  or the cursed ground changes.
+- Reuses the fog reveal of [Combat_Pacing.md](Combat_Pacing.md) § A shot
+  gives the shooter away (`FogReveal`); how long one claim tick keeps a
+  blocker revealed is `lockRevealDuration` in `FogRevealSystem.asset` (longer
+  than the claim tick, so the reveal does not flicker between ticks).
+
 ## 4. The Fortress
 
 **Every player starts with a Shelter** — the Age 0 form of the capital —
