@@ -561,7 +561,13 @@ The remaining four fifths, in order of impact:
 4. **Palette discipline** — strong hue separation between terrain, factions
    and VFX, so nothing has to rely on brightness alone to read.
 
-### Experiment: pencil ink outlines (2026-09-25) — NOT adopted
+### Experiment: pencil ink outlines (2026-09-25) — ON by default again since 2026-10-27
+
+**2026-10-27: the developer re-enabled the pass by default** ("reenable the
+cartoon tracing filter"): `PencilOutline.asset` `enabled` is 1 again, so
+every player who has not chosen in Settings > Visuals sees the ink. The A/B
+below is still open — the DOTA paragraph above has not been rewritten — so
+treat this as the current default, not a final adoption.
 
 A Borderlands-style ink pass is being **prototyped for an A/B**, against the
 statement above that the DOTA / League target uses no outline post-effect.
@@ -667,10 +673,129 @@ exception. if something breaks, author a new SO, FBX and .blend."
   (`.gitattributes`); the vendor packs stay untracked.
 - **Order**: edition A (Age 0 + Alanthor) first, then Feraldis, then Runai;
   the SO-only switch turns on per culture as its art lands.
-- **Exception — the Hut keeps its prefab** (developer, 2026-10-20: "Huts
-  should keep the prefab they had before"): the Age 0 Hut's base SO stays on
-  `HutAge0.prefab`; its culture levels (House, Slave Pens, Waystation) follow
-  the rule.
+- **Former exception — the Hut kept its prefab** (developer, 2026-10-20:
+  "Huts should keep the prefab they had before"): the Age 0 Hut's base SO
+  stayed on `HutAge0.prefab` until 2026-10-27, when the developer applied the
+  Synty-built `Hut_Age_0.fbx` (bullet above). No building keeps a prefab now;
+  the Shelter (next bullet) is the last.
+- **Age 0, Alanthor, the sect buildings and both wall sets are EDITABLE
+  PREFABS of Synty pieces, Synty-only (2026-10-27).** Developer: "I need to
+  have the houses as prefabs in a way that I can tweak the positions of the
+  components", "it must be build 100% from Synty assets meshes and textures",
+  then "Delete all buildings (including placement previews). Create all
+  buildings again, following the themes" — scoped to Age 0 + Alanthor (+ the
+  sect buildings and the palisade / stone wall); Feraldis and Runai keep
+  their kit prefabs. So, for that set, the one-FBX-per-level rule above is
+  replaced: every base form (`<Id>_Age_0.prefab`), level
+  (`alanthor_<Name>_lv<N>.prefab`), culture look
+  (`alanthor_TempleOfRidan_lv1.prefab`) and wall part
+  (`Palisade_<Part>_L0.prefab`, `alanthor_StoneWall_<Part>_L<n>.prefab`,
+  each beside its `WallPieceArtSO`) is a prefab of NESTED Synty Fantasy
+  Kingdom piece instances under numbered rise groups (`1_Ground`,
+  `2_Walls`, `3_Cap` / `3_Thatch`, `4_Loft`, `5_LoftCap`, `6_Props`), every
+  wall, column, lamp and bush a child to move in the Editor; no FBX or
+  .blend remains for them (the Blender House-kit scripts for these are
+  retired; `tools/blender/alanthor/` keeps only what Feraldis / Runai may
+  still reuse). The placement ghost draws the same finished prefab
+  (`ResolveFinishedVisual`), so there is no separate preview art.
+  Authors: **Waning Border > Art > Author House Line** (`HouseKitAuthor.cs`,
+  the Hut and the House — the two idioms' reference pieces) and **Waning
+  Border > Art > Author Age 0 + Alanthor Art (Synty)**
+  (`AlanthorKitAuthor.cs`, everything else; both are partials of the
+  Feraldis kit author), which wire the SOs, delete retired FBX / .blend,
+  run the binder and render `Temp/house-kit-previews/` and
+  `Temp/alanthor-kit-previews/` (level comparisons at the in-game camera,
+  wall assembly). Re-running an author REBUILDS its prefabs, so hand tweaks
+  are folded back into the author or kept out of its way.
+  **The themes.** Age 0 (dark ages, no culture look): mud yards, plank
+  hoarding walls on beam posts, thatch gables, post-and-rail fences with a
+  gate, a player-colour pennant — materials `Syn_Atlas`, `Age0_Mud`,
+  `Age0_DarkStone`, `Age0_Slate`. Alanthor: white stucco castle walls with
+  arched doors and windows, red Roman columns at every corner, teal tile
+  pyramids and gables, stone platforms inside a low stone wall with a stair,
+  red torii gates with hanging lanterns, red masts with player-colour flags
+  — materials `Al_Stucco`, `Al_Stone`, `Al_Tile`, `Al_Red`, `Al_Gold`,
+  `Al_PlayerColor_Cloth`. A level grows tiers, wings, towers and props
+  INSIDE the same plot, never the plot: every model fills its footprint edge
+  to edge (fit 1.0) and pieces are placed by their MEASURED bounds. The
+  stone wall: stucco modules with battlements (L1), teal hoods on red posts
+  (L2), lanterns (L3); stucco gatehouse towers under teal caps; the palisade
+  is plank hoarding on a dark core with stakes and torches. Rules the pieces
+  obey: the roof tile is `Roof_Tile_04` (teal) because the faction-colour
+  pass hue-swaps atlas pixels in the 190-260 band; no node is named "roof"
+  because the same pass paints such nodes slate; no blue cloth prop
+  (awnings, stalls) because it reads as the Blue player. **Waning Border >
+  Art > Build House Lineup Scene** (`HouseLineupScene.cs`) still lays the
+  four houses side by side in `Scenes/Debug/HouseLineup.unity`.
+- **Former exception — the Hut kept its prefab** (developer, 2026-10-20:
+  "Huts should keep the prefab they had before"): the Age 0 Hut's base SO
+  stayed on `HutAge0.prefab` until 2026-10-27, when the developer applied the
+  Synty-built `Hut_Age_0.fbx` (bullet above). No building keeps a prefab now;
+  the Shelter (next bullet) is the last.
+- **The Hut line is EDITABLE PREFABS of Synty pieces, Synty-only (2026-10-27).**
+  Developer: "I need to have the houses as prefabs in a way that I can tweak
+  the positions of the components" and "it must be build 100% from Synty
+  assets meshes and textures". So, for this line, the one-FBX-per-level rule
+  above is replaced: `Hut_Age_0.prefab` and `alanthor_House_lv1..3.prefab`
+  (in each building's `Art/`) are prefabs of NESTED Synty Fantasy Kingdom
+  piece instances under numbered rise groups (`1_Ground`, `2_Walls`,
+  `3_Cap`/`3_Thatch`, `4_Loft`, `5_LoftCap`, `6_Props`), every wall, post,
+  lamp and bush a child to move in the Editor; no FBX or .blend exists for
+  them. They are authored by **Waning Border > Art > Author House Line (Hut +
+  Alanthor House)** (`HouseKitAuthor.cs`, a partial of the Feraldis kit
+  author, which also wires the SOs and renders `Temp/house-kit-previews/`);
+  re-running it REBUILDS the prefabs, so hand tweaks are either kept out of
+  its way or folded back into the author. Six materials, each BuildingLit over
+  one Synty texture: `Syn_Atlas`, `Age0_Mud` under the Hut; `Al_Stucco`,
+  `Al_Stone`, `Al_Tile`, `Al_Red` under the House. The Hut is a 2 x 2-cell
+  building (Build_Grid.md): every level fills exactly 4 m x 4 m including
+  eaves (footprint fit 1.0) and every spare metre is fenced. The four read as
+  a progression: the Hut is plank hoarding walls on beam posts under a thatch
+  gable, on a mud yard behind a post-and-rail fence (dark-ages timber, no
+  culture look; thatch supersedes the plank-roof rule above for the Hut
+  alone); L1 is white stucco castle walls with an arched door and windows,
+  red Roman columns at the corners and a teal tile pyramid, on a stone
+  platform inside a low stone wall; L2 adds a roofed loft tier, lamps both
+  sides of the door and street lamps at the gate; L3 a pagoda top tier and a
+  red torii with hanging lanterns at the stair. Two rules the pieces obey:
+  the roof tile is `Roof_Tile_04` (teal) because the faction-colour pass
+  hue-swaps atlas pixels in the 190-260 band, and no node is named "roof"
+  because the same pass paints such nodes slate. **Waning Border > Art >
+  Build House Lineup Scene** (`HouseLineupScene.cs`) puts the four side by
+  side on a 2 m grid in `Scenes/Debug/HouseLineup.unity` and captures each
+  from four sides and above into `Temp/house-lineup/`.
+- **Former exception — the Hut kept its prefab** (developer, 2026-10-20:
+  "Huts should keep the prefab they had before"): the Age 0 Hut's base SO
+  stayed on `HutAge0.prefab` until 2026-10-27, when the developer applied the
+  Synty-built `Hut_Age_0.fbx` (bullet above). No building keeps a prefab now;
+  the Shelter (next bullet) is the last.
+- **The Hut line fills its plot and is Synty-only (2026-10-27).** The Hut is a
+  2 x 2-cell building (Build_Grid.md), so `Hut_Age_0` and
+  `alanthor_House_lv1..3` (`tools/blender/alanthor/build_house_family.py`
+  over `syntykit.py`) are authored at exactly 4 m x 4 m including the roof
+  eaves — the footprint fit is 1.0 and nothing is scaled at spawn — and every
+  piece of ground the building itself does not stand on is at least fenced.
+  **No House-kit mesh or texture is used**: every piece is a Synty POLYGON
+  Fantasy Kingdom mesh and every texture a Synty atlas or castle texture,
+  six named materials bound by name (`Syn_Atlas`, `Age0_Mud` under the Hut;
+  `Al_Stucco`, `Al_Stone`, `Al_Tile`, `Al_Red` under the House — BuildingLit
+  over one Synty texture each, tinted). The four are one shape family that
+  reads as a progression: the Hut is plank hoarding walls on beam posts under
+  a thatch gable, on a mud yard behind a post-and-rail fence (dark-ages
+  timber, no culture look; thatch supersedes the plank-roof rule above for
+  the Hut alone); L1 is white stucco castle walls with an arched door and
+  windows, red Roman columns at the corners and a teal tile pyramid roof, on a
+  stone platform inside a low stone wall; L2 adds a roofed loft tier, lamps
+  both sides of the door and street lamps at the gate; L3 a pagoda top tier
+  and a red torii with hanging lanterns at the stair. The roof tile is
+  `Roof_Tile_04` (teal): the faction-colour pass hue-swaps atlas pixels in the
+  190-260 band, so a bluer tile would turn player-coloured in game.
+  **Waning Border > Art > Build House Lineup Scene** (`HouseLineupScene.cs`)
+  makes the materials, remaps the FBX, puts the four side by side on a 2 m
+  grid in `Scenes/Debug/HouseLineup.unity` and captures each from four sides
+  and above into `Temp/house-lineup/` — the check that every face has a wall.
+  The Hut's prefab exception (next bullet) was lifted the same day: `Hut.asset`
+  binds `Hut_Age_0.fbx` like every other base form.
 - **The Shelter keeps its prefab too; the Fortress levels are new** (developer,
   2026-10-20: "fortress is growing when upgraded" — the old castle art stood
   nearly twice the Shelter's height at age-up and 30 % taller again by L3).

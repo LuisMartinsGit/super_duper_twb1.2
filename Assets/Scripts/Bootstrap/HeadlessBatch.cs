@@ -109,6 +109,11 @@ namespace TheWaningBorder.Bootstrap
                 // per-unit feed of a game nobody recorded one for.
                 if (Array.IndexOf(args, "-twbTrace") >= 0)
                     MapTrace.Install(ArgInt(args, "-twbTracePeriod", 0));
+                if (Array.IndexOf(args, "-twbFormationTelemetry") >= 0)
+                    TheWaningBorder.Core.Diagnostics.FormationTelemetry.Install(1f);
+                // -twbSaveAt during playback: cut the watched match into a save
+                // the snapshot oracle can restart from (harness only).
+                _saveAt = ArgInt(args, "-twbSaveAt", 0);
                 BeginReplayVerify(replayArg);
                 return;
             }
@@ -123,6 +128,10 @@ namespace TheWaningBorder.Bootstrap
             {
                 _verify = true;
                 _verifyFile = oracleSave;
+                if (Array.IndexOf(args, "-twbTrace") >= 0)
+                    MapTrace.Install(ArgInt(args, "-twbTracePeriod", 0));
+                if (Array.IndexOf(args, "-twbFormationTelemetry") >= 0)
+                    TheWaningBorder.Core.Diagnostics.FormationTelemetry.Install(1f);
                 if (!TheWaningBorder.Core.Replay.ReplaySession.PrepareWatchFromSave(
                         oracleSave, ArgStr(args, "-twbOracleReplay"), out string oerr))
                 {
@@ -313,6 +322,15 @@ namespace TheWaningBorder.Bootstrap
 
         private void UpdateReplayVerify()
         {
+            if (_saveAt > 0f && !_saved && TheWaningBorder.Core.SimClock.Now >= _saveAt)
+            {
+                _saved = true;
+                float st = TheWaningBorder.Core.SimClock.Now;
+                if (TheWaningBorder.Core.Save.SaveGameWriter.SaveSnapshotForHarness($"replay cut {st:0}s", out string sp, out string serr))
+                    Debug.Log($"[HeadlessBatch] SAVED (replay cut) at {st:F1}s → {sp}");
+                else
+                    Debug.LogError($"[HeadlessBatch] SAVE FAILED at {st:F1}s: {serr}");
+            }
             if (!TheWaningBorder.Core.Replay.ReplaySession.Ended) return;
             _done = true;
             bool diverged = TheWaningBorder.Core.Replay.ReplaySession.Diverged;

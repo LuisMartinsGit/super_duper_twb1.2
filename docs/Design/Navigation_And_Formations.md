@@ -41,9 +41,24 @@ for sources. Where this doc and code disagree, this doc wins.
   for a head-on hit, where the wall gives no direction.
 - **A blocked step slides along the obstacle** (2026-10-25). When the next
   position is impassable (cost field, terrain mask, bridge deck rule, ledge
-  guard — one test, `UnitIntegratorSystem.StepBlocked`) the unit takes the
-  free axis of its step, the larger first, instead of standing still; only a
-  step with no free axis falls to the stuck tiers (wait, sidestep, escape).
+  guard — one test, `UnitIntegratorSystem.StepBlocked`) the unit slides along
+  the WALL'S TANGENT (from the blocked cells round the step) instead of
+  standing still — a head-on push takes the side its flow is going — and only
+  then along the free axis of its step; a step with neither falls to the stuck
+  tiers (wait, sidestep, escape). The axis slide alone failed on any diagonal
+  wall: pushing straight into it, both axis components point into the face.
+  The tangent is read from the 5 x 5 cells round the step, so a staircased
+  diagonal face reads as one face, and the slide HOLDS ITS SIDE until the
+  direct step is free again (reversing only when that side is blocked, at the
+  wall's end): picked afresh each tick it flipped between stair steps and the
+  unit shuffled in place, never counted as stuck.
+- **A pinned formation member leaves its formation** (2026-10-25). A member
+  whose steps stay blocked for ~3 s (`UnitIntegratorSystem.MemberReleaseTicks`)
+  is released from the group and walks its own flow to its final slot, with the
+  loose-unit stuck recovery behind it. Its spot can lie beyond a wall it cannot
+  cross — an army many times wider than the gate it is led through — and the
+  old rule (reset its stuck counter, never give up) pinned it there for the rest
+  of the match.
 - Determinism (lockstep multiplayer) is a hard constraint: integer math in
   fields, locked force order in steering, fixed iteration orders.
 

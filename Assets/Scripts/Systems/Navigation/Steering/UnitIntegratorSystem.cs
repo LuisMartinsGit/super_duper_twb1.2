@@ -697,6 +697,60 @@ namespace TheWaningBorder.Systems.Navigation
             // every concave corner of it caught units marching along or into
             // it. Slide instead: take the free axis of the blocked step, the
             // larger component first, under the very same rules as the step.
+            //
+            // ALONG THE WALL, NOT ALONG AN AXIS (2026-10-25). The axis slide
+            // alone fails on any wall that is not axis-aligned: pushing
+            // straight into a diagonal face, BOTH axis components point into
+            // it (Fiendstone, a 64-degree stone wall beside a gate: nine men
+            // pinned against the flank for the rest of the match). The wall's
+            // tangent comes from the blocked cells round the blocked step;
+            // the step is projected onto it, and a head-on push — which
+            // projects to nothing — takes the side the unit's flow is going,
+            // at HeadOnSlideShare of the step. The axis slide stays as the
+            // last resort.
+            //
+            // THE SLIDE HOLDS ITS SIDE (2026-10-25). Along a diagonal wall the
+            // blocked cells are a staircase, and the side picked tick by tick
+            // flipped between the stair steps: a unit slid 0.1 m one way, then
+            // back — "moving", so never counted stuck, and pinned. The side
+            // taken is remembered (StuckState.LastAttempt SlideLeft/Right)
+            // until the direct step is free again; it is reversed only when
+            // that side is itself blocked (the end of the wall).
+            int slideSign = 0;
+            if (blocked)
+            {
+                float3 d = nextPos - pos;
+                float3 tan = WallTangentAt(WorldToCellInt2(nextPos), unitLayer, navFaction);
+                if (math.lengthsq(tan) > 0f)
+                {
+                    float along = math.dot(d, tan);
+                    float minAlong = step * MinSlideFraction;
+                    byte last = Active(ref Stuck, entity) ? Stuck[entity].LastAttempt : (byte)0;
+                    int held = last == SlidePositive ? 1 : last == SlideNegative ? -1 : 0;
+                    if (held != 0)
+                        along = held * math.max(math.abs(along), step * HeadOnSlideShare);
+                    else if (math.abs(along) < minAlong && Active(ref FlowDir, entity))
+                    {
+                        var fd = FlowDir[entity];
+                        float fa = fd.HasValue != 0 ? math.dot(new float3(fd.Value.x, 0f, fd.Value.z), tan) : 0f;
+                        if (math.abs(fa) > 1e-3f)
+                            along = math.sign(fa) * step * HeadOnSlideShare;
+                    }
+                    if (math.abs(along) >= minAlong)
+                    {
+                        float3 c = new float3(pos.x + tan.x * along, nextPos.y, pos.z + tan.z * along);
+                        if (!StepBlocked(pos, c, t.Position.y, unitLayer, navFaction, onRampart))
+                        { nextPos = c; blocked = false; slideSign = along > 0f ? 1 : -1; }
+                        else if (held != 0)
+                        {
+                            // The held side ran out: turn round along the wall.
+                            float3 c2 = new float3(pos.x - tan.x * along, nextPos.y, pos.z - tan.z * along);
+                            if (!StepBlocked(pos, c2, t.Position.y, unitLayer, navFaction, onRampart))
+                            { nextPos = c2; blocked = false; slideSign = along > 0f ? -1 : 1; }
+                        }
+                    }
+                }
+            }
             if (blocked)
             {
                 float3 d = nextPos - pos;
@@ -745,9 +799,26 @@ namespace TheWaningBorder.Systems.Navigation
                         if (!escaped && Active(ref Member, entity))
                         {
                             // A FORMATION MEMBER DOES NOT ABANDON ITS ORDER
-                            // HERE — the group owns its progress (spot
-                            // steering + tether fuse).
-                            Ecb.SetComponent(k, entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                            // HERE — but it may leave its FORMATION
+                            // (2026-10-25). Its spot can lie beyond a wall it
+                            // cannot cross (a box much wider than the gate it
+                            // is led through); resetting the counter for ever
+                            // pinned it there for good. Blocked for
+                            // MemberReleaseTicks, it is released: it keeps its
+                            // final slot as its destination and walks its
+                            // own flow there — the flow knows the gate — with
+                            // the loose-unit stuck recovery behind it.
+                            if (stuck.Counter >= MemberReleaseTicks)
+                            {
+                                Clear(ref Member, k, entity);
+                                if (Active(ref SpeedOverride, entity))
+                                    Ecb.SetComponentEnabled<FormationSpeedOverride>(k, entity, false);
+                                Ecb.SetComponent(k, entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                            }
+                            else
+                            {
+                                Ecb.SetComponent(k, entity, stuck);
+                            }
                         }
                         else if (!escaped)
                         {
@@ -812,11 +883,14 @@ namespace TheWaningBorder.Systems.Navigation
             }
 
             // Not blocked: reset stuck counter (skipped when already zero).
+            // A tangent slide remembers its side instead (see THE SLIDE HOLDS
+            // ITS SIDE); a free direct step clears it.
             if (Active(ref Stuck, entity))
             {
                 var cur = Stuck[entity];
-                if (cur.Counter != 0 || cur.LastAttempt != 0)
-                    Ecb.SetComponent(k, entity, new StuckState { Counter = 0, LastAttempt = 0 });
+                byte side = slideSign > 0 ? SlidePositive : slideSign < 0 ? SlideNegative : (byte)0;
+                if (cur.Counter != 0 || cur.LastAttempt != side)
+                    Ecb.SetComponent(k, entity, new StuckState { Counter = 0, LastAttempt = side });
             }
 
             // === Layer-aware height snap (task-112 M5) ===
@@ -830,6 +904,44 @@ namespace TheWaningBorder.Systems.Navigation
             t.Position = nextPos;
             OutXf[k] = t;
             OutFlag[k] = 1;
+        }
+
+        /// <summary>Share of the step a HEAD-ON push slides along the wall,
+        /// the side chosen by the unit's flow.</summary>
+        private const float HeadOnSlideShare = 0.6f;
+
+        /// <summary>StuckState.LastAttempt values for a held tangent slide
+        /// (1 and 2 are the stuck tier's sidestep alternation).</summary>
+        private const byte SlidePositive = 3;
+        private const byte SlideNegative = 4;
+
+        /// <summary>Consecutive blocked ticks after which a formation member
+        /// leaves its formation (~3 s at 30 Hz). Past the 30-tick stuck tier,
+        /// so the slide and the sidestep have had their chance.</summary>
+        private const byte MemberReleaseTicks = 90;
+
+        /// <summary>
+        /// The wall's tangent at blocked cell <paramref name="c"/>: the normal
+        /// is the sum of the directions to the OPEN cells of the 3 x 3 round it
+        /// (pointing out of the obstacle), the tangent its perpendicular, unit
+        /// length, sign arbitrary (the caller signs it). Zero when the cell is
+        /// buried or the grid is not up. Fixed summation order: deterministic.
+        /// </summary>
+        private float3 WallTangentAt(int2 c, byte layer, byte navFaction)
+        {
+            if (c.x == int.MinValue) return float3.zero;
+            float nx = 0f, nz = 0f;
+            // 5 x 5, not 3 x 3: a staircased diagonal face then reads as one
+            // straight face instead of alternating between its stair steps.
+            for (int dz = -2; dz <= 2; dz++)
+            for (int dx = -2; dx <= 2; dx++)
+            {
+                if (dx == 0 && dz == 0) continue;
+                if (IsCellPassableFor(c + new int2(dx, dz), layer, navFaction)) { nx += dx; nz += dz; }
+            }
+            float len = math.sqrt(nx * nx + nz * nz);
+            if (len < 1e-4f) return float3.zero;
+            return new float3(-nz / len, 0f, nx / len);
         }
 
         /// <summary>Shortest slide worth taking, as a share of the full step:

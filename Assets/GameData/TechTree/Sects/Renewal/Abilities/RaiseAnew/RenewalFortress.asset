@@ -65,7 +65,7 @@ MonoBehaviour:
     siegeShotDamage: 0
   levels: []
   unitUpgrades: []
-  prefab: {fileID: 919132149155446097, guid: 9ec9540e3513931479db7d52b1ff7349, type: 3}
+  prefab: {fileID: 1480419479126034026, guid: 51c3c62be8c9eb7429c93981f8d45c77, type: 3}
   culturePrefabs: []
   presentationId: 416
   prefabPath: 

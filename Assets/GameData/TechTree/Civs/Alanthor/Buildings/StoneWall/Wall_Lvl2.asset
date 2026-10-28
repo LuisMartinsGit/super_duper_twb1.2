@@ -39,4 +39,4 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
-  prefab: {fileID: 919132149155446097, guid: 0aa945cc1e41f1446811b8338f491e7b, type: 3}
+  prefab: {fileID: 3112398518083319478, guid: a9015aef87caec542aad4b9f35949333, type: 3}

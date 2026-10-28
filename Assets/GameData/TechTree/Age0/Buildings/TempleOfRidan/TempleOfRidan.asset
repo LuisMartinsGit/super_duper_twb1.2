@@ -73,7 +73,7 @@ MonoBehaviour:
   - culture: Runai
     prefab: {fileID: 6547244948071779011, guid: e1a450eb46f021948aef87ac65701441, type: 3}
   - culture: Alanthor
-    prefab: {fileID: 919132149155446097, guid: 14e6b87fea02ae14ebf4237b6f21fcb0, type: 3}
+    prefab: {fileID: 815774184676531782, guid: 56729d55fc42b7f48ba0cde965a3e119, type: 3}
   presentationId: 521
   prefabPath: 
   canUpgradeTo: []

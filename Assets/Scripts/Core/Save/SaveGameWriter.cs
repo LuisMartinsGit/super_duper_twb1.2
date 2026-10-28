@@ -40,10 +40,28 @@ namespace TheWaningBorder.Core.Save
         /// <param name="preview">The minimap bake (PNG) the Load Game list
         /// shows, or null. Made by the UI, which owns the minimap.</param>
         public static bool Save(string label, byte[] preview, out string path, out string error)
+            => Write(label, preview, CanSave, out path, out error);
+
+        /// <summary>
+        /// HEADLESS HARNESS ONLY (2026-10-25): a snapshot taken while a replay
+        /// is being WATCHED, which Save refuses (nothing is recording). The
+        /// snapshot does not need the recorder; only the save's embedded
+        /// replay does, and -twbOracle is handed the original replay file
+        /// instead. Lets a tester's match be cut at any tick and re-run from
+        /// there on new code (HeadlessBatch -twbReplay ... -twbSaveAt).
+        /// </summary>
+        public static bool SaveSnapshotForHarness(string label, out string path, out string error)
+        {
+            var lm = LockstepManager.Instance;
+            bool ok = lm != null && lm.IsSimulationRunning && MatchLifecycle.MapPopulated;
+            return Write(label, null, ok, out path, out error);
+        }
+
+        private static bool Write(string label, byte[] preview, bool allowed, out string path, out string error)
         {
             path = null;
             error = null;
-            if (!CanSave)
+            if (!allowed)
             {
                 error = "This match cannot be saved right now.";
                 return false;

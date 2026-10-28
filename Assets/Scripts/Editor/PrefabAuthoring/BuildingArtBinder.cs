@@ -17,7 +17,7 @@
 //      prefab per branch, unpacked and self-contained: <Id>_Age_0.prefab for
 //      the base SO, <culture>_<LevelName>_lv<N>.prefab for every level SO left
 //      without a model, and the culture looks of a building with no ladder
-//      in its SO's culturePrefabs. The Hut keeps HutAge0.prefab (developer).
+//      in its SO's culturePrefabs. (The Hut kept HutAge0.prefab until 2026-10-27.)
 //      Tech-visual "Upgrades" groups are switched off in the split prefabs.
 //   3. Sect building SOs get their real presentation ids (they read 0).
 //   4. BIND THE WALL SET. One folder per wall piece per wall level, holding
@@ -56,7 +56,7 @@ namespace TheWaningBorder.EditorTools
         static readonly Dictionary<string, int> SectPids = new Dictionary<string, int> {
             { "Sect_Reliquary", 561 }, { "Sect_MendingHall", 562 }, { "Sect_Stonehold", 563 },
             { "Sect_Treasury", 564 }, { "Sect_MusterYard", 565 } };
-        static readonly string[] KeepPrefab = { "Hut" };
+        static readonly string[] KeepPrefab = { };   // the Hut exception was lifted 2026-10-27: Hut_Age_0.fbx is Synty-built
 
         static StringBuilder _log;
 
@@ -200,7 +200,16 @@ namespace TheWaningBorder.EditorTools
             {
                 string folder = Path.GetDirectoryName(AssetDatabase.GetAssetPath(piece)).Replace('\\', '/');
                 string fbx = Directory.GetFiles(folder, "*.fbx").Select(f => f.Replace('\\', '/')).FirstOrDefault();
-                if (fbx == null) { _log.AppendLine($"NO FBX beside {AssetDatabase.GetAssetPath(piece)}"); continue; }
+                if (fbx == null)
+                {
+                    // A kit-composed prefab beside the SO (AlanthorKitAuthor) is the piece's art.
+                    string pf = Directory.GetFiles(folder, "*.prefab").Select(f => f.Replace('\\', '/')).FirstOrDefault();
+                    var pm = pf != null ? AssetDatabase.LoadAssetAtPath<GameObject>(pf) : null;
+                    if (pm == null) { _log.AppendLine($"NO FBX or prefab beside {AssetDatabase.GetAssetPath(piece)}"); continue; }
+                    if (piece.prefab != pm) { piece.prefab = pm; EditorUtility.SetDirty(piece); }
+                    _log.AppendLine($"wall {piece.part} L{piece.level} <- {Path.GetFileName(pf)}");
+                    continue;
+                }
                 if (piece.level >= 1) RemapHouseMaterials(fbx);   // the stone set is House-kit art
                 // WallArtMesh bakes the curtain along the curve at runtime.
                 var imp = (ModelImporter)AssetImporter.GetAtPath(fbx);
