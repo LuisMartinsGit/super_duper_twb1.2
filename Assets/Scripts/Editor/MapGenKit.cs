@@ -396,7 +396,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             public int TreeCount = 650;
 
             /// <summary>Overall tree size multiplier.</summary>
-            public float TreeScale = 0.5f;
+            public float TreeScale = 0.25f;
             /// <summary>Height as a fraction of width. Synty trees are modelled
             /// tall for close-up use and read as stretched from an RTS camera;
             /// 0.5 gives a squat canopy that still covers ground.</summary>

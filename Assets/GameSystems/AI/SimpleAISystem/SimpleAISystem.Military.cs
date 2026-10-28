@@ -144,7 +144,10 @@ namespace TheWaningBorder.AI
             /// <summary>Times this army has held at its staging ground with
             /// the odds still against it (Game_AI.md § 6h).</summary>
             public int FallbackHolds;
-            /// <summary>Waypoints round the curse for the current march (§ 6k);
+            /// <summary>Retreats this mission has made from its objective;
+            /// past fallbackMaxHolds it gives the objective up instead of
+            /// re-engaging (TickFallback, 2026-10-28).</summary>
+            public int Retreats;            /// <summary>Waypoints round the curse for the current march (§ 6k);
             /// empty = a straight march.</summary>
             public readonly System.Collections.Generic.List<float3> Route
                 = new System.Collections.Generic.List<float3>();
@@ -537,6 +540,12 @@ namespace TheWaningBorder.AI
 
         private readonly System.Collections.Generic.Dictionary<int, float> _nextRaidAt
             = new System.Collections.Generic.Dictionary<int, float>();
+        /// <summary>Per (faction, target): until when a raid on that target is
+        /// refused, set when a raid gave it up (2026-10-28). Without it the
+        /// next raid went straight back to the hut that had just repelled the
+        /// last one, every raidIntervalSeconds, for the rest of the match.</summary>
+        private readonly System.Collections.Generic.Dictionary<(int, Entity), float> _raidRepelled
+            = new System.Collections.Generic.Dictionary<(int, Entity), float>();
         private int _raidEpoch = -1;
         private readonly System.Collections.Generic.List<Entity> _raidScratch
             = new System.Collections.Generic.List<Entity>();
@@ -552,7 +561,7 @@ namespace TheWaningBorder.AI
         {
             if (personality == null || !personality.raidingEnabled || personality.raidIntervalSeconds <= 0f) return;
             if (GameSettings.TutorialActive) return;
-            if (_raidEpoch != SimCadence.Epoch) { _raidEpoch = SimCadence.Epoch; _nextRaidAt.Clear(); }
+            if (_raidEpoch != SimCadence.Epoch) { _raidEpoch = SimCadence.Epoch; _nextRaidAt.Clear(); _raidRepelled.Clear(); }
             int fk = (int)faction;
             if (_nextRaidAt.TryGetValue(fk, out float at) && now < at) return;
             // Nothing sent: look again after the wave retry; something sent:
@@ -598,7 +607,7 @@ namespace TheWaningBorder.AI
                 }
             }
             int size = RaidPartySize(personality);
-            int floor = StandingArmyFloor(faction, ProfileOf(faction), aiState.DesiredMilitary);
+            int floor = StandingArmyFloor(em, faction, ProfileOf(faction), aiState.DesiredMilitary);
             if (math.min(idle.Count, standing - floor) < size) return;
             idle.Sort((a, b) =>
             {
@@ -621,6 +630,7 @@ namespace TheWaningBorder.AI
                     if (t.What == "military building") continue;
                     if ((pass == 0) != t.Extractor) continue;
                     if (RaidAlreadyOn(missions, t.Ent)) continue;
+                    if (_raidRepelled.TryGetValue(((int)faction, t.Ent), out float until) && now < until) continue;
                     if (!AIEngagement.AssessAssault(em, faction, idle, t.Pos).ShouldFight) continue;
                     pick = i;
                 }
@@ -639,11 +649,21 @@ namespace TheWaningBorder.AI
             };
             raid.Members.AddRange(idle);
             missions.Add(raid);
-            March(em, faction, raid, top.Pos, true, origin);
+            // Muster, stage, strike — as a wave does (PutOnTheRoad), so the
+            // party arrives as one body and not as five single runners.
+            PutOnTheRoad(em, raid, origin, now);
             _nextRaidAt[fk] = now + personality.raidIntervalSeconds;
             AILogger.Log(faction, "WAVE",
                 $"RAID: {raid.Members.Count} fast unit(s) at {top.Owner}'s {top.What} " +
                 $"({top.Pos.x:0},{top.Pos.z:0}); next raid in {(int)personality.raidIntervalSeconds}s");
+        }
+
+        /// <summary>A raid gave its target up: no raid on it for
+        /// raidRepelledSeconds.</summary>
+        private void NoteRaidRepelled(Faction faction, Mission raid, float now)
+        {
+            if (raid.Type != MissionType.Raid || raid.Target == Entity.Null) return;
+            _raidRepelled[((int)faction, raid.Target)] = now + math.max(0f, Cfg.raidRepelledSeconds);
         }
 
         private static bool RaidAlreadyOn(System.Collections.Generic.List<Mission> missions, Entity target)
@@ -867,44 +887,7 @@ namespace TheWaningBorder.AI
             float now, string doctrine, int ofBodies)
         {
             float3 targetPos = attack.TargetPos;
-            float3 fromTarget = originPos - targetPos;
-            fromTarget.y = 0f;
-            float approachDist = math.length(fromTarget);
-            // STAGING IS FOR EVERYONE (2026-08-30 directive — was Hard+ via
-            // personality.forwardStaging, and the default headless tier is
-            // Normal, so batch armies attack-moved across the whole map).
-            // The approach leg is a plain formation MARCH, not an attack-
-            // move: an attack-moving army peels at every skirmish it passes
-            // and arrives as stragglers. It forms up at the stage point,
-            // then strikes as one body (the commit in TickMissions).
-            if (approachDist > Cfg.stagingDistance * 2f)
-            {
-                attack.StagePos = StandableToward(AICurseRoute.OutOfCurse(em,
-                    targetPos + (fromTarget / approachDist) * Cfg.stagingDistance), originPos);
-                // MUSTER FIRST (2026-09-07). The army was dispatched from
-                // wherever it stood, and the formation plan makes members
-                // only of units already close to the centroid — so a base
-                // full of rally points sent most of the army to the stage
-                // point one by one. Form up outside the gate, THEN march.
-                // Same shape the curse waves get from spawning compact.
-                attack.Phase = MissionPhase.Mustering;
-                attack.MusterPos = StandableToward(
-                    originPos - (fromTarget / approachDist) * Cfg.musterDistance, originPos);
-                attack.LegStartTime = now;
-                attack.MusterWait = MusterBudget(em, attack.Members, attack.MusterPos);
-                CommandRouter.IssueFormationMove(
-                    em, attack.Members, attack.MusterPos, FormationShape.Box, CommandSource.AI);
-            }
-            else
-            {
-                attack.Phase = MissionPhase.Striking;
-                attack.LegStartTime = now;
-                CommandRouter.IssueFormationAttackMove(
-                    em, attack.Members, targetPos, FormationShape.Box, CommandSource.AI);
-            }
-            attack.Deadline = DeadlineFor(now, originPos, targetPos);
-            attack.LastCentroid = originPos;
-            attack.StalledSince = now;
+            PutOnTheRoad(em, attack, originPos, now);
             MissionsFor(faction).Add(attack);
             // A wave launched with no war on starts one on its objective's
             // owner (§ 6i), so the next wave comes back to the same enemy.
@@ -926,6 +909,59 @@ namespace TheWaningBorder.AI
                     ? $"mustering at ({attack.MusterPos.x:0},{attack.MusterPos.z:0}), " +
                       $"staging at ({attack.StagePos.x:0},{attack.StagePos.z:0})"
                     : "striking direct"));
+        }
+
+        /// <summary>
+        /// The road itself — muster outside the gate, march to a stage point
+        /// on the origin→objective line, strike (the commit in UpdateMissions),
+        /// or strike direct when the objective is close. Shared by the attack
+        /// waves and, since 2026-10-28, the raids: a raid used to be a bare
+        /// formation attack-move from wherever its five fastest units stood,
+        /// and the formation plan only enrols units already near the centroid,
+        /// so most of them walked to the target alone — the trickle of single
+        /// units in attack-move the player saw instead of an army.
+        /// </summary>
+        private void PutOnTheRoad(EntityManager em, Mission mission, float3 originPos, float now)
+        {
+            float3 targetPos = mission.TargetPos;
+            float3 fromTarget = originPos - targetPos;
+            fromTarget.y = 0f;
+            float approachDist = math.length(fromTarget);
+            // STAGING IS FOR EVERYONE (2026-08-30 directive — was Hard+ via
+            // personality.forwardStaging, and the default headless tier is
+            // Normal, so batch armies attack-moved across the whole map).
+            // The approach leg is a plain formation MARCH, not an attack-
+            // move: an attack-moving army peels at every skirmish it passes
+            // and arrives as stragglers. It forms up at the stage point,
+            // then strikes as one body (the commit in TickMissions).
+            if (approachDist > Cfg.stagingDistance * 2f)
+            {
+                mission.StagePos = StandableToward(AICurseRoute.OutOfCurse(em,
+                    targetPos + (fromTarget / approachDist) * Cfg.stagingDistance), originPos);
+                // MUSTER FIRST (2026-09-07). The army was dispatched from
+                // wherever it stood, and the formation plan makes members
+                // only of units already close to the centroid — so a base
+                // full of rally points sent most of the army to the stage
+                // point one by one. Form up outside the gate, THEN march.
+                // Same shape the curse waves get from spawning compact.
+                mission.Phase = MissionPhase.Mustering;
+                mission.MusterPos = StandableToward(
+                    originPos - (fromTarget / approachDist) * Cfg.musterDistance, originPos);
+                mission.LegStartTime = now;
+                mission.MusterWait = MusterBudget(em, mission.Members, mission.MusterPos);
+                CommandRouter.IssueFormationMove(
+                    em, mission.Members, mission.MusterPos, FormationShape.Box, CommandSource.AI);
+            }
+            else
+            {
+                mission.Phase = MissionPhase.Striking;
+                mission.LegStartTime = now;
+                CommandRouter.IssueFormationAttackMove(
+                    em, mission.Members, targetPos, FormationShape.Box, CommandSource.AI);
+            }
+            mission.Deadline = DeadlineFor(now, originPos, targetPos);
+            mission.LastCentroid = originPos;
+            mission.StalledSince = now;
         }
 
         static readonly ComponentType[] QT_WallPieceFactionHealthXf =
@@ -1385,7 +1421,7 @@ namespace TheWaningBorder.AI
             // not come at the cost of army count"). A wave draws only the
             // surplus above the tier's standing floor; the units nearest home
             // stay.
-            int floor = StandingArmyFloor(faction, profile, aiState.DesiredMilitary);
+            int floor = StandingArmyFloor(em, faction, profile, aiState.DesiredMilitary);
             _lastFloorKept = 0;
             _lastFloor = floor;
             if (floor > 0)
@@ -2168,7 +2204,7 @@ namespace TheWaningBorder.AI
             // THE STANDING FLOOR IS NEVER SENT (2026-10-05, Game_AI.md 6a):
             // reinforcements draw only the surplus above it, like a wave.
             {
-                int floor = StandingArmyFloor(faction, ProfileOf(faction), aiState.DesiredMilitary);
+                int floor = StandingArmyFloor(em, faction, ProfileOf(faction), aiState.DesiredMilitary);
                 int canSend = math.max(0, standing - floor);
                 if (floor > 0 && reinforcements.Count > canSend)
                 {
@@ -2758,6 +2794,7 @@ namespace TheWaningBorder.AI
                 mission.FallbackPos = safe;
                 mission.FallbackStart = now;
                 mission.FallbackHolds = 0;
+                mission.Retreats++;
                 mission.Engaged = false;
                 mission.Focus = Entity.Null;
                 mission.Deadline = math.max(mission.Deadline,
@@ -2909,10 +2946,20 @@ namespace TheWaningBorder.AI
             = new System.Collections.Generic.Dictionary<int, float>();
 
         /// <summary>Units a wave may never draft below: the tier's
-        /// standingArmyFloorFraction of the desired army, capped at a third
-        /// of the population capacity (the same ceiling the wave bar uses), so
-        /// an impossible desired army cannot freeze every wave. 0 = no floor.</summary>
-        private static int StandingArmyFloor(Faction faction, in AIDifficultyProfile profile, int desired)
+        /// standingArmyFloorFraction of the army it HAS (never more than the
+        /// one it wants), capped at a third of the population capacity (the
+        /// same ceiling the wave bar uses), so an impossible desired army
+        /// cannot freeze every wave. 0 = no floor.
+        ///
+        /// Of the live army, not the desired one (2026-10-28, Yiel Lymwérra
+        /// 15-45 log): DesiredMilitary is raised +10 every 30 s while the bank
+        /// is full (ArmyCapBonus) and stood at 280 on an 80-pop faction, so
+        /// 10 % of it ran straight into the cap/3 ceiling — 26 of the 37
+        /// soldiers were "the floor", every wave was the 6-11 left over, and
+        /// the player never saw an army, only the leftovers walking in. A
+        /// share of the standing army keeps the tier's intent (Normal keeps
+        /// a tenth home, Expert a seventh) at every army size.</summary>
+        private static int StandingArmyFloor(EntityManager em, Faction faction, in AIDifficultyProfile profile, int desired)
         {
             // THE ALL-IN (Game_AI.md § 6n): past allInAfterSeconds the floor
             // is the home guard — the share the personality does not commit.
@@ -2920,8 +2967,9 @@ namespace TheWaningBorder.AI
             if (profile.StandingArmyFloorFraction <= 0f || desired <= 0) return 0;
             PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int cap);
             int ceiling = math.max(4, (cap > 0 ? cap : pop) / 3);
+            int basis = math.min(desired, CountAliveMilitary(em, faction));   // memoised per tick
             return math.min(ceiling,
-                (int)math.ceil(desired * math.saturate(profile.StandingArmyFloorFraction)));
+                (int)math.ceil(basis * math.saturate(profile.StandingArmyFloorFraction)));
         }
 
         /// <summary>Per faction: the curse node the first-RP hunt is on, and
@@ -3451,7 +3499,7 @@ namespace TheWaningBorder.AI
                                       * PlanProfileOf(faction).WaveBarScale);
             // With a standing floor (Game_AI.md 6a) the wave is drawn from the
             // surplus above it, so half of THAT is the bar.
-            int standFloor = StandingArmyFloor(faction, profile, aiState.DesiredMilitary);
+            int standFloor = StandingArmyFloor(em, faction, profile, aiState.DesiredMilitary);
             int minUnits = math.max(2, math.max(bar, (aiState.DesiredMilitary - standFloor) / 2));
 
             // A SHARE OF THE ARMY IT HAS, NOT OF THE ONE IT WANTS (2026-10-05,

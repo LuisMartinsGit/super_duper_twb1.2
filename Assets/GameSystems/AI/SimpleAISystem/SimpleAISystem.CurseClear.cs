@@ -101,7 +101,7 @@ namespace TheWaningBorder.AI
 
             // ── The idle surplus above the standing floor ──
             BuildClaimPool(em, faction);
-            int floor = StandingArmyFloor(faction, profile, aiState.DesiredMilitary);
+            int floor = StandingArmyFloor(em, faction, profile, aiState.DesiredMilitary);
             int canDraft = _claimPool.Count - floor;
             if (canDraft < math.max(1, Cfg.curseClearMinUnits)) return;
 

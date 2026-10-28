@@ -64,7 +64,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 // Attempts, not instances: acceptance is the forest mask
                 // (planted nearly solid) plus rocks along the mountain feet.
                 TreeCount = 60000,
-                TreeScale = 0.5f,
+                TreeScale = 0.25f,
                 GrassScale = 2.0f,
                 DetailDensity = 2,
                 CanPlant = (x, z) =>

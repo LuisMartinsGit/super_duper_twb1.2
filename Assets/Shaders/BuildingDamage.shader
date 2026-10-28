@@ -301,8 +301,72 @@ Shader "TheWaningBorder/BuildingDamage"
             }
             ENDHLSL
         }
+
+        // ShadowCaster / DepthOnly / DepthNormals (2026-10-28). These used to
+        // be left to the Fallback below, but URP never takes passes from a
+        // fallback shader: it only looks up LightMode tags in the SubShader
+        // it picked. So a building that had ever been scratched (every
+        // material swapped to this shader by BuildingDamageVisual) cast no
+        // shadow, got no SSAO, and vanished from the depth-normals prepass
+        // the PencilOutline ink reads — "the cartoon filter ignores the
+        // Vault". The passes are URP Lit's own; the burn holes (collapse
+        // phase only, two seconds) are not cut from them.
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            Cull Back
+
+            HLSLPROGRAM
+            #pragma target 2.0
+            #pragma vertex ShadowPassVertex
+            #pragma fragment ShadowPassFragment
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+
+            ZWrite On
+            ColorMask R
+            Cull Back
+
+            HLSLPROGRAM
+            #pragma target 2.0
+            #pragma vertex DepthOnlyVertex
+            #pragma fragment DepthOnlyFragment
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+
+            ZWrite On
+            Cull Back
+
+            HLSLPROGRAM
+            #pragma target 2.0
+            #pragma vertex DepthNormalsVertex
+            #pragma fragment DepthNormalsFragment
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitDepthNormalsPass.hlsl"
+            ENDHLSL
+        }
     }
 
-    // Fallback supplies ShadowCaster / DepthOnly / DepthNormals passes.
     Fallback "Universal Render Pipeline/Lit"
 }

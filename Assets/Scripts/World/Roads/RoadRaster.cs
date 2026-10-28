@@ -9,9 +9,22 @@
 //                  A  lateral    signed distance across the road, −1..1
 //                                mapped to 0..1 (0.5 = centreline) — what
 //                                the wheel ruts are drawn from
-//   _TWB_RoadDir   RG direction  the road's unit tangent, −1..1 → 0..1;
-//                                0.5,0.5 = none (plaza / off-road) — what
-//                                the Age 1 bricks align to
+//   _TWB_RoadDir   RG along      distance ALONG the nearest road as a phase,
+//                                sin / cos of 2π·along / AlongPeriod → 0..1
+//                                (so bilinear filtering never wraps)
+//                  B  across     signed distance across it, metres, over
+//                                ±AcrossRange → 0..1 (0.5 = centreline)
+//                  A  on-road    255 where a road wrote the texel, 0 else
+//                                — the Age 1 bricks are laid on (along,
+//                                across), the road's own arc-length frame
+//
+// Why a frame and not a tangent (2026-10-28): the shader used to rotate the
+// WORLD position into the road's tangent frame. That rotation is about the
+// world origin, so wherever the tangent changed between texels (a bend, or
+// the filter blending two segments' tangents) the UV slid by distance-from-
+// origin times the angle change — metres of smear a few hundred metres out.
+// Arc length along the road and signed distance across it are the road's
+// own coordinates; they never depend on where the map's origin is.
 //
 // Coverage is MAX-combined so overlapping shapes merge. Lateral and
 // direction belong to whichever road is NEAREST at that texel (a per-texel
@@ -84,6 +97,15 @@ namespace TheWaningBorder.World.Roads
         /// plaza stays round and a road keeps its width in every direction.
         /// Radius and HalfWidth are in x-texels.</summary>
         public float YScale;
+        /// <summary>World metres per x-texel: the along / across frame is
+        /// written in metres so the shader can tile it directly.</summary>
+        public float MetresPerTexel;
+        /// <summary>Metres per turn of the along phase (RoadNetworkConfig
+        /// .pavingAlongPeriod).</summary>
+        public float AlongPeriod;
+        /// <summary>Half-range, metres, of the across channel
+        /// (RoadNetworkConfig.pavingAcrossRange).</summary>
+        public float AcrossRange;
         public NativeArray<Color32> Mask;
         public NativeArray<Color32> Dir;
         public NativeArray<float> Nearest;
@@ -96,7 +118,7 @@ namespace TheWaningBorder.World.Roads
         {
             int n = Res * Res;
             var blank = new Color32(0, 0, 0, 128);
-            var noDir = new Color32(128, 128, 0, 255);
+            var noDir = new Color32(128, 128, 128, 0);
             for (int i = 0; i < n; i++) { Mask[i] = blank; Dir[i] = noDir; Nearest[i] = float.PositiveInfinity; }
 
             for (int d = 0; d < Discs.Length; d++) DrawDisc(Discs[d]);
@@ -160,22 +182,25 @@ namespace TheWaningBorder.World.Roads
 
         /// <summary>A stroked polyline: coverage full to EdgeFade × halfWidth
         /// and fading to the rim; each texel also records its signed lateral
-        /// offset and the tangent of the nearest segment.</summary>
+        /// offset and, in the direction mask, its arc length along the
+        /// nearest road and signed distance across it, in metres.</summary>
         void DrawPolyline(in PolyCmd c)
         {
             if (c.Strength <= 0f || c.Count < 2) return;
             float r1 = c.HalfWidth, r0 = c.HalfWidth * math.saturate(c.EdgeFade);
             float claimScale = 1f / math.max(c.Strength, 0.05f);
             float2 iso = new float2(1f, YScale);      // texel -> x-texel units
+            float phasePerTexel = MetresPerTexel * (2f * math.PI) / math.max(AlongPeriod, 0.01f);
+            float acrossScale = MetresPerTexel / math.max(AcrossRange, 0.01f);
+            float cum = 0f;                           // arc length so far, x-texels
             for (int i = c.Start; i < c.Start + c.Count - 1; i++)
             {
                 float2 a = Points[i] * iso, b = Points[i + 1] * iso;
                 float2 ab = b - a;
                 float len2 = math.lengthsq(ab);
                 if (len2 < 1e-6f) continue;
-                float2 tangent = ab * math.rsqrt(len2);
-                byte tx = (byte)math.round((tangent.x * 0.5f + 0.5f) * 255f);
-                byte ty = (byte)math.round((tangent.y * 0.5f + 0.5f) * 255f);
+                float len = math.sqrt(len2);
+                float2 tangent = ab / len;
 
                 int x0 = math.max(0, (int)math.floor(math.min(a.x, b.x) - r1 - 1));
                 int x1 = math.min(Res - 1, (int)math.ceil(math.max(a.x, b.x) + r1 + 1));
@@ -203,10 +228,23 @@ namespace TheWaningBorder.World.Roads
                             var q = Mask[idx];
                             q.a = (byte)math.round((lateral * 0.5f + 0.5f) * 255f);
                             Mask[idx] = q;
-                            Dir[idx] = new Color32(tx, ty, 0, 255);
+
+                            // The road's own frame: arc length along the
+                            // polyline (as a phase, so the texture filter
+                            // blends neighbours instead of wrapping) and
+                            // signed metres across it.
+                            float phase = (cum + t * len) * phasePerTexel;
+                            math.sincos(phase, out float sn, out float cs);
+                            float across = math.clamp(side * acrossScale, -1f, 1f);
+                            Dir[idx] = new Color32(
+                                (byte)math.round((sn * 0.5f + 0.5f) * 255f),
+                                (byte)math.round((cs * 0.5f + 0.5f) * 255f),
+                                (byte)math.round((across * 0.5f + 0.5f) * 255f),
+                                255);
                         }
                     }
                 }
+                cum += len;
             }
         }
 

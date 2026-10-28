@@ -364,6 +364,13 @@ Logs: `RAID: n fast unit(s) at <faction>'s <building> …`, `RAID: objective
 down — on to …`, `WALL GUARD: n unit(s) to the ring's k gate(s) …`, the wall
 plan line's `territory N: border trace (frontier): …`.
 
+**Raids muster (2026-10-28).** A raid party was a bare formation attack-move
+from wherever its fastest units stood, and the formation plan enrols only units
+already near the centroid, so most of a 5-unit party walked to the target one
+by one in attack-move — the trickle of single units the player saw instead of
+an army. Raids now take the same road as a wave (`PutOnTheRoad`: muster
+outside the gate, march to the stage point, strike as one body).
+
 ### 3c. Fiendstone Pass fixes: chokepoint walls, shelf towers, wedged workers, the landmark (2026-10-17)
 
 From the Fiendstone Pass culture batches (a map of cliff-shelf starts reached by
@@ -1838,6 +1845,16 @@ wall in the way (2026-10-05).** Three findings from Mirror Marches M1-M6:
   the breach); with none, the mission ends at once instead of feeding the
   towers for the rest of its clock.
 
+**The floor is a share of the army it HAS (2026-10-28).** `StandingArmyFloor`
+used to take `standingArmyFloorFraction` of `DesiredMilitary`, and the
+bank-driven army-cap raise (+10 every 30 s while the bank holds 1,000) had
+pushed that to 280 on an 80-population faction, so the floor ran straight into
+its cap/3 ceiling: 26 of 37 soldiers stayed home, every wave was the 6-11 left
+over, and the player saw no army at all (Yiel Lymwérra 15-45 log, two waves
+in seventeen minutes). The floor is now the fraction of
+`min(DesiredMilitary, live military)` — Normal keeps a tenth of what it has
+at home, Expert a seventh — under the same ceiling.
+
 ### 6b. Building spacing yields to being able to fight
 
 The AI keeps roughly 20 m between its buildings so a base stays walkable.
@@ -2480,6 +2497,21 @@ Logs: `TACTICS: retreat … fall back to a Fortress/to a tower/into own
 territory/to a staging point`, `holding the staging ground … (n/N)`,
 `retarget …`, `objective given up …`, `WAVE: site empty — the next income
 building …`, `objective done — on to …`, `mission over — … hold …`.
+
+**Re-engage against the objective, not the retreat spot; give up after
+`fallbackMaxHolds` retreats (2026-10-28).** The "enemy did not follow" test in
+`TickFallback` read the power round the army's own centroid, which after a
+4 s hold in own territory was always nothing, so a raid marched straight back
+into the same 700-power defence it had just fled — 21 retreat / re-engage
+pairs 30 s apart for eleven minutes, each retreat pushing the deadline out
+again. The march back now goes only when `AIEngagement.AssessAssault` on the
+OBJECTIVE passes at the tier's `reengageRatio`; otherwise the army falls
+through to the soft-target / hold / give-up ladder above. A mission counts
+its retreats (`Mission.Retreats`) and gives the objective up outright on the
+`fallbackMaxHolds`th. A raid that gives its target up also keeps every later
+raid off that target for `raidRepelledSeconds` (`SimpleAISystem.asset`), so
+the next party picks another extractor instead of the hut that has just
+repelled the last one.
 
 ## 6i. One war at a time (2026-10-07)
 

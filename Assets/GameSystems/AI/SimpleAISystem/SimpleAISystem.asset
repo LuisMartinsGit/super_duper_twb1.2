@@ -470,6 +470,7 @@ MonoBehaviour:
   incomeWorkerMaxAgeSeconds: 120
   incomeWorkerMaxCounted: 4
   raidMaxConcurrent: 2
+  raidRepelledSeconds: 240
   raidChainRadius: 120
   wallGuardIntervalSeconds: 20
   wallGuardInsetMeters: 8

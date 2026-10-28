@@ -18,7 +18,9 @@
 //                     → the road network (docs/Design/Roads.md); culture
 //                     paving is drawn ONLY here, earth everywhere else on
 //                     it, with wheel ruts from the lateral coordinate
-//   _TWB_RoadDir      RG = road tangent → Age 1 bricks align to the road
+//   _TWB_RoadDir      RG = along-the-road phase, B = across, A = on-road
+//                     → the road's own (along, across) frame in metres; the
+//                     Age 1 bricks are laid on it, so they follow the road
 //   _TWB_BloodMask    R = Blood     → spatters at the rim, puddles at the
 //                                      core (coverage eroded by high-freq
 //                                      noise), wet smoothness
@@ -101,6 +103,8 @@ float  _TWB_RoadEnabled;        // set to 1 by RoadNetwork
 float  _TWB_RoadTiling;         // metres per repeat of the earth texture
 float  _TWB_RoadDarken;         // earthen core multiplier (1 = none)
 float  _TWB_RoadFeather;        // noise-erosion feather at the edge
+float  _TWB_RoadAlongPeriod;    // metres per turn of the along phase (RoadRaster)
+float  _TWB_RoadAcrossRange;    // half-range, metres, of the across channel
 // Carriage tracks: two wheel ruts drawn from the mask's exact lateral
 // coordinate (A channel, 0.5 = centreline), a strip of the original ground
 // surviving between them. Roads only — a plaza carries no lateral.
@@ -128,7 +132,8 @@ void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
 
     // ── Roads & plazas: where the network is, and whether it is finished ─
     half road = 0.0h, roadFinished = 0.0h, plazaHere = 0.0h, lateral = 0.0h;
-    float2 roadDir = float2(0.0, 0.0);
+    half onRoadTexel = 0.0h;
+    float2 roadUV = float2(0.0, 0.0);   // (along, across) in metres — the road's own frame
     if (_TWB_RoadEnabled > 0.5)
     {
         half4 rm = SAMPLE_TEXTURE2D(_TWB_RoadMask, sampler_TWB_RoadMask, maskUV);
@@ -139,11 +144,26 @@ void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
         roadFinished = rm.g;
         plazaHere = rm.b;
         lateral = rm.a * 2.0h - 1.0h;
-        roadDir = SAMPLE_TEXTURE2D(_TWB_RoadDir, sampler_TWB_RoadDir, maskUV).rg * 2.0 - 1.0;
+        // Along is stored as sin / cos of a phase so the bilinear filter
+        // blends neighbouring texels instead of wrapping between them; the
+        // period is a whole number of brick tilings, so the bricks wrap
+        // seamlessly too. Across is signed metres. Neither depends on the
+        // world origin — rotating the world position into a tangent frame
+        // did, and smeared the bricks by distance-from-origin times every
+        // tangent change (2026-10-28).
+        half4 rd = SAMPLE_TEXTURE2D(_TWB_RoadDir, sampler_TWB_RoadDir, maskUV);
+        onRoadTexel = rd.a;
+        if (onRoadTexel > 0.002h)   // the atan2 only where a road is
+        {
+            float2 phaseV = rd.rg * 2.0 - 1.0;
+            float along = (atan2(phaseV.x, phaseV.y) * (0.5 / PI) + 0.5) * _TWB_RoadAlongPeriod;
+            float across = (rd.b * 2.0 - 1.0) * _TWB_RoadAcrossRange;
+            roadUV = float2(along, across);
+        }
     }
-    // A road texel (not plaza) with a real tangent: the ruts and the brick
-    // alignment both key off this.
-    half onRoad = road * (1.0h - plazaHere) * (half)saturate(length(roadDir) * 2.0);
+    // A road texel (not plaza) a road wrote its frame to: the ruts and the
+    // brick alignment both key off this.
+    half onRoad = road * (1.0h - plazaHere) * onRoadTexel;
     half3 groundBefore = albedo;
 
     // Culture paving happens only where a culture holds the ground AND the
@@ -187,14 +207,12 @@ void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
         half steep = (half)smoothstep(_TerraceSlopeStart, _TerraceSlopeFull,
             1.0 - saturate(geoNormalWS.y));
 
-        // Bricks follow the road: on a road the paving UV is rotated into
-        // the road's frame (along, across); on a plaza and on cliffs it is
+        // Bricks follow the road: on a road the paving UV is the road's own
+        // (along, across) frame; on a plaza and on cliffs it is
         // world-aligned, and the two are blended so a road entering a plaza
         // does not snap.
         float2 worldUV = positionWS.xz / max(_AlanthorTiling, 0.01);
-        float2 rd = normalize(roadDir + float2(1e-4, 0.0));
-        float2 alongUV = float2(dot(positionWS.xz, rd), dot(positionWS.xz, float2(-rd.y, rd.x)))
-                       / max(_AlanthorTiling, 0.01);
+        float2 alongUV = roadUV / max(_AlanthorTiling, 0.01);
         half3 groundW = SAMPLE_TEXTURE2D(_AlanthorAlbedo, sampler_AlanthorAlbedo, worldUV).rgb;
         half3 groundR = SAMPLE_TEXTURE2D(_AlanthorAlbedo, sampler_AlanthorAlbedo, alongUV).rgb;
         half3 ground = lerp(groundW, groundR, onRoad);
@@ -245,10 +263,7 @@ void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
     half rBlend = TWB_Edge(m.b, positionWS.xz, 0.18h) * paved;
     if (fBlend + rBlend > 0.003h)
     {
-        float2 rd2 = normalize(roadDir + float2(1e-4, 0.0));
-        float2 pUV = lerp(positionWS.xz,
-                          float2(dot(positionWS.xz, rd2), dot(positionWS.xz, float2(-rd2.y, rd2.x))),
-                          onRoad) / max(_AlanthorTiling, 0.01);
+        float2 pUV = lerp(positionWS.xz, roadUV, onRoad) / max(_AlanthorTiling, 0.01);
         half3 pave = SAMPLE_TEXTURE2D(_AlanthorAlbedo, sampler_AlanthorAlbedo, pUV).rgb;
         albedo = lerp(albedo, pave * _FeraldisTint.rgb, fBlend);
         albedo = lerp(albedo, pave * _RunaiTint.rgb, rBlend);

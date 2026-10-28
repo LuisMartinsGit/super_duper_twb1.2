@@ -164,17 +164,28 @@ namespace TheWaningBorder.Systems.Buildings
                             continue;
                         }
 
-                        // The focus module becomes the gate; its
-                        // neighbours in the window are swallowed by the
-                        // gatehouse's own masonry and destroyed. Deferred
-                        // to AFTER the ECB playback below: MakeGate is
-                        // structural and must not run inside this loop's
-                        // snapshot.
+                        // The MIDDLE module of the window becomes the gate;
+                        // the others are swallowed by the gatehouse's own
+                        // masonry and destroyed. Deferred to AFTER the ECB
+                        // playback below: MakeGate is structural and must
+                        // not run inside this loop's snapshot.
+                        //
+                        // The middle, not the focus (2026-10-28): the
+                        // gatehouse model, footprint and curtain opening are
+                        // all centred on the gate entity (BuildWallGatehouse,
+                        // WallOpenings), while PickGateRegionInstances
+                        // re-anchors the window when the focus sits within
+                        // one module of a run's end (beside a hub, tower or
+                        // emplacement). Keeping the focus as the gate then
+                        // put both destroyed flanks on one side of it: the
+                        // gatehouse overlapped a live module on the other
+                        // side and the far flank was left as a one-module
+                        // hole in the wall — the "gap at every AI gate".
+                        // Centring the gate on the window makes the span it
+                        // draws the span it emptied, whichever module was
+                        // clicked.
                         int leaderIdx = members.Length / 2;
                         Entity leader = members[leaderIdx];
-                        if (seg.FocusInstance != Entity.Null)
-                            for (int i = 0; i < members.Length; i++)
-                                if (members[i] == seg.FocusInstance) { leader = members[i]; break; }
 
                         pendingGates.Add(leader);
                         gateMembers.Add(new NativeArray<Entity>(members.AsArray(), Allocator.Temp));

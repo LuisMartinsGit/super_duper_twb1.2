@@ -50,7 +50,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                     // (planted nearly solid) plus a thin scatter of rocks along
                     // the mountain feet.
                     TreeCount = treeAttempts,
-                    TreeScale = 0.5f,
+                    TreeScale = 0.25f,
                     GrassScale = 2.0f,
                     DetailDensity = 2,
                     CanPlant = (x, z) =>

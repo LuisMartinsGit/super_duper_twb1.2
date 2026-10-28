@@ -63,7 +63,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 // nearly solid) plus a thin scatter of rocks along the mountain
                 // feet. ~4% of the map is forest, so this lands ~5-6k props.
                 TreeCount = 160000,
-                TreeScale = 0.5f,
+                TreeScale = 0.25f,
                 GrassScale = 2.0f,
                 DetailDensity = 2,
                 CanPlant = (x, z) =>

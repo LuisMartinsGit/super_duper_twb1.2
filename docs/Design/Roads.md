@@ -188,11 +188,21 @@ one comparison:
   ruler-straight) with a strip of the original ground surviving between
   them — a cart track with moss down the middle. Plazas carry no lateral,
   so no ruts.
-- **Bricks follow the road.** The raster also stores the road's tangent
-  (`_TWB_RoadDir`), and Age 1 paving on a road samples the brick texture
-  in the road's own frame (along, across) instead of world XZ; plazas and
-  cliff terraces stay world-aligned, and the two are blended where a road
-  enters a plaza so nothing snaps.
+- **Bricks follow the road.** The raster also stores the road's own frame
+  (`_TWB_RoadDir`: arc length along the nearest road and signed distance
+  across it, in metres), and Age 1 paving on a road samples the brick
+  texture on that frame instead of world XZ; plazas and cliff terraces stay
+  world-aligned, and the two are blended where a road enters a plaza so
+  nothing snaps. **Not a tangent (2026-10-28):** the first version stored
+  the road's tangent and rotated the WORLD position into it, which rotates
+  about the world origin, so every change of tangent between texels (a
+  bend, the filter blending two segments) slid the bricks by
+  distance-from-origin times the angle change — the stretched paving on
+  every curve far from the origin. Arc length does not depend on the
+  origin. The along distance is stored as a phase (sin / cos) with a period
+  from `RoadNetwork.asset` (`pavingAlongPeriod`, a whole multiple of the
+  terrain material's Alanthor tiling so the bricks wrap seamlessly); the
+  across range is `pavingAcrossRange`.
 - **Culture paving**: Alanthor = the existing slate-brick set
   (`_AlanthorAlbedo`); Runai = sandstone, Feraldis = dark flagstone — both
   ship with their art passes and use the Alanthor set under their tint
@@ -252,8 +262,10 @@ razed building ran again every second: 130 s of main thread in one
   finished, **B** plaza-vs-road (1 = plaza), **A** signed lateral distance
   across the nearest road (0.5 = centreline). 512 because the 128² culture
   mask is ~1.5 m per texel on a 192 m map and a 3 m road needs ~0.4 m.
-- **`_TWB_RoadDir`**, same size: **RG** the nearest road's unit tangent
-  (0.5, 0.5 = none). Lateral and tangent belong to whichever road is
+- **`_TWB_RoadDir`**, same size: **RG** the sin / cos of the arc length
+  along the nearest road (phase over `pavingAlongPeriod`), **B** the signed
+  distance across it in metres (over ±`pavingAcrossRange`), **A** 1 where a
+  road wrote the texel. Lateral and frame belong to whichever road is
   NEAREST at that texel (a per-texel distance buffer settles junctions).
 - **`RoadNetwork.asset`** beside `RoadNetwork.cs`: plaza margin, node disc
   radius, road and trail width, slope penalty, curve tolerance / meander

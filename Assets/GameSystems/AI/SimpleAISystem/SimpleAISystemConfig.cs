@@ -1435,6 +1435,10 @@ namespace TheWaningBorder.AI
         /// at most this many raid parties out at once.</summary>
         public int raidMaxConcurrent;
 
+        /// <summary>A raid that gave its target up (TickFallback) keeps every
+        /// later raid off that target for this long, seconds.</summary>
+        public float raidRepelledSeconds;
+
         /// <summary>A raid whose objective fell moves on to the next income
         /// building within this many metres of it (0 = it heads home).</summary>
         public float raidChainRadius;

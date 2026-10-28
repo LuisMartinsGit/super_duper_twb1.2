@@ -37,7 +37,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         #region Tunables
 
         /// <summary>Canopy width a planted tree is scaled to, in metres.</summary>
-        const float CanopyWidth = 5f;
+        const float CanopyWidth = 2.5f;
 
         /// <summary>Random size spread around CanopyWidth, as a +/- fraction.</summary>
         const float SizeJitter = 0.2f;

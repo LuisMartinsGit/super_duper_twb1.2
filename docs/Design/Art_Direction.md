@@ -581,7 +581,11 @@ checked in with the pass ON so it can be looked at, and it must be switched
   low frame rate, and they thin and fade with camera distance so the RTS zoom
   does not turn to scribble. Grass (no depth-normals pass), water, VFX and fog
   of war (Overlay queue, drawn over the lines) are left un-inked by
-  construction.
+  construction. A damaged building is inked like any other (2026-10-28):
+  `BuildingDamage.shader` carries its own DepthNormals / DepthOnly /
+  ShadowCaster passes — URP never takes them from a Fallback, and without
+  them every building that had ever been hit dropped out of the ink, the
+  shadows and the SSAO.
 - **Cost:** requesting normals makes URP run a depth-normals prepass that the
   PC renderer does not run today (SSAO is off on it). Measure before adopting.
 - **Where:** `Assets/GameSystems/Rendering/PencilOutline/`. Every value is in

@@ -194,7 +194,7 @@ namespace TheWaningBorder.World.Roads
 
         // ─── Mask ─────────────────────────────────────────────────────────
         private Texture2D _mask;        // R coverage, G finished, B plaza, A lateral
-        private Texture2D _dirMask;     // RG road tangent
+        private Texture2D _dirMask;     // RG along-phase, B across, A on-road (RoadRaster)
         private NativeArray<float> _nearest;      // per-texel nearest-road claim (raster scratch)
         private NativeArray<Color32> _maskBuf;    // job output; copied into the textures when complete
         private NativeArray<Color32> _dirBuf;
@@ -971,6 +971,9 @@ namespace TheWaningBorder.World.Roads
             {
                 Res = _res,
                 YScale = _worldSize.y / Mathf.Max(1f, _worldSize.x),
+                MetresPerTexel = 1f / Mathf.Max(texelsPerMetre, 1e-4f),
+                AlongPeriod = Cfg.pavingAlongPeriod,
+                AcrossRange = Cfg.pavingAcrossRange,
                 Mask = _maskBuf,
                 Dir = _dirBuf,
                 Nearest = _nearest,
@@ -1077,6 +1080,8 @@ namespace TheWaningBorder.World.Roads
             Shader.SetGlobalFloat("_TWB_RutWidth", Cfg.rutWidth);
             Shader.SetGlobalFloat("_TWB_RutDepth", Cfg.rutDepth);
             Shader.SetGlobalFloat("_TWB_RoadCentreStrip", Cfg.centreStrip);
+            Shader.SetGlobalFloat("_TWB_RoadAlongPeriod", Cfg.pavingAlongPeriod);
+            Shader.SetGlobalFloat("_TWB_RoadAcrossRange", Cfg.pavingAcrossRange);
             if (!_globalsBound)
             {
                 // Earthen roads are the map's OWN dirt: the terrain layer whose

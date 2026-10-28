@@ -284,7 +284,7 @@ namespace TheWaningBorder.AI
 
             CollectSanctumFree(em, faction, bestPos);
             // The standing floor stays home (Game_AI.md 6a).
-            int floor = StandingArmyFloor(faction, ProfileOf(faction), aiState.DesiredMilitary);
+            int floor = StandingArmyFloor(em, faction, ProfileOf(faction), aiState.DesiredMilitary);
             int draftable = math.max(0, _sanctumFree.Count - floor);
 
             var army = new SanctumArmy { Territory = best, Crystal = bestPos };

@@ -773,10 +773,15 @@ number is the whole rule.
 ### The gate is one structure, three modules wide
 
 Converting a wall replaces **three contiguous modules with a single gate
-entity** (`AlanthorWall.GateRegionSpan`): the module the player converted
-becomes the gatehouse, and **the module on each side is destroyed** — the
-gatehouse's own masonry occupies that ground. The curtain mesh leaves the
-whole span open so nothing is drawn through it.
+entity** (`AlanthorWall.GateRegionSpan`): the **middle module of the
+window** becomes the gatehouse, and **the module on each side is
+destroyed** — the gatehouse's own masonry occupies that ground. The curtain
+mesh leaves the whole span open so nothing is drawn through it. The window
+is centred on the module the player converted when it can be; next to a
+hub, tower or emplacement it is shifted along the free run, and the gate
+goes with it (2026-10-28 — it used to stay on the clicked module while the
+window shifted, so one destroyed flank was left as a one-module hole beside
+the gatehouse, the gap seen at the AI's gates).
 
 | Property | Rule |
 |----------|-------|

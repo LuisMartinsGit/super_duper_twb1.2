@@ -34,6 +34,8 @@ MonoBehaviour:
   rutWidth: 0.14
   rutDepth: 0.45
   centreStrip: 0.35
+  pavingAlongPeriod: 36
+  pavingAcrossRange: 4
   edgeFeather: 0.35
   earthenDarken: 1.15
   pollSeconds: 0.5

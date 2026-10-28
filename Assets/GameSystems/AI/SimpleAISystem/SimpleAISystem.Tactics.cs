@@ -647,6 +647,7 @@ namespace TheWaningBorder.AI
             mission.FallbackPos = dest;
             mission.FallbackStart = now;
             mission.FallbackHolds = 0;
+            mission.Retreats++;
             mission.Deadline = math.max(mission.Deadline, now + tc.fallbackTimeout * (tc.fallbackMaxHolds + 1));
             mission.Engaged = false;
             mission.Focus = Entity.Null;
@@ -686,16 +687,46 @@ namespace TheWaningBorder.AI
             bool odds = enemyPower <= myPower * math.max(0f, skill.reengageRatio);
             bool timedOut = elapsed > tc.fallbackTimeout;
 
+            // TOO MANY RETREATS (2026-10-28): an army that has fallen back
+            // from the same objective fallbackMaxHolds times is not going to
+            // take it. Give it up now — every retreat used to push the
+            // deadline out again, so a mission could pendulum for the rest
+            // of the match.
+            if (mission.Retreats >= math.max(1, tc.fallbackMaxHolds))
+            {
+                GiveUpObjective(em, faction, mission, centroid, myPower, enemyPower, now,
+                    $"after {mission.Retreats} retreats");
+                return;
+            }
+
             if ((enemyPower == 0 && (arrived || timedOut) && mission.FallbackHolds == 0)
                 || (enemyPower > 0 && odds))
             {
-                mission.FallingBack = false;
-                mission.FallbackHolds = 0;
-                March(em, faction, mission, mission.TargetPos, true, centroid);
-                AILogger.Log(faction, "TACTICS",
-                    $"re-engage (power {myPower} vs {enemyPower}) — {mission.Members.Count} march on " +
-                    $"({mission.TargetPos.x:F0},{mission.TargetPos.z:F0})");
-                return;
+                // THE OBJECTIVE, NOT THE RETREAT SPOT (2026-10-28, Yiel
+                // Lymwérra 15-45 log). enemyPower is the power round the
+                // army's own centroid: after a 4 s hold in own territory
+                // nothing was ever near, so "the enemy did not follow" was
+                // always true and the party marched straight back into the
+                // same 700-power defence it had just fled — 21 retreat /
+                // re-engage pairs, 30 s apart, for eleven minutes. The
+                // march back goes only when the objective itself reads as
+                // takeable at the re-engage odds.
+                var there = AIEngagement.AssessAssault(em, faction, mission.Members, mission.TargetPos,
+                    float.NaN, math.max(0f, skill.reengageRatio));
+                if (there.ShouldFight)
+                {
+                    mission.FallingBack = false;
+                    mission.FallbackHolds = 0;
+                    March(em, faction, mission, mission.TargetPos, true, centroid);
+                    AILogger.Log(faction, "TACTICS",
+                        $"re-engage (power {myPower} vs {enemyPower} here, {there.MyPower} vs {there.EnemyPower} at the objective) — " +
+                        $"{mission.Members.Count} march on ({mission.TargetPos.x:F0},{mission.TargetPos.z:F0})");
+                    return;
+                }
+                // Not takeable: fall through to a softer target near here,
+                // else hold for reinforcements, else give the objective up
+                // (each of those logs its own line; this is polled, so no
+                // line of its own).
             }
 
             // Followed and still losing: the next safe ground.
@@ -747,9 +778,17 @@ namespace TheWaningBorder.AI
                 return;
             }
 
-            // Give the objective up at the nearest own safe ground; the
-            // mission ends there (UpdateMissions sees the deadline).
+            GiveUpObjective(em, faction, mission, centroid, myPower, enemyPower, now,
+                $"after {mission.FallbackHolds} holds");
+        }
+
+        /// <summary>Give the objective up at the nearest own safe ground; the
+        /// mission ends there (UpdateMissions sees the deadline).</summary>
+        private void GiveUpObjective(EntityManager em, Faction faction, Mission mission,
+            float3 centroid, int myPower, int enemyPower, float now, string why)
+        {
             NoteWarFailure(faction, faction);
+            NoteRaidRepelled(faction, mission, now);
             mission.FallingBack = false;
             mission.FallbackHolds = 0;
             mission.Deadline = now;
@@ -757,7 +796,7 @@ namespace TheWaningBorder.AI
             mission.FallbackPos = refuge;
             CommandRouter.IssueFormationMove(em, mission.Members, refuge, FormationShape.Box, CommandSource.AI);
             AILogger.Log(faction, "TACTICS",
-                $"objective given up (power {myPower} vs {enemyPower}) — {mission.Members.Count} hold " +
+                $"objective given up {why} (power {myPower} vs {enemyPower}) — {mission.Members.Count} hold " +
                 $"{refugeWhat} at ({refuge.x:F0},{refuge.z:F0})");
         }
 

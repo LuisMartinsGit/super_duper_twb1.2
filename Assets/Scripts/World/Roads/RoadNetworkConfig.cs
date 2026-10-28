@@ -72,6 +72,17 @@ namespace TheWaningBorder.World.Roads
         /// <summary>How much of the original ground shows through between the ruts, 0..1.</summary>
         public float centreStrip;
 
+        // -- Paving frame (shader; Roads.md 7) --
+        /// <summary>Metres per turn of the along-the-road phase the paving
+        /// bricks are laid on. Keep it a whole multiple of the terrain
+        /// material's Alanthor tiling (TWBTerrain.mat, 6 m) or the bricks
+        /// seam once per period.</summary>
+        public float pavingAlongPeriod;
+        /// <summary>Half-range, metres, of the signed distance across a road
+        /// the paving UV is built from. Must exceed the widest road's half
+        /// width; beyond it the value clamps.</summary>
+        public float pavingAcrossRange;
+
         /// <summary>Feather of the noise erosion at a road's edge (shader).</summary>
         public float edgeFeather;
         /// <summary>Multiplier on the earth texture at a road's worn core, 1 =
