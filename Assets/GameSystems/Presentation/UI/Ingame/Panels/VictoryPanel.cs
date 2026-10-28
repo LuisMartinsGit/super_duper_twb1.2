@@ -167,6 +167,18 @@ namespace TheWaningBorder.UI.Ingame
         private void ToMainMenu()
         {
             IsOpen = false;
+            ReturnToMainMenu();
+        }
+
+        /// <summary>
+        /// Leave the match for the main menu. The ONE way out of a match
+        /// (2026-10-28): the pause menu no longer quits - it resigns, which
+        /// ends the match and brings this screen - and the Game Review has
+        /// the same button, so the flow is match -> post-game -> main menu
+        /// -> desktop (the menu's Quit).
+        /// </summary>
+        public static void ReturnToMainMenu()
+        {
             // The pause menu may have frozen the clock before the match ended;
             // never carry a zero timescale into the menu scene.
             GameSpeedControl.Apply();

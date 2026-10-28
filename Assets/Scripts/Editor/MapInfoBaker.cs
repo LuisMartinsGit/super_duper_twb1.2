@@ -129,6 +129,14 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
             GetMapBounds(out Vector3 min, out Vector3 size);
 
+            // The UNPADDED terrain size: GetMapBounds squares the bounds so
+            // the bake lands on the letterboxed thumbnail; the lobby needs the
+            // real aspect to crop that square back to the map.
+            var activeTerrain = Terrain.activeTerrain;
+            info.WorldSize = activeTerrain != null
+                ? new Vector2(activeTerrain.terrainData.size.x, activeTerrain.terrainData.size.z)
+                : new Vector2(size.x, size.z);
+
             var starts = Object.FindObjectsByType<PlayerStartMarker>(FindObjectsSortMode.None);
             // Bake in the SAME canonical order the runtime registry uses.
             // PlayerSlot.StartIndex indexes into MapInfo.PlayerStarts in the

@@ -1464,7 +1464,9 @@ namespace TheWaningBorder.Multiplayer
                             // RangingShot packs the casting FACTION.
                             && cmd.Type != LockstepCommandType.RangingShot
                             // ReligionPurchase packs the buying FACTION.
-                            && cmd.Type != LockstepCommandType.ReligionPurchase;
+                            && cmd.Type != LockstepCommandType.ReligionPurchase
+                            // Resign packs the resigning FACTION.
+                            && cmd.Type != LockstepCommandType.Resign;
 
             if (needsEntity)
             {
@@ -1934,6 +1936,11 @@ namespace TheWaningBorder.Multiplayer
                 case LockstepCommandType.RangingShot:
                     CommandRouter.RangingShotDirect(em, (Faction)cmd.EntityNetworkId);
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed RangingShot from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.Resign:
+                    CommandRouter.ResignDirect(em, (Faction)cmd.EntityNetworkId);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed Resign ({(Faction)cmd.EntityNetworkId}) from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.ReliquaryAbility:

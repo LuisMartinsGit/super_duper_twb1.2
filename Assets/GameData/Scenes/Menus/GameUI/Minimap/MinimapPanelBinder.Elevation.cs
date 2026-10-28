@@ -176,6 +176,10 @@ namespace TheWaningBorder.UI.Ingame
                 new Vector2(0.5f, 0.5f), 100f);
             _mapImage.color = Color.white;
 
+            // The plate takes the map's aspect first, so the frame hugs the
+            // map and the overlay below fits a rect of the same shape.
+            FitPlateToMap(texW, texH);
+            yield return null;
             // Layout must have settled before the overlay can be aspect-fit
             // to the Map rect (it has, after the terrain wait, but guard).
             while (_mapImage.rectTransform.rect.width < 1f)

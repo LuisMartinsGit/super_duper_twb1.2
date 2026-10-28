@@ -13,7 +13,17 @@ runs; this page describes the in-game one.
 
 Opened from the victory / defeat panel's **Muster Rolls** button (or by any
 code through `MusterRollsPanel.Open()`, which is how a replay that ends opens
-it). Three tabs; **Close** returns to whatever was underneath.
+it, and how the pause menu's **Leave Match** opens it mid-match for an
+observer or a replay). Three tabs; **Close** returns to whatever was
+underneath, **Main Menu** leaves the match (`VictoryPanel.ReturnToMainMenu`).
+
+**It is the way out of a match (2026-10-28).** The pause menu no longer quits
+to the menu or the desktop: a player **Resigns** — the lockstep `Resign`
+command (`CommandRouter.IssueResign`), which `EliminationSystem` serves on
+every peer like an elimination (an `EliminatedFactionRecord` with `Resigned`
+set, assets self-destruct, the verdict if nobody hostile is left) — and the
+defeat screen, this review and the main menu follow in that order; the
+desktop is the main menu's Quit. Match → post-game → main menu → desktop.
 
 | Tab | Shows |
 |---|---|

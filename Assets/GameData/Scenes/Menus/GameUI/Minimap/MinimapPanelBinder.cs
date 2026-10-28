@@ -204,6 +204,106 @@ namespace TheWaningBorder.UI.Ingame
             _mapImage.sprite = null;
             _mapImage.color = new Color(1f, 1f, 1f, 0f);
             _mapImage.preserveAspect = true;
+
+            // The rotating plate (UpdateMapRotation): every direct child of the
+            // panel. They are stretched over the panel with centre pivots, so
+            // turning each about its own pivot turns the plate about its centre.
+            // The round "Disc_*" layers behind the plate are the one thing
+            // that does not turn: a circle looks the same at every angle, and
+            // the map's corners slide along it (FitPlateToMap).
+            var spinning = new System.Collections.Generic.List<RectTransform>();
+            foreach (Transform child in transform)
+            {
+                if (!(child is RectTransform rt)) continue;
+                if (child.name.StartsWith(DiscPrefix, System.StringComparison.Ordinal))
+                    _disc.Add(rt);
+                else spinning.Add(rt);
+            }
+            _spinning = spinning.ToArray();
+
+            // The contents node clips with BOTH a stencil Mask and a
+            // RectMask2D. A RectMask2D takes its clip rect from two opposite
+            // world corners of its rect, so once the plate turns the rect
+            // collapses - at 45 degrees to zero width - and the whole map
+            // vanished (2026-10-28). The stencil Mask clips correctly at any
+            // angle and stays.
+            foreach (var rm in GetComponentsInChildren<RectMask2D>(true))
+                Destroy(rm);
+        }
+
+        /// <summary>The prefab's round layers behind the plate: "Disc_Background",
+        /// a plain dark disc (GameData/Art/Placeholders/UI_Disc_256), and
+        /// "Disc_Frame", the thin gold ring SPR_FantasyWarrior_Ring_Large_03
+        /// (the Menus pack's gem-studded Frame_Circle_01 was "too thick",
+        /// 2026-10-28). Sized here, never turned.</summary>
+        private const string DiscPrefix = "Disc_";
+        private const string DiscFrameName = "Disc_Frame";
+        private readonly System.Collections.Generic.List<RectTransform> _disc = new();
+
+        // Measured off SPR_FantasyWarrior_Ring_Large_03 (700 px, hand-drawn,
+        // so the band wanders a little): the visible gold runs from 0.79 to
+        // 0.83 of the sprite's half-size, 0.77 at its narrowest. The plate's
+        // corners aim at 0.78 so they meet the band everywhere; the plain disc
+        // behind reaches to the band's middle so no seam shows.
+        private const float RingInnerFraction = 0.78f;
+        private const float RingReachFraction = 0.86f;
+        private const float DiscOverCornerFraction = 1.035f;
+        /// <summary>Canvas units kept between the ring and the screen edge -
+        /// the gap the authored square plate had; flush, the ring read as
+        /// cut off.</summary>
+        private const float ScreenMargin = 24f;
+
+        /// <summary>
+        /// Size the plate to the MAP (2026-10-28): the panel is authored as a
+        /// 450 square, and a rectangular map (Yiel Lymwérra is 2:1) sat
+        /// letterboxed inside it with the frame around the empty bands. The
+        /// panel's rect takes the terrain's aspect - its children (shadow,
+        /// contents with map and inner frame, vignette, outer frame) all
+        /// stretch to it, so the frame hugs the map. The size never changes
+        /// with the angle.
+        ///
+        /// Behind it the ROUND frame is sized so the plate's outer corners
+        /// run exactly along the ring's inner edge as it turns - a
+        /// rectangular map no longer looks off-centre, because what is
+        /// centred is the circle the corners trace. The whole thing is then
+        /// moved INWARD so the ring (gems included) stays on the screen.
+        /// </summary>
+        private void FitPlateToMap(int texW, int texH)
+        {
+            var root = (RectTransform)transform;
+            Vector2 size = root.sizeDelta;
+            float side = Mathf.Max(size.x, size.y);
+            Vector2 fitted = texW >= texH
+                ? new Vector2(side, side * texH / (float)texW)
+                : new Vector2(side * texW / (float)texH, side);
+            root.sizeDelta = fitted;
+
+            // The outer frame overhangs the plate (its sizeDelta); its corners
+            // are what trace the circle.
+            float extra = 0f;
+            foreach (var rt in _spinning)
+                if (rt != null && rt.name == "SPR_Frame") extra = Mathf.Max(extra, rt.sizeDelta.x, rt.sizeDelta.y);
+            float w = fitted.x + extra, h = fitted.y + extra;
+            float cornerRadius = 0.5f * Mathf.Sqrt(w * w + h * h);
+
+            float ringSprite = cornerRadius / (0.5f * RingInnerFraction);
+            float discSize = 2f * cornerRadius * DiscOverCornerFraction;
+            foreach (var d in _disc)
+            {
+                if (d == null) continue;
+                float s = d.name == DiscFrameName ? ringSprite : discSize;
+                d.sizeDelta = new Vector2(s, s);
+            }
+            float reach = (_disc.Count > 0 ? 0.5f * ringSprite * RingReachFraction : cornerRadius) + ScreenMargin;
+
+            var parent = root.parent as RectTransform;
+            if (parent == null) return;
+            Rect limit = parent.rect;
+            Vector2 centre = parent.InverseTransformPoint(root.TransformPoint(root.rect.center));
+            var clamped = new Vector2(
+                Mathf.Clamp(centre.x, limit.xMin + reach, limit.xMax - reach),
+                Mathf.Clamp(centre.y, limit.yMin + reach, limit.yMax - reach));
+            root.anchoredPosition += clamped - centre;
         }
 
         private IEnumerator Start()
@@ -307,14 +407,30 @@ namespace TheWaningBorder.UI.Ingame
         private float _mapYaw = float.NaN;
 
         /// <summary>
-        /// Spin the map so "up" is always where the camera is looking.
+        /// Everything that turns with the camera: the panel's direct children
+        /// (the shadow, the contents with the map and its inner frame, the
+        /// vignette, the outer frame). Gathered in Awake; nothing is added
+        /// to the panel root later.
+        /// </summary>
+        private RectTransform[] _spinning = System.Array.Empty<RectTransform>();
+
+        /// <summary>
+        /// Spin the minimap so "up" is always where the camera is looking.
         ///
-        /// Rotating the MAP IMAGE rotates everything at once — the overlay, the
-        /// blips and the view-cone lines are all its children, so they stay
-        /// registered with the terrain for free. Clicks keep working without
-        /// any change: TryGetWorldPosition goes through
+        /// The whole plate turns - frame, shadow and vignette with the map -
+        /// not the map image inside a fixed frame (2026-10-28): a square map
+        /// turning inside a square frame showed its corners cut off and the
+        /// frame's corners empty. Rotating the panel's children rotates the
+        /// overlay, blips and view-cone lines along, so they stay registered
+        /// with the terrain for free; clicks keep working, since
+        /// TryGetWorldPosition goes through
         /// RectTransformUtility.ScreenPointToLocalPointInRectangle, which
-        /// already accounts for the rect's rotation.
+        /// accounts for every ancestor's rotation and scale.
+        ///
+        /// The plate keeps its size at every angle (it was scaled down toward
+        /// 45 degrees to stay inside its footprint, which read as the map
+        /// breathing - 2026-10-28); FitPlateToMap places it far enough from
+        /// the screen edge for its corners to stay on screen when turned.
         ///
         /// Runs every frame, NOT on the throttled overlay tick below — the map
         /// must track the camera smoothly while it is turning, and a 1/4 second
@@ -328,7 +444,12 @@ namespace TheWaningBorder.UI.Ingame
             _mapYaw = yaw;
             // +yaw, not -yaw: the map content turns the same way the camera
             // does, which brings whatever the camera faces round to the top.
-            _mapImage.rectTransform.localRotation = Quaternion.Euler(0f, 0f, yaw);
+            var rot = Quaternion.Euler(0f, 0f, yaw);
+            for (int i = 0; i < _spinning.Length; i++)
+            {
+                var rt = _spinning[i];
+                if (rt != null) rt.localRotation = rot;
+            }
         }
 
         // Cached fog + territory composite; see Update.

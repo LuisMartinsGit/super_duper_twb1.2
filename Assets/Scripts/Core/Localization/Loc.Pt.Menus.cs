@@ -96,7 +96,7 @@ namespace TheWaningBorder.Core.Localization
             t["QUIT"] = "SAIR";
             t["CAMPAIGN"] = "CAMPANHA";
             t["LOAD GAME"] = "CARREGAR JOGO";
-            t["TUTORIAL"] = "TUTORIAL";
+            t["Tutorial"] = "Tutorial";
 
             // ── MultiplayerPanel ────────────────────────────────────────
             t["< BACK"] = "< VOLTAR";
@@ -167,6 +167,7 @@ namespace TheWaningBorder.Core.Localization
 
             // ── SkirmishPanel ───────────────────────────────────────────
             t["OBSERVER"] = "OBSERVADOR";
+            t["AI against AI; you watch."] = "IA contra IA; tu assistes.";
             t["+ ADD PLAYER"] = "+ ADICIONAR JOGADOR";
             t["EMPTY"] = "VAZIO";
             t["Pick a player on the left, then choose a start position."] =
@@ -294,19 +295,22 @@ namespace TheWaningBorder.Core.Localization
               + "match is lost."] =
                 "Recarregar este mapa desde o início. Todo o progresso da partida "
               + "atual é perdido.";
-            t["Quit to Main Menu"] = "Sair para o Menu Principal";
-            t["Abandon the match and return to the main menu."] =
-                "Abandonar a partida e voltar ao menu principal.";
-            t["Quit to Desktop"] = "Sair para o Ambiente de Trabalho";
-            t["Close the game."] = "Fechar o jogo.";
+            t["Resign"] = "Desistir";
+            t["Give up the match. Your faction is out for good; the defeat screen and "
+              + "the Game Review follow, and the main menu is reached from there."] =
+                "Desistir da partida. A tua fação fica de fora; seguem-se o ecrã de derrota e "
+              + "a Revisão do Jogo, e o menu principal alcança-se a partir daí.";
+            t["Resign the match? Your faction is out for good."] =
+                "Desistir da partida? A tua fação fica de fora.";
+            t["Leave Match"] = "Sair da Partida";
+            t["Leave for the review of this match, or the main menu where there is none."] =
+                "Sair para a revisão desta partida, ou para o menu principal quando não há nenhuma.";
+            t["Leave the match?"] = "Sair da partida?";
             t["Restart the match? Current progress is lost."] =
                 "Reiniciar a partida? O progresso atual será perdido.";
-            t["Quit to the main menu? Current progress is lost."] =
-                "Sair para o menu principal? O progresso atual será perdido.";
-            t["Quit to desktop?"] = "Sair para o ambiente de trabalho?";
             t["Menu"] = "Menu";
-            t["Menu (Esc): pause, save, restart or quit."] =
-                "Menu (Esc): pausar, guardar, reiniciar ou sair.";
+            t["Menu (Esc): pause, save, restart or resign."] =
+                "Menu (Esc): pausar, guardar, reiniciar ou desistir.";
             t["ARE YOU SURE?"] = "TENS A CERTEZA?";
             t["SAVE GAME"] = "GUARDAR JOGO";
             t["Save Game"] = "Guardar Jogo";
@@ -364,6 +368,9 @@ namespace TheWaningBorder.Core.Localization
             t["DEFEAT"] = "DERROTA";
             t["Return to Main Menu"] = "Voltar ao Menu Principal";
             t["{0} has been DEFEATED"] = "{0} foi DERROTADO";
+            t["{0} has RESIGNED"] = "{0} DESISTIU";
+            t["You resigned."] = "Desististe.";
+            t["Main Menu"] = "Menu Principal";
             t["{0} WINS"] = "{0} VENCE";
             t["Winner: {0}"] = "Vencedor: {0}";
             t["The match goes on without you."] = "A partida continua sem ti.";

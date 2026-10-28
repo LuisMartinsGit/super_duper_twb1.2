@@ -18,12 +18,22 @@
 //        →  otherwise           open the menu
 //
 // THREE PAGES on one scrim (2026-10-16), only one shown at a time: the menu
-// itself, a confirm page (Restart / Quit to Main Menu / Quit to Desktop) and
-// the save page, where the player names the save. The confirm used to be a
-// row ADDED under the menu with every button still showing above it, which
-// read as two menus at once. Every Cancel is red (GameUIKit.StyleDanger).
-// The top-left "Menu" button opens it too — it was authored in the GameUI
-// staging scene but never built in a match.
+// itself, a confirm page (Restart / Resign / Leave Match) and the save page,
+// where the player names the save. The confirm used to be a row ADDED under
+// the menu with every button still showing above it, which read as two menus
+// at once. Every Cancel is red (GameUIKit.StyleDanger). The top-left "Menu"
+// button opens it too — it was authored in the GameUI staging scene but never
+// built in a match.
+//
+// NO EXIT FROM HERE (2026-10-28). "Quit to Main Menu" and "Quit to Desktop"
+// are gone: a player leaves a match by RESIGNING, which is a lockstep order
+// (CommandRouter.IssueResign) that retires the faction like any elimination
+// and brings the defeat screen, whose Game Review and Return to Main Menu
+// lead on; the desktop is reached from the main menu's Quit. So the flow is
+// match -> post-game -> main menu -> desktop, and every match that is left
+// has a review. Where there is nothing to resign from (watching a replay,
+// observing, a sandbox or scenario) the entry is LEAVE MATCH instead, which
+// opens the review of what was watched, or the main menu when there is none.
 //
 // Pausing is Time.timeScale = 0. Every HUD binder already ticks on
 // unscaledDeltaTime, so panels keep repainting while the simulation is
@@ -45,7 +55,6 @@ namespace TheWaningBorder.UI.Ingame
     {
         private const float PanelWidth = 760f;
         private const float ButtonHeight = 92f;
-        private const string MainMenuScene = "MainMenu";
         private const int SaveNameLimit = 40;
         private static readonly Vector2 MenuButtonSize = new Vector2(190f, 72f);
         private static readonly Vector2 MenuButtonMargin = new Vector2(24f, 24f);
@@ -66,6 +75,10 @@ namespace TheWaningBorder.UI.Ingame
         /// <summary>"Save Game" — shown only when this match can be saved.</summary>
         private GameObject _saveButton;
         private TMP_Text _saveLabel;
+
+        /// <summary>"Resign" where there is a match to resign from, else
+        /// "Leave Match" (replay, observer, sandbox, scenario, decided).</summary>
+        private GameObject _resignButton, _leaveButton;
 
         private void Awake()
         {
@@ -103,7 +116,7 @@ namespace TheWaningBorder.UI.Ingame
             relay.OnLeftClick = Open;
             relay.OnEnter = () => { bg.color = GameUIKit.BarBlue * 0.5f; text.color = GameUIKit.Gold; };
             relay.OnExit = () => { bg.color = GameUIKit.ButtonBg; text.color = GameUIKit.TextMain; };
-            UITooltip.Bind(bg.gameObject, Loc.T("Menu (Esc): pause, save, restart or quit."));
+            UITooltip.Bind(bg.gameObject, Loc.T("Menu (Esc): pause, save, restart or resign."));
             _menuButton = rt.gameObject;
         }
 
@@ -160,18 +173,19 @@ namespace TheWaningBorder.UI.Ingame
                 "Reload this map from the beginning. All progress in the current " +
                 "match is lost.",
                 () => Confirm("Restart the match? Current progress is lost.", Restart));
-            MakeButton(panel, "mainmenu", "Quit to Main Menu",
-                "Abandon the match and return to the main menu.",
-                () => Confirm("Quit to the main menu? Current progress is lost.", ToMainMenu));
-            MakeButton(panel, "quit", "Quit to Desktop",
-                "Close the game.",
-                () => Confirm("Quit to desktop?", QuitGame));
+            _resignButton = MakeButton(panel, "resign", "Resign",
+                "Give up the match. Your faction is out for good; the defeat screen and " +
+                "the Game Review follow, and the main menu is reached from there.",
+                () => Confirm("Resign the match? Your faction is out for good.", Resign));
+            _leaveButton = MakeButton(panel, "leave", "Leave Match",
+                "Leave for the review of this match, or the main menu where there is none.",
+                () => Confirm("Leave the match?", Leave));
 
             _menuPage = panel.gameObject;
         }
 
-        /// <summary>The confirm page for the three destructive entries — a
-        /// misclick on "Quit to Desktop" should not end the session.</summary>
+        /// <summary>The confirm page for the destructive entries — a
+        /// misclick on "Resign" should not end the match.</summary>
         private void BuildConfirmPage()
         {
             var panel = Page("confirm", "ARE YOU SURE?");
@@ -390,6 +404,10 @@ namespace TheWaningBorder.UI.Ingame
             _saveButton.SetActive(canSave);
             if (_saveLabel != null) _saveLabel.text = Loc.T("Save Game");
 
+            bool canResign = CanResign;
+            _resignButton.SetActive(canResign);
+            _leaveButton.SetActive(!canResign);
+
             // Lockstep peers cannot be frozen by one player's menu.
             if (!GameSettings.IsMultiplayer)
             {
@@ -463,21 +481,40 @@ namespace TheWaningBorder.UI.Ingame
             TheWaningBorder.UI.Menus.LoadingScreen.Show(scene);
         }
 
-        private void ToMainMenu()
+        /// <summary>
+        /// There is a match of the local player's to give up: they play a
+        /// faction (not an observer, not a replay), victory conditions run
+        /// (not a sandbox or scenario) and it is not over yet.
+        /// </summary>
+        private static bool CanResign
+            => !GameSettings.IsObserver
+               && !GameSettings.WatchingReplay
+               && !GameSettings.IsSandbox
+               && GameSettings.Mode != GameMode.Scenario
+               && !TheWaningBorder.Core.MatchLifecycle.MatchDecided;
+
+        /// <summary>
+        /// Resign: an ORDER into the simulation, not a scene change. The
+        /// clock is unfrozen with the menu so the order can execute;
+        /// EliminationSystem retires the faction on its next pass (at once,
+        /// not on its cadence) and the defeat screen follows through the
+        /// ordinary match-end signal.
+        /// </summary>
+        private void Resign()
         {
             Close();
-            // The lobby/loading path is menu-only; going back is a plain load.
-            GameSpeedControl.Apply();
-            SceneManager.LoadScene(MainMenuScene);
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) { Leave(); return; }
+            TheWaningBorder.Core.Commands.CommandRouter.IssueResign(
+                world.EntityManager, GameSettings.LocalPlayerFaction);
         }
 
-        private static void QuitGame()
+        /// <summary>Nothing to resign from: the review of what was watched,
+        /// or the main menu when nothing was recorded.</summary>
+        private void Leave()
         {
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
+            Close();
+            if (!MusterRollsPanel.Open()) VictoryPanel.ReturnToMainMenu();
         }
     }
 }

@@ -132,30 +132,36 @@ namespace TheWaningBorder.Systems.Core
             if (!_initialized || _gameOver) return;
             if (GameStatsTracker.Instance != null && GameStatsTracker.Instance.GameEnded) return;
 
-            // Grace period to avoid false eliminations at game start
-            if (TheWaningBorder.Core.SimClock.Now - _gameStartTime < GracePeriod) return;
-
-            // SIM clock, never Time.deltaTime: the poll decides WHICH TICK a
-            // faction's assets get zeroed on (SelfDestructFactionAssets writes
-            // Health), and a render-paced cadence lands that on different
-            // lockstep ticks per peer — a guaranteed MP desync. SimClock
-            // follows the fixed-step sim, so both peers poll on the same tick.
+            // THE CLOCK IS RESET AFTER START (2026-10-28). Start() captures
+            // SimClock.Now on the first frame, and PlayerSpawnSystem resets the
+            // clock to 0 later that same frame (ECS runs after MonoBehaviour
+            // Start). In the first match of a session both read 0; in any
+            // later match Start read the PREVIOUS match's elapsed time, and the
+            // grace below held this poll until the new clock caught up with
+            // it — a resignation at 47 s was only noticed at 80 s, because the
+            // scene before had run ~70 s. A clock behind its own start mark
+            // has been reset: re-mark.
             float simNow = TheWaningBorder.Core.SimClock.Now;
-            if (simNow - _lastCheckAt >= CheckInterval)
-            {
-                _lastCheckAt = simNow;
-                // DETERMINISM SPLIT (2026-09-06, MP harness catch #15).
-                // This MonoBehaviour used to COMPUTE eliminations here — from
-                // frame-timed polls, so under lockstep catch-up each peer
-                // sampled the world at a different tick and their sticky
-                // elimination ledgers diverged: the first decided MP match
-                // ended with ONE peer seeing "Green wins" while three others
-                // stalled to the disconnect timeout. EliminationSystem (sim
-                // group, SimCadence-phased) owns the decision and the asset
-                // self-destruct now; this poll only OBSERVES its verdict
-                // buffer and presents it from the local player's view.
-                ObserveEliminationVerdict();
-            }
+            if (simNow < _gameStartTime) { _gameStartTime = simNow; _lastCheckAt = simNow; }
+
+            // Grace period to avoid false eliminations at game start
+            if (simNow - _gameStartTime < GracePeriod) return;
+
+            // DETERMINISM SPLIT (2026-09-06, MP harness catch #15).
+            // This MonoBehaviour used to COMPUTE eliminations here — from
+            // frame-timed polls, so under lockstep catch-up each peer
+            // sampled the world at a different tick and their sticky
+            // elimination ledgers diverged: the first decided MP match
+            // ended with ONE peer seeing "Green wins" while three others
+            // stalled to the disconnect timeout. EliminationSystem (sim
+            // group, SimCadence-phased) owns the decision and the asset
+            // self-destruct now; this poll only OBSERVES its verdict buffer
+            // and presents it from the local player's view — so it may run
+            // EVERY FRAME (2026-10-28): nothing here touches the sim, and a
+            // resignation should bring the defeat screen the frame the sim
+            // retires the faction, not up to CheckInterval later.
+            _lastCheckAt = simNow;
+            ObserveEliminationVerdict();
         }
 
         private int _announcedEliminations;
@@ -167,21 +173,26 @@ namespace TheWaningBorder.Systems.Core
             using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
             var verdictEntity = ents[0];
 
-            bool localEliminated = false;
+            bool localEliminated = false, localResigned = false;
             if (_em.HasBuffer<EliminatedFactionRecord>(verdictEntity))
             {
                 var buf = _em.GetBuffer<EliminatedFactionRecord>(verdictEntity);
                 for (int i = _announcedEliminations; i < buf.Length; i++)
                 {
                     var faction = buf[i].Value;
+                    bool resigned = buf[i].Resigned != 0;
                     _aliveFactions.Remove(faction);
                     _eliminatedFactions.Add(faction);
                     SimSignals.Notify(string.Format(
-                        Loc.T("{0} has been DEFEATED"), Loc.T(faction.ToString())));
+                        Loc.T(resigned ? "{0} has RESIGNED" : "{0} has been DEFEATED"),
+                        Loc.T(faction.ToString())));
                     if (GameStatsTracker.Instance != null)
                         GameStatsTracker.Instance.RecordElimination(faction, buf[i].AtSimSeconds);
                     if (!GameSettings.IsObserver && faction == GameSettings.LocalPlayerFaction)
+                    {
                         localEliminated = true;
+                        localResigned = resigned;
+                    }
                 }
                 _announcedEliminations = buf.Length;
             }
@@ -189,11 +200,11 @@ namespace TheWaningBorder.Systems.Core
             var verdict = _em.GetComponentData<MatchVerdictState>(verdictEntity);
             if (localEliminated && verdict.Decided == 0)
             {
-                TriggerGameEnd(null, true);   // out, but nobody has won yet
+                TriggerGameEnd(null, true, localResigned);   // out, but nobody has won yet
                 return;
             }
             if (verdict.Decided != 0)
-                TriggerGameEnd(verdict.Winner, localEliminated);
+                TriggerGameEnd(verdict.Winner, localEliminated, localResigned);
         }
 
         private void CheckVictoryConditions()
@@ -404,7 +415,10 @@ namespace TheWaningBorder.Systems.Core
         /// others fight on. Never the defeated player's own faction as a
         /// placeholder — that told an eliminated Blue "DEFEAT, winner: Blue"
         /// on screen, in Summary.txt and in the replay (2026-10-16).</param>
-        private void TriggerGameEnd(Faction? winner, bool localPlayerDefeated = false)
+        /// <param name="localPlayerResigned">The local defeat was the pause
+        /// menu's Resign, not a beating: the screen and the logs say so.</param>
+        private void TriggerGameEnd(Faction? winner, bool localPlayerDefeated = false,
+                                    bool localPlayerResigned = false)
         {
             if (_gameOver) return;
             _gameOver = true;
@@ -441,18 +455,19 @@ namespace TheWaningBorder.Systems.Core
             {
                 result = winner == GameSettings.LocalPlayerFaction ? "VICTORY" : "DEFEAT";
             }
+            string how = localPlayerResigned ? ", resigned" : "";
 
             // Mirrored to every faction's AI log because TWBLog compiles out —
             // without this, "did the match actually end, and how?" is
             // unanswerable after the fact.
             for (int i = 0; i < GameSettings.TotalPlayers; i++)
                 TheWaningBorder.AI.AILogger.Log((Faction)i, "VICTORY",
-                    $"GAME OVER: {result} (winner={winnerName})");
-            TWBLog.Log($"[Victory] Game over: {result} (winner={winnerName})");
+                    $"GAME OVER: {result} (winner={winnerName}{how})");
+            TWBLog.Log($"[Victory] Game over: {result} (winner={winnerName}{how})");
 
             // Name the outcome in this match's log Summary.txt.
             TheWaningBorder.Core.Diagnostics.MatchLogSession.RecordOutcome(
-                $"{result} (winner={winnerName})");
+                $"{result} (winner={winnerName}{how})");
 
             // End-of-match flow: full-screen victory/defeat panel with a
             // Return to Main Menu button; the player leaves when they choose.
@@ -464,12 +479,11 @@ namespace TheWaningBorder.Systems.Core
                 : Loc.T(result);
             bool localWon = !localPlayerDefeated && winner is not null
                 && (GameSettings.IsObserver || winner == GameSettings.LocalPlayerFaction);
-            SimSignals.MatchEnded(
-                displayResult,
-                winner is { } w
-                    ? string.Format(Loc.T("Winner: {0}"), Loc.T(w.ToString()))
-                    : Loc.T("The match goes on without you."),
-                localWon);
+            string subtitle = winner is { } w
+                ? string.Format(Loc.T("Winner: {0}"), Loc.T(w.ToString()))
+                : Loc.T("The match goes on without you.");
+            if (localPlayerResigned) subtitle = Loc.T("You resigned.") + "  " + subtitle;
+            SimSignals.MatchEnded(displayResult, subtitle, localWon);
         }
 
         /// <summary>Retirement is TOTAL: every remaining unit and building
@@ -556,28 +570,10 @@ namespace TheWaningBorder.Systems.Core
                 localWonNode || GameSettings.IsObserver);
         }
 
-        /// <summary>
-        /// Called when the local player surrenders via the End Game button.
-        /// </summary>
-        public void Surrender()
-        {
-            if (_gameOver) return;
-
-            float gameTime = TheWaningBorder.Core.SimClock.Now - _gameStartTime;
-            _aliveFactions.Remove(GameSettings.LocalPlayerFaction);
-            _eliminatedFactions.Add(GameSettings.LocalPlayerFaction);
-
-            if (GameStatsTracker.Instance != null)
-            {
-                GameStatsTracker.Instance.RecordElimination(GameSettings.LocalPlayerFaction, gameTime);
-            }
-
-
-            Faction? winner = _aliveFactions.Count == 1
-                ? GetSingleFaction(_aliveFactions)
-                : null; // no clear winner — the others fight on
-            TriggerGameEnd(winner, true);
-        }
+        // Surrender() used to retire the local player HERE, on this peer
+        // alone, with nothing in the command stream. Resigning is the lockstep
+        // Resign command now (CommandRouter.IssueResign -> EliminationSystem),
+        // observed above like any other elimination.
 
         /// <summary>
         /// A completed building counts as MILITARY when it can train at least

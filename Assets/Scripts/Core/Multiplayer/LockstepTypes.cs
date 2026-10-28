@@ -92,6 +92,7 @@ namespace TheWaningBorder.Core.Multiplayer
         FeraldisOrder = 55,     // CommandRouter.IssueFeraldisOrder (actor unit/building in EntityNetworkId, target entity in TargetEntityId, FeraldisOp | arg<<8 in SecondaryTargetId, point in TargetPosition) — every Feraldis-only order (staff, melt, sacrifice, forge bays, totem rites, War Rig load); docs/Design/Age_1_Feraldis.md
         EnshrineShardroot = 56, // CommandRouter.IssueEnshrineShardroot (the Shardroot's bearer in EntityNetworkId, its own Temple of Ridan in TargetEntityId) — the bearer walks to the Temple and enshrines the artifact there; docs/Design/Curse_And_Shardroot.md § 3.1d
         BuildingAttack = 50,    // CommandRouter.IssueBuildingAttack (shooting building in EntityNetworkId, forced target in TargetEntityId; 0 = clear the order, i.e. Stop) — docs/Design/Combat_Pacing.md § Directed building fire
+        Resign = 57,            // CommandRouter.IssueResign (the resigning FACTION in EntityNetworkId) — the pause menu's Resign: EliminationSystem retires the faction on every peer at the same tick, exactly like an elimination, so the replay and every peer agree on when it left (2026-10-28)
     }
 
     /// <summary>

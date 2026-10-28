@@ -82,8 +82,6 @@ namespace TheWaningBorder.UI.Menus.Panels
         private const float JOIN_TIMEOUT = 6.0f;
 
         private static readonly string[] DifficultyNames = { "EASY", "NORMAL", "HARD", "EXPERT" };
-        private static readonly Color PillOn  = new Color(0.690f, 0.525f, 0.173f);
-        private static readonly Color PillOff = new Color(0.086f, 0.118f, 0.141f);
         private static readonly Color TextDim = new Color(0.784f, 0.824f, 0.808f, 0.60f);
 
         private enum LobbyState
@@ -161,6 +159,10 @@ namespace TheWaningBorder.UI.Menus.Panels
         public TMP_Text FogState;
         public Button BorderToggle;
         public TMP_Text BorderState;
+        /// <summary>The Synty toggle prefab the ON/OFF options are drawn with
+        /// (MenuToggleSwitch.Replace); unwired, the authored tracks stay.</summary>
+        public GameObject TogglePrefab;
+        private MenuToggleSwitch _fogSwitch, _borderSwitch;
         // Same two match options the skirmish lobby offers, from the same
         // tables (LobbyOptions) so an age label cannot promise one culture
         // here and another there. Host-only, like the pills.
@@ -213,8 +215,7 @@ namespace TheWaningBorder.UI.Menus.Panels
         // START WITH CULTURE (StartCultureOption) — replaced the STARTING AGE
         // dropdown. Host-owned; rides TWB_LOBBY in the old StartAge field.
         private bool _startWithCulture;
-        private Button _cultureToggle;
-        private TMP_Text _cultureState;
+        private MenuToggleSwitch _cultureToggle;
 
         // ── Network state ───────────────────────────────────────────────
 
@@ -406,16 +407,18 @@ namespace TheWaningBorder.UI.Menus.Panels
                     SyncLobbyState();
                 });
             }
-            StartCultureOption.BuildToggle(AgeDropdown, FogToggle, FogState, out _cultureToggle, out _cultureState);
+            // The culture pill is cloned off the fog pill BEFORE that one is
+            // dressed, so both start from the same authored row.
+            _cultureToggle = StartCultureOption.BuildToggle(AgeDropdown, FogToggle, TogglePrefab);
             if (_cultureToggle != null)
-                _cultureToggle.onClick.AddListener(() =>
+                _cultureToggle.Changed += on =>
                 {
-                    if (!_isHost) return;
-                    _startWithCulture = !_startWithCulture;
+                    if (!_isHost) { SyncPills(); return; }
+                    _startWithCulture = on;
                     SyncPills();
                     RebuildSlots(true);
                     SyncLobbyState();
-                });
+                };
             if (PortField != null)
             {
                 PortField.text = _port.ToString();
@@ -444,18 +447,21 @@ namespace TheWaningBorder.UI.Menus.Panels
 
             if (PrevMapButton != null) PrevMapButton.onClick.AddListener(() => CycleMap(-1));
             if (NextMapButton != null) NextMapButton.onClick.AddListener(() => CycleMap(+1));
-            if (FogToggle != null) FogToggle.onClick.AddListener(() =>
+            // A client's click is undone by the SyncPills that follows (the
+            // host's value is re-shown); the toggles are also made
+            // non-interactable for clients in SyncPills.
+            _fogSwitch = MenuToggleSwitch.Replace(FogToggle, FogState, TogglePrefab);
+            if (_fogSwitch != null) _fogSwitch.Changed += on =>
             {
-                if (!_isHost) return;
-                _fogOfWar = !_fogOfWar;
+                if (_isHost) _fogOfWar = on;
                 SyncPills();
-            });
-            if (BorderToggle != null) BorderToggle.onClick.AddListener(() =>
+            };
+            _borderSwitch = MenuToggleSwitch.Replace(BorderToggle, BorderState, TogglePrefab);
+            if (_borderSwitch != null) _borderSwitch.Changed += on =>
             {
-                if (!_isHost) return;
-                _borderEnabled = !_borderEnabled;
+                if (_isHost) _borderEnabled = on;
                 SyncPills();
-            });
+            };
 
             if (BackButton != null) BackButton.onClick.AddListener(BackAction);
             // One dressed button, two jobs: CONNECT while browsing, START
@@ -868,20 +874,21 @@ namespace TheWaningBorder.UI.Menus.Panels
 
         private void SyncPills()
         {
-            SyncPill(FogToggle, FogState, _fogOfWar);
-            SyncPill(BorderToggle, BorderState, _borderEnabled);
-
-            // SetValueWithoutNotify on purpose: this runs when the HOST's
-            // lobby state arrives on a client, and firing onValueChanged here
-            // would have the client write the value straight back over the
-            // host's. Same reason the skirmish lobby restores with it.
+            // SetOn / SetValueWithoutNotify on purpose: this runs when the
+            // HOST's lobby state arrives on a client, and firing the change
+            // event here would have the client write the value straight back
+            // over the host's. Same reason the skirmish lobby restores with it.
+            _fogSwitch?.SetOn(_fogOfWar);
+            _borderSwitch?.SetOn(_borderEnabled);
             if (ResourcesDropdown != null)
                 ResourcesDropdown.SetValueWithoutNotify((int)_startResources);
-            SyncPill(_cultureToggle, _cultureState, _startWithCulture);
+            _cultureToggle?.SetOn(_startWithCulture);
 
             // Only the host owns the match settings; a client reads them.
             if (ResourcesDropdown != null) ResourcesDropdown.interactable = _isHost;
-            if (_cultureToggle != null) _cultureToggle.interactable = _isHost;
+            if (_cultureToggle != null) _cultureToggle.Interactable = _isHost;
+            if (_fogSwitch != null) _fogSwitch.Interactable = _isHost;
+            if (_borderSwitch != null) _borderSwitch.Interactable = _isHost;
 
             // Same for the name. SetTextWithoutNotify, or echoing the host's
             // name into a client's field would fire the listener and the
@@ -908,17 +915,6 @@ namespace TheWaningBorder.UI.Menus.Panels
             LobbyTitle.text = named.Length == 0
                 ? Loc.T("MULTIPLAYER")
                 : string.Format(Loc.T("MULTIPLAYER - {0}"), named);
-        }
-
-        private static void SyncPill(Button toggle, TMP_Text state, bool on)
-        {
-            if (state != null) state.text = Loc.T(on ? "ON" : "OFF");
-            if (toggle == null) return;
-            // A Synty-dressed switch slides; a plain one swaps colour.
-            var sw = toggle.GetComponent<MenuToggleSwitch>();
-            if (sw != null) { sw.SetOn(on); return; }
-            if (toggle.targetGraphic is Image img)
-                img.color = on ? PillOn : PillOff;
         }
 
         // ── Dynamic lists: player slots + discovered games ──────────────

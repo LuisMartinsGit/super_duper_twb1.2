@@ -433,8 +433,20 @@ hide or show it), and a **Map** that replays the whole match from above —
 territories by owner, the cursed ground spreading and receding, buildings,
 units and deaths — with Play / Pause, five
 speeds, a timeline scrubber, mouse-wheel zoom and drag to pan. **Close**
-returns to the victory screen. Every match is recorded for it automatically
-(docs/Design/Muster_Rolls_PostGame.md).
+returns to the victory screen; **Main Menu** leaves. Every match is recorded
+for it automatically (docs/Design/Muster_Rolls_PostGame.md).
+
+### Leaving a Match — Resign
+
+The pause menu (**Esc**) has no quit. To leave a match you **Resign**: your
+faction is out for good (its units and buildings fall, the others play on),
+the defeat screen appears with **Game Review** and **Return to Main Menu**,
+and the desktop is reached from the main menu's **Quit**. So every match you
+leave has a review: match → post-game → main menu → desktop. In multiplayer
+a resignation is an order like any other — the other players see your
+faction fall. Where there is nothing to resign from (watching a replay,
+observing, a sandbox or scenario) the entry reads **Leave Match** and opens
+the review of what you watched, or the main menu when there is none.
 
 ### Saving, Loading and Replays
 

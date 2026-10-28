@@ -76,66 +76,34 @@ namespace TheWaningBorder.UI.Menus.Panels
         /// <summary>
         /// Turn the authored STARTING AGE cell into the START WITH CULTURE
         /// toggle: relabel its caption, hide its dropdown and add an ON/OFF
-        /// switch dressed like <paramref name="styleToggle"/>. Idempotent.
+        /// switch. The switch is a CLONE of the fog option's pill row
+        /// (<paramref name="styleTrack"/>'s parent), so it has the authored
+        /// pill's exact size, spacing and alignment - the three code-built
+        /// pills used to each pick their own numbers and sat at three
+        /// different places in the grid. Idempotent.
         /// </summary>
-        public static void BuildToggle(TMP_Dropdown ageDropdown, Button styleToggle, TMP_Text styleState,
-                                       out Button toggle, out TMP_Text state)
+        public static MenuToggleSwitch BuildToggle(TMP_Dropdown ageDropdown, Button styleTrack,
+                                                   GameObject togglePrefab)
         {
-            toggle = null; state = null;
-            if (ageDropdown == null) return;
+            if (ageDropdown == null) return null;
             var cell = ageDropdown.transform.parent;
-            if (cell == null) return;
+            if (cell == null) return null;
 
             var existing = cell.Find("CulturePill");
-            if (existing != null)
-            {
-                toggle = existing.GetComponentInChildren<Button>(true);
-                state = existing.Find("State")?.GetComponent<TMP_Text>();
-                return;
-            }
+            if (existing != null) return existing.GetComponentInChildren<MenuToggleSwitch>(true);
 
             ageDropdown.gameObject.SetActive(false);
             var caption = cell.GetComponentInChildren<TMP_Text>(true);
             if (caption != null) caption.text = Loc.T("START WITH CULTURE");
 
-            float stateSize = styleState != null ? styleState.fontSize : 13f;
-            var styleLe = styleToggle != null ? styleToggle.GetComponent<LayoutElement>() : null;
-            float trackH = styleLe != null && styleLe.minHeight > 0f ? styleLe.minHeight : 26f;
-            float trackW = styleLe != null && styleLe.minWidth > 0f ? styleLe.minWidth : 96f;
-
-            var pillGo = new GameObject("CulturePill", typeof(RectTransform));
-            pillGo.transform.SetParent(cell, false);
-            var h = pillGo.AddComponent<HorizontalLayoutGroup>();
-            h.childControlWidth = true; h.childControlHeight = true;
-            h.childForceExpandWidth = false; h.childForceExpandHeight = false;
-            h.childAlignment = TextAnchor.MiddleLeft;
-            h.spacing = 10f;
-
-            var stateGo = new GameObject("State", typeof(RectTransform));
-            stateGo.transform.SetParent(pillGo.transform, false);
-            var stateText = stateGo.AddComponent<TextMeshProUGUI>();
-            stateText.alignment = TextAlignmentOptions.MidlineLeft;
-            stateText.fontSize = stateSize;
-            stateText.text = Loc.T("OFF");
-            stateText.raycastTarget = false;
-            if (styleState != null) { stateText.font = styleState.font; stateText.color = styleState.color; }
-            state = stateText;
-
-            var trackGo = new GameObject("Track", typeof(RectTransform));
-            trackGo.transform.SetParent(pillGo.transform, false);
-            var img = trackGo.AddComponent<Image>();
-            img.color = new Color(0.086f, 0.118f, 0.141f);
-            toggle = trackGo.AddComponent<Button>();
-            toggle.targetGraphic = img;
-            var le = trackGo.AddComponent<LayoutElement>();
-            le.minHeight = le.preferredHeight = trackH;
-            le.minWidth = le.preferredWidth = trackW;
-
-            var sw = styleToggle != null ? styleToggle.GetComponent<MenuToggleSwitch>() : null;
-            if (sw != null)
-                MenuToggleSwitch.Attach((RectTransform)trackGo.transform,
-                    sw.TrackSprite, sw.OutlineSprite, sw.KnobSprite,
-                    sw.KnobWidth, sw.KnobInset, sw.KnobPadding);
+            var styleRow = styleTrack != null ? styleTrack.transform.parent : null;
+            if (styleRow == null)
+            {
+                Debug.LogError("[StartCultureOption] no fog option pill to copy - the START WITH " +
+                               "CULTURE switch was not built.", ageDropdown);
+                return null;
+            }
+            return MenuToggleSwitch.CloneRow(styleRow, cell, togglePrefab, "CulturePill");
         }
 
         /// <summary>

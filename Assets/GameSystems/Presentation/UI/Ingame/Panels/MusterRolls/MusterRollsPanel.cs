@@ -213,8 +213,14 @@ namespace TheWaningBorder.UI.Ingame
                 TextAlignmentOptions.TopLeft, wrap: false);
             Place(_subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(62f, -190f), new Vector2(-1500f, -135f));
 
-            // Tabs + close, right-aligned along the top.
+            // Tabs, close and the way out, right-aligned along the top. Main
+            // Menu is here as well as on the victory screen beneath, so the
+            // match leaves through its review: the pause menu's exits are
+            // gone (2026-10-28) - it resigns instead.
             float x = -60f;
+            Button(panel, "mainmenu", Loc.T("Main Menu"), VictoryPanel.ReturnToMainMenu,
+                new Vector2(x - 260f, -40f - TabH), new Vector2(260f, TabH));
+            x -= 260f + 16f;
             Button(panel, "close", Loc.T("Close"), Hide, new Vector2(x - 260f, -40f - TabH), new Vector2(260f, TabH));
             x -= 260f + 50f;
             string[] tabNames = { Loc.T("Standings"), Loc.T("Charts"), Loc.T("Map") };

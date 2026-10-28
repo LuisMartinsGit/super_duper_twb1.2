@@ -50,6 +50,9 @@ public struct EliminatedFactionRecord : IBufferElementData
 {
     public Faction Value;
     public float AtSimSeconds;
+    /// <summary>1 when the faction RESIGNED (the lockstep Resign command)
+    /// rather than being beaten; the defeat screen words it so.</summary>
+    public byte Resigned;
 }
 
 namespace TheWaningBorder.Systems.Core
@@ -87,6 +90,32 @@ namespace TheWaningBorder.Systems.Core
         private readonly bool[] _everHadBuilding = new bool[MaxFactions];
         private readonly float[] _buildinglessSince = new float[MaxFactions];
 
+        // Resignations (the lockstep Resign command, 2026-10-28), waiting for
+        // the next pass. Sim state: set during command execution at one tick
+        // on every peer, consumed by the pass that follows on every peer.
+        private readonly HashSet<Faction> _resigned = new();
+
+        /// <summary>
+        /// A faction gives up (CommandRouter.ResignDirect, on every peer). It
+        /// is retired on the system's next pass - at once, outside the check
+        /// cadence and the start grace, because the order is explicit - the
+        /// same way an elimination retires it: record, self-destruct, and the
+        /// verdict if nobody hostile is left.
+        /// </summary>
+        public static void RequestResign(EntityManager em, Faction faction)
+        {
+            if (faction == Faction.Border) return;
+            var system = em.World.GetExistingSystemManaged<EliminationSystem>();
+            if (system == null)
+            {
+                UnityEngine.Debug.LogWarning($"[Elimination] {faction} resigned but no EliminationSystem " +
+                                             "runs in this world (sandbox / scenario?) - nothing happens.");
+                return;
+            }
+            system._resigned.Add(faction);
+            TheWaningBorder.AI.AILogger.Log(faction, "VICTORY", "RESIGNED.");
+        }
+
         protected override void OnUpdate()
         {
             if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.Scenario) return;
@@ -97,6 +126,7 @@ namespace TheWaningBorder.Systems.Core
                 _epoch = SimCadence.Epoch;
                 _matchSeconds = 0f;
                 _everSeenAlive.Clear();
+                _resigned.Clear();
                 _verdictEntity = Entity.Null;
                 for (int i = 0; i < MaxFactions; i++)
                 {
@@ -115,8 +145,13 @@ namespace TheWaningBorder.Systems.Core
 
             var cfg = EliminationSystemConfig.I;
             if (cfg == null) return;   // Require already logged the data bug
-            if (!_acc.Due(SystemAPI.Time.DeltaTime, cfg.checkIntervalSeconds)) return;
-            if (_matchSeconds < cfg.startGraceSeconds) return;
+            // A pending resignation runs the pass now, cadence and start grace
+            // aside: the order is explicit and the player is waiting for the
+            // defeat screen. The accumulator still ticks every frame.
+            bool due = _acc.Due(SystemAPI.Time.DeltaTime, cfg.checkIntervalSeconds);
+            bool resignPending = _resigned.Count > 0;
+            if (!due && !resignPending) return;
+            if (!resignPending && _matchSeconds < cfg.startGraceSeconds) return;
 
             var em = EntityManager;
 
@@ -138,7 +173,7 @@ namespace TheWaningBorder.Systems.Core
             }
 
             var verdict = em.GetComponentData<MatchVerdictState>(_verdictEntity);
-            if (verdict.Decided != 0) return;
+            if (verdict.Decided != 0) { _resigned.Clear(); return; }
 
             // ── Alive set = registered players minus recorded eliminations ──
             var eliminated = new HashSet<Faction>();
@@ -222,6 +257,15 @@ namespace TheWaningBorder.Systems.Core
                 bool canRebuild = hasHall[fi] || hasMilitary[fi] || hasWorker[fi];
                 if (canRebuild) _everSeenAlive.Add(f);
 
+                // ── Resigned (the Resign command): out, whatever it holds. ──
+                if (_resigned.Contains(f))
+                {
+                    _everSeenAlive.Add(f);   // it played; its leaving can decide the match
+                    newly.Add(f);
+                    reason[f] = "resigned.";
+                    continue;
+                }
+
                 if (!canRebuild)
                 {
                     if (!_everSeenAlive.Contains(f)) continue;  // never spawned yet
@@ -301,11 +345,18 @@ namespace TheWaningBorder.Systems.Core
             {
                 alive.Remove(f);
                 em.GetBuffer<EliminatedFactionRecord>(_verdictEntity)
-                  .Add(new EliminatedFactionRecord { Value = f, AtSimSeconds = _matchSeconds });
+                  .Add(new EliminatedFactionRecord
+                  {
+                      Value = f,
+                      AtSimSeconds = _matchSeconds,
+                      Resigned = (byte)(_resigned.Contains(f) ? 1 : 0),
+                  });
                 SelfDestructFactionAssets(em, f);
                 TheWaningBorder.AI.AILogger.Log(f, "VICTORY",
                     $"ELIMINATED at {_matchSeconds:0}s - {reason[f]}");
             }
+            // Served (or already out): a request never outlives the pass.
+            _resigned.Clear();
 
             // ── Decided when no hostile pair remains among the living. ──
             // A slot that never spawned (an Empty lobby slot still counted in

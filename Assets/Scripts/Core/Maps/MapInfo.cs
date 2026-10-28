@@ -30,6 +30,18 @@ namespace TheWaningBorder.Core.Maps
 
         public Texture2D Thumbnail;
 
+        /// <summary>
+        /// The terrain's world size in metres (x = west-east, y = south-north),
+        /// baked from the scene. The thumbnail is square with a rectangular
+        /// map letterboxed in it; this is what lets the lobby preview show
+        /// the map at its own aspect (MapPreviewWidget) instead of the square.
+        /// Zero (an unbaked asset) reads as square.
+        /// </summary>
+        public Vector2 WorldSize;
+
+        /// <summary>Width over height of the playable map; 1 when unknown.</summary>
+        public float Aspect => WorldSize.x > 0f && WorldSize.y > 0f ? WorldSize.x / WorldSize.y : 1f;
+
         // Normalized map coordinates (0..1 across the terrain;
         // x = west -> east, y = south -> north). Baked from scene markers.
         public Vector2[] PlayerStarts = new Vector2[0];

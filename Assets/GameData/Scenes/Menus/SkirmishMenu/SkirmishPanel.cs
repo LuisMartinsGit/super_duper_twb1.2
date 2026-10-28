@@ -52,9 +52,6 @@ namespace TheWaningBorder.UI.Menus.Panels
             return names;
         }
 
-        private static readonly Color PillOn  = new Color(0.690f, 0.525f, 0.173f);
-        private static readonly Color PillOff = new Color(0.086f, 0.118f, 0.141f);
-
         public MapPreviewWidget MapPreview;
         public Button PrevMapButton;
         public Button NextMapButton;
@@ -65,6 +62,9 @@ namespace TheWaningBorder.UI.Menus.Panels
         public TMP_Text FogState;
         public Button CurseToggle;
         public TMP_Text CurseState;
+        /// <summary>The Synty toggle prefab every ON/OFF option is drawn with
+        /// (MenuToggleSwitch.Replace). Unwired, the authored tracks stay.</summary>
+        public GameObject TogglePrefab;
 
         public RectTransform RosterContent;
         public GameObject RosterRowTemplate; // inactive; cloned per slot
@@ -84,18 +84,19 @@ namespace TheWaningBorder.UI.Menus.Panels
         // dropdown. The static remembers the choice for the session.
         private static bool _startWithCultureDefault;
         private bool _startWithCulture;
-        private Button _cultureToggle;
-        private TMP_Text _cultureState;
+        private MenuToggleSwitch _cultureToggle;
+
+        // The authored fog / curse options, dressed (MenuToggleSwitch.Replace).
+        private MenuToggleSwitch _fogSwitch, _curseSwitch;
 
         // Observer mode (AI vs AI): the local player spectates and every
-        // slot — including slot 0 — is AI-controlled. The pill is built
-        // programmatically at runtime (no scene edit, no structural
-        // assumptions about the built option cells). OFF by default; the
+        // slot — including slot 0 — is AI-controlled. Its option cell is a
+        // runtime clone of the fog cell on a third options row, so it sits
+        // in the same grid as the authored options. OFF by default; the
         // static remembers the player's choice for the session.
         private static bool _observerDefault = false;
         private bool _observer;
-        private Button _observerToggle;
-        private TMP_Text _observerState;
+        private MenuToggleSwitch _observerToggle;
 
         private void OnEnable()
         {
@@ -146,122 +147,105 @@ namespace TheWaningBorder.UI.Menus.Panels
                 SetOptions(ResourcesDropdown, ResourceNames);
                 ResourcesDropdown.onValueChanged.AddListener(v => _startResources = (StartingResourcesLevel)v);
             }
-            StartCultureOption.BuildToggle(AgeDropdown, FogToggle, FogState, out _cultureToggle, out _cultureState);
+            // Clones are taken off the fog cell BEFORE it is dressed, so every
+            // option starts from the same authored pill.
+            CreateObserverCell();
+            _cultureToggle = StartCultureOption.BuildToggle(AgeDropdown, FogToggle, TogglePrefab);
             if (_cultureToggle != null)
-                _cultureToggle.onClick.AddListener(() =>
+                _cultureToggle.Changed += on =>
                 {
-                    _startWithCulture = !_startWithCulture;
-                    _startWithCultureDefault = _startWithCulture;
+                    _startWithCulture = on;
+                    _startWithCultureDefault = on;
                     SyncOptions();
                     RebuildRoster();
-                });
-            if (FogToggle != null) FogToggle.onClick.AddListener(() => { _fogOfWar = !_fogOfWar; SyncOptions(); });
-            if (CurseToggle != null) CurseToggle.onClick.AddListener(() => { _curseNodes = !_curseNodes; SyncOptions(); });
+                };
+            _fogSwitch = MenuToggleSwitch.Replace(FogToggle, FogState, TogglePrefab);
+            if (_fogSwitch != null) _fogSwitch.Changed += on => { _fogOfWar = on; SyncOptions(); };
+            _curseSwitch = MenuToggleSwitch.Replace(CurseToggle, CurseState, TogglePrefab);
+            if (_curseSwitch != null) _curseSwitch.Changed += on => { _curseNodes = on; SyncOptions(); };
+            if (_observerToggle != null)
+                _observerToggle.Changed += on =>
+                {
+                    _observer = on;
+                    _observerDefault = on;
+                    SyncOptions();
+                    RebuildRoster();
+                    SetError(null);
+                };
             if (AddOpponentButton != null) AddOpponentButton.onClick.AddListener(AddOpponent);
-
-            CreateObserverPill();
         }
 
         /// <summary>
-        /// Build the OBSERVER option pill fully programmatically (label +
-        /// ON/OFF button) and append it next to the fog option. The previous
-        /// clone-the-fog-cell approach depended on the built cell's internal
-        /// structure and silently produced a dead toggle when the structure
-        /// drifted — this version constructs every element itself.
+        /// The OBSERVER option: a clone of the whole fog cell (label, caption
+        /// and pill), placed on the MAP OPTIONS title line in the right
+        /// column - its rect copied off the live Curse cell for the column
+        /// and off the title for the line - so it reads as the top-right
+        /// cell of the grid. The two authored rows are hand-placed (their
+        /// layout elements ignore the box's layout group) and fill the box,
+        /// so a third row has nowhere to go: a cloned row landed on top of
+        /// the second (2026-10-28). Cloning the cell is what keeps it aligned
+        /// with the others - the hand-built version picked its own fonts,
+        /// sizes and spacing. The clone is checked, not trusted: a missing
+        /// label or track is a logged error and no option, never a silent
+        /// dead toggle.
         /// </summary>
-        private void CreateObserverPill()
+        private void CreateObserverCell()
         {
             if (_observerToggle != null || FogToggle == null) return;
 
-            // The options row that holds the fog option cell: FogToggle sits
-            // inside its cell's "Pill" sub-row → cell → row. Fall back one
-            // level at a time if the hierarchy is shallower than expected.
+            // FogToggle sits in its cell's "Pill" row -> cell -> options row
+            // -> the options box, whose first child is the title.
             Transform pillRow = FogToggle.transform.parent;
             Transform cell = pillRow != null ? pillRow.parent : null;
-            Transform row = cell != null ? cell.parent : pillRow;
-            if (row == null) return;
-
-            var cellGo = new GameObject("OptObserver", typeof(RectTransform));
-            cellGo.transform.SetParent(row, false);
-            var v = cellGo.AddComponent<VerticalLayoutGroup>();
-            v.childControlWidth = true;
-            v.childForceExpandWidth = true;
-            v.childControlHeight = true;
-            v.childForceExpandHeight = false;
-            v.spacing = 4f;
-            var cellLe = cellGo.AddComponent<LayoutElement>();
-            cellLe.flexibleWidth = 1f;
-
-            // Caption.
-            var labelGo = new GameObject("Label", typeof(RectTransform));
-            labelGo.transform.SetParent(cellGo.transform, false);
-            var label = labelGo.AddComponent<TMPro.TextMeshProUGUI>();
-            label.text = Loc.T("OBSERVER");
-            label.fontSize = 13f;
-            label.fontStyle = TMPro.FontStyles.Bold;
-            if (FogState != null) { label.font = FogState.font; label.color = FogState.color; }
-            var labelLe = labelGo.AddComponent<LayoutElement>();
-            labelLe.minHeight = 18f;
-
-            // Sizes are READ off the fog option rather than hard-coded. The
-            // constants that used to sit here (13pt, 26x96) were written for a
-            // 1080p canvas and rendered this option visibly smaller than its
-            // neighbours on the 3840x2160 one. Borrowing values is not the
-            // structural coupling the summary above warns about - nothing here
-            // reaches into another cell's child objects.
-            float stateSize = FogState != null ? FogState.fontSize : 13f;
-            var fogLe = FogToggle.GetComponent<LayoutElement>();
-            float trackH = fogLe != null && fogLe.minHeight > 0f ? fogLe.minHeight : 26f;
-            float trackW = fogLe != null && fogLe.minWidth > 0f ? fogLe.minWidth : 96f;
-
-            // Row: ON/OFF caption beside the switch, same shape as the authored
-            // fog and curse cells.
-            var pillGo = new GameObject("Pill", typeof(RectTransform));
-            pillGo.transform.SetParent(cellGo.transform, false);
-            var pillH = pillGo.AddComponent<HorizontalLayoutGroup>();
-            pillH.childControlWidth = true;
-            pillH.childControlHeight = true;
-            pillH.childForceExpandWidth = false;
-            pillH.childForceExpandHeight = false;
-            pillH.childAlignment = TextAnchor.MiddleLeft;
-            pillH.spacing = 10f;
-
-            var stateGo = new GameObject("State", typeof(RectTransform));
-            stateGo.transform.SetParent(pillGo.transform, false);
-            var stateText = stateGo.AddComponent<TMPro.TextMeshProUGUI>();
-            stateText.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
-            stateText.fontSize = stateSize;
-            stateText.text = Loc.T("OFF");
-            stateText.raycastTarget = false;
-            if (FogState != null) { stateText.font = FogState.font; stateText.color = FogState.color; }
-            _observerState = stateText;
-
-            var trackGo = new GameObject("Track", typeof(RectTransform));
-            trackGo.transform.SetParent(pillGo.transform, false);
-            var img = trackGo.AddComponent<Image>();
-            img.color = PillOff;
-            _observerToggle = trackGo.AddComponent<Button>();
-            _observerToggle.targetGraphic = img;
-            var trackLe = trackGo.AddComponent<LayoutElement>();
-            trackLe.minHeight = trackLe.preferredHeight = trackH;
-            trackLe.minWidth = trackLe.preferredWidth = trackW;
-
-            // Same Synty art as the authored switches, taken off the fog one so
-            // this stays a plain pill when the dressing pass has not been run.
-            var fogSwitch = FogToggle.GetComponent<MenuToggleSwitch>();
-            if (fogSwitch != null)
-                MenuToggleSwitch.Attach((RectTransform)trackGo.transform,
-                    fogSwitch.TrackSprite, fogSwitch.OutlineSprite, fogSwitch.KnobSprite,
-                    fogSwitch.KnobWidth, fogSwitch.KnobInset, fogSwitch.KnobPadding);
-
-            _observerToggle.onClick.AddListener(() =>
+            Transform row = cell != null ? cell.parent : null;
+            var box = row != null ? row.parent as RectTransform : null;
+            var rightCell = row != null && row.childCount > 1 ? row.GetChild(row.childCount - 1) as RectTransform : null;
+            var title = box != null && box.childCount > 0 ? box.GetChild(0) as RectTransform : null;
+            if (box == null || rightCell == null || title == null)
             {
-                _observer = !_observer;
-                _observerDefault = _observer;
-                SyncOptions();
-                RebuildRoster();
-                SetError(null);
-            });
+                Debug.LogError("[SkirmishPanel] fog option cell / options box not found - no OBSERVER option.", this);
+                return;
+            }
+
+            // The row's cells are sized by its layout group; make sure that
+            // has run before their rects are read.
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)row);
+
+            var cellGo = Instantiate(cell.gameObject, box, false);
+            cellGo.name = "OptObserver";
+            var rt = (RectTransform)cellGo.transform;
+            var le = cellGo.GetComponent<LayoutElement>() ?? cellGo.AddComponent<LayoutElement>();
+            le.ignoreLayout = true;   // hand-placed, like the rows
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            Vector2 column = box.InverseTransformPoint(rightCell.TransformPoint(rightCell.rect.center));
+            Vector2 line = box.InverseTransformPoint(title.TransformPoint(title.rect.center));
+            rt.sizeDelta = new Vector2(rightCell.rect.width, rightCell.rect.height);
+            rt.anchoredPosition = new Vector2(column.x, line.y);
+
+            TMP_Text label = null, caption = null;
+            foreach (var t in cellGo.GetComponentsInChildren<TMP_Text>(true))
+            {
+                if (t.name == "Label") label = t;
+                else if (t.name == "Caption") caption = t;
+            }
+            Button track = null;
+            TMP_Text state = null;
+            foreach (var b in cellGo.GetComponentsInChildren<Button>(true))
+                if (b.GetComponent<Toggle>() == null) { track = b; break; }
+            foreach (var t in cellGo.GetComponentsInChildren<TMP_Text>(true))
+                if (t.name == "State") { state = t; break; }
+            if (label == null || track == null)
+            {
+                Debug.LogError("[SkirmishPanel] the fog option cell has no Label / Track to clone - " +
+                               "its structure drifted; no OBSERVER option.", this);
+                Destroy(cellGo);
+                return;
+            }
+            label.text = Loc.T("OBSERVER");
+            if (caption != null) caption.text = Loc.T("AI against AI; you watch.");
+            track.onClick.RemoveAllListeners();
+            _observerToggle = MenuToggleSwitch.Replace(track, state, TogglePrefab);
         }
 
         private static void SetOptions(TMP_Dropdown dd, string[] names)
@@ -277,25 +261,10 @@ namespace TheWaningBorder.UI.Menus.Panels
         private void SyncOptions()
         {
             if (ResourcesDropdown != null) ResourcesDropdown.SetValueWithoutNotify((int)_startResources);
-            SyncPill(_cultureToggle, _cultureState, _startWithCulture);
-            SyncPill(FogToggle, FogState, _fogOfWar);
-            SyncPill(CurseToggle, CurseState, _curseNodes);
-            SyncPill(_observerToggle, _observerState, _observer);
-        }
-
-        private static void SyncPill(Button toggle, TMP_Text state, bool on)
-        {
-            if (state != null) state.text = Loc.T(on ? "ON" : "OFF");
-            if (toggle == null) return;
-
-            // Dressed as a Synty sliding switch by MapOptionsChrome; the flat
-            // colour swap below is the fallback for an undressed toggle, so the
-            // option still reads as on or off before that pass has been run.
-            var sw = toggle.GetComponent<MenuToggleSwitch>();
-            if (sw != null) { sw.SetOn(on); return; }
-
-            if (toggle.targetGraphic is Image img)
-                img.color = on ? PillOn : PillOff;
+            _cultureToggle?.SetOn(_startWithCulture);
+            _fogSwitch?.SetOn(_fogOfWar);
+            _curseSwitch?.SetOn(_curseNodes);
+            _observerToggle?.SetOn(_observer);
         }
 
         // ── Map ─────────────────────────────────────────────────────────

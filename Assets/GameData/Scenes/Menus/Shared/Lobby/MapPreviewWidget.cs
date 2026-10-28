@@ -71,6 +71,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                 Diamond.enabled = hasThumb; // a null RawImage texture draws white
             }
             if (DiamondGem != null) DiamondGem.SetActive(!hasThumb);
+            FitAspect(info != null ? info.Aspect : 1f);
 
             WarnOnMissingWiring();
 
@@ -86,6 +87,75 @@ namespace TheWaningBorder.UI.Menus.Panels
                 AddMarkerSet(info.IronDeposits, IronColor, "IRON");
                 AddMarkerSet(info.CurseNodes, CurseColor, "CURSE");
             }
+        }
+
+        // ── Map aspect ──────────────────────────────────────────────────
+        //
+        // Thumbnails are baked SQUARE with a rectangular map letterboxed in
+        // the middle (MapInfoBaker.GetMapBounds), and every normalised marker
+        // is baked against that same square. The preview shows the map, not
+        // the square: the thumbnail is cropped to the map's band (uvRect),
+        // the box that holds it - the thumbnail's parent, authored square -
+        // takes the map's aspect inside that square, its Frame follows the
+        // box, and the markers are remapped from the square to the map.
+
+        private float _aspect = 1f;
+        private RectTransform _box, _frame;
+        private float _boxSide;
+        private Vector2 _frameExtra;
+
+        private void FitAspect(float aspect)
+        {
+            _aspect = aspect > 0f ? aspect : 1f;
+            if (Diamond == null) return;
+
+            if (_box == null)
+            {
+                _box = Diamond.rectTransform.parent as RectTransform;
+                if (_box == null) return;
+                // The box sits in a layout group that positions but does not
+                // size it, so its sizeDelta IS its authored size.
+                _boxSide = Mathf.Max(_box.sizeDelta.x, _box.sizeDelta.y);
+                _frame = _box.Find("Frame") as RectTransform;
+                if (_frame != null) _frameExtra = _frame.sizeDelta - _box.sizeDelta;
+            }
+
+            bool wide = _aspect >= 1f;
+            _box.sizeDelta = wide
+                ? new Vector2(_boxSide, _boxSide / _aspect)
+                : new Vector2(_boxSide * _aspect, _boxSide);
+
+            if (_frame != null)
+            {
+                // Authored anchored to a corner at a fixed size; made to
+                // follow the box with its authored overhang on every side.
+                _frame.anchorMin = Vector2.zero;
+                _frame.anchorMax = Vector2.one;
+                _frame.pivot = new Vector2(0.5f, 0.5f);
+                _frame.offsetMin = -_frameExtra * 0.5f;
+                _frame.offsetMax = _frameExtra * 0.5f;
+            }
+
+            float band = Band();
+            Diamond.uvRect = wide
+                ? new Rect(0f, band, 1f, 1f - 2f * band)
+                : new Rect(band, 0f, 1f - 2f * band, 1f);
+        }
+
+        /// <summary>Letterbox band on each side of the map, as a fraction
+        /// of the square thumbnail (0 for a square map).</summary>
+        private float Band()
+            => _aspect >= 1f ? (1f - 1f / _aspect) * 0.5f : (1f - _aspect) * 0.5f;
+
+        /// <summary>A baked square-normalised point as a map-normalised one.</summary>
+        private Vector2 Remap(Vector2 p)
+        {
+            float band = Band();
+            if (band <= 0f) return p;
+            float span = 1f - 2f * band;
+            return _aspect >= 1f
+                ? new Vector2(p.x, Mathf.Clamp01((p.y - band) / span))
+                : new Vector2(Mathf.Clamp01((p.x - band) / span), p.y);
         }
 
         private bool _warned;
@@ -179,7 +249,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                     var dot = Instantiate(MarkerTemplate, MarkerLayer);
                     dot.SetActive(true);
                     var rt = (RectTransform)dot.transform;
-                    rt.anchorMin = rt.anchorMax = new Vector2(points[i].x, points[i].y);
+                    rt.anchorMin = rt.anchorMax = Remap(points[i]);
                     rt.anchoredPosition = Vector2.zero;
 
                     // Start dots read larger than resource dots — they are the
@@ -300,7 +370,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                     var rt = (RectTransform)dot.transform;
                     // Normalized map coords: x = west->east, y = south->north.
                     // uGUI anchors are bottom-up, so y maps directly.
-                    rt.anchorMin = rt.anchorMax = new Vector2(p.x, p.y);
+                    rt.anchorMin = rt.anchorMax = Remap(p);
                     rt.anchoredPosition = Vector2.zero;
                 }
             }

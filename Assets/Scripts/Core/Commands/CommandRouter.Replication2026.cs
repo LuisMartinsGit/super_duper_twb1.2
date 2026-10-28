@@ -104,6 +104,40 @@ namespace TheWaningBorder.Core.Commands
             => TheWaningBorder.Abilities.AlanthorActiveHelper.TriggerRangingShot(em, faction);
 
         // ═══════════════════════════════════════════════════════════════
+        // RESIGN (the pause menu, 2026-10-28)
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// The local player gives up the match. It is an ORDER, not a scene
+        /// change: EliminationSystem retires the faction on every peer at the
+        /// same tick (its assets self-destruct, an EliminatedFactionRecord
+        /// marked Resigned is appended), and the player's own screen then
+        /// goes through the ordinary defeat flow - the victory panel and the
+        /// Game Review - rather than straight to the menu. Under lockstep the
+        /// order travels the command stream, so a replay reproduces the exit
+        /// and the other peers see the faction fall.
+        /// </summary>
+        public static void IssueResign(EntityManager em, Faction faction,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldDropCommand(source)) return;
+            if (ShouldQueueForLockstep(source))
+            {
+                LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+                {
+                    Type = LockstepCommandType.Resign,
+                    EntityNetworkId = (int)faction,   // no entity — the faction resigns
+                });
+                return;
+            }
+            ResignDirect(em, faction);
+        }
+
+        /// <summary>Post-lockstep application. Every peer runs this.</summary>
+        public static void ResignDirect(EntityManager em, Faction faction)
+            => TheWaningBorder.Systems.Core.EliminationSystem.RequestResign(em, faction);
+
+        // ═══════════════════════════════════════════════════════════════
         // RELIGION PURCHASES (docs/Design/Religion.md §1.1, §3.1)
         // ═══════════════════════════════════════════════════════════════
 

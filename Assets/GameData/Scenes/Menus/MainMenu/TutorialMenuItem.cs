@@ -33,7 +33,9 @@ namespace TheWaningBorder.UI.Menus
         /// <summary>Blue-menu item cloned for the tutorial entry.</summary>
         private const string TemplateMenuItem = "Menu_Item_Skirmish";
         private const string TutorialMenuItemName = "Menu_Item_Tutorial";
-        private const string Label = "TUTORIAL";
+        // Title case like the authored entries beside it (Skirmish, Multiplayer,
+        // Scenarios, Load Game); it was the one item in capitals.
+        private const string Label = "Tutorial";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Init()

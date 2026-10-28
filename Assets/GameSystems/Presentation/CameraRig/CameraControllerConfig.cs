@@ -43,6 +43,9 @@ namespace TheWaningBorder.CameraRig
 
         public float rotationPerNotch;
         public float rotationDamping;
+        /// <summary>Yaw the rig starts a match at, degrees (45 since
+        /// 2026-10-28: the view and the minimap open turned, not square).</summary>
+        public float initialYaw;
 
         public float tiltZoomedIn;
         public float tiltZoomedOut;

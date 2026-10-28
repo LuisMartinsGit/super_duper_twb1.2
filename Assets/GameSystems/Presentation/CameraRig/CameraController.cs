@@ -110,6 +110,9 @@ namespace TheWaningBorder.CameraRig
             //Place camera at new position
             _targetPosition = transform.position;
             _currentZoom = _targetZoom = _camTransform.localPosition.magnitude;
+            // The rig is created square to the world; the match opens at the
+            // configured yaw (CameraController.asset initialYaw, 45).
+            transform.rotation = Quaternion.Euler(0f, Cfg.initialYaw, 0f);
             _currentRotation = _targetRotation = transform.eulerAngles.y;
             _currentHeight = _targetHeight = transform.position.y;
             //Clamp position to world bounds

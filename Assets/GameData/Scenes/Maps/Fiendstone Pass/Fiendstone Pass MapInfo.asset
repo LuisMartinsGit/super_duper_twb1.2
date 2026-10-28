@@ -18,6 +18,7 @@ MonoBehaviour:
   SizeTag: OPEN
   Description: 
   Thumbnail: {fileID: 2800000, guid: 7f800880169ff7d439f1004fafac7237, type: 3}
+  WorldSize: {x: 1024, y: 1024}
   PlayerStarts:
   - {x: 0.10253906, y: 0.90722656}
   - {x: 0.54785156, y: 0.890625}
