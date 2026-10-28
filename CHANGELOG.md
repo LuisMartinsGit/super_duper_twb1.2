@@ -9,6 +9,70 @@ build always name the same number.
 
 ---
 
+## [Unreleased]
+
+## [0.0.59] — 2026-10-28
+
+### Added
+- **Every Age 0 and Alanthor building rebuilt from Synty pieces.** The Hut,
+  Shelter, Barracks, Gatherer's Hut, Mine, Veilstone Mine, Temple, both
+  landmarks, every Alanthor building at levels 1-3, the sect buildings, the
+  palisade and the stone wall are new prefabs composed of Synty Fantasy
+  Kingdom pieces, each one editable piece by piece. Age 0 is dark-ages
+  timber and thatch behind post-and-rail fences; Alanthor is white stucco
+  with red columns, teal tile roofs, torii gates and lanterns, every level
+  growing inside the same plot. The old Blender models are gone.
+  `Waning Border > Art > Author Age 0 + Alanthor Art (Synty)` and
+  `Author House Line` rebuild them; `Build House Lineup Scene` lays the
+  four houses side by side in `Scenes/Debug/HouseLineup.unity`.
+
+### Changed
+- **Pencil ink outlines are on by default again** (Settings > Visuals still
+  turns them off).
+- **Lobby options are real Synty toggles.** The ON/OFF options on the
+  skirmish and multiplayer screens (Fog of War, Curse Nodes, Start with
+  Culture, Observer) are the Interface Fantasy Menus toggle — a plate that
+  lights up when on — instead of plain gold rectangles, all the same size in
+  a two-column grid, with Observer beside the Map Options title. The option
+  labels share one size.
+- **The lobby map preview takes the map's shape.** A rectangular map (Yiel
+  Lymwérra, Broken Oath) shows at its own proportions with the frame around
+  it, instead of letterboxed inside a square.
+- **The minimap frame turns with the map.** The whole minimap plate rotates
+  as the camera does, at one size, instead of the map alone turning inside a
+  fixed frame. The plate takes the map's own shape, so the frame hugs a
+  rectangular map instead of boxing empty bands. Behind it is a round gold
+  frame on a dark disc, sized so the map's corners run along the ring as it
+  turns, so a long map no longer looks off-centre; the whole thing sits far
+  enough from the screen edge to stay on screen at any angle.
+- The main menu's Tutorial entry is written like the entries beside it.
+- **The camera opens turned 45°.** A match starts with the view, and so the
+  minimap, at a 45° yaw instead of square to the map (CameraController.asset
+  `initialYaw`).
+- **Leaving a match goes through its review.** The pause menu's Quit to Main
+  Menu and Quit to Desktop are gone; in their place is **Resign**, which
+  retires your faction (an order every player and the replay see, so a
+  resignation is part of the match) and brings the defeat screen with Game
+  Review and Return to Main Menu. The Game Review has a Main Menu button of
+  its own, and the desktop is reached from the main menu's Quit: match →
+  post-game → main menu → desktop. Watching a replay, observing, or in a
+  sandbox or scenario the entry is **Leave Match**, which opens the review of
+  what was watched.
+
+### Fixed
+- **A defeat (or resignation) shows the moment it happens.** In any match
+  but the first of a session the end-of-match screen could lag the real
+  end by up to the previous match's length: the outcome poll measured its
+  start-up grace against a clock that is reset a moment after it read it.
+  It also polled every two seconds; it now looks every frame.
+- **The skirmish lobby's Fog of War and Curse Nodes toggles answer clicks
+  again** (and the multiplayer lobby's); their tracks were not click targets.
+- **Units no longer pin themselves against a wall beside a gate.** A unit
+  pushed into a wall at an angle now slides along it toward where it is
+  going, and a soldier held against a wall for a few seconds leaves its
+  formation and finds its own way round (through the gate) instead of
+  pushing for the rest of the match.
+
 ## [0.0.58] — 2026-10-25
 
 ### Fixed
