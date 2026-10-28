@@ -11,6 +11,36 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.60] — 2026-10-28
+
+### Changed
+- **Trees are half their size.** Every baked forest on the six maps, and
+  every map built from now on.
+
+### Fixed
+- **The AI attacks with armies again.** Its standing guard was sized from
+  the army it wanted (which its full treasury kept raising) instead of the
+  army it had, so two thirds of its soldiers stayed home and every wave was
+  the handful left over. The guard is now a share of the soldiers it has.
+  Raid parties muster at the gate and march as one body instead of five
+  runners in attack-move, an army that fell back only marches on its
+  objective again once the objective reads as takeable (not once nothing
+  is near its retreat spot), and it gives the objective up after three
+  retreats instead of pendulum-marching into the same defence for the rest
+  of the match.
+- **Alanthor paving no longer smears on bends.** The bricks are laid on the
+  road's own along / across coordinates instead of a tangent frame rotated
+  about the world origin, which stretched the paving by the road's distance
+  from the origin at every bend.
+- **The ink outlines (and shadows, and ambient occlusion) no longer skip a
+  building that has been damaged.** The damage shader had no depth, normals
+  or shadow passes, so any building that had ever taken a hit — the Vault
+  was the one noticed — dropped out of all three.
+- **No more one-module gap beside a gate.** Converting a module next to a
+  hub, tower or emplacement centred the gatehouse on the clicked module
+  while the modules it swallowed shifted along the wall, leaving a hole on
+  one side; the gate now stands in the middle of the span it empties.
+
 ## [0.0.59] — 2026-10-28
 
 ### Added
