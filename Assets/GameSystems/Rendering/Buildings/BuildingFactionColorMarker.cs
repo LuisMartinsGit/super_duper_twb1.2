@@ -4,7 +4,7 @@
 //
 // PLAYER COLOUR IS A SHADER PROPERTY (2026-10-10). The recolour runs per
 // pixel on the GPU (Assets/Shaders/Include/TWBFactionColor.hlsl, used by
-// TheWaningBorder/BuildingLit, BuildingDamage and BuildingLitDissolve); this
+// TheWaningBorder/BuildingLit and BuildingLitDissolve); this
 // class only sets `_TWB_FactionHSV` (the faction's HSV + a mode) on each
 // material. It used to copy every albedo atlas per faction on the CPU —
 // GetPixels32 + RGBToHSV over ~4 M pixels per 2048² texture, ~170 MB of
@@ -68,6 +68,26 @@ namespace TheWaningBorder.Rendering
         public static float InterimSwapSaturation = 1.0f;
 
         /// <summary>
+        /// Player-tint parts (the *_Player / *Castle_Roof* rule below) take the
+        /// player colour VIVID (2026-11-02): the lobby swatch with its
+        /// saturation pulled this fraction of the way to full. The reference
+        /// look is the Fortress's old blue - the kit's teal slate multiplied by
+        /// the Blue swatch, which came out at ~0.95 saturation because the two
+        /// hues agreed. Over the neutral `*_Player` tile the swatch alone gives
+        /// ~0.8 and reads faded, and the 30 % grey fade this replaced (2026-11-01)
+        /// made every roof slate. 0 = the swatch as is, 1 = fully saturated.
+        /// A grey swatch (Silver, Black) has no hue to boost and stays grey.
+        /// </summary>
+        public static float PlayerTintSaturate = 0.75f;
+
+        /// <summary>
+        /// Value (brightness) multiplier on the tinted swatch. The teal slate x
+        /// Blue landed at value ~0.38 where the neutral tile x the swatch lands
+        /// at ~0.48, so 0.8 keeps the vivid roof as deep as the one it matches.
+        /// </summary>
+        public static float PlayerTintValue = 0.8f;
+
+        /// <summary>
         /// Legacy exact-marker color, still used by the flat-color material
         /// fallback path (materials with no base texture whose _BaseColor is
         /// the marker blue).
@@ -115,6 +135,82 @@ namespace TheWaningBorder.Rendering
             to.SetVector(FactionHsvId, from.GetVector(FactionHsvId));
             if (from.HasProperty(FactionMaskId) && to.HasProperty(FactionMaskId))
                 to.SetTexture(FactionMaskId, from.GetTexture(FactionMaskId));
+        }
+
+        /// <summary>
+        /// The property names a building material may keep its albedo in, in
+        /// the order they are tried: URP-Lit / BuildingLit, the legacy name,
+        /// and Synty's Generic_Basic shader graph (the raw kit pieces a
+        /// hand-assembled prefab keeps). Every reader of "the albedo" — the
+        /// hue swap, the level-up dissolve, the placement ghost's blanking —
+        /// goes through this list, so a new shader is one entry here.
+        /// </summary>
+        public static readonly string[] AlbedoProperties = { "_BaseMap", "_MainTex", "_Albedo_Map" };
+
+        /// <summary>
+        /// The albedo texture of <paramref name="mat"/> and its tiling /
+        /// offset, from whichever of <see cref="AlbedoProperties"/> it
+        /// exposes and has set; null (and identity ST) when it has none.
+        /// </summary>
+        public static Texture AlbedoOf(Material mat, out Vector4 st)
+        {
+            st = new Vector4(1f, 1f, 0f, 0f);
+            var tex = FirstTexture(mat, AlbedoProperties, out string prop);
+            if (tex != null && mat.HasProperty(prop + "_ST")) st = mat.GetVector(prop + "_ST");
+            return tex;
+        }
+
+        /// <summary>Normal-map slots: URP-Lit / BuildingLit, then Synty's
+        /// graph (whose strength is `_Normal_Amount`).</summary>
+        static readonly string[] NormalProperties = { "_BumpMap", "_Normal_Map" };
+        static readonly string[] NormalScaleProperties = { "_BumpScale", "_Normal_Amount" };
+
+        /// <summary>The normal map of <paramref name="mat"/> and its strength
+        /// (1 when the shader has no strength), or null.</summary>
+        public static Texture NormalMapOf(Material mat, out float scale)
+        {
+            scale = 1f;
+            var tex = FirstTexture(mat, NormalProperties, out string prop);
+            if (tex == null) return null;
+            int i = System.Array.IndexOf(NormalProperties, prop);
+            if (mat.HasProperty(NormalScaleProperties[i])) scale = mat.GetFloat(NormalScaleProperties[i]);
+            return tex;
+        }
+
+        /// <summary>The emission of <paramref name="mat"/>: its colour (black
+        /// when it emits nothing — Synty's graph gates the map behind
+        /// `_Enable_Emission`) and, when it has one, its map.</summary>
+        public static Texture EmissionOf(Material mat, out Color color)
+        {
+            color = Color.black;
+            if (mat == null) return null;
+            if (mat.HasProperty("_EmissionColor")) color = mat.GetColor("_EmissionColor");
+            else if (mat.HasProperty("_Emission_Color")) color = mat.GetColor("_Emission_Color");
+            if (mat.HasProperty("_Enable_Emission") && mat.GetFloat("_Enable_Emission") < 0.5f) color = Color.black;
+            if (mat.HasProperty("_EmissionMap")) return mat.GetTexture("_EmissionMap");
+            if (mat.HasProperty("_Emission_Map")) return mat.GetTexture("_Emission_Map");
+            return null;
+        }
+
+        /// <summary>The occlusion map of <paramref name="mat"/>, or null.</summary>
+        public static Texture OcclusionOf(Material mat)
+            => mat != null && mat.HasProperty("_OcclusionMap") ? mat.GetTexture("_OcclusionMap") : null;
+
+        /// <summary>The first of <paramref name="names"/> the material exposes
+        /// AND has a texture in; <paramref name="found"/> is that name.</summary>
+        static Texture FirstTexture(Material mat, string[] names, out string found)
+        {
+            found = null;
+            if (mat == null) return null;
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (!mat.HasProperty(names[i])) continue;
+                var tex = mat.GetTexture(names[i]);
+                if (tex == null) continue;
+                found = names[i];
+                return tex;
+            }
+            return null;
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -205,13 +301,21 @@ namespace TheWaningBorder.Rendering
                     // a player-colour trim. Instances read "Playercolor (Instance)".
                     if (IsPlayerColorMaterial(mat)) { SetMode(mat, hsv, ModeOff); PaintSolid(mat, factionColor); continue; }
 
-                    // The castle kit's SLATE (Castle_Roof_01 — cone and pyramid
-                    // roofs, hoarding galleries) takes the player's colour,
-                    // tinted so the slate texture survives (2026-10-02;
-                    // supersedes "roofs are dark slate" for the castle set —
-                    // docs/Design/Art_Direction.md §4). By MATERIAL, so the
-                    // gallery's timber and the roof's finial are untouched.
-                    if (IsCastleRoofMaterial(mat)) { SetMode(mat, hsv, ModeOff); SetTint(mat, factionColor); continue; }
+                    // A PLAYER-TINT material takes the player's colour as a
+                    // multiply, so its texture survives. Two names qualify:
+                    // "*_Player" — a luminance-only (white) copy of a Synty
+                    // texture authored for exactly this (Castle_Roof_Player,
+                    // Flag_Symbol_Player in Civs/Alanthor/Buildings/Art/,
+                    // 2026-11-01), and the castle kit's own teal slate
+                    // "Castle_Roof_01" (2026-10-02; supersedes "roofs are dark
+                    // slate" for the castle set — docs/Design/Art_Direction.md
+                    // §4), which still tints but shifts hue (teal x Red = purple) -
+                    // no building prefab should keep it: `Waning Border > Art >
+                    // Roofs > Castle_Roof_01 -> Castle_Roof_Player` swaps every
+                    // slot (RoofPlayerMaterialPass, 2026-11-02). By MATERIAL,
+                    // so the gallery's timber, the roof's finial and the flag's
+                    // pole are untouched.
+                    if (IsPlayerTintMaterial(mat)) { SetMode(mat, hsv, ModeOff); SetTint(mat, PlayerTint(factionColor)); continue; }
 
                     // Name-tagged parts are a flat solid faction color.
                     if (isRoof)   { SetMode(mat, hsv, ModeOff); PaintSolid(mat, RoofSlate);    continue; }
@@ -271,9 +375,27 @@ namespace TheWaningBorder.Rendering
             return false;
         }
 
-        /// <summary>The castle kit's slate roof material (Castle_Roof_01; instances read "(Instance)").</summary>
-        private static bool IsCastleRoofMaterial(Material mat)
-            => mat.name.IndexOf("Castle_Roof", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        /// <summary>A material the player colour multiplies into: an authored
+        /// white "*_Player" copy, or the castle kit's slate (Castle_Roof_01).
+        /// Instances read "... (Instance)", so this is a contains test.</summary>
+        private static bool IsPlayerTintMaterial(Material mat)
+            => mat.name.IndexOf("_Player", System.StringComparison.OrdinalIgnoreCase) >= 0
+            || mat.name.IndexOf("Castle_Roof", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+        /// <summary>The faction colour as a tinted part wears it: saturation
+        /// pulled <see cref="PlayerTintSaturate"/> of the way to full, value x
+        /// <see cref="PlayerTintValue"/>, hue untouched. Public so the wall art
+        /// (WallModuleArt.ApplyOwnerColor, property blocks) paints its roofs
+        /// the same colour as every other building's.</summary>
+        public static Color PlayerTint(Color c)
+        {
+            Color.RGBToHSV(c, out float h, out float s, out float v);
+            s = 1f - (1f - s) * (1f - Mathf.Clamp01(PlayerTintSaturate));
+            v *= Mathf.Max(0f, PlayerTintValue);
+            var o = Color.HSVToRGB(h, s, v);
+            o.a = c.a;
+            return o;
+        }
 
         /// <summary>A material the artist named as the player-colour slot (e.g. the Hut's "Playercolor").</summary>
         private static bool IsPlayerColorMaterial(Material mat)
@@ -341,8 +463,7 @@ namespace TheWaningBorder.Rendering
         /// </summary>
         private static bool TryHueSwap(Material mat, Vector4 hsv)
         {
-            Texture albedo = mat.HasProperty("_BaseMap") ? mat.GetTexture("_BaseMap") : null;
-            if (albedo == null && mat.HasProperty("_MainTex")) albedo = mat.GetTexture("_MainTex");
+            Texture albedo = AlbedoOf(mat, out _);
             if (albedo == null || albedo == Texture2D.whiteTexture) { SetMode(mat, hsv, ModeOff); return false; }
             if (!EnsureRecolorShader(mat)) return false;
             SetMode(mat, hsv, ModeHueSwap);

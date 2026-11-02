@@ -174,7 +174,7 @@ namespace TheWaningBorder.Rendering
                 if (em.HasComponent<FactionTag>(entity))
                     accent = FactionColors.Get(em.GetComponentData<FactionTag>(entity).Value);
 
-                BuildingLevelUpEffect.SpawnTrained(anchor, accent);
+                UnitTrainedSparkle.Spawn(anchor, accent);
             }
 
             // Drop entries for despawned trainers so the dict doesn't grow.

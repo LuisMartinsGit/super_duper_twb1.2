@@ -2,9 +2,16 @@
 // Test bed for the one-SO-one-model building art (docs/Design/Art_Direction.md
 // § 13, 2026-10-20), from inside play mode:
 //
-//   Launch      — YielLymwerra, edition A, both seats AI and already Alanthor
-//                 in Age 1 (fog off, the editor observing): every starting
-//                 building spawns through the SO path.
+//   Launch      — Broken Oath, edition A, four AI seats already Alanthor in
+//                 Age 1 (fog off, the editor observing): every starting
+//                 building spawns through the SO path. Seats 1-3 (the west,
+//                 homes close together) are ONE TEAM and show the three
+//                 building levels side by side — Blue L1, Red L2, Green L3,
+//                 each with a Watch Tower beside its capital (Arrange, run by
+//                 itself once the capitals exist); seat 4 (Yellow) is the
+//                 enemy, alone on the Highmarch plateau ~590 m east
+//                 (2026-11-02).
+//   Arrange     — re-run the level / tower layout above by hand.
 //   Raise Lv2/3 — Blue's buildings of every Alanthor ladder to that faction
 //                 level (FactionBuildingLevels.ApplyToAll): the swap path.
 //   Showcase    — every Alanthor model (and the edition A base forms) laid out
@@ -13,7 +20,7 @@
 //   Lay Walls   — a stone run and a palisade run beside Blue's capital, each
 //                 with a gatehouse, a wall tower and both engine mounts: every
 //                 WallModuleArt slot of the level in play (Raise re-levels them).
-//   Camera      — to Blue's capital / the showcase.
+//   Camera      — to Blue's / Red's / Green's capital, the showcase, the walls.
 
 using System.Collections.Generic;
 using TheWaningBorder.Core.Config;
@@ -37,7 +44,15 @@ namespace TheWaningBorder.EditorTools
         static readonly List<GameObject> _showcase = new List<GameObject>();
         static float3 _showcaseAt;
 
-        [MenuItem("Waning Border/Debug/Alanthor Art Probe: Launch (Age 1, Alanthor AI vs Alanthor AI)")]
+        /// <summary>The three allied seats and the building level each one shows.</summary>
+        static readonly (Faction faction, byte level)[] Allies =
+            { (Faction.Blue, 1), (Faction.Red, 2), (Faction.Green, 3) };
+        const byte AllyTeam = 1;
+        /// <summary>Broken Oath seats 0-2 are the west low ground (homes close
+        /// together); seat 3 is the first Highmarch plateau seat, far east.</summary>
+        const string MapScene = "BrokenOath";
+
+        [MenuItem("Waning Border/Debug/Alanthor Art Probe: Launch (Age 1, 3 allied Alanthor AI + 1 far enemy)")]
         public static void Launch()
         {
             if (!EditorApplication.isPlaying) { Debug.LogWarning("[AlanthorArtProbe] enter play mode first"); return; }
@@ -45,17 +60,17 @@ namespace TheWaningBorder.EditorTools
             GameSettings.IsMultiplayer = false;
             GameSettings.NetworkRole = NetworkRole.None;
             GameSettings.Mode = GameMode.FreeForAll;
-            GameSettings.TotalPlayers = 2;
-            LobbyConfig.SetupSinglePlayer(2);
-            for (int i = 0; i < 2; i++)
+            GameSettings.TotalPlayers = 4;
+            LobbyConfig.SetupSinglePlayer(4);
+            for (int i = 0; i < 4; i++)
             {
                 var slot = LobbyConfig.Slots[i];
                 slot.Type = SlotType.AI;
-                slot.AIDifficulty = LobbyAIDifficulty.Hard;
-                slot.TeamIndex = Alliances.NoTeam;
-                slot.StartIndex = PlayerSlot.AutoStart;
+                slot.AIDifficulty = LobbyAIDifficulty.Easy;
+                slot.TeamIndex = i < Allies.Length ? AllyTeam : Alliances.NoTeam;
+                slot.StartIndex = i;   // seats 0-2 west together, seat 3 the far plateau
             }
-            GameSettings.SelectedMapScene = "YielLymwerra";
+            GameSettings.SelectedMapScene = MapScene;
             GameSettings.SpawnSeed = 20261020;
             GameSettings.FogOfWarEnabled = false;
             GameSettings.BorderEnabled = true;
@@ -66,9 +81,62 @@ namespace TheWaningBorder.EditorTools
             GameSettings.PerFactionStartCulture = false;
             GameSettings.StartCulture = Cultures.Alanthor;
             LobbyConfig.ApplyColorSelections();
-            Debug.Log("[AlanthorArtProbe] launching YielLymwerra, edition A, Age 1 Alanthor start");
+            Debug.Log("[AlanthorArtProbe] launching " + MapScene + ", edition A, Age 1 Alanthor: Blue/Red/Green one team (L1/L2/L3), Yellow the far enemy");
             LoadingScreen.Show(GameSettings.SelectedMapScene);
+            _arrangeDeadline = Time.realtimeSinceStartup + 240f;
+            _arrangeSettle = 0;
+            EditorApplication.update -= ArrangePoll;
+            EditorApplication.update += ArrangePoll;
         }
+
+        static float _arrangeDeadline;
+        static int _arrangeSettle;
+
+        /// <summary>Waits for the three allied capitals to exist (the match has
+        /// spawned its starting buildings), lets a few frames pass so the
+        /// start-age promotion has run, then arranges once.</summary>
+        static void ArrangePoll()
+        {
+            if (!EditorApplication.isPlaying) { EditorApplication.update -= ArrangePoll; return; }
+            if (Time.realtimeSinceStartup > _arrangeDeadline)
+            {
+                EditorApplication.update -= ArrangePoll;
+                Debug.LogWarning("[AlanthorArtProbe] gave up waiting for the allied capitals");
+                return;
+            }
+            foreach (var (f, _) in Allies) if (!TryCapital(f, out _)) { _arrangeSettle = 0; return; }
+            if (++_arrangeSettle < 30) return;
+            EditorApplication.update -= ArrangePoll;
+            Arrange();
+        }
+
+        /// <summary>Blue L1 / Red L2 / Green L3 across every Alanthor ladder, a
+        /// finished Watch Tower south of each allied capital first so it takes
+        /// the faction level too. Re-runnable: a second run adds no tower.</summary>
+        [MenuItem("Waning Border/Debug/Alanthor Art Probe: Arrange (Blue L1 / Red L2 / Green L3 + towers)")]
+        public static void Arrange()
+        {
+            var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (w == null) { Debug.LogWarning("[AlanthorArtProbe] no world"); return; }
+            var em = w.EntityManager;
+            foreach (var (f, level) in Allies)
+            {
+                if (!TryCapital(f, out var cap)) { Debug.LogWarning("[AlanthorArtProbe] no " + f + " capital"); continue; }
+                if (!_towers.TryGetValue(f, out var tower) || !em.Exists(tower))
+                {
+                    var at = cap + new float3(0f, 0f, -24f);
+                    at.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(at.x, at.z);
+                    _towers[f] = TheWaningBorder.Entities.WatchTower.Create(em, at, f);
+                }
+                foreach (var id in Ladders)
+                    TheWaningBorder.Systems.Buildings.FactionBuildingLevels.ApplyToAll(em, f, id, level);
+                TheWaningBorder.Entities.AlanthorWall.PromoteFactionWalls(em, f, level);
+                Debug.Log("[AlanthorArtProbe] " + f + ": level " + level + ", Watch Tower beside the capital");
+            }
+            MountWhereAllowed(em);
+        }
+
+        static readonly Dictionary<Faction, Entity> _towers = new Dictionary<Faction, Entity>();
 
         [MenuItem("Waning Border/Debug/Alanthor Art Probe: Raise Blue to Lv2")]
         public static void Raise2() => Raise(2);
@@ -153,11 +221,18 @@ namespace TheWaningBorder.EditorTools
             TheWaningBorder.Entities.AlanthorWall.MakeGate(em, focus, list);
         }
 
-        [MenuItem("Waning Border/Debug/Alanthor Art Probe: Camera to Blue Capital")]
-        public static void CameraBlue()
+        [MenuItem("Waning Border/Debug/Alanthor Art Probe: Camera to Blue Capital (L1)")]
+        public static void CameraBlue() => CameraTo(Faction.Blue);
+        [MenuItem("Waning Border/Debug/Alanthor Art Probe: Camera to Red Capital (L2)")]
+        public static void CameraRed() => CameraTo(Faction.Red);
+        [MenuItem("Waning Border/Debug/Alanthor Art Probe: Camera to Green Capital (L3)")]
+        public static void CameraGreen() => CameraTo(Faction.Green);
+
+        static void CameraTo(Faction f)
         {
             HideOverlays();
-            if (TryCapital(out var p)) TheWaningBorder.CameraRig.CameraController.FocusOn(p, instant: true);
+            if (TryCapital(f, out var p)) TheWaningBorder.CameraRig.CameraController.FocusOn(p, instant: true);
+            else Debug.LogWarning("[AlanthorArtProbe] no " + f + " capital");
         }
 
         [MenuItem("Waning Border/Debug/Alanthor Art Probe: Camera to Showcase")]
@@ -298,7 +373,9 @@ namespace TheWaningBorder.EditorTools
             System.IO.File.WriteAllText(@"C:/Users/LUISMA~1/AppData/Local/Temp/claude/d--Users-overw-Documents-The-Waning-Border-1-2/b3673707-dade-41ab-958f-635ae48459e8/scratchpad/shots/previews.txt", sb.ToString());
         }
 
-        static bool TryCapital(out float3 pos)
+        static bool TryCapital(out float3 pos) => TryCapital(Faction.Blue, out pos);
+
+        static bool TryCapital(Faction faction, out float3 pos)
         {
             pos = default;
             var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
@@ -310,7 +387,7 @@ namespace TheWaningBorder.EditorTools
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             q.Dispose();
             for (int i = 0; i < facs.Length; i++)
-                if (facs[i].Value == Faction.Blue) { pos = xfs[i].Position; return true; }
+                if (facs[i].Value == faction) { pos = xfs[i].Position; return true; }
             return false;
         }
     }

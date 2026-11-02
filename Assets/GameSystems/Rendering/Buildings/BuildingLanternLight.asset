@@ -18,3 +18,8 @@ MonoBehaviour:
   range: 14
   height: 4
   constructionPollSeconds: 0.5
+  excludedBuildingIds:
+  - Barracks
+  - ArcheryRange
+  - Alanthor_Tower
+  - Fortress

@@ -58,7 +58,7 @@ sacrifice pays points too — §7.)
 option has four levels — LOW / NORMAL / HIGH / MAX — and every level but
 LOW puts some religion points in the bank at the first tick, so a NORMAL or
 richer start can raise the Temple without first hunting the curse. The amount
-per level is data on `Scripts/Bootstrap/EconomyBootstrap.asset`, beside the
+per level is data on `GameData/Bootstrap/Economy/EconomyBootstrap.asset`, beside the
 starting bank.
 
 ### 1.1 Buying RP

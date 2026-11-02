@@ -365,8 +365,8 @@ the code currently does, often pre-design-pass) lives in
   kinds touches only the GameData side.
 - **`Assets/Scripts/` no longer holds the UI** (2026-08-28). UI and Input moved
   to `Assets/GameSystems/Presentation/`; Scripts/ keeps Core, Components,
-  Systems, Entities, Data, Economy, AI, World, Multiplayer, Influence, Bootstrap
-  and Editor. It is **not** "simulation only" — `Systems/Audio/MusicManager`
+  Systems, Entities, Data, Economy, AI, World, Multiplayer, Influence
+  and Editor (Bootstrap left for `Assets/GameData/Bootstrap/` on 2026-10-30). It is **not** "simulation only" — `Systems/Audio/MusicManager`
   and the `Systems/Navigation/Debug/` overlays are player-facing MonoBehaviours
   that live there on purpose. The line that moved was the UI, not everything the
   player perceives.
@@ -615,7 +615,7 @@ one layer at a time (see the restructure plan):
 |----------|------|-------|----------|
 | `TheWaningBorder.Runtime` | `Assets/Scripts/` (+ `GameData/TechTree` and `GameSystems/{Rendering,Abilities}/` via asmref) | 670 | Core, Components, Systems, Entities, Data, Multiplayer, World, Presentation and all content. **References nothing of ours.** |
 | `TheWaningBorder.Presentation` | `Assets/GameSystems/Presentation/` | 74 | `UI/` and `Input/`. They are mutually dependent (17 files one way, 3 the other), so they are one assembly. Its asmdef overrides the parent `GameSystems/` Runtime asmref. → Runtime |
-| `TheWaningBorder.Bootstrap` | `Assets/Scripts/Bootstrap/` | 15 | wiring; the only layer allowed to know about everything. → Runtime, Presentation |
+| `TheWaningBorder.Bootstrap` | `Assets/GameData/Bootstrap/` | 25 | wiring; the only layer allowed to know about everything. **Moved out of `Assets/Scripts/Bootstrap/` on 2026-10-30**, one folder per concern (`Match/` the match boot, `Economy/` the banks + `EconomyBootstrap.asset`, `AI/`, `Headless/` the two command-line harnesses, `Launcher/`, `Scenarios/` the test scenarios); the asmdef travelled with it, so it stays its own assembly. → Runtime, Presentation |
 | `TheWaningBorder.Editor` | `Assets/Scripts/Editor/` | 6 | `PlayerBuild`, `AlphaBuildPostProcess`, `MapSceneSync`, `MapInfoBaker`, `MapLobbyImageBaker`, `MapAssetFolders`. → Runtime |
 
 **The dependency arrows only point one way, and the compiler now enforces it.**

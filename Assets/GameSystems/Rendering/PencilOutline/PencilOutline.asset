@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   enabled: 1
   shader: {fileID: 4800000, guid: 55a4066a399c438f970c09a490be23b7, type: 3}
-  inkColor: {r: 0.02, g: 0.015, b: 0.018, a: 1}
+  inkColor: {r: 0.02, g: 0.015, b: 0.018, a: 0.85}
   lineWidth: 2.5
   minLineWidth: 1
   referenceDistance: 40
@@ -24,10 +24,10 @@ MonoBehaviour:
   grazingCompensation: 1
   normalThreshold: 0.4
   normalWeight: 0.8
-  jitterAmount: 1
+  jitterAmount: 0.6
   jitterScale: 1
   boilFps: 0
-  strokeBreakup: 0.35
+  strokeBreakup: 0.2
   strokeScale: 0.8
-  grain: 0.25
+  grain: 0.15
   grainScale: 0.2

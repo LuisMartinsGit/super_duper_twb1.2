@@ -159,23 +159,7 @@ namespace TheWaningBorder.Core.Commands.Types
             // Capture base stats once. After this they NEVER change — the
             // upgrade system always recomputes scaled values from base, so
             // re-applying a level (save/load, frame race) can't double-bump.
-            if (!em.HasComponent<BuildingUpgradeState>(building))
-            {
-                int baseHp = em.HasComponent<Health>(building)
-                    ? em.GetComponentData<Health>(building).Max : 0;
-                float baseAtkCd = em.HasComponent<BuildingRangedAttack>(building)
-                    ? em.GetComponentData<BuildingRangedAttack>(building).Cooldown : 0f;
-                int basePop = em.HasComponent<PopulationProvider>(building)
-                    ? em.GetComponentData<PopulationProvider>(building).Amount : 0;
-
-                em.AddComponentData(building, new BuildingUpgradeState
-                {
-                    Level                  = 0,
-                    BaseHpMax              = baseHp,
-                    BaseAttackCooldown     = baseAtkCd,
-                    BasePopulationProvider = basePop,
-                });
-            }
+            EnsureUpgradeStateBase(em, building);
 
             // Enqueue. The DURATION is worked out when the item reaches the
             // head (ProductionQueueSystem), not here — an item that waits
@@ -187,6 +171,33 @@ namespace TheWaningBorder.Core.Commands.Types
                 Kind  = ProductionKind.BuildingUpgrade,
                 Id    = default,
                 Level = targetLevel,
+            });
+        }
+
+        /// <summary>
+        /// Stamp a BuildingUpgradeState carrying the building's captured base
+        /// stats, if it has none yet. The ONE base-capture path: a player's
+        /// upgrade, the lobby's start-age promotion and the scenarios that
+        /// pre-level a building all go through it, so every later
+        /// BuildingUpgradeSystem.ApplyLevel scales the same stats the same way.
+        /// </summary>
+        public static void EnsureUpgradeStateBase(EntityManager em, Entity building)
+        {
+            if (em.HasComponent<BuildingUpgradeState>(building)) return;
+
+            int baseHp = em.HasComponent<Health>(building)
+                ? em.GetComponentData<Health>(building).Max : 0;
+            float baseAtkCd = em.HasComponent<BuildingRangedAttack>(building)
+                ? em.GetComponentData<BuildingRangedAttack>(building).Cooldown : 0f;
+            int basePop = em.HasComponent<PopulationProvider>(building)
+                ? em.GetComponentData<PopulationProvider>(building).Amount : 0;
+
+            em.AddComponentData(building, new BuildingUpgradeState
+            {
+                Level                  = 0,
+                BaseHpMax              = baseHp,
+                BaseAttackCooldown     = baseAtkCd,
+                BasePopulationProvider = basePop,
             });
         }
 

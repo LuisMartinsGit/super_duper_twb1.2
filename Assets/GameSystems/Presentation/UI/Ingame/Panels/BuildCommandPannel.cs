@@ -468,20 +468,27 @@ namespace TheWaningBorder.UI.Ingame
             {
                 // Scale the ghost exactly like the finished building: the
                 // runtime multiplies every prefab visual by the footprint fit,
-                // measured on the branch it SHOWS (RefitVariantView), so a
-                // preview without it renders up to 4x the finished building.
+                // and for a building with a level ladder that fit is measured
+                // on the ladder's TOP level (FootprintFit.cs) — the same
+                // answer the site and every level get, so the ghost stands at
+                // the scale the building keeps for life.
                 var fitSize = BuildCommandHelper.GetBuildingSize(_currentBuildId);
-                float fit = PresentationSpawnSystem.ComputeFootprintFitForView(
+                float rootScale = PresentationSpawnSystem.ComputeFinishedViewScale(
+                    previewWorld.EntityManager, _currentBuildId, GameSettings.LocalPlayerFaction,
                     _placingInstance, fitSize.x, fitSize.y, out Vector3 fitOffset);
-                _placingInstance.transform.localScale *= fit;
+                _placingInstance.transform.localScale = Vector3.one * rootScale;
 
-                // Stand the ghost on the ground like the real spawn does
-                // (ProceduralScaleTag.BaseOffset.y). Applied to the CHILDREN,
-                // in root-local units: the root's own position is the
-                // placement point that SpawnSelectedBuilding commits.
-                if (Mathf.Abs(fitOffset.y) > 0.001f)
+                // Centre the ghost on the footprint and stand it on the ground
+                // exactly as the real spawn does (ProceduralScaleTag.BaseOffset:
+                // bounds centre in XZ, lowest point in Y). Applied to the
+                // CHILDREN, in root-local units: the root's own position is the
+                // placement point that SpawnSelectedBuilding commits. Only the
+                // Y used to be applied, so a model whose bounds centre sits off
+                // its pivot (the hand-authored Garrison, 6-8 m) previewed off
+                // its cell and "self-corrected" when the site spawned.
+                if (fitOffset != Vector3.zero)
                     for (int c = 0; c < _placingInstance.transform.childCount; c++)
-                        _placingInstance.transform.GetChild(c).localPosition -= new Vector3(0f, fitOffset.y, 0f);
+                        _placingInstance.transform.GetChild(c).localPosition -= fitOffset;
             }
 
             // Disable colliders on preview
@@ -497,8 +504,11 @@ namespace TheWaningBorder.UI.Ingame
                 foreach (var mat in renderer.materials)
                 {
                     if (mat == null) continue;
-                    if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", Texture2D.whiteTexture);
-                    if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", Texture2D.whiteTexture);
+                    // Every albedo slot a building material may use (Synty's
+                    // _Albedo_Map included), so a raw-kit prefab ghosts as
+                    // the same white maquette as the others.
+                    foreach (var prop in TheWaningBorder.Rendering.BuildingFactionColorMarker.AlbedoProperties)
+                        if (mat.HasProperty(prop)) mat.SetTexture(prop, Texture2D.whiteTexture);
                 }
             }
             _previewModeValid = null;

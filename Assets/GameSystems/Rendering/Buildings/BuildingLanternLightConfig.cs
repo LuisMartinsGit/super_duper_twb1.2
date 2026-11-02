@@ -26,5 +26,11 @@ namespace TheWaningBorder.Rendering
         public float height;
         /// <summary>How often the construction gate re-checks the entity.</summary>
         public float constructionPollSeconds;
+
+        /// <summary>Building ids that get NO runtime lantern because their
+        /// hand-authored prefabs carry their own lights (2026-11-02: the
+        /// Garrison "Barracks", "ArcheryRange", "Alanthor_Tower", "Fortress").
+        /// A prefab that already holds a Light component is skipped as well.</summary>
+        public string[] excludedBuildingIds;
     }
 }

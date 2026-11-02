@@ -2727,8 +2727,7 @@ namespace TheWaningBorder.Multiplayer
         /// peer running without them computes a different Total for an
         /// identical world and every SYNC reports a desync that is not one.
         /// </summary>
-        private static readonly bool s_noDetail =
-            System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twbMpNoDetail") >= 0;
+        private static readonly bool s_noDetail = CommandLine.Has("-twbMpNoDetail");
 
         private SimStateHash ComputeSimStateHash()
         {

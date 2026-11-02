@@ -146,6 +146,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/GameData/Scenes/Maps/Trine Hollow/TrineHollow.unity
     guid: 03ad763a336d611449154ce3057c7785
+  - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_GarrisonRangeLadder.unity
+    guid: 3a7c1d5e9b2f4a6c8d0e1f2a3b4c5d61
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

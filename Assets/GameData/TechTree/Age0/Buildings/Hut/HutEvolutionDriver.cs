@@ -164,15 +164,11 @@ namespace TheWaningBorder.Rendering
                 ? variant.ShowVariantWithTransition(_culture, level, accent)
                 : variant.ShowTechVisual(techId, accent, withTransition: true);
 
-            if (changed)
+            // (The gold level-up flourish that marked each step was removed
+            // from the game on 2026-10-30; the dissolve is the beat.)
+            if (!changed && techId != null)
             {
-                BuildingLevelUpEffect.Spawn(view, accent);
-            }
-            else if (techId != null)
-            {
-                // Expected for VeilsteelPylons until it gets a model — mark
-                // the step with the flourish alone so the beat still reads.
-                BuildingLevelUpEffect.Spawn(view, accent);
+                // Expected for VeilsteelPylons until it gets a model.
                 TWBLog.Log($"[HutEvolution] no visual node for {techId} in the current branch");
             }
 

@@ -1,18 +1,31 @@
 // BuildingDissolveTransition.cs
-// Wave-driven level-up flourish.
+// Wave-driven level-up transition.
 //
 // Spatial split (no temporal swap): the wave amount is a world-Y threshold.
-//   • OLD mesh keeps its lit shading via BuildingLitDissolve(Inverted=0) —
-//     pixels BELOW the wave are clipped, so the unrebuilt portion (above)
-//     stays visible.
-//   • NEW mesh uses BuildingLitDissolve(Inverted=1) — pixels ABOVE the wave
-//     are clipped, so the rebuilt portion (below) stays visible.
+//   • OLD mesh wears BuildingLitDissolve(Inverted=0) — pixels BELOW the
+//     wave are clipped, so it dissolves bottom-up and its top stays.
+//   • NEW mesh wears BuildingLitDissolve(Inverted=1) — pixels ABOVE the
+//     wave are clipped, so it is revealed bottom-up as the wave passes and
+//     is never seen ahead of it.
 //   • Together the two halves cover the full silhouette at every moment.
 //
+// THE DISSOLVE MATERIAL IS THE SOURCE MATERIAL'S LOOK (2026-10-30).
+// Developer: "no lighting or texture change other than the dissolve … must
+// not show lightless buildings, lose lighting, lose texture detail". The
+// wave material used to carry the albedo alone, so both halves lost their
+// normal maps and read as flat, unlit paint for two seconds. BindLitDissolve
+// now carries albedo, normal map, emission, occlusion, metallic and
+// smoothness across (whatever slot names the source shader uses), and the
+// shader shades them through URP's own PBR, so a revealed or dissolving
+// half is lit and detailed exactly as the finished building; the originals
+// come back on the new view when the wave is done.
+//
 // On top of both, we additively overlay the BuildingWaveBand shader on a
-// duplicate of each mesh — this is the bright seam between the halves and
-// the fading trail behind it. The trail-only glow phase at the end gives the
-// edge time to taper out before the old mesh and overlays are torn down.
+// duplicate of each mesh — the bright seam at the wave and the fading trail
+// behind it. The trail-only glow phase at the end gives the edge time to
+// taper out before the old mesh and the overlays are torn down. The old
+// view is DEACTIVATED before its materials are destroyed: destroying them
+// first left it drawn with no material for one frame (the end flicker).
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -172,22 +185,18 @@ namespace TheWaningBorder.Rendering
                     }
                     mat.SetColor("_BaseColor", baseCol);
 
-                    // Surface Inputs > Base Map (the standard URP-Lit albedo
-                    // slot). Pull both texture and ST across.
-                    if (src != null && src.HasProperty("_BaseMap"))
+                    // The albedo, whatever slot the source shader keeps it in:
+                    // URP-Lit's _BaseMap, the legacy _MainTex, or Synty's
+                    // _Albedo_Map (Generic_Basic shader graph). Only _BaseMap
+                    // was read until 2026-10-30, so a building assembled from
+                    // raw Synty pieces dissolved as flat white: the texture
+                    // never made it onto the wave material.
+                    var baseTex = BuildingFactionColorMarker.AlbedoOf(src, out Vector4 baseST);
+                    if (baseTex != null)
                     {
-                        var baseTex = src.GetTexture("_BaseMap");
-                        if (baseTex != null)
-                        {
-                            mat.SetTexture("_BaseMap", baseTex);
-                            mat.SetFloat("_UseBaseMap", 1f);
-                            if (src.HasProperty("_BaseMap_ST"))
-                                mat.SetVector("_BaseMap_ST",
-                                    src.GetVector("_BaseMap_ST"));
-                            else
-                                mat.SetVector("_BaseMap_ST",
-                                    new Vector4(1, 1, 0, 0));
-                        }
+                        mat.SetTexture("_BaseMap", baseTex);
+                        mat.SetFloat("_UseBaseMap", 1f);
+                        mat.SetVector("_BaseMap_ST", baseST);
                     }
 
                     // Detail Inputs > Base Map (URP-Lit's ×2 detail-overlay
@@ -223,6 +232,31 @@ namespace TheWaningBorder.Rendering
                             mat.SetFloat("_Smoothness", src.GetFloat("_Glossiness"));
                     }
 
+                    // Normal map, emission and occlusion too (2026-10-30): the
+                    // relief of tiles and planks, a lit window, a shaded
+                    // corner — without them the dissolving building read as
+                    // flat, unlit paint.
+                    var normalMap = BuildingFactionColorMarker.NormalMapOf(src, out float normalScale);
+                    if (normalMap != null)
+                    {
+                        mat.SetTexture("_BumpMap", normalMap);
+                        mat.SetFloat("_BumpScale", normalScale);
+                        mat.SetFloat("_UseBumpMap", 1f);
+                    }
+                    var emissionMap = BuildingFactionColorMarker.EmissionOf(src, out Color emissionColor);
+                    mat.SetColor("_EmissionColor", emissionColor);
+                    if (emissionMap != null)
+                    {
+                        mat.SetTexture("_EmissionMap", emissionMap);
+                        mat.SetFloat("_UseEmissionMap", 1f);
+                    }
+                    var occlusionMap = BuildingFactionColorMarker.OcclusionOf(src);
+                    if (occlusionMap != null)
+                    {
+                        mat.SetTexture("_OcclusionMap", occlusionMap);
+                        mat.SetFloat("_UseOcclusionMap", 1f);
+                    }
+
                     // Player colour rides on _TWB_FactionHSV, not the albedo.
                     BuildingFactionColorMarker.CopyFactionProperties(src, mat);
 
@@ -239,7 +273,7 @@ namespace TheWaningBorder.Rendering
 
                 // The old visual's originals only matter when it survives the
                 // transition (deactivate mode) — a destroyed instance never
-                // renders again.
+                // renders again. The new visual's always come back.
                 bool keepOriginals = (root == _newGo) || !_destroyOld;
                 bindings.Add(new RendererBinding
                 {
@@ -329,6 +363,13 @@ namespace TheWaningBorder.Rendering
 
         private void Cleanup()
         {
+            // The old view goes dark BEFORE its wave materials are destroyed.
+            // Object.Destroy is deferred to the end of the frame, so destroying
+            // the materials first left the old renderers drawn once with no
+            // material at all — the previous level flickering back for a frame
+            // at the very end of every upgrade.
+            if (_oldGo != null) _oldGo.SetActive(false);
+
             for (int i = 0; i < _newBindings.Count; i++)
             {
                 var b = _newBindings[i];
@@ -346,18 +387,12 @@ namespace TheWaningBorder.Rendering
                 DestroyMaterials(b.Instances);
             }
 
-            // Put the owner's color back on whatever is left standing. The wave
-            // swapped every renderer to lit-dissolve instances for two seconds
-            // and has just handed the captured originals back — that restore is
-            // the last word on this visual's materials, so anything the recolor
-            // did before Begin() (atlas pixel swap, solid roof, stripe tint) has
-            // to be re-asserted here or the upgraded building finishes the
-            // flourish wearing its authored blue. This is the fix for "buildings
-            // lose the player color scheme on upgrade": every upgrade path
-            // (prefab swap, in-place variant switch, tech visual, age-up
-            // respawn) ends in this Cleanup.
-            // In the multi-variant case old and new are two BRANCHES of one
-            // prefab, so a single Reapply from the shared root covers both.
+            // Put the owner's colour back on whatever is left standing: the
+            // wave handed the captured originals back, and that restore is the
+            // last word on the materials, so the recolour is re-asserted or the
+            // upgraded building could finish wearing its authored blue. In the
+            // multi-variant case old and new are two BRANCHES of one prefab,
+            // so a single Reapply from the shared root covers both.
             BuildingFactionColorMarker.Reapply(_newGo);
             if (!_destroyOld && _oldGo != null && !SharesColorRoot(_oldGo, _newGo))
                 BuildingFactionColorMarker.Reapply(_oldGo);
@@ -382,7 +417,6 @@ namespace TheWaningBorder.Rendering
                 {
                     foreach (var col in _oldGo.GetComponentsInChildren<Collider>())
                         col.enabled = true;
-                    _oldGo.SetActive(false);
                 }
             }
             Object.Destroy(gameObject);

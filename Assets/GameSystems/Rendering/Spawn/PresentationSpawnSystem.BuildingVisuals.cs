@@ -4,13 +4,20 @@
 // layer should ONLY accept the prefabs through the SO, no exception. if
 // something breaks, author a new SO, FBX and .blend."
 //
-//   a plan (and the placement ghost)       -> the FINISHED look: completed
-//                                              culture, the faction's level
-//                                              of the type (ResolveFinishedVisual)
-//   level 0 / under construction           -> the BuildingDefSO's prefab
-//   level N with a culture                  -> that culture's BuildingLevelDefSO prefab
-//   no level ladder, culture complete       -> the BuildingDefSO's culturePrefabs entry
-//   a sect chapel                           -> ChapelArt.asset (chapels are not catalog buildings)
+//   ONE ANSWER FOR EVERY STAGE (2026-10-30, ResolveFinishedVisual): the
+//   placement ghost, the plan, the rising site and the finished building
+//   all show the faction's FINISHED look for the type — its completed
+//   culture at the faction-wide level of the type (FactionBuildingLevels,
+//   docs/Design/Overview.md § Building levels: a level is faction-wide, so
+//   a Barracks finished after the type reached L2 IS L2 from its first
+//   frame). The finished building used to read its own BuildingUpgradeState
+//   instead, which the sim stamps a tick or so after construction ends —
+//   so for that gap a new Barracks resolved L1, swapped to it with the
+//   dissolve, then swapped back ("new barracks flash with the lvl 1 prefab").
+//     culture complete, type has a ladder  -> that culture's BuildingLevelDefSO prefab
+//     culture complete, no ladder          -> the BuildingDefSO's culturePrefabs entry
+//     no culture yet (Age 0)               -> the BuildingDefSO's prefab
+//     a sect chapel                        -> ChapelArt.asset (chapels are not catalog buildings)
 //
 // No multi-variant branches, no procedural builders, no Resources ladder.
 // A building whose SO has no model is a DATA bug: logged once per SO, drawn
@@ -83,16 +90,12 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             id = TechCatalog.BuildingIdForPresentation(em.GetComponentData<PresentationId>(e).Id);
         if (string.IsNullOrEmpty(id) || !TechCatalog.TryGetBuilding(id, out _)) return false;
 
-        byte culture = CultureConfig.GetCompletedCulture(em, faction);
-        int level = 0;
-        if (!plan && !em.HasComponent<UnderConstruction>(e) && culture != Cultures.None)
-        {
-            level = em.HasComponent<BuildingUpgradeState>(e)
-                ? em.GetComponentData<BuildingUpgradeState>(e).Level
-                : 1;                                                       // a ladderless building's culture look
-        }
+        // A site and a finished building alike: the faction's finished look
+        // for the type (see the file header). The ladder is the entity's
+        // upgrade ladder, which can differ from its id (a Veilstone Mine
+        // converted into a Trading Outpost).
         string ladder = TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.ResolveBuildingId(em, e);
-        if (!TechCatalog.TryGetBuildingVisual(id, ladder, culture, level, out prefab, out string missing))
+        if (!ResolveFinishedVisual(em, id, ladder, faction, out prefab, out string missing))
         {
             ReportMissing(missing);
             prefab = null;
@@ -105,9 +108,16 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     /// <paramref name="faction"/> will show once it finishes: its completed
     /// culture and the faction-wide level of the type (FactionBuildingLevels;
     /// L1 when none is recorded, a ladderless building's culture look at 1),
-    /// a chapel's ChapelArt. The placement ghost and the plan both use it.
+    /// a chapel's ChapelArt. The placement ghost, the plan, the site and the
+    /// finished building all use it.
     /// </summary>
     public static bool ResolveFinishedVisual(EntityManager em, string buildingId, Faction faction,
+        out GameObject prefab, out string missing)
+        => ResolveFinishedVisual(em, buildingId, buildingId, faction, out prefab, out missing);
+
+    /// <summary>As above, for a building whose upgrade ladder
+    /// (<paramref name="ladderId"/>) is not its own id; empty means the id.</summary>
+    public static bool ResolveFinishedVisual(EntityManager em, string buildingId, string ladderId, Faction faction,
         out GameObject prefab, out string missing)
     {
         prefab = null; missing = null;
@@ -119,13 +129,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (prefab == null) missing = "ChapelArt: " + sect;
             return prefab != null;
         }
+        string ladder = string.IsNullOrEmpty(ladderId) ? buildingId : ladderId;
         byte culture = CultureConfig.GetCompletedCulture(em, faction);
         int level = 0;
         if (culture != Cultures.None)
-            level = TechCatalog.HasBuildingLevels(culture, buildingId)
-                ? Mathf.Max(1, (int)TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, faction, buildingId))
+            level = TechCatalog.HasBuildingLevels(culture, ladder)
+                ? Mathf.Max(1, (int)TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, faction, ladder))
                 : 1;
-        return TechCatalog.TryGetBuildingVisual(buildingId, buildingId, culture, level, out prefab, out missing)
+        return TechCatalog.TryGetBuildingVisual(buildingId, ladder, culture, level, out prefab, out missing)
                && prefab != null;
     }
 
@@ -151,9 +162,19 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         go.SetActive(true);
         StripThirdPartyControllers(go);
         go.name = $"Entity_{entity.Index}_{src.name}";
-        var ps = src.transform.localScale;
-        float authoredScale = (ps.x + ps.y + ps.z) / 3f;
-        float baseScale = authoredScale * ComputeFootprintFit(go, entity, out Vector3 fitOffset);
+        // The ladder's top level sets the scale and the pivot offset
+        // (FootprintFit.cs); anything that is not a building keeps its
+        // authored scale.
+        float authoredScale, baseScale;
+        Vector3 fitOffset;
+        if (IsBuildingLike(entity))
+            baseScale = ComputeBuildingViewScale(_em, entity, go, src, out authoredScale, out fitOffset);
+        else
+        {
+            authoredScale = AuthoredScaleOf(src);
+            baseScale = authoredScale;
+            fitOffset = Vector3.zero;
+        }
         if (baseScale > 0.001f)
         {
             var tag = go.GetComponent<ProceduralScaleTag>() ?? go.AddComponent<ProceduralScaleTag>();

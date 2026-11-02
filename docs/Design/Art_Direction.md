@@ -54,7 +54,7 @@ document was written from; *Northgard* (building read, painterly ground);
 | Layer | Current build | Target | Share of the look |
 |---|---|---|---|
 | **Atmosphere & grade** | warm sun `(1.0, 0.957, 0.878)` @ 1.5, bright neutral ambient, fog off, vignette off, saturation +10, bloom threshold 1.1 (nothing blooms) | cool weak sun, navy/teal ambient, blue-violet shadow split-tone, desaturated base, bloom on emissives, light vignette | ~40 % |
-| **Buildings** | atlas roofs painted blue → recoloured solid faction colour; no emission maps; no local lights | slate roofs; faction colour on lantern/window glow + cloth; warm emissive windows; one warm point light per large building | ~25 % |
+| **Buildings** | atlas roofs painted blue → recoloured solid faction colour; no emission maps; no local lights | slate roofs; faction colour on lantern/window glow + cloth; warm emissive windows; one warm point light per large building — except the HAND-LIT prefabs (Garrison, Archery Range, Watch Tower, Fortress since 2026-11-02; `BuildingLanternLight.asset` `excludedBuildingIds`, and any prefab that carries its own Light), whose lights are authored in the prefab | ~25 % |
 | **Ground** | four photoreal Substance layers (GroundSubstance002, GrassSubstance001/002, RockSubstance003); curse overlay hue-shifts the grass | hand-painted dark moss / dirt path / worn stone / cliff rock; curse = cracked crust with emissive cracks; emissive veil seams and ember cracks | ~20 % |
 | **Fog of war, map edge, borders** | unexplored = pure black, re-sharpened edge (the hard circle); flat-tinted territory ribbon | navy-purple drifting smoke, soft edge; HDR crackling border line; cliffs into void | ~10 % |
 | **Density** | bare ground; curse pockets are purple spheres; well is a gem cluster | crystal clusters, bone piles, dead trees, mist, glowing fungi — each one a readout (§6.3) | ~5 % per screen, but it is what makes it feel finished |
@@ -186,11 +186,25 @@ colour there, so the rungs cannot drift apart across files.
 > **Exception, 2026-10-02 — the castle set's roofs carry the player colour.**
 > The stone wall's hoarding galleries, its hub and tower cones, and the
 > Fortress's galleries, cones and inner-keep pyramid are tinted with the owner's
-> colour: the kit's slate texture (`Castle_Roof_01`) multiplied by it, so the
-> roof still reads as slate, in the player's hue. Tinted by MATERIAL — the
-> gallery timber and the cone finials keep their own colours.
-> (`WallModuleArt.IsRoofMaterial`, `BuildingFactionColorMarker.IsCastleRoofMaterial`.)
+> colour. Tinted by MATERIAL — the gallery timber and the cone finials keep
+> their own colours. (`WallModuleArt.IsRoofMaterial`,
+> `BuildingFactionColorMarker.IsPlayerTintMaterial`.)
 > Every other building keeps the rule below.
+>
+> **2026-11-02 — the tinted roof is VIVID, and the same for every colour.**
+> The tile under the tint is the NEUTRAL `Castle_Roof_Player`
+> (`Civs/Alanthor/Buildings/Art/Roof_Tile_Player.png`, the kit tile's
+> luminance only), never the kit's teal `Castle_Roof_01`: teal × a swatch kept
+> the teal's hue, so Blue looked right while Red went purple and Yellow green.
+> `Waning Border > Art > Roofs > Castle_Roof_01 -> Castle_Roof_Player`
+> re-points every slot in the Age 0 / Alanthor / sect prefabs; run it after
+> authoring a building from kit roof pieces. The tint itself is the lobby
+> swatch with its saturation pulled 75 % of the way to full and its value × 0.8
+> (`BuildingFactionColorMarker.PlayerTint`; `PlayerTintSaturate` /
+> `PlayerTintValue`) — the look the old teal-times-Blue Fortress had, now in
+> every hue. It replaces the 30 % grey fade of 2026-11-01, which read as slate
+> for everyone. The Alanthor theme's own teal pyramids (`Al_Tile`,
+> Roof_Tile_04) are not player roofs and are left teal.
 
 Roofs are **dark slate** (`#3B3E46` Alanthor; the culture roof material
 otherwise). The player colour is carried by:
@@ -581,11 +595,14 @@ checked in with the pass ON so it can be looked at, and it must be switched
   low frame rate, and they thin and fade with camera distance so the RTS zoom
   does not turn to scribble. Grass (no depth-normals pass), water, VFX and fog
   of war (Overlay queue, drawn over the lines) are left un-inked by
-  construction. A damaged building is inked like any other (2026-10-28):
-  `BuildingDamage.shader` carries its own DepthNormals / DepthOnly /
-  ShadowCaster passes — URP never takes them from a Fallback, and without
-  them every building that had ever been hit dropped out of the ink, the
-  shadows and the SSAO.
+  construction. A building mid level-up is inked like any other (2026-10-30):
+  `BuildingLitDissolve.shader` carries its own DepthNormals / DepthOnly /
+  ShadowCaster passes, each clipped at the wave — URP never takes them from
+  a Fallback, and without them both halves of a dissolving building dropped
+  out of the ink, the shadows and the SSAO for the two seconds of the swap.
+  (The progressive damage shader, which had the same passes, was removed
+  from the game on 2026-10-30: it turned buildings white. Damage shows
+  through the collapse alone.)
 - **Cost:** requesting normals makes URP run a depth-normals prepass that the
   PC renderer does not run today (SSAO is off on it). Measure before adopting.
 - **Where:** `Assets/GameSystems/Rendering/PencilOutline/`. Every value is in
@@ -658,8 +675,16 @@ exception. if something breaks, author a new SO, FBX and .blend."
   mount), emplacements, sect buildings and the Raise Anew structures follow
   the same rule — no procedural geometry is left.
 - **The presentation layer takes a building's visual ONLY from its SO**: the
-  base SO's prefab while it stands at level 0 or is under construction, its
-  level SO's prefab at level N. No multi-variant prefab branches, no
+  base SO's prefab while it stands at level 0 (an Age 0 building, or a site
+  of a faction with no culture yet), its level SO's prefab at level N. **A
+  cultured faction's construction SITE rises as the finished look too**
+  (2026-10-30, developer: "both the preview and the building animation must
+  show the current research level prefab" — it used to rise as the base form
+  and swap on completion), so the ghost, the plan, the rising site and the
+  finished building are one model — all four read the faction-wide level
+  of the type (`FactionBuildingLevels`), never a building's own level stamp,
+  which the sim writes a tick after construction ends: a Barracks finished
+  after the type reached L2 is L2 from its first frame, with no swap. No multi-variant prefab branches, no
   procedural builders, no Resources ladder, no shared prefab between levels.
   A missing prefab is a loud error (logged once per SO at spawn, and listed
   by the binder's audit), never a fallback — if something breaks, a new SO,
@@ -667,6 +692,26 @@ exception. if something breaks, author a new SO, FBX and .blend."
 - **Names**: `<BuildingId>_Age_0` for the base form, `<culture>_<CulturedName>_lv<N>`
   for a level (`Hut_Age_0`, `alanthor_House_lv1`). The FBX and .blend carry
   the name; both live in the building's own `Art/` folder beside its SO.
+  (The Garrison's levels are the hand-authored `Garrison_1..3.prefab` beside
+  their level SOs since 2026-10-30; the kit author no longer rebuilds it.)
+- **One scale for the whole ladder (2026-10-30).** Developer: "the parts
+  that are common to all phases don't get resized on level up — the last
+  level prefab dictates footprint and scale." The footprint fit — the
+  uniform scale that fits a model inside its `BuildingSize` — is measured on
+  the ladder's TOP level and shared by every level, the ghost, the plan and
+  the site (`PresentationSpawnSystem.ComputeBuildingViewScale`,
+  FootprintFit.cs), so a piece the levels share never resizes on a level-up;
+  a level wider than the top one overhangs rather than shrinks. The pivot
+  offset that centres the model on its cell and stands it on the ground is
+  the top level's too, so a piece at the same local coordinates in every
+  level stays PUT through every level-up. That requires the levels to be
+  authored in ONE frame: a corner piece at the origin, the rest in 0.25 m
+  steps from it (the Garrison: x in [-15, 0], floor at y = 0, z in
+  [0, 18]; two of its three prefabs had drifted by a constant offset and
+  were re-based on 2026-10-30). A building with no ladder is fitted on its
+  own model. The construction rise orders pieces by the `N_` group they sit
+  under — a LEADING number only; a Synty piece's trailing catalogue number
+  is not a step — or bottom-to-top when a prefab has no groups.
 - **Style**: the Alanthor House's hand-painted kit (House_1/House_2 meshes and
   textures), kitbashed by slice-and-repeat so tiles and bricks repeat instead
   of stretching (`tools/blender/alanthor/`, the Garrison is the worked
@@ -829,14 +874,16 @@ exception. if something breaks, author a new SO, FBX and .blend."
   construction, the culture's level SO at level N, `culturePrefabs` on the
   base SO for a building with no ladder, `ChapelArt.asset` for chapels). The
   spawn, `BuildingPrefabSwapSystem` (re-checks every 0.5 s and replaces the
-  view with the dissolve + flourish on any change — level-up, age-up, a site
-  finishing) use it.
+  view with the dissolve on any change — level-up, age-up, a site finishing)
+  use it. The gold level-up nova that burst on top was removed from the game
+  on 2026-10-30.
 - **The placement ghost and the plan show the FINISHED look** (2026-10-21):
   `PresentationSpawnSystem.ResolveFinishedVisual` — the faction's completed
   culture at its faction-wide level of the type, a chapel's ChapelArt. The
   plan used to show the level-0 base form, so an Age 1 ghost turned into the
-  Age 0 building the moment it was placed. Only a construction SITE rises
-  from the base form. The wall hub ghost is the hub art at the faction's
+  Age 0 building the moment it was placed. A construction SITE rises as that
+  finished look too (2026-10-30); only an Age 0 site, with no culture yet,
+  rises from the base form. The wall hub ghost is the hub art at the faction's
   wall level (`CreateWallHubPreview`); a missing model is the footprint
   cube, never a hand-picked `Resources` prefab.
 - **Waning Border > Art > Bind Building Art (SO only)**

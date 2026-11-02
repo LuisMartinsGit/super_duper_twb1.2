@@ -47,6 +47,18 @@ namespace TheWaningBorder.Rendering
             var size = em.GetComponentData<BuildingSize>(entity);
             if (Mathf.Min(size.Width, size.Height) < Cfg.minFootprintMetres) return;
 
+            // Hand-lit buildings: the prefab brings its own lights (listed by
+            // id in the asset, or simply carrying a Light), so no lantern.
+            if (go.GetComponentInChildren<Light>(true) != null) return;
+            var ids = Cfg.excludedBuildingIds;
+            if (ids != null && ids.Length > 0)
+            {
+                string id = TheWaningBorder.Entities.BuildingIds.Of(entity, em);
+                if (!string.IsNullOrEmpty(id))
+                    for (int i = 0; i < ids.Length; i++)
+                        if (string.Equals(ids[i], id, System.StringComparison.OrdinalIgnoreCase)) return;
+            }
+
             var lantern = go.AddComponent<BuildingLanternLight>();
             lantern.Entity = entity;
         }

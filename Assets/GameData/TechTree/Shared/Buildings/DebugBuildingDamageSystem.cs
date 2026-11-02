@@ -1,6 +1,7 @@
 // DebugBuildingDamageSystem.cs
 // Test-only: drains HP from buildings tagged for the BuildingDamageTest scenario
-// so the progressive BuildingDamage shader can be reviewed live.
+// so the collapse can be reviewed live. (The progressive damage shader it was
+// written for was removed from the game on 2026-10-30.)
 
 using Unity.Entities;
 

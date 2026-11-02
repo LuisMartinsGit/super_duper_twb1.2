@@ -1,14 +1,21 @@
 // BuildingRiseData.cs
 // Stores per-piece original local positions for sequential construction rise.
-// Piece ORDER: when the model's parts are labeled 1..N (a number anywhere in
-// the transform name — "1", "Part_2", "03_roof"; a labeled GROUP passes its
-// number down to its meshes), parts rise in ascending numerical order and
+// Piece ORDER: when the model's parts are labeled 1..N (a number at the START
+// of the transform name — "1", "03_roof", "2_Walls"; a labeled GROUP passes
+// its number down to its meshes), parts rise in ascending numerical order and
 // parts SHARING a number rise TOGETHER in one shared slot (one construction
-// step). Pieces without any number (the spawn system parents helpers like
-// the faction banner pole/flag onto the visual before this snapshot) form a
+// step). Pieces without a label (the spawn system parents helpers like the
+// faction banner pole/flag onto the visual before this snapshot) form a
 // final step after the numbered ones — they must NOT disable numeric mode.
-// Only when NO piece has a number does the visual use the legacy order:
+// Only when NO piece has a label does the visual use the legacy order:
 // per-piece slots by ascending world Y (lowest first, top last).
+//
+// LEADING digits only (2026-10-30). The label used to be the first digit run
+// ANYWHERE in the name, so a prefab assembled by hand from Synty pieces
+// ("SM_Bld_Castle_Roof_S_Half_01", "SM_Bld_Castle_Wall_04 (3)") rose in the
+// order of the kit's catalogue numbers — roofs before walls. A kit piece's
+// trailing number is its catalogue index, never a construction step; the
+// step is the `N_Name` group the authors put pieces under.
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -133,17 +140,16 @@ namespace TheWaningBorder.Rendering
                 CollectPieces(t.GetChild(i), output, labels, label);
         }
 
-        /// <summary>First run of digits in the name ("Part_12" -> 12,
-        /// "03_roof" -> 3). False when the name contains no digits.</summary>
+        /// <summary>The run of digits the name STARTS with ("12" -> 12,
+        /// "03_roof" -> 3). False when the name does not begin with a digit
+        /// ("Part_12", "SM_Bld_Castle_Wall_04" — a kit piece's catalogue
+        /// number is not a construction step).</summary>
         private static bool TryExtractLabel(string name, out int value)
         {
             value = 0;
-            if (string.IsNullOrEmpty(name)) return false;
+            if (string.IsNullOrEmpty(name) || !char.IsDigit(name[0])) return false;
 
             int i = 0;
-            while (i < name.Length && !char.IsDigit(name[i])) i++;
-            if (i >= name.Length) return false;
-
             long parsed = 0;
             while (i < name.Length && char.IsDigit(name[i]))
             {

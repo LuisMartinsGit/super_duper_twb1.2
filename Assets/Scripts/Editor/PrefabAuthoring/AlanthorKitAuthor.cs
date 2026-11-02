@@ -562,7 +562,10 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
 
         static void AlanthorBuildings()
         {
-            AlLevels("Garrison", "Garrison", BuildGarrison);
+            // The Garrison is HAND-AUTHORED since 2026-10-30 (Garrison_1..3.prefab
+            // beside its level SOs, which bind them). Not rebuilt here: a re-run
+            // would recreate the retired alanthor_Garrison_lv1..3 and rebind the
+            // SOs to them. BuildGarrison stays as the retired recipe.
             AlLevels("Guild", "Guild", BuildGuild);
             AlLevels("Mine", "Mine", BuildAlMine);
             AlLevels("Tower", "WatchTower", BuildWatchTower);
@@ -1252,7 +1255,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             }
             foreach (var (folder, stem, fp) in new (string, string, float)[]
             {
-                ("Garrison", "Garrison", 8f), ("Guild", "Guild", 4f), ("Mine", "Mine", 4f), ("Tower", "WatchTower", 4f), ("TradingOutpost", "TradingOutpost", 4f),
+                ("Guild", "Guild", 4f), ("Mine", "Mine", 4f), ("Tower", "WatchTower", 4f), ("TradingOutpost", "TradingOutpost", 4f),
                 ("Fortress", "Fortress", 10f), ("ArcheryRange", "ArcheryRange", 8f), ("RoyalStable", "RoyalStable", 8f), ("SiegeYard", "SiegeYard", 8f), ("VaultOfAlmierra", "VaultOfAlmierra", 8f),
             })
             {

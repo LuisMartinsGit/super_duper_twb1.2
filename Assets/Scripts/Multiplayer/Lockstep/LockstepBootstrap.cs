@@ -167,8 +167,7 @@ namespace TheWaningBorder.Multiplayer
             // turn it OFF for diagnosis, not as a normal mode.
             // Crash-bisection kill switch (-twbMpNoFixed): keep deterministic
             // hashing but leave the sim frame-driven. Diagnostic only.
-            bool noFixed = System.Array.IndexOf(
-                System.Environment.GetCommandLineArgs(), "-twbMpNoFixed") >= 0;
+            bool noFixed = TheWaningBorder.Core.CommandLine.Has("-twbMpNoFixed");
             if (GameSettings.DeterministicLockstep && !noFixed)
             {
                 LockstepFixedStep.Install(
@@ -211,7 +210,7 @@ namespace TheWaningBorder.Multiplayer
         {
             if (GameSettings.IsMultiplayer) return false;
             if (TheWaningBorder.Core.Replay.ReplaySession.Active) return true;
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twbNoSoloLockstep") >= 0)
+            if (TheWaningBorder.Core.CommandLine.Has("-twbNoSoloLockstep"))
                 return false;
             if (GameSettings.TutorialActive || GameSettings.IsSandbox) return false;
             return GameSettings.Mode == GameMode.FreeForAll || GameSettings.Mode == GameMode.SoloVsBorder;

@@ -365,8 +365,7 @@ public partial class PresentationSpawnSystem
     // A wall level, a palisade's cultured level and a tower / gate / engine
     // conversion re-clad the piece by rebuilding its view. Every other
     // building's level-up dissolves the old look into the new one
-    // (BuildingDissolveTransition) with the gold flourish
-    // (BuildingLevelUpEffect); walls just popped. The OLD view is kept here
+    // (BuildingDissolveTransition); walls just popped. The OLD view is kept here
     // until the spawn pass has built the new one — a curtain segment builds
     // its mesh a frame or more later (WallCurveVisual's rebuild budget) —
     // and the wave then runs between the two.
@@ -375,7 +374,6 @@ public partial class PresentationSpawnSystem
     {
         public GameObject Old;
         public float Deadline;
-        public bool Flourish;
     }
 
     private readonly Dictionary<Entity, PendingReclad> _pendingReclads = new();
@@ -387,9 +385,9 @@ public partial class PresentationSpawnSystem
 
     /// <summary>
     /// <see cref="ForceRespawn"/>, with the level-up dissolve from the old
-    /// view to the new one. <paramref name="flourish"/> adds the gold burst
-    /// — meant for the pieces that read as structures (hubs, towers, gates),
-    /// not every curtain segment of a faction-wide re-clad.
+    /// view to the new one. (<paramref name="flourish"/> used to add the gold
+    /// burst on hubs, towers and gates; the burst was removed from the game
+    /// on 2026-10-30 and the parameter is kept only so callers read the same.)
     /// </summary>
     public void ForceRespawnWithTransition(Entity entity, bool flourish)
     {
@@ -416,7 +414,6 @@ public partial class PresentationSpawnSystem
                 {
                     Old = oldGo,
                     Deadline = Time.time + RecladWaitSeconds,
-                    Flourish = flourish,
                 };
             else Destroy(oldGo);   // nothing visible to dissolve
         }
@@ -455,7 +452,6 @@ public partial class PresentationSpawnSystem
                 ? FactionColors.Get(_em.GetComponentData<FactionTag>(e).Value)
                 : new Color(1f, 0.85f, 0.45f);
             TheWaningBorder.Rendering.BuildingDissolveTransition.Begin(p.Old, newGo, 1.5f, accent);
-            if (p.Flourish) TheWaningBorder.Rendering.BuildingLevelUpEffect.Spawn(newGo, accent);
             _pendingReclads.Remove(e);
         }
     }

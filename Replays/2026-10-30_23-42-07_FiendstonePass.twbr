@@ -1,0 +1,35 @@
+TWBR	1
+build	0.0.60
+fp	3F8421E3
+created	2026-10-30T23:42:07
+map	FiendstonePass
+settings	v=9,fp=3F8421E3,seed=37140,map=FiendstonePass,half=125,layout=0,sides=0,edgemin=30,edgemax=60,minsep=100,mode=0,fog=1,border=1,age=0,culture=2,pfc=0,fcult=0.0.0.0.0.0.0.0,startres=1,cell=1,det=1,tickhz=30
+players	2	2	0	0	1	0
+lockstep	30	1
+slot	0	1	0	1	0	0	0	4	Player
+slot	1	2	1	1	0	1	0	2	
+slot	2	0	2	1	0	2	0	-1	
+slot	3	0	3	1	0	3	0	-1	
+slot	4	0	4	1	0	4	0	-1	
+slot	5	0	5	1	0	5	0	-1	
+slot	6	0	6	1	0	6	0	-1	
+slot	7	0	7	1	0	7	0	-1	
+begin
+h	0	2606802761
+h	30	1957619756
+h	60	3335054183
+c	63	0	0,1,21,-44.5,24.162241,-402.5,0,0,
+c	79	0	0,14,1,360,24.1494236,478,0,0,GatherersHut
+c	79	0	1,4,15,360,24.1494236,478,0,0,GatherersHut
+c	79	0	2,4,13,360,24.1494236,478,0,0,GatherersHut
+c	80	0	0,14,1,360,24.1494236,478,0,0,GatherersHut
+c	80	0	1,4,15,360,24.1494236,478,0,0,GatherersHut
+c	80	0	2,4,13,360,24.1494236,478,0,0,GatherersHut
+c	87	0	0,14,1,408,23.680645,434,0,0,GatherersHut
+c	87	0	1,4,14,408,23.680645,434,0,0,GatherersHut
+c	87	0	2,14,1,296,23.8069954,444,0,1800,GatherersHut
+c	87	0	3,4,14,296,23.8069954,444,0,0,GatherersHut
+c	88	0	0,14,1,368,24.1732273,434,0,900,Barracks
+c	88	0	1,4,14,368,24.1732273,434,0,0,Barracks
+h	90	4106330100
+end	108	quit

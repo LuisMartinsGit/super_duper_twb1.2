@@ -33,9 +33,18 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         return go;
     }
 
-    /// <summary>Footprint fit for a preview instance (the whole model, as
-    /// the finished building is measured).</summary>
-    public static float ComputeFootprintFitForView(GameObject go, float width, float height,
-                                                   out Vector3 centreOffset)
-        => ComputeFootprintFitScoped(go, null, width, height, out centreOffset);
+    /// <summary>
+    /// The root scale and pivot offset the ghost of <paramref name="buildingId"/>
+    /// takes — exactly what the finished building's view gets: the ladder's
+    /// top level sets both (FootprintFit.cs), so the ghost, the site and
+    /// every level stand at one scale.
+    /// </summary>
+    public static float ComputeFinishedViewScale(EntityManager em, string buildingId, Faction faction,
+        GameObject preview, float width, float height, out Vector3 centreOffset)
+    {
+        ResolveFinishedVisual(em, buildingId, faction, out var prefab, out _);
+        byte culture = CultureConfig.GetCompletedCulture(em, faction);
+        return ComputeBuildingViewScale(preview, prefab, buildingId, culture, width, height,
+                                        out _, out centreOffset);
+    }
 }

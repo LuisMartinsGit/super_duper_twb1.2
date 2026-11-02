@@ -10,7 +10,8 @@
 // prefab its view was built from (BuildingVisualSource). When they differ —
 // a level-up, the age-up, a construction site finishing, a Veilstone Mine
 // converted into a Trading Outpost — the view is replaced by the new model,
-// fitted to the footprint, with the dissolve wave and the level-up flourish.
+// fitted to the footprint, with the dissolve wave. (The gold level-up nova
+// that used to burst on top was removed from the game on 2026-10-30.)
 //
 // Replaced, 2026-10-20: the per-level cache, the in-place multi-variant
 // branch switch (BuildingVariantVisual), the Resources naming ladder
@@ -34,9 +35,6 @@ namespace TheWaningBorder.Rendering
 
         private Unity.Entities.World _world;
         private EntityManager _em;
-        /// <summary>Entities whose next replacement plays without the flourish
-        /// (the construction-complete hook already played one).</summary>
-        private readonly HashSet<Entity> _quiet = new HashSet<Entity>();
 
         private static readonly ComponentType[] QT_Buildings =
         {
@@ -60,16 +58,9 @@ namespace TheWaningBorder.Rendering
 
         void OnDestroy() { if (Instance == this) Instance = null; }
 
-        /// <summary>Re-resolve every building on the next frame (the age-up).</summary>
+        /// <summary>Re-resolve every building on the next frame (the age-up,
+        /// a site finishing).</summary>
         public void RescanNow() => _scanTimer = ScanInterval;
-
-        /// <summary>Re-resolve on the next frame; <paramref name="flourish"/>
-        /// false = replace <paramref name="entity"/> without the gold burst.</summary>
-        public void RescanNow(Entity entity, bool flourish)
-        {
-            if (!flourish) _quiet.Add(entity);
-            _scanTimer = ScanInterval;
-        }
 
         void Update()
         {
@@ -97,18 +88,16 @@ namespace TheWaningBorder.Rendering
                 if (view == null) continue;
                 var src = view.GetComponent<PresentationSpawnSystem.BuildingVisualSource>();
                 if (src != null && src.Prefab == want) continue;
-                ReplaceView(e, view, want, flourish: !_quiet.Remove(e));
+                ReplaceView(e, view, want);
             }
-            if (_quiet.Count > 64) _quiet.Clear();
         }
 
         /// <summary>
         /// Replace the view with a new instance of <paramref name="prefab"/>:
-        /// footprint-fitted, faction-coloured, selectable, lit, with the
-        /// damage shader — what the spawn gives every building — then the
-        /// dissolve from the old view.
+        /// footprint-fitted, faction-coloured, selectable, lit — what the
+        /// spawn gives every building — then the dissolve from the old view.
         /// </summary>
-        private void ReplaceView(Entity e, GameObject current, GameObject prefab, bool flourish)
+        private void ReplaceView(Entity e, GameObject current, GameObject prefab)
         {
             var t = _em.GetComponentData<LocalTransform>(e);
             Vector3 pos = t.Position;
@@ -120,15 +109,10 @@ namespace TheWaningBorder.Rendering
             newGo.SetActive(true);
             newGo.name = $"Entity_{e.Index}_{prefab.name}";
 
-            var ps = prefab.transform.localScale;
-            float authored = (ps.x + ps.y + ps.z) / 3f;
-            float baseScale = authored;
-            Vector3 centreOffset = Vector3.zero;
-            if (_em.HasComponent<BuildingSize>(e))
-            {
-                var size = _em.GetComponentData<BuildingSize>(e);
-                baseScale *= PresentationSpawnSystem.ComputeFootprintFitForSize(newGo, size.Width, size.Height, out centreOffset);
-            }
+            // The ladder's top level sets the scale and the pivot offset, so a
+            // level-up never resizes the pieces the levels share (FootprintFit.cs).
+            float baseScale = PresentationSpawnSystem.ComputeBuildingViewScale(
+                _em, e, newGo, prefab, out float authored, out Vector3 centreOffset);
             if (baseScale > 0.001f)
             {
                 var tag = newGo.GetComponent<ProceduralScaleTag>() ?? newGo.AddComponent<ProceduralScaleTag>();
@@ -151,15 +135,12 @@ namespace TheWaningBorder.Rendering
             var reference = newGo.GetComponent<EntityReference>() ?? newGo.AddComponent<EntityReference>();
             reference.Entity = e;
             BuildingLanternLight.Attach(newGo, e, _em);
-            var dmg = newGo.GetComponent<BuildingDamageVisual>() ?? newGo.AddComponent<BuildingDamageVisual>();
-            dmg.Entity = e;
             var source = newGo.GetComponent<PresentationSpawnSystem.BuildingVisualSource>()
                       ?? newGo.AddComponent<PresentationSpawnSystem.BuildingVisualSource>();
             source.Prefab = prefab;
 
             EntityViewManager.Instance.RegisterView(e, newGo);
             BuildingDissolveTransition.Begin(current, newGo, duration: 1.5f, edgeColor: accent);
-            if (flourish) BuildingLevelUpEffect.Spawn(newGo, accent);
             TWBLog.Log($"[BuildingPrefabSwap] entity {e.Index} -> {prefab.name}");
         }
     }

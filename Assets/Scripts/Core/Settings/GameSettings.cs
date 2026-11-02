@@ -144,6 +144,12 @@ public enum ScenarioType
     // curvature limit, backtrack, release) can be exercised without a match
     // around it. docs/Design/Age_1_Alanthor.md § Drawing walls.
     WallDrawing = 31,
+
+    // Garrison / Archery Range ladder (2026-11-01): one Alanthor faction's
+    // Barracks (the Garrison) at L1 | L2 | L3 over its Archery Range at
+    // L1 | L2 | L3, same 8 x 8 m footprint, under the green build grid --
+    // the two ladders' scale and facing compared cell for cell.
+    GarrisonRangeLadder = 32,
 }
 
 /// <summary>
@@ -327,7 +333,7 @@ public static class GameSettings
     /// <summary>
     /// The lobby's starting-resources level (2026-10-16: was a NORMAL / MAX
     /// bool). The bank and religion points each level starts with are data,
-    /// on EconomyBootstrap.asset (Scripts/Bootstrap/).
+    /// on EconomyBootstrap.asset (GameData/Bootstrap/Economy/).
     /// </summary>
     public static StartingResourcesLevel StartingResources = StartingResourcesLevel.Normal;
 

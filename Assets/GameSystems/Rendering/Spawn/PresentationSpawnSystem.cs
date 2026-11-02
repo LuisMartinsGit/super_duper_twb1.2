@@ -942,14 +942,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // Apply faction coloring
         ApplyFactionColor(goInst, entity);
 
-        // Progressive battle-damage shader for buildings that spawn via the
-        // generic prefab path (those that don't go through FinishProceduralBuilding).
+        // Buildings that spawn via the generic prefab path (those that don't
+        // go through FinishProceduralBuilding).
         if (_em.HasComponent<BuildingTag>(entity))
         {
-            var dmgVis = goInst.GetComponent<TheWaningBorder.Rendering.BuildingDamageVisual>()
-                      ?? goInst.AddComponent<TheWaningBorder.Rendering.BuildingDamageVisual>();
-            dmgVis.Entity = entity;
-
             // Team-color the atlas: blue-painted regions -> faction color.
             // FinishProceduralBuilding does this for its path; the generic
             // SO-prefab path never did, so prefab buildings kept their
@@ -1088,16 +1084,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 ?? go.AddComponent<TheWaningBorder.Rendering.BuildingRiseData>();
         rise.Init();
 
-        // Progressive battle-damage shader, driven from the entity's Health. It
-        // stays dormant (original materials untouched) until the building first
-        // takes damage. Guarded to true buildings so resource/veilstone nodes that
-        // also route through here keep their own shaders.
-        if (_em.HasComponent<BuildingTag>(entity))
-        {
-            var dmgVis = go.GetComponent<TheWaningBorder.Rendering.BuildingDamageVisual>()
-                      ?? go.AddComponent<TheWaningBorder.Rendering.BuildingDamageVisual>();
-            dmgVis.Entity = entity;
-        }
+        // (The progressive battle-damage shader that used to be attached here
+        // was removed from the game on 2026-10-30: it turned buildings white.
+        // Damage shows through the collapse alone.)
 
         return go;
     }
@@ -1494,25 +1483,15 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         }
         else
         {
-            // Just exited UnderConstruction: snap pieces back to rest
-            // once and fire the same flourish used for level-up swaps
-            // so the transition reads clearly to the player.
+            // Just exited UnderConstruction: snap pieces back to rest once.
+            // The finished building takes its level's SO model
+            // (Art_Direction.md § 13): the swap re-resolves it at once (a
+            // cultured site already rose as that model, so usually nothing
+            // changes). The gold flourish that used to fire here was removed
+            // from the game on 2026-10-30.
             var rise = sync.Rise;
             if (rise != null && rise.NotifyConstructionComplete())
-            {
-                Color accent = new Color(1f, 0.85f, 0.45f);
-                if (_em.HasComponent<FactionTag>(entity))
-                {
-                    var cFac = _em.GetComponentData<FactionTag>(entity).Value;
-                    accent = FactionColors.Get(cFac);
-
-                    // The finished building takes its level's SO model now
-                    // (Art_Direction.md § 13): the swap re-resolves it at
-                    // once, with the dissolve; this flourish is the cue.
-                    TheWaningBorder.Rendering.BuildingPrefabSwapSystem.Instance?.RescanNow(entity, flourish: false);
-                }
-                TheWaningBorder.Rendering.BuildingLevelUpEffect.Spawn(go, accent);
-            }
+                TheWaningBorder.Rendering.BuildingPrefabSwapSystem.Instance?.RescanNow();
         }
 
         // Respect procedural unit base scale (ProceduralScaleTag)

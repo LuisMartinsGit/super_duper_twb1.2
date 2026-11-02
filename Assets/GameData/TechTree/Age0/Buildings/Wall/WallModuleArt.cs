@@ -476,9 +476,14 @@ namespace TheWaningBorder.Rendering
 
                     // Read first: the procedural pieces already carry a block with
                     // their colour, metallic and smoothness in it.
+                    // A roof wears the VIVID player tint every building's roof
+                    // wears (BuildingFactionColorMarker.PlayerTint); posts and
+                    // cloth take the swatch itself.
+                    var tint = IsRoofMaterial(mat != null ? mat.name : null)
+                        ? BuildingFactionColorMarker.PlayerTint(owner) : owner;
                     rend.GetPropertyBlock(_tintBlock);
-                    _tintBlock.SetColor("_BaseColor", owner);
-                    _tintBlock.SetColor("_Color", owner);
+                    _tintBlock.SetColor("_BaseColor", tint);
+                    _tintBlock.SetColor("_Color", tint);
                     if (mat != null && mat.HasProperty("_StripeColor"))
                         _tintBlock.SetColor("_StripeColor", owner);
                     rend.SetPropertyBlock(_tintBlock);
@@ -494,9 +499,11 @@ namespace TheWaningBorder.Rendering
                     var m = mats[i];
                     if (!nodeOwns && !IsOwnershipPart(null, m != null ? m.name : null, BaseColorOf(m)))
                         continue;
+                    var slotTint = IsRoofMaterial(m != null ? m.name : null)
+                        ? BuildingFactionColorMarker.PlayerTint(owner) : owner;
                     rend.GetPropertyBlock(_tintBlock, i);
-                    _tintBlock.SetColor("_BaseColor", owner);
-                    _tintBlock.SetColor("_Color", owner);
+                    _tintBlock.SetColor("_BaseColor", slotTint);
+                    _tintBlock.SetColor("_Color", slotTint);
                     if (m != null && m.HasProperty("_StripeColor"))
                         _tintBlock.SetColor("_StripeColor", owner);
                     rend.SetPropertyBlock(_tintBlock, i);

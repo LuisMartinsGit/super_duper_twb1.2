@@ -1,0 +1,19 @@
+TWBR	1
+build	0.0.60
+fp	3F8421E3
+created	2026-10-31T00:35:16
+map	FiendstonePass
+settings	v=9,fp=3F8421E3,seed=65722,map=FiendstonePass,half=125,layout=0,sides=0,edgemin=30,edgemax=60,minsep=100,mode=0,fog=1,border=1,age=1,culture=2,pfc=1,fcult=2.2.0.0.0.0.0.0,startres=3,cell=1,det=1,tickhz=30
+players	6	6	0	0	1	0
+lockstep	30	1
+slot	0	1	0	1	0	0	0	2	Player
+slot	1	2	1	1	0	1	0	1	
+slot	2	2	2	1	0	2	0	3	
+slot	3	2	3	1	0	3	0	4	
+slot	4	2	4	1	0	4	0	0	
+slot	5	2	5	1	0	5	0	5	
+slot	6	0	6	1	0	6	0	-1	
+slot	7	0	7	1	0	7	0	-1	
+begin
+h	0	82205922
+end	17	quit

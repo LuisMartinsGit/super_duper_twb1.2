@@ -140,6 +140,27 @@ Consequences worth stating plainly, because they change how a base packs:
 Building **visuals are scaled to their footprint** so the mesh fills its
 cells with no overhang and no gap.
 
+**What is measured is the plinth, not the whole model (2026-11-01).** A
+building prefab marks the slab it stands on — a child named `Footprint`
+carrying `FootprintBounds`, holding the castle floor stones — and the fit
+scales and centres that slab onto the cells; towers, flag poles, targets and
+anything else may overhang it without shrinking or shifting the building. A
+prefab with no marker is measured whole, as before. The Garrison and the
+Archery Range both stand on a 20 × 20 m plinth, so they draw at the same
+scale on the same 4 × 4-cell footprint; the Archery Range's yard faces +z,
+the way the Garrison's gate does.
+
+**A marked level is the ladder's scale reference (2026-11-02).** A ladder
+takes one scale from one prefab (its top level, Art_Direction.md § 13). When
+a ladder is being re-authored level by level, the new levels carry the
+`Footprint` marker and the old ones do not, so the HIGHEST MARKED level is
+the reference, and the top level only when no level is marked — the House:
+L1 redone on a 10 × 10 m plinth, L2-L3 still the old 4 m art, L1 fits its
+2 × 2 cells at 0.4 instead of being drawn at the old top level's 1.0
+(`PresentationSpawnSystem.ResolveFitReference`). `Waning Border > Art >
+Footprint > Group Plinth` adds the marker to a hand-authored prefab by
+grouping its ground-level castle floor stones.
+
 ### Buildings may touch (2026-10-04)
 
 **Two footprints may sit flush — edge to edge, sharing a cell boundary — but

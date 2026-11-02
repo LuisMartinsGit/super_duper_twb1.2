@@ -1,0 +1,489 @@
+// PlayerSpawnSystem.cs
+// Spawns initial units and buildings for each faction at game start
+
+using UnityEngine;
+using Unity.Entities;
+using Unity.Mathematics;
+using TheWaningBorder.Entities;
+using TheWaningBorder.Economy;
+using TheWaningBorder.Core.Config;
+using TheWaningBorder.Core.Multiplayer;
+using TheWaningBorder.World.Terrain;
+using TheWaningBorder.World.MapMarkers;
+
+namespace TheWaningBorder.Bootstrap
+{
+    public static class PlayerSpawnSystem
+    {
+        // ── Where each faction actually started ──────────────────────────
+        //
+        // The RESOLVED position, after the lobby's start pick, the
+        // faction-match pass, the leftover-marker pass and the procedural
+        // fallback have all had their say. Downstream code that needs to know
+        // "where is this player's home" must read this and NOT a
+        // PlayerStartMarker's Faction field: that field is what the map AUTHOR
+        // typed, and nothing writes the real assignment back into it, so on any
+        // map where the lobby moved somebody (a random start pick, more markers
+        // than players, a start chosen on the preview) the two disagree.
+        //
+        // RegionStartReveal read the marker field and revealed the wrong
+        // region: the player saw their real home (their Hall is there) plus a
+        // second, unrelated explored region across the map.
+        private static readonly System.Collections.Generic.Dictionary<Faction, Vector3>
+            _spawnPositions = new();
+
+        /// <summary>World position each active faction's base was spawned at,
+        /// keyed by faction. Empty until <see cref="SpawnAllFactions"/> runs.</summary>
+        public static System.Collections.Generic.IReadOnlyDictionary<Faction, Vector3>
+            SpawnPositions => _spawnPositions;
+
+        /// <summary>Put a saved game's start positions back (the restored match
+        /// never runs <see cref="SpawnAllFactions"/>). docs/Design/Replays_And_Saves.md</summary>
+        internal static void RestoreSpawnPositions(
+            System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Faction, Vector3>> positions)
+        {
+            _spawnPositions.Clear();
+            foreach (var kv in positions) _spawnPositions[kv.Key] = kv.Value;
+        }
+
+        /// <summary>
+        /// Spawn starting bases and units for all active factions.
+        /// Call from GameBootstrap after world initialization.
+        /// </summary>
+        public static void SpawnAllFactions()
+        {
+            // Static, so a second match in the same process would otherwise
+            // inherit the previous map's home positions.
+            _spawnPositions.Clear();
+
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated)
+            {
+                return;
+            }
+
+            var em = world.EntityManager;
+
+            // Reset network ID generator so all clients assign IDs in the same deterministic order
+            NetworkIdGenerator.Reset();
+
+            // …and the simulated clock, which victory timing and AI budgeting
+            // read instead of Time.time. Both peers must start it at the same
+            // logical moment. docs/Multiplayer_LAN_Readiness.md
+            TheWaningBorder.Core.SimClock.Reset();
+
+            // Fix #200 / #206: no stale Entity or query handle from a previous
+            // world (returning to the main menu and starting a new game) may
+            // leak into the fresh one.
+            GameBootstrap.ClearEntityCaches();
+
+            int playerCount = GameSettings.TotalPlayers;
+
+            // The procedural layout. Hand-authored maps use PlayerStartMarkers
+            // (applied below); this is only the fallback for unmarked factions.
+            var positions = CalculateLayoutSpawnPositions(playerCount);
+
+            // Hand-authored maps: PlayerStartMarker components in the scene
+            // override the radial / two-sides layout for every faction that
+            // has a marker. Factions without a marker fall back to their
+            // calculated position so a partially-marked map still works.
+            bool useMarkers = MapMarkerRegistry.HasPlayerMarkers;
+            if (useMarkers)
+            {
+                var sb = new System.Text.StringBuilder("[PlayerSpawnSystem] markers found: ");
+                for (int mi = 0; mi < MapMarkerRegistry.PlayerStarts.Count; mi++)
+                {
+                    var m = MapMarkerRegistry.PlayerStarts[mi];
+                    if (m == null) continue;
+                    var p = m.WorldPosition;
+                    sb.Append($"{m.Faction}@({p.x:F0},{p.z:F0}) ");
+                }
+                TWBLog.Log(sb.ToString());
+            }
+
+            // Marker assignment is EXACT and exhaustive: pass 1 gives every
+            // (see ResolveChosenStart below for the lobby-choice pass)
+            // faction its faction-matched marker; pass 2 hands the remaining
+            // (unused) markers to factions without a match, in the registry's
+            // deterministic order. The procedural layout only ever applies to
+            // factions left over after every marker is spent — so on a marked
+            // map, starting positions are exactly the authored marker
+            // positions, every run, even when the marker Faction fields don't
+            // line up with the active lobby slots.
+            var usedMarkers = new System.Collections.Generic.HashSet<PlayerStartMarker>();
+
+            // Pass 0 (reservation): every start position explicitly chosen on
+            // the lobby minimap is claimed BEFORE anyone is auto-assigned.
+            // Done up front because the per-slot loop below runs in slot order:
+            // without this, slot 0 falling through to the "first unused marker"
+            // rule could take the very marker slot 3 had picked, and the
+            // player's explicit choice would silently lose.
+            // docs/Design/Lobby_Setup.md
+            var reservedStarts = new System.Collections.Generic.Dictionary<int, PlayerStartMarker>();
+            if (useMarkers)
+            {
+                for (int i = 0; i < playerCount; i++)
+                {
+                    var s = LobbyConfig.Slots[i];
+                    if (s == null || s.Type == SlotType.Empty) continue;
+                    if (s.StartIndex < 0) continue;
+
+                    var m = ResolveChosenStart(s.StartIndex);
+                    if (m == null || !usedMarkers.Add(m))
+                    {
+                        Debug.LogWarning(
+                            $"[PlayerSpawnSystem] slot {i} ({s.Faction}) asked for start " +
+                            $"#{s.StartIndex} but it is missing or already claimed — " +
+                            "falling back to automatic assignment.");
+                        continue;
+                    }
+                    reservedStarts[i] = m;
+                }
+            }
+
+            for (int i = 0; i < playerCount; i++)
+            {
+                var slot = LobbyConfig.Slots[i];
+                if (slot == null || slot.Type == SlotType.Empty) continue;
+
+                // In observer mode the watcher's slot is SlotType.Observer; we
+                // still spawn it so the AI brain (created by AIBootstrap because
+                // IsFactionHumanControlled returns false for everyone in
+                // observer mode) has a Hall + workers to play with.
+                // Skip Observer only when we're NOT in observer mode (that
+                // means a real spectator with no faction to play, an edge case
+                // we don't currently use but kept here for safety).
+                if (slot.Type == SlotType.Observer && !GameSettings.IsObserver) continue;
+
+                var faction = slot.Faction;
+                float3 spawnPos = positions[i];
+
+                if (useMarkers)
+                {
+                    PlayerStartMarker marker = null;
+
+                    // Pass 0: the lobby's explicit choice, already claimed by
+                    // the reservation pass above. It MUST be read from
+                    // reservedStarts rather than re-resolved here: the
+                    // reservation put the marker into usedMarkers, so a
+                    // re-check of "is it free?" fails for the very slot that
+                    // reserved it, and every chosen start ends up claimed by
+                    // nobody — which dropped the whole roster onto the
+                    // procedural circle. docs/Design/Lobby_Setup.md
+                    if (reservedStarts.TryGetValue(i, out var reserved))
+                        marker = reserved;
+
+                    // Pass 1: exact faction match (unused markers only, so a
+                    // duplicated Faction field can't double-assign).
+                    if (marker == null)
+                    {
+                        var exact = MapMarkerRegistry.FindPlayerMarker(faction);
+                        if (exact != null && !usedMarkers.Contains(exact))
+                            marker = exact;
+                    }
+
+                    // Pass 2: first unused marker in deterministic registry
+                    // order — an authored start position always beats the
+                    // procedural layout, even with a mismatched Faction field.
+                    if (marker == null)
+                    {
+                        for (int mi = 0; mi < MapMarkerRegistry.PlayerStarts.Count; mi++)
+                        {
+                            var candidate = MapMarkerRegistry.PlayerStarts[mi];
+                            if (candidate == null || usedMarkers.Contains(candidate)) continue;
+                            marker = candidate;
+                            Debug.LogWarning(
+                                $"[PlayerSpawnSystem] no PlayerStartMarker set to {faction} — " +
+                                $"using the unclaimed marker '{candidate.gameObject.name}' " +
+                                $"(Faction={candidate.Faction}) instead. Set the marker's " +
+                                "Faction field to silence this warning.");
+                            break;
+                        }
+                    }
+
+                    if (marker != null)
+                    {
+                        usedMarkers.Add(marker);
+                        var p = marker.WorldPosition;
+                        spawnPos = new float3(p.x, p.y, p.z);
+                        TWBLog.Log($"[PlayerSpawnSystem] {faction} → marker " +
+                                  $"'{marker.gameObject.name}' at " +
+                                  $"({spawnPos.x:F2},{spawnPos.z:F2}) — honored exactly");
+                    }
+                    else
+                    {
+                        Debug.LogWarning(
+                            $"[PlayerSpawnSystem] more active factions than " +
+                            $"PlayerStartMarkers — {faction} falls back to the " +
+                            "procedural layout position. Add a marker for this " +
+                            "faction or reduce the player count.");
+                    }
+
+                    SpawnFactionBase(em, faction, spawnPos, exactPosition: marker != null);
+                    continue;
+                }
+
+                SpawnFactionBase(em, faction, spawnPos, exactPosition: false);
+            }
+        }
+
+        private static void SpawnFactionBase(EntityManager em, Faction faction, float3 position,
+            bool exactPosition)
+        {
+            // Marker-sourced positions are AUTHORED — honor them verbatim in
+            // XZ (only the terrain-height snap applies). The silent clamp to
+            // playable bounds stays for procedural layouts, but a marker that
+            // would be moved gets a loud warning instead of a quiet shift:
+            // "the Hall is not on my marker" must never be a mystery again.
+            float3 spawnPos;
+            if (exactPosition)
+            {
+                const float EdgeMargin = 4f;
+                TerrainUtility.GetPlayableBounds(out var bMin, out var bMax);
+                if (position.x < bMin.x + EdgeMargin || position.x > bMax.x - EdgeMargin ||
+                    position.z < bMin.y + EdgeMargin || position.z > bMax.y - EdgeMargin)
+                {
+                    Debug.LogWarning(
+                        $"[PlayerSpawnSystem] {faction}'s start marker at " +
+                        $"({position.x:F2},{position.z:F2}) sits outside the playable " +
+                        $"bounds ({bMin.x:F0}..{bMax.x:F0}, {bMin.y:F0}..{bMax.y:F0}). " +
+                        "Honoring it anyway — move the marker if units spawn off-grid.");
+                }
+                spawnPos = new float3(position.x,
+                    TerrainUtility.GetHeight(position.x, position.z), position.z);
+            }
+            else
+            {
+                spawnPos = EnsureValidSpawnPosition(position);
+            }
+
+            // Spawn the FORTRESS — the capital (Age_0.md 2026-08-31). It
+            // carries HallTag so every Hall rule (home claim, victory, AI
+            // anchoring) applies unchanged; Halls proper are what players
+            // BUILD to expand. BuildingFactory for NetworkedEntity assignment.
+            BuildingFactory.Create(em, "Fortress", spawnPos, faction);
+
+            // Record the FINAL position (post-clamp, post-height-snap) — this
+            // is the one that decides which region the player is standing in.
+            _spawnPositions[faction] = new Vector3(spawnPos.x, spawnPos.y, spawnPos.z);
+
+            // Spawn starting Workers just outside the Hall's inflated
+            // footprint. The Hall is 8 x 8 m (4 x 4 build cells) + 1 cell of
+            // padding, so it blocks out to +/-5 m — the old 6 m offset left
+            // one metre of clearance and dropped workers and the whole
+            // starting army on top of their own Hall's blocked cells.
+            // Doubled with the footprints (2026-08-13).
+            float offset = 12f;
+            float3 workerPos1 = EnsureValidSpawnPosition(spawnPos + new float3(offset, 0, 0));
+            float3 workerPos2 = EnsureValidSpawnPosition(spawnPos + new float3(-offset, 0, 0));
+            float3 workerPos3 = EnsureValidSpawnPosition(spawnPos + new float3(0, 0, offset));
+
+            UnitFactory.Create(em, "Worker", workerPos1, faction);
+            UnitFactory.Create(em, "Worker", workerPos2, faction);
+            UnitFactory.Create(em, "Worker", workerPos3, faction);
+
+            // Starting army south of the Hall (workers occupy E/W/N): FIVE
+            // Spearmen — a front row of three, two behind — and a Scout on the
+            // eastern flank (docs/Design/Unification_Decisions_2026-10-03.md
+            // item 19). No Archers: Age 0 is the melee age, and ranged is an
+            // Age 1 unlock. No Catapult (§2.5b rev.3): siege in the opening
+            // seconds trivialised every early curse anchor.
+            const float spacing = 3.5f;
+            float3 frontRow = spawnPos + new float3(0, 0, -offset);
+            float3 backRow = spawnPos + new float3(0, 0, -offset - spacing);
+
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow + new float3(-spacing, 0, 0)), faction);
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow), faction);
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(frontRow + new float3(spacing, 0, 0)), faction);
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(backRow + new float3(-spacing * 0.5f, 0, 0)), faction);
+            UnitFactory.Create(em, "Spearman", EnsureValidSpawnPosition(backRow + new float3(spacing * 0.5f, 0, 0)), faction);
+
+            UnitFactory.Create(em, "Scout", EnsureValidSpawnPosition(backRow + new float3(spacing * 2f, 0, 0)), faction);
+
+            SpawnStartingHouse(em, faction, spawnPos);
+        }
+
+        /// <summary>
+        /// Every player starts with one finished House (Hut) beside the
+        /// Fortress (Territory_Claims.md §4, 2026-09-30). It goes on a
+        /// DIAGONAL — workers stand E / W / N and the army S — 10 m out, so
+        /// its 4 x 4 m footprint (8-12 m) clears the Fortress's 10 x 10 m and
+        /// its padding. Candidates are tried in a fixed order and each must
+        /// pass the ordinary placement test, so every lockstep peer lands on
+        /// the same cell; a start with no legal diagonal gets no house rather
+        /// than one on a cliff or a node.
+        /// </summary>
+        private static void SpawnStartingHouse(EntityManager em, Faction faction, float3 fortress)
+        {
+            const string HutId = "Hut";
+            var size = BuildingSizeConfig.GetSize(HutId);
+
+            // THE DRAWN BASE (2026-10-06, Game_AI.md § 6g): the starting House
+            // takes the main camp's nearest House slot in this faction's
+            // variant, so the opening never stands where the layout puts
+            // something else. The diagonal below is the fallback.
+            if (TheWaningBorder.AI.AIBaseTemplate.TryStartingHouseSlot(em, faction, fortress, HutId,
+                    out float3 slot))
+            {
+                BuildingFactory.Create(em, HutId, slot, faction);
+                return;
+            }
+
+            float[] rings = { 10f, 14f };
+            float2[] dirs = { new float2(1, 1), new float2(-1, 1), new float2(1, -1), new float2(-1, -1) };
+
+            foreach (float r in rings)
+                foreach (var d in dirs)
+                {
+                    float3 p = BuildGrid.Snap(fortress + new float3(d.x * r, 0f, d.y * r), HutId);
+                    p.y = TerrainUtility.GetHeight(p.x, p.z);
+                    if (!TheWaningBorder.Core.Commands.Types.BuildCommandHelper.IsValidBuildPosition(
+                            em, p, size, HutId))
+                        continue;
+                    BuildingFactory.Create(em, HutId, p, faction);
+                    return;
+                }
+
+            Debug.LogWarning($"[PlayerSpawnSystem] {faction}: no legal spot beside the Fortress " +
+                             "for the starting House — none spawned.");
+        }
+
+        /// <summary>
+        /// Ensure spawn position is on the terrain and at correct height.
+        /// Clamps into the actual Terrain bounds (with a small margin) so no
+        /// spawn — layout-derived or marker-derived — can land off the
+        /// terrain, outside the nav grid.
+        /// </summary>
+        private static float3 EnsureValidSpawnPosition(float3 position)
+        {
+            const float EdgeMargin = 4f;
+            TerrainUtility.GetPlayableBounds(out var bMin, out var bMax);
+            position.x = math.clamp(position.x, bMin.x + EdgeMargin, bMax.x - EdgeMargin);
+            position.z = math.clamp(position.z, bMin.y + EdgeMargin, bMax.y - EdgeMargin);
+
+            // Snap to terrain height.
+            float y = TerrainUtility.GetHeight(position.x, position.z);
+            return new float3(position.x, y, position.z);
+        }
+
+        /// <summary>
+        /// Turn a lobby start choice into an actual scene marker.
+        ///
+        /// The lobby minimap indexes <c>MapInfo.PlayerStarts</c> (baked,
+        /// normalized dots on a thumbnail); the spawn needs a live
+        /// <see cref="PlayerStartMarker"/>. Preferred route is by IDENTITY —
+        /// the baked <c>PlayerStartFactions</c> entry names the marker, and
+        /// that survives any disagreement in array ordering. Positional
+        /// indexing into the registry is the fallback for MapInfo assets baked
+        /// before that array existed (they also need a re-bake to be correct).
+        /// docs/Design/Lobby_Setup.md
+        /// </summary>
+        private static PlayerStartMarker ResolveChosenStart(int startIndex)
+        {
+            if (startIndex < 0) return null;
+
+            var info = TheWaningBorder.Core.Maps.MapInfoIndex.For(GameSettings.SelectedMapScene);
+            if (info != null && info.PlayerStartFactions != null
+                && startIndex < info.PlayerStartFactions.Length)
+            {
+                var byIdentity = MapMarkerRegistry.FindPlayerMarker(
+                    info.PlayerStartFactions[startIndex]);
+                if (byIdentity != null) return byIdentity;
+            }
+
+            return startIndex < MapMarkerRegistry.PlayerStarts.Count
+                ? MapMarkerRegistry.PlayerStarts[startIndex]
+                : null;
+        }
+
+        private static float3[] CalculateLayoutSpawnPositions(int playerCount)
+        {
+            var positions = new float3[playerCount];
+
+            // The playable rectangle comes from the ACTUAL Terrain object.
+            // Unity terrains are corner-anchored (they span transform.position
+            // .. position + size), so an origin-centred MapHalfSize box points
+            // off the terrain on any hand-authored map — units spawned there
+            // sit outside the nav grid and every move command fails.
+            TerrainUtility.GetPlayableBounds(out var bMin, out var bMax);
+            float2 center = new float2((bMin.x + bMax.x) * 0.5f, (bMin.y + bMax.y) * 0.5f);
+            float halfExtent = math.min(bMax.x - bMin.x, bMax.y - bMin.y) * 0.5f;
+            float spawnRadius = halfExtent * 0.7f;
+
+            switch (GameSettings.SpawnLayout)
+            {
+                case SpawnLayout.TwoSides:
+                    positions = CalculateTwoSidesPositions(playerCount, center, spawnRadius);
+                    break;
+
+                case SpawnLayout.Circle:
+                default:
+                    for (int i = 0; i < playerCount; i++)
+                    {
+                        float angle = (i / (float)playerCount) * math.PI * 2f;
+                        float x = center.x + math.cos(angle) * spawnRadius;
+                        float z = center.y + math.sin(angle) * spawnRadius;
+                        float y = TerrainUtility.GetHeight(x, z);
+                        positions[i] = new float3(x, y, z);
+                    }
+                    break;
+            }
+
+            return positions;
+        }
+
+        private static float3[] CalculateTwoSidesPositions(int playerCount, float2 center, float spawnDist)
+        {
+            var positions = new float3[playerCount];
+
+            int side1Count = (playerCount + 1) / 2;
+            int side2Count = playerCount - side1Count;
+
+            bool leftRight = GameSettings.TwoSides == TwoSidesPreset.LeftRight;
+
+            // Side 1
+            for (int i = 0; i < side1Count; i++)
+            {
+                float offset = (i - (side1Count - 1) * 0.5f) * 20f;
+                float x, z;
+
+                if (leftRight)
+                {
+                    x = center.x - spawnDist;
+                    z = center.y + offset;
+                }
+                else
+                {
+                    x = center.x + offset;
+                    z = center.y - spawnDist;
+                }
+
+                float y = TerrainUtility.GetHeight(x, z);
+                positions[i] = new float3(x, y, z);
+            }
+
+            // Side 2
+            for (int i = 0; i < side2Count; i++)
+            {
+                float offset = (i - (side2Count - 1) * 0.5f) * 20f;
+                float x, z;
+
+                if (leftRight)
+                {
+                    x = center.x + spawnDist;
+                    z = center.y + offset;
+                }
+                else
+                {
+                    x = center.x + offset;
+                    z = center.y + spawnDist;
+                }
+
+                float y = TerrainUtility.GetHeight(x, z);
+                positions[side1Count + i] = new float3(x, y, z);
+            }
+
+            return positions;
+        }
+    }
+}

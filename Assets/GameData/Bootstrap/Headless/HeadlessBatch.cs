@@ -1,0 +1,596 @@
+// HeadlessBatch.cs
+// Start a skirmish from the command line, run it for a fixed time, dump the
+// metrics, quit. One match per process; the batch loop lives in the runner
+// script.
+//
+// ─────────────────────────────────────────────────────────────────────────
+// WHY
+//
+// A match currently starts only from SkirmishPanel — a UI button. That makes
+// every experiment cost a human sitting through it in real time, and four
+// consecutive 30-minute matches were each thrown away on a different blocker
+// in the same chain. Twenty runs of the same configuration answers in one pass
+// what one run answers anecdotally.
+//
+// This replicates exactly what SkirmishPanel.StartGame does — the settings, the
+// team preset, the colour selections, the observer conversion — and then loads
+// the map scene directly instead of through LoadingScreen, which is a UI object
+// that has nothing to show in batch mode.
+//
+// USAGE
+//   TheWaningBorder.exe -batchmode -nographics -twbHeadless \
+//     -twbPlayers 4 -twbLimit 1200 -twbSpeed 3 -twbSeed 12345
+//
+//   -twbPlayers N   AI factions (all slots become AI; nobody is watching)
+//   -twbLimit S     match seconds before the run is ended and dumped.
+//                   0 = NO LIMIT: only a decided match ends the run
+//   -twbSpeed X     Time.timeScale; see the clamp note below
+//   -twbSeed N      spawn seed, so runs can be repeated or deliberately varied
+//   -twbRich        every faction pinned at FactionResources.ResourceCap
+//   -twbDifficulty L          every AI slot at L (Easy|Normal|Hard|Expert);
+//                             omitted = the slot default, Normal
+//   -twbFactionDifficulty F=L[,F=L...]
+//                             per colour (Blue, Red, Green, Yellow, Purple,
+//                             Orange, Teal, White); overrides -twbDifficulty
+//                             for the colours it names
+//   -twbFactionPersonality F=P[,F=P...]
+//                             per colour, P = Balanced|Economic|EcoBoom|
+//                             TechBoom|Rush|Turtle|Defensive; overrides the
+//                             colour-default personality for the colours it
+//                             names (sets the lobby slot's pick)
+//   -twbFactionCulture F=C[,F=C...]
+//                             per colour, C = Alanthor|Feraldis|Runai: the AI
+//                             of that colour builds that culture's landmark
+//                             (AICultureChoice.Forced). Still edition-gated.
+//   -twbLabel "text"          free-text run label. Written with the resolved
+//                             per-faction "AI" roster into the match header
+//                             (Console.log) and Summary.txt; the Muster Rolls
+//                             report titles the match with it
+//
+// RICH MODE ISOLATES BEHAVIOUR FROM ECONOMY. Every blocker found so far has
+// been a money path -- the Advancement wallet that never lent, the working
+// float that made reservations inert, the Shrine nobody could afford. Those
+// mask what the AI would do if it simply had the resources: whether it builds
+// a Royal Stable at all, whether it fields siege, whether armies are lost to
+// bad fights rather than to an empty bank. Pinning the bank every second (not
+// once at spawn) means spending can never re-create the constraint mid-match.
+//
+// A rich run is a DIAGNOSTIC, not a balance measurement -- nothing about
+// costs, income or pacing can be read from it.
+//
+// ACCELERATION HAS A CEILING. Everything integrates on deltaTime — steering,
+// arrival, separation, the formation wheel — so a big timeScale does not
+// produce the same game faster, it produces a coarser game. 3-4x holds; past
+// that you are measuring the accelerated build.
+// ─────────────────────────────────────────────────────────────────────────
+
+using System;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using TheWaningBorder.Core;
+using TheWaningBorder.Core.Diagnostics;
+using TheWaningBorder.Core.Config;      // LobbyConfig, SlotType
+using TheWaningBorder.Core.Multiplayer;  // NetworkRole
+
+namespace TheWaningBorder.Bootstrap
+{
+    public class HeadlessBatch : MonoBehaviour
+    {
+        public static bool Active { get; private set; }
+
+        private float _limit = 1200f;
+        private float _t;
+        private bool _done;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void Install()
+        {
+            var args = Environment.GetCommandLineArgs();
+            if (!CommandLine.Has(args, "-twbHeadless")) return;
+
+            var go = new GameObject("HeadlessBatch");
+            DontDestroyOnLoad(go);
+            go.AddComponent<HeadlessBatch>().Begin(args);
+        }
+
+        private void Begin(string[] args)
+        {
+            Active = true;
+
+            // -twbReplay <file>: re-simulate a recorded match and report
+            // whether every recorded state hash still matches (R7 of
+            // docs/Save_And_Replay_Plan.md). Exit 0 = identical, 42 = diverged,
+            // 3 = the file could not be played.
+            string replayArg = CommandLine.Str(args, "-twbReplay");
+            if (!string.IsNullOrEmpty(replayArg))
+            {
+                // A replay can be traced too (2026-10-25): re-simulating a
+                // tester's match with -twbTrace is the only way to get the
+                // per-unit feed of a game nobody recorded one for.
+                InstallTraceFeeds(args);
+                // -twbSaveAt during playback: cut the watched match into a save
+                // the snapshot oracle can restart from (harness only).
+                _saveAt = CommandLine.Int(args, "-twbSaveAt", 0);
+                BeginReplayVerify(replayArg);
+                return;
+            }
+
+            // -twbOracle <save> -twbOracleReplay <replay>: THE SNAPSHOT ORACLE.
+            // Restore the save's snapshot, then feed the original match's
+            // commands from the save's tick on and check its recorded hashes.
+            // Every hash matching means the snapshot captured the whole
+            // simulation. Exit 0 identical, 42 diverged, 3 unreadable.
+            string oracleSave = CommandLine.Str(args, "-twbOracle");
+            if (!string.IsNullOrEmpty(oracleSave))
+            {
+                _verify = true;
+                _verifyFile = oracleSave;
+                InstallTraceFeeds(args);
+                if (!TheWaningBorder.Core.Replay.ReplaySession.PrepareWatchFromSave(
+                        oracleSave, CommandLine.Str(args, "-twbOracleReplay"), out string oerr))
+                {
+                    Debug.LogError($"[HeadlessBatch] ORACLE could not start: {oerr}");
+                    _done = true;
+                    Application.Quit(3);
+                    return;
+                }
+                TheWaningBorder.Core.Replay.ReplaySession.Unthrottled = true;
+                MatchLogSession.RunInfo = "Snapshot oracle: " + System.IO.Path.GetFileName(oracleSave);
+                Debug.Log($"[HeadlessBatch] ORACLE from tick {TheWaningBorder.Core.Replay.ReplaySession.StartTick} " +
+                          $"to {TheWaningBorder.Core.Replay.ReplaySession.StopTick}");
+                SceneManager.LoadScene(GameSettings.SelectedMapScene);
+                return;
+            }
+
+            // -twbResume <save>: load a saved game (fast-forward to its marker,
+            // hand over to the AI) and play on until -twbLimit simulated
+            // seconds — the save/load path without a menu.
+            string resumeArg = CommandLine.Str(args, "-twbResume");
+            if (!string.IsNullOrEmpty(resumeArg))
+            {
+                _limit = CommandLine.Int(args, "-twbLimit", 1200);
+                _speed = Mathf.Clamp(CommandLine.Int(args, "-twbSpeed", 3), 0.25f, 8f);
+                if (!TheWaningBorder.Core.Replay.ReplaySession.Prepare(
+                        resumeArg, TheWaningBorder.Core.Replay.ReplayMode.Resume, out string rerr))
+                {
+                    Debug.LogError($"[HeadlessBatch] RESUME could not load {resumeArg}: {rerr}");
+                    _done = true;
+                    Application.Quit(3);
+                    return;
+                }
+                MatchLogSession.RunInfo = "Resume: " + System.IO.Path.GetFileName(resumeArg);
+                Debug.Log($"[HeadlessBatch] RESUME {resumeArg} at tick " +
+                          $"{TheWaningBorder.Core.Replay.ReplaySession.File.SaveTick}, map {GameSettings.SelectedMapScene}, " +
+                          $"limit {_limit}s");
+                TheWaningBorder.Core.Replay.ReplaySession.HandedOver += () =>
+                    Debug.Log($"[HeadlessBatch] RESUME handed over at sim {TheWaningBorder.Core.SimClock.Now:F1}s — " +
+                              $"{TheWaningBorder.Core.Replay.ReplaySession.HashesVerified} hashes verified, diverged=" +
+                              $"{TheWaningBorder.Core.Replay.ReplaySession.Diverged}");
+                SceneManager.LoadScene(GameSettings.SelectedMapScene);
+                return;
+            }
+
+            int players = CommandLine.Int(args, "-twbPlayers", 4);
+            _limit = CommandLine.Int(args, "-twbLimit", 1200);
+            float speed = CommandLine.Int(args, "-twbSpeed", 3);
+            int seed = CommandLine.Int(args, "-twbSeed", UnityEngine.Random.Range(1, 99999));
+            _rich = CommandLine.Has(args, "-twbRich");
+            // -twbSaveAt <sim seconds>: write a saved game mid-match (the match
+            // carries on, recording its replay) — the input to -twbOracle.
+            _saveAt = CommandLine.Int(args, "-twbSaveAt", 0);
+            // The RICH top-up writes the banks outside the command stream, so
+            // its replay could never reproduce the match: write none.
+            TheWaningBorder.Core.Replay.ReplayRecorder.Suppressed = _rich;
+
+            // -twbMap <SceneName>: run on a specific map. Without it the
+            // batch inherits GameSettings.SelectedMapScene's static default,
+            // which is whatever map sits FIRST in Build Settings — so a new
+            // map can be batch-tested without touching the lobby default.
+            string mapArg = CommandLine.Str(args, "-twbMap");
+            if (!string.IsNullOrEmpty(mapArg))
+                GameSettings.SelectedMapScene = mapArg;
+
+            // Exactly SkirmishPanel.StartGame, minus the UI — everyone an AI,
+            // which is what makes the run self-driving.
+            HeadlessSkirmish.SetupAllAi(players, seed);
+
+            // DIFFICULTY FROM THE COMMAND LINE (2026-10-04). The same slot
+            // field the lobby's difficulty dropdown writes, so AIBootstrap
+            // reads it exactly as it would for a hand-started skirmish.
+            ApplyDifficulty(args);
+            ApplyPersonality(args);
+            ApplyCulture(args);
+            ApplyTeams(args);
+            MatchLogSession.RunInfo = DescribeRun(CommandLine.Str(args, "-twbLabel"));
+
+            MatchMetrics.Enabled = true;
+            gameObject.AddComponent<MatchMetrics>();
+
+            // THE FINE REPLAY FEED (2026-09-24). -twbTrace was wired into
+            // HeadlessMp only, so a SINGLE-PLAYER batch silently ignored it
+            // and every automated skirmish replay fell back to
+            // Metrics_UnitPositions: one sample every 15 s, no unit identity,
+            // no state -- a replay of dots that jump, which the report then
+            // cannot tween. The flag existed, the runner passed it, and
+            // nothing read it. Same install as the MP path.
+            InstallTraceFeeds(args);
+
+            // timeScale directly rather than PlayerProfile.GameSpeed: the
+            // profile clamps at 2x for the human-facing setting, and a batch
+            // run is not that setting.
+            _speed = Mathf.Clamp(speed, 0.25f, 8f);
+            Time.timeScale = _speed;
+
+            Debug.Log($"[HeadlessBatch] {players} AI, " +
+                      (_limit > 0 ? $"limit {_limit}s, " : "NO LIMIT (runs until decided), ") +
+                      $"speed {Time.timeScale}x, " +
+                      $"seed {seed}, map {GameSettings.SelectedMapScene}" +
+                      (_rich ? ", RICH (banks pinned at cap)" : ""));
+            Debug.Log("[HeadlessBatch] " + MatchLogSession.RunInfo.Replace("\n", " | "));
+
+            SceneManager.LoadScene(GameSettings.SelectedMapScene);
+        }
+
+        private float _speed = 1f;
+        private bool _rich;
+        private float _nextTopUp;
+
+        /// <summary>
+        /// The two diagnostic feeds a run can ask for, installed the same way
+        /// for a replay, the snapshot oracle and a fresh skirmish:
+        /// -twbTrace writes MapTrace.txt (every unit's position and state,
+        /// -twbTracePeriod seconds between samples); -twbFormationTelemetry
+        /// writes Formation.csv, every formation member once a second —
+        /// commanded vs achieved speed and where the rest went.
+        /// </summary>
+        private static void InstallTraceFeeds(string[] args)
+        {
+            if (CommandLine.Has(args, "-twbTrace"))
+                MapTrace.Install(CommandLine.Int(args, "-twbTracePeriod", 0));
+            if (CommandLine.Has(args, "-twbFormationTelemetry"))
+                TheWaningBorder.Core.Diagnostics.FormationTelemetry.Install(1f);
+        }
+
+        /// <summary>
+        /// Hold every faction at the resource cap. Called on a 1 s cadence:
+        /// a single top-up at spawn would be spent back down within a minute
+        /// and the run would quietly become an ordinary one.
+        /// </summary>
+        private void TopUpAll()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return;
+            var em = world.EntityManager;
+
+            for (int i = 0; i < GameSettings.TotalPlayers; i++)
+            {
+                var faction = (Faction)i;
+                if (!TheWaningBorder.Economy.FactionEconomy.TryGetBank(em, faction, out var bank))
+                    continue;
+                if (!em.HasComponent<TheWaningBorder.Economy.FactionResources>(bank)) continue;
+
+                var res = em.GetComponentData<TheWaningBorder.Economy.FactionResources>(bank);
+                // Booked as a Grant (2026-10-08) so a RICH run's metrics do
+                // not show the top-up as "untracked" income.
+                int cap = TheWaningBorder.Economy.FactionResources.ResourceCap;
+                TheWaningBorder.Economy.EconomyLedger.Credit(faction, TheWaningBorder.Economy.IncomeSource.Grant,
+                    cap - res.Supplies, cap - res.Iron, cap - res.Veilstone, cap - res.Veilsteel);
+                res.Supplies  = TheWaningBorder.Economy.FactionResources.ResourceCap;
+                res.Iron      = TheWaningBorder.Economy.FactionResources.ResourceCap;
+                res.Veilstone = TheWaningBorder.Economy.FactionResources.ResourceCap;
+                res.Veilsteel = TheWaningBorder.Economy.FactionResources.ResourceCap;
+                em.SetComponentData(bank, res);
+            }
+        }
+
+        private bool _verify;
+        private string _verifyFile;
+        private float _saveAt;
+        private bool _saved;
+
+        private void BeginReplayVerify(string path)
+        {
+            _verify = true;
+            _verifyFile = path;
+            if (!TheWaningBorder.Core.Replay.ReplaySession.Prepare(
+                    path, TheWaningBorder.Core.Replay.ReplayMode.Watch, out string error))
+            {
+                Debug.LogError($"[HeadlessBatch] REPLAY VERIFY could not play {path}: {error}");
+                _done = true;
+                Application.Quit(3);
+                return;
+            }
+            TheWaningBorder.Core.Replay.ReplaySession.Unthrottled = true;
+            MatchLogSession.RunInfo = "Replay verify: " + System.IO.Path.GetFileName(path);
+            Debug.Log($"[HeadlessBatch] REPLAY VERIFY {path} — map {GameSettings.SelectedMapScene}, " +
+                      $"{TheWaningBorder.Core.Replay.ReplaySession.StopTick} ticks, " +
+                      $"{TheWaningBorder.Core.Replay.ReplaySession.File.Hashes.Count} recorded hashes");
+            SceneManager.LoadScene(GameSettings.SelectedMapScene);
+        }
+
+        private void UpdateReplayVerify()
+        {
+            if (_saveAt > 0f && !_saved && TheWaningBorder.Core.SimClock.Now >= _saveAt)
+            {
+                _saved = true;
+                float st = TheWaningBorder.Core.SimClock.Now;
+                if (TheWaningBorder.Core.Save.SaveGameWriter.SaveSnapshotForHarness($"replay cut {st:0}s", out string sp, out string serr))
+                    Debug.Log($"[HeadlessBatch] SAVED (replay cut) at {st:F1}s → {sp}");
+                else
+                    Debug.LogError($"[HeadlessBatch] SAVE FAILED at {st:F1}s: {serr}");
+            }
+            if (!TheWaningBorder.Core.Replay.ReplaySession.Ended) return;
+            _done = true;
+            bool diverged = TheWaningBorder.Core.Replay.ReplaySession.Diverged;
+            string verdict = diverged
+                ? $"DIVERGED at tick {TheWaningBorder.Core.Replay.ReplaySession.DivergedTick}"
+                : "IDENTICAL";
+            Debug.Log($"[HeadlessBatch] REPLAY VERIFY {verdict} — " +
+                      $"{TheWaningBorder.Core.Replay.ReplaySession.HashesVerified} of " +
+                      $"{TheWaningBorder.Core.Replay.ReplaySession.File?.Hashes.Count ?? 0} hashes matched " +
+                      $"({System.IO.Path.GetFileName(_verifyFile)})");
+            MatchLogSession.RecordOutcome("REPLAY VERIFY " + verdict);
+            Application.Quit(diverged ? 42 : 0);
+        }
+
+        private void Update()
+        {
+            if (_done) return;
+            if (_verify) { UpdateReplayVerify(); return; }
+
+            // RE-ASSERT EVERY FRAME. Begin() runs BeforeSceneLoad; GameBootstrap
+            // then calls GameSpeedControl.Apply() on match start, which sets
+            // Time.timeScale from PlayerProfile.GameSpeed (1.0 by default) —
+            // and silently undoes the batch speed. Measured: a run asked for 3x
+            // delivered 538 simulated seconds in 533 wall seconds, i.e. 1.0x,
+            // which would have turned a 20-match batch from three hours into
+            // ten and truncated every match at the runner's timeout.
+            if (Time.timeScale != _speed) Time.timeScale = _speed;
+
+            // Unscaled: the limit is a budget on the RUN, and scaling it by the
+            // very acceleration it is meant to bound would cancel it out.
+            _t += Time.unscaledDeltaTime * Time.timeScale;
+
+            if (_rich && _t >= _nextTopUp)
+            {
+                _nextTopUp = _t + 1f;
+                try { TopUpAll(); }
+                catch (Exception e) { Debug.LogWarning($"[HeadlessBatch] top-up: {e.Message}"); }
+            }
+
+            // A DECIDED match ends the run — one side left standing is the
+            // real end of a match, and everything after it is a victor
+            // idling. The limit below stays as the guard against the match
+            // that never decides (two turtles, a stalemate).
+            if (TheWaningBorder.Core.MatchLifecycle.MatchDecided)
+            {
+                _done = true;
+                Debug.Log($"[HeadlessBatch] match decided at {_t:F0}s — " +
+                          $"{TheWaningBorder.Core.MatchLifecycle.OutcomeLine()}; dumping metrics");
+                try { MatchMetrics.DumpFinal(); }
+                catch (Exception e) { Debug.LogError($"[HeadlessBatch] dump failed: {e.Message}"); }
+                Application.Quit();
+                return;
+            }
+
+            // -twbLimit 0 = NO LIMIT (2026-09-24). The only thing that ends
+            // the run is then a DECIDED match, above. That is the whole of
+            // the question "how long does a match take to solve itself",
+            // which a limit can only ever answer "at least this long" -- six
+            // matches capped at 3600 s all reported `quit`, which says
+            // nothing about when any of them would have resolved.
+            //
+            // A match that can never decide now runs forever, on purpose.
+            // The runner's stop file and -TimeoutMin are the ways back out;
+            // neither is on by default when the limit is off.
+            // The limit is SIMULATED match time (2026-10-07): the sim's step is
+            // capped at the world's maximum delta, so under a heavy 3x load it
+            // runs behind the scaled clock above — "-twbLimit 7200" used to end
+            // an 8-player match after about 60 simulated minutes.
+            float simT = TheWaningBorder.Core.SimClock.Now;
+
+            if (_saveAt > 0f && !_saved && simT >= _saveAt
+                && TheWaningBorder.Core.Save.SaveGameWriter.CanSave)
+            {
+                _saved = true;
+                if (TheWaningBorder.Core.Save.SaveGameWriter.Save($"headless {simT:0}s", out string sp, out string serr))
+                    Debug.Log($"[HeadlessBatch] SAVED at {simT:F1}s → {sp}");
+                else
+                    Debug.LogError($"[HeadlessBatch] SAVE FAILED at {simT:F1}s: {serr}");
+            }
+
+            if (_limit <= 0f || simT < _limit) return;
+
+            _done = true;
+            Debug.Log($"[HeadlessBatch] limit reached at {simT:F0} simulated s ({_t:F0}s scaled) — dumping metrics");
+            try { MatchMetrics.DumpFinal(); }
+            catch (Exception e) { Debug.LogError($"[HeadlessBatch] dump failed: {e.Message}"); }
+            Application.Quit();
+        }
+
+        /// <summary>
+        /// -twbDifficulty sets every active AI slot; -twbFactionDifficulty
+        /// then overrides the colours it names. An unparseable value is a
+        /// loud error and is ignored -- the run must not silently test the
+        /// wrong difficulty, but it must not die over a typo either, since
+        /// the header below says what was actually applied.
+        /// </summary>
+        private static void ApplyDifficulty(string[] args)
+        {
+            string all = CommandLine.Str(args, "-twbDifficulty");
+            if (!string.IsNullOrEmpty(all))
+            {
+                if (TryParseLevel(all, out var level))
+                {
+                    for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                        if (LobbyConfig.Slots[i].Type == SlotType.AI)
+                            LobbyConfig.Slots[i].AIDifficulty = level;
+                }
+                else Debug.LogError($"[HeadlessBatch] -twbDifficulty: unknown level '{all}' " +
+                                    "(Easy|Normal|Hard|Expert)");
+            }
+
+            string per = CommandLine.Str(args, "-twbFactionDifficulty");
+            if (string.IsNullOrEmpty(per)) return;
+            foreach (var raw in per.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var pair = raw.Split('=');
+                if (pair.Length != 2
+                    || !Enum.TryParse(pair[0].Trim(), true, out Faction faction)
+                    || !TryParseLevel(pair[1], out var level))
+                {
+                    Debug.LogError($"[HeadlessBatch] -twbFactionDifficulty: cannot read '{raw}' " +
+                                   "(want <Faction>=<Easy|Normal|Hard|Expert>)");
+                    continue;
+                }
+                bool applied = false;
+                for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                {
+                    var slot = LobbyConfig.Slots[i];
+                    if (slot.Faction != faction || slot.Type != SlotType.AI) continue;
+                    slot.AIDifficulty = level;
+                    applied = true;
+                }
+                if (!applied)
+                    Debug.LogError($"[HeadlessBatch] -twbFactionDifficulty: {faction} is not " +
+                                   $"an AI slot in a {LobbyConfig.ActiveSlotCount}-player match");
+            }
+        }
+
+        /// <summary>-twbFactionCulture Blue=Alanthor,Red=Feraldis,Green=Runai.</summary>
+        private static void ApplyCulture(string[] args)
+        {
+            TheWaningBorder.AI.AICultureChoice.Forced.Clear();
+            string spec = CommandLine.Str(args, "-twbFactionCulture");
+            if (string.IsNullOrEmpty(spec)) return;
+            foreach (var part in spec.Split(','))
+            {
+                var kv = part.Split('=');
+                if (kv.Length != 2) continue;
+                if (!Enum.TryParse(kv[0].Trim(), true, out Faction f)) continue;
+                byte c = kv[1].Trim().ToLowerInvariant() switch
+                {
+                    "alanthor" => Cultures.Alanthor,
+                    "feraldis" => Cultures.Feraldis,
+                    "runai"    => Cultures.Runai,
+                    _          => Cultures.None,
+                };
+                if (c == Cultures.None) continue;
+                TheWaningBorder.AI.AICultureChoice.Forced[f] = c;
+                Debug.Log($"[HeadlessBatch] {f} is forced to culture {kv[1].Trim()}");
+            }
+        }
+
+        /// <summary>
+        /// -twbFactionPersonality: the lobby slot's personality pick for the
+        /// colours it names, so a batch can decouple personality from colour.
+        /// Same loud-but-not-fatal policy as ApplyDifficulty.
+        /// </summary>
+        /// <summary>
+        /// -twbFactionTeam "Blue=1,Red=1,Yellow=2,...": the lobby slot's team
+        /// (docs/Design/Teams.md), so a batch can run team matches. Unnamed
+        /// colours stay on no team (0). The slot field is what
+        /// Alliances.ApplyFromLobby reads at match start, exactly as for a
+        /// hand-started skirmish (2026-10-17).
+        /// </summary>
+        private static void ApplyTeams(string[] args)
+        {
+            string spec = CommandLine.Str(args, "-twbFactionTeam");
+            if (string.IsNullOrEmpty(spec)) return;
+            foreach (var raw in spec.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var pair = raw.Split('=');
+                if (pair.Length != 2
+                    || !Enum.TryParse(pair[0].Trim(), true, out Faction faction)
+                    || !byte.TryParse(pair[1].Trim(), out byte team))
+                {
+                    Debug.LogError($"[HeadlessBatch] -twbFactionTeam: cannot read '{raw}' (want <Faction>=<team number>)");
+                    continue;
+                }
+                bool applied = false;
+                for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                {
+                    var slot = LobbyConfig.Slots[i];
+                    if (slot.Faction != faction) continue;
+                    slot.TeamIndex = team;
+                    applied = true;
+                }
+                if (applied) Debug.Log($"[HeadlessBatch] {faction} is on team {team}");
+                else Debug.LogError($"[HeadlessBatch] -twbFactionTeam: {faction} is not a slot in a " +
+                                    $"{LobbyConfig.ActiveSlotCount}-player match");
+            }
+            // ApplyColorSelections already published the (team-less) table;
+            // publish it again now the slots carry their teams.
+            Alliances.ApplyFromLobby();
+        }
+
+        private static void ApplyPersonality(string[] args)
+        {
+            string per = CommandLine.Str(args, "-twbFactionPersonality");
+            if (string.IsNullOrEmpty(per)) return;
+            foreach (var raw in per.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var pair = raw.Split('=');
+                string name = pair.Length == 2 ? pair[1].Trim() : null;
+                if (string.Equals(name, "Economic", StringComparison.OrdinalIgnoreCase)) name = "EcoBoom";
+                if (pair.Length != 2
+                    || !Enum.TryParse(pair[0].Trim(), true, out Faction faction)
+                    || !Enum.TryParse(name, true, out LobbyAIStrategy strategy)
+                    || !Enum.IsDefined(typeof(LobbyAIStrategy), strategy)
+                    || strategy == LobbyAIStrategy.Random)
+                {
+                    Debug.LogError($"[HeadlessBatch] -twbFactionPersonality: cannot read '{raw}' " +
+                                   "(want <Faction>=<Balanced|Economic|TechBoom|Rush|Turtle|Defensive>)");
+                    continue;
+                }
+                bool applied = false;
+                for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                {
+                    var slot = LobbyConfig.Slots[i];
+                    if (slot.Faction != faction || slot.Type != SlotType.AI) continue;
+                    slot.AIStrategy = strategy;
+                    applied = true;
+                }
+                if (!applied)
+                    Debug.LogError($"[HeadlessBatch] -twbFactionPersonality: {faction} is not " +
+                                   $"an AI slot in a {LobbyConfig.ActiveSlotCount}-player match");
+            }
+        }
+
+        private static bool TryParseLevel(string s, out LobbyAIDifficulty level)
+        {
+            level = LobbyAIDifficulty.Normal;
+            return !string.IsNullOrEmpty(s)
+                && Enum.TryParse(s.Trim(), true, out level)
+                && Enum.IsDefined(typeof(LobbyAIDifficulty), level);
+        }
+
+        /// <summary>
+        /// The "Key : value" lines MatchLogSession writes into the match header
+        /// and Summary.txt. Resolved through AIBootstrap's own resolvers, so
+        /// the roster says what the brains will actually be built with --
+        /// including the colour-default personality -- not what was asked.
+        /// </summary>
+        private static string DescribeRun(string label)
+        {
+            var sb = new System.Text.StringBuilder();
+            if (!string.IsNullOrWhiteSpace(label))
+                sb.Append("Label       : ")
+                  .Append(label.Replace('\n', ' ').Replace('\r', ' ').Trim())
+                  .Append('\n');
+            sb.Append("AI          : ");
+            bool first = true;
+            for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+            {
+                var slot = LobbyConfig.Slots[i];
+                if (slot.Type != SlotType.AI) continue;
+                if (!first) sb.Append(", ");
+                first = false;
+                sb.Append(slot.Faction).Append(' ')
+                  .Append(AIBootstrap.GetFactionDifficulty(slot.Faction)).Append(' ')
+                  .Append(AIBootstrap.ResolvePersonality(slot.Faction));
+            }
+            return sb.ToString();
+        }
+    }
+}
