@@ -11,6 +11,62 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.61] — 2026-11-02
+
+### Added
+- **Hand-authored Alanthor buildings** from the Synty castle kit, one prefab
+  per level bound on its level SO: the Garrison L1-L3, the Archery Range
+  L1-L3, the Fortress L1-L3, the Watch Tower L1-L3 and the House L1 (its L2
+  and L3 keep the previous art until they are redone).
+- **Garrison / Archery Range Ladder** scenario: one faction's Garrison at
+  L1 | L2 | L3 over its Archery Range at L1 | L2 | L3 on the build grid, so
+  the two ladders' scale and facing compare cell for cell.
+- **Alanthor Art Probe** (editor): Broken Oath, three allied Alanthor AIs
+  shown at L1 / L2 / L3 with a Watch Tower beside each capital, and one
+  enemy far away on the plateau.
+- Editor passes for the hand-authored set: teal kit roof → player roof tile
+  across every Age 0 / Alanthor / sect prefab, the `Footprint` plinth group,
+  and a composition dump of the reference prefabs.
+
+### Changed
+- **Player roofs are vivid, and the same hue for every player.** The tinted
+  roof tile is neutral (the kit tile's luminance only) and the tint is the
+  lobby swatch with its saturation pulled toward full and its value scaled —
+  the look the old teal-times-blue Fortress had, now in every colour. Red
+  no longer goes purple, yellow no longer goes green. Wall roof slots too.
+- **One scale for the whole ladder.** A building's footprint fit is measured
+  once, on the ladder's top level — or on the highest level that carries a
+  `Footprint` marker while a ladder is being redone level by level — and
+  shared by the ghost, the plan, the rising site and every level. Only the
+  plinth is measured, so towers, poles and stairs may overhang without
+  shrinking or shifting the building. The ghost is centred on its footprint
+  in XZ as the real spawn is.
+- **A construction site rises as the finished look** at the faction's
+  current level of that type; only an Age 0 site rises from the base form.
+  A building finished after its type levelled up is that level from its
+  first frame, with no swap.
+- The gold level-up nova is gone; the dissolve is the beat. The small warm
+  burst when a unit is trained stays.
+- The progressive battle-damage shader is gone (it turned buildings white);
+  damage shows through the collapse. The dissolve shader carries its own
+  depth, normals and shadow passes.
+- The pencil outline is softer: lighter ink, less jitter, breakup and grain.
+- The Garrison, Archery Range, Watch Tower and Fortress get no runtime
+  lantern light (they are lit by hand), and any prefab carrying its own
+  Light gets none.
+- The Bootstrap assembly lives in `Assets/GameData/Bootstrap/`, one folder
+  per concern. One command-line reader replaces the per-file copies. One
+  base-capture path for a building's upgrade state serves player upgrades,
+  the lobby's start-age promotion and the scenarios alike.
+
+### Fixed
+- A level-up no longer resizes the pieces the levels share; a level wider
+  than the top one overhangs rather than shrinks.
+- The placement ghost previewed off its cell for models whose bounds centre
+  sits off their pivot, and "corrected itself" when the site spawned.
+- A building mid level-up dropped out of the ink, the shadows and the
+  ambient occlusion for the two seconds of the swap.
+
 ## [0.0.60] — 2026-10-28
 
 ### Changed
