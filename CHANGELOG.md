@@ -11,6 +11,76 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.62] — 2026-11-04
+
+### AI armies and movement
+
+- **Armies stay in formation.** Soldiers going to the same place always march in
+  formation, your own group orders included. A spread-out order splits into one
+  formation per cluster, and each settles into the same shape at the destination.
+- **Units no longer walk into cliffs when pathfinding is busy.** The pathfinding pool
+  grew to 488 paths, formations share one path, nearby destinations share paths, and
+  a unit with no path yet waits instead of walking straight at its goal. Each living
+  player has an equal share of the pool, and an eliminated player's share goes to the
+  others.
+- **The AI's new attack rhythm.** The first army leaves at minute 12. The next group
+  leaves 5 minutes later, at once when the population cap is reached (in groups of 20
+  or more), or when the army dies (a new army at 10 % of the population cap, or after
+  3 minutes). The AI may skip one wave if its army is much weaker than the target,
+  never two in a row. Everyone but Rush and Aggressive keeps a small reserve at home.
+
+### Economy
+
+- **Trading Outposts run several routes.** L2 posts run two, L3 four, and a route may
+  repeat. New routes: Buy Iron (supplies to iron) and Sell Veilsteel for Supplies.
+- **Supplies rebalanced.** Age 1 Alanthor army units now cost supplies, more at higher
+  building levels. The capital and Gatherer's Huts pay more early. The Hut, Barracks and
+  Spearman cost less supplies and more iron. Only the capital pays Fortress income, and
+  Supply Surveys pay half.
+- **Faster armies.** Each production building level cuts training time by a fifth, and
+  Conscription now speeds every military building.
+- **Iron Surveying** pays 15 % more iron.
+
+### Known issues
+
+- Reinforcement armies rarely reach the fighting army: most merge near home or die on
+  the way.
+
+### Added
+- **The Alanthor House L2 and L3**, hand-authored from the kit like L1 and
+  bound on their level SOs, so the House ladder is complete again: three
+  levels on one 10 × 10 m plinth, one frame, one scale.
+
+- **Building icons rendered from the buildings themselves.** The Worker's
+  build menu shows an isometric picture of each building — the culture's
+  model at the faction's current level of that type, so what you click is
+  what you get. `Waning Border > Art > Render Building Icons` writes them
+  from the SOs (141 today, every culture and level); the catalog glyphs
+  remain the fallback.
+
+### Changed
+- House L2 and L3 take the player-colour roof workflow: every kit roof slot
+  on the neutral player tile (vivid in every colour), and the `Footprint`
+  plinth group so the ladder is measured on its slab.
+- House L1's stairs and porch slab are stone again, not player-coloured.
+- **The Worker's build palette fills its panel.** No separator in build
+  mode, and the buttons are sized so five columns span the frame's interior
+  (a fifth larger than before), four rows centred. Buildings and units keep
+  the authored grid and separator.
+- **The minimap is a fifth smaller**, ring included, and sits pinned in the
+  bottom-right corner.
+
+### Fixed
+- **Five blank "buttons" after a building's real actions.** The actions
+  panel's worker-only fourth row (cloned from a live authored button) sat in
+  the grid showing its placeholder glyph for any building without an
+  authored layout — Garrison, Archery Range, Royal Stable, Siege Yard,
+  Watch Tower, Trading Outpost — and for units, until a Fortress or Guild
+  selection happened to clear it. Every cell now starts hidden and the row
+  is hidden whenever a building or unit renders.
+- The Age 0 Barracks prefab carried 101 loose house-wall pieces 50-75 m
+  from the building (authoring leftovers): removed.
+
 ## [0.0.61] — 2026-11-02
 
 ### Added
