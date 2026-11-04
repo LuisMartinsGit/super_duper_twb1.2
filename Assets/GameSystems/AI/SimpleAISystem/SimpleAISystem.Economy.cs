@@ -378,9 +378,11 @@ namespace TheWaningBorder.AI
             string engine = plan.Active ? PlannedSiegeUnit(plan) : SiegeUnitId;
             if (engine == null) return;
             int siegeHeld = plan.Active ? PlannedSiegeCount(plan) : CountAliveByUnitId(em, faction, SiegeUnitId);
-            if (siegeHeld >= Cfg.siegeTrainFloor) return;
+            // A walled victim raises the floor to what a breach needs (§ 6x).
+            int floorWanted = math.max(Cfg.siegeTrainFloor, EngineDemand(faction));
+            if (siegeHeld >= floorWanted) return;
             if (TryTrainUnitBudgeted(em, faction, engine, AIBudgetCategory.Military))
-                AILogger.Log(faction, "MILITARY", $"siege program: {engine} queued ({siegeHeld + 1}/{Cfg.siegeTrainFloor})");
+                AILogger.Log(faction, "MILITARY", $"siege program: {engine} queued ({siegeHeld + 1}/{floorWanted})");
         }
 
         /// <summary>Living units of one exact id, this faction.</summary>

@@ -24,13 +24,32 @@ namespace TheWaningBorder.UI.Data
         /// Returns null if no icon exists for that building.
         /// </summary>
         private static UnityEngine.Texture2D GetBuildingIcon(string buildingId)
+            => GetBuildingIcon(buildingId, Cultures.None, 0);
+
+        /// <summary>
+        /// The build menu's picture of a building: an isometric render of the
+        /// model the player would get (Waning Border > Art > Render Building
+        /// Icons writes them from the SOs, 2026-11-02) — the culture's level
+        /// prefab at the faction's current level of the type
+        /// (<c>&lt;id&gt;_&lt;Culture&gt;_L&lt;n&gt;</c>), else its L1, else the
+        /// base SO's form (<c>&lt;id&gt;</c>). Null when no render exists.
+        /// </summary>
+        private static UnityEngine.Texture2D GetBuildingIcon(string buildingId, byte culture, int level)
         {
-            if (_buildingIconCache.TryGetValue(buildingId, out var cached))
+            string key = culture == Cultures.None ? buildingId : $"{buildingId}_{CultureConfig.Names[culture]}_L{level}";
+            if (_buildingIconCache.TryGetValue(key, out var cached))
                 return cached;
 
-            // The icon file is named after the building id.
-            var tex = UnityEngine.Resources.Load<UnityEngine.Texture2D>($"UI/Icons/Buildings/{buildingId}");
-            _buildingIconCache[buildingId] = tex; // Cache even null to avoid repeated lookups
+            UnityEngine.Texture2D tex = null;
+            if (culture != Cultures.None)
+            {
+                string cultureName = CultureConfig.Names[culture];
+                for (int l = System.Math.Max(level, 1); l >= 1 && tex == null; l--)
+                    tex = UnityEngine.Resources.Load<UnityEngine.Texture2D>($"UI/Icons/Buildings/{buildingId}_{cultureName}_L{l}");
+            }
+            if (tex == null)
+                tex = UnityEngine.Resources.Load<UnityEngine.Texture2D>($"UI/Icons/Buildings/{buildingId}");
+            _buildingIconCache[key] = tex; // Cache even null to avoid repeated lookups
             return tex;
         }
 
@@ -531,18 +550,36 @@ namespace TheWaningBorder.UI.Data
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
                         continue;
 
-                    // Temple of Ridan: one per faction.
-                    if (building.id == "TempleOfRidan" && templeCount >= TempleCap) continue;
+                    // A LOCKED cell the palette still shows (2026-11-02: the
+                    // build palette is a fixed 4 x 4 and must not reflow) -
+                    // the reason goes to the tooltip, the button is greyed.
+                    string lockReason = null;
 
-                    // Sect buildings (Religion.md §3.2): adopt the sect to
-                    // unlock it, a standing Temple to raise it, one per sect.
+                    // Temple of Ridan: one per faction.
+                    if (building.id == "TempleOfRidan" && templeCount >= TempleCap)
+                        lockReason = Loc.T("Already built - one Temple per faction.");
+
+                    // Sect buildings (Religion.md §3.2): shown for every sect of
+                    // this culture's cluster that the edition offers (and for
+                    // any other sect once adopted); adopt the sect to unlock it,
+                    // a standing Temple to raise it, a cap per faction.
                     if (SectBuildingOwner.TryGetValue(building.id, out var owningSect))
                     {
                         if (em.Equals(default(EntityManager))) continue;
-                        if (!SectQuery.IsAdopted(em, faction, owningSect)) continue;
-                        if (!SectQuery.HasStandingTemple(em, faction)) continue;
-                        if (SectBuildingCount(em, building.id, faction)
-                            >= TheWaningBorder.Entities.SectBuilding.CapPerFaction) continue;
+                        bool adopted = SectQuery.IsAdopted(em, faction, owningSect);
+                        bool ownCluster = SectConfig.IsInEdition(owningSect)
+                            && factionCulture != Cultures.None
+                            && SectConfig.ClusterOf(owningSect) == SectConfig.ClusterFromCulture(factionCulture);
+                        if (!adopted && !ownCluster) continue;
+                        if (!adopted)
+                            lockReason = string.Format(Loc.T("Adopt the Sect of {0} first (Religion menu, R)."),
+                                SectInfo.ShortName(owningSect));
+                        else if (!SectQuery.HasStandingTemple(em, faction))
+                            lockReason = Loc.T("Needs a standing Temple of Ridan.");
+                        else if (SectBuildingCount(em, building.id, faction)
+                                 >= TheWaningBorder.Entities.SectBuilding.CapPerFaction)
+                            lockReason = string.Format(Loc.T("Limit reached - {0} per faction."),
+                                TheWaningBorder.Entities.SectBuilding.CapPerFaction);
                     }
 
                     // The Palisade is not culture-prefixed but is still gated:
@@ -587,6 +624,8 @@ namespace TheWaningBorder.UI.Data
                     bool eraLocked = building.minEra > 0 && building.minEra > factionEra;
                     string requirement = eraLocked
                         ? string.Format(Loc.T("Requires: Era {0}"), building.minEra) : null;
+                    if (lockReason != null)
+                        requirement = lockReason + (requirement != null ? "\n" + requirement : "");
 
                     // The Temple also costs a Religion Point (Religion.md §2),
                     // which is earned by killing the curse.
@@ -658,9 +697,12 @@ namespace TheWaningBorder.UI.Data
                         Label = Loc.T(label),
                         Tooltip = tooltip,
                         Cost = cost,
-                        Enabled = !eraLocked,
-                        CanAfford = canAfford && !eraLocked,
-                        Icon = GetBuildingIcon(building.id)
+                        Enabled = !eraLocked && lockReason == null,
+                        CanAfford = canAfford && !eraLocked && lockReason == null,
+                        ShownWhenLocked = lockReason != null && !eraLocked,
+                        Icon = GetBuildingIcon(building.id, factionCulture,
+                            factionCulture == Cultures.None || em.Equals(default(EntityManager)) ? 0
+                                : TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, faction, building.id))
                     });
                 }
             }

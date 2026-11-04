@@ -621,7 +621,10 @@ namespace TheWaningBorder.UI.Ingame
                 case "OutpostMode_1":
                 case "OutpostMode_2":
                 case "OutpostMode_3":
-                    TheWaningBorder.Input.OutpostOrders.SetModeForSelection(
+                case "OutpostMode_4":
+                case "OutpostMode_5":
+                    // A route button adds a copy of that route on every selected post (2026-11-04).
+                    TheWaningBorder.Input.OutpostOrders.CycleRouteForSelection(
                         em, entity, (TradeRecipe)(b.Id[b.Id.Length - 1] - '0'));
                     _timer = RefreshInterval;
                     return;

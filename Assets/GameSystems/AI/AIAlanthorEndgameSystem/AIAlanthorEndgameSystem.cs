@@ -343,9 +343,12 @@ namespace TheWaningBorder.AI
                 // whole match (the Temple), and its ring never grew past 3 hubs.
                 // A PERSONALITY THAT NEVER WALLS (Rush, Game_AI.md § 3b): no
                 // plan, no hubs, no gates — the row as authored, every tier.
-                bool wallsEnabled = TheWaningBorder.Data.AI.AISettings.Get().For(brain.Personality).wallsEnabled;
+                bool wallsEnabled = AIPersonalityLookup.WallsEnabled(em, faction);   // the row, or late walls (§ 6x)
+                // A LOSING PLAYER FORTIFIES (2026-11-03, § 6x): the ladder and
+                // the savings hold step aside while it is under pressure.
                 if (wallsEnabled
-                    && ((!wallsHeld && !ladderBusy) || IsDrawnRing(em, faction, hallPos)))
+                    && ((!wallsHeld && !ladderBusy) || IsDrawnRing(em, faction, hallPos)
+                        || SimpleAISystem.FortifyingFor(faction)))
                     TryBuildWallDefenses(faction, em, entity, hallPos);
                 // …except the gates: a ring with no gate seals the army in,
                 // so cutting one ignores the ladder and the savings holds

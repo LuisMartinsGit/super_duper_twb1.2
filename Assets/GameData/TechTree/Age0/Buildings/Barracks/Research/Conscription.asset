@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Conscription
   role: Military Training
   effect: 
-  desc: Standing levies train 15 percent faster at any Barracks.
+  desc: Standing levies train 15 percent faster at every military building.
   researchAt: Barracks
   minBuildingLevel: 0
   researchTime: 35
@@ -35,7 +35,7 @@ MonoBehaviour:
     rangedDamageAdd: 0
     archerRangeMult: 0
   effectsList:
-  - Target: "building:Barracks"
+  - Target: "building:*"
     Stat: TrainSpeed
     Op: Pct
     Value: 15

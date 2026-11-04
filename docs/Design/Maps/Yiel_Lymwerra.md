@@ -35,10 +35,13 @@ same ground.
 | West / East Lymwérra | the shallows, split through the island — **buildable** (2026-10-19) | Empty |
 | Bayhead (shared) | plateau north of the bay, between both bay ramps | Normal |
 | Stormcairn (shared) | a pocket up in the mountains, one ramp down to Bayhead | Sanctum |
+| Tidestone (shared, 2026-11-03; an ISLAND since 2026-11-04) | a grassy island in the sea south of the bay's mouth, on the axis, reached by a waded sandbar from the mouth — dry from its shore, with room for the 30 soldiers a Sanctum claim needs standing on the rock itself (the first cut was a 338 m² rock whose rim was under water, so the head count never reached 30 and it was never claimed) | Sanctum |
 | Yiel (shared) | the island | Veilstone rich — **the curse always starts here** |
 
-13 territories (the 1024 m draft's Ridge territories were folded into the
-homes when the map shrank). Every territory has room for its nodes: all 41
+14 territories (the 1024 m draft's Ridge territories were folded into the
+homes when the map shrank; Tidestone, the second Sanctum, was added
+2026-11-03 so the dominion needs the mountain pocket AND the sea rock —
+one match had ended by dominion at 22 minutes on the single Sanctum). Every territory has room for its nodes: all 41
 are laid, and the island takes all four of its outcrops.
 
 ## Rules the map uses

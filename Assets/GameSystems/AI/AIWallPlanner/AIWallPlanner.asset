@@ -41,3 +41,6 @@ MonoBehaviour:
   gateSiteSpacing: 30
   gateSiteReach: 16
   gateExitProbe: 12
+  lateWallsAfterSeconds: 2400
+  lateWallsBankSupplies: 4000
+  productionProvinceWalls: 2

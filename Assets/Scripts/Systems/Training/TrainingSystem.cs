@@ -54,7 +54,7 @@ namespace TheWaningBorder.Systems.Training
         /// Seconds this building takes to train <paramref name="unitId"/>,
         /// with every modifier the old system applied: Feraldis' 1.75x (paid
         /// back by the 2x spawn), the War sect's speed ladder, Call to Arms,
-        /// the building's level, Conscription at the Barracks, King Lexor's
+        /// the building's level, Conscription at military buildings, King Lexor's
         /// respawn tax, and the Longhouse batch rate.
         /// </summary>
         /// <param name="heroRevivalLevel">The level a revived hero is coming
@@ -97,20 +97,25 @@ namespace TheWaningBorder.Systems.Training
             // A building on cursed ground works slower (Territory_Claims.md §6.9.9).
             trainingTime /= TheWaningBorder.Systems.Border.CursedGroundDecay.WorkSpeed(em, building);
 
-            // Building upgrade: cultured Hall/Barracks train faster.
-            // Multiplier is 1.0 at lvl 0 and shrinks per level.
+            // The building's level: its level SO's trainTimeMultiplier, absolute
+            // per level (2026-11-04: this read a code table, so the SO field did
+            // nothing). The table stands in only for a level with no SO.
             if (em.HasComponent<BuildingUpgradeState>(building))
             {
                 byte upLevel = em.GetComponentData<BuildingUpgradeState>(building).Level;
-                trainingTime *= TheWaningBorder.Core.Settings.BuildingUpgradeConfig
-                    .TrainTimeMultiplier[upLevel];
+                var levelDef = upLevel == 0 ? null : TheWaningBorder.Core.Settings.BuildingUpgradeConfig.LevelDef(
+                    em, faction, TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.ResolveBuildingId(em, building), upLevel);
+                trainingTime *= levelDef != null && levelDef.trainTimeMultiplier > 0f
+                    ? levelDef.trainTimeMultiplier
+                    : TheWaningBorder.Core.Settings.BuildingUpgradeConfig.TrainTimeMultiplier[upLevel];
             }
 
-            // Conscription (Age 0 Barracks tech): its SO's TrainSpeed percent
-            // faster training at ANY Barracks — time / (1 + pct / 100). The
-            // number is the tech's data, so the tooltip (which reads this
-            // method) and the simulation cannot disagree.
-            if (em.HasComponent<BarracksTag>(building))
+            // Conscription (Barracks tech): its SO's TrainSpeed percent faster
+            // training at EVERY MILITARY BUILDING (2026-11-04) — any building
+            // but the capital, training a melee, ranged or siege unit. Time /
+            // (1 + pct / 100). The number is the tech's data, so the tooltip
+            // (which reads this method) and the simulation cannot disagree.
+            if (isMilitary && !em.HasComponent<HallTag>(building))
             {
                 var research = FactionResearchState.Instance;
                 if (research != null && research.HasResearched(faction, ConscriptionTech))

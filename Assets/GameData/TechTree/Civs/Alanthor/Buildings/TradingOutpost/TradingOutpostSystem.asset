@@ -23,6 +23,12 @@ MonoBehaviour:
   sellSupplies: 0
   forgeTech: Alanthor_VeilsteelForging
   sellTech: Alanthor_VeilsteelExport
+  ironBuySupplies: 200
+  ironBuyIron: 50
+  ironBuyTech:
+  steelSellVeilsteel: 50
+  steelSellSupplies: 400
+  steelSellTech: Alanthor_VeilsteelExport
   discountTechs:
   - Alanthor_TradeAgreements1
   - Alanthor_TradeAgreements2

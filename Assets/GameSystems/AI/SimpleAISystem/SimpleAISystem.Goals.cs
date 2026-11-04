@@ -318,7 +318,7 @@ namespace TheWaningBorder.AI
                         AIBudgetCategory.EconomyExpansion, "waystations"));
             }
             else if (popMax < FactionPopulation.AbsoluteMax && !OpeningHutsPending(faction))
-                goals.Add(new Goal(GoalKind.Build, "Hut", HousingTarget(pop), CountFactionBuildings<HutTag>(em, faction),
+                goals.Add(new Goal(GoalKind.Build, "Hut", HousingTarget(em, faction, pop), CountFactionBuildings<HutTag>(em, faction),
                     AIBudgetCategory.EconomyExpansion, "housing ahead"));
 
             // ── 9. GROW THE ARMY TO THE PLAN'S TARGET — once there is an
@@ -517,19 +517,38 @@ namespace TheWaningBorder.AI
         /// about six Huts for the cap — 480 supplies against the ~12,000 a
         /// faction earns in twenty minutes.
         /// </summary>
-        private static int HousingTarget(int pop)
+        private static int HousingTarget(EntityManager em, Faction faction, int pop)
         {
-            const int PerHut = 30;              // FactionPopulation table
-            const int HallProvides = 30;
+            // THE NUMBERS ARE THE SOs' (2026-11-04, Game_AI.md § 6y). This used
+            // to assume 30 population a Hut and 30 from the Hall; a Hut gives
+            // 6, a House 10 / 16 / 20 by level, the Fortress 10 — so the
+            // target was a third of the housing a faction needed, and the
+            // population crept up behind a blocked army.
+            int perHut = math.max(1, HutPopulationNow(em, faction));
+            int hallProvides = math.max(0, TechCatalog.Building("Fortress").populationProvided);
             const int Buffer = 40;              // room to keep training into
 
             int wantMax = math.min(FactionPopulation.AbsoluteMax, pop + Buffer);
-            int fromHuts = math.max(0, wantMax - HallProvides);
-            int need = (fromHuts + PerHut - 1) / PerHut;
-            int ceiling = (FactionPopulation.AbsoluteMax - HallProvides + PerHut - 1) / PerHut;
+            int fromHuts = math.max(0, wantMax - hallProvides);
+            int need = (fromHuts + perHut - 1) / perHut;
+            int ceiling = (FactionPopulation.AbsoluteMax - hallProvides + perHut - 1) / perHut;
             int cap = TechCatalog.Building("Hut").maxPerFaction;   // Houses: 20
             if (cap > 0) ceiling = math.min(ceiling, cap);
             return math.clamp(need, 1, ceiling);
+        }
+
+        /// <summary>Population one Hut provides at the faction's current House
+        /// level (the level SO's populationProvided; the base Hut's before the
+        /// age-up).</summary>
+        private static int HutPopulationNow(EntityManager em, Faction faction)
+        {
+            int basePop = TechCatalog.Building("Hut").populationProvided;
+            byte culture = CultureConfig.GetCompletedCulture(em, faction);
+            if (culture == Cultures.None) return math.max(1, basePop);
+            byte level = TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, faction, "Hut");
+            if (level < 1) level = 1;
+            var stats = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.StatsFor(culture, "Hut", level, basePop, true, false);
+            return stats.Population > 0 ? stats.Population : math.max(1, basePop);
         }
 
         /// <summary>Any veilstone outcropping standing in territory this

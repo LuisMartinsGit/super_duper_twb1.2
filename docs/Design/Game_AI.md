@@ -2559,6 +2559,9 @@ abandoned after N failed attack(s)`.
 
 ## 6j. The army grows with the bank; the pile-on (2026-10-07)
 
+**Amended 2026-11-02 (§ 6w):** the cap does not rise while a strict pivotal
+save is unpaid.
+
 **Why:** in the 2026-10-07 batch every survivor reached the tier's
 `sustainArmyCap` by minute 30 and stopped, while supplies and iron sat at the
 100,000 bank cap from minute 45: four equal armies, one-on-one wars that never
@@ -2649,6 +2652,10 @@ Logs: `SHARDROOT: …`.
 
 ### 6l.1 The price, the push, the drop (2026-10-20)
 
+**Amended 2026-11-02 (§ 6w):** the strict save holds only while the price is
+reachable at current income; otherwise it is a soft save, and the outposts
+forge toward it either way.
+
 Found in a 115-minute FiendstonePass match: Green carried the Shardroot for 43
 minutes, walking it to a Temple whose enshrine price its bank never reached a
 tenth of — the delivery waits silently — while every curse wave hunted it as
@@ -2694,6 +2701,9 @@ The Temple fix also unblocks the sect layer: adoption, sect buildings and
 Logs: `SUPPORT: …`.
 
 ## 6n. The late-game all-in (2026-10-08)
+
+**Amended 2026-11-02 (§ 6w):** a strength floor (`allInStrengthFloor`) under
+the all-in, and reinforcement packets wait while the wave is in contact.
 
 **Superseded in timing (2026-10-09):** developer: "I need deaths to start occurring from minute 15 or even earlier", with ~45-minute 8-player matches. The late game now comes earlier (the minute is `allInAfterSeconds` on `SimpleAISystem.asset` and `nodeLifetimeMinutes` on `TerritoryIncomeSystem.asset`), and stalled factions are hunted before it (§ 6o). Read "minute 30" below as "the late game".
 
@@ -2928,6 +2938,10 @@ down off the wall`, `posted N sentry(ies) on the wall`.
 
 ## 6t. The Sanctum army (2026-10-20)
 
+**Amended 2026-11-02 (§ 6w):** the army forms over time (free soldiers are
+reserved at once, the muster tops up, it launches at the head count and the
+power) and its tick runs before the waves draft.
+
 Developer: "AI should be actively trying to seize the sanctum territories" —
 "dedicated army, must stay and defend the sanctum. minimum size of 30.
 workers are dispatched to build fortifications there." No AI had ever taken a
@@ -3039,6 +3053,213 @@ request first (§ 6a). Still live (strength estimates, not destinations):
 `AIEngagement.AssessAssault` at a far objective, the soft-target and
 safe-ground strength checks, `ReadBoard` in the plan layer, IntelSystem's
 building garrison tally, and the curse-node pickers.
+
+## 6w. The 2026-11-02 Yiel Lymwérra review: four fixes
+
+A 52-minute Yiel Lymwérra match, the human (Blue) deliberately never leaving
+its start territory with 0 soldiers from minute 17 to 35, and Red (Rush,
+Normal) never obliterating it: Red's army stayed 13-50 with a 300 cap, its
+bank reached 25k supplies, it sent seven waves of 7-13 units at a five-tower
+Hall, it never formed a Sanctum army, and from minute 30 it froze everything
+to save for a Shardroot binding price its zero veilsteel income could never
+reach. Four rules changed (`SimpleAISystem.asset`, `AIShardroot.asset`):
+
+1. **The Shardroot price must be reachable (§ 6l.1 amended).** The strict
+   save (every purchase waits) holds only while the longest per-resource
+   shortfall / income (`AIBudget.IncomePerSecond`) is under
+   `saveStrictEtaSeconds` and the hold is younger than
+   `saveStrictMaxSeconds`; otherwise it is a SOFT save — the budget's duty
+   cycle still banks for it, but the army, research and buildings go on.
+   Either way the price's shortfalls are noted as a military shortage
+   (`AIBudget.NoteMilitaryShort`), so the Trading Outposts forge veilsteel
+   and buy veilstone toward it instead of stopping at `outpostVeilsteelTarget`.
+   Logs: `SHARDROOT: the binding price is out of reach (…) — a soft save`,
+   `… within reach (…) — a strict save`. Code: `SimpleAISystem.Shardroot.cs`.
+2. **The Sanctum army forms over time and drafts first (§ 6t amended).** The
+   raise no longer waits for `sanctumArmyMinSize` FREE soldiers at one
+   instant: whoever is free above the standing floor is reserved at once (a
+   Sanctum guard, so no wave, raid, reinforcement, defence or claim takes
+   them), gathered at a muster point toward the Sanctum, topped up every
+   think, and launched the moment the head count AND the power
+   (`sanctumLaunchMargin` over the known threat) are there. The Sanctum tick
+   now runs BEFORE the attack waves in the think loop. A muster that has not
+   launched after `sanctumMusterMaxSeconds` is released and that Sanctum
+   waits `sanctumRetrySeconds`. Logs: `SANCTUM: mustering an army for X:
+   n/30 reserved`, `mustering for X: n/30 (k joined)`, `… march to take X …
+   mustered in Ns`, `the muster for X gave up`.
+3. **The all-in has a strength floor, and packets wait for a fight to end
+   (§ 6n amended).** An all-in wave launches short of the ordinary strength
+   test but never under `allInStrengthFloor` of it (`WAVE: ALL-IN hold —
+   strength N under the floor N`); held, it raises the army target like any
+   held wave. A reinforcement packet below its company size waits while the
+   field army is in contact (`WAVE: holding n/N reinforcement(s) — the wave
+   is in contact`) and goes once the wave marches again, or with the next
+   wave — under the all-in the 0-second company hold had streamed 98 packets
+   of 2-7 units into the fight.
+4. **The army cap does not rise under a strict save (§ 6j amended).**
+   `AIPivotalReserve.StrictHold` — money nothing may spend is not "unspent".
+5. **The Shardroot price never holds the army (2026-11-03).** Developer:
+   "make sure AI does not stop waves because it is saving for the shard root
+   things." The save is set `exemptMilitary`: unit purchases are judged
+   through `AIPivotalReserve.ShouldHoldMilitary`, which ignores it, and it
+   takes no `AIBudget` reservation. Strict or soft, it holds research and
+   buildings only.
+
+## 6x. The 2026-11-03 batch review: seven behaviours (2026-11-04)
+
+Ten traced 120-minute matches across all six maps (Muster Rolls,
+"ai-sanctum-2026-11-03"), reviewed against seven developer observations.
+What was measured, and the rule that answers each:
+
+1. **Chokepoints over rings.** 22 of 32 wall plans ringed the home; the
+   opening scan counted cliff-sealed pockets as ways in (Highfold Blue: "4
+   ways in: w=12, 18, 15, 4") and refused a home with one unsealable mouth
+   (Moatwatch: two fords plus two 80-90 m mouths). Now an opening counts only
+   when its outside is walkable ground connected to the scan window's edge
+   (`TryAssessOpenings`), up to 4 openings seal (`MaxCorridors`), and a home
+   with some sealable openings seals those and puts a tower hub at each end
+   of the wide ones (`EmitChokeTowers`) instead of falling back to the ring.
+   Every personality walls up to `productionProvinceWalls` held provinces
+   that train (hostile-bordering ones first), and a personality that never
+   walls (Rush) walls from `lateWallsAfterSeconds` while its bank holds
+   `lateWallsBankSupplies` (`AIPersonalityLookup.WallsEnabled`; both on
+   `AIWallPlanner.asset`).
+2. **Mass.** 29 % of units stood outside the cohesion radius at first
+   contact; mean wave 10.9 units, 63 % under ten. `waveBaseUnits` is 12 on
+   Normal, Hard and Expert, `allInMinWaveUnits` 12, and a retreated army
+   holds its fallback ground once (`fallbackMaxHolds` 1) before giving the
+   objective up. Reinforcement packets already wait while the wave fights
+   (§ 6w).
+3. **Stuck armies.** Orange on Fiendstone parked 17-23 units for seven
+   minutes on a shelf under a NoWalk mountain: its stage point was one
+   standable point 45 m short of the objective. The stage is now the first
+   point from `stagingDistance` outward along the home bearing with
+   `stageOpenRadius` of walkable ground around it (`OpenStageToward`,
+   probed every `stageProbeStepMeters` up to `stageProbeMaxMeters`), and a
+   striking army whose centroid has not moved for `stallRepathSeconds` with
+   no wall to breach re-paths to its objective once (`WAVE: stalled … —
+   re-pathing`).
+4. **Formations break by class.** The simulation rule, not the AI's: a
+   member of an attack-moving formation used to acquire at its stance radius
+   (line of sight) as soon as it stood near its slot, so the front rank
+   dissolved the body before anyone was in weapon range. Now siege and
+   ranged members leave the rank when a target is within their weapon reach,
+   melee members within `formationMeleeEngage` (10 m, `UnitStanceSystem.asset`);
+   being under fire releases any of them (`TargetingSystem.Jobs`). Siege
+   engines shooting out of rank never hold the formation leader, so the body
+   advances past its engines (`FormationGroupSystem`).
+5. **The table's threat, and the losing player.** Developer's cases for a
+   faction that is winning: (1) more territories than the living players'
+   mean plus `threatTerritorySigma` standard deviations (and at least
+   `threatMinTerritories`; no refocus before `threatAfterSeconds`), (2) it has
+   eliminated a player — credited to the top damager of that player's last
+   ten minutes (`FactionPressureLedger`: kills ×1, razes ×4, fed from
+   MatchScore's attribution), (3) the enshrinement countdown, (4) a
+   Shardbound King, (6) the Sanctum dominion countdown; (5) the more cases
+   the sooner, ties to the nearest. Everyone not losing turns on it
+   (`THREAT: X is winning the game — N case(s)`) and goes back to its earlier
+   war when the threat passes (`WAR: the threat has passed — back to the war
+   on …`). **A losing player** — one that took `losingPressureMinWeight` of
+   pressure from a faction over `losingPressureWindowSeconds`, at least
+   `losingPressureRatio` times what it dealt back — keeps its attacker as
+   its only victim, does not all-in, and fortifies: the wall ladder and the
+   savings holds step aside for it (`SimpleAISystem.FortifyingFor`,
+   `LOSING: under X's attack …`). The developer's scenario: Blue losing to
+   Yellow while Red enshrines — Blue walls and hits Yellow, Yellow retargets
+   Red, Red's countdown is what everyone else answers.
+6. **Production outside the start.** Provinces did train, but late (first
+   trainer at minute 23, median 62) behind the tower step and the
+   saturation gate. From `provinceTrainerFromSeconds` a held province with no
+   trainer gets its first one before its towers when the bank holds
+   `provinceTrainerBankSupplies` (`DevelopProvinceProduction`, run early);
+   `provinceProductionPerTerritory` is 2 on Normal and up; production
+   provinces are walled per point 1.
+7. **Neighbours first.** 68 % of wars went at someone other than the nearest
+   neighbour; the hunt took any faction with two territories, however far.
+   The doctrine's victim is now scored — known strength (`victimThreatWeight`),
+   how beaten it looks (in the closeout), a bonus when its ground touches
+   ours (`victimBorderBonus`), divided by distance (`victimDistanceScaleMeters`;
+   `ScoredVictim`, `VICTIM: …` log) — the hunt's prey must sit within
+   `preyMaxDistanceRatio` of the nearest hostile's ground, and territory
+   development serves hostile-bordering territories first (`BorderFirst`).
+
+8. **Engines for a walled victim (2026-11-04).** On Broken Oath Red sent
+   waves 7, 8 and 9 at Green's ring without a single engine; each met the
+   wall, logged "the next wave needs engines" and ended within a minute, and
+   the next wave went out the same. A wave that meets a wall with fewer than
+   `wallBreachMinSiege` engines now remembers it for
+   `wallEnginesMemorySeconds`: the next waves draft every idle engine (the
+   standing floor never keeps one home), hold until that many stand ready
+   (`WAVE: … HELD — the last wave met a wall with no engines`), and the siege
+   program's floor rises to that count. Sanctum armies never draft engines.
+
+Knobs: the `stage*`, `stallRepathSeconds`, `provinceTrainer*`, `threat*`,
+`losingPressure*`, `preyMaxDistanceRatio`, `victim*` and
+`wallEnginesMemorySeconds` fields on `SimpleAISystem.asset`; `lateWalls*` and `productionProvinceWalls` on
+`AIWallPlanner.asset`; `formationMeleeEngage` on `UnitStanceSystem.asset`.
+
+## 6z. One army, and what follows it (2026-11-04)
+
+Developer's rules. The first army leaves at a fixed time, `waveFirstSeconds`, with every
+soldier above the reserve. While an army lives, soldiers gather at home, and no
+other wave launches. The next body of soldiers leaves on the first of:
+
+1. **`waveReinforceSeconds` after the last army**, with every soldier trained since,
+   as a reinforcement army to the live army's objective (a column: it musters, marches
+   and merges into the army on arrival).
+2. **The population cap is reached**: the same reinforcement army, at once, in groups of
+   at least `reinforceCapMinGroup`.
+3. **The army is dead**: a new army with a new objective, as soon as it reaches
+   `waveReplacePopShare` of the population cap, or at any army size past
+   `waveReplaceMaxWaitSeconds`.
+
+A body under `reinforceMinGroup` waits. **A small reserve stays home** (the tier's
+standing floor), except for Rush and Aggressive personalities, who commit everything.
+**A wave may be skipped once**: when the army's power is under
+`waveSkipStrengthRatio` of what is known at the objective, it waits `waveSkipSeconds`,
+and the next one goes whatever it faces. Two in a row are never skipped. A population-
+capped reinforcement army is not skipped. A Sanctum
+garrison is the one body also refilled on its own, because it holds ground: a full packet (`reinforcePacketFraction` of it,
+never under `reinforceMinGroup`) is raised only from soldiers above the standing floor,
+gathers at home and marches as one (`TendSanctumPacket`). Marching rules are
+Navigation_And_Formations.md § 2.11.
+
+## 6y. Iron drought and the housing cap (2026-11-04)
+
+Developer: "The maps are being starved of iron while players stockpile
+veilsteel" and "players are being locked below 200 population. houses aren't
+being upgraded." Measured on the 300-minute Fiendstone Pass game: every mine
+collapsed inside the first hour; from then on selling veilsteel paid 40-50k
+iron an hour and the Guild surveys 15-38k, every iron went to units and to
+BUYING veilstone (the buy recipe spends iron), the banks sat at 26-2,356 iron
+while supplies capped at 100,000 and veilsteel piled to 8,190; the outposts
+stood 62 % in buy mode, 11 % selling. Housing: the AI's target assumed 30
+population a Hut and 30 from the Hall (a Hut gives 6, a House 10 / 16 / 20,
+the Fortress 10), House levels yielded to the army 52 times in ten matches
+(L2 at a median minute 44, L3 at 54) and the upgrade system's iron reserve
+blocked them although they cost no iron, so twenty L1 Houses held a faction
+at 210.
+
+- **Survey iron +15 %**: `guildSurveyIronPerTier` on `TerritoryIncomeSystem.asset`.
+- **Iron drought** (`SimpleAISystem.Extractors.cs`): with the bank under
+  `outpostIronFloor` and supplies at least `outpostIronDroughtSuppliesRatio`
+  times the iron, selling veilsteel takes the top weight and buying veilstone
+  is capped at the ordinary one; surplus veilsteel sells through one post per
+  `outpostSellStockPerPost` sell-loads in the bank, up to half the posts.
+  Log: `TRADE: … iron-drought`.
+- **Housing target from the SOs** (`HousingTarget`): the Hut's population at
+  the faction's current House level and the Fortress's, never constants.
+- **Housing is critical near the cap** (`AIBuildingUpgradeSystem`): a House
+  level inside `hutUpgradeHeadroomMax` of the cap skips the army-first yield
+  and the iron reserve (which now applies only to levels that cost iron).
+- **Two more trade routes, several per post** (2026-11-04,
+  Veilstone_Economy.md § 3.1): Buy Iron (supplies → iron) takes the top
+  weight in an iron drought while supplies run ten times its input; Sell
+  Veilsteel for Supplies when the army is short of supplies, or under
+  `outpostSuppliesFloor` with surplus veilsteel. The planner now counts ROUTE
+  SLOTS (a post's level runs 1 / 2 / 4) and deals the wanted route counts
+  over its posts, repeats allowed. Log: `TRADE: outposts: N sell / N forge / N buy / N buy-iron
+  / N sell-supplies / N hold`.
 
 ## 7. Scouting
 

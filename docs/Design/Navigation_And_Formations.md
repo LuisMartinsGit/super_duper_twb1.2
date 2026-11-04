@@ -226,6 +226,41 @@ When N ≥ 2 movable units receive one move / attack-move order:
     army parked along a cliff edge stays exactly as the player placed it.
     The rally walk itself is a plain destination, not an order.
 
+### 2.11 Soldiers going to the same place travel in formation (2026-11-04)
+
+Developer's rule, for the player's group orders and the AI alike; workers exempt.
+
+- **An order splits, it does not abandon.** Soldiers within `splitLinkRadius` of
+  each other form one formation; a spread-out order becomes one formation per
+  cluster (`splitMaxFormations` at most; scraps within `splitMergeRadius` join a
+  neighbour). Each marches on its own compact lattice with its own leader and
+  settles into the WHOLE order's slots at the destination.
+  `FormationMoveCommandHelper.TrySplitOrder`. Only a soldier with nobody near
+  him walks alone.
+- **A soldier leaves the ranks only to fight**, then rejoins. The stall and
+  tether releases remain as the last resort of a physically wedged group.
+- **A repeat AI order keeps the march going** (`repeatOrderKeepRadius`); a real
+  change of destination wheels the formation. A player's click always counts.
+- **One path per formation.** A marching member reads its group's goal field
+  (`FormationMemberState.FieldGoal`, `GoalFlowQuant.TryFieldGoal`), not one field
+  per slot; a unit that can see a near goal holds no field. All factions share
+  the 48 cached fields, and with one per slot a late match wanted over 200.
+- **No straight line into the rock.** A unit with no field answer keeps its last
+  heading while the field is refreshed and otherwise waits; the leader waits too,
+  and counts as a seeker of its own field. Only loose flyers, a unit on a layer
+  traversal, one standing on a closed cell and one beyond a capped sweep walk the
+  direct bearing.
+- **The field pool is 488, shared fairly** (`GoalFlowFieldSystem.SlotCountDefault`,
+  about 512 MB on the largest map, proportionally less on smaller ones). The curse holds at most `CurseSlots`; the rest
+  is split equally among the living players, and an eliminated player's share goes
+  to the others. A share is a guarantee: a player may borrow what others leave free,
+  and with the pool full a player under its share takes a slot back from whoever is
+  furthest over. Players also take turns in the integration batch (8 fields a
+  batch), formations before lone soldiers.
+- **Reuse.** A goal with no field of its own walks a live field of the same faction
+  within about 24 m whose goal can see it, where that field covers the unit's cell.
+  A unit or formation that can already see a near goal holds no field at all.
+
 ## 3. Formation set (AoE4 parity)
 
 Formation choice persists per selection; changing it re-slots immediately,

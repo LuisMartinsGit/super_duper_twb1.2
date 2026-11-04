@@ -84,6 +84,8 @@ namespace TheWaningBorder.Systems.Economy
             {
                 TradeRecipe.ForgeVeilsteel => cfg.forgeTech,
                 TradeRecipe.SellVeilsteel => cfg.sellTech,
+                TradeRecipe.BuyIron => cfg.ironBuyTech,
+                TradeRecipe.SellSupplies => cfg.steelSellTech,
                 _ => null,
             };
             if (string.IsNullOrEmpty(tech)) return true;
@@ -151,6 +153,14 @@ namespace TheWaningBorder.Systems.Economy
                     earn.Iron = cfg.sellIron * speed;
                     earn.Supplies = cfg.sellSupplies * speed;
                     break;
+                case TradeRecipe.BuyIron:
+                    spend.Supplies = cfg.ironBuySupplies * keep;
+                    earn.Iron = cfg.ironBuyIron * speed;
+                    break;
+                case TradeRecipe.SellSupplies:
+                    spend.Veilsteel = cfg.steelSellVeilsteel * keep;
+                    earn.Supplies = cfg.steelSellSupplies * speed;
+                    break;
                 case TradeRecipe.Hold:
                     break;   // idle: nothing in, nothing out
                 default:
@@ -192,12 +202,39 @@ namespace TheWaningBorder.Systems.Economy
             earn = default;
             if (!em.HasComponent<FactionTag>(outpost)) return;
             var faction = em.GetComponentData<FactionTag>(outpost).Value;
-            var recipe = OutpostSites.RecipeOf(em, outpost);
-            if (!IsUnlocked(faction, recipe)) recipe = TradeRecipe.BuyVeilstone;
-            PerMinute(faction, recipe, out spend, out earn);
+            // EVERY ROUTE THE POST RUNS (2026-11-04), each at the level's rate.
+            uint counts = em.HasComponent<TradingOutpostMode>(outpost)
+                ? TradeRoutes.CountsOf(em.GetComponentData<TradingOutpostMode>(outpost)) : 0u;
             float m = LevelMultiplier(em, outpost);
-            if (m != 1f) { spend = Scale(spend, m); earn = Scale(earn, m); }
+            for (int i = 0; i < TradeRoutes.All.Length; i++)
+            {
+                var r = TradeRoutes.All[i];
+                int n = TradeRoutes.CountIn(counts, r);
+                if (n <= 0 || !IsUnlocked(faction, r)) continue;
+                PerMinute(faction, r, out var s, out var e);
+                spend = Add(spend, Scale(s, m * n));
+                earn = Add(earn, Scale(e, m * n));
+            }
         }
+
+        /// <summary>Routes an Outpost runs at once: its level SO's tradeRoutes
+        /// (L1 one, L2 two, L3 four); 1 when unknown.</summary>
+        public static int RouteCapacity(EntityManager em, Entity outpost)
+        {
+            if (!em.HasComponent<BuildingUpgradeState>(outpost) || !em.HasComponent<FactionTag>(outpost))
+                return 1;
+            byte level = em.GetComponentData<BuildingUpgradeState>(outpost).Level;
+            if (level == 0) return 1;
+            var def = BuildingUpgradeConfig.LevelDef(em, em.GetComponentData<FactionTag>(outpost).Value,
+                OutpostSites.BuildingId, level);
+            return def != null && def.tradeRoutes > 0 ? def.tradeRoutes : 1;
+        }
+
+        private static TerritoryYield Add(TerritoryYield a, TerritoryYield b) => new TerritoryYield
+        {
+            Supplies = a.Supplies + b.Supplies, Iron = a.Iron + b.Iron,
+            Veilstone = a.Veilstone + b.Veilstone, Veilsteel = a.Veilsteel + b.Veilsteel,
+        };
 
         private static TerritoryYield Scale(TerritoryYield y, float m) => new TerritoryYield
         {
@@ -245,34 +282,44 @@ namespace TheWaningBorder.Systems.Economy
                 if (!OutpostSites.HasLiveOutcrop(em, p.x, p.z)) continue;
 
                 var faction = facs[i].Value;
-                // A post on Hold trades nothing (its carry is kept as is).
-                if (modes[i].Recipe == TradeRecipe.Hold) continue;
-                // Recipe (Buy when its trade is not researched), discount,
-                // speed and THIS post's level — four posts round one outcrop
-                // each trade on their own.
-                PerMinuteFor(em, ents[i], out var spendPm, out var earnPm);
-
-                var carry = em.GetComponentData<TradingOutpostCarry>(ents[i]);
-                var next = carry;
-                var input = new Cost
+                // EACH ROUTE IS ITS OWN TRADE (2026-11-04): a route the bank
+                // cannot afford this cycle skips it and keeps its carry; the
+                // others still run.
+                uint counts = TradeRoutes.CountsOf(modes[i]);
+                if (counts == 0u) continue;
+                float lvl = LevelMultiplier(em, ents[i]);
+                var next = em.GetComponentData<TradingOutpostCarry>(ents[i]);
+                bool ran = false;
+                for (int r = 0; r < TradeRoutes.All.Length; r++)
                 {
-                    Supplies  = Take(ref next.InSupplies,  spendPm.Supplies  * minutes),
-                    Iron      = Take(ref next.InIron,      spendPm.Iron      * minutes),
-                    Veilstone = Take(ref next.InVeilstone, spendPm.Veilstone * minutes),
-                    Veilsteel = Take(ref next.InVeilsteel, spendPm.Veilsteel * minutes),
-                };
-                if (!FactionEconomy.CanAfford(em, faction, input)) continue;   // carry untouched
-                if (!FactionEconomy.Spend(em, faction, input, TheWaningBorder.Economy.SpendCategory.Trade)) continue;
-
-                var output = new Cost
-                {
-                    Supplies  = Take(ref next.OutSupplies,  earnPm.Supplies  * minutes),
-                    Iron      = Take(ref next.OutIron,      earnPm.Iron      * minutes),
-                    Veilstone = Take(ref next.OutVeilstone, earnPm.Veilstone * minutes),
-                    Veilsteel = Take(ref next.OutVeilsteel, earnPm.Veilsteel * minutes),
-                };
-                FactionEconomy.Add(em, faction, output, TheWaningBorder.Economy.IncomeSource.Trade);
-                em.SetComponentData(ents[i], next);
+                    var recipe = TradeRoutes.All[r];
+                    int repeats = TradeRoutes.CountIn(counts, recipe);
+                    if (repeats <= 0 || !IsUnlocked(faction, recipe)) continue;
+                    PerMinute(faction, recipe, out var spendPm, out var earnPm);
+                    float rate = lvl * repeats;   // a repeated route runs its trade that many times
+                    if (rate != 1f) { spendPm = Scale(spendPm, rate); earnPm = Scale(earnPm, rate); }
+                    var trial = next;
+                    var input = new Cost
+                    {
+                        Supplies  = Take(ref trial.InSupplies,  spendPm.Supplies  * minutes),
+                        Iron      = Take(ref trial.InIron,      spendPm.Iron      * minutes),
+                        Veilstone = Take(ref trial.InVeilstone, spendPm.Veilstone * minutes),
+                        Veilsteel = Take(ref trial.InVeilsteel, spendPm.Veilsteel * minutes),
+                    };
+                    if (!FactionEconomy.CanAfford(em, faction, input)) continue;   // carry untouched
+                    if (!FactionEconomy.Spend(em, faction, input, TheWaningBorder.Economy.SpendCategory.Trade)) continue;
+                    var output = new Cost
+                    {
+                        Supplies  = Take(ref trial.OutSupplies,  earnPm.Supplies  * minutes),
+                        Iron      = Take(ref trial.OutIron,      earnPm.Iron      * minutes),
+                        Veilstone = Take(ref trial.OutVeilstone, earnPm.Veilstone * minutes),
+                        Veilsteel = Take(ref trial.OutVeilsteel, earnPm.Veilsteel * minutes),
+                    };
+                    FactionEconomy.Add(em, faction, output, TheWaningBorder.Economy.IncomeSource.Trade);
+                    next = trial;
+                    ran = true;
+                }
+                if (ran) em.SetComponentData(ents[i], next);
             }
         }
 

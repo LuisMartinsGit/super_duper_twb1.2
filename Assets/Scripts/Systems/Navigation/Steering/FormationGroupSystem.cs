@@ -70,6 +70,7 @@ namespace TheWaningBorder.Systems.Navigation
         private ComponentLookup<FormationMemberState> _member;
         private ComponentLookup<Target> _target;
         private ComponentLookup<UnitEngagement> _engagement;
+        private ComponentLookup<SiegeTag> _siege;
         private ComponentLookup<DesiredDestination> _dest;
         private ComponentLookup<MoveSpeed> _moveSpeed;
         private ComponentLookup<FormationSpeedOverride> _speedOverride;
@@ -82,6 +83,7 @@ namespace TheWaningBorder.Systems.Navigation
         // Stand-ins for the optional goal-field cache: a job field must
         // always hold allocated containers.
         private NativeHashMap<GoalFlowKey, int> _dummySlotIndex;
+        private NativeHashMap<GoalFlowKey, GoalFlowKey> _dummyAlias;
         private NativeArray<GoalFlowSlot> _dummySlots;
         private NativeArray<byte> _dummyBytes;
 
@@ -97,6 +99,7 @@ namespace TheWaningBorder.Systems.Navigation
             _member = state.GetComponentLookup<FormationMemberState>(false);
             _target = state.GetComponentLookup<Target>(true);
             _engagement = state.GetComponentLookup<UnitEngagement>(true);
+            _siege = state.GetComponentLookup<SiegeTag>(true);
             _dest = state.GetComponentLookup<DesiredDestination>(false);
             _moveSpeed = state.GetComponentLookup<MoveSpeed>(true);
             _speedOverride = state.GetComponentLookup<FormationSpeedOverride>(false);
@@ -107,6 +110,7 @@ namespace TheWaningBorder.Systems.Navigation
             _speedMods = UnitSpeedModifiers.Lookups.Create(ref state);
 
             _dummySlotIndex = new NativeHashMap<GoalFlowKey, int>(1, Allocator.Persistent);
+            _dummyAlias = new NativeHashMap<GoalFlowKey, GoalFlowKey>(1, Allocator.Persistent);
             _dummySlots = new NativeArray<GoalFlowSlot>(1, Allocator.Persistent);
             _dummyBytes = new NativeArray<byte>(1, Allocator.Persistent);
         }
@@ -115,6 +119,7 @@ namespace TheWaningBorder.Systems.Navigation
         {
             _speedMods.Dispose();
             if (_dummySlotIndex.IsCreated) _dummySlotIndex.Dispose();
+            if (_dummyAlias.IsCreated) _dummyAlias.Dispose();
             if (_dummySlots.IsCreated) _dummySlots.Dispose();
             if (_dummyBytes.IsCreated) _dummyBytes.Dispose();
         }
@@ -147,6 +152,7 @@ namespace TheWaningBorder.Systems.Navigation
             _member.Update(ref state);
             _target.Update(ref state);
             _engagement.Update(ref state);
+            _siege.Update(ref state);
             _dest.Update(ref state);
             _moveSpeed.Update(ref state);
             _speedOverride.Update(ref state);
@@ -174,6 +180,7 @@ namespace TheWaningBorder.Systems.Navigation
                 CostFlags = cost.Flags,
                 UseGoalField = useGoalField,
                 GoalSlotIndex = useGoalField ? goalCache.SlotIndex : _dummySlotIndex,
+                GoalAlias = useGoalField ? goalCache.Alias : _dummyAlias,
                 GoalSlots = useGoalField ? goalCache.Slots : _dummySlots,
                 GoalDirPool = useGoalField ? goalCache.DirPool : _dummyBytes,
                 DirTable = useGoalField ? dirTable.Table : default,
@@ -182,6 +189,7 @@ namespace TheWaningBorder.Systems.Navigation
                 Member = _member,
                 TargetL = _target,
                 Engagement = _engagement,
+                SiegeL = _siege,
                 Dest = _dest,
                 MoveSpeedL = _moveSpeed,
                 SpeedOverride = _speedOverride,
@@ -281,6 +289,7 @@ namespace TheWaningBorder.Systems.Navigation
 
         public bool UseGoalField;
         [ReadOnly] public NativeHashMap<GoalFlowKey, int> GoalSlotIndex;
+        [ReadOnly] public NativeHashMap<GoalFlowKey, GoalFlowKey> GoalAlias;
         [ReadOnly] public NativeArray<GoalFlowSlot> GoalSlots;
         [ReadOnly] public NativeArray<byte> GoalDirPool;
         [ReadOnly] public BlobAssetReference<DirectionTableBlob> DirTable;
@@ -290,6 +299,9 @@ namespace TheWaningBorder.Systems.Navigation
         public ComponentLookup<FormationMemberState> Member;
         [ReadOnly] public ComponentLookup<Target> TargetL;
         [ReadOnly] public ComponentLookup<UnitEngagement> Engagement;
+        /// <summary>Siege engines shooting out of rank never hold the leader
+        /// (2026-11-03, § 6x): the body advances past its engines.</summary>
+        [ReadOnly] public ComponentLookup<SiegeTag> SiegeL;
         public ComponentLookup<DesiredDestination> Dest;
         [ReadOnly] public ComponentLookup<MoveSpeed> MoveSpeedL;
         public ComponentLookup<FormationSpeedOverride> SpeedOverride;
@@ -368,7 +380,7 @@ namespace TheWaningBorder.Systems.Navigation
 
                     if (m.Engaged == 0) rosterChanged = true;
                     m.Engaged = 1;
-                    engagedCount++;
+                    if (!SiegeL.HasComponent(u)) engagedCount++;
                     keep.Add(m);
                     keepMult.Add(float.NaN);
                     if (Active(ref SpeedOverride, u)) toUnspeed.Add(u);
@@ -567,8 +579,10 @@ namespace TheWaningBorder.Systems.Navigation
                     }
 
                     float destDist = math.sqrt(destDistSq);
-                    float stepLen = math.min(
-                        g.GroupSpeed * lagScale * turnScale * Dt, destDist);
+                    // No direction = no field answer yet: the leader waits.
+                    float stepLen = hasDir
+                        ? math.min(g.GroupSpeed * lagScale * turnScale * Dt, destDist)
+                        : 0f;
                     float3 next = g.LeaderPos + wheelFacing * stepLen;
 
                     // A leader that starts inside a blocked cell must be
@@ -856,6 +870,7 @@ namespace TheWaningBorder.Systems.Navigation
                 if (lx >= 0 && lx < Grid.Width && lz >= 0 && lz < Grid.Height)
                 {
                     bool goalOnDeck = Cost[gz * Grid.Width + gx] == NavCostField.CostBridgeDeckOnly;
+                    bool sawNoField = false;
                     for (byte variant = 0; variant <= 1; variant++)
                     {
                         if (variant == GoalFlowKey.VariantGround && goalOnDeck) continue;
@@ -865,20 +880,43 @@ namespace TheWaningBorder.Systems.Navigation
                             FactionIdx = factionIdx,
                             Variant = variant,
                         };
-                        if (!GoalSlotIndex.TryGetValue(key, out int slot)) continue;
+                        // No field yet (or being integrated on worker threads
+                        // RIGHT NOW, whose bytes depend on job timing): wait.
+                        if (!GoalSlotIndex.TryGetValue(key, out int slot))
+                        {
+                            if (variant != GoalFlowKey.VariantGround
+                                || !GoalAlias.TryGetValue(key, out var aliasKey)
+                                || aliasKey.Variant == GoalFlowQuant.NoAliasVariant
+                                || !GoalSlotIndex.TryGetValue(aliasKey, out slot))
+                            {
+                                sawNoField = true;
+                                continue;
+                            }
+                        }
                         var meta = GoalSlots[slot];
-                        // Valid == 1 only: a slot at 2 is being integrated on
-                        // worker threads RIGHT NOW (GoalFlowFieldSystem's
-                        // detached batch), so its bytes depend on job timing.
-                        if (meta.Valid != 1) continue;
+                        if (meta.Valid != 1)
+                        {
+                            sawNoField = true;
+                            continue;
+                        }
                         byte d = GoalDirPool[meta.DirOffset + lz * Grid.Width + lx];
-                        // NoDirection AND NotCovered both mean "no field
-                        // answer here" — the direct bearing covers the gap.
-                        if (d >= NavFlowConstants.NotCovered) continue;
+                        // NotCovered: the field is being extended to here, and
+                        // the leader waits like its men (no straight line into
+                        // the rock, 2026-11-04). NoDirection falls to the
+                        // direct bearing, so a truly unreachable goal stalls and
+                        // releases the group.
+                        // (Past a capped sweep no field will ever answer: direct.)
+                        if (d == NavFlowConstants.NotCovered)
+                        {
+                            if (meta.Capped != 0) continue;
+                            return float3.zero;
+                        }
+                        if (d > NavFlowConstants.NotCovered) continue;
                         ref var dirs = ref DirTable.Value.Dirs;
                         float2 v = dirs[d];
                         return new float3(v.x, 0f, v.y);
                     }
+                    if (sawNoField) return float3.zero;
                 }
             }
 

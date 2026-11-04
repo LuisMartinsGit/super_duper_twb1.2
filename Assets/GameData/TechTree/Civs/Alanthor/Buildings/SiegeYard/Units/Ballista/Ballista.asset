@@ -35,7 +35,7 @@ MonoBehaviour:
   trajectory: flat
   projectileSpeed: 55
   cost:
-    Supplies: 0
+    Supplies: 20
     Iron: 44
     Veilstone: 121
     Veilsteel: 0

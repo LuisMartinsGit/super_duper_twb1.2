@@ -33,9 +33,9 @@ MonoBehaviour:
   suppliesPerTick: 0
   suppliesInterval: 0
   slotIncomePerMinute:
-  - 110
-  - 135
-  - 185
+  - 140
+  - 150
+  - 165
   interestPerMinute: 0
   interestPrincipalCap: 0
   interestMaxSeconds: 0

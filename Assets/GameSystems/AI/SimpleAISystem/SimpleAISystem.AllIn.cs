@@ -29,6 +29,7 @@
 // Host-side AI state (AI acts only through CommandRouter), match-relative
 // clock, reset per match by SimCadence.Epoch.
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using TheWaningBorder.Core;
@@ -102,7 +103,8 @@ namespace TheWaningBorder.AI
             if (_allInEpoch == SimCadence.Epoch) return;
             _allInEpoch = SimCadence.Epoch;
             for (int i = 0; i < ProfileSlots; i++)
-            { _allInGuard[i] = -1; _allInLogged[i] = false; _prey[i] = -1; _maxedLogged[i] = false; _finish[i] = -1; }
+            { _allInGuard[i] = -1; _allInLogged[i] = false; _prey[i] = -1; _maxedLogged[i] = false; _finish[i] = -1;
+              _threatMode[i] = false; _threatPrev[i] = -1; _fortify[i] = false; }
         }
 
         /// <summary>Is the late-game all-in armed for this faction? Valid
@@ -133,10 +135,35 @@ namespace TheWaningBorder.AI
             bool beaten = TryFindBeaten(em, faction, now, out Faction beatenF, out string beatenWhy);
             // EVERYONE AGAINST THE HOLDER (§ 6p, 2026-10-09) outranks the hunt.
             int prey;
+            // THE LOSING PLAYER AND THE TABLE'S THREAT (2026-11-03, § 6x).
+            // Developer: "losing players should always attack who is attacking
+            // them and fortify"; everyone else turns on a faction that is
+            // winning the game (six cases, TryFindThreat) and goes back to its
+            // old war when the threat passes (TrackThreatWar).
+            bool losing = TryLosingTo(em, faction, now, out Faction attacker, out float pressureOn, out float pressureBack);
+            if (losing != _fortify[k])
+            {
+                _fortify[k] = losing;
+                AILogger.Log(faction, "LOSING", losing
+                    ? $"under {attacker}'s attack (pressure {pressureOn:0} taken vs {pressureBack:0} dealt back) — every wave on {attacker}, fortifying"
+                    : "no longer losing — fortification stands down");
+            }
+            Faction threatF = faction; int threatCases = 0; string threatWhy = null;
+            bool threatFound = !losing && TryFindThreat(em, faction, now, out threatF, out threatCases, out threatWhy);
             bool holderHeld = TryHostileShardrootHolder(em, faction, out var holder);
             bool holderYields = holderHeld && beaten && holder != beatenF
                 && WarShelved(faction, holder, now) && !HolderAscending(em, holder);
-            if (holderHeld && !holderYields)
+            if (losing)
+            {
+                prey = (int)attacker;
+            }
+            else if (threatFound)
+            {
+                prey = (int)threatF;
+                if (prey != _prey[k])
+                    AILogger.Log(faction, "THREAT", $"{threatF} is winning the game — {threatCases} case(s): {threatWhy} — everyone against it");
+            }
+            else if (holderHeld && !holderYields)
             {
                 prey = (int)holder;
                 if (prey != _prey[k])
@@ -159,6 +186,7 @@ namespace TheWaningBorder.AI
                         $"we hold {TerritoriesHeld(faction)}: all-in on it");
             }
             _prey[k] = prey;
+            TrackThreatWar(em, faction, k, prey, losing || threatFound, now);
             int finishWas = _finish[k];
             _finish[k] = beaten && prey == (int)beatenF ? prey : -1;
             if (finishWas >= 0 && _finish[k] != finishWas)
@@ -176,8 +204,10 @@ namespace TheWaningBorder.AI
                     AILogger.Log(faction, "ALL-IN", $"the army is full or the bank overflows at {(int)now}s — it marches");
                 }
             }
-            if (!lateGame && prey < 0)
+            if ((!lateGame && prey < 0) || losing)
             {
+                // A losing player does not all-in on its attacker: it answers
+                // with ordinary waves and keeps its home guard (§ 6x).
                 _allInGuard[k] = -1;
                 return;
             }
@@ -200,6 +230,134 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>The prey this faction hunts this think (§ 6o), if any.</summary>
+        private static readonly bool[] _threatMode = new bool[ProfileSlots];
+        private static readonly int[] _threatPrev = new int[ProfileSlots];
+        private static readonly bool[] _fortify = new bool[ProfileSlots];
+
+        /// <summary>Is this faction under a stronger attacker's pressure (§ 6x)?
+        /// The wall ladder and the savings hold step aside for it.</summary>
+        public static bool FortifyingFor(Faction faction)
+        {
+            int k = (int)faction;
+            return k >= 0 && k < ProfileSlots && _fortify[k];
+        }
+
+        /// <summary>The losing player (§ 6x): the faction that hurt us most over
+        /// losingPressureWindowSeconds (kills x1, razes x4 — the pressure
+        /// ledger), at least losingPressureMinWeight and losingPressureRatio
+        /// times what we dealt it back.</summary>
+        private static bool TryLosingTo(EntityManager em, Faction faction, float now,
+            out Faction attacker, out float on, out float back)
+        {
+            float window = math.max(30f, Cfg.losingPressureWindowSeconds);
+            attacker = TheWaningBorder.Core.Diagnostics.FactionPressureLedger.TopAttacker(faction, window, now, out on);
+            back = 0f;
+            if (attacker == Faction.Border || (int)attacker < 0 || (int)attacker >= ProfileSlots) return false;
+            if (on < Cfg.losingPressureMinWeight) return false;
+            if (!Alliances.AreHostile(faction, attacker) || BoardScore(em, attacker) < 0) return false;
+            back = TheWaningBorder.Core.Diagnostics.FactionPressureLedger.PressureOn(attacker, faction, window, now);
+            return on >= back * math.max(1f, Cfg.losingPressureRatio);
+        }
+
+        private static readonly ComponentType[] QT_ShardboundKings =
+        {
+            ComponentType.ReadOnly<TheWaningBorder.Entities.ShardboundKing>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        private static CachedEntityQuery QC_ShardboundKings;
+
+        /// <summary>THE TABLE'S THREAT (§ 6x, developer's six cases): a hostile
+        /// faction that (1) holds more territories than the living players'
+        /// mean plus threatTerritorySigma deviations, (2) has eliminated a
+        /// player (top damager of its last ten minutes), (3) runs the
+        /// enshrinement countdown, (4) has a Shardbound King, (6) runs the
+        /// Sanctum dominion countdown — and (5) the more cases, the sooner;
+        /// ties go to the nearest.</summary>
+        private bool TryFindThreat(EntityManager em, Faction faction, float now,
+            out Faction threat, out int cases, out string why)
+        {
+            threat = faction; cases = 0; why = null;
+            if (!Cfg.threatRefocusEnabled) return false;
+            if (now < Cfg.threatAfterSeconds) return false;
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready) return false;
+
+            var held = new int[ProfileSlots];
+            int n = 0; float sum = 0f, sumSq = 0f;
+            for (int f = 0; f < ProfileSlots; f++)
+            {
+                var v = (Faction)f;
+                held[f] = -1;
+                if (v == Faction.Border || BoardScore(em, v) < 0) continue;
+                held[f] = TerritoriesHeld(v);
+                n++; sum += held[f]; sumSq += held[f] * (float)held[f];
+            }
+            float mean = n > 0 ? sum / n : 0f;
+            float sd = n > 1 ? math.sqrt(math.max(0f, sumSq / n - mean * mean)) : 0f;
+
+            Faction asc = Faction.Border, dom = Faction.Border;
+            TheWaningBorder.Systems.Border.ShardrootSystem.TryAscensionCountdown(em, out asc, out _);
+            TheWaningBorder.Systems.Economy.SanctumSystem.TryCountdown(em, out dom, out _);
+            var kings = new bool[ProfileSlots];
+            {
+                var q = QC_ShardboundKings.Get(em, QT_ShardboundKings);
+                if (!q.IsEmptyIgnoreFilter)
+                {
+                    using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                    for (int i = 0; i < facs.Length; i++)
+                        if ((int)facs[i].Value >= 0 && (int)facs[i].Value < ProfileSlots) kings[(int)facs[i].Value] = true;
+                }
+            }
+
+            float3 home = HomeAnchor(em, faction);
+            int bestCases = 0; float bestD = float.MaxValue;
+            for (int f = 0; f < ProfileSlots; f++)
+            {
+                var v = (Faction)f;
+                if (v == faction || held[f] < 0 || !Alliances.AreHostile(faction, v)) continue;
+                int c = 0;
+                var sb = new System.Text.StringBuilder(96);
+                if (sd > 0f && held[f] >= math.max(1, Cfg.threatMinTerritories)
+                    && held[f] > mean + math.max(0f, Cfg.threatTerritorySigma) * sd)
+                { c++; sb.Append($"{held[f]} territories (table mean {mean:0.0} +{Cfg.threatTerritorySigma:0.#} sd {sd:0.0})"); }
+                int elim = TheWaningBorder.Core.Diagnostics.FactionPressureLedger.EliminationsBy(v);
+                if (elim > 0) { if (c > 0) sb.Append(", "); c++; sb.Append($"eliminated {elim} player(s)"); }
+                if (asc == v) { if (c > 0) sb.Append(", "); c++; sb.Append("enshrinement countdown"); }
+                if (kings[f]) { if (c > 0) sb.Append(", "); c++; sb.Append("a Shardbound King"); }
+                if (dom == v) { if (c > 0) sb.Append(", "); c++; sb.Append("Sanctum dominion countdown"); }
+                if (c == 0) continue;
+                float d = TryVictimGround(em, v, home, new float3(float.MaxValue, 0f, float.MaxValue), out float3 at, out _)
+                    ? math.distance(at.xz, home.xz) : float.MaxValue;
+                if (c > bestCases || (c == bestCases && d < bestD))
+                { bestCases = c; bestD = d; threat = v; cases = c; why = sb.ToString(); }
+            }
+            return bestCases > 0;
+        }
+
+        /// <summary>Remember the war a refocus interrupted and go back to it
+        /// when the threat (or the losing spell) passes (§ 6x).</summary>
+        private void TrackThreatWar(EntityManager em, Faction faction, int k, int prey, bool refocus, float now)
+        {
+            EnsureWarEpoch();
+            if (refocus && !_threatMode[k])
+            {
+                _threatMode[k] = true;
+                _threatPrev[k] = _wars.TryGetValue(k, out var w) && (int)w.Victim != prey ? (int)w.Victim : -1;
+            }
+            else if (!refocus && _threatMode[k])
+            {
+                _threatMode[k] = false;
+                int prev = _threatPrev[k];
+                _threatPrev[k] = -1;
+                var pv = (Faction)prev;
+                if (prev >= 0 && prev < ProfileSlots && BoardScore(em, pv) >= 0 && Alliances.AreHostile(faction, pv))
+                {
+                    _wars[k] = new War { Victim = pv, Since = now };
+                    AILogger.Log(faction, "WAR", $"the threat has passed — back to the war on {pv}");
+                }
+                else _wars.Remove(k);
+            }
+        }
+
         private static bool HuntedPrey(Faction faction, out Faction prey)
         {
             int k = (int)faction;
@@ -228,6 +386,19 @@ namespace TheWaningBorder.AI
             Entity hall = FindFactionBuilding<HallTag>(em, faction);
             if (hall == Entity.Null || !em.HasComponent<Unity.Transforms.LocalTransform>(hall)) return false;
             float3 home = em.GetComponentData<Unity.Transforms.LocalTransform>(hall).Position;
+            // NEIGHBOURS FIRST (2026-11-03, § 6x / point 7): the prey must sit
+            // within preyMaxDistanceRatio of the nearest hostile's ground, so
+            // a strong neighbour is never ignored for a small faction far away.
+            float nearestAny = float.MaxValue;
+            for (int f = 0; f < ProfileSlots; f++)
+            {
+                var v = (Faction)f;
+                if (v == faction || v == Faction.Border || !Alliances.AreHostile(faction, v)) continue;
+                if (BoardScore(em, v) < 0) continue;
+                if (TryVictimGround(em, v, home, new float3(float.MaxValue, 0f, float.MaxValue), out float3 g, out _))
+                    nearestAny = math.min(nearestAny, math.distance(g.xz, home.xz));
+            }
+            float preyReach = nearestAny < float.MaxValue ? nearestAny * math.max(1f, Cfg.preyMaxDistanceRatio) : float.MaxValue;
             float best = float.MaxValue;
             for (int f = 0; f < ProfileSlots; f++)
             {
@@ -240,6 +411,7 @@ namespace TheWaningBorder.AI
                 if (!TryVictimGround(em, v, home, new float3(float.MaxValue, 0f, float.MaxValue),
                         out float3 at, out _)) continue;
                 float d = math.distancesq(at.xz, home.xz);
+                if (preyReach < float.MaxValue && d > preyReach * preyReach) continue;
                 if (d < best || (d == best && f < (int)prey)) { best = d; prey = v; }
             }
             return best < float.MaxValue;

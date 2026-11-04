@@ -30,6 +30,7 @@ MonoBehaviour:
   slotIncomePerMinute: 0
   interestMultiplier: 0
   tradeRateMultiplier: 1
+  tradeRoutes: 1
   attack:
     enabled: 0
     damage: 0

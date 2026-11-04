@@ -5,7 +5,7 @@
 // (local y within 0.05 m of 0, unscaled). The footprint fit then measures the
 // slab alone, so stairs or pillars that poke past it neither shrink the
 // building nor shift it off its cells.
-//   Waning Border > Art > Footprint > Group Plinth: House 1
+//   Waning Border > Art > Footprint > Group Plinth: House 1-3
 // Re-runnable: a prefab that already has the group is left alone.
 
 using System.Collections.Generic;
@@ -20,9 +20,12 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         const string PlinthPieceName = "SM_Bld_Castle_Floor_Stone_01";
         const float GroundTolerance = 0.05f;
 
-        [MenuItem("Waning Border/Art/Footprint/Group Plinth: House 1")]
-        public static void GroupHouse1()
-            => Group("Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House 1.prefab");
+        [MenuItem("Waning Border/Art/Footprint/Group Plinth: House 1-3")]
+        public static void GroupHouses()
+        {
+            for (int l = 1; l <= 3; l++)
+                Group("Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House " + l + ".prefab");
+        }
 
         [MenuItem("Waning Border/Art/Footprint/Group Plinth: Tower 1-3")]
         public static void GroupTowers()
@@ -36,6 +39,34 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         {
             for (int l = 1; l <= 3; l++)
                 Group("Assets/GameData/TechTree/Civs/Alanthor/Buildings/Fortress/Fortress " + l + ".prefab");
+        }
+
+        /// <summary>Removes loose root pieces standing far from the building
+        /// (2026-11-02: Barracks_Age_0 carried a ring of house base walls at
+        /// x, z = 50..75 m, authoring leftovers, which drew 50 m from every
+        /// Age 0 Barracks and framed its icon on an 80 m square).</summary>
+        [MenuItem("Waning Border/Art/Footprint/Strip Far Pieces: Barracks_Age_0")]
+        public static void StripBarracksAge0()
+            => StripFar("Assets/GameData/TechTree/Age0/Buildings/Barracks/Art/Barracks_Age_0.prefab", 30f);
+
+        public static void StripFar(string path, float maxDistance)
+        {
+            var root = PrefabUtility.LoadPrefabContents(path);
+            if (root == null) { Debug.LogWarning("[FootprintGroupPass] cannot open " + path); return; }
+            try
+            {
+                var far = new List<Transform>();
+                for (int i = 0; i < root.transform.childCount; i++)
+                {
+                    var t = root.transform.GetChild(i);
+                    var p = t.localPosition; p.y = 0f;
+                    if (p.magnitude > maxDistance) far.Add(t);
+                }
+                foreach (var t in far) Object.DestroyImmediate(t.gameObject);
+                if (far.Count > 0) PrefabUtility.SaveAsPrefabAsset(root, path);
+                Debug.Log("[FootprintGroupPass] " + path + ": removed " + far.Count + " root pieces farther than " + maxDistance + " m");
+            }
+            finally { PrefabUtility.UnloadPrefabContents(root); }
         }
 
         public static void Group(string path)

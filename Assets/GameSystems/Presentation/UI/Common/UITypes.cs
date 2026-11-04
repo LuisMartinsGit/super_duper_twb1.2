@@ -189,6 +189,11 @@ public struct EntityQueueSlot
         public bool Enabled;
         public Texture2D Icon;
         public bool CanAfford;  // ADD THIS
+        /// <summary>A disabled button the build palette still SHOWS, greyed,
+        /// with its requirement in the tooltip (2026-11-02: a sect building
+        /// before its sect is adopted, the Temple once built) - as opposed to
+        /// an era-locked one, which the palette hides.</summary>
+        public bool ShownWhenLocked;
 
         /// <summary>
         /// Which revival this button buys, for a hero who has fallen

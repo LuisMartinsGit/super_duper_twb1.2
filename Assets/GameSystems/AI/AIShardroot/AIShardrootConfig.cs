@@ -68,5 +68,17 @@ namespace TheWaningBorder.AI
         /// <summary>...and stays out until he has healed back to this
         /// fraction.</summary>
         public float kingRecoveredHpFraction;
+
+        /// <summary>THE PRICE MUST BE REACHABLE (2026-11-02, Game_AI.md
+        /// § 6l.2). The Shardroot's enshrine / bind price is a STRICT save
+        /// (every purchase waits) only while the bank will get there within
+        /// this many seconds at the budget's current income — the longest
+        /// per-resource shortfall / income. Past it the price is a soft save:
+        /// the army, research and buildings go on. 0 = never strict.</summary>
+        public float saveStrictEtaSeconds;
+
+        /// <summary>...and a strict save never runs longer than this in a
+        /// row, whatever the income says. 0 = never strict.</summary>
+        public float saveStrictMaxSeconds;
     }
 }

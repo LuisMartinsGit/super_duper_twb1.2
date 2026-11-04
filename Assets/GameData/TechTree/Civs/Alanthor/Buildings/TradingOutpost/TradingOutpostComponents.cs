@@ -21,15 +21,69 @@ public enum TradeRecipe : byte
     /// nothing, until set to a trade again (Veilstone_Economy.md §3.1,
     /// 2026-10-05). Always available.</summary>
     Hold = 3,
+    /// <summary>Supplies → iron (2026-11-04). Always available: the answer to
+    /// an iron drought when supplies pile up.</summary>
+    BuyIron = 4,
+    /// <summary>Veilsteel → supplies (research: Veilsteel Export).</summary>
+    SellSupplies = 5,
 }
 
 /// <summary>
-/// Which trade the Outpost runs. Changed only by the SetOutpostMode lockstep
-/// order, so every peer runs the same recipe.
+/// TRADE ROUTES (2026-11-04, Veilstone_Economy.md §3.1): a post runs up to its
+/// level's <c>tradeRoutes</c> routes at once (L1 one, L2 two, L3 four), and the
+/// SAME trade may fill several of them: each repeat runs the trade once more.
+/// Kept as a count per recipe in <see cref="TradingOutpostMode.Counts"/>, three
+/// bits each. <see cref="TradingOutpostMode.Recipe"/> stays the FIRST route, for
+/// every reader that wants one recipe. Hold is "no route".
+/// </summary>
+public static class TradeRoutes
+{
+    public const int Count = 6;
+    private const int BitsPer = 3;
+    private const uint FieldMask = 7u;
+    /// <summary>Every bit a counts value may use.</summary>
+    public const uint AllCountsMask = (1u << (Count * BitsPer)) - 1u;
+    public static readonly TradeRecipe[] All =
+    {
+        TradeRecipe.BuyVeilstone, TradeRecipe.ForgeVeilsteel, TradeRecipe.SellVeilsteel,
+        TradeRecipe.BuyIron, TradeRecipe.SellSupplies,
+    };
+    public static int CountIn(uint counts, TradeRecipe r)
+        => r == TradeRecipe.Hold || (int)r >= Count ? 0 : (int)((counts >> ((int)r * BitsPer)) & FieldMask);
+    public static uint With(uint counts, TradeRecipe r, int n)
+    {
+        if (r == TradeRecipe.Hold || (int)r >= Count) return counts;
+        int shift = (int)r * BitsPer;
+        return (counts & ~(FieldMask << shift)) | (((uint)n & FieldMask) << shift);
+    }
+    public static uint CountsOf(in TradingOutpostMode m) => m.Counts != 0 ? m.Counts : With(0u, m.Recipe, 1);
+    public static bool Has(uint counts, TradeRecipe r) => CountIn(counts, r) > 0;
+    public static int Total(uint counts)
+    {
+        int n = 0;
+        for (int i = 0; i < All.Length; i++) n += CountIn(counts, All[i]);
+        return n;
+    }
+    public static TradeRecipe First(uint counts)
+    {
+        for (int i = 0; i < All.Length; i++) if (Has(counts, All[i])) return All[i];
+        return TradeRecipe.Hold;
+    }
+    public static TradingOutpostMode ModeOf(uint counts)
+        => new TradingOutpostMode { Recipe = First(counts), Counts = counts };
+}
+
+/// <summary>
+/// Which trades the Outpost runs. Changed only by the SetOutpostMode lockstep
+/// order, so every peer runs the same routes.
 /// </summary>
 public struct TradingOutpostMode : IComponentData
 {
+    /// <summary>The first route (Hold when none) — the one-recipe view.</summary>
     public TradeRecipe Recipe;
+    /// <summary>How many of the post's routes run each recipe (TradeRoutes);
+    /// 0 reads as "just Recipe, once", so a fresh mode works.</summary>
+    public uint Counts;
 }
 
 /// <summary>

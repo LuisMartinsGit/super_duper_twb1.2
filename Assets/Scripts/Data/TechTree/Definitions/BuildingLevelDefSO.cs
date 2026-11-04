@@ -66,6 +66,11 @@ namespace TheWaningBorder.Data
         /// elsewhere (0 reads as 1).</summary>
         public float tradeRateMultiplier;
 
+        /// <summary>Trade routes an Outpost of this level runs at once
+        /// (2026-11-04): L1 one, L2 two, L3 four. Read only for the Outpost;
+        /// 0 reads as 1.</summary>
+        public int tradeRoutes;
+
         /// <summary>An attack AUTHORED for this level, replacing the scaled one
         /// (the Watch Tower ladder; the Garrison's level-3 arrows).
         /// enabled = false: the multipliers above are the whole story.</summary>

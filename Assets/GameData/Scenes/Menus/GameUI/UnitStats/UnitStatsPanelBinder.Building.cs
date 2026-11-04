@@ -114,6 +114,7 @@ namespace TheWaningBorder.UI.Ingame
             if (_resourceGenRow == null) return;
 
             float supplies = em.HasComponent<TheWaningBorder.Economy.SuppliesIncome>(building)
+                    && TheWaningBorder.Economy.CapitalIncome.Pays(em, building)
                 ? em.GetComponentData<TheWaningBorder.Economy.SuppliesIncome>(building).PerMinute : 0f;
             float iron = em.HasComponent<TheWaningBorder.Economy.IronIncome>(building)
                 ? em.GetComponentData<TheWaningBorder.Economy.IronIncome>(building).PerMinute : 0f;

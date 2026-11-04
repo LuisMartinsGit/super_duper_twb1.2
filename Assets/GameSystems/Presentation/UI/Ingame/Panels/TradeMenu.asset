@@ -16,7 +16,7 @@ MonoBehaviour:
   buttonSize: {x: 180, y: 60}
   buttonFontSize: 26
   menuOffset: {x: 0, y: 0}
-  menuWidth: 1060
+  menuWidth: 1500
   padding: 12
   rowHeight: 40
   gap: 4

@@ -39,7 +39,7 @@ namespace TheWaningBorder.UI.Ingame
             for (int i = 0; i < actions.Count; i++)
             {
                 var b = actions[i];
-                if (!b.Enabled) continue;   // era-locked → hidden in this panel
+                if (!b.Enabled && !b.ShownWhenLocked) continue;   // era-locked → hidden in this panel
                 rows[(int)BuildRowOf(b.Id)].Add(b);
             }
             for (int r = 0; r < rows.Length; r++)
@@ -65,7 +65,7 @@ namespace TheWaningBorder.UI.Ingame
                     var b = list[i];
                     string id = b.Id;
                     FillSlot(_slots[cell++], b, BuildingCategory(id), null,
-                        placing ? null
+                        placing || !b.Enabled ? null
                                 : (System.Action)(() => WorkerCommandPanel.TriggerBuildingPlacement(id)),
                         em);
                     used++;
@@ -75,7 +75,7 @@ namespace TheWaningBorder.UI.Ingame
                 bool more = false;
                 for (int q = r + 1; q < rows.Length && !more; q++) more = rows[q].Count > 0;
                 if (!more) break;
-                while (cell % Cols != 0 && cell < _slots.Length) BlankSlot(_slots[cell++]);
+                while (cell % PaletteCols != 0 && cell < _slots.Length) BlankSlot(_slots[cell++]);
             }
             if (RowsOverflow(rows) && !_paletteOverflowLogged)
             {
@@ -96,7 +96,7 @@ namespace TheWaningBorder.UI.Ingame
             for (int r = 0; r < rows.Length; r++)
             {
                 if (rows[r].Count == 0) continue;
-                cells = ((cells + Cols - 1) / Cols) * Cols + rows[r].Count;
+                cells = ((cells + PaletteCols - 1) / PaletteCols) * PaletteCols + rows[r].Count;
             }
             return cells > _slots.Length;
         }
@@ -120,6 +120,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!movable) return -1;
 
             SetWorkerRows(false);
+            HideWorkerOnlyRow();
             int current = (int)TheWaningBorder.Input.FormationInput.CurrentShape;
             int count = Mathf.Min(4, _slots.Length);
             for (int i = 0; i < count; i++)
@@ -273,11 +274,20 @@ namespace TheWaningBorder.UI.Ingame
             }
         }
 
+        /// <summary>The cloned fourth row belongs to the build palette alone;
+        /// every other mode hides it (its cells are outside SlotCount, so the
+        /// building and unit renders never clear them themselves).</summary>
+        private void HideWorkerOnlyRow()
+        {
+            for (int i = SlotCount; i < _slots.Length; i++) ClearSlot(_slots[i]);
+        }
+
         /// <summary>Row 0 = trainable units, rows 1-2 = research. Returns -1
         /// when this selection is not one the authored panel owns.</summary>
         private int RenderBuilding(EntityManager em)
         {
             SetWorkerRows(false);
+            HideWorkerOnlyRow();
             var info = EntityActionExtractor.GetActionInfo(_entity, em);
             bool hasLayout = BuildingActionLayouts.TryResolve(_entity, em, out var layoutSlots);
 

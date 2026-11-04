@@ -27,10 +27,10 @@ MonoBehaviour:
   - 1
   - 1.25
   - 1.5
-  guildSurveyIronPerTier: 8
+  guildSurveyIronPerTier: 9.2
   guildSurveyVeilstonePerTier: 6
   guildSurveyVeilsteelPerTier: 3
-  supplySurveyPerTier: 20
+  supplySurveyPerTier: 10
   guildSurveyLevelScale:
   - 1
   - 1.25

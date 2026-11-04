@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Supply Survey II
   role: Economy
   effect:
-  desc: "Trading Post. Faction-wide: every Trading Post also produces Supplies (+20/min per tier at Trading Post L1, x1.25 at L2, x1.5 at L3), drawn from no node, so it keeps paying after the node runs dry - depleted Trading Posts included. Paid while the Trading Post's territory is held."
+  desc: "Trading Post. Faction-wide: every Trading Post also produces Supplies (+10/min per tier at Trading Post L1, x1.25 at L2, x1.5 at L3), drawn from no node, so it keeps paying after the node runs dry - depleted Trading Posts included. Paid while the Trading Post's territory is held."
   researchAt: GatherersHut
   minBuildingLevel: 2
   researchTime: 50

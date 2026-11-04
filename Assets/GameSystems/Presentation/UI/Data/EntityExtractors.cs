@@ -292,7 +292,7 @@ namespace TheWaningBorder.UI.Data
             }
 
             // Resource generation
-            if (em.HasComponent<SuppliesIncome>(entity))
+            if (em.HasComponent<SuppliesIncome>(entity) && TheWaningBorder.Economy.CapitalIncome.Pays(em, entity))
             {
                 info.HasResourceGeneration = true;
                 var si = em.GetComponentData<SuppliesIncome>(entity);
@@ -758,18 +758,20 @@ namespace TheWaningBorder.UI.Data
                 && em.GetComponentData<FactionTag>(entity).Value == GameSettings.LocalPlayerFaction)
             {
                 var me = GameSettings.LocalPlayerFaction;
-                var active = TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, entity);
+                // The five routes as TOGGLES (2026-11-04): a post runs up to its
+                // level's routes at once; Hold (all off) lives in the Trade menu.
+                uint active = TheWaningBorder.Input.OutpostOrders.RoutesOf(em, entity);
                 info.Type = ActionType.UnitTrainingAndResearch;
                 info.ProductionState = em.HasComponent<ProductionState>(entity)
                     ? GetProductionInfo(entity, em) : null;
+                var tcfg = TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg;
                 info.Actions = new List<ActionButton>
                 {
                     OutpostRecipeButton(em, entity, me, TradeRecipe.BuyVeilstone, active, Loc.T("Buy Veilstone"), null),
-                    OutpostRecipeButton(em, entity, me, TradeRecipe.ForgeVeilsteel, active, Loc.T("Forge Veilsteel"),
-                        TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.forgeTech),
-                    OutpostRecipeButton(em, entity, me, TradeRecipe.SellVeilsteel, active, Loc.T("Sell Veilsteel"),
-                        TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.sellTech),
-                    OutpostRecipeButton(em, entity, me, TradeRecipe.Hold, active, Loc.T("Hold Trade"), null),
+                    OutpostRecipeButton(em, entity, me, TradeRecipe.ForgeVeilsteel, active, Loc.T("Forge Veilsteel"), tcfg?.forgeTech),
+                    OutpostRecipeButton(em, entity, me, TradeRecipe.SellVeilsteel, active, Loc.T("Sell Veilsteel"), tcfg?.sellTech),
+                    OutpostRecipeButton(em, entity, me, TradeRecipe.BuyIron, active, Loc.T("Buy Iron"), tcfg?.ironBuyTech),
+                    OutpostRecipeButton(em, entity, me, TradeRecipe.SellSupplies, active, Loc.T("Sell Veilsteel for Supplies"), tcfg?.steelSellTech),
                 };
                 return info;
             }
@@ -942,8 +944,11 @@ namespace TheWaningBorder.UI.Data
         /// exchange in the tooltip, greyed while its research is missing, and
         /// marked (not clickable) while it is the trade being run.</summary>
         private static ActionButton OutpostRecipeButton(EntityManager em, Entity outpost, Faction me,
-            TradeRecipe recipe, TradeRecipe active, string label, string requiredTech)
+            TradeRecipe recipe, uint active, string label, string requiredTech)
         {
+            int cap = TheWaningBorder.Systems.Economy.TradingOutpostSystem.RouteCapacity(em, outpost);
+            int used = TradeRoutes.Total(active);
+            int mineOf = TradeRoutes.CountIn(active, recipe);
             TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
                 me, recipe, out var spend, out var earn);
             // This post's level scales its trade, both sides.
@@ -966,11 +971,14 @@ namespace TheWaningBorder.UI.Data
                     if (em.HasComponent<UnderConstruction>(e) || !em.HasComponent<FactionTag>(e)
                         || em.GetComponentData<FactionTag>(e).Value != me) continue;
                     others++;
-                    if (TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, e) == recipe) othersRunning++;
+                    if (TradeRoutes.Has(TheWaningBorder.Input.OutpostOrders.RoutesOf(em, e), recipe)) othersRunning++;
                 }
-            bool isActive = recipe == active && othersRunning == others;
+            bool isActive = TradeRoutes.Has(active, recipe) && othersRunning == others;
+            bool full = !TradeRoutes.Has(active, recipe) && used >= cap;
             string tip = label + "\n" + PerMinuteLine(spend, "-") + "  ->  " + PerMinuteLine(earn, "+")
-                         + " " + Loc.T("per minute");
+                         + " " + Loc.T("per minute")
+                         + "\n" + string.Format(Loc.T("Routes: {0} of {1} in use (L2 runs two, L3 four)."), used, cap);
+            if (full) tip += "\n" + Loc.T("Every route slot is taken: remove one, or level the Outpost.");
             if (!unlocked && !string.IsNullOrEmpty(requiredTech))
             {
                 string techName = TechCatalog.TryGetTechnology(requiredTech, out var t) && t != null
@@ -978,16 +986,16 @@ namespace TheWaningBorder.UI.Data
                 tip += "\n" + string.Format(Loc.T("Requires research: {0}"), techName);
             }
             else if (isActive) tip += "\n" + (others > 0
-                ? Loc.T("Every selected Outpost is running this trade.")
-                : Loc.T("This Outpost is running this trade."));
+                ? Loc.T("Every selected Outpost runs this route. Click for another copy; on a full post a click stops it.")
+                : Loc.T("This Outpost runs this route. Click for another copy; on a full post a click stops it."));
             else if (others > 0)
-                tip += "\n" + string.Format(Loc.T("Sets all {0} selected Outposts."), others + 1);
+                tip += "\n" + string.Format(Loc.T("Adds the route on all {0} selected Outposts."), others + 1);
             return new ActionButton
             {
                 Id = "OutpostMode_" + (int)recipe,
-                Label = isActive ? "> " + label : label,
+                Label = (isActive ? "> " : "") + label + (mineOf > 1 ? " x" + mineOf : ""),
                 Tooltip = tip,
-                Enabled = unlocked && !isActive,
+                Enabled = unlocked && (mineOf > 0 || !full),
                 CanAfford = true,
             };
         }

@@ -344,6 +344,7 @@ namespace TheWaningBorder.Systems.Core
             foreach (var f in newly)
             {
                 alive.Remove(f);
+                TheWaningBorder.Core.Diagnostics.FactionPressureLedger.NoteEliminated(f, (float)_matchSeconds);
                 em.GetBuffer<EliminatedFactionRecord>(_verdictEntity)
                   .Add(new EliminatedFactionRecord
                   {

@@ -523,17 +523,6 @@ namespace TheWaningBorder.Systems.Combat
 
                 var myPos = Lk.Transform[entity].Position;
 
-                if (hasAttackMove
-                    && UnitLookups.On(in Lk.Formation, entity)
-                    && UnitLookups.On(in Lk.Guard, entity))
-                {
-                    var fgp = Lk.Guard[entity];
-                    if (fgp.Has != 0 && DistXZ(myPos, fgp.Position) > FormationHoldRadius)
-                    {
-                        bool underFire = Clock - eng.HitAt <= Settings.UnderFireWindow;
-                        if (!underFire) return;
-                    }
-                }
 
                 if (!isActiveScanner && hasUserMoveOrder) return;
                 if (!isActiveScanner && UnitLookups.On(in Lk.Queued, entity)) return;
@@ -548,6 +537,23 @@ namespace TheWaningBorder.Systems.Combat
                 var rules = Lk.RulesFor(entity, cls, stance, isActiveScanner,
                     Lk.Los[entity].Radius, hitRecently, in Settings);
                 if (rules.Acquire == 0) return;
+
+                // A FORMATION BREAKS BY CLASS, NOT BY SIGHT (2026-11-03,
+                // Game_AI.md § 6x). A member of an attack-moving formation
+                // used to acquire at its stance radius (line of sight) the
+                // moment it was near its slot, so the first rank dissolved the
+                // whole body before anyone was in weapon range. Now: siege and
+                // ranged members leave the rank when a target is within their
+                // weapon reach, melee members within formationMeleeEngage
+                // (10 m); being under fire releases all of them. The
+                // FormationGroupSystem keeps the leader moving while siege
+                // shoots, so the body advances past its engines.
+                if (hasAttackMove && UnitLookups.On(in Lk.Formation, entity)
+                    && Clock - eng.HitAt > Settings.UnderFireWindow)
+                {
+                    float engage = cls == UnitClass.Melee ? Settings.FormationMeleeEngage : Lk.AttackReach(entity);
+                    if (engage > 0f && engage < rules.ScanRadius) rules.ScanRadius = engage;
+                }
 
                 float3 anchor = myPos;
                 if (!isActiveScanner && stance != UnitStanceMode.Hold

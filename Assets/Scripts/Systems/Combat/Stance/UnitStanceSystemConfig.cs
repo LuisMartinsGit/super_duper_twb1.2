@@ -18,6 +18,10 @@ namespace TheWaningBorder.Systems.Combat
         /// Also the leash for every attack-move / patrol engagement, measured
         /// from where the unit acquired.</summary>
         public float aggressiveLeash;
+        /// <summary>A FORMATION BREAKS BY CLASS (2026-11-03, Game_AI.md § 6x):
+        /// a melee member of an attack-moving formation acquires only within
+        /// this many metres (ranged and siege members: their weapon reach).</summary>
+        public float formationMeleeEngage;
 
         /// <summary>A DEFENSIVE (or support) unit returns fire on an enemy
         /// that hit it within this long (s) — as long as that enemy is inside

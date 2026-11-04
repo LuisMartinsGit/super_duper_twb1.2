@@ -54,6 +54,10 @@ namespace TheWaningBorder.Systems.Navigation
         private EntityQuery _hasComponentQuery;
         private ComponentLookup<DesiredDestination> _destLookup;
         private ComponentLookup<FactionTag> _factionLookup;
+        private ComponentLookup<FormationMemberState> _memberLookup;
+        private ComponentLookup<Target> _targetLookup;
+        private ComponentLookup<FlyingTag> _flyingLookup;
+        private ComponentLookup<LayerTraversalState> _traversalLookup;
 
         // Line-of-sight memo (perf pass 2026-10-16) — see LosMemo. Last
         // tick's answers are read from _losPrev while this tick's are written
@@ -83,6 +87,10 @@ namespace TheWaningBorder.Systems.Navigation
 
             _destLookup = state.GetComponentLookup<DesiredDestination>(isReadOnly: true);
             _factionLookup = state.GetComponentLookup<FactionTag>(isReadOnly: true);
+            _memberLookup = state.GetComponentLookup<FormationMemberState>(isReadOnly: true);
+            _targetLookup = state.GetComponentLookup<Target>(isReadOnly: true);
+            _flyingLookup = state.GetComponentLookup<FlyingTag>(isReadOnly: true);
+            _traversalLookup = state.GetComponentLookup<LayerTraversalState>(isReadOnly: true);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -115,6 +123,10 @@ namespace TheWaningBorder.Systems.Navigation
 
             _destLookup.Update(ref state);
             _factionLookup.Update(ref state);
+            _memberLookup.Update(ref state);
+            _targetLookup.Update(ref state);
+            _flyingLookup.Update(ref state);
+            _traversalLookup.Update(ref state);
 
             // Swap the memo maps: last tick's answers become the read side.
             // Last tick's job wrote them; it has normally long finished (the
@@ -133,6 +145,7 @@ namespace TheWaningBorder.Systems.Navigation
             var job = new SampleGoalFlowJob
             {
                 GoalSlotIndex = goalCache.SlotIndex,
+                GoalAlias = goalCache.Alias,
                 GoalSlots = goalCache.Slots,
                 GoalDirPool = goalCache.DirPool,
                 GridWidth = grid.Width,
@@ -143,6 +156,10 @@ namespace TheWaningBorder.Systems.Navigation
                 Table = table.Table,
                 DestLookup = _destLookup,
                 FactionLookup = _factionLookup,
+                MemberLookup = _memberLookup,
+                TargetLookup = _targetLookup,
+                FlyingLookup = _flyingLookup,
+                TraversalLookup = _traversalLookup,
                 Cost = costField.Cost,
                 Flags = costField.Flags,
                 MemoPrev = _losPrev,
@@ -165,6 +182,7 @@ namespace TheWaningBorder.Systems.Navigation
     internal partial struct SampleGoalFlowJob : IJobEntity
     {
         [ReadOnly] public NativeHashMap<GoalFlowKey, int> GoalSlotIndex;
+        [ReadOnly] public NativeHashMap<GoalFlowKey, GoalFlowKey> GoalAlias;
         [ReadOnly] public NativeArray<GoalFlowSlot> GoalSlots;
         [ReadOnly] public NativeArray<byte> GoalDirPool;
         public int GridWidth;
@@ -175,6 +193,10 @@ namespace TheWaningBorder.Systems.Navigation
         [ReadOnly] public BlobAssetReference<DirectionTableBlob> Table;
         [ReadOnly] public ComponentLookup<DesiredDestination> DestLookup;
         [ReadOnly] public ComponentLookup<FactionTag> FactionLookup;
+        [ReadOnly] public ComponentLookup<FormationMemberState> MemberLookup;
+        [ReadOnly] public ComponentLookup<Target> TargetLookup;
+        [ReadOnly] public ComponentLookup<FlyingTag> FlyingLookup;
+        [ReadOnly] public ComponentLookup<LayerTraversalState> TraversalLookup;
         [ReadOnly] public NativeArray<byte> Cost;
         [ReadOnly] public NativeArray<byte> Flags;
         /// <summary>Last tick's answers (read) and this tick's (written).</summary>
@@ -185,6 +207,7 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void Execute(Entity self, in LocalTransform xf, ref FlowDesiredDir dst)
         {
+            var previous = dst;   // kept across a field's brief re-integration
             dst.HasValue = 0;
             dst.Value = float3.zero;
 
@@ -233,8 +256,12 @@ namespace TheWaningBorder.Systems.Navigation
             // ring — the bridge IS the route — or the unit stands on the
             // deck itself) does the BRIDGE variant take over. Goals placed
             // on a deck skip the ground variant entirely.
-            int gx = (int)math.floor((desired.Position.x - GridOrigin.x) / CellSize);
-            int gz = (int)math.floor((desired.Position.z - GridOrigin.z) / CellSize);
+            // A marching formation member reads its group's one field
+            // (GoalFlowQuant.TryFieldGoal, the producer's own test).
+            if (!GoalFlowQuant.TryFieldGoal(self, ref MemberLookup, ref TargetLookup, out float3 fieldGoal))
+                fieldGoal = desired.Position;
+            int gx = (int)math.floor((fieldGoal.x - GridOrigin.x) / CellSize);
+            int gz = (int)math.floor((fieldGoal.z - GridOrigin.z) / CellSize);
             gx = math.clamp(gx, 0, GridWidth - 1);
             gz = math.clamp(gz, 0, GridHeight - 1);
 
@@ -245,6 +272,8 @@ namespace TheWaningBorder.Systems.Navigation
             bool goalOnDeck = Cost[gz * GridWidth + gx] == NavCostField.CostBridgeDeckOnly;
             bool anyFieldSeen = false;
             bool anyNotCovered = false;
+            bool anyPending = false;
+            bool farPastCap = false;   // beyond a capped sweep: no field will ever answer here
 
             for (byte variant = 0; variant <= 1 && unitCellValid; variant++)
             {
@@ -259,13 +288,19 @@ namespace TheWaningBorder.Systems.Navigation
                     Variant = variant,
                 };
 
-                if (!GoalSlotIndex.TryGetValue(key, out int slot)) continue;
+                if (!GoalSlotIndex.TryGetValue(key, out int slot))
+                {
+                    // No field of its own: a nearby live field, if one serves.
+                    if (variant != GoalFlowKey.VariantGround
+                        || !GoalAlias.TryGetValue(key, out var aliasKey)
+                        || aliasKey.Variant == GoalFlowQuant.NoAliasVariant
+                        || !GoalSlotIndex.TryGetValue(aliasKey, out slot)) continue;
+                }
                 var meta = GoalSlots[slot];
                 // Only a fully integrated slot (Valid == 1) may be sampled.
-                // Valid == 2 is a mid-batch claim (content not written yet) —
-                // treat like a pending field and fall through to the direct
-                // bearing this tick.
-                if (meta.Valid != 1) continue;
+                // Valid == 2 is a mid-batch claim (content not written yet):
+                // the field is on its way (see the end of this method).
+                if (meta.Valid != 1) { anyPending = true; continue; }
                 anyFieldSeen = true;
 
                 byte d = GoalDirPool[meta.DirOffset + ucz * GridWidth + ucx];
@@ -276,6 +311,8 @@ namespace TheWaningBorder.Systems.Navigation
                     // tick; the producer re-integrates the field with this
                     // unit as a seeker as soon as it sees the gap.
                     anyNotCovered = true;
+                    anyPending = true;
+                    if (meta.Capped != 0) farPastCap = true;
                     continue;
                 }
                 if (d != NavFlowConstants.NoDirection)
@@ -313,15 +350,37 @@ namespace TheWaningBorder.Systems.Navigation
                 if (hereOpen) return; // genuine hold (at goal / unreachable)
             }
 
-            // ── Source 3: direct-to-goal while the field is pending. The
-            // producer integrates a budgeted number of fields per tick, so
-            // this window is a tick or two after a fresh order — keeping
-            // formation fronts moving instead of stuttering while the back
-            // of the group waits.
+            // ── Source 3: NEVER A STRAIGHT LINE INTO THE ROCK (2026-11-04). ──
+            // This used to walk the direct bearing whenever no field answered,
+            // on the claim that the wait is "a tick or two". With the cache full
+            // it lasted minutes: 74 % of the soldiers with orders on Fiendstone
+            // Pass had no field, and they stood pressed against the mountains.
+            // A unit keeps its last heading while its field is being refreshed,
+            // and otherwise waits. Direct walking remains only for those who
+            // never read a field (loose flyers, a unit on a layer traversal,
+            // off-grid) and for one standing on a cell closed under it.
+            bool ownCellClosed = false;
+            if (unitCellValid)
+            {
+                int ownIdx = ucz * GridWidth + ucx;
+                byte ownCost = Cost[ownIdx];
+                ownCellClosed = ownCost == NavCostField.CostImpassable
+                    || (ownCost == NavCostField.CostConditional
+                        && !Alliances.AreAlliedBurst(
+                               (byte)(Flags[ownIdx] & NavCostField.FlagOwnerMask), selfFactionIdx));
+            }
+            bool memberNow = MemberLookup.HasComponent(self) && MemberLookup.IsComponentEnabled(self);
+            bool neverSamples = !unitCellValid || TraversalLookup.HasComponent(self)
+                || (FlyingLookup.HasComponent(self) && !memberNow);
+            if (neverSamples || ownCellClosed || farPastCap)
             {
                 float invLen = math.rsqrt(distSq);
                 dst.Value = toGoal * invLen;
                 dst.HasValue = 1;
+            }
+            else if (anyPending && previous.HasValue != 0)
+            {
+                dst = previous;
             }
         }
 

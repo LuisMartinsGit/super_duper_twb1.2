@@ -32,9 +32,15 @@ namespace TheWaningBorder.AI
             _armyCapBonus.TryGetValue((int)faction, out var st);
             if (Cfg.armyCapRaiseStep <= 0 || now < st.Next) return st.Bonus;
             st.Next = now + System.Math.Max(1f, Cfg.armyCapRaiseInterval);
+            // NOT UNDER A STRICT SAVE (2026-11-02, § 6j). Red (YielLymwerra,
+            // 2026-11-02) raised its cap to 300 on a bank the Shardroot save
+            // forbade it to spend; the inflated target then held its posture
+            // in Rebuild for the whole match. Unspendable money is not
+            // "unspent".
             if (FactionEconomy.TryGetResources(em, faction, out var bank)
                 && bank.Supplies + bank.Iron >= Cfg.armyCapRaiseThreshold
-                && baseCap + st.Bonus < FactionPopulation.AbsoluteMax)
+                && baseCap + st.Bonus < FactionPopulation.AbsoluteMax
+                && !AIPivotalReserve.StrictHold(em, faction))
             {
                 st.Bonus = System.Math.Min(st.Bonus + Cfg.armyCapRaiseStep, FactionPopulation.AbsoluteMax - baseCap);
                 AILogger.Log(faction, "ARMY",

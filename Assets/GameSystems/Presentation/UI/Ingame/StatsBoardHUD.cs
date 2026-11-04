@@ -281,13 +281,12 @@ namespace TheWaningBorder.UI.Ingame
                 {
                     int f = (int)facs[i].Value;
                     if (f < 0 || f >= MaxFactions) continue;
-                    switch (modes[i].Recipe)
-                    {
-                        case TradeRecipe.ForgeVeilsteel: _rows[f].OutForge++; break;
-                        case TradeRecipe.SellVeilsteel: _rows[f].OutSell++; break;
-                        case TradeRecipe.Hold: break;   // idle, counted in no trade
-                        default: _rows[f].OutBuy++; break;
-                    }
+                    uint mask = TradeRoutes.CountsOf(modes[i]);   // every route the post runs (2026-11-04)
+                    if (TradeRoutes.Has(mask, TradeRecipe.ForgeVeilsteel)) _rows[f].OutForge++;
+                    if (TradeRoutes.Has(mask, TradeRecipe.SellVeilsteel) || TradeRoutes.Has(mask, TradeRecipe.SellSupplies))
+                        _rows[f].OutSell++;
+                    if (TradeRoutes.Has(mask, TradeRecipe.BuyVeilstone) || TradeRoutes.Has(mask, TradeRecipe.BuyIron))
+                        _rows[f].OutBuy++;
                 }
 
             using (var brains = _brainQuery.ToComponentDataArray<TheWaningBorder.AI.AIBrain>(Allocator.Temp))

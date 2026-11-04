@@ -263,6 +263,12 @@ level gate) and price are on its tech SO.
 
 ## Building levels are faction-wide, per building type (2026-10-19)
 
+> **Production levels (2026-11-04).** Each level of a building that trains the
+> army (melee, ranged, cavalry and siege trainers, every culture) cuts training
+> time by a fifth, compounding from the Age 0 base: L3 trains about twice as
+> fast. The multipliers are `trainTimeMultiplier` on the level SOs, which the
+> simulation reads. Fast production is meant to be what spends a late-game bank.
+
 > **Decided 2026-10-19.** A building's level is no longer its own. It is a
 > property of the **faction and the building type**, for every culture.
 

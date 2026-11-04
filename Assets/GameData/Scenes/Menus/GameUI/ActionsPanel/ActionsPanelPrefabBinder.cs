@@ -73,13 +73,14 @@ namespace TheWaningBorder.UI.Ingame
         /// grids this panel owns.</summary>
         public static bool Active { get; private set; }
 
-        private enum Category { Economy, Defense, Research, Military, Religion }
+        private enum Category { Economy, Defense, Research, Military, Religion, Temple }
 
         private static readonly Color EconomyGreen  = new Color(0.18f, 0.45f, 0.20f, 1f);
         private static readonly Color DefenseBlue   = new Color(0.02f, 0.38f, 0.68f, 1f);
         private static readonly Color ResearchBrown = new Color(0.42f, 0.30f, 0.16f, 1f);
         private static readonly Color MilitaryRed   = new Color(0.55f, 0.15f, 0.12f, 1f);
         private static readonly Color ReligionPurple= new Color(0.42f, 0.22f, 0.55f, 1f);
+        private static readonly Color TempleGold    = new Color(0.62f, 0.47f, 0.10f, 1f);
 
         private static readonly HashSet<string> EconomyBuildings = new()
         {
@@ -99,7 +100,11 @@ namespace TheWaningBorder.UI.Ingame
         // order within the row. An id the table does not name joins the row
         // its colour category implies, after the named ones, in catalog
         // order — so a new building is never dropped from the palette.
-        private enum BuildRow { Economy, Training, Special, Defense }
+        // THE PALETTE IS 4 x 4 (2026-11-02, developer): economy (green) /
+        // military (red) / three defensive (blue) + the Temple (gold) /
+        // the sect buildings (purple), shown greyed until their sect is
+        // adopted, so the grid never reflows as the match goes on.
+        private enum BuildRow { Economy, Training, Defense, Special }
 
         private static readonly string[][] BuildOrder =
         {
@@ -110,12 +115,15 @@ namespace TheWaningBorder.UI.Ingame
             new[] { "Barracks", "ArcheryRange", "Alanthor_RoyalStable", "Alanthor_SiegeYard",
                     "Feraldis_HallOfAxes", "Feraldis_Pasture", "Feraldis_SiegeYard",
                     "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop" },
-            // Special: Temple, then the sect buildings
-            new[] { "TempleOfRidan", "Sect_Reliquary", "Sect_MendingHall", "Sect_Stonehold",
+            // Defense: tower, wall, Fortress - then the Temple in the fourth cell
+            new[] { "Alanthor_Tower", "Feraldis_Tower", "Palisade", "Alanthor_Wall", "Fortress",
+                    "TempleOfRidan" },
+            // Special: the sect buildings
+            new[] { "Sect_Reliquary", "Sect_MendingHall", "Sect_Stonehold",
                     "Sect_Treasury", "Sect_MusterYard", "Feraldis_WarTotem" },
-            // Defense: Towers, walls, Fortress
-            new[] { "Alanthor_Tower", "Feraldis_Tower", "Palisade", "Alanthor_Wall", "Fortress" },
         };
+        /// <summary>Columns of the build palette (the action grid keeps Cols).</summary>
+        private const int PaletteCols = 4;
 
         private static BuildRow BuildRowOf(string id)
         {
@@ -125,6 +133,7 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Category.Economy  => BuildRow.Economy,
                 Category.Defense  => BuildRow.Defense,
+                Category.Temple   => BuildRow.Defense,
                 Category.Religion => BuildRow.Special,
                 _                 => BuildRow.Training,
             };
@@ -169,9 +178,22 @@ namespace TheWaningBorder.UI.Ingame
         // for the one-row slide the worker palette applies (SetWorkerRows).
         private RectTransform _gridRect;
         private RectTransform _separatorRect;
+        private GridLayoutGroup _gridLayout;
         private Vector2 _gridPosAuthored, _gridSizeAuthored, _separatorPosAuthored;
+        private Vector2 _cellAuthored, _spacingAuthored;
         private float _rowPitch;
         private bool _workerRows;
+
+        /// <summary>
+        /// THE BUILD PALETTE FILLS THE PANEL (2026-11-02). In worker mode the
+        /// separator is hidden and the grid takes the frame's whole interior:
+        /// the panel's content square minus this inset on each side, square
+        /// cells sized so five columns span that width, four rows centred in
+        /// it. Every other mode gets the authored grid, cells and separator
+        /// back.
+        /// </summary>
+        private const float WorkerGridInset = 40f;
+        private const float WorkerCellSpacing = 8f;
 
         private Dictionary<string, Sprite> _symbols;
         private static readonly Dictionary<Texture2D, Sprite> _spriteCache = new();
@@ -223,11 +245,21 @@ namespace TheWaningBorder.UI.Ingame
             _slots = new Slot[total];
             for (int i = 0; i < total; i++)
                 _slots[i] = BindSlot(grid.GetChild(i));
+            // Every cell starts HIDDEN. The clones above are copies of a live
+            // authored button, so until 2026-11-02 the fourth row sat in the
+            // grid showing the template's placeholder glyph for any selection
+            // whose render never reached slots 15+ — a building with no
+            // authored layout, a unit — until a layout building's render
+            // happened to clear them: five blank "buttons" after the Garrison's
+            // real actions.
+            for (int i = 0; i < total; i++) ClearSlot(_slots[i]);
 
             _gridRect = grid as RectTransform;
             _separatorRect = GameUIKit.FindDeep(transform, "Separator") as RectTransform;
             var layout = grid.GetComponent<GridLayoutGroup>();
+            _gridLayout = layout;
             _rowPitch = layout != null ? layout.cellSize.y + layout.spacing.y : 0f;
+            if (layout != null) { _cellAuthored = layout.cellSize; _spacingAuthored = layout.spacing; }
             if (_gridRect != null)
             {
                 _gridPosAuthored = _gridRect.anchoredPosition;
@@ -256,12 +288,29 @@ namespace TheWaningBorder.UI.Ingame
         {
             if (_workerRows == on) return;
             _workerRows = on;
-            if (_gridRect == null || _rowPitch <= 0f) return;
-            float extra = on ? _rowPitch * (WorkerRows - SlotCount / Cols) : 0f;
-            _gridRect.sizeDelta = _gridSizeAuthored + new Vector2(0f, extra);
-            _gridRect.anchoredPosition = _gridPosAuthored + new Vector2(0f, extra * 0.5f);
-            if (_separatorRect != null)
-                _separatorRect.anchoredPosition = _separatorPosAuthored + new Vector2(0f, extra);
+            if (_gridRect == null) return;
+            if (_separatorRect != null && _separatorRect.gameObject.activeSelf == on)
+                _separatorRect.gameObject.SetActive(!on);
+            if (!on)
+            {
+                _gridRect.sizeDelta = _gridSizeAuthored;
+                _gridRect.anchoredPosition = _gridPosAuthored;
+                if (_gridLayout != null) { _gridLayout.cellSize = _cellAuthored; _gridLayout.spacing = _spacingAuthored; }
+                return;
+            }
+            var content = _gridRect.parent as RectTransform;
+            float avail = (content != null ? content.rect.width : _gridSizeAuthored.x) - 2f * WorkerGridInset;
+            float cell = (avail - (PaletteCols - 1) * WorkerCellSpacing) / PaletteCols;
+            float height = WorkerRows * cell + (WorkerRows - 1) * WorkerCellSpacing;
+            if (_gridLayout != null)
+            {
+                _gridLayout.cellSize = new Vector2(cell, cell);
+                _gridLayout.spacing = new Vector2(WorkerCellSpacing, WorkerCellSpacing);
+            }
+            _gridRect.sizeDelta = new Vector2(avail, height);
+            // Centred in the content square; the authored x offset keeps the
+            // grid centred inside the frame's slightly asymmetric border.
+            _gridRect.anchoredPosition = new Vector2(_gridPosAuthored.x, 0f);
         }
 
         private Slot BindSlot(Transform root)

@@ -80,6 +80,9 @@ public struct StationaryAutoFire : IComponentData { }
 public struct StanceSettings : IComponentData
 {
     public float AggressiveLeash;
+    /// <summary>A melee unit marching in a formation under attack-move leaves
+    /// its rank only when an enemy is this close (2026-11-03, § 6x).</summary>
+    public float FormationMeleeEngage;
     public float RetaliationWindow;
     public float LeashReacquireCooldown;
     public float UnderFireWindow;

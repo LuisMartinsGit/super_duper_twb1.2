@@ -1736,7 +1736,7 @@ namespace TheWaningBorder.Multiplayer
 
                 case LockstepCommandType.SetOutpostMode:
                     // EntityNetworkId: the Trading Outpost. TargetEntityId: the TradeRecipe.
-                    CommandRouter.SetOutpostModeDirect(em, entity, (TradeRecipe)cmd.TargetEntityId);
+                    CommandRouter.SetOutpostModeDirect(em, entity, cmd.TargetEntityId);   // recipe / toggle / mask
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetOutpostMode({cmd.TargetEntityId}) from player {cmd.PlayerIndex}");
                     break;
 

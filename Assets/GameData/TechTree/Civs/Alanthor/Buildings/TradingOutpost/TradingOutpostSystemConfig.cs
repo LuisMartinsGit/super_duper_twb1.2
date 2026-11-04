@@ -40,6 +40,16 @@ namespace TheWaningBorder.Systems.Economy
         public string forgeTech;
         /// <summary>Research that unlocks Sell Veilsteel.</summary>
         public string sellTech;
+        /// <summary>Buy Iron (2026-11-04): supplies in, iron out, a minute.</summary>
+        public float ironBuySupplies;
+        public float ironBuyIron;
+        /// <summary>Tech that unlocks Buy Iron (empty = always).</summary>
+        public string ironBuyTech;
+        /// <summary>Sell Veilsteel for Supplies (2026-11-04): veilsteel in, supplies out, a minute.</summary>
+        public float steelSellVeilsteel;
+        public float steelSellSupplies;
+        /// <summary>Tech that unlocks it (empty = always).</summary>
+        public string steelSellTech;
 
         /// <summary>The discount research ladder, cheapest first.</summary>
         public string[] discountTechs;

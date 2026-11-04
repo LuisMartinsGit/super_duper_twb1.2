@@ -466,8 +466,23 @@ namespace TheWaningBorder.AI
             return TheWaningBorder.Data.AI.AISettings.Get().For(p);
         }
 
-        /// <summary>Does this faction build walls at all (the row's wallsEnabled)?</summary>
-        public static bool WallsEnabled(EntityManager em, Faction faction) => Row(em, faction).wallsEnabled;
+        /// <summary>Does this faction build walls at all (the row's wallsEnabled,
+        /// or the late-game exception below)?</summary>
+        public static bool WallsEnabled(EntityManager em, Faction faction)
+            => Row(em, faction).wallsEnabled || LateWalls(em, faction);
+
+        /// <summary>LATE WALLS FOR EVERYONE (2026-11-03, Game_AI.md § 6x):
+        /// developer: "Rush could wall in super late game, if it's got the
+        /// resources for it." Past lateWallsAfterSeconds with
+        /// lateWallsBankSupplies in the bank, every personality walls.</summary>
+        public static bool LateWalls(EntityManager em, Faction faction)
+        {
+            var cfg = AIWallPlannerConfig.I;
+            if (cfg == null || cfg.lateWallsAfterSeconds <= 0f) return false;
+            if (TheWaningBorder.Core.SimClock.Now < cfg.lateWallsAfterSeconds) return false;
+            return TheWaningBorder.Economy.FactionEconomy.TryGetResources(em, faction, out var bank)
+                && bank.Supplies >= cfg.lateWallsBankSupplies;
+        }
     }
 
     /// <summary>

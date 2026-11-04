@@ -27,6 +27,9 @@ MonoBehaviour:
   outpostVeilsteelTarget: 200
   outpostSellAboveVeilsteel: 300
   outpostIronFloor: 400
+  outpostIronDroughtSuppliesRatio: 10
+  outpostSellStockPerPost: 4
+  outpostSuppliesFloor: 600
   tradeGuildCompensation: 1
   unaffordableUnitCooldownSeconds: 60
   claimVeilstoneNodeBonus: 400
@@ -139,8 +142,17 @@ MonoBehaviour:
   raidPartySize: 3
   raidSurplus: 2
   reinforceInterval: 15
-  reinforceMinGroup: 10
-  reinforceMaxHold: 45
+  reinforceMinGroup: 10
+  waveFirstSeconds: 720
+  waveReinforceSeconds: 300
+  reinforceCapMinGroup: 20
+  waveReplacePopShare: 0.1
+  waveReplaceMaxWaitSeconds: 180
+  waveSkipStrengthRatio: 0.5
+  waveSkipSeconds: 180
+  reinforcePacketFraction: 0.3
+  reinforcePacketMaxFraction: 0.4
+  reinforceMaxHold: 90
   waveArrivedRadius: 30
   waveMaxLifetime: 360
   waveRetrySeconds: 20
@@ -477,10 +489,11 @@ MonoBehaviour:
   wallGuardArriveMeters: 10
   allInAfterSeconds: 1320
   allInHomeGuardMinUnits: 4
-  allInMinWaveUnits: 4
+  allInMinWaveUnits: 12
   allInMaxEnemyRatio: 3
   allInWaveIntervalSeconds: 60
-  allInReinforceMaxHoldSeconds: 0
+  allInReinforceMaxHoldSeconds: 90
+  allInStrengthFloor: 0.75
   allInRetreatRatio: 3
   preyAfterSeconds: 720
   preyMaxTerritories: 2
@@ -552,8 +565,28 @@ MonoBehaviour:
   sanctumThreatRadius: 35
   sanctumHostilePenalty: 300
   sanctumHoldRadius: 18
-  sanctumReorderSeconds: 15
+  sanctumReorderSeconds: 15
+  sanctumRegoalMeters: 40
   sanctumDisbandBelow: 8
   sanctumRetrySeconds: 180
+  sanctumMusterMaxSeconds: 600
   sanctumFortTowers: 3
   sanctumFortCheckInterval: 20
+  stageOpenRadius: 20
+  stageProbeStepMeters: 15
+  stageProbeMaxMeters: 120
+  stallRepathSeconds: 45
+  provinceTrainerFromSeconds: 1200
+  provinceTrainerBankSupplies: 1500
+  threatRefocusEnabled: 1
+  threatTerritorySigma: 1
+  threatMinTerritories: 5
+  threatAfterSeconds: 900
+  losingPressureWindowSeconds: 600
+  losingPressureMinWeight: 6
+  losingPressureRatio: 1.5
+  preyMaxDistanceRatio: 1.5
+  victimDistanceScaleMeters: 300
+  victimBorderBonus: 0.5
+  victimThreatWeight: 0.6
+  wallEnginesMemorySeconds: 1200

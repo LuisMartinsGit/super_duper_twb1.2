@@ -235,6 +235,12 @@ public struct FormationMemberState : IComponentData, IEnableableComponent
 {
     public Entity Group;
     public float2 Slot;
+    /// <summary>The group's destination (2026-11-04). A marching member reads
+    /// the FORMATION's one goal field, not one field per slot: a 60-strong army
+    /// used to want most of the 48 cached fields by itself. HasFieldGoal 0 = the
+    /// member's own DesiredDestination, as any other unit.</summary>
+    public float3 FieldGoal;
+    public byte HasFieldGoal;
 }
 
 /// <summary>

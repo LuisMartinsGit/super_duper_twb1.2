@@ -738,7 +738,8 @@ namespace TheWaningBorder.AI
                 return false;
             if (IsCombatClass(UnitFactory.GetUnitClass(unitId)))
                 cost.Veilstone = math.max(0, cost.Veilstone - AIBudget.MilitaryVeilstoneCredit(faction));
-            return AIPivotalReserve.ShouldHold(em, faction, cost);
+            // The Shardroot price never holds a unit (2026-11-03, § 6w).
+            return AIPivotalReserve.ShouldHoldMilitary(em, faction, cost);
         }
 
         /// <summary>

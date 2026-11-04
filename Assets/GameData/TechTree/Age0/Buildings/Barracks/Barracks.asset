@@ -72,8 +72,8 @@ MonoBehaviour:
   - ShieldWall
   minEra: 0
   cost:
-    Supplies: 220
-    Iron: 40
+    Supplies: 160
+    Iron: 60
     Veilstone: 0
     Veilsteel: 0
   tags:

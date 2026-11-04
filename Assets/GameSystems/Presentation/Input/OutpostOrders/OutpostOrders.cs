@@ -61,6 +61,28 @@ namespace TheWaningBorder.Input
 
         /// <summary>The local player's finished, living Trading Outposts,
         /// by entity index (a stable order for the menu's rows).</summary>
+        public static uint RoutesOf(EntityManager em, Entity e)
+            => em.Exists(e) && em.HasComponent<TradingOutpostMode>(e)
+               ? TradeRoutes.CountsOf(em.GetComponentData<TradingOutpostMode>(e)) : 0u;
+
+        /// <summary>One click on a route, on the primary and every other selected
+        /// post (2026-11-04): each post with a free slot takes one more of it; a
+        /// full post that runs it stops it.</summary>
+        public static void CycleRouteForSelection(EntityManager em, Entity primary, TradeRecipe recipe)
+        {
+            if (recipe == TradeRecipe.Hold) { SetModeForSelection(em, primary, TradeRecipe.Hold); return; }
+            CommandRouter.IssueCycleOutpostRoute(em, primary, recipe);
+            var sel = SelectionSystem.CurrentSelection;
+            if (sel == null || sel.Count <= 1) return;
+            var own = GameSettings.LocalPlayerFaction;
+            for (int i = 0; i < sel.Count; i++)
+            {
+                var e = sel[i];
+                if (e == primary || !IsOwnFinishedOutpost(em, e, own)) continue;
+                CommandRouter.IssueCycleOutpostRoute(em, e, recipe);
+            }
+        }
+
         public static void Collect(EntityManager em, List<Entity> into)
         {
             into.Clear();

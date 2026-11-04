@@ -10,6 +10,47 @@ using Unity.Mathematics;
 namespace TheWaningBorder.Economy
 {
     /// <summary>
+    /// ONLY THE CAPITAL PAYS (2026-11-04, Veilstone_Economy.md § 5): a faction's
+    /// paying Fortress is its Hall with the lowest NetworkId, the starting seat
+    /// or, once that falls, the oldest one left. Every other Fortress holds and
+    /// locks ground and trains, but earns nothing.
+    /// </summary>
+    public static class CapitalIncome
+    {
+        private static readonly ComponentType[] QT_Halls =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.Exclude<UnderConstruction>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_Halls;
+
+        /// <summary>False only for a Hall that is not its faction's capital;
+        /// any other building pays by its own rules.</summary>
+        public static bool Pays(EntityManager em, Entity building)
+        {
+            if (!em.HasComponent<HallTag>(building) || !em.HasComponent<FactionTag>(building)) return true;
+            var faction = em.GetComponentData<FactionTag>(building).Value;
+            var q = QC_Halls.Get(em, QT_Halls);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            long mine = NetId(em, building);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction || ents[i] == building) continue;
+                long other = NetId(em, ents[i]);
+                if (other < mine || (other == mine && ents[i].Index < building.Index)) return false;
+            }
+            return true;
+        }
+
+        private static long NetId(EntityManager em, Entity e)
+            => em.HasComponent<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(e)
+                ? em.GetComponentData<TheWaningBorder.Core.Multiplayer.NetworkedEntity>(e).NetworkId
+                : long.MaxValue - 1;
+    }
+
+    /// <summary>
     /// Applies passive resource income from buildings to faction banks.
     ///
     /// Supplies use per-building discrete ticks (e.g., Hall: 50 every 15s, GathererHut: 25 every 10s).
@@ -56,6 +97,7 @@ namespace TheWaningBorder.Economy
                 {
                     int ticks = (int)(income.ValueRO.Elapsed / income.ValueRO.Interval);
                     income.ValueRW.Elapsed -= ticks * income.ValueRO.Interval;
+                    if (!CapitalIncome.Pays(state.EntityManager, e)) continue;   // a second Fortress earns nothing
 
                     int amount = (int)(income.ValueRO.PerTick * ticks);
                     // Ability: Automate Facility temporary yield boost (Ledger).

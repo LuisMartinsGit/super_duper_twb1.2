@@ -131,6 +131,7 @@ namespace TheWaningBorder.UI.Ingame
             Category.Defense  => DefenseBlue,
             Category.Research => ResearchBrown,
             Category.Religion => ReligionPurple,
+            Category.Temple   => TempleGold,
             _                 => MilitaryRed,
         };
 
@@ -138,6 +139,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             if (EconomyBuildings.Contains(id)) return Category.Economy;
             if (DefenseBuildings.Contains(id)) return Category.Defense;
+            if (id == "TempleOfRidan") return Category.Temple;
             if (ReligionBuildings.Contains(id)) return Category.Religion;
             return Category.Military;
         }
@@ -185,6 +187,20 @@ namespace TheWaningBorder.UI.Ingame
 
         private Sprite ResolveSprite(in ActionButton b)
         {
+            // A button that brings its own picture (the build menu's rendered
+            // building icons, 2026-11-02) shows it; the catalog's symbol
+            // glyphs are the fallback for everything else.
+            if (b.Icon != null)
+            {
+                if (!_spriteCache.TryGetValue(b.Icon, out var own) || own == null)
+                {
+                    own = Sprite.Create(b.Icon,
+                        new Rect(0f, 0f, b.Icon.width, b.Icon.height),
+                        new Vector2(0.5f, 0.5f), 100f);
+                    _spriteCache[b.Icon] = own;
+                }
+                return own;
+            }
             if (_symbols != null)
             {
                 if (b.Id != null && _symbols.TryGetValue(b.Id, out var byId) && byId != null)
@@ -196,17 +212,6 @@ namespace TheWaningBorder.UI.Ingame
                 if (lv > 0) label = label.Substring(0, lv);
                 if (_symbols.TryGetValue(label, out var byLabel) && byLabel != null)
                     return byLabel;
-            }
-            if (b.Icon != null)
-            {
-                if (!_spriteCache.TryGetValue(b.Icon, out var sprite) || sprite == null)
-                {
-                    sprite = Sprite.Create(b.Icon,
-                        new Rect(0f, 0f, b.Icon.width, b.Icon.height),
-                        new Vector2(0.5f, 0.5f), 100f);
-                    _spriteCache[b.Icon] = sprite;
-                }
-                return sprite;
             }
             return null;
         }

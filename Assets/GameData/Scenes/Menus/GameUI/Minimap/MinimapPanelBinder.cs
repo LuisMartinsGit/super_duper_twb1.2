@@ -252,6 +252,10 @@ namespace TheWaningBorder.UI.Ingame
         /// the gap the authored square plate had; flush, the ring read as
         /// cut off.</summary>
         private const float ScreenMargin = 24f;
+        /// <summary>The plate is drawn at this fraction of its authored
+        /// 450 px side (2026-11-02: the minimap, ring included, is a fifth
+        /// smaller than authored); the ring and discs follow the plate.</summary>
+        private const float PlateScale = 0.8f;
 
         /// <summary>
         /// Size the plate to the MAP (2026-10-28): the panel is authored as a
@@ -268,11 +272,14 @@ namespace TheWaningBorder.UI.Ingame
         /// centred is the circle the corners trace. The whole thing is then
         /// moved INWARD so the ring (gems included) stays on the screen.
         /// </summary>
+        private bool _plateScaled;
+
         private void FitPlateToMap(int texW, int texH)
         {
             var root = (RectTransform)transform;
             Vector2 size = root.sizeDelta;
             float side = Mathf.Max(size.x, size.y);
+            if (!_plateScaled) { side *= PlateScale; _plateScaled = true; }
             Vector2 fitted = texW >= texH
                 ? new Vector2(side, side * texH / (float)texW)
                 : new Vector2(side * texW / (float)texH, side);
@@ -298,12 +305,13 @@ namespace TheWaningBorder.UI.Ingame
 
             var parent = root.parent as RectTransform;
             if (parent == null) return;
+            // Pinned to the screen's bottom-right corner at the ring's reach
+            // (2026-11-02): the plate is authored there, and a mere clamp left
+            // a smaller ring floating short of the corner.
             Rect limit = parent.rect;
             Vector2 centre = parent.InverseTransformPoint(root.TransformPoint(root.rect.center));
-            var clamped = new Vector2(
-                Mathf.Clamp(centre.x, limit.xMin + reach, limit.xMax - reach),
-                Mathf.Clamp(centre.y, limit.yMin + reach, limit.yMax - reach));
-            root.anchoredPosition += clamped - centre;
+            var pinned = new Vector2(limit.xMax - reach, limit.yMin + reach);
+            root.anchoredPosition += pinned - centre;
         }
 
         private IEnumerator Start()

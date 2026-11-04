@@ -35,7 +35,7 @@ MonoBehaviour:
   trajectory: high
   projectileSpeed: 0
   cost:
-    Supplies: 0
+    Supplies: 120
     Iron: 22
     Crystal: 26
     Veilsteel: 0

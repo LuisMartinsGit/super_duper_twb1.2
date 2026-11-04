@@ -142,5 +142,16 @@ namespace TheWaningBorder.AI
         /// <summary>How far outward of the ring a curtain's midpoint is probed
         /// to learn which territory that stretch of wall faces, metres.</summary>
         public float gateExitProbe;
+
+        /// <summary>LATE WALLS FOR EVERYONE (2026-11-03, § 6x): a personality
+        /// that never walls (Rush) still walls from this match second on, when
+        /// its bank holds lateWallsBankSupplies. 0 = never.</summary>
+        public float lateWallsAfterSeconds;
+        /// <summary>...and only while the bank holds at least this many supplies.</summary>
+        public int lateWallsBankSupplies;
+        /// <summary>Held provinces with production buildings that every
+        /// personality walls besides its home (the personality's
+        /// frontierWallTerritories, if larger, still applies).</summary>
+        public int productionProvinceWalls;
     }
 }

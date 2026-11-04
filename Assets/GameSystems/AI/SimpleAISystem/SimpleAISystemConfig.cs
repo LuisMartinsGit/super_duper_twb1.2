@@ -103,6 +103,17 @@ namespace TheWaningBorder.AI
         /// (Buy -> Forge -> Sell) even before the army is refused for iron
         /// (Game_AI.md § 5a, 2026-10-12).</summary>
         public int outpostIronFloor;
+        /// <summary>IRON DROUGHT (2026-11-04, Game_AI.md § 6y): with the bank
+        /// under outpostIronFloor and supplies at least this many times the
+        /// iron, selling veilsteel is the iron income — the sell weight goes
+        /// to its maximum and buying veilstone (which spends iron) is capped.</summary>
+        public float outpostIronDroughtSuppliesRatio;
+        /// <summary>Surplus veilsteel sells through one post per this many
+        /// sell-loads in the bank (not one post in all).</summary>
+        public float outpostSellStockPerPost;
+        /// <summary>Below this many supplies, with surplus veilsteel, a post
+        /// sells veilsteel for supplies (2026-11-04).</summary>
+        public int outpostSuppliesFloor;
         /// <summary>Guilds added to the Gatherer's Hut cap per Guild-income's
         /// worth of supplies the Trading Outposts spend a minute: 1 = enough
         /// Guilds (at their first level's slot income) to pay for the trade.
@@ -693,6 +704,40 @@ namespace TheWaningBorder.AI
         // 4 -> 6 (2026-08-30): reinforcement columns should READ as
         // formations on the map, not as couriers.
         public int reinforceMinGroup;
+
+        /// <summary>Match seconds at which the FIRST army leaves (2026-11-04),
+        /// with every soldier above the reserve.</summary>
+        public float waveFirstSeconds;
+
+        /// <summary>Seconds after an army leaves until a reinforcement army, with
+        /// every soldier trained since, follows it (2026-11-04).</summary>
+        public float waveReinforceSeconds;
+
+        /// <summary>Smallest reinforcement army while at the population cap.</summary>
+        public int reinforceCapMinGroup;
+
+        /// <summary>A replacement army's size, as a share of the population cap.</summary>
+        public float waveReplacePopShare;
+
+        /// <summary>Seconds after an army dies until its replacement goes at any
+        /// size above reinforceMinGroup.</summary>
+        public float waveReplaceMaxWaitSeconds;
+
+        /// <summary>A wave may be skipped, once in a row, when the army's power is
+        /// under this share of what is known at the objective.</summary>
+        public float waveSkipStrengthRatio;
+
+        /// <summary>Seconds a skipped wave waits; the next one goes regardless.</summary>
+        public float waveSkipSeconds;
+
+        /// <summary>A reinforcement packet's target size, as a share of the army
+        /// it joins (2026-11-04: an army of 50 gets 10-20 at a time). Never below
+        /// reinforceMinGroup.</summary>
+        public float reinforcePacketFraction;
+
+        /// <summary>...and its largest size, as a share of that army. The rest
+        /// wait for the next packet.</summary>
+        public float reinforcePacketMaxFraction;
 
         /// <summary>
         /// ...but never hold longer than this. Holding indefinitely re-creates
@@ -1468,6 +1513,11 @@ namespace TheWaningBorder.AI
         /// <summary>Under the all-in, reinforcements wait at most this long to
         /// gather a company (0 = they stream at once).</summary>
         public float allInReinforceMaxHoldSeconds;
+        /// <summary>Under the all-in a wave still needs at least this share
+        /// of the ordinary strength test (known defence x the tier's and the
+        /// personality's ratio) before it launches short of it (2026-11-02,
+        /// § 6n). 0 = any strength under allInMaxEnemyRatio goes.</summary>
+        public float allInStrengthFloor;
         /// <summary>Under the all-in, both retreat tests use at least this
         /// enemy/own power ratio (a tier that never retreats still never does).</summary>
         public float allInRetreatRatio;
@@ -1612,13 +1662,72 @@ namespace TheWaningBorder.AI
         public float sanctumHoldRadius;
         /// <summary>Seconds between re-orders of the garrison.</summary>
         public float sanctumReorderSeconds;
+        /// <summary>Metres the garrison's goal (the nearest hostile soldier) must
+        /// move before the garrison is re-ordered at once.</summary>
+        public float sanctumRegoalMeters;
         /// <summary>An army that has not taken its Sanctum disbands below this.</summary>
         public int sanctumDisbandBelow;
         /// <summary>...and that Sanctum waits this long before another try.</summary>
         public float sanctumRetrySeconds;
+        /// <summary>A Sanctum army mustering at home (its soldiers reserved
+        /// from every other draft, production filling the rest) gives up after
+        /// this long without launching, and that Sanctum waits
+        /// sanctumRetrySeconds (2026-11-02, § 6t). 0 = never gives up.</summary>
+        public float sanctumMusterMaxSeconds;
         /// <summary>Towers the workers raise at a held Sanctum.</summary>
         public int sanctumFortTowers;
         /// <summary>Seconds between fortification checks.</summary>
         public float sanctumFortCheckInterval;
+
+        // ── 2026-11-03, Game_AI.md § 6x ───────────────────────────────────
+        /// <summary>A STAGING GROUND WITH ROOM: the stage point must have this
+        /// many metres of walkable ground around it (0 = any standable point).</summary>
+        public float stageOpenRadius;
+        /// <summary>...probed from stagingDistance outward in steps of this.</summary>
+        public float stageProbeStepMeters;
+        /// <summary>...up to this far from the objective; then the old point.</summary>
+        public float stageProbeMaxMeters;
+        /// <summary>A striking army whose centroid has not moved and that
+        /// finds no wall to breach re-paths to its objective once, after this
+        /// many seconds stalled.</summary>
+        public float stallRepathSeconds;
+        /// <summary>A FIRST TRAINER IN EVERY PROVINCE: from this match second a
+        /// held province with no production building gets one before its
+        /// towers, when the bank holds provinceTrainerBankSupplies.</summary>
+        public float provinceTrainerFromSeconds;
+        public int provinceTrainerBankSupplies;
+        /// <summary>THE TABLE'S THREAT: refocus on a faction that is winning.</summary>
+        public bool threatRefocusEnabled;
+        /// <summary>Case 1: territories above the living players' mean by this
+        /// many standard deviations...</summary>
+        public float threatTerritorySigma;
+        /// <summary>...and at least this many territories (two against a mean
+        /// of 1.3 at minute four is not "winning the game").</summary>
+        public int threatMinTerritories;
+        /// <summary>No threat refocus before this match second.</summary>
+        public float threatAfterSeconds;
+        /// <summary>A LOSING PLAYER: pressure (kills x1, razes x4) taken from
+        /// one faction over this window...</summary>
+        public float losingPressureWindowSeconds;
+        /// <summary>...at least this much...</summary>
+        public float losingPressureMinWeight;
+        /// <summary>...and this many times what it dealt back: it attacks that
+        /// faction and fortifies.</summary>
+        public float losingPressureRatio;
+        /// <summary>The hunt's prey must sit within this many times the
+        /// nearest hostile's distance (neighbours first).</summary>
+        public float preyMaxDistanceRatio;
+        /// <summary>Victim score: the distance at which nearness halves.</summary>
+        public float victimDistanceScaleMeters;
+        /// <summary>Victim score: multiplier bonus for a faction whose
+        /// territory touches ours.</summary>
+        public float victimBorderBonus;
+        /// <summary>Victim score: weight of the candidate's known strength.</summary>
+        public float victimThreatWeight;
+        /// <summary>ENGINES FOR A WALLED VICTIM (2026-11-04, § 6x): after a wave
+        /// met a wall with no siege, the waves of the next this-many seconds
+        /// take every idle engine and wait for wallBreachMinSiege of them
+        /// (the siege program trains to that floor).</summary>
+        public float wallEnginesMemorySeconds;
     }
 }

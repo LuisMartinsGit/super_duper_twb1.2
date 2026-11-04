@@ -16,3 +16,7 @@ MonoBehaviour:
   tetherProgressEpsilon: 0.1
   engagedHoldFraction: 0.34
   stallHeadingToleranceRadians: 0.35
+  splitLinkRadius: 14
+  splitMergeRadius: 60
+  splitMaxFormations: 8
+  repeatOrderKeepRadius: 20

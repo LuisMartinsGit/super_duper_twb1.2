@@ -23,7 +23,7 @@ MonoBehaviour:
     Veilsteel: 0
   upgradeSeconds: 45
   hpMultiplier: 1.2
-  trainTimeMultiplier: 0.714
+  trainTimeMultiplier: 0.512
   attackCooldownMultiplier: 0.77
   maxTargets: 0
   populationProvided: 0

@@ -136,6 +136,7 @@ namespace TheWaningBorder.UI.Ingame
 
                 var income = incomes[i];
                 if (income.PerTick <= 0f || income.Interval <= 0f) continue;
+                if (!TheWaningBorder.Economy.CapitalIncome.Pays(_em, entities[i])) continue;
 
                 float elapsed = income.Elapsed;
                 var entity = entities[i];

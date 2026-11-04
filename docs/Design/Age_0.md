@@ -162,7 +162,7 @@ level 0 form exists. Its stats are on `Age0/Buildings/Barracks/Barracks.asset`.
 
 | Tech | Effect (rule) | Code id |
 |------|---------------|---------|
-| **Conscription** | units train **faster at any Barracks** (faction-wide; decision 14) | `Conscription` |
+| **Conscription** | units train **faster at every military building** (faction-wide: any building but the capital, for melee, ranged and siege units; 2026-11-04) | `Conscription` |
 | **Stone Weapons** | melee weapon tier 1 — a faction-wide melee damage bump (per-battalion upgrades are dropped, decision 31) | `StoneWeapons` |
 
 ---

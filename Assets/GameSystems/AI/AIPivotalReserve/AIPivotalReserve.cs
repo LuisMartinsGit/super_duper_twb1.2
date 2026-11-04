@@ -51,6 +51,7 @@ namespace TheWaningBorder.AI
             _pending.Clear();
             _holdSince.Clear();
             _strict.Clear();
+            _militaryExempt.Clear();
             _suspended.Clear();
         }
 
@@ -93,10 +94,30 @@ namespace TheWaningBorder.AI
 
         /// <summary>Register (or refresh) a pending pivotal purchase.
         /// <paramref name="strict"/> keeps the hold on until it is funded.</summary>
-        public static void Set(Faction faction, string key, Cost cost, bool strict = false)
+        /// <summary>Goals the ARMY never waits for (2026-11-03): a unit
+        /// purchase is judged against the other goals only. The Shardroot
+        /// price is one — "make sure AI does not stop waves because it is
+        /// saving for the shard root things."</summary>
+        private static readonly HashSet<(Faction faction, string key)> _militaryExempt
+            = new HashSet<(Faction, string)>();
+
+        public static void Set(Faction faction, string key, Cost cost, bool strict = false,
+            bool exemptMilitary = false)
         {
             _pending[(faction, key)] = cost;
             if (strict) _strict.Add((faction, key)); else _strict.Remove((faction, key));
+            if (exemptMilitary) _militaryExempt.Add((faction, key)); else _militaryExempt.Remove((faction, key));
+        }
+
+        /// <summary>The hold as it applies to a UNIT purchase: goals set with
+        /// exemptMilitary are not counted (2026-11-03).</summary>
+        public static bool ShouldHoldMilitary(EntityManager em, Faction faction, Cost purchase)
+        {
+            if (!HoldActive(em, faction, out var shortSet, militaryView: true)) return false;
+            return (purchase.Supplies  > 0 && shortSet.Supplies)
+                || (purchase.Iron      > 0 && shortSet.Iron)
+                || (purchase.Veilstone > 0 && shortSet.Veilstone)
+                || (purchase.Veilsteel > 0 && shortSet.Veilsteel);
         }
 
         /// <summary>Withdraw a pending purchase — call on success or when
@@ -105,6 +126,7 @@ namespace TheWaningBorder.AI
         {
             _pending.Remove((faction, key));
             _strict.Remove((faction, key));
+            _militaryExempt.Remove((faction, key));
         }
 
         /// <summary>Is this exact reserve armed? Lets a spender yield to one
@@ -112,6 +134,12 @@ namespace TheWaningBorder.AI
         /// without also pausing for temple levels or heroes.</summary>
         public static bool Has(Faction faction, string key)
             => _pending.ContainsKey((faction, key));
+
+        /// <summary>Is a STRICT pivotal goal unpaid right now? The army cap
+        /// does not rise under one (2026-11-02, Game_AI.md § 6j): the money
+        /// it would count is money nothing may spend.</summary>
+        public static bool StrictHold(EntityManager em, Faction faction)
+            => ComputeShort(em, faction, out _, out bool strict) && strict;
 
         /// <summary>The summed price of every pending goal of this faction —
         /// what a Vault deposit must leave in the bank (Game_AI.md § 5h).</summary>
@@ -195,7 +223,7 @@ namespace TheWaningBorder.AI
         /// without the pad). False when nothing is pending or the bank is
         /// unreadable.</summary>
         private static bool ComputeShort(EntityManager em, Faction faction,
-            out ShortSet set, out bool strict)
+            out ShortSet set, out bool strict, bool militaryView = false)
         {
             set = default;
             strict = false;
@@ -204,6 +232,7 @@ namespace TheWaningBorder.AI
             foreach (var kv in _pending)
             {
                 if (kv.Key.faction != faction || !Counts(kv.Key)) continue;
+                if (militaryView && _militaryExempt.Contains(kv.Key)) continue;
                 any = true;
                 if (_strict.Contains(kv.Key)) strict = true;
                 s    += kv.Value.Supplies;
@@ -223,14 +252,16 @@ namespace TheWaningBorder.AI
         /// <summary>The hold verdict both overloads share: shortfall on any
         /// resource, then strict / duty cycle. <paramref name="shortSet"/>
         /// names the short resources.</summary>
-        private static bool HoldActive(EntityManager em, Faction faction, out ShortSet shortSet)
+        private static bool HoldActive(EntityManager em, Faction faction, out ShortSet shortSet,
+            bool militaryView = false)
         {
             bool pendingAny = false;
             foreach (var kv in _pending)
-                if (kv.Key.faction == faction && Counts(kv.Key)) { pendingAny = true; break; }
-            if (!pendingAny) { _holdSince.Remove(faction); shortSet = default; return false; }
+                if (kv.Key.faction == faction && Counts(kv.Key)
+                    && !(militaryView && _militaryExempt.Contains(kv.Key))) { pendingAny = true; break; }
+            if (!pendingAny) { if (!militaryView) _holdSince.Remove(faction); shortSet = default; return false; }
 
-            if (!ComputeShort(em, faction, out shortSet, out bool strict)) return false;
+            if (!ComputeShort(em, faction, out shortSet, out bool strict, militaryView)) return false;
             if (!shortSet.Any) { _holdSince.Remove(faction); return false; }
             if (strict) return true;   // no duty cycle while a strict goal is unpaid
 

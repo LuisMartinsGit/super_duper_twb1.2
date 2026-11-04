@@ -88,6 +88,7 @@ param(
     [int]$Age = 0,
     [switch]$Rich,              # every faction pinned at the resource cap (diagnostic)
     [switch]$Trace,             # single mode: write MapTrace.txt for the replay
+    [int]$TracePeriod = 0,      # seconds per trace frame; 0 = auto (1, or 2 past an hour)
     [switch]$FormationTelemetry, # single mode: Formation.csv, every formation member once a second
 
     # ── AI difficulty and run label (single / loop-single only) ─────────
@@ -242,7 +243,7 @@ function Invoke-Single {
                 # stops the file rather than truncating the match, so the
                 # sample period is scaled off the ceiling -- and an UNLIMITED
                 # match is the longest of all, so it takes the coarser period.
-                $tp = if ($Limit -le 0 -or $Limit -gt 3600) { 2 } else { 1 }
+                $tp = if ($TracePeriod -gt 0) { $TracePeriod } elseif ($Limit -le 0 -or $Limit -gt 3600) { 2 } else { 1 }
                 $argList += @("-twbTrace", "-twbTracePeriod", $tp)
             }
             if ($FormationTelemetry) { $argList += "-twbFormationTelemetry" }
@@ -297,7 +298,7 @@ function Invoke-Mp {
         # write a byte-identical file, so four peers buy nothing but four
         # times the disk. Peer 0 is the host and is guaranteed to exist.
         if ($i -eq 0) {
-            $tp = if ($Limit -gt 3600) { 2 } else { 1 }
+            $tp = if ($TracePeriod -gt 0) { $TracePeriod } elseif ($Limit -gt 3600) { 2 } else { 1 }
             $argList += @("-twbTrace", "-twbTracePeriod", $tp)
         }
         if ($Warm -gt 0) {

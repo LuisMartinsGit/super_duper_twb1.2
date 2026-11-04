@@ -48,6 +48,12 @@ namespace TheWaningBorder.Core.Diagnostics
         /// <summary>A new match: every total back to zero.</summary>
         public static void ResetForMatch()
         {
+            FactionPressureLedger.ResetForMatch();
+            ResetScoreForMatch();
+        }
+
+        private static void ResetScoreForMatch()
+        {
             System.Array.Clear(_rows, 0, _rows.Length);
             System.Array.Clear(_kills, 0, _kills.Length);
             System.Array.Clear(_deaths, 0, _deaths.Length);
@@ -64,6 +70,8 @@ namespace TheWaningBorder.Core.Diagnostics
             int v = (int)victim, k = (int)killer;
             if (v >= 0 && v < Factions) _deaths[v]++;
             if (attributed && k != v && k >= 0 && k < Factions) _kills[k]++;
+            // The pressure ledger reads the same attribution (2026-11-03, § 6x).
+            if (attributed) FactionPressureLedger.Note(killer, victim, 1f, (float)SimClock.Now);
         }
 
         /// <summary>A building fell; the razer is credited when known.</summary>
@@ -71,6 +79,7 @@ namespace TheWaningBorder.Core.Diagnostics
         {
             int v = (int)victim, k = (int)razer;
             if (attributed && k != v && k >= 0 && k < Factions) _razed[k]++;
+            if (attributed) FactionPressureLedger.Note(razer, victim, 4f, (float)SimClock.Now);
         }
 
         public static int KillsOf(Faction f) => (int)f >= 0 && (int)f < Factions ? _kills[(int)f] : 0;

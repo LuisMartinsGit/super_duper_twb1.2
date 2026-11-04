@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Supply Survey III
   role: Economy
   effect:
-  desc: "Guild. Faction-wide: every Guild also produces Supplies (+20/min per tier at Guild L1, x1.25 at L2, x1.5 at L3), drawn from no node, so it keeps paying after the node runs dry - depleted Guilds included. Paid while the Guild's territory is held."
+  desc: "Guild. Faction-wide: every Guild also produces Supplies (+10/min per tier at Guild L1, x1.25 at L2, x1.5 at L3), drawn from no node, so it keeps paying after the node runs dry - depleted Guilds included. Paid while the Guild's territory is held."
   researchAt: GatherersHut
   minBuildingLevel: 3
   researchTime: 60

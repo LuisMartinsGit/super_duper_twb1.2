@@ -43,10 +43,21 @@ namespace TheWaningBorder.AI
             public int Territory;
             public float3 Crystal;
             public bool Claimed;
+            /// <summary>Forming at home: soldiers reserved, waiting for the
+            /// head count and the power to launch (2026-11-02, § 6t).</summary>
+            public bool Mustering;
+            public float MusterSince;
+            public float3 MusterAt;
             public float NextOrder;
             public float3 OrderedAt;
             public float NextFort;
             public readonly List<Entity> Members = new List<Entity>();
+            /// <summary>The next reinforcement packet, gathering at home (2026-11-04).</summary>
+            public readonly List<Entity> Packet = new List<Entity>();
+            public float PacketSince;
+            /// <summary>When it was ready to go; it gathers for at most musterTimeoutSeconds.</summary>
+            public float PacketReadyAt;
+            public float3 PacketMuster;
         }
 
         private readonly Dictionary<int, List<SanctumArmy>> _sanctumArmies = new Dictionary<int, List<SanctumArmy>>();
@@ -125,7 +136,7 @@ namespace TheWaningBorder.AI
             if (culture == Cultures.None) { _sanctumWanted.Remove(key); return; }   // claims open at age-up
 
             for (int i = armies.Count - 1; i >= 0; i--)
-                if (!TendSanctumArmy(em, faction, culture, armies[i], now))
+                if (!TendSanctumArmy(em, faction, culture, armies[i], ref aiState, now))
                 {
                     foreach (var m in armies[i].Members) _sanctumGuards.Remove(m);
                     armies.RemoveAt(i);
@@ -146,7 +157,8 @@ namespace TheWaningBorder.AI
         // ── tending ─────────────────────────────────────────────────────
 
         /// <summary>One army's think. False = disband it.</summary>
-        private bool TendSanctumArmy(EntityManager em, Faction faction, byte culture, SanctumArmy a, float now)
+        private bool TendSanctumArmy(EntityManager em, Faction faction, byte culture, SanctumArmy a,
+            ref SimpleAIState aiState, float now)
         {
             for (int i = a.Members.Count - 1; i >= 0; i--)
             {
@@ -158,6 +170,18 @@ namespace TheWaningBorder.AI
                     a.Members.RemoveAt(i);
                 }
             }
+            for (int i = a.Packet.Count - 1; i >= 0; i--)
+            {
+                var m = a.Packet[i];
+                if (!em.Exists(m) || !em.HasComponent<Health>(m) || em.GetComponentData<Health>(m).Value <= 0
+                    || TransientState.Active<DeathAnimationState>(em, m))
+                {
+                    _sanctumGuards.Remove(m);
+                    a.Packet.RemoveAt(i);
+                }
+            }
+
+            if (a.Mustering) return TendMusteringSanctumArmy(em, faction, a, ref aiState, now);
 
             bool ours = TerritoryOwnership.OwnerOf(a.Territory) == (int)faction;
             string name = RegionMap.NameOf(a.Territory);
@@ -182,30 +206,14 @@ namespace TheWaningBorder.AI
                 return false;
             }
 
-            // Back up to the minimum, from the free army.
-            int min = SanctumArmyMinSize;
-            if (a.Members.Count < min)
-            {
-                CollectSanctumFree(em, faction, a.Crystal);
-                int added = 0;
-                for (int i = 0; i < _sanctumFree.Count && a.Members.Count < min; i++)
-                {
-                    a.Members.Add(_sanctumFree[i]);
-                    _sanctumGuards.Add(_sanctumFree[i]);
-                    added++;
-                }
-                if (added > 0)
-                {
-                    a.NextOrder = 0f;   // the newcomers march now
-                    AILogger.Log(faction, "SANCTUM", $"{added} soldiers sent to reinforce {name} ({a.Members.Count}/{min})");
-                }
-            }
+            // Back up to the minimum, from the free army, AS A PACKET.
+            TendSanctumPacket(em, faction, a, name, aiState.DesiredMilitary, now);
 
             // Orders: clear the ground of hostile soldiers (one keeps the
             // Sanctum contested), otherwise stand round the crystal.
             bool hostile = TryNearestHostileSoldierIn(em, faction, a.Territory, a.Crystal, out float3 enemy);
             float3 goal = hostile ? enemy : a.Crystal;
-            bool moved = math.distance(goal.xz, a.OrderedAt.xz) > 10f;
+            bool moved = math.distance(goal.xz, a.OrderedAt.xz) > Cfg.sanctumRegoalMeters;
             if (now >= a.NextOrder || moved)
             {
                 _sanctumFree.Clear();
@@ -243,6 +251,179 @@ namespace TheWaningBorder.AI
                 }
             }
             return true;
+        }
+
+        // ── mustering (2026-11-02, Game_AI.md § 6t) ─────────────────────
+        //
+        // Red (YielLymwerra, 2026-11-02) logged "raising an army for
+        // Stormcairn: N of 30 free, power N vs known 0" 38 times over 34
+        // minutes and never sent a soldier: the rule wanted 30 FREE units at
+        // one instant, and waves, raids, reinforcements, tower garrisons and
+        // the economy defence drafted the same pool first. The army now
+        // forms over time: whoever is free is reserved at once (no other
+        // draft takes a Sanctum guard), the muster tops up every think, and
+        // it launches the moment it has the head count and the power.
+
+        private bool TendMusteringSanctumArmy(EntityManager em, Faction faction, SanctumArmy a,
+            ref SimpleAIState aiState, float now)
+        {
+            int key = (int)faction;
+            string name = RegionMap.NameOf(a.Territory);
+            int min = SanctumArmyMinSize;
+
+            int owner = TerritoryOwnership.OwnerOf(a.Territory);
+            bool stale = TheWaningBorder.Systems.Border.CurseGroundSystem.TerritoryHasCurse(a.Territory)
+                || (owner >= 0 && owner < 8 && owner != (int)faction && !Alliances.AreHostile(faction, (Faction)owner));
+            if (stale)
+            {
+                ReleaseSanctumArmy(a);
+                _sanctumWanted.Remove(key);
+                _sanctumBlocked[(key, a.Territory)] = now + Cfg.sanctumRetrySeconds;
+                AILogger.Log(faction, "SANCTUM", $"the muster for {name} stands down — the ground no longer qualifies");
+                return false;
+            }
+
+            // Top up from the free pool; the standing floor stays home.
+            CollectSanctumFree(em, faction, a.Crystal);
+            int floor = StandingArmyFloor(em, faction, ProfileOf(faction), aiState.DesiredMilitary);
+            int draftable = math.max(0, _sanctumFree.Count - floor);
+            int added = 0;
+            for (int i = 0; i < draftable && a.Members.Count < min; i++)
+            {
+                a.Members.Add(_sanctumFree[i]);
+                _sanctumGuards.Add(_sanctumFree[i]);
+                added++;
+            }
+
+            int threat = TacticalQuery.EnemyStrengthInRadius(em, faction, a.Crystal, Cfg.sanctumThreatRadius)
+                       + AIEngagement.StaticDefencePower(em, faction, a.Crystal, Cfg.sanctumThreatRadius);
+            int need = (int)math.ceil(threat * Cfg.sanctumLaunchMargin);
+            int power = 0;
+            for (int i = 0; i < a.Members.Count; i++) power += TacticalQuery.UnitStrength(em, a.Members[i]);
+
+            if (owner == (int)faction || (a.Members.Count >= min && power >= need))
+            {
+                a.Mustering = false;
+                _sanctumWanted.Remove(key);
+                AICommon.IssueGroupOrder(em, a.Members, a.Crystal, attackMove: true, Cfg.waveArrivedRadius);
+                a.OrderedAt = a.Crystal;
+                a.NextOrder = now + Cfg.sanctumReorderSeconds;
+                AILogger.Log(faction, "SANCTUM",
+                    $"{a.Members.Count} soldiers march to take {name}{(owner >= 0 && owner != (int)faction ? " from a rival" : "")} " +
+                    $"at ({a.Crystal.x:0},{a.Crystal.z:0}) — power {power} vs known {threat}, mustered in {now - a.MusterSince:0}s");
+                return true;
+            }
+
+            if (Cfg.sanctumMusterMaxSeconds > 0f && now - a.MusterSince > Cfg.sanctumMusterMaxSeconds)
+            {
+                AILogger.Log(faction, "SANCTUM",
+                    $"the muster for {name} gave up after {now - a.MusterSince:0}s ({a.Members.Count}/{min}, " +
+                    $"power {power} vs known {threat}) — released; {name} waits {Cfg.sanctumRetrySeconds:0}s");
+                ReleaseSanctumArmy(a);
+                _sanctumWanted.Remove(key);
+                _sanctumBlocked[(key, a.Territory)] = now + Cfg.sanctumRetrySeconds;
+                return false;
+            }
+
+            // Still short: production builds the rest (the cap rises by it).
+            _sanctumWanted[key] = min;
+            int want = CountAliveMilitary(em, faction) + math.max(min - a.Members.Count, 1);
+            want = math.min(want, math.max(1, ProfileOf(faction).SustainArmyCap + SanctumArmyCapBonus(faction)));
+            if (aiState.DesiredMilitary < want) aiState.DesiredMilitary = want;
+
+            // Everyone gathers at the muster point; newcomers at once.
+            if (added > 0 || now >= a.NextOrder)
+            {
+                _sanctumFree.Clear();
+                float r2 = Cfg.sanctumHoldRadius * Cfg.sanctumHoldRadius;
+                for (int i = 0; i < a.Members.Count; i++)
+                {
+                    var m = a.Members[i];
+                    if (TransientState.Active<UserMoveOrder>(em, m)) continue;
+                    if (TransientState.Active<AttackCommand>(em, m)) continue;
+                    if (em.HasComponent<LocalTransform>(m)
+                        && math.distancesq(em.GetComponentData<LocalTransform>(m).Position.xz, a.MusterAt.xz) <= r2)
+                        continue;
+                    _sanctumFree.Add(m);
+                }
+                if (_sanctumFree.Count > 0)
+                    AICommon.IssueGroupOrder(em, _sanctumFree, a.MusterAt, attackMove: true, Cfg.waveArrivedRadius);
+                a.NextOrder = now + Cfg.sanctumReorderSeconds;
+            }
+            LogSanctum(faction, now,
+                $"mustering for {name}: {a.Members.Count}/{min} ({added} joined), power {power} vs known {threat}, " +
+                $"{now - a.MusterSince:0}s in");
+            return true;
+        }
+
+        private void ReleaseSanctumArmy(SanctumArmy a)
+        {
+            foreach (var m in a.Members) _sanctumGuards.Remove(m);
+            a.Members.Clear();
+            foreach (var m in a.Packet) _sanctumGuards.Remove(m);
+            a.Packet.Clear();
+        }
+
+        /// <summary>
+        /// REINFORCEMENTS ARE ARMIES (2026-11-04). The garrison's refill used to
+        /// send whoever was free the moment a soldier fell: 1-4 men every ten
+        /// seconds, strung along the road and killed one by one. Free soldiers now
+        /// gather at a muster point at home until the packet reaches its size, or
+        /// reinforceMaxHold runs out with at least two, and leave as one formation.
+        /// </summary>
+        private void TendSanctumPacket(EntityManager em, Faction faction, SanctumArmy a, string name, int desired, float now)
+        {
+            int min = SanctumArmyMinSize;
+            int deficit = min - a.Members.Count;
+            if (deficit <= 0 && a.Packet.Count == 0) return;
+
+            // Only a full packet is raised, and only from soldiers above the
+            // standing floor: nobody is reserved at home waiting for company.
+            int want = math.max(Cfg.reinforceMinGroup,
+                (int)math.ceil(a.Members.Count * Cfg.reinforcePacketFraction));
+            if (a.Packet.Count == 0)
+            {
+                if (deficit < want) return;
+                CollectSanctumFree(em, faction, a.Crystal);
+                int floor = StandingArmyFloor(em, faction, ProfileOf(faction), desired);
+                if (_sanctumFree.Count - floor < want) return;
+                for (int i = 0; i < want; i++)
+                {
+                    a.Packet.Add(_sanctumFree[i]);
+                    _sanctumGuards.Add(_sanctumFree[i]);
+                }
+                a.PacketSince = now;
+                a.PacketReadyAt = 0f;
+                float3 home = HomeAnchor(em, faction);
+                float3 toward = a.Crystal - home;
+                toward.y = 0f;
+                float dist = math.length(toward);
+                a.PacketMuster = dist > 1f
+                    ? StandableToward(home + toward / dist * math.min(Cfg.musterDistance, dist * 0.5f), home)
+                    : home;
+                AICommon.IssueGroupOrder(em, a.Packet, a.PacketMuster, attackMove: true, Cfg.waveArrivedRadius);
+            }
+
+            // Ready: give the stragglers the muster's own time to fall in.
+            if (a.PacketReadyAt <= 0f) a.PacketReadyAt = now;
+            int gathered = 0;
+            float gatherR = GatherRadius(a.Packet.Count);
+            float r2 = gatherR * gatherR;
+            foreach (var m in a.Packet)
+                if (em.HasComponent<LocalTransform>(m)
+                    && math.distancesq(em.GetComponentData<LocalTransform>(m).Position.xz, a.PacketMuster.xz) <= r2)
+                    gathered++;
+            if (gathered < a.Packet.Count * Cfg.musterGatherFraction
+                && now - a.PacketReadyAt < Cfg.musterTimeoutSeconds)
+                return;
+
+            AILogger.Log(faction, "SANCTUM",
+                $"a packet of {a.Packet.Count} marches to reinforce {name} ({a.Members.Count}/{min}, " +
+                $"formed in {now - a.PacketSince:0}s, {gathered} on the muster)");
+            AICommon.IssueGroupOrder(em, a.Packet, a.Crystal, attackMove: true, Cfg.waveArrivedRadius);
+            a.Members.AddRange(a.Packet);
+            a.Packet.Clear();
+            a.OrderedAt = a.Crystal;
         }
 
         // ── raising ─────────────────────────────────────────────────────
@@ -302,9 +483,32 @@ namespace TheWaningBorder.AI
                 int want = CountAliveMilitary(em, faction) + shortBy;
                 want = math.min(want, math.max(1, ProfileOf(faction).SustainArmyCap + SanctumArmyCapBonus(faction)));
                 if (aiState.DesiredMilitary < want) aiState.DesiredMilitary = want;
-                LogSanctum(faction, now,
-                    $"raising an army for {name}{(bestHostile ? " (held by a rival)" : "")}: " +
-                    $"{army.Members.Count} of {min} free, power {power} vs known {threat}");
+                if (army.Members.Count == 0)
+                {
+                    LogSanctum(faction, now,
+                        $"raising an army for {name}{(bestHostile ? " (held by a rival)" : "")}: " +
+                        $"0 of {min} free, power 0 vs known {threat}");
+                    return;
+                }
+                // THE ARMY FORMS OVER TIME (2026-11-02, § 6t): reserve whoever
+                // is free now, gather at the muster point, top up every think.
+                foreach (var m in army.Members) _sanctumGuards.Add(m);
+                army.Mustering = true;
+                army.MusterSince = now;
+                float3 toward = bestPos - home;
+                toward.y = 0f;
+                float dist = math.length(toward);
+                army.MusterAt = dist > 1f
+                    ? StandableToward(home + toward / dist * math.min(Cfg.musterDistance, dist * 0.5f), home)
+                    : home;
+                AICommon.IssueGroupOrder(em, army.Members, army.MusterAt, attackMove: true, Cfg.waveArrivedRadius);
+                army.OrderedAt = army.MusterAt;
+                army.NextOrder = now + Cfg.sanctumReorderSeconds;
+                armies.Add(army);
+                AILogger.Log(faction, "SANCTUM",
+                    $"mustering an army for {name}{(bestHostile ? " (held by a rival)" : "")}: " +
+                    $"{army.Members.Count}/{min} reserved (power {power} vs known {threat}) at " +
+                    $"({army.MusterAt.x:0},{army.MusterAt.z:0}) — no wave, raid or claim drafts them");
                 return;
             }
 
@@ -332,6 +536,7 @@ namespace TheWaningBorder.AI
                 if (roster.UnderConstruction(i) || roster.Verb(i) || roster.NoControl(i)) continue;
                 if (IsClaimSquadMember(e) || IsEnrolledInMission(faction, e)) continue;
                 if (em.HasComponent<ShardrootTag>(e)) continue;   // the bearer has its own road
+                if (em.HasComponent<SiegeTag>(e)) continue;       // engines garrison nothing (§ 6x)
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
                 if (TransientState.Active<AttackCommand>(em, e)) continue;
                 _sanctumFree.Add(e);

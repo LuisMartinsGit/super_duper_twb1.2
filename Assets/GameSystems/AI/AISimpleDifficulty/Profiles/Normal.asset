@@ -17,7 +17,7 @@ MonoBehaviour:
   intelFreshnessSeconds: 75
   firstAttackEarliestSeconds: 360
   attackWaveIntervalSeconds: 240
-  waveBaseUnits: 5
+  waveBaseUnits: 12
   standingArmyFloorFraction: 0.1
   waveMinArmyFraction: 0.05
   territoryCadenceScale: 1.5
@@ -45,7 +45,7 @@ MonoBehaviour:
   capitalReserveMaxHoldSeconds: 0
   capitalReserveRestSeconds: 0
   homeProductionPerLine: 2
-  provinceProductionPerTerritory: 1
+  provinceProductionPerTerritory: 2
   productionSaturationThreshold: 0.8
   productionSaturationSeconds: 60
   economyDefenceDelaySeconds: 6

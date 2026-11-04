@@ -51,6 +51,13 @@ RAMP_HALF = 5.0              # 10 m wide ramps into the bay
 RAMP_DEPTH = 8.0             # m each side of the bay rim
 POCKET = (0.0, 53.0, 13.0, 8.0)          # the Sanctum pocket in the mountains
 POCKET_RAMP_Z, POCKET_RAMP_HALF, POCKET_RAMP_DEPTH = 44.0, 4.0, 8.0
+# TIDESTONE (2026-11-03): the SECOND Sanctum — a rock islet in the sea south
+# of the bay mouth, on the axis, reached by a waded sandbar from the mouth.
+# Both seats are the same walk from it, as from Stormcairn; holding the
+# dominion means holding the mountain pocket AND the sea rock.
+TIDE = (0.0, -55.5, 13.0, 7.0)           # centre x, z, radii (plan units), UNWARPED — an ISLAND
+                                          # (2026-11-04: 30 soldiers must stand on DRY ground to claim it)
+BAR_HALF = 8.0                           # the sandbar's half-width
 
 WATER, WADE = 3.6, 0.5       # WaterPlane level and wadeDepth
 H_BEACH0, H_BEACH1 = 3.9, 5.2
@@ -106,7 +113,15 @@ mouth_half = 11.0 + np.clip((coast + BEACH_W - wz) * 0.35, 0, 5) + edge * 1.2
 bay |= (np.abs(wx) < mouth_half) & (wz < BAY_CZ) & (uz >= coast)
 island = blob(ISLAND_CX, ISLAND_CZ, ISLAND_RX, ISLAND_RZ, 0.16, 2.3)
 shallows = bay & ~island
-beach = ~sea & (uz < coast + BEACH_W + edge * 2 + 1.2 * np.sin(ux / 15.0)) & ~bay
+# drawn in UNWARPED plan space: the rock must sit clear of the coast and of
+# the map's south edge, and the bar must overlap the mouth all the way up
+_ta = np.arctan2((wz - TIDE[1]) / TIDE[3], (wx - TIDE[0]) / TIDE[2])
+_tr = 1.0 + 0.08 * (0.6 * np.sin(2 * _ta + 0.9) + 0.3 * np.sin(3 * _ta + 1.8))
+islet = np.hypot((wx - TIDE[0]) / TIDE[2], (wz - TIDE[1]) / TIDE[3]) + edge * 0.05 < _tr
+bar = (np.abs(wx) < BAR_HALF + edge * 0.8) & (wz <= BAY_CZ) & (wz > TIDE[1]) & ~islet
+sea &= ~(islet | bar)
+shallows |= bar
+beach = ~sea & (uz < coast + BEACH_W + edge * 2 + 1.2 * np.sin(ux / 15.0)) & ~bay & ~bar & ~islet
 
 # Mountains: a wall along the north, lifted in the middle (room for the
 # Crown above the bay) and in lobes over each half.
@@ -116,8 +131,8 @@ mtn_line = MTN_Z + lobe + 2.5 * np.sin(ux / 14.0 + 0.7) + edge * 3
 pocket = blob(*POCKET, 0.12, 0.4)
 mountain = ((uz > mtn_line) | (wz > SZ / 2 - 3)) & ~sea & ~beach & ~pocket
 
-grass = ~sea & ~beach & ~bay & ~mountain & ~pocket
-for m in ("sea", "bay", "island", "shallows", "beach", "mountain", "pocket", "grass"):
+grass = ~sea & ~beach & ~bay & ~mountain & ~pocket & ~bar & ~islet
+for m in ("sea", "bay", "island", "shallows", "beach", "mountain", "pocket", "grass", "islet", "bar"):
     globals()[m] = mirror(globals()[m])
 
 # ── Territories ──────────────────────────────────────────────────────────────
@@ -126,7 +141,7 @@ for m in ("sea", "bay", "island", "shallows", "beach", "mountain", "pocket", "gr
 # never be claimed. They are SHALLOWS territories (2026-10-19): their waded
 # water is buildable (buildableShallows -> RegionSeedMarker.BuildableShallows),
 # because ground you can claim you must be able to build on and hold.
-names = [s[0] for s in SEEDS] + ["WBeach", "WShallows", "Sanctum", "Isle"]
+names = [s[0] for s in SEEDS] + ["WBeach", "WShallows", "Sanctum", "Isle", "Tidestone"]
 dd = np.stack([(ux - x) ** 2 + (uz - z) ** 2 for _, x, z in SEEDS])
 near = dd.argmin(0)
 region = np.full((NZ, NX), -1, np.int32)
@@ -138,6 +153,7 @@ west[shallows] = names.index("WShallows")
 region = np.where(beach | shallows, mirror(west), region)
 region[pocket] = names.index("Sanctum")
 region[island] = names.index("Isle")
+region[islet] = names.index("Tidestone")
 east_of = {}
 for i, n in enumerate(list(names)):
     if n.startswith("W"):
@@ -149,7 +165,7 @@ region = np.where(wx > 0, east, region)
 
 # Levels: 0 shallows (under the surface), 1 beach, 2 island, 3 plateau,
 #         4 the Sanctum pocket.
-LEVEL = {"Isle": 2, "Sanctum": 4}
+LEVEL = {"Isle": 2, "Sanctum": 4, "Tidestone": 2}
 def level_of(n):
     if n in LEVEL: return LEVEL[n]
     if n.endswith("Shallows"): return 0
@@ -207,6 +223,12 @@ d_isl_in = dist_m(~island)
 it = np.clip(d_isl_in / 4.0, 0, 1)
 h_is = (WATER - 0.1) + (H_ISLAND - WATER + 0.1) * (it * it * (3 - 2 * it)) + noise(14, 45) * 0.25 * it   # gentle: under the 15-degree build limit, so the curse's outcrops keep room for their posts
 h[island] = h_is[island]
+d_tide_in = dist_m(~islet)
+# dry from its very edge (WATER + 0.3), up to the island height within 2.5 m:
+# the claim counts soldiers standing on the rock, not wading beside it
+tt = np.clip(d_tide_in / 2.5, 0, 1)
+h_td = (WATER + 0.3) + (H_ISLAND - WATER - 0.3) * (tt * tt * (3 - 2 * tt)) + noise(14, 45) * 0.25 * tt
+h[islet] = h_td[islet]
 roll = 0.5 + 0.5 * np.tanh(noise(24, 46) * 1.0 + noise(9, 47) * 0.55 + noise(3.5, 48) * 0.18)
 fade = np.clip((np.minimum(np.minimum(d_low, d_mtn), d_ramp0) - 2.0) / 8.0, 0, 1)
 h_gr = H_GRASS + 2.0 * roll * fade
@@ -324,6 +346,8 @@ isle_dist = walk_m(cent[names.index("Isle")])
 print("start to start (4-way grid, overestimates):", start_dist, "m; start to island:", isle_dist, "m")
 for r, nm in enumerate(names):
     print(f"  {nm:10} {int((region == r).sum() / (M * M) * SCALE * SCALE):6} m2")
+_td = names.index("Tidestone")
+print("Tidestone dry+walkable:", int(((region == _td) & walk & (h > WATER)).sum() / (M * M) * SCALE * SCALE), "m2")
 
 # ── Natural render ───────────────────────────────────────────────────────────
 rng = np.random.default_rng(7)
@@ -351,6 +375,8 @@ img[beach] = sand[beach]
 isl_sand = np.clip(1 - d_isl_in / 2.5, 0, 1)[..., None]
 isl = img * (1 - isl_sand) + sand_dry * isl_sand
 img[island] = isl[island]
+tide_sand = np.clip(1 - d_tide_in / 2.5, 0, 1)[..., None]
+img[islet] = (img * (1 - tide_sand) + sand_dry * tide_sand)[islet]
 strata = np.sin(h * 0.9 + noise(5, 73) * 2.0) * 2
 rock = np.stack([104 + ridge * 40, 98 + ridge * 36, 90 + ridge * 32], -1) + (var * 8 + strata)[..., None]
 snow = np.clip((h - (h[mountain].max() - 6)) / 4.0 + noise(1.5, 74) * 0.3, 0, 1)[..., None] * (gy[..., None] > -0.4)
@@ -432,8 +458,8 @@ try:
 except Exception:
     font = big = bold = ImageFont.load_default()
 def px(x, z): return ((x + SX / 2) * M, (SZ / 2 - z) * M)
-LABEL = {"Isle": "Yiel (curse)", "Sanctum": "Sanctum", "WShallows": "shallows", "EShallows": "shallows",
-         "Crown": "Crown"}
+LABEL = {"Isle": "Yiel (curse)", "Sanctum": "Sanctum", "Tidestone": "Sanctum", "WShallows": "shallows",
+         "EShallows": "shallows", "Crown": "Crown"}
 for r, (cz, cx) in cent.items():
     n = names[r]
     if n.endswith("Start"):
@@ -449,7 +475,7 @@ for r, (cz, cx) in cent.items():
         d.text((cx, cz), lbl, fill=(255, 255, 255), font=bold, anchor="mm")
 for x, z in ramp_centres:
     d.text(px(x, z), "ramp", fill=(255, 236, 160), font=bold, anchor="mm")
-d.text(px(0, COAST_Z - 10), "the sea (unclaimable)", fill=(220, 235, 255), font=bold, anchor="mm")
+d.text(px(-72, COAST_Z - 11), "the sea (unclaimable)", fill=(220, 235, 255), font=bold, anchor="mm")
 # scale bar: 20 m
 x0, y0 = 14, NZ - 18
 bar = 20 / SCALE * M                      # 20 world metres
@@ -473,6 +499,7 @@ for line in ["Start: the plateau beside the bay.",
              "Bluff: clifftop over the bay and beach.",
              "Crown: shared, above both bay ramps.",
              "Sanctum: mountain pocket, one ramp.",
+             "Tidestone: a sea rock past the mouth, by a waded bar.",
              "Beach: reached ONLY through the bay.",
              "Shallows: claimable AND buildable.",
              "Yiel: the curse's home, in the shallows."]:
@@ -527,9 +554,11 @@ save_mask("nowalk.png", mountain | forest)
 save_mask("forest.png", forest)
 save_mask("dirt.png", ramp_mask & ~sea)
 save_mask("fringe.png", mountain & (d_mtn_in < 2.5))
-save_mask("grass.png", (((grass | pocket) & (d_low > 1.0)) | (island & (d_isl_in > 2.5))) & ~ramp_mask & ~forest)
+save_mask("grass.png", (((grass | pocket) & (d_low > 1.0)) | (island & (d_isl_in > 2.5))
+                        | (islet & (d_tide_in > 2.5))) & ~ramp_mask & ~forest)
 sand = (beach | sea | shallows).astype(np.float32)
 sand = np.maximum(sand, island * np.clip(1 - d_isl_in / 2.5, 0, 1))
+sand = np.maximum(sand, islet * np.clip(1 - d_tide_in / 2.5, 0, 1))
 sand = np.maximum(sand, (grass & (d_low < 1.0)) * 0.6)
 save_gray("sand.png", sand * ~ramp_mask)
 bare = np.clip(noise(7, 98) * 1.5 - 1.25, 0, 0.5) * grass * (d_ramp > 4)
@@ -542,14 +571,14 @@ DISPLAY = {
     "WHighland": "Westerly Downs", "EHighland": "Easterly Downs",
     "WBeach": "Gull Strand", "EBeach": "Tern Strand",
     "WShallows": "West Lymwérra", "EShallows": "East Lymwérra",
-    "Crown": "Bayhead", "Sanctum": "Stormcairn", "Isle": "Yiel",
+    "Crown": "Bayhead", "Sanctum": "Stormcairn", "Isle": "Yiel", "Tidestone": "Tidestone",
 }
 # Every type is authored and mirrored, so neither seat is dealt better ground.
 # Yiel is Veilstone rich and PINNED: the curse always starts there.
 TYPES = {
     "Start": "Start", "Bluff": "NormalIron", "Highland": "NormalVeilstone",
     "Beach": "IronRich", "Shallows": "Empty",
-    "Crown": "Normal", "Sanctum": "Sanctum", "Isle": "VeilstoneRich",
+    "Crown": "Normal", "Sanctum": "Sanctum", "Isle": "VeilstoneRich", "Tidestone": "Sanctum",
 }
 def rtype(code):
     return TYPES[code[1:] if code[0] in "WE" and code[1].isupper() else code]

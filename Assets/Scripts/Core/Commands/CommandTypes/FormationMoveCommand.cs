@@ -291,6 +291,12 @@ namespace TheWaningBorder.Core.Commands.Types
         {
             if (!BuildPlan(em, units, destination, shape, arriveFacing, columns, out var plan)) return;
 
+            // SOLDIERS GOING TO THE SAME PLACE TRAVEL IN FORMATION (2026-11-04).
+            // Whoever stood outside the plan's cohesion gate used to walk to its
+            // slot alone: a draft from five rally points marched as a trickle.
+            // Such an order now splits into one formation per cluster.
+            if (TrySplitOrder(em, plan, destination, shape, attackMove, arriveFacing, columns)) return;
+
             // Count members BEFORE issuing: a group of one gets no group, so
             // its membership really is ending and must still be stripped.
             int memberCount = 0;
@@ -300,7 +306,140 @@ namespace TheWaningBorder.Core.Commands.Types
             IssuePlanOrders(em, plan, attackMove, reattaches: memberCount >= 2);
 
             if (memberCount < 2) return;
+            CreateGroup(em, plan, shape);
+        }
 
+        /// <summary>
+        /// Split an order whose units are too spread for one formation. All of
+        /// them keep their slot from the WHOLE plan, so the formations settle
+        /// into one shape at the destination; each cluster gets its own compact
+        /// marching lattice and its own leader. False when one formation holds
+        /// them all. Clusters are built in plan order: deterministic.
+        /// </summary>
+        private static bool TrySplitOrder(EntityManager em, in FormationPlan whole, float3 destination,
+            FormationShape shape, bool attackMove, float3 arriveFacing, int columns)
+        {
+            int n = whole.Units.Count;
+            bool[] soldier = new bool[n];
+            bool anyLoose = false;
+            for (int i = 0; i < n; i++)
+            {
+                soldier[i] = !whole.OnRampart[i] && !IsWorker(em, whole.Units[i]);
+                if (soldier[i] && !whole.Member[i]) anyLoose = true;
+            }
+            if (!anyLoose) return false;
+
+            var cfg = TheWaningBorder.Systems.Navigation.FormationGroupSystemConfig.I;
+            float3[] pos = new float3[n];
+            for (int i = 0; i < n; i++)
+                pos[i] = em.HasComponent<LocalTransform>(whole.Units[i])
+                    ? em.GetComponentData<LocalTransform>(whole.Units[i]).Position : float3.zero;
+
+            // Single-link clusters.
+            int[] cluster = new int[n];
+            for (int i = 0; i < n; i++) cluster[i] = -1;
+            var clusters = new List<List<int>>();
+            float link2 = cfg.splitLinkRadius * cfg.splitLinkRadius;
+            var open = new Queue<int>();
+            for (int i = 0; i < n; i++)
+            {
+                if (!soldier[i] || cluster[i] >= 0) continue;
+                var list = new List<int>();
+                int id = clusters.Count;
+                clusters.Add(list);
+                cluster[i] = id;
+                open.Enqueue(i);
+                while (open.Count > 0)
+                {
+                    int a = open.Dequeue();
+                    list.Add(a);
+                    for (int b = 0; b < n; b++)
+                    {
+                        if (!soldier[b] || cluster[b] >= 0) continue;
+                        if (math.distancesq(pos[a].xz, pos[b].xz) > link2) continue;
+                        cluster[b] = id;
+                        open.Enqueue(b);
+                    }
+                }
+            }
+
+            // Scraps join a neighbour; and never more than splitMaxFormations.
+            float merge2 = cfg.splitMergeRadius * cfg.splitMergeRadius;
+            for (bool again = true; again;)
+            {
+                again = false;
+                int smallest = -1;
+                for (int c = 0; c < clusters.Count; c++)
+                    if (clusters[c].Count > 0 && (smallest < 0 || clusters[c].Count < clusters[smallest].Count))
+                        smallest = c;
+                if (smallest < 0) break;
+                int live = 0;
+                for (int c = 0; c < clusters.Count; c++) if (clusters[c].Count > 0) live++;
+                // Every small cluster gets its turn, smallest first.
+                var order = new List<int>();
+                for (int c = 0; c < clusters.Count; c++) if (clusters[c].Count > 0) order.Add(c);
+                order.Sort((x, y) => clusters[x].Count != clusters[y].Count
+                    ? clusters[x].Count - clusters[y].Count : x - y);
+                for (int o = 0; o < order.Count && !again; o++)
+                {
+                    int c = order[o];
+                    bool overBudget = live > math.max(1, cfg.splitMaxFormations);
+                    if (!overBudget && clusters[c].Count > 2) break;
+                    int best = -1; float bestD = float.MaxValue;
+                    for (int d = 0; d < clusters.Count; d++)
+                    {
+                        if (d == c || clusters[d].Count == 0) continue;
+                        for (int ia = 0; ia < clusters[c].Count; ia++)
+                        for (int ib = 0; ib < clusters[d].Count; ib++)
+                        {
+                            float dd = math.distancesq(pos[clusters[c][ia]].xz, pos[clusters[d][ib]].xz);
+                            if (dd < bestD) { bestD = dd; best = d; }
+                        }
+                    }
+                    if (best < 0 || (!overBudget && bestD > merge2)) continue;
+                    clusters[best].AddRange(clusters[c]);
+                    clusters[c].Clear();
+                    again = true;
+                }
+            }
+
+            // One formation after all: the plain path, everyone a member.
+            var live2 = new List<List<int>>();
+            foreach (var c in clusters) if (c.Count > 0) live2.Add(c);
+
+            // The per-unit orders go out from the whole plan: its slots are the
+            // destination's shape. Membership is re-attached right after.
+            for (int i = 0; i < n; i++) whole.Member[i] = false;
+            foreach (var c in live2)
+                if (c.Count >= 2) foreach (int i in c) whole.Member[i] = true;
+            IssuePlanOrders(em, whole, attackMove, reattaches: true);
+
+            foreach (var c in live2)
+            {
+                if (c.Count < 2) continue;
+                var groupUnits = new List<Entity>(c.Count);
+                foreach (int i in c) groupUnits.Add(whole.Units[i]);
+                if (!BuildPlan(em, groupUnits, destination, shape, arriveFacing, columns, out var part)) continue;
+
+                float slowest = float.MaxValue;
+                for (int j = 0; j < part.Units.Count; j++)
+                {
+                    int wholeIdx = whole.Units.IndexOf(part.Units[j]);
+                    if (wholeIdx >= 0) part.SlotWorld[j] = whole.SlotWorld[wholeIdx];
+                    part.Member[j] = true;
+                    float sp = em.HasComponent<MoveSpeed>(part.Units[j])
+                        ? em.GetComponentData<MoveSpeed>(part.Units[j]).Value : 3.5f;
+                    if (sp > 0f && sp < slowest) slowest = sp;
+                }
+                part.GroupSpeed = slowest == float.MaxValue ? part.GroupSpeed : slowest;
+                CreateGroup(em, part, shape);
+            }
+            return true;
+        }
+
+        /// <summary>The group entity and its members' back-references.</summary>
+        private static void CreateGroup(EntityManager em, in FormationPlan plan, FormationShape shape)
+        {
             // Create the group entity with its virtual leader at the
             // members' centroid.
             var group = em.CreateEntity();
@@ -353,7 +492,13 @@ namespace TheWaningBorder.Core.Commands.Types
             {
                 if (!plan.Member[i]) continue;
                 var unit = plan.Units[i];
-                var stateData = new FormationMemberState { Group = group, Slot = plan.SlotLocal[i] };
+                var stateData = new FormationMemberState
+                {
+                    Group = group,
+                    Slot = plan.SlotLocal[i],
+                    FieldGoal = plan.Destination,   // one path per formation
+                    HasFieldGoal = 1,
+                };
                 // Both enableable, pre-added on units (TransientState.cs).
                 TransientState.Set(em, unit, stateData);
 

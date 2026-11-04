@@ -123,6 +123,63 @@ public static class GoalFlowQuant
 {
     public const float BucketWorldSize = 8f;
 
+    /// <summary>Cells within which a unit that sees its goal needs no field.
+    /// Sizes a per-tick line walk, not a tuning value.</summary>
+    public const int SightSkipCells = 48;
+
+    /// <summary>Buckets around a goal searched for a live field to reuse (~24 m).</summary>
+    public const int AliasBuckets = 3;
+    /// <summary>GoalFlowFieldCache.Alias: "no field nearby" (memoised for the tick).</summary>
+    public const byte NoAliasVariant = 255;
+
+    /// <summary>The goal a unit's FIELD aims at when it marches in formation:
+    /// the group's destination. False for everyone else, and for a member out
+    /// of rank fighting, who chases on its own. The producer and the sampler
+    /// MUST both ask here or they would disagree on the key.</summary>
+    public static bool TryFieldGoal(Entity u, ref ComponentLookup<FormationMemberState> member,
+        ref ComponentLookup<Target> target, out float3 goal)
+    {
+        goal = default;
+        if (!member.HasComponent(u) || !member.IsComponentEnabled(u)) return false;
+        var m = member[u];
+        if (m.HasFieldGoal == 0) return false;
+        if (target.HasComponent(u) && target[u].Value != Entity.Null) return false;
+        goal = m.FieldGoal;
+        return true;
+    }
+
+    /// <summary>FlowFollowSystem's line-of-sight walk, on cells (same rules:
+    /// walls block, gates admit owner and allies, deck-only strips break the
+    /// line, no corner squeeze).</summary>
+    public static bool CanSee(in NativeArray<byte> cost, in NativeArray<byte> flags, int w, int h,
+        int x0, int z0, int x1, int z1, byte faction)
+    {
+        if (x0 < 0 || x0 >= w || z0 < 0 || z0 >= h || x1 < 0 || x1 >= w || z1 < 0 || z1 >= h) return false;
+        int dx = math.abs(x1 - x0), dz = math.abs(z1 - z0);
+        int sx = x0 < x1 ? 1 : -1, sz = z0 < z1 ? 1 : -1;
+        int err = dx - dz, x = x0, z = z0;
+        int maxSteps = w + h;
+        for (int step = 0; step < maxSteps; step++)
+        {
+            int idx = z * w + x;
+            byte c = cost[idx];
+            if (c == NavCostField.CostImpassable) return false;
+            if (c == NavCostField.CostConditional
+                && !Alliances.AreAlliedBurst((byte)(flags[idx] & NavCostField.FlagOwnerMask), faction)) return false;
+            if (c == NavCostField.CostBridgeDeckOnly) return false;
+            if (x == x1 && z == z1) return true;
+            int e2 = err * 2;
+            bool stepX = e2 > -dz, stepZ = e2 < dx;
+            if (stepX && stepZ
+                && (cost[z * w + x + sx] == NavCostField.CostImpassable
+                    || cost[(z + sz) * w + x] == NavCostField.CostImpassable))
+                return false;
+            if (stepX) { err -= dz; x += sx; }
+            if (stepZ) { err += dx; z += sz; }
+        }
+        return false;
+    }
+
     /// <summary>Cells per bucket edge for a given grid cell size.</summary>
     public static int CellsPerBucket(float cellSize)
     {
@@ -155,6 +212,9 @@ public struct GoalFlowFieldCache : IComponentData
     public NativeHashMap<GoalFlowKey, int> SlotIndex;
     public NativeArray<GoalFlowSlot> Slots;
     public NativeArray<GoalFlowKey> SlotKeys;
+    /// <summary>This tick: a field-less goal key -> the nearby field its units
+    /// walk (2026-11-04). Variant NoAliasVariant = none near.</summary>
+    public NativeHashMap<GoalFlowKey, GoalFlowKey> Alias;
     public NativeArray<byte> DirPool;          // SlotCount * CellCount
     public NativeArray<uint> IntegrationScratch; // CellCount (sequential reuse)
     public int SlotCount;
@@ -175,16 +235,21 @@ namespace TheWaningBorder.Systems.Navigation
     [UpdateBefore(typeof(FlowFollowSystem))]
     public partial struct GoalFlowFieldSystem : ISystem
     {
-        /// <summary>Cached whole-map fields. 48 distinct live destinations
-        /// covers heavy multi-army play; beyond it LRU eviction recycles
-        /// (a re-order simply re-integrates).</summary>
-        public const int SlotCountDefault = 48;
+        /// <summary>Cached whole-map fields. 488 fills a 512 MB budget on the largest map
+        /// (1 byte per cell of a 1026 x 1026 grid); a smaller map spends proportionally
+        /// less. Beyond it LRU eviction and the fair shares decide (2026-11-04).</summary>
+        public const int SlotCountDefault = 488;
+
+        /// <summary>Of the pool, all the curse may hold (it marches few waves).
+        /// The rest is split equally among the living players; a share is a
+        /// guarantee, and what its owner leaves unused may be borrowed.</summary>
+        public const int CurseSlots = 10;
 
         /// <summary>Max fields integrated per tick — keeps a mass re-order
         /// (or a stamp-generation bump invalidating everything) from
         /// spiking one frame. Units whose field is pending fall back to
         /// direct-bearing for the tick or two it takes.</summary>
-        public const int MaxIntegrationsPerTick = 4;
+        public const int MaxIntegrationsPerTick = 8;
 
         /// <summary>
         /// Under deterministic lockstep a detached batch goes live exactly
@@ -245,6 +310,11 @@ namespace TheWaningBorder.Systems.Navigation
         // System-side mirrors of the cache's pools — the only way to free them
         // once the end-of-match wipe has taken the component that held them.
         private NativeHashMap<GoalFlowKey, int> _slotIndex;
+        private NativeHashMap<GoalFlowKey, GoalFlowKey> _alias;
+        private EntityQuery _groupQuery;
+        private EntityQuery _bankQuery;
+        private EntityQuery _eliminatedQuery;
+        private int _alivePlayers;
         private NativeArray<GoalFlowSlot> _slots;
         private NativeArray<GoalFlowKey> _slotKeys;
         private NativeArray<byte> _dirPool;
@@ -271,6 +341,8 @@ namespace TheWaningBorder.Systems.Navigation
             _dirBoxes = default;
             _dirSentinels = default;
             if (_slotIndex.IsCreated) _slotIndex.Dispose();
+            if (_alias.IsCreated) _alias.Dispose();
+            _alias = default;
             if (_slots.IsCreated) _slots.Dispose();
             if (_slotKeys.IsCreated) _slotKeys.Dispose();
             if (_dirPool.IsCreated) _dirPool.Dispose();
@@ -342,6 +414,7 @@ namespace TheWaningBorder.Systems.Navigation
         private ComponentLookup<FlyingTag> _flyingLookup;
         private ComponentLookup<LayerTraversalState> _traversalLookup;
         private ComponentLookup<FormationMemberState> _memberLookup;
+        private ComponentLookup<Target> _targetLookup;
 
         // Per-tick key / seeker collection output, persistent and cleared
         // each tick (perf pass 2026-10-16) - see CollectGoalKeysJob.
@@ -367,11 +440,16 @@ namespace TheWaningBorder.Systems.Navigation
             _unitQuery = SystemAPI.QueryBuilder()
                 .WithAll<UnitTag, LocalTransform, DesiredDestination, FactionTag>()
                 .Build();
+            _groupQuery = SystemAPI.QueryBuilder().WithAll<FormationGroup>().Build();
+            _bankQuery = SystemAPI.QueryBuilder()
+                .WithAll<FactionTag, TheWaningBorder.Economy.FactionResources>().Build();
+            _eliminatedQuery = SystemAPI.QueryBuilder().WithAll<EliminatedFactionRecord>().Build();
 
             _layerLookup = state.GetComponentLookup<NavLayerIndex>(true);
             _flyingLookup = state.GetComponentLookup<FlyingTag>(true);
             _traversalLookup = state.GetComponentLookup<LayerTraversalState>(true);
             _memberLookup = state.GetComponentLookup<FormationMemberState>(true);
+            _targetLookup = state.GetComponentLookup<Target>(true);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -398,6 +476,7 @@ namespace TheWaningBorder.Systems.Navigation
                 var cache = new GoalFlowFieldCache
                 {
                     SlotIndex = new NativeHashMap<GoalFlowKey, int>(SlotCountDefault * 2, Allocator.Persistent),
+                    Alias = new NativeHashMap<GoalFlowKey, GoalFlowKey>(256, Allocator.Persistent),
                     Slots = new NativeArray<GoalFlowSlot>(SlotCountDefault, Allocator.Persistent,
                         NativeArrayOptions.ClearMemory),
                     SlotKeys = new NativeArray<GoalFlowKey>(SlotCountDefault, Allocator.Persistent,
@@ -416,6 +495,7 @@ namespace TheWaningBorder.Systems.Navigation
                 em.SetComponentData(_cacheEntity, cache);
                 // Mirror the pools so a rebuild after a wipe can free them.
                 _slotIndex = cache.SlotIndex;
+                _alias = cache.Alias;
                 _slots = cache.Slots;
                 _slotKeys = cache.SlotKeys;
                 _dirPool = cache.DirPool;
@@ -541,10 +621,13 @@ namespace TheWaningBorder.Systems.Navigation
             _flyingLookup.Update(ref state);
             _traversalLookup.Update(ref state);
             _memberLookup.Update(ref state);
+            _targetLookup.Update(ref state);
 
             _wanted.Clear();
             _seen.Clear();
             _seekerRecs.Clear();
+            cacheSingleton.Alias.Clear();
+            using var groups = _groupQuery.ToComponentDataArray<FormationGroup>(Allocator.TempJob);
             new CollectGoalKeysJob
             {
                 Dests = dests,
@@ -555,6 +638,7 @@ namespace TheWaningBorder.Systems.Navigation
                 Flying = _flyingLookup,
                 Traversal = _traversalLookup,
                 Member = _memberLookup,
+                TargetL = _targetLookup,
                 Cost = cost.Cost,
                 Flags = cost.Flags,
                 CostGeneration = cost.Generation,
@@ -572,6 +656,8 @@ namespace TheWaningBorder.Systems.Navigation
                 Wanted = _wanted,
                 Seen = _seen,
                 SeekerRecs = _seekerRecs,
+                Groups = groups,
+                Alias = cacheSingleton.Alias,
             }.Run();
             var wanted = _wanted;
 
@@ -678,9 +764,10 @@ namespace TheWaningBorder.Systems.Navigation
                 // follows the same order everywhere.
                 wanted.Sort(new GoalFlowKey.Order());
 
-                int rrStart = cacheSingleton.TickCounter % wanted.Length;
-                for (int i = 0; i < budget; i++)
-                    batchKeys[i] = wanted[(rrStart + i) % wanted.Length];
+                // PLAYERS TAKE TURNS (2026-11-04): one busy army must not fill
+                // every batch. Within a faction formations come first, and each
+                // queue rotates by tick so nothing starves.
+                DealBatch(wanted, _seen, batchKeys, cacheSingleton.TickCounter);
 
                 // ── Seeker pass: every unit whose key is in the batch
                 // contributes its cell — the sweep must settle all of them
@@ -714,7 +801,7 @@ namespace TheWaningBorder.Systems.Navigation
                     int slot;
                     if (!cacheSingleton.SlotIndex.TryGetValue(key, out slot))
                     {
-                        slot = AllocateSlot(ref cacheSingleton);
+                        slot = AllocateSlot(ref cacheSingleton, key.FactionIdx, SharePerPlayer(ref state));
                         // Every slot is in use THIS tick: leave the key
                         // unintegrated (its units walk the direct bearing)
                         // rather than evict a field units are sampling now.
@@ -863,8 +950,108 @@ namespace TheWaningBorder.Systems.Navigation
         // yanked a field out from under units sampling it, they re-requested
         // it next tick, and it evicted another — LRU thrash, every tick.
         // Returns -1 when nothing is evictable; the caller skips the key.
-        private static int AllocateSlot(ref GoalFlowFieldCache cache)
+        private static readonly System.Collections.Generic.List<int>[] _dealMarch = NewLists();
+        private static readonly System.Collections.Generic.List<int>[] _dealLone = NewLists();
+        private static System.Collections.Generic.List<int>[] NewLists()
         {
+            var l = new System.Collections.Generic.List<int>[9];
+            for (int i = 0; i < 9; i++) l[i] = new System.Collections.Generic.List<int>();
+            return l;
+        }
+
+        private static int FactionSlotIndex(byte f) => f <= 7 ? f : 8;
+
+        /// <summary>Fill the batch one key per faction per turn, in sorted-key
+        /// order: formations, then the rest. Deterministic.</summary>
+        private static void DealBatch(NativeList<GoalFlowKey> wanted, NativeHashMap<GoalFlowKey, byte> seen,
+            NativeArray<GoalFlowKey> batch, int tick)
+        {
+            for (int f = 0; f < 9; f++) { _dealMarch[f].Clear(); _dealLone[f].Clear(); }
+            for (int i = 0; i < wanted.Length; i++)
+            {
+                int f = FactionSlotIndex(wanted[i].FactionIdx);
+                bool march = seen.TryGetValue(wanted[i], out byte v) && v == 2;
+                (march ? _dealMarch[f] : _dealLone[f]).Add(i);
+            }
+            int filled = 0;
+            int[] taken = new int[9];
+            for (int round = 0; filled < batch.Length && round <= wanted.Length; round++)
+            for (int o = 0; o < 9 && filled < batch.Length; o++)
+            {
+                int f = (tick + o) % 9;
+                int m = _dealMarch[f].Count, l = _dealLone[f].Count;
+                if (taken[f] >= m + l) continue;
+                int n = taken[f]++;
+                int idx = n < m
+                    ? _dealMarch[f][(tick + n) % m]
+                    : _dealLone[f][(tick + n - m) % l];
+                batch[filled++] = wanted[idx];
+            }
+        }
+
+        /// <summary>The pool past the curse's slots, split equally among the
+        /// living players; an eliminated player's share goes to the others.</summary>
+        private int SharePerPlayer(ref SystemState state)
+        {
+            int players = 0;
+            uint alive = 0;
+            using (var facs = _bankQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < facs.Length; i++)
+                {
+                    int f = (int)facs[i].Value;
+                    if (f >= 0 && f <= 7) alive |= 1u << f;
+                }
+            if (!_eliminatedQuery.IsEmptyIgnoreFilter)
+            {
+                using var holders = _eliminatedQuery.ToEntityArray(Allocator.Temp);
+                for (int h = 0; h < holders.Length; h++)
+                {
+                    var dead = state.EntityManager.GetBuffer<EliminatedFactionRecord>(holders[h], true);
+                    for (int i = 0; i < dead.Length; i++)
+                    {
+                        int f = (int)dead[i].Value;
+                        if (f >= 0 && f <= 7) alive &= ~(1u << f);
+                    }
+                }
+            }
+            for (int f = 0; f < 8; f++) if ((alive & (1u << f)) != 0) players++;
+            _alivePlayers = math.max(1, players);
+            return (SlotCountDefault - CurseSlots) / _alivePlayers;
+        }
+
+        /// <summary>
+        /// A slot for this faction (2026-11-04). Free first, then the least
+        /// recently used nobody needs this tick, as ever. With every slot in use,
+        /// a faction under its share takes one from whoever is furthest over
+        /// theirs (that side's units wait a moment, it was only borrowing); at or
+        /// over its share it waits. The curse holds CurseSlots at most, whatever
+        /// is free, and past that recycles its own.
+        /// </summary>
+        private static int AllocateSlot(ref GoalFlowFieldCache cache, byte faction, int share)
+        {
+            int me = FactionSlotIndex(faction);
+            int[] held = new int[9];
+            for (int i = 0; i < cache.SlotCount; i++)
+                if (cache.Slots[i].Valid != 0) held[FactionSlotIndex(cache.SlotKeys[i].FactionIdx)]++;
+
+            if (me == 8 && held[8] >= CurseSlots)
+            {
+                int own = -1, ownTick = int.MaxValue;
+                for (int i = 0; i < cache.SlotCount; i++)
+                {
+                    var m = cache.Slots[i];
+                    if (m.Valid == 0 || m.Valid == 2 || m.LastUsedTick == cache.TickCounter) continue;
+                    if (FactionSlotIndex(cache.SlotKeys[i].FactionIdx) != 8) continue;
+                    if (m.LastUsedTick < ownTick) { own = i; ownTick = m.LastUsedTick; }
+                }
+                if (own < 0) return -1;
+                cache.SlotIndex.Remove(cache.SlotKeys[own]);
+                var s0 = cache.Slots[own];
+                s0.Valid = 0;
+                cache.Slots[own] = s0;
+                return own;
+            }
+
             for (int i = 0; i < cache.SlotCount; i++)
             {
                 if (cache.Slots[i].Valid == 0) return i;
@@ -881,7 +1068,27 @@ namespace TheWaningBorder.Systems.Navigation
                     lruTick = cache.Slots[i].LastUsedTick;
                 }
             }
-            if (lru < 0) return -1;
+            if (lru < 0)
+            {
+                // Everything is in use. Under its share, this faction takes back.
+                if (held[me] >= (me == 8 ? CurseSlots : share)) return -1;
+                int worst = -1, worstOver = 0;
+                for (int f = 0; f < 8; f++)
+                {
+                    if (f == me) continue;
+                    int over = held[f] - share;
+                    if (over > worstOver) { worstOver = over; worst = f; }
+                }
+                if (worst < 0) return -1;
+                lruTick = int.MaxValue;
+                for (int i = 0; i < cache.SlotCount; i++)
+                {
+                    var m = cache.Slots[i];
+                    if (m.Valid != 1 || FactionSlotIndex(cache.SlotKeys[i].FactionIdx) != worst) continue;
+                    if (m.LastUsedTick < lruTick) { lru = i; lruTick = m.LastUsedTick; }
+                }
+                if (lru < 0) return -1;
+            }
             cache.SlotIndex.Remove(cache.SlotKeys[lru]);
             var s = cache.Slots[lru];
             s.Valid = 0;
@@ -919,6 +1126,7 @@ namespace TheWaningBorder.Systems.Navigation
         [ReadOnly] public ComponentLookup<FlyingTag> Flying;
         [ReadOnly] public ComponentLookup<LayerTraversalState> Traversal;
         [ReadOnly] public ComponentLookup<FormationMemberState> Member;
+        [ReadOnly] public ComponentLookup<Target> TargetL;
         [ReadOnly] public NativeArray<byte> Cost;
         [ReadOnly] public NativeArray<byte> Flags;
         public int CostGeneration;
@@ -939,6 +1147,8 @@ namespace TheWaningBorder.Systems.Navigation
         public NativeList<GoalFlowKey> Wanted;
         public NativeHashMap<GoalFlowKey, byte> Seen;
         public NativeList<GoalSeekerRec> SeekerRecs;
+        [ReadOnly] public NativeArray<FormationGroup> Groups;
+        public NativeHashMap<GoalFlowKey, GoalFlowKey> Alias;
 
         public void Execute()
         {
@@ -954,8 +1164,13 @@ namespace TheWaningBorder.Systems.Navigation
                     && !(Member.HasComponent(ue) && Member.IsComponentEnabled(ue));
                 if (onRampart || traversing || flyingLoose) continue;
 
-                int gx = (int)math.floor((Dests[i].Position.x - GridOrigin.x) / CellSize);
-                int gz = (int)math.floor((Dests[i].Position.z - GridOrigin.z) / CellSize);
+                // ONE FIELD PER FORMATION (2026-11-04): a marching member wants
+                // its group's field. FlowFollowSystem reads the same key.
+                bool marching = GoalFlowQuant.TryFieldGoal(ue, ref Member, ref TargetL, out float3 fieldGoal);
+                if (!marching) fieldGoal = Dests[i].Position;
+
+                int gx = (int)math.floor((fieldGoal.x - GridOrigin.x) / CellSize);
+                int gz = (int)math.floor((fieldGoal.z - GridOrigin.z) / CellSize);
                 gx = math.clamp(gx, 0, Width - 1);
                 gz = math.clamp(gz, 0, Height - 1);
 
@@ -968,6 +1183,104 @@ namespace TheWaningBorder.Systems.Navigation
 
                 int f = (int)Factions[i].Value;
                 byte factionIdx = (f >= 0 && f <= 7) ? (byte)f : (byte)0xFF;
+
+                // A unit that can already SEE its near goal never samples a
+                // field (FlowFollowSystem's first source), so it must not hold
+                // one: a melee line chasing a dozen targets took a dozen slots,
+                // and a formation waiting on its muster kept its path.
+                if (math.abs(gx - ucx) <= GoalFlowQuant.SightSkipCells
+                    && math.abs(gz - ucz) <= GoalFlowQuant.SightSkipCells
+                    && GoalFlowQuant.CanSee(Cost, Flags, Width, Height, ucx, ucz, gx, gz, factionIdx))
+                    continue;
+
+                Visit(gx, gz, ucx, ucz, factionIdx, marching);
+            }
+
+            // EVERY MARCHING LEADER IS A SEEKER TOO (2026-11-04). The leader
+            // reads the field but was never counted, so a sweep could stop short
+            // of it. Its cell read NotCovered and nothing asked for more: now
+            // that no answer means "wait", that froze whole armies on open
+            // ground (Red's 80 on Broken Oath).
+            for (int i = 0; i < Groups.Length; i++)
+            {
+                var g = Groups[i];
+                if (g.State != FormationGroup.StateMoving) continue;
+                int gx = math.clamp((int)math.floor((g.Destination.x - GridOrigin.x) / CellSize), 0, Width - 1);
+                int gz = math.clamp((int)math.floor((g.Destination.z - GridOrigin.z) / CellSize), 0, Height - 1);
+                int ucx = math.clamp((int)math.floor((g.LeaderPos.x - GridOrigin.x) / CellSize), 0, Width - 1);
+                int ucz = math.clamp((int)math.floor((g.LeaderPos.z - GridOrigin.z) / CellSize), 0, Height - 1);
+                if (math.abs(gx - ucx) <= GoalFlowQuant.SightSkipCells
+                    && math.abs(gz - ucz) <= GoalFlowQuant.SightSkipCells
+                    && GoalFlowQuant.CanSee(Cost, Flags, Width, Height, ucx, ucz, gx, gz, g.FactionIdx))
+                    continue;
+                Visit(gx, gz, ucx, ucz, g.FactionIdx, true);
+            }
+        }
+
+        /// <summary>A live field of this faction whose goal stands near this goal
+        /// and in sight of it (2026-11-04): whoever walks it can see the real goal
+        /// when it ends. Fixed scan order, deterministic.</summary>
+        private bool TryAlias(int gx, int gz, byte factionIdx, out GoalFlowKey alias)
+        {
+            alias = default;
+            int bx = gx / Quant, bz = gz / Quant;
+            int bestD = int.MaxValue;
+            bool found = false;
+            for (int dz = -GoalFlowQuant.AliasBuckets; dz <= GoalFlowQuant.AliasBuckets; dz++)
+            for (int dx = -GoalFlowQuant.AliasBuckets; dx <= GoalFlowQuant.AliasBuckets; dx++)
+            {
+                int d = dx * dx + dz * dz;
+                if (d == 0 || d >= bestD) continue;
+                var k = new GoalFlowKey
+                {
+                    GoalCell = new int2(bx + dx, bz + dz),
+                    FactionIdx = factionIdx,
+                    Variant = GoalFlowKey.VariantGround,
+                };
+                if (!SlotIndex.TryGetValue(k, out int slot) || Slots[slot].Valid != 1) continue;
+                int sx = math.min(k.GoalCell.x * Quant + Quant / 2, Width - 1);
+                int sz = math.min(k.GoalCell.y * Quant + Quant / 2, Height - 1);
+                if (sx < 0 || sz < 0) continue;
+                if (!GoalFlowQuant.CanSee(Cost, Flags, Width, Height, sx, sz, gx, gz, factionIdx)) continue;
+                alias = k; bestD = d; found = true;
+            }
+            return found;
+        }
+
+        private void Visit(int gx, int gz, int ucx, int ucz, byte factionIdx, bool marching)
+        {
+            {
+                var ownGround = new GoalFlowKey
+                {
+                    GoalCell = new int2(gx / Quant, gz / Quant),
+                    FactionIdx = factionIdx,
+                    Variant = GoalFlowKey.VariantGround,
+                };
+                // REUSE A NEARBY FIELD (2026-11-04): with no field of its own, a
+                // goal in sight of a neighbouring field's goal walks that one, as
+                // long as it covers this unit's cell.
+                if (Cost[gz * Width + gx] != NavCostField.CostBridgeDeckOnly
+                    && !SlotIndex.ContainsKey(ownGround))
+                {
+                    if (!Alias.TryGetValue(ownGround, out var aliasKey))
+                    {
+                        if (!TryAlias(gx, gz, factionIdx, out aliasKey))
+                            aliasKey = new GoalFlowKey { Variant = GoalFlowQuant.NoAliasVariant };
+                        Alias.TryAdd(ownGround, aliasKey);
+                    }
+                    if (aliasKey.Variant != GoalFlowQuant.NoAliasVariant
+                        && SlotIndex.TryGetValue(aliasKey, out int aliasSlot))
+                    {
+                        byte here = DirPool[aliasSlot * CellCount + ucz * Width + ucx];
+                        if (here < NavFlowConstants.NotCovered)
+                        {
+                            var aliasMeta = Slots[aliasSlot];
+                            aliasMeta.LastUsedTick = TickCounter;
+                            Slots[aliasSlot] = aliasMeta;
+                            return;
+                        }
+                    }
+                }
 
                 SeekerRecs.Add(new GoalSeekerRec
                 {
@@ -1043,11 +1356,13 @@ namespace TheWaningBorder.Systems.Navigation
                         }
                     }
 
-                    if (!Seen.ContainsKey(key))
+                    // Value 2 = a formation asks: dealt before lone soldiers.
+                    if (!Seen.TryGetValue(key, out byte seenAs))
                     {
-                        Seen.Add(key, 1);
+                        Seen.Add(key, (byte)(marching ? 2 : 1));
                         Wanted.Add(key);
                     }
+                    else if (marching && seenAs != 2) Seen[key] = 2;
                 }
             }
         }

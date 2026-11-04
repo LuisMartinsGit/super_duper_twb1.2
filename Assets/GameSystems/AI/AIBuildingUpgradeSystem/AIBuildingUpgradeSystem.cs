@@ -613,7 +613,7 @@ namespace TheWaningBorder.AI
         private enum CapitalUpgrade : byte { NotNeeded, Queued, Saving }
 
         /// <summary>The production lines: a level cuts their train time
-        /// (BuildingUpgradeConfig.TrainTimeMultiplier), so it raises unit
+        /// (the level SO's trainTimeMultiplier), so it raises unit
         /// output and never yields to the army it feeds. A roster table, not
         /// tuning: the ids are the buildings' SO ids.</summary>
         private static bool RaisesUnitOutput(string buildingId)
@@ -789,6 +789,13 @@ namespace TheWaningBorder.AI
             bool surplus = false, bool veilstoneHeld = false, bool supplyEngine = false)
         {
             EntityQuery query;
+            // HOUSING IS CRITICAL WHEN THE CAP IS NEAR (2026-11-04, § 6y): a
+            // House level then yields to nothing — not to the army (which
+            // cannot grow without it) and not to the iron reserve (it costs
+            // none). Measured: 52 "upgrade Hut yields" in ten matches, L2
+            // at a median minute 44, L3 at 54, with 20 L1 Houses capping a
+            // faction at 210.
+            bool housingCritical = false;
             switch (buildingId)
             {
                 case "Fortress":
@@ -806,6 +813,7 @@ namespace TheWaningBorder.AI
                     if (PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int popMax)
                         && popMax - pop > Cfg.hutUpgradeHeadroomMax)
                         return false;
+                    housingCritical = true;
                     query =QC_HutTagBuildingUpgradeableFactionTag.Get(em, QT_HutTagBuildingUpgradeableFactionTag);
                     break;
                 case "GatherersHut":
@@ -906,7 +914,7 @@ namespace TheWaningBorder.AI
                     return false;
                 }
             }
-            if (!feedsArmy
+            if (!feedsArmy && !housingCritical && price.Iron > 0
                 && FactionEconomy.TryGetBank(em, faction, out var upgradeBank)
                 && em.GetComponentData<FactionResources>(upgradeBank).Iron < Cfg.upgradeIronReserve)
                 return false;
@@ -923,7 +931,7 @@ namespace TheWaningBorder.AI
                 && UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var gateCost, out _))
             {
                 if (AIPivotalReserve.ShouldHold(em, faction, gateCost)) return false;
-                if (!feedsArmy)
+                if (!feedsArmy && !housingCritical)
                 {
                     string why = AIBudget.ArmyFirstYield(em, faction, gateCost);
                     if (why != null)

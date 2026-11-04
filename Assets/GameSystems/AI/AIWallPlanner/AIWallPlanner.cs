@@ -165,7 +165,10 @@ namespace TheWaningBorder.AI
         /// <summary>Consecutive terrain-blocked samples that count as a real
         /// barrier (6 m deep) — filters single-cell slope noise.</summary>
         private const int ShelterRunSamples = 3;
-        private const int MaxCorridors = 3;
+        // Four since 2026-11-03 (§ 6x): Highfold's corner valleys read as
+        // "4 ways in" once a cliff-sealed pocket was counted; the pocket no
+        // longer counts, and four real openings are still worth sealing.
+        private const int MaxCorridors = 4;
 
 
         /// <summary>One ingress corridor through the terrain shelter.</summary>
@@ -191,7 +194,7 @@ namespace TheWaningBorder.AI
 
         /// <summary>Terrain-only blockage probe. Off-grid reads as blocked
         /// (the map edge shelters). No grid at all reads as open.</summary>
-        private static bool TerrainBlockedAt(float x, float z)
+        public static bool TerrainBlockedAt(float x, float z)
         {
             var grid = PassabilityGrid.Instance;
             if (grid == null) return false;
@@ -460,7 +463,8 @@ namespace TheWaningBorder.AI
                     {
                         if (hc == 0) { why = "home sheltered by terrain on every side: " + verdict; return ModeNone; }
                         for (int c = 0; c < hc; c++)
-                            EmitChokeLine(em, homeCorridors[c], (byte)c, slots);
+                            if (homeCorridors[c].Sealable) EmitChokeLine(em, homeCorridors[c], (byte)c, slots);
+                            else EmitChokeTowers(em, homeCorridors[c], (byte)(MaxCorridors + c * 2), slots);
                         why = $"home sheltered by terrain — sealing {hc} chokepoint(s): {verdict}";
                         return ModeChokepoints;
                     }
@@ -552,6 +556,33 @@ namespace TheWaningBorder.AI
                 }
             }
 
+            // REACHABLE FROM OUTSIDE ONLY (2026-11-03, § 6x). An opening counts
+            // when its outside neighbour is walkable ground connected to the
+            // window's edge: a pocket of walkable cells sealed in by cliffs
+            // (Highfold Blue's "w=4" way in) is not a way in.
+            var outside = new bool[n * n];
+            for (int j = 0; j < n; j++)
+                for (int i = 0; i < n; i++)
+                {
+                    if (i != 0 && j != 0 && i != n - 1 && j != n - 1) continue;
+                    int k = j * n + i;
+                    if (inHome[k] || TerrainBlockedAt(ox + (i + 0.5f) * cell, oz + (j + 0.5f) * cell)) continue;
+                    outside[k] = true; queue.Enqueue(k);
+                }
+            while (queue.Count > 0)
+            {
+                int k = queue.Dequeue(); int i = k % n, j = k / n;
+                for (int d = 0; d < 4; d++)
+                {
+                    int ni = i + (d == 0 ? 1 : d == 1 ? -1 : 0), nj = j + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                    if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue;
+                    int nk = nj * n + ni;
+                    if (outside[nk] || inHome[nk]) continue;
+                    if (TerrainBlockedAt(ox + (ni + 0.5f) * cell, oz + (nj + 0.5f) * cell)) continue;
+                    outside[nk] = true; queue.Enqueue(nk);
+                }
+            }
+
             var open = new bool[n * n];
             var outward = new float2[n * n];
             for (int j = 1; j < n - 1; j++)
@@ -564,7 +595,7 @@ namespace TheWaningBorder.AI
                     {
                         int di = d == 0 ? 1 : d == 1 ? -1 : 0, dj = d == 2 ? 1 : d == 3 ? -1 : 0;
                         int nk = (j + dj) * n + (i + di);
-                        if (inHome[nk] || TerrainBlockedAt(ox + (i + di + 0.5f) * cell, oz + (j + dj + 0.5f) * cell)) continue;
+                        if (inHome[nk] || !outside[nk]) continue;
                         o += new float2(di, dj);
                     }
                     if (math.lengthsq(o) > 0f) { open[k] = true; outward[k] = o; }
@@ -633,7 +664,35 @@ namespace TheWaningBorder.AI
             }
             verdict = $"{total} way(s) into the home" + (total > 0 ? ": " + sb : "");
             if (total > MaxCorridors) { verdict += " - too many"; return false; }
+            if (!ok)
+            {
+                // PARTIAL SEAL (2026-11-03, § 6x). Moatwatch's keeps read "two
+                // fords, two 80-90 m mouths" and ringed the whole home instead.
+                // Now the sealable openings get their wall and the wide ones
+                // get a tower at each end (EmitChokeTowers); only a home with
+                // NO sealable opening falls back to the ring.
+                int sealable = 0;
+                for (int c = 0; c < corridorCount; c++) if (corridors[c].Sealable) sealable++;
+                if (sealable == 0) return false;
+                verdict += $" - sealing {sealable}, towers at the {corridorCount - sealable} wide";
+                return true;
+            }
             return ok;
+        }
+
+        /// <summary>A mouth too wide to wall: a tower hub at each end of it,
+        /// each its own one-slot chain (no curtain between).</summary>
+        private static void EmitChokeTowers(EntityManager em, Corridor c, byte chain,
+            NativeList<AIWallPlanSlot> slots)
+        {
+            int2 hubSize = BuildingSizeConfig.GetSize("Alanthor_Wall");
+            float half = c.ChokeWidth * 0.5f;
+            float3 endA = ResolveLineEnd(em, c.ChokePos - c.ChokeAxis * half, c.ChokeAxis, hubSize);
+            float3 endB = ResolveLineEnd(em, c.ChokePos + c.ChokeAxis * half, -c.ChokeAxis, hubSize);
+            endA.y = TerrainUtility.GetHeight(endA.x, endA.z);
+            endB.y = TerrainUtility.GetHeight(endB.x, endB.z);
+            slots.Add(new AIWallPlanSlot { Position = endA, Chain = chain, Flags = FlagTower });
+            slots.Add(new AIWallPlanSlot { Position = endB, Chain = (byte)(chain + 1), Flags = FlagTower });
         }
 
         /// <summary>Hub line spanning a corridor wall-to-wall. The END hubs
@@ -902,7 +961,12 @@ namespace TheWaningBorder.AI
             // plan (and WallTerritorySignature) is not redrawn every time a
             // neighbour changes hands. The home stays first: chain 0 is the
             // ring the corridor's inside-the-ring test reads.
-            int want = AIPersonalityLookup.Row(em, faction).frontierWallTerritories;
+            // PRODUCTION PROVINCES ARE WALLED BY EVERYONE (2026-11-03, § 6x):
+            // the personality's frontier count or productionProvinceWalls,
+            // whichever is more; PickFrontierTerritories ranks a province that
+            // both trains and borders a hostile first.
+            int want = math.max(AIPersonalityLookup.Row(em, faction).frontierWallTerritories,
+                Cfg.productionProvinceWalls);
             if (want <= 0) return;
             if (!_frontierPicks.TryGetValue((int)faction, out var picks))
                 _frontierPicks[(int)faction] = picks = new System.Collections.Generic.List<int>(4);
@@ -973,13 +1037,18 @@ namespace TheWaningBorder.AI
                               || (owner >= 0 && owner != (int)faction
                                   && Alliances.AreHostile(faction, (Faction)owner));
                 }
-                if (hostile) _frontierScratch.Add(r);
+                bool production = HasProductionIn(em, faction, r);
+                if (hostile || production)
+                {
+                    _frontierScratch.Add(r);
+                    _frontierTier[r] = hostile && production ? 0 : hostile ? 1 : 2;
+                }
             }
-            // Rank: own Fortress first (0), then bordering home (+1 if not).
             for (int i = 0; i < _frontierScratch.Count; i++)
             {
                 int r = _frontierScratch[i];
-                int rank = (AIBaseLayout.TryGetOwnFortressIn(em, faction, r, out _) ? 0 : 2)
+                int rank = _frontierTier[r] * 4
+                           + (AIBaseLayout.TryGetOwnFortressIn(em, faction, r, out _) ? 0 : 2)
                            + (home != TheWaningBorder.World.Regions.RegionMap.None
                               && TheWaningBorder.World.Regions.RegionMap.AreAdjacent(r, home) ? 0 : 1);
                 _frontierRank[r] = rank;
@@ -995,6 +1064,27 @@ namespace TheWaningBorder.AI
 
         private static readonly System.Collections.Generic.Dictionary<int, int> _frontierRank
             = new System.Collections.Generic.Dictionary<int, int>();
+        private static readonly System.Collections.Generic.Dictionary<int, int> _frontierTier
+            = new System.Collections.Generic.Dictionary<int, int>();
+
+        /// <summary>Does the faction train anything in territory <paramref name="r"/>
+        /// (a Barracks, Range, Stable or Siege Yard standing or planned there)?</summary>
+        private static bool HasProductionIn(EntityManager em, Faction faction, int r)
+        {
+            var q = AIQueryCache.TagFaction<BuildingTag>(em);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                if (!em.HasComponent<Unity.Transforms.LocalTransform>(ents[i])) continue;
+                var p = em.GetComponentData<Unity.Transforms.LocalTransform>(ents[i]).Position;
+                if (TheWaningBorder.World.Regions.RegionMap.RegionAt(p.x, p.z) != r) continue;
+                string id = TheWaningBorder.Entities.BuildingIds.Of(ents[i], em);
+                if (!string.IsNullOrEmpty(id) && BuildSiteSnapshot.IsProductionId(id)) return true;
+            }
+            return false;
+        }
 
         /// <summary>Per faction, the territory of its first capital this match
         /// (the only one ever walled).</summary>

@@ -152,7 +152,16 @@ namespace TheWaningBorder.AI
 
         /// <summary>When the current reinforcement group started gathering.
         /// Zero = nothing waiting. See ReinforceMinGroup.</summary>
-        public float ReinforceHoldSince;
+        /// <summary>When the next reinforcement army leaves (Game_AI.md § 6z).</summary>
+        public float NextReinforceArmyTime;
+        /// <summary>When the last army was found dead; its replacement must be a
+        /// real army until waveReplaceMaxWaitSeconds after this.</summary>
+        public float ArmyDiedAt;
+        /// <summary>1 after a wave was skipped as too weak: the next one must go
+        /// (Game_AI.md § 6z). Cleared when an army leaves.</summary>
+        public byte WaveSkipped;
+        /// <summary>When a skipped wave's wait ends.</summary>
+        public float WaveSkipUntil;
     }
 
     // ==================== Shared Knowledge ====================

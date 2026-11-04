@@ -62,7 +62,7 @@ MonoBehaviour:
   fallbackSafeShare: 0.5
   fallbackRetargetRadius: 220
   fallbackRetargetShare: 0.6
-  fallbackMaxHolds: 3
+  fallbackMaxHolds: 1
   abilityScanRadius: 18
   contactDistance: 10
   defensiveHpFraction: 0.45

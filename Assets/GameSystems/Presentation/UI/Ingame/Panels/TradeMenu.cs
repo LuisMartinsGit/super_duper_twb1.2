@@ -41,11 +41,18 @@ namespace TheWaningBorder.UI.Ingame
         static TradeMenuConfig Cfg => TradeMenuConfig.I;
 
         /// <summary>The routes, in column order: the default first.</summary>
+        // Hold first, then the five routes (2026-11-04: Buy Iron, Sell Veilsteel
+        // for Supplies). A post runs up to its level's routes at once: a cell
+        // ADDS or REMOVES that route; Hold clears them all.
         static readonly TradeRecipe[] Routes =
         {
             TradeRecipe.Hold, TradeRecipe.BuyVeilstone, TradeRecipe.ForgeVeilsteel, TradeRecipe.SellVeilsteel,
+            TradeRecipe.BuyIron, TradeRecipe.SellSupplies,
         };
-        static readonly string[] RouteNames = { "Hold Trade", "Buy Veilstone", "Forge Veilsteel", "Sell Veilsteel" };
+        static readonly string[] RouteNames =
+        {
+            "Hold Trade", "Buy Veilstone", "Forge Veilsteel", "Sell Veilsteel", "Buy Iron", "Sell for Supplies",
+        };
 
         static readonly Color Gain = new Color(0.62f, 0.88f, 0.54f);
         static readonly Color Loss = new Color(1f, 0.42f, 0.37f);
@@ -61,7 +68,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             public RectTransform Root;
             public Cell Name;
-            public Cell[] Route = new Cell[4];
+            public Cell[] Route = new Cell[Routes.Length];
             public Entity Outpost;
         }
 
@@ -69,13 +76,13 @@ namespace TheWaningBorder.UI.Ingame
         TMP_Text _buttonLabel;
         RectTransform _menu;
         TMP_Text _net;
-        readonly Cell[] _headers = new Cell[4];
+        readonly Cell[] _headers = new Cell[Routes.Length];
         readonly List<Row> _rows = new List<Row>();
         TMP_Text _more;
 
         readonly List<Entity> _posts = new List<Entity>();
-        readonly int[] _routeCount = new int[4];
-        readonly TerritoryYield[] _routeNet = new TerritoryYield[4];
+        readonly int[] _routeCount = new int[Routes.Length];
+        readonly TerritoryYield[] _routeNet = new TerritoryYield[Routes.Length];
         readonly StringBuilder _sb = new StringBuilder(128);
         bool _open;
         float _nextRefresh;
@@ -248,10 +255,17 @@ namespace TheWaningBorder.UI.Ingame
             for (int r = 0; r < Routes.Length; r++) { _routeCount[r] = 0; _routeNet[r] = default; }
             for (int i = 0; i < _posts.Count; i++)
             {
-                int r = RouteIndex(TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, _posts[i]));
-                _routeCount[r]++;
-                TradingOutpostSystem.PerMinuteFor(em, _posts[i], out var spend, out var earn);
-                if (Routes[r] != TradeRecipe.Hold) _routeNet[r] = Add(_routeNet[r], earn, spend);
+                uint mask = OutpostOrders.RoutesOf(em, _posts[i]);
+                if (mask == 0u) { _routeCount[0]++; continue; }
+                float lvl = TradingOutpostSystem.LevelMultiplier(em, _posts[i]);
+                for (int r = 1; r < Routes.Length; r++)
+                {
+                    int copies = TradeRoutes.CountIn(mask, Routes[r]);
+                    if (copies <= 0) continue;
+                    _routeCount[r] += copies;
+                    TradingOutpostSystem.PerMinute(me, Routes[r], out var spend, out var earn);
+                    _routeNet[r] = Add(_routeNet[r], Scale(earn, lvl * copies), Scale(spend, lvl * copies));
+                }
             }
 
             // The net line: what the faction's trade really runs right now.
@@ -279,19 +293,24 @@ namespace TheWaningBorder.UI.Ingame
                 if (row.Root.gameObject.activeSelf != on) row.Root.gameObject.SetActive(on);
                 if (!on) continue;
                 row.Outpost = _posts[i];
-                var current = TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, row.Outpost);
+                uint current = OutpostOrders.RoutesOf(em, row.Outpost);
+                int cap = TradingOutpostSystem.RouteCapacity(em, row.Outpost);
+                int used = TradeRoutes.Total(current);
 
                 string name = (em.HasComponent<DisplayName>(row.Outpost)
                     ? em.GetComponentData<DisplayName>(row.Outpost).Value.ToString()
-                    : Loc.T("Trading Outpost")) + "  " + (i + 1);
+                    : Loc.T("Trading Outpost")) + "  " + (i + 1) + "   " + used + "/" + cap;
                 if (row.Name.Label.text != name) row.Name.Label.text = name;
 
                 for (int c = 0; c < Routes.Length; c++)
                 {
                     var cell = row.Route[c];
-                    bool running = Routes[c] == current;
+                    int copies = TradeRoutes.CountIn(current, Routes[c]);
+                    bool running = Routes[c] == TradeRecipe.Hold ? current == 0u : copies > 0;
                     bool unlocked = TradingOutpostSystem.IsUnlocked(me, Routes[c]);
-                    string text = running ? Loc.T("Running") : unlocked ? Loc.T("Assign") : Loc.T("Locked");
+                    bool full = !running && Routes[c] != TradeRecipe.Hold && used >= cap;
+                    string text = running ? Loc.T("Running") + (copies > 1 ? " x" + copies : "") : !unlocked ? Loc.T("Locked")
+                        : full ? Loc.T("Full") : Routes[c] == TradeRecipe.Hold ? Loc.T("Stop all") : Loc.T("Add");
                     if (cell.Label.text != text) cell.Label.text = text;
                     cell.Fill.color = running ? GameUIKit.BarGold
                         : unlocked ? GameUIKit.ButtonBg : GameUIKit.ButtonBgLocked;
@@ -335,8 +354,12 @@ namespace TheWaningBorder.UI.Ingame
             var em = world.EntityManager;
             if (!em.Exists(row.Outpost)) return;
             if (!TradingOutpostSystem.IsUnlocked(GameSettings.LocalPlayerFaction, Routes[route])) return;
-            if (TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, row.Outpost) == Routes[route]) return;
-            CommandRouter.IssueSetOutpostMode(em, row.Outpost, Routes[route]);
+            if (Routes[route] == TradeRecipe.Hold)
+            {
+                if (OutpostOrders.RoutesOf(em, row.Outpost) != 0u)
+                    CommandRouter.IssueSetOutpostMode(em, row.Outpost, TradeRecipe.Hold);
+            }
+            else CommandRouter.IssueCycleOutpostRoute(em, row.Outpost, Routes[route]);   // one more copy, or stop on a full post
             _nextRefresh = 0f;
         }
 
@@ -349,8 +372,10 @@ namespace TheWaningBorder.UI.Ingame
             for (int i = 0; i < _posts.Count; i++)
             {
                 if (!em.Exists(_posts[i])) continue;
-                if (TheWaningBorder.Entities.TradingOutpost.RecipeOf(em, _posts[i]) == Routes[route]) continue;
-                CommandRouter.IssueSetOutpostMode(em, _posts[i], Routes[route]);
+                // Every slot of every post on this route (Hold: none of them).
+                uint wanted = TradeRoutes.With(0u, Routes[route], TradingOutpostSystem.RouteCapacity(em, _posts[i]));
+                if (OutpostOrders.RoutesOf(em, _posts[i]) == wanted) continue;
+                CommandRouter.IssueSetOutpostRoutes(em, _posts[i], wanted);
             }
             _nextRefresh = 0f;
         }
@@ -382,7 +407,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!TradingOutpostSystem.IsUnlocked(me, Routes[route]))
                 _sb.Append('\n').Append(Loc.T("<color=#C08040>Research it at a Trading Outpost first.</color>"));
             else
-                _sb.Append('\n').Append(Loc.T("Click to move EVERY Outpost to this route."));
+                _sb.Append('\n').Append(Loc.T("Click to put every slot of EVERY Outpost on this route. A post's own cell adds one more copy; on a full post it stops that route (L2 runs two routes, L3 four, repeats allowed)."));
             return _sb.ToString();
         }
 

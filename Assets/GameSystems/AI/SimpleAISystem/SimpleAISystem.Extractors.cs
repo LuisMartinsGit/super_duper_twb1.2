@@ -318,9 +318,16 @@ namespace TheWaningBorder.AI
             || AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilsteel);
 
         // Trade recipe indices of the allocation below.
-        private const int TBuy = 0, TForge = 1, TSell = 2, TRecipes = 3;
+        private const int TBuy = 0, TForge = 1, TSell = 2, TBuyIron = 3, TSellSup = 4, TRecipes = 5;
         private static readonly float[] _tradeWant = new float[TRecipes];
         private static readonly int[] _tradeCount = new int[TRecipes];
+        private static readonly int[] _tradeRemaining = new int[TRecipes];
+        private static readonly int[] _tradeDeal = { TSell, TForge, TBuyIron, TSellSup, TBuy };
+        private static TradeRecipe RecipeOfSlot(int slot) => slot switch
+        {
+            TBuy => TradeRecipe.BuyVeilstone, TForge => TradeRecipe.ForgeVeilsteel, TSell => TradeRecipe.SellVeilsteel,
+            TBuyIron => TradeRecipe.BuyIron, _ => TradeRecipe.SellSupplies,
+        };
 
         /// <summary>
         /// Choose each of this faction's Trading Outposts' trade
@@ -356,10 +363,14 @@ namespace TheWaningBorder.AI
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var modes = q.ToComponentDataArray<TradingOutpostMode>(Allocator.Temp);
-            int mine = 0;
+            int postCount = 0, mine = 0;   // mine = ROUTE SLOTS (2026-11-04): a post's level runs 1 / 2 / 4
             for (int i = 0; i < ents.Length; i++)
-                if (facs[i].Value == faction) mine++;
-            if (mine == 0) return;
+                if (facs[i].Value == faction)
+                {
+                    postCount++;
+                    mine += TheWaningBorder.Systems.Economy.TradingOutpostSystem.RouteCapacity(em, ents[i]);
+                }
+            if (postCount == 0) return;
 
             bool canForge = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(
                 faction, TradeRecipe.ForgeVeilsteel);
@@ -371,6 +382,12 @@ namespace TheWaningBorder.AI
                 faction, TradeRecipe.ForgeVeilsteel, out var forgeIn, out var forgeOut);
             TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
                 faction, TradeRecipe.SellVeilsteel, out var sellIn, out var sellOut);
+            bool canBuyIron = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction, TradeRecipe.BuyIron);
+            bool canSellSup = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction, TradeRecipe.SellSupplies);
+            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
+                faction, TradeRecipe.BuyIron, out var ironBuyIn, out var ironBuyOut);
+            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
+                faction, TradeRecipe.SellSupplies, out var supSellIn, out var supSellOut);
 
             bool veilstoneStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone);
             bool ironStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResIron);
@@ -403,6 +420,15 @@ namespace TheWaningBorder.AI
 
             bool ironLow = ironStarved || bank.Iron < Cfg.outpostIronFloor;
             bool steelLow = steelStarved || bank.Veilsteel < Cfg.outpostVeilsteelTarget;
+            // IRON DROUGHT (2026-11-04, Game_AI.md § 6y). Fiendstone, 300 min:
+            // every mine collapsed inside the first hour; from then on selling
+            // veilsteel was 40-50k iron an hour and the surveys 15-38k, every
+            // iron went to units and to BUYING veilstone, the bank sat at
+            // 26-2,356 iron while supplies capped at 100,000 and veilsteel
+            // piled to 8,190. Iron was never "military short" (units cost
+            // supplies and veilstone), so the sell weight never rose above 1.
+            bool ironDrought = bank.Iron < Cfg.outpostIronFloor
+                && bank.Supplies >= bank.Iron * math.max(1f, Cfg.outpostIronDroughtSuppliesRatio);
 
             // The way to iron and veilsteel is Forge -> Sell: research both as
             // soon as the first post stands. Waiting until iron was LOW was too
@@ -438,9 +464,23 @@ namespace TheWaningBorder.AI
             // A chain that eats more iron (its Buys) than its Sell makes is
             // not an iron source; only possible with very odd SO numbers.
             if (wIron > 0f && sellOut.Iron - forgePerSell * buyPerForge * buyIn.Iron <= 0f) wIron = 0f;
+            if (ironDrought && canSell && bank.Veilsteel >= sellIn.Veilsteel)
+            {
+                wIron = 2f;                                   // selling is the iron income now
+                if (wVeilstone > 1f) wVeilstone = 1f;         // buying spends the iron we lack
+            }
+            // THE TWO NEW ROUTES (2026-11-04): supplies -> iron is the direct
+            // answer to an iron drought while supplies pile up; veilsteel ->
+            // supplies the answer to a supplies famine with veilsteel in stock.
+            float wIronBuy = !canBuyIron ? 0f
+                : (ironDrought || ironStarved) && bank.Supplies >= ironBuyIn.Supplies * 10f ? 2f
+                : ironLow && bank.Supplies >= ironBuyIn.Supplies * 20f ? 1f : 0f;
+            float wSupSell = !canSellSup || bank.Veilsteel < supSellIn.Veilsteel ? 0f
+                : suppliesStarved ? 2f
+                : bank.Supplies < Cfg.outpostSuppliesFloor && bank.Veilsteel >= Cfg.outpostSellAboveVeilsteel ? 1f : 0f;
 
             for (int r = 0; r < TRecipes; r++) _tradeWant[r] = 0f;
-            float wTotal = wVeilstone + wSteel + wIron;
+            float wTotal = wVeilstone + wSteel + wIron + wIronBuy + wSupSell;
             if (wTotal > 0f)
             {
                 if (wVeilstone > 0f) _tradeWant[TBuy] += mine * wVeilstone / wTotal;
@@ -458,6 +498,8 @@ namespace TheWaningBorder.AI
                     _tradeWant[TForge] += posts * forgePerSell / size;
                     _tradeWant[TBuy] += posts * forgePerSell * buyPerForge / size;
                 }
+                if (wIronBuy > 0f) _tradeWant[TBuyIron] += mine * wIronBuy / wTotal;
+                if (wSupSell > 0f) _tradeWant[TSellSup] += mine * wSupSell / wTotal;
             }
 
             // Whole posts: floor, then the largest remainders, to `mine` at
@@ -489,27 +531,57 @@ namespace TheWaningBorder.AI
             if (wSteel > 0f && _tradeCount[TForge] == 0 && mine * wSteel / wTotal >= 1f)
                 StealTradePost(TForge, mine);
             // Surplus veilsteel is sold for iron even when nothing is short.
-            if (sellSurplusSteel && _tradeCount[TSell] == 0) StealTradePost(TSell, mine);
-            int holds = mine - _tradeCount[TBuy] - _tradeCount[TForge] - _tradeCount[TSell];
+            if (sellSurplusSteel)
+            {
+                // ONE SELL POST PER outpostSellStockPerPost LOADS IN THE BANK
+                // (§ 6y), up to half the posts — not a single post against
+                // 8,000 veilsteel.
+                int sellPosts = (int)math.clamp(math.floor(bank.Veilsteel
+                        / math.max(1f, sellIn.Veilsteel * math.max(1f, Cfg.outpostSellStockPerPost))),
+                    1f, math.max(1f, mine * 0.5f));
+                for (int guard = 0; _tradeCount[TSell] < sellPosts && guard < mine; guard++)
+                {
+                    int before = _tradeCount[TSell];
+                    StealTradePost(TSell, mine);
+                    if (_tradeCount[TSell] == before) break;
+                }
+            }
+            int assignedAll = 0;
+            for (int r = 0; r < TRecipes; r++) assignedAll += _tradeCount[r];
+            int holds = math.max(0, mine - assignedAll);
 
-            int changed = 0, sells = 0, forges = 0, buys = 0;
+            // ROUTES PER POST (2026-11-04): each post fills its level's capacity
+            // from the wanted counts in _tradeDeal order. A route may repeat on
+            // one post, so every slot counts.
+            int changed = 0, sells = 0, forges = 0, buys = 0, ironBuys = 0, supSells = 0;
+            for (int r = 0; r < TRecipes; r++) _tradeRemaining[r] = _tradeCount[r];
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                TradeRecipe want;
-                if (sells < _tradeCount[TSell]) { want = TradeRecipe.SellVeilsteel; sells++; }
-                else if (forges < _tradeCount[TForge]) { want = TradeRecipe.ForgeVeilsteel; forges++; }
-                else if (buys < _tradeCount[TBuy]) { want = TradeRecipe.BuyVeilstone; buys++; }
-                else want = TradeRecipe.Hold;
-                if (modes[i].Recipe == want) continue;
-                TheWaningBorder.Core.Commands.CommandRouter.IssueSetOutpostMode(
+                int cap = TheWaningBorder.Systems.Economy.TradingOutpostSystem.RouteCapacity(em, ents[i]);
+                uint want = 0u; int n = 0;
+                for (int d = 0; d < _tradeDeal.Length && n < cap; d++)
+                {
+                    int slot = _tradeDeal[d];
+                    int take = math.min(_tradeRemaining[slot], cap - n);
+                    if (take <= 0) continue;
+                    want = TradeRoutes.With(want, RecipeOfSlot(slot), take);
+                    _tradeRemaining[slot] -= take; n += take;
+                    switch (slot)
+                    {
+                        case TSell: sells += take; break; case TForge: forges += take; break; case TBuy: buys += take; break;
+                        case TBuyIron: ironBuys += take; break; default: supSells += take; break;
+                    }
+                }
+                if (TradeRoutes.CountsOf(modes[i]) == want) continue;
+                TheWaningBorder.Core.Commands.CommandRouter.IssueSetOutpostRoutes(
                     em, ents[i], want, TheWaningBorder.Core.Commands.CommandSource.AI);
                 changed++;
             }
             if (changed > 0)
                 AILogger.Log(faction, "TRADE",
-                    $"outposts: {sells} sell / {forges} forge / {buys} buy / {holds} hold " +
-                    $"(short:{ShortList(faction)}{(ironLow && !ironStarved ? " iron-low" : "")}" +
+                    $"outposts: {sells} sell / {forges} forge / {buys} buy / {ironBuys} buy-iron / {supSells} sell-supplies / {holds} hold " +
+                    $"(short:{ShortList(faction)}{(ironLow && !ironStarved ? " iron-low" : "")}{(ironDrought ? " iron-drought" : "")}" +
                     $"{(steelLow && !steelStarved && canForge ? " veilsteel-low" : "")}; " +
                     $"supplies {bank.Supplies}, iron {bank.Iron}, veilstone {bank.Veilstone}/{need}, " +
                     $"veilsteel {bank.Veilsteel}{(canForge ? "" : ", no forge")}{(canSell ? "" : ", no sell")})");
@@ -555,7 +627,9 @@ namespace TheWaningBorder.AI
         /// is free, else from the most-populated other link that keeps one.</summary>
         private static void StealTradePost(int to, int mine)
         {
-            if (_tradeCount[TBuy] + _tradeCount[TForge] + _tradeCount[TSell] < mine)
+            int total = 0;
+            for (int r = 0; r < TRecipes; r++) total += _tradeCount[r];
+            if (total < mine)
             {
                 _tradeCount[to]++;
                 return;

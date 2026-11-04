@@ -734,7 +734,7 @@ namespace TheWaningBorder.Systems.World
             if (!em.Exists(outpost) || em.HasComponent<UnderConstruction>(outpost)) return false;
             if (!em.HasComponent<LocalTransform>(outpost)) return false;
             if (em.HasComponent<TradingOutpostMode>(outpost)
-                && em.GetComponentData<TradingOutpostMode>(outpost).Recipe == TradeRecipe.Hold) return false;
+                && TradeRoutes.CountsOf(em.GetComponentData<TradingOutpostMode>(outpost)) == 0u) return false;
             var p = em.GetComponentData<LocalTransform>(outpost).Position;
             if (!OutpostSites.HasLiveOutcrop(em, p.x, p.z)) return false;
             // The post's own rate (recipe, research, its level) — the number
@@ -1080,6 +1080,7 @@ namespace TheWaningBorder.Systems.World
                         HallFaction.Add(em.HasComponent<FactionTag>(ents[i])
                             ? em.GetComponentData<FactionTag>(ents[i]).Value : (Faction)byte.MaxValue);
                         HallSuppliesPerMinute.Add(em.HasComponent<SuppliesIncome>(ents[i])
+                                && CapitalIncome.Pays(em, ents[i])   // only the capital's level pays (2026-11-04)
                             ? em.GetComponentData<SuppliesIncome>(ents[i]).PerMinute : 0f);
                     }
                 }

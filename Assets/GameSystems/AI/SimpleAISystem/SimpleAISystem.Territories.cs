@@ -191,10 +191,10 @@ namespace TheWaningBorder.AI
             bool placedThisWalk = false, crewBlocked = false, spotSearched = false;
             // Round-robin start, so a walk cut short by a placement or by the
             // crew cap does not always favour the lowest-index territory.
-            int start = mine.Count > 0 ? (_territoryWalk++ & 0x7fffffff) % mine.Count : 0;
-            for (int ii = 0; ii < mine.Count; ii++)
+            var order = BorderFirst(faction, mine, _territoryWalk++);
+            for (int ii = 0; ii < order.Count; ii++)
             {
-                int r = mine[(start + ii) % mine.Count];
+                int r = order[ii];
                 if (RegionMap.KindBlocks(RegionMap.KindOf(r))) continue;
                 bool isHome = r == home;
                 if (!isHome && !TerritoryOwnership.IsClaimed(r)) continue;
@@ -328,6 +328,15 @@ namespace TheWaningBorder.AI
             }
 
             // ── STEP 3 (PROVINCE): the first coverage-sited towers ─────────
+            // A FIRST TRAINER BEFORE THE TOWERS (2026-11-03, § 6x). Province
+            // production used to come last on the ladder (first at minute 23,
+            // median 62 in the 2026-11-03 batch); from provinceTrainerFromSeconds a
+            // held province with no trainer gets one first, when the bank can.
+            if (!isHome && HasAgedUp(em, faction) && now >= Cfg.provinceTrainerFromSeconds
+                && RichEnoughForTrainer(em, faction) && CountProductionTotal(em, faction, r) == 0
+                && DevelopProvinceProduction(em, faction, r, now, dry, out placed, out crewBlocked, out what, out int earlyStep))
+                return earlyStep;
+
             if (!isHome && alanthor && HasAgedUp(em, faction))
             {
                 if (DevelopProvinceTowers(em, faction, r, now, dry, false,
@@ -396,54 +405,9 @@ namespace TheWaningBorder.AI
             // fewest of; the Barracks when the plan names nothing else.
             // Every production building past this waits on saturation
             // (ProductionGate) — this step is the one that does not.
-            {
-                int perProvince = math.max(1, ProfileOf(faction).ProvinceProductionPerTerritory);
-                CountProductionIn(em, faction, r, out int bar, out int rng, out int stb, out int sie);
-                int total = bar + rng + stb + sie;
-                if (total < perProvince
-                    && !StepBlocked(faction, r, StepProduction, now))
-                {
-                    if (dry) return StepProduction;
-                    string want = null, because = null;
-                    for (int t = 1; t <= perProvince && want == null; t++)
-                    {
-                        int have = (bar >= t ? 1 : 0) | (rng >= t ? 2 : 0) | (stb >= t ? 4 : 0) | (sie >= t ? 8 : 0);
-                        want = ChooseNeededLine(em, faction, have, out because);
-                    }
-                    if (want != null)
-                    {
-                        var core = AIBaseLayout.CoreOf(em, faction, r);
-                        var anchor = new float3(core.x, TerrainUtility.GetHeight(core.x, core.z), core.z);
-                        bool ok;
-                        string why;
-                        _provinceProductionStep = true;
-                        try
-                        {
-                            ok = TryBuildInTerritory(em, faction, want, r, anchor, AIBudgetCategory.Military,
-                                true, out why);
-                        }
-                        finally { _provinceProductionStep = false; }
-                        if (ok)
-                        {
-                            placed = true;
-                            what = $"{StepNames[StepProduction]}: {want} ({total + 1}/" +
-                                   $"{perProvince} here)";
-                            AILogger.Log(faction, "PRODUCTION",
-                                $"province {RegionMap.NameOf(r)} gets {want} ({because})");
-                            return StepProduction;
-                        }
-                        if (IsCrewRefusal(why)) { crewBlocked = true; return StepProduction; }
-                        if (IsMoneyRefusal(why))
-                        {
-                            what = $"{StepNames[StepProduction]} — waiting ({want}: {why})";
-                            return StepProduction;
-                        }
-                        what = $"{StepNames[StepProduction]} — {want} has no legal spot ({why})";
-                        // Placement-blocked: retried after territoryBlockedStepSeconds.
-                        MarkStepBlocked(faction, r, StepProduction, now);
-                    }
-                }
-            }
+            if (DevelopProvinceProduction(em, faction, r, now, dry, out placed, out crewBlocked, out what, out int prodStep))
+                return prodStep;
+
 
             // ── STEP 5 (PROVINCE): coverage towers past the first ──────────
             // After the province's production, and army first.
@@ -885,6 +849,104 @@ namespace TheWaningBorder.AI
         /// says the placement, if it lands, is a saturation extra (logged and
         /// the saturation window restarted by NoteExtraProduction).
         /// </summary>
+        /// <summary>The province's production step (2026-11-03, § 6x: also run
+        /// EARLY, before the towers, for a province with no trainer at all).</summary>
+        private bool DevelopProvinceProduction(EntityManager em, Faction faction, int r, float now, bool dry,
+            out bool placed, out bool crewBlocked, out string what, out int step)
+        {
+            placed = false; crewBlocked = false; what = null; step = StepDone;
+                int perProvince = math.max(1, ProfileOf(faction).ProvinceProductionPerTerritory);
+                CountProductionIn(em, faction, r, out int bar, out int rng, out int stb, out int sie);
+                int total = bar + rng + stb + sie;
+                if (total < perProvince
+                    && !StepBlocked(faction, r, StepProduction, now))
+                {
+                    if (dry) { step = StepProduction; return true; }
+                    string want = null, because = null;
+                    for (int t = 1; t <= perProvince && want == null; t++)
+                    {
+                        int have = (bar >= t ? 1 : 0) | (rng >= t ? 2 : 0) | (stb >= t ? 4 : 0) | (sie >= t ? 8 : 0);
+                        want = ChooseNeededLine(em, faction, have, out because);
+                    }
+                    if (want != null)
+                    {
+                        var core = AIBaseLayout.CoreOf(em, faction, r);
+                        var anchor = new float3(core.x, TerrainUtility.GetHeight(core.x, core.z), core.z);
+                        bool ok;
+                        string why;
+                        _provinceProductionStep = true;
+                        try
+                        {
+                            ok = TryBuildInTerritory(em, faction, want, r, anchor, AIBudgetCategory.Military,
+                                true, out why);
+                        }
+                        finally { _provinceProductionStep = false; }
+                        if (ok)
+                        {
+                            placed = true;
+                            what = $"{StepNames[StepProduction]}: {want} ({total + 1}/" +
+                                   $"{perProvince} here)";
+                            AILogger.Log(faction, "PRODUCTION",
+                                $"province {RegionMap.NameOf(r)} gets {want} ({because})");
+                            { step = StepProduction; return true; }
+                        }
+                        if (IsCrewRefusal(why)) { crewBlocked = true; { step = StepProduction; return true; } }
+                        if (IsMoneyRefusal(why))
+                        {
+                            what = $"{StepNames[StepProduction]} — waiting ({want}: {why})";
+                            { step = StepProduction; return true; }
+                        }
+                        what = $"{StepNames[StepProduction]} — {want} has no legal spot ({why})";
+                        // Placement-blocked: retried after territoryBlockedStepSeconds.
+                        MarkStepBlocked(faction, r, StepProduction, now);
+                    }
+                }
+            return false;
+        }
+
+        private static bool RichEnoughForTrainer(EntityManager em, Faction faction)
+            => TheWaningBorder.Economy.FactionEconomy.TryGetResources(em, faction, out var bank)
+               && bank.Supplies >= Cfg.provinceTrainerBankSupplies;
+
+        private int CountProductionTotal(EntityManager em, Faction faction, int r)
+        {
+            CountProductionIn(em, faction, r, out int bar, out int rng, out int stb, out int sie);
+            return bar + rng + stb + sie;
+        }
+
+        private readonly System.Collections.Generic.List<int> _devOrder = new System.Collections.Generic.List<int>(32);
+
+        /// <summary>BORDER PROVINCES FIRST (2026-11-03, § 6x / point 7): territories
+        /// touching a hostile (or the curse) are developed before the rest, which
+        /// keep their round-robin.</summary>
+        private System.Collections.Generic.List<int> BorderFirst(Faction faction, System.Collections.Generic.IReadOnlyList<int> mine, int rotate)
+        {
+            _devOrder.Clear();
+            int count = RegionMap.Count;
+            for (int i = 0; i < mine.Count; i++)
+            {
+                int r = mine[i];
+                bool border = false;
+                for (int o = 0; o < count && !border; o++)
+                {
+                    if (o == r || !RegionMap.AreAdjacent(r, o)) continue;
+                    int owner = TerritoryOwnership.OwnerOf(o);
+                    border = TerritoryOwnership.IsCurseHeld(o)
+                             || (owner >= 0 && owner != (int)faction && Alliances.AreHostile(faction, (Faction)owner));
+                }
+                if (border) _devOrder.Add(r);
+            }
+            int rest = mine.Count - _devOrder.Count;
+            if (rest > 0)
+            {
+                int start = (rotate & 0x7fffffff) % rest, seen = 0;
+                var others = new System.Collections.Generic.List<int>(rest);
+                for (int i = 0; i < mine.Count; i++) if (!_devOrder.Contains(mine[i])) others.Add(mine[i]);
+                for (int i = 0; i < others.Count; i++) { _devOrder.Add(others[(start + i) % others.Count]); seen++; }
+            }
+            return _devOrder;
+        }
+
         private string ProductionGate(EntityManager em, Faction faction, string buildingId, float now,
             out bool extra, out string detail)
         {

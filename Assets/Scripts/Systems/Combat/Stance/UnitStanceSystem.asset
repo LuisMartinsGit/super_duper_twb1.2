@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: UnitStanceSystem
   m_EditorClassIdentifier:
   aggressiveLeash: 30
+  formationMeleeEngage: 10
   retaliationWindow: 5
   leashReacquireCooldown: 1.5
   underFireWindow: 2.5

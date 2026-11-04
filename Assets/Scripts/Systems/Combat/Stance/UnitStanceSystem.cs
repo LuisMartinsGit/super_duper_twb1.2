@@ -89,6 +89,7 @@ namespace TheWaningBorder.Systems.Combat
             var s = new StanceSettings
             {
                 AggressiveLeash = _cfg.aggressiveLeash,
+                FormationMeleeEngage = _cfg.formationMeleeEngage,
                 RetaliationWindow = _cfg.retaliationWindow,
                 LeashReacquireCooldown = _cfg.leashReacquireCooldown,
                 UnderFireWindow = _cfg.underFireWindow,

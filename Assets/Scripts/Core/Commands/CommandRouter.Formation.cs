@@ -100,6 +100,18 @@ namespace TheWaningBorder.Core.Commands
             IssueFormationOrder(em, units, destination, shape, attackMove: true, arriveFacing, columns, source);
         }
 
+        private static bool AlreadyMarchingThere(EntityManager em, Entity u, float3 destination, bool attackMove)
+        {
+            if (!TransientState.Active<FormationMemberState>(em, u)) return false;
+            var group = em.GetComponentData<FormationMemberState>(u).Group;
+            if (group == Entity.Null || !em.Exists(group) || !em.HasComponent<FormationGroup>(group)) return false;
+            var g = em.GetComponentData<FormationGroup>(group);
+            if (g.State != FormationGroup.StateMoving) return false;
+            if (em.HasComponent<AttackMoveTag>(u) != attackMove) return false;
+            float keep = TheWaningBorder.Systems.Navigation.FormationGroupSystemConfig.I.repeatOrderKeepRadius;
+            return math.distancesq(g.Destination.xz, destination.xz) <= keep * keep;
+        }
+
         private static void IssueFormationOrder(EntityManager em, IReadOnlyList<Entity> units,
             float3 destination, FormationShape shape, bool attackMove, float3 arriveFacing,
             int columns, CommandSource source)
@@ -121,6 +133,12 @@ namespace TheWaningBorder.Core.Commands
                 if (u == Entity.Null || !em.Exists(u)) continue;
                 if (IsBlockedByNotControllable(em, u, source)) continue;
                 if (eligible.Contains(u)) continue;
+                // A REPEAT ORDER KEEPS THE MARCH GOING (2026-11-04). The AI re-
+                // issues its orders on timers; each one rebuilt the formation,
+                // and soldiers flipped in and out of rank thousands of times a
+                // match. An AI order to about where a marching formation already
+                // goes leaves its members alone. A player's click always counts.
+                if (source == CommandSource.AI && AlreadyMarchingThere(em, u, destination, attackMove)) continue;
                 eligible.Add(u);
             }
 

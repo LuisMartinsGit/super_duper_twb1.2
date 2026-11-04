@@ -248,6 +248,9 @@ namespace TheWaningBorder.AI
         /// every think. Cleared the moment the bank can pay, so the delivery
         /// spends it.
         /// </summary>
+        private readonly Dictionary<int, float> _shardrootSaveSince = new Dictionary<int, float>();
+        private readonly HashSet<int> _shardrootSoft = new HashSet<int>();
+
         private void SaveForShardroot(EntityManager em, Faction faction,
             TheWaningBorder.Core.Cost price, byte intent, float now)
         {
@@ -256,19 +259,99 @@ namespace TheWaningBorder.AI
                 ClearShardrootSaving(faction);
                 return;
             }
-            AIPivotalReserve.Set(faction, ShardrootReserveKey, price, strict: true);
-            AIBudget.Reserve(faction, price, now, AIShardroot.Cfg.thinkInterval * 3f, ShardrootReservePriority);
-            if (!_shardrootSaveLog.TryGetValue((int)faction, out float next) || now >= next)
+            int key = (int)faction;
+            if (!_shardrootSaveSince.TryGetValue(key, out float since))
             {
-                _shardrootSaveLog[(int)faction] = now + 60f;
-                AILogger.Log(faction, "SHARDROOT",
-                    $"saving for the {(intent == ShardrootIntent.Temple ? "enshrine" : "binding")} price " +
-                    $"({price.Supplies}s/{price.Iron}i/{price.Veilstone}v/{price.Veilsteel}vs) — the bearer waits at home");
+                since = now;
+                _shardrootSaveSince[key] = now;
             }
+
+            // THE OUTPOSTS WORK FOR THE PRICE (2026-11-02, Game_AI.md § 6l.2).
+            // Red (YielLymwerra, 2026-11-02) sat at 208 veilsteel for 18
+            // minutes under this save: the Trading Outposts stop forging past
+            // outpostVeilsteelTarget, and nothing told them the bind wanted
+            // 800. The price's shortfalls are a military shortage, so the
+            // outpost planner forges veilsteel and buys veilstone toward it.
+            AIBudget.NoteMilitaryShort(em, faction, price);
+
+            // REACHABLE OR NOT. The strict hold (every purchase waits) is
+            // worth it only while the bank will get there soon: the longest
+            // per-resource shortfall / income under saveStrictEtaSeconds, and
+            // the hold not yet past saveStrictMaxSeconds. Otherwise the price
+            // is a SOFT save — the budget's duty cycle still banks toward it,
+            // but the army, research and buildings go on. Red's bank reached
+            // 25k supplies with a 30-man army because nothing was allowed to
+            // spend, on a price its zero veilsteel income could never reach.
+            var cfg = AIShardroot.Cfg;
+            float eta = ShardrootPriceEta(em, faction, price, out string slowest);
+            bool strict = cfg.saveStrictEtaSeconds > 0f && eta <= cfg.saveStrictEtaSeconds
+                && cfg.saveStrictMaxSeconds > 0f && now - since <= cfg.saveStrictMaxSeconds;
+            // THE ARMY NEVER WAITS FOR IT (2026-11-03): the save holds research
+            // and buildings only — unit purchases are exempt — and it takes no
+            // budget reservation, so the military wallet is never earmarked
+            // for the artifact and the waves keep coming.
+            AIPivotalReserve.Set(faction, ShardrootReserveKey, price, strict, exemptMilitary: true);
+            AIBudget.ClearReservation(faction, ShardrootReservePriority);
+
+            string road = intent == ShardrootIntent.Temple ? "enshrine" : "binding";
+            bool wasSoft = _shardrootSoft.Contains(key);
+            if (wasSoft == strict)
+            {
+                if (strict) _shardrootSoft.Remove(key); else _shardrootSoft.Add(key);
+                AILogger.Log(faction, "SHARDROOT", strict
+                    ? $"the {road} price is within reach ({EtaText(eta)}) — a strict save on research and buildings " +
+                      "(the army never waits): the bearer waits at home"
+                    : $"the {road} price is out of reach ({slowest}) — a soft save: research and buildings " +
+                      "go on, the outposts forge for it");
+            }
+            if (!_shardrootSaveLog.TryGetValue(key, out float next) || now >= next)
+            {
+                _shardrootSaveLog[key] = now + 60f;
+                AILogger.Log(faction, "SHARDROOT",
+                    $"saving for the {road} price " +
+                    $"({price.Supplies}s/{price.Iron}i/{price.Veilstone}v/{price.Veilsteel}vs) — " +
+                    (strict ? $"strict, {EtaText(eta)}; the bearer waits at home"
+                            : $"soft ({slowest}); the bearer waits at home"));
+            }
+        }
+
+        private static string EtaText(float eta)
+            => float.IsInfinity(eta) ? "no income" : $"~{eta / 60f:0.0} min at current income";
+
+        /// <summary>Seconds until the bank can pay <paramref name="price"/> at
+        /// the budget's income rates: the longest per-resource shortfall /
+        /// income; infinite when a short resource has no income at all.</summary>
+        private static float ShardrootPriceEta(EntityManager em, Faction faction,
+            TheWaningBorder.Core.Cost price, out string slowest)
+        {
+            slowest = "";
+            if (!TheWaningBorder.Economy.FactionEconomy.TryGetResources(em, faction, out var bank))
+                return float.PositiveInfinity;
+            float eta = 0f;
+            Slowest(price.Supplies - bank.Supplies, AIBudget.ResSupplies, "supplies", faction, ref eta, ref slowest);
+            Slowest(price.Iron - bank.Iron, AIBudget.ResIron, "iron", faction, ref eta, ref slowest);
+            Slowest(price.Veilstone - bank.Veilstone, AIBudget.ResVeilstone, "veilstone", faction, ref eta, ref slowest);
+            Slowest(price.Veilsteel - bank.Veilsteel, AIBudget.ResVeilsteel, "veilsteel", faction, ref eta, ref slowest);
+            return eta;
+        }
+
+        private static void Slowest(float shortBy, int resource, string name, Faction faction,
+            ref float eta, ref string slowest)
+        {
+            if (shortBy <= 0f) return;
+            float income = AIBudget.IncomePerSecond(faction, resource);
+            float t = income > 1e-3f ? shortBy / income : float.PositiveInfinity;
+            if (t <= eta) return;
+            eta = t;
+            slowest = float.IsInfinity(t)
+                ? $"{name} {shortBy:0} short with no income"
+                : $"{name} {shortBy:0} short at {income * 60f:0.0}/min, ~{t / 60f:0.0} min";
         }
 
         private void ClearShardrootSaving(Faction faction)
         {
+            _shardrootSaveSince.Remove((int)faction);
+            _shardrootSoft.Remove((int)faction);
             if (!AIPivotalReserve.Has(faction, ShardrootReserveKey)) return;
             AIPivotalReserve.Clear(faction, ShardrootReserveKey);
             AIBudget.ClearReservation(faction, ShardrootReservePriority);

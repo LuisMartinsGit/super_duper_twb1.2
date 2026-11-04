@@ -48,5 +48,25 @@ namespace TheWaningBorder.Systems.Navigation
         /// blocked too does the stall count.
         /// </summary>
         public float stallHeadingToleranceRadians;
+
+        /// <summary>
+        /// Two soldiers within this many metres of each other when an order
+        /// goes out march in the same formation (2026-11-04: soldiers going to
+        /// the same place always travel in formation; a spread-out order splits
+        /// into one formation per cluster).
+        /// </summary>
+        public float splitLinkRadius;
+
+        /// <summary>A cluster of one or two within this many metres of a bigger
+        /// one joins it instead of marching apart.</summary>
+        public float splitMergeRadius;
+
+        /// <summary>Most formations one order splits into; the smallest merge
+        /// into their nearest neighbour past this.</summary>
+        public int splitMaxFormations;
+
+        /// <summary>An AI re-order to within this many metres of where a marching
+        /// formation already goes changes nothing: the formation keeps marching.</summary>
+        public float repeatOrderKeepRadius;
     }
 }

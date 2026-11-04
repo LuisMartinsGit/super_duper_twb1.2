@@ -33,7 +33,7 @@ MonoBehaviour:
   footprintCells: {x: 5, y: 5}
   buildTime: 120
   populationProvided: 10
-  suppliesPerTick: 50
+  suppliesPerTick: 75
   suppliesInterval: 15
   slotIncomePerMinute: []
   interestPerMinute: 0

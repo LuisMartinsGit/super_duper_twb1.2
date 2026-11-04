@@ -196,7 +196,7 @@ All faction-wide. Gates are the tech SOs' `minBuildingLevel` on the Garrison.
 
 | Tech | Gate | Effect (rule) | Requires |
 |------|------|---------------|----------|
-| **Conscription** | — | faster training at any Barracks | |
+| **Conscription** | — | faster training at every military building | |
 | **Stone Weapons** | — | melee weapon tier 1 | |
 | **Iron Weapons** | L1 | melee weapon tier 2 | Stone Weapons |
 | **Veilstone Weapons** | L2 | melee weapon tier 3 | Iron Weapons |

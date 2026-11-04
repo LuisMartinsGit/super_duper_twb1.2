@@ -409,6 +409,11 @@ namespace TheWaningBorder.AI
                     // holdings until it knows enough of them to aim at.
                     TickIncomeRecon(em, brain.Owner, ref aiState, profile, brainEntity, now);
 
+                    // THE SANCTUM ARMY DRAFTS FIRST (2026-10-20, Game_AI.md
+                    // § 6t; moved ahead of the waves 2026-11-02): it reserves
+                    // its soldiers before the waves below take everything idle.
+                    TickSanctumArmies(em, brain.Owner, ref aiState, now);
+
                     TickAttackWaves(em, brainEntity, brain.Owner, ref aiState,
                         settings, personality, profile, now);
 
@@ -444,8 +449,6 @@ namespace TheWaningBorder.AI
                     // strike for the artifact / bring it home / king rides out;
                     // Litharchs trained at the Temple and walked after the army.
                     TickShardroot(em, brain.Owner, ref aiState, now);
-                    // THE SANCTUM ARMY (2026-10-20, Game_AI.md § 6t).
-                    TickSanctumArmies(em, brain.Owner, ref aiState, now);
                     {
                         Entity home = FindFactionBuilding<HallTag>(em, brain.Owner);
                         if (home != Entity.Null && em.HasComponent<LocalTransform>(home))

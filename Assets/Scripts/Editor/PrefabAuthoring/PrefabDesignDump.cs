@@ -17,6 +17,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
     {
         static readonly string[] Paths =
         {
+            "Assets/GameData/TechTree/Age0/Buildings/Barracks/Art/Barracks_Age_0.prefab",
             "Assets/GameData/TechTree/Civs/Alanthor/Buildings/Fortress/Fortress 1.prefab",
             "Assets/GameData/TechTree/Civs/Alanthor/Buildings/Fortress/Fortress 2.prefab",
             "Assets/GameData/TechTree/Civs/Alanthor/Buildings/Fortress/Fortress 3.prefab",
@@ -30,6 +31,8 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             "Assets/GameData/TechTree/Civs/Alanthor/Buildings/ArcheryRange/ArcheryRange_3.prefab",
             "Assets/GameData/TechTree/Civs/Alanthor/Buildings/ArcheryRange/ArcheryRange_3 1.prefab",
             "Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House 1.prefab",
+            "Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House 2.prefab",
+            "Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House 3.prefab",
             "Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House_1.prefab",
             "Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House_2.prefab",
             "Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/Art/alanthor_House_lv3.prefab",
