@@ -603,6 +603,7 @@ MonoBehaviour:
   monumentLaunchMargin: 2
   monumentThreatRadius: 45
   monumentReorderSeconds: 15
+  monumentArrivedRadius: 2
   monumentBlockedSeconds: 300
   petriarchyTradeBelow: 200
   petriarchyArmySaveRp: 10

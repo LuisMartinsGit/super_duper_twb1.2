@@ -43,11 +43,8 @@ namespace TheWaningBorder.Entities
         public float lightIntensity;
         /// <summary>Ring and light before anyone holds it.</summary>
         public Color neutralColor;
-        public float ringWidth;
-        public float ringLift;
-        public int ringSegments;
-        public float ringGlow;
-        public float arcWidthScale;
-        public float arcGlowScale;
+        /// <summary>The always-visible outer edge, as a share of the radius.</summary>
+        public float circleEdge;
+        public int circleResolution;
     }
 }

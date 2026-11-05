@@ -30,6 +30,7 @@ namespace TheWaningBorder.UI.Data
         /// the Religion_ ids to the religion purchase command.</summary>
         private static void AddPetriarchyActions(List<ActionButton> actions, EntityManager em, Faction faction)
         {
+            int balance = FactionReligionPointsHelper.GetBalance(em, faction);
             void Add(TheWaningBorder.Systems.Sect.ReligionPurchaseKind kind, string label, string tip)
             {
                 bool can = TheWaningBorder.Systems.Sect.ReligionPurchases.CanBuy(em, faction, kind, null, out _);
@@ -37,13 +38,13 @@ namespace TheWaningBorder.UI.Data
                 {
                     Id = "Religion_" + kind,
                     Label = label,
-                    Tooltip = tip,
+                    Tooltip = tip + "\n" + string.Format(Loc.T("You have {0} Religion Points."), balance),
                     Enabled = can,
                     CanAfford = can,
                 });
             }
             void Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind kind, string resource, int amount)
-                => Add(kind, string.Format(Loc.T("Petriarchy: {0}"), resource),
+                => Add(kind, string.Format(Loc.T("{0}\n+{1} for 1 RP"), resource, amount),
                     string.Format(Loc.T("Ask the Petriarchy to support your cause: 1 Religion Point for {0} {1}."), amount, resource));
             void Army(TheWaningBorder.Systems.Sect.ReligionPurchaseKind kind)
             {

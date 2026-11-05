@@ -1,7 +1,7 @@
 // Monument.cs
 // MONUMENTS (docs/Design/Monuments_And_Petriarchy.md, 2026-11-05): one in each
 // starting curse territory. Any unit in its ring for ten seconds takes it; it trickles religion
-// points to its holder, and its ruins can be explored once, for a random buff.
+// points to its holder, and its ruins can be explored once, for its own buff.
 // One hidden monument also releases the match's single Shardroot.
 //
 // Not a building on purpose: no BuildingTag and no Health, so nothing targets
@@ -30,6 +30,8 @@ public struct MonumentState : IComponentData
     public Faction Capturer;
     public int CaptureSeconds;
     public byte Explored;
+    /// <summary>This monument's own buff: an index into the shuffled pool.</summary>
+    public byte Buff;
     public byte HidesShardroot;
 }
 
@@ -103,10 +105,22 @@ namespace TheWaningBorder.Entities
             hash ^= hash >> 13; hash *= 0x5bd1e995u; hash ^= hash >> 15;
             int host = (int)(hash % (uint)territories.Count);
 
+            // Every monument has its own buff: the pool, shuffled by the seed and
+            // dealt out one each. A map with more monuments than buffs deals again.
+            int poolSize = Cfg.buffTechIds.Length;
+            var deal = new int[poolSize];
+            for (int i = 0; i < poolSize; i++) deal[i] = i;
+            var rng = new Unity.Mathematics.Random(hash | 1u);
+            for (int i = poolSize - 1; i > 0; i--)
+            {
+                int j = rng.NextInt(0, i + 1);
+                (deal[i], deal[j]) = (deal[j], deal[i]);
+            }
+
             for (int i = 0; i < territories.Count; i++)
             {
                 float3 at = SpotIn(territories[i], outcrops);
-                Create(em, at, territories[i], i == host);
+                Create(em, at, territories[i], i == host, (byte)deal[i % poolSize]);
             }
             UnityEngine.Debug.Log($"[Monument] {territories.Count} monuments placed; " +
                 $"the Shardroot hides in territory {territories[host]}");
@@ -137,7 +151,7 @@ namespace TheWaningBorder.Entities
             return new float3(seed.x, TerrainUtility.GetHeight(seed.x, seed.y), seed.y);
         }
 
-        private static Entity Create(EntityManager em, float3 position, int territory, bool hidesShardroot)
+        private static Entity Create(EntityManager em, float3 position, int territory, bool hidesShardroot, byte buff)
         {
             var e = em.CreateEntity(
                 typeof(PresentationId),
@@ -156,6 +170,7 @@ namespace TheWaningBorder.Entities
                 Holder = Faction.Border,
                 Capturer = Faction.Border,
                 HidesShardroot = (byte)(hidesShardroot ? 1 : 0),
+                Buff = buff,
             });
             return e;
         }
@@ -196,7 +211,7 @@ namespace TheWaningBorder.Entities
             state.Explored = 1;
             em.SetComponentData(entity, state);
 
-            string buff = RollBuff(faction, territory);
+            string buff = GrantBuff(faction, state);
             string line = buff != null ? TechCatalog.GetTechnology(buff).name : null;
             UnityEngine.Debug.Log($"[Monument] {faction} explored the ruins in territory {territory}: " +
                 $"buff {buff ?? "none left"}, Shardroot {(state.HidesShardroot != 0 ? "HERE" : "not here")}");
@@ -210,21 +225,21 @@ namespace TheWaningBorder.Entities
             return true;
         }
 
-        /// <summary>A buff this faction does not have yet, from the seed.</summary>
-        private static string RollBuff(Faction faction, int territory)
+        /// <summary>This monument's own buff (a TechDefSO id). Hidden from the
+        /// panels until its ruins are explored.</summary>
+        public static string BuffOf(in MonumentState state)
         {
-            var research = FactionResearchState.Instance;
-            var pool = new List<string>();
-            foreach (var id in Cfg.buffTechIds)
-                if (research != null && !research.HasResearched(faction, id)) pool.Add(id);
-            if (pool.Count == 0) return null;
+            var pool = Cfg.buffTechIds;
+            return pool == null || pool.Length == 0 ? null : pool[state.Buff % pool.Length];
+        }
 
-            uint seed = (uint)GameSettings.SpawnSeed * 2654435761u
-                + (uint)territory * 40503u + (uint)faction * 16777619u;
-            var rng = new Unity.Mathematics.Random(seed | 1u);
-            string pick = pool[rng.NextInt(0, pool.Count)];
-            research.CompleteResearch(faction, pick);
-            return pick;
+        private static string GrantBuff(Faction faction, in MonumentState state)
+        {
+            string id = BuffOf(state);
+            var research = FactionResearchState.Instance;
+            if (id == null || research == null) return null;
+            research.CompleteResearch(faction, id);
+            return id;
         }
 
         /// <summary>The single Shardroot descends in front of this monument.</summary>

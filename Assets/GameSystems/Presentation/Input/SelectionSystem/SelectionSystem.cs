@@ -581,6 +581,10 @@ namespace TheWaningBorder.Input
             if (_em.HasComponent<ShardrootPickupTag>(e))
                 return true;
 
+            // A monument, held or not: its panel shows its owner and its buff.
+            if (_em.HasComponent<MonumentTag>(e))
+                return true;
+
             // Must have faction tag
             if (!_em.HasComponent<FactionTag>(e))
                 return false;

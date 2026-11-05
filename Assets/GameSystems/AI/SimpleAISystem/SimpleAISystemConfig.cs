@@ -1760,6 +1760,8 @@ namespace TheWaningBorder.AI
         public float monumentLaunchMargin;
         public float monumentThreatRadius;
         public float monumentReorderSeconds;
+        /// <summary>A squad is there this close: it has to stand inside the circle.</summary>
+        public float monumentArrivedRadius;
         /// <summary>Seconds a monument is left alone after a squad dies on it.</summary>
         public float monumentBlockedSeconds;
         /// <summary>Spare RP buys Petriarchy support for a resource below this.</summary>

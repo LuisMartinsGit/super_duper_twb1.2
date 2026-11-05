@@ -827,24 +827,44 @@ namespace TheWaningBorder.UI.Ingame
             if (_previewModeValid == valid) return; // materials already hold this state
             _previewModeValid = valid;
 
-            // Placeable: solid opaque white. Blocked: translucent red.
-            Color tint = valid
-                ? Color.white
-                : new Color(1f, 0.3f, 0.3f, 0.5f);
+            // Placeable: solid opaque white. Blocked: translucent red. The ghost wears
+            // its own two materials: tinting the art's own was at the mercy of which
+            // colour property each shader happens to expose, and red did not always show.
+            var preview = valid ? PreviewValidMaterial() : PreviewBlockedMaterial();
             foreach (var renderer in _placingInstance.GetComponentsInChildren<Renderer>())
             {
-                foreach (var mat in renderer.materials)
-                {
-                    if (valid) MakeMaterialOpaque(mat);
-                    else       MakeMaterialTransparent(mat);
-
-                    // URP Lit/Unlit use _BaseColor; legacy shaders use _Color.
-                    if (mat.HasProperty("_BaseColor"))
-                        mat.SetColor("_BaseColor", tint);
-                    if (mat.HasProperty("_Color"))
-                        mat.color = tint;
-                }
+                if (renderer is ParticleSystemRenderer) continue;
+                var slots = new Material[renderer.sharedMaterials.Length];
+                for (int i = 0; i < slots.Length; i++) slots[i] = preview;
+                renderer.sharedMaterials = slots;
+                renderer.SetPropertyBlock(null);
             }
+        }
+
+        private static Material _previewValid, _previewBlocked;
+
+        private static Material PreviewValidMaterial()
+        {
+            if (_previewValid != null) return _previewValid;
+            _previewValid = new Material(ProceduralMaterialHelper.LitShader) { name = "PlacementGhost_Valid" };
+            MakeMaterialOpaque(_previewValid);
+            PaintPreview(_previewValid, Color.white);
+            return _previewValid;
+        }
+
+        private static Material PreviewBlockedMaterial()
+        {
+            if (_previewBlocked != null) return _previewBlocked;
+            _previewBlocked = new Material(ProceduralMaterialHelper.LitShader) { name = "PlacementGhost_Blocked" };
+            MakeMaterialTransparent(_previewBlocked);
+            PaintPreview(_previewBlocked, new Color(1f, 0.12f, 0.12f, 0.6f));
+            return _previewBlocked;
+        }
+
+        private static void PaintPreview(Material mat, Color color)
+        {
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (mat.HasProperty("_Color")) mat.color = color;
         }
 
         private void SpawnSelectedBuilding(float3 pos, float yawDegrees)
@@ -1363,7 +1383,20 @@ namespace TheWaningBorder.UI.Ingame
 
             Ray ray = cam.ScreenPointToRay(UnityEngine.Input.mousePosition);
 
-            // Primary: raycast against placement mask
+            // THE GROUND, NOTHING ELSE: a building in the way used to catch the ray,
+            // so the ghost climbed onto its roof and the ground behind it could not
+            // be aimed at. The terrain's own collider sees only the terrain.
+            if (TerrainUtility.IsReady(out UnityEngine.Terrain groundTerrain))
+            {
+                var terrainCollider = groundTerrain.GetComponent<TerrainCollider>();
+                if (terrainCollider != null && terrainCollider.Raycast(ray, out var groundHit, 10000f))
+                {
+                    world = groundHit.point;
+                    return true;
+                }
+            }
+
+            // No terrain collider: raycast against placement mask
             if (Physics.Raycast(ray, out var hit, 10000f, placementMask, QueryTriggerInteraction.Ignore))
             {
                 world = hit.point;

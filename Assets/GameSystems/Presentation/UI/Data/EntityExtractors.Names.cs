@@ -22,6 +22,14 @@ namespace TheWaningBorder.UI.Data
         /// </summary>
         public static string GetSelectionDisplayName(Entity entity, EntityManager em)
         {
+            if (em.HasComponent<MonumentState>(entity))
+            {
+                var ms = em.GetComponentData<MonumentState>(entity);
+                string owner = (int)ms.Holder >= 8 ? Loc.T("Derelict") : ms.Holder.ToString();
+                string line = string.Format(Loc.T("Monument - {0}"), owner);
+                string buff = ms.Explored != 0 ? TheWaningBorder.Entities.Monument.BuffOf(ms) : null;
+                return buff != null ? line + " - " + TechCatalog.GetTechnology(buff).name : line;
+            }
             string name = ResolveSelectionName(entity, em);
             if (!em.HasComponent<BuildingTag>(entity)) return WithPurity(entity, em, name);
             name = WithLevel(entity, em, name);

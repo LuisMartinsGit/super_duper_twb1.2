@@ -431,6 +431,9 @@ namespace TheWaningBorder.UI.Ingame
                     _bottomLeftDock);
 
                 _selectionLabel = _selectionHeader.GetComponentInChildren<TMP_Text>(true);
+                // Hovering a selected monument's name reads its owner and its buff.
+                if (_selectionLabel != null) _selectionLabel.raycastTarget = true;
+                UITooltip.Bind(_selectionLabel != null ? _selectionLabel.gameObject : _selectionHeader, MonumentHeaderTooltip);
                 foreach (var img in _selectionHeader.GetComponentsInChildren<Image>(true))
                 {
                     if (string.Equals(img.name, "SPR_Screenshot",
@@ -1132,6 +1135,18 @@ namespace TheWaningBorder.UI.Ingame
 
         /// <summary>Shown while the selection holds anything of yours the
         /// button can remove; the tooltip names what it will do.</summary>
+        /// <summary>The selected monument's owner, claim rule and revealed buff.</summary>
+        private static string MonumentHeaderTooltip()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            var selection = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
+            if (world == null || !world.IsCreated || selection == null || selection.Count == 0) return null;
+            var em = world.EntityManager;
+            var first = selection[0];
+            if (!em.Exists(first) || !em.HasComponent<MonumentState>(first)) return null;
+            return EntityInfoExtractor.GetDisplayInfo(first, em).Description;
+        }
+
         private void RefreshDeleteButton(EntityManager em, System.Collections.Generic.IReadOnlyList<Entity> selection)
         {
             if (_deleteButton == null) return;

@@ -11,6 +11,25 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.65] — 2026-11-05
+
+### Building placement
+
+- **You can aim past buildings when placing.** The preview follows the ground, even
+  with a building between it and the camera.
+- **Invalid positions always show the preview in red.**
+
+### Monuments
+
+- **A new claim circle, 4.5 m in radius.** It is a ground decal with an always-visible
+  edge and a soft fill that fades to clear at the centre, in the owner's colour. Every
+  player can see a capture filling up.
+- **Monuments can be selected.** The panel shows the owner (Derelict until claimed),
+  and the owner gets the Explore button.
+- **Every monument has its own buff.** Once explored, anyone can read it by selecting
+  the monument.
+- **Temple buttons show your Religion Points** and what each trade pays.
+
 ## [0.0.64] — 2026-11-05
 
 ### Monuments

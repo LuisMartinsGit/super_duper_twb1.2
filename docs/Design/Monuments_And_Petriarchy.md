@@ -21,10 +21,16 @@ for instead of a counter that fills by itself.
 - A monument is **not a building**: no health, cannot be attacked or destroyed,
   does not hold a territory, does not count for elimination, score or Sanctum
   dominion.
-- **A visible ring marks it. Any unit inside the ring for `captureSeconds` takes
-  it**, regardless of curse presence: a worker or scout counts, and curse units
-  neither block it nor take it. An arc fills along the ring as it is taken; ring
-  and light wear the holder's colour.
+- **A claim circle marks it, a few metres across (`captureRadius`). Any unit inside
+  for `captureSeconds` takes it**, regardless of curse presence: a worker or scout
+  counts, and curse units neither block it nor take it.
+- **The circle is a ground decal, like the selection decals.** Its outer edge is
+  always visible, for every player, in fog too. Inside, alpha runs linearly from fully
+  transparent at the centre to fully visible at the edge, in the owner's colour. A
+  capture fills in from the edge toward the centre in the capturer's colour, and
+  every player can watch it.
+- **Monuments are selectable by everyone.** The panel shows the owner (`Derelict` until
+  someone claims it), and the owner gets the Explore button.
 - The timer needs one side in the ring, allies together. **Hostile sides inside at
   the same time freeze it**, so a holder with a unit inside keeps the monument. Leaving
   the ring resets it. Nobody holds a monument at match start.
@@ -36,11 +42,13 @@ for instead of a counter that fills by itself.
 
 - The holder of a monument may pay to **explore its ruins, once per monument per
   match**, whoever explores it. The price is on `MonumentSystem.asset`.
-- **Exploring grants one random buff** from a pool of six, permanent and
-  faction-wide. A faction never rolls a buff it already has. The six are tech
-  SOs in `TechTree/Monument/Buffs/`, granted rather than researched, and listed
+- **Every monument has its own buff.** The pool of six is shuffled from the match
+  seed and dealt out, one per monument, so no two match unless a map has more than six.
+  Which is which stays hidden until explored. **Exploring activates it for the explorer,
+  for good, and from then on anyone can read it** by selecting the monument. The six
+  are tech SOs in `TechTree/Monument/Buffs/`, granted rather than researched, and listed
   on `MonumentSystem.asset`.
-- The roll comes from the match seed, so every peer and replay agrees.
+- The deal comes from the match seed, so every peer and replay agrees.
 
 ## 3. The Shardroot's descent
 

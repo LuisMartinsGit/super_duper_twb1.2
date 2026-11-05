@@ -416,18 +416,25 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<MonumentState>(entity))
             {
                 var ms = em.GetComponentData<MonumentState>(entity);
+                bool derelict = (int)ms.Holder >= 8;
                 info.Type = "Monument";
                 info.Name = "Monument";
-                info.Faction = (int)ms.Holder >= 8 ? "Neutral" : ms.Holder.ToString();
+                info.Faction = derelict ? Loc.T("Derelict") : ms.Holder.ToString();
                 info.CurrentHealth = null;
                 info.MaxHealth = null;
-                info.Description = (int)ms.Holder >= 8
-                    ? string.Format(Loc.T("Keep any unit inside the ring for {0} seconds to take it. It pays religion to whoever holds it."),
-                        TheWaningBorder.Entities.MonumentSystemConfig.I.captureSeconds)
-                    : Loc.T("It pays religion to its holder.");
-                info.Description += "\n" + (ms.Explored != 0
-                    ? Loc.T("Its ruins have been explored.")
-                    : Loc.T("Its ruins are unexplored."));
+                info.Description = string.Format(Loc.T("Owner: {0}"), info.Faction) + "\n"
+                    + string.Format(Loc.T("Keep any unit inside the circle for {0} seconds to claim it. It pays religion to its owner."),
+                        TheWaningBorder.Entities.MonumentSystemConfig.I.captureSeconds);
+                string buffId = ms.Explored != 0 ? TheWaningBorder.Entities.Monument.BuffOf(ms) : null;
+                if (buffId != null)
+                {
+                    var buff = TechCatalog.GetTechnology(buffId);
+                    info.Description += "\n" + buff.name + ": " + buff.desc;
+                }
+                else
+                {
+                    info.Description += "\n" + Loc.T("Its ruins are unexplored.");
+                }
             }
 
             // Temple: the faction's Religion Points (the Temple has no levels)
@@ -907,8 +914,9 @@ namespace TheWaningBorder.UI.Data
                     Id = "Monument_Explore",
                     Label = Loc.T("Explore the Ruins"),
                     Tooltip = ms.Explored != 0
-                        ? Loc.T("These ruins have already been explored.")
-                        : Loc.T("Explore the ruins: one random lasting buff. The Shardroot may lie here."),
+                        ? string.Format(Loc.T("Already explored: {0}"),
+                            TechCatalog.GetTechnology(TheWaningBorder.Entities.Monument.BuffOf(ms)).desc)
+                        : Loc.T("Explore the ruins to activate this monument's buff, for good. The Shardroot may lie here."),
                     Cost = cost,
                     Enabled = can,
                     CanAfford = FactionEconomy.CanAfford(em, GameSettings.LocalPlayerFaction, cost),

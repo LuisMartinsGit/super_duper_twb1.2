@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7250b3e575be5135901632af504c44c2, type: 3}
   m_Name: MonumentSystem
   m_EditorClassIdentifier: 
-  captureRadius: 18
+  captureRadius: 4.5
   captureSeconds: 10
   secondsPerPoint: 2
   exploreSupplies: 400
@@ -36,9 +36,5 @@ MonoBehaviour:
   lightRange: 14
   lightIntensity: 4
   neutralColor: {r: 0.85, g: 0.8, b: 0.65, a: 1}
-  ringWidth: 0.6
-  ringLift: 0.35
-  ringSegments: 96
-  ringGlow: 2.5
-  arcWidthScale: 1.6
-  arcGlowScale: 2
+  circleEdge: 0.1
+  circleResolution: 128

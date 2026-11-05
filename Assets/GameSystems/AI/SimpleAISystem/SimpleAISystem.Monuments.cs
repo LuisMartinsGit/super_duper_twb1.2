@@ -101,7 +101,7 @@ namespace TheWaningBorder.AI
 
             if (now >= squad.NextOrder)
             {
-                AICommon.IssueGroupOrder(em, squad.Members, squad.Position, attackMove: false, Cfg.waveArrivedRadius);
+                AICommon.IssueGroupOrder(em, squad.Members, squad.Position, attackMove: false, Cfg.monumentArrivedRadius);
                 squad.NextOrder = now + Cfg.monumentReorderSeconds;
             }
             return true;
@@ -152,7 +152,7 @@ namespace TheWaningBorder.AI
             if (squad.Members.Count < Cfg.monumentSquadMin || power < need) return;
 
             foreach (var m in squad.Members) _sanctumGuards.Add(m);
-            AICommon.IssueGroupOrder(em, squad.Members, bestPos, attackMove: false, Cfg.waveArrivedRadius);
+            AICommon.IssueGroupOrder(em, squad.Members, bestPos, attackMove: false, Cfg.monumentArrivedRadius);
             squad.NextOrder = now + Cfg.monumentReorderSeconds;
             _monumentSquads[key] = squad;
             AILogger.Log(faction, "MONUMENT",
