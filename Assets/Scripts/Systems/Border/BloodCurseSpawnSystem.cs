@@ -109,6 +109,7 @@ namespace TheWaningBorder.Systems.Border
 
         protected override void OnUpdate()
         {
+            if (GameSettings.NoCurseForTest) return;   // the batch's control arm
             ProcessPending(SystemAPI.Time.ElapsedTime);
 
             // Re-seed per match. The system object survives scene loads, so

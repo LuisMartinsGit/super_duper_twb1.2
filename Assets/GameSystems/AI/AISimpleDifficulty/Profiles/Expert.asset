@@ -15,17 +15,29 @@ MonoBehaviour:
   tier: 3
   thinkInterval: 0.25
   intelFreshnessSeconds: 20
-  firstAttackEarliestSeconds: 180
-  attackWaveIntervalSeconds: 120
+  firstAttackEarliestSeconds: 480
+  levelUpsFromSeconds: 0
+  extractorLimit: 0
+  spareCapitals: 0
+  holdBackAheadRatio: 0
+  armyCapFixed: 0
+  wallsForbidden: 0
+  sanctumLateSeconds: 0
+  sanctumMode: 0
+  victoryMultiFocus: 1
+  targetStyle: 3
+  reinforceMode: 0
+  maxWaveUnits: 0
+  attackWaveIntervalSeconds: 150
   waveBaseUnits: 12
-  standingArmyFloorFraction: 0.15
+  standingArmyFloorFraction: 0.08
   waveMinArmyFraction: 0.1
   territoryCadenceScale: 0.7
   fortressDelaySeconds: 0
   reconquestMargin: 1.15
   strengthWaveRatioScale: 0.9
   personalityWeight: 0.35
-  sustainArmyCap: 200
+  sustainArmyCap: 300
   concurrentArmies: 3
   incomeTargeting: 1
   supportThinkScale: 0.6
@@ -55,7 +67,7 @@ MonoBehaviour:
     focusFireWeight: 1
     kiting: 1
     flankFraction: 0.3
-    retreatRatio: 1.35
+    retreatRatio: 2
     reengageRatio: 0.95
     rangedBehindMelee: 1
     castUnitAbilities: 1

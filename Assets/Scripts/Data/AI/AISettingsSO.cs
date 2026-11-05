@@ -48,6 +48,12 @@ namespace TheWaningBorder.Data.AI
         [Serializable]
         public class PersonalityBlock
         {
+            /// <summary>How much this personality favours each road to victory
+            /// (Game_AI.md § 6aa).</summary>
+            public float victoryConquestWeight;
+            public float victorySanctumWeight;
+            public float victoryShardrootWeight;
+
             public AIPersonality personality;
             /// <summary>Min idle units before a maintenance attack launches.</summary>
             public int attackThreshold;

@@ -23,6 +23,23 @@ AI (`Systems/Border/`) is a separate system and is NOT covered here.
 
 ## 2. Difficulty tiers (all fair — the AoE4 lesson)
 
+**What the player feels (2026-11-04, developer-approved).** The tiers must read clearly
+apart, and Easy must forgive a new player. Each tier's profile sets when its first attack
+comes, the time between waves, its largest wave, its army limit, who it attacks, whether
+it sends reinforcement armies, and whether it goes for Sanctums or builds walls. **Easy
+holds back on purpose:** it builds few extractors and levels late, it stops attacking once
+clearly ahead, and it leaves a capital alone unless that player has recently attacked it.
+That is a deliberate exception to "every AI tries to win"; it is still no cheat. No tier
+has a resource or vision bonus. A tier that fights on several fronts keeps a main army: a
+wave splits off side armies only at `sisterMinWaveUnits`, each `sisterArmyShare` of it. **Above Easy, a tier
+finishes what it has won:** once a rival reads as beaten (it stays so for `finishHoldSeconds`),
+everything but a token guard (`finishGuardShare`) goes for its capital, Sanctum garrisons
+included, the wave limit is lifted, reinforcements follow at once, and the army holds unless
+hugely outmatched. The
+test for the ladder: a passive stand-in for a new
+player survives long against Easy and less long at each tier above, and each tier beats
+the one below head to head.
+
 Difficulty changes *behavior quality only*. No resource or vision cheats
 on any shipped tier; if cheat tiers are ever added they must be clearly
 labeled with their multiplier (AoE4's hidden-Hardest-cheat backlash).
@@ -3205,8 +3222,13 @@ soldier above the reserve. While an army lives, soldiers gather at home, and no
 other wave launches. The next body of soldiers leaves on the first of:
 
 1. **`waveReinforceSeconds` after the last army**, with every soldier trained since,
-   as a reinforcement army to the live army's objective (a column: it musters, marches
-   and merges into the army on arrival).
+   as a reinforcement army to join the live army (a column). It musters, marches to
+   where the army is NOW (re-read every `columnFollowSeconds`, redirected once the army
+   has moved `columnFollowRadius`) and merges on reaching it. It merges only into a field
+   army: never another column, never the defence at home, and never an army falling back,
+   whose ground it holds beside until the fall-back ends. Newcomers join a column still
+   mustering instead of leaving as a second one. If the army is gone, the largest column
+   carries on as the army.
 2. **The population cap is reached**: the same reinforcement army, at once, in groups of
    at least `reinforceCapMinGroup`.
 3. **The army is dead**: a new army with a new objective, as soon as it reaches
@@ -3260,6 +3282,53 @@ at 210.
   SLOTS (a post's level runs 1 / 2 / 4) and deals the wanted route counts
   over its posts, repeats allowed. Log: `TRADE: outposts: N sell / N forge / N buy / N buy-iron
   / N sell-supplies / N hold`.
+
+## 6aa. The three roads to victory (2026-11-05)
+
+Developer: "Why break a great fortress when it can simply hold the sanctum
+points?" A match is won three ways: Shardroot ascension, Sanctum dominion,
+military conquest. The AI now knows it is choosing between them.
+
+- **Easy and Normal walk one road at a time**, chosen by personality, by
+  opportunity and in reaction to the other players.
+- **Hard and Expert walk every road at once** (`Mixed`) until one is clearly the
+  best chance (`victoryPrioritizeScore`), then that road comes first.
+- **Every personality weighs the roads differently** (`victory*Weight` on its
+  block in `AISettings.asset`): Aggressive and Rush lean to conquest, Economic to
+  Sanctums, Defensive, TechBoom and Turtle to the Shardroot, Balanced to none.
+
+What each road does, using what already exists:
+
+| Road | Waves | New Sanctum armies | New monument squads |
+|---|---|---|---|
+| Conquest | go | no | no |
+| Sanctums | stop, attacks called off | yes | no |
+| Shardroot, artifact not held, one-road tier | stop | no | yes |
+| Shardroot, artifact not held, all-roads tier | go | no | yes |
+| Shardroot, artifact held | stop, attacks called off, more towers | no | no |
+| Mixed | go | yes | yes |
+
+**Events force the road, on every tier and past any hold time:**
+
+- we hold the Shardroot: fortify and ascend. Personalities that give it to the
+  king (Aggressive, Rush) go to war with him instead; Balanced now enshrines;
+- a rival holds it: conquest, against the holder (§ 6p);
+- a rival holds every Sanctum: Sanctums;
+- a rival is beaten (§ 6u): conquest.
+
+**Holding half the Sanctums** scores high enough to stop attacking players on any
+personality whose weight lets it pass the bar, so the army goes for the rest.
+
+**A rival standing on its Sanctums:** when most of the soldiers we can see stand
+there (`victoryGarrisonShare`) and our army outnumbers what stays at its capital
+(`victoryStrikeSuperiority`), conquest gains a bonus and the next wave's objective
+is that capital.
+
+A road is kept for `victoryMinHoldSeconds` and a new one must beat it by
+`victorySwitchMargin`, so the AI does not dither. Logged as `PLAN:`. Values on
+`SimpleAISystem.asset`; the tier switch is `victoryMultiFocus` on each profile;
+it replaces `sanctumMode` while `victoryPlanEnabled` is on. Code:
+`SimpleAISystem.VictoryPlan.cs`.
 
 ## 7. Scouting
 

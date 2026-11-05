@@ -15,10 +15,22 @@ MonoBehaviour:
   tier: 2
   thinkInterval: 0.5
   intelFreshnessSeconds: 40
-  firstAttackEarliestSeconds: 240
-  attackWaveIntervalSeconds: 180
+  firstAttackEarliestSeconds: 720
+  levelUpsFromSeconds: 0
+  extractorLimit: 0
+  spareCapitals: 0
+  holdBackAheadRatio: 0
+  armyCapFixed: 0
+  wallsForbidden: 0
+  sanctumLateSeconds: 0
+  sanctumMode: 0
+  victoryMultiFocus: 1
+  targetStyle: 2
+  reinforceMode: 0
+  maxWaveUnits: 60
+  attackWaveIntervalSeconds: 240
   waveBaseUnits: 12
-  standingArmyFloorFraction: 0.15
+  standingArmyFloorFraction: 0.08
   waveMinArmyFraction: 0.1
   territoryCadenceScale: 1
   fortressDelaySeconds: 45

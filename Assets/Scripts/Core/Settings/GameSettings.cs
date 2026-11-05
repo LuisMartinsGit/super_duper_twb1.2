@@ -293,6 +293,14 @@ public static class GameSettings
     /// </summary>
     public static bool TutorialActive = false;
 
+    /// <summary>Test harness: AI factions (bit = Faction) that build and defend but never
+    /// attack, a stand-in for a new player (-twbFactionPassive).</summary>
+    public static uint PassiveAIMask = 0u;
+
+    /// <summary>Test harness only (-twbNoCurse): the match raises no curse node,
+    /// the control arm for measuring what the curse does to a match.</summary>
+    public static bool NoCurseForTest;
+
     /// <summary>
     /// Convenience: true when current mode is Sandbox.
     ///

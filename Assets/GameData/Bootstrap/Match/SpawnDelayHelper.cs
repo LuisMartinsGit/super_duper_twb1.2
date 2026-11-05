@@ -232,6 +232,14 @@ namespace TheWaningBorder.Bootstrap
 
             var starts = StartPositions();
 
+            // MONUMENTS stand in the starting curse territories, curse or no curse
+            // (Monuments_And_Petriarchy.md §1). A map with no Veilstone rich
+            // territory places them after its nodes rise, below.
+            TheWaningBorder.Entities.Monument.SpawnAll(world.EntityManager);
+
+            // The test harness's control arm raises no curse at all (-twbNoCurse).
+            if (GameSettings.NoCurseForTest) return;
+
             // VEILSTONE-RICH TERRITORIES START CURSED (Territory_Claims.md §9):
             // the curse rises on every outcrop there. Only a map with none
             // falls back to the fair random draw.
@@ -244,6 +252,7 @@ namespace TheWaningBorder.Bootstrap
                 : Mathf.Max(1, starts.Count);
             TheWaningBorder.Systems.Border.CurseNodeSeeding.SeedInitialNodes(
                 world.EntityManager, starts, count, (uint)(GameSettings.SpawnSeed ^ 0x5EEDC0DE));
+            TheWaningBorder.Entities.Monument.SpawnAll(world.EntityManager);
         }
 
         // ═══════════════════════════════════════════════════════════════

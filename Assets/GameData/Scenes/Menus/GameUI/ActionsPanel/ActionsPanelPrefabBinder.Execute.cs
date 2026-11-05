@@ -92,6 +92,22 @@ namespace TheWaningBorder.UI.Ingame
             // Feraldis Forge bays and totem rites (docs/Design/Age_1_Feraldis.md).
             if (TheWaningBorder.UI.Data.FeraldisActions.TryExecute(em, entity, b.Id)) return;
 
+            // Monuments_And_Petriarchy.md: explore, Petriarchy support, the army.
+            if (b.Id == "Monument_Explore" && em.HasComponent<MonumentState>(entity))
+            {
+                CommandRouter.IssueReligionPurchase(em, GameSettings.LocalPlayerFaction,
+                    TheWaningBorder.Systems.Sect.ReligionPurchaseKind.ExploreRuins,
+                    em.GetComponentData<MonumentState>(entity).Territory.ToString());
+                return;
+            }
+            if (b.Id.StartsWith("Religion_", System.StringComparison.Ordinal)
+                && System.Enum.TryParse(b.Id.Substring("Religion_".Length),
+                    out TheWaningBorder.Systems.Sect.ReligionPurchaseKind religionKind))
+            {
+                CommandRouter.IssueReligionPurchase(em, GameSettings.LocalPlayerFaction, religionKind, null);
+                return;
+            }
+
             switch (b.Id)
             {
                 case "BazaarPack":

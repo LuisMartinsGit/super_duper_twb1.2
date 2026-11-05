@@ -772,6 +772,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             return go;
         }
 
+        // === MONUMENTS ===
+        if (presentationId == TheWaningBorder.Entities.Monument.PresentationID)
+            return CreateMonumentVisual(pos, entity);
+
         // === THE SHARDROOT (ground pickup, or embedded in a Maw) ===
         if (presentationId == TheWaningBorder.Core.Config.BorderConstants.ShardrootPresentationID)
             return CreateShardrootVisual(pos, entity);

@@ -31,6 +31,9 @@ MonoBehaviour:
   retreatCooldownSeconds: 30
   personalities:
   - personality: 0
+    victoryConquestWeight: 1
+    victorySanctumWeight: 1
+    victoryShardrootWeight: 1
     attackThreshold: 3
     militaryFloor: 16
     riskMultiplier: 1
@@ -55,9 +58,12 @@ MonoBehaviour:
     strengthGateFromSeconds: 100000
     noOverdueRelease: 0
     fortressAppetite: 1
-    shardrootToKing: 1
+    shardrootToKing: 0
     allInCommitment: 0.8
   - personality: 1
+    victoryConquestWeight: 1.5
+    victorySanctumWeight: 0.7
+    victoryShardrootWeight: 0.6
     attackThreshold: 2
     militaryFloor: 20
     riskMultiplier: 0.6
@@ -85,6 +91,9 @@ MonoBehaviour:
     shardrootToKing: 1
     allInCommitment: 0.9
   - personality: 2
+    victoryConquestWeight: 0.7
+    victorySanctumWeight: 1
+    victoryShardrootWeight: 1.4
     attackThreshold: 8
     militaryFloor: 34
     riskMultiplier: 1.5
@@ -112,6 +121,9 @@ MonoBehaviour:
     shardrootToKing: 0
     allInCommitment: 0.7
   - personality: 3
+    victoryConquestWeight: 0.7
+    victorySanctumWeight: 1.4
+    victoryShardrootWeight: 1
     attackThreshold: 4
     militaryFloor: 12
     riskMultiplier: 1.2
@@ -139,6 +151,9 @@ MonoBehaviour:
     shardrootToKing: 0
     allInCommitment: 0.8
   - personality: 4
+    victoryConquestWeight: 1.6
+    victorySanctumWeight: 0.6
+    victoryShardrootWeight: 0.6
     attackThreshold: 2
     militaryFloor: 20
     riskMultiplier: 0.5
@@ -166,6 +181,9 @@ MonoBehaviour:
     shardrootToKing: 1
     allInCommitment: 0.9
   - personality: 5
+    victoryConquestWeight: 0.7
+    victorySanctumWeight: 1
+    victoryShardrootWeight: 1.4
     attackThreshold: 4
     militaryFloor: 14
     riskMultiplier: 1.2
@@ -193,6 +211,9 @@ MonoBehaviour:
     shardrootToKing: 0
     allInCommitment: 0.8
   - personality: 6
+    victoryConquestWeight: 0.5
+    victorySanctumWeight: 1
+    victoryShardrootWeight: 1.6
     attackThreshold: 6
     militaryFloor: 28
     riskMultiplier: 1.8

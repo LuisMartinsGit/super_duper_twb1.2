@@ -788,6 +788,8 @@ namespace TheWaningBorder.AI
         private static bool TryUpgradeBuildingType(EntityManager em, Faction faction, string buildingId,
             bool surplus = false, bool veilstoneHeld = false, bool supplyEngine = false)
         {
+            // A tier that levels late (Game_AI.md § 2).
+            if (TheWaningBorder.Core.SimClock.Now < SimpleAISystem.TierOf(faction).LevelUpsFromSeconds) return false;
             EntityQuery query;
             // HOUSING IS CRITICAL WHEN THE CAP IS NEAR (2026-11-04, § 6y): a
             // House level then yields to nothing — not to the army (which

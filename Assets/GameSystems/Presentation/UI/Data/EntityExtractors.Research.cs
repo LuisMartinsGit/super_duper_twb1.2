@@ -18,6 +18,52 @@ namespace TheWaningBorder.UI.Data
 
         public static List<ActionButton> GetResearchActions(Entity entity, EntityManager em)
         {
+            var actions = GetResearchActionsCore(entity, em);
+            if (em.HasComponent<TempleOfRidanTag>(entity) && !em.HasComponent<UnderConstruction>(entity)
+                && em.HasComponent<FactionTag>(entity))
+                AddPetriarchyActions(actions, em, em.GetComponentData<FactionTag>(entity).Value);
+            return actions;
+        }
+
+        /// <summary>The Temple's Petriarchy support and army buttons
+        /// (Monuments_And_Petriarchy.md §5-§6). ActionsPanelPrefabBinder routes
+        /// the Religion_ ids to the religion purchase command.</summary>
+        private static void AddPetriarchyActions(List<ActionButton> actions, EntityManager em, Faction faction)
+        {
+            void Add(TheWaningBorder.Systems.Sect.ReligionPurchaseKind kind, string label, string tip)
+            {
+                bool can = TheWaningBorder.Systems.Sect.ReligionPurchases.CanBuy(em, faction, kind, null, out _);
+                actions.Add(new ActionButton
+                {
+                    Id = "Religion_" + kind,
+                    Label = label,
+                    Tooltip = tip,
+                    Enabled = can,
+                    CanAfford = can,
+                });
+            }
+            void Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind kind, string resource, int amount)
+                => Add(kind, string.Format(Loc.T("Petriarchy: {0}"), resource),
+                    string.Format(Loc.T("Ask the Petriarchy to support your cause: 1 Religion Point for {0} {1}."), amount, resource));
+            void Army(TheWaningBorder.Systems.Sect.ReligionPurchaseKind kind)
+            {
+                int rp = TheWaningBorder.Systems.Sect.ReligionPurchases.ArmyPrice(kind);
+                int n = TheWaningBorder.Systems.Sect.ReligionPurchases.ArmySize(kind);
+                Add(kind, string.Format(Loc.T("Army\n{0} RP"), rp),
+                    string.Format(Loc.T("The Petriarchy's Army: {0} Religion Points call {1} sect units to the Temple."), rp, n));
+            }
+            var cfg = FactionReligionPointsHelper.Cfg;
+            Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.SupportSupplies, Loc.T("Supplies"), cfg.supportSupplies);
+            Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.SupportIron, Loc.T("Iron"), cfg.supportIron);
+            Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.SupportVeilstone, Loc.T("Veilstone"), cfg.supportVeilstone);
+            Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.SupportVeilsteel, Loc.T("Veilsteel"), cfg.supportVeilsteel);
+            Army(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.ArmySmall);
+            Army(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.ArmyMedium);
+            Army(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.ArmyLarge);
+        }
+
+        private static List<ActionButton> GetResearchActionsCore(Entity entity, EntityManager em)
+        {
             var actions = new List<ActionButton>();
 
             Faction faction = GameSettings.LocalPlayerFaction;

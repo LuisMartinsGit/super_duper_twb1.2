@@ -154,6 +154,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b8f1ea3b22e33d629c6cb8d62b2db0f8, type: 2}
   - {fileID: 11400000, guid: eb2049b784bf4e6f803c969c73f10223, type: 2}
   technologies:
+  - {fileID: 11400000, guid: 48e0821406a559d1a176e186c35cda8e, type: 2}
+  - {fileID: 11400000, guid: 0bb52ba9fa225d42811fe603de96afee, type: 2}
+  - {fileID: 11400000, guid: 5172f884c48458d78ba9f748d3f63e4d, type: 2}
+  - {fileID: 11400000, guid: c521c25cbe995c03979720ca765ac73b, type: 2}
+  - {fileID: 11400000, guid: 72c64a73bd6a58f682147bfde31e813d, type: 2}
+  - {fileID: 11400000, guid: 308a5212202758769602c9132c70e08b, type: 2}
   - {fileID: 11400000, guid: 8d17e7c621f7483591c885db370deebc, type: 2}
   - {fileID: 11400000, guid: 6b67bd4c40e4497da785f8a1446e628b, type: 2}
   - {fileID: 11400000, guid: 61c16143a1564c2c9b17577c6e55cdb2, type: 2}

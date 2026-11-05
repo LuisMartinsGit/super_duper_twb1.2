@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7250b3e575be5135901632af504c44c2, type: 3}
+  m_Name: MonumentSystem
+  m_EditorClassIdentifier: 
+  captureRadius: 18
+  capturePopSeconds: 120
+  secondsPerPoint: 2
+  exploreSupplies: 400
+  exploreIron: 200
+  exploreVeilstone: 100
+  buffTechIds:
+  - Ruin_WarriorsWhetstone
+  - Ruin_FletchersLegacy
+  - Ruin_OldMasonsMail
+  - Ruin_WardedPlate
+  - Ruin_PilgrimsRoad
+  - Ruin_WatchersEye
+  shardrootOffset: 7
+  outcropClearance: 10
+  placementRings: 6
+  placementRingStep: 6
+  selectionRadius: 2.5
+  statuePrefab: {fileID: 1356795975264044, guid: b5034dfe868f9044d9faf1f7d2f90d7a, type: 3}
+  statueScale: 2.5
+  lightHeight: 7
+  lightRange: 14
+  lightIntensity: 4
+  curseLightColor: {r: 0.55, g: 0.2, b: 0.9, a: 1}

@@ -469,7 +469,8 @@ namespace TheWaningBorder.AI
         /// <summary>Does this faction build walls at all (the row's wallsEnabled,
         /// or the late-game exception below)?</summary>
         public static bool WallsEnabled(EntityManager em, Faction faction)
-            => Row(em, faction).wallsEnabled || LateWalls(em, faction);
+            => SimpleAISystem.TierOf(faction).WallsForbidden == 0
+               && (Row(em, faction).wallsEnabled || LateWalls(em, faction));
 
         /// <summary>LATE WALLS FOR EVERYONE (2026-11-03, Game_AI.md § 6x):
         /// developer: "Rush could wall in super late game, if it's got the

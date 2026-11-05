@@ -672,6 +672,11 @@ namespace TheWaningBorder.AI
         /// <summary>A reinforcement column this close to the army it was sent
         /// to join is merged into it.</summary>
         public float reinforceMergeRadius;
+        /// <summary>Seconds between a marching column's looks at where the army is.</summary>
+        public float columnFollowSeconds;
+        /// <summary>How far the army must have moved from a column's destination
+        /// before the column is redirected.</summary>
+        public float columnFollowRadius;
 
         // 60 -> 240 (2026-08-30). The stage clock starts at LAUNCH, and 60 s
         // is a fraction of the march to the stage point — so the "staged"
@@ -705,9 +710,12 @@ namespace TheWaningBorder.AI
         // formations on the map, not as couriers.
         public int reinforceMinGroup;
 
-        /// <summary>Match seconds at which the FIRST army leaves (2026-11-04),
-        /// with every soldier above the reserve.</summary>
-        public float waveFirstSeconds;
+        /// <summary>Metres from a capital at which a location march counts as a
+        /// march on that capital (a tier that spares capitals, Game_AI.md § 2).</summary>
+        public float spareCapitalRadius;
+
+        /// <summary>Seconds an attack by a capital's owner keeps its capital a fair target.</summary>
+        public float spareCapitalMemorySeconds;
 
         /// <summary>Seconds after an army leaves until a reinforcement army, with
         /// every soldier trained since, follows it (2026-11-04).</summary>
@@ -718,6 +726,18 @@ namespace TheWaningBorder.AI
 
         /// <summary>A replacement army's size, as a share of the population cap.</summary>
         public float waveReplacePopShare;
+
+        /// <summary>Once a rival reads as beaten, seconds it stays so at least.</summary>
+        public float finishHoldSeconds;
+
+        /// <summary>Share of the army left at home while finishing a beaten rival.</summary>
+        public float finishGuardShare;
+
+        /// <summary>A wave splits off side armies only at this size or more.</summary>
+        public int sisterMinWaveUnits;
+
+        /// <summary>Each side army's share of the wave; the main army keeps the rest.</summary>
+        public float sisterArmyShare;
 
         /// <summary>Seconds after an army dies until its replacement goes at any
         /// size above reinforceMinGroup.</summary>
@@ -1729,5 +1749,47 @@ namespace TheWaningBorder.AI
         /// take every idle engine and wait for wallBreachMinSiege of them
         /// (the siege program trains to that floor).</summary>
         public float wallEnginesMemorySeconds;
+
+        // ── Monuments_And_Petriarchy.md §7 ──
+        public bool monumentEnabled;
+        public float monumentThinkInterval;
+        /// <summary>Match seconds before the first squad goes for a monument.</summary>
+        public float monumentEarliestSeconds;
+        public int monumentSquadMin;
+        /// <summary>The squad's power over what is known around the monument.</summary>
+        public float monumentLaunchMargin;
+        public float monumentThreatRadius;
+        public float monumentReorderSeconds;
+        /// <summary>Seconds a monument is left alone after a squad dies on it.</summary>
+        public float monumentBlockedSeconds;
+        /// <summary>Spare RP buys Petriarchy support for a resource below this.</summary>
+        public int petriarchyTradeBelow;
+        /// <summary>Spare RP is saved up to this before it calls an army.</summary>
+        public int petriarchyArmySaveRp;
+
+        // ── The victory plan (Game_AI.md § 6aa) ──
+        public bool victoryPlanEnabled;
+        public float victoryThinkInterval;
+        /// <summary>Hard, Expert: a road this good stops being one of several.</summary>
+        public float victoryPrioritizeScore;
+        /// <summary>A chosen road is kept at least this long unless events force it.</summary>
+        public float victoryMinHoldSeconds;
+        /// <summary>A new road has to beat the current one by this factor.</summary>
+        public float victorySwitchMargin;
+        public float victoryConquestBase;
+        public float victoryConquestPerRatio;
+        public float victorySanctumBase;
+        public float victoryShardrootBase;
+        public float victoryShardrootPerMonument;
+        public float victoryShardrootOnGround;
+        /// <summary>What an enemy army standing on its Sanctums adds to conquest.</summary>
+        public float victoryStrikeHomeBonus;
+        /// <summary>The share of its seen soldiers on its Sanctums that counts as away.</summary>
+        public float victoryGarrisonShare;
+        /// <summary>Our army over what stays at its capital before striking there.</summary>
+        public float victoryStrikeSuperiority;
+        public float victoryBaseRadius;
+        /// <summary>The tower budget while it holds the artifact.</summary>
+        public float victoryFortifyTowerScale;
     }
 }

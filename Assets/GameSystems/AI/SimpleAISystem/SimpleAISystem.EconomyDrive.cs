@@ -63,6 +63,9 @@ namespace TheWaningBorder.AI
                 ok ? _profileOf[k].PersonalityWeight : 1f);
         }
 
+        /// <summary>This faction's tier, for AI code outside this class.</summary>
+        internal static AIDifficultyProfile TierOf(Faction faction) => ProfileOf(faction);
+
         private static AIDifficultyProfile ProfileOf(Faction faction)
         {
             int k = (int)faction;

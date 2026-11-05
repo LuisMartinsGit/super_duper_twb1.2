@@ -329,7 +329,6 @@ namespace TheWaningBorder.Data.Border
         /// religion points earned by all players together that make the
         /// Shardroot descend into a random living curse node. 0 = off (the
         /// old spawn roll and guarantee above apply instead).</summary>
-        [Min(0)] public int shardrootDescentReligionPoints;
 
         /// <summary>THE SHARDROOT IS ALWAYS SEEN (2026-10-11): radius (m) of
         /// line of sight every player has around the artifact, wherever it

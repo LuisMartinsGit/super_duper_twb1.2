@@ -1,5 +1,7 @@
 ﻿# The Curse & the Shardroot — Canonical Design
 
+> **2026-11-05:** the Shardroot no longer descends on a religion-point counter. It descends in front of a randomly chosen monument when that monument's ruins are explored, once per match: [Monuments_And_Petriarchy.md](Monuments_And_Petriarchy.md) §3.
+
 > **2026-09-29 — WELLS, VERBS AND WELL-DOMINATION VICTORY ARE REMOVED.**
 > [Territory_Claims.md](Territory_Claims.md) is canon for curse territory,
 > curse nodes, the Shardroot's source and who the curse hunts; elimination is

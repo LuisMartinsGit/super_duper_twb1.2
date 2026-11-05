@@ -48,6 +48,10 @@ namespace TheWaningBorder.Economy
         /// <summary>Seconds a standing Temple has banked toward its next
         /// point (Religion.md §2 — the Temple's slow trickle).</summary>
         public int TempleSeconds;
+
+        /// <summary>Sect-unit weapon damage banked toward the next RP
+        /// (Monuments_And_Petriarchy.md §4).</summary>
+        public int SectDamage;
     }
 
     /// <summary>

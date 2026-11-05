@@ -152,7 +152,7 @@ namespace TheWaningBorder.Core.Commands
         {
             if (ShouldDropCommand(source)) return false;
             if (!ReligionPurchases.CanBuy(em, faction, kind, sectId, out _)) return false;
-            string payload = kind == ReligionPurchaseKind.Tithe ? "Tithe" : sectId;
+            string payload = kind == ReligionPurchaseKind.Tithe ? "Tithe" : sectId ?? kind.ToString();
 
             if (ShouldQueueForLockstep(source))
             {

@@ -224,9 +224,11 @@ namespace TheWaningBorder.AI
                 // the profile below, and ProfileOf, sees the raised cap.
                 if (step == 1)
                 {
+                    if (profile.ArmyCapFixed == 0)
                     profile.SustainArmyCap += ArmyCapBonus(em, brain.Owner, profile.SustainArmyCap, now);
                     // The Sanctum armies (§ 6t) are on top of the tier's army.
-                    profile.SustainArmyCap += SanctumArmyCapBonus(brain.Owner);
+                    if (profile.ArmyCapFixed == 0)
+                        profile.SustainArmyCap += SanctumArmyCapBonus(brain.Owner);
                     if (staged) _stageProfile[owner] = profile;
                 }
                 NoteProfile(brain.Owner, profile, brain.Personality);
@@ -412,7 +414,9 @@ namespace TheWaningBorder.AI
                     // THE SANCTUM ARMY DRAFTS FIRST (2026-10-20, Game_AI.md
                     // § 6t; moved ahead of the waves 2026-11-02): it reserves
                     // its soldiers before the waves below take everything idle.
+                    TickVictoryPlan(em, brainEntity, brain.Owner, now);
                     TickSanctumArmies(em, brain.Owner, ref aiState, now);
+                    TickMonuments(em, brain.Owner, ref aiState, now);
 
                     TickAttackWaves(em, brainEntity, brain.Owner, ref aiState,
                         settings, personality, profile, now);

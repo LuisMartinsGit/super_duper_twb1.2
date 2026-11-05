@@ -107,7 +107,7 @@ namespace TheWaningBorder.AI
             // TOWERS ARE A PERSONALITY (2026-10-05, Game_AI.md § 3): the
             // block's towerCoverageScale stretches or shrinks both the
             // per-province cap and the coverage the step is satisfied by.
-            float towerScale = math.max(0f, PersonalityOf(faction).towerCoverageScale);
+            float towerScale = math.max(0f, PersonalityOf(faction).towerCoverageScale) * VictoryTowerScale(faction);
             int max = (int)math.round(math.max(0, Cfg.towersPerProvinceMax) * towerScale);
             if (!extras) max = math.min(max, (int)math.round(math.max(0, Cfg.towersProvinceFirst) * towerScale));
             if (max <= 0) return false;

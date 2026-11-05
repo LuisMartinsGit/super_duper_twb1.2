@@ -76,7 +76,9 @@ namespace TheWaningBorder.Abilities
             float m = IncomingMultiplier(em, target)
                 * TheWaningBorder.Entities.ShardrootEmpowerment.OutgoingMultiplier(em, attacker);
             int scaled = m == 1f ? damage : math.max(1, (int)(damage * m));
-            return TheWaningBorder.Entities.ShardboundKingRules.CapIncoming(em, target, scaled);
+            int dealt = TheWaningBorder.Entities.ShardboundKingRules.CapIncoming(em, target, scaled);
+            TheWaningBorder.Systems.Sect.SectDamageReligion.Note(em, attacker, dealt);
+            return dealt;
         }
     }
 }

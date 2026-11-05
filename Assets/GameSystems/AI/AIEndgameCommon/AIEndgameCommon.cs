@@ -295,6 +295,38 @@ namespace TheWaningBorder.AI
                     return;
                 }
             }
+
+            TrySpendOnPetriarchy(em, faction);
+        }
+
+        /// <summary>Nothing left to buy for the sects: Petriarchy support for a
+        /// short resource, otherwise save for an army and call the largest it can
+        /// pay for (Monuments_And_Petriarchy.md §7).</summary>
+        private static void TrySpendOnPetriarchy(EntityManager em, Faction faction)
+        {
+            var ai = TheWaningBorder.AI.SimpleAISystemConfig.I;
+            int below = ai.petriarchyTradeBelow;
+            var short1 = ReligionPurchaseKind.Tithe;
+            if (!FactionEconomy.CanAfford(em, faction, Cost.Of(iron: below))) short1 = ReligionPurchaseKind.SupportIron;
+            else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(supplies: below))) short1 = ReligionPurchaseKind.SupportSupplies;
+            else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(veilstone: below))) short1 = ReligionPurchaseKind.SupportVeilstone;
+            else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(veilsteel: below))) short1 = ReligionPurchaseKind.SupportVeilsteel;
+            if (short1 != ReligionPurchaseKind.Tithe
+                && CommandRouter.IssueReligionPurchase(em, faction, short1, null, CommandSource.AI))
+            {
+                AILogger.Log(faction, "PETRIARCHY", $"asks for support: {short1}");
+                return;
+            }
+
+            int balance = FactionReligionPointsHelper.GetBalance(em, faction);
+            if (balance < ai.petriarchyArmySaveRp) return;
+            var kinds = new[] { ReligionPurchaseKind.ArmyLarge, ReligionPurchaseKind.ArmyMedium, ReligionPurchaseKind.ArmySmall };
+            foreach (var kind in kinds)
+            {
+                if (!CommandRouter.IssueReligionPurchase(em, faction, kind, null, CommandSource.AI)) continue;
+                AILogger.Log(faction, "PETRIARCHY", $"calls the army: {kind}");
+                return;
+            }
         }
 
         /// <summary>Buy one RP through the Tithe when the bank holds twice

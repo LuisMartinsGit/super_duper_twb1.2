@@ -26,6 +26,16 @@ namespace TheWaningBorder.Systems.Sect
         ChapelLevel = 2,
         UnlockB = 3,
         UnlockWildcard = 4,
+        // Monuments_And_Petriarchy.md: 5-8 Petriarchy support, 9-11 the army,
+        // 12 exploring ruins (the sectId carries the monument's territory).
+        SupportSupplies = 5,
+        SupportIron = 6,
+        SupportVeilstone = 7,
+        SupportVeilsteel = 8,
+        ArmySmall = 9,
+        ArmyMedium = 10,
+        ArmyLarge = 11,
+        ExploreRuins = 12,
     }
 
     public static class ReligionPurchases
@@ -48,6 +58,26 @@ namespace TheWaningBorder.Systems.Sect
                     if (!SectQuery.HasStandingTemple(em, faction)) return false;
                     return FactionEconomy.CanAfford(em, faction,
                         FactionReligionPointsHelper.TitheCost(em, faction));
+
+                case ReligionPurchaseKind.SupportSupplies:
+                case ReligionPurchaseKind.SupportIron:
+                case ReligionPurchaseKind.SupportVeilstone:
+                case ReligionPurchaseKind.SupportVeilsteel:
+                    if (!SectQuery.HasStandingTemple(em, faction)) return false;
+                    rpCost = 1;
+                    return FactionReligionPointsHelper.CanAfford(em, faction, rpCost);
+
+                case ReligionPurchaseKind.ArmySmall:
+                case ReligionPurchaseKind.ArmyMedium:
+                case ReligionPurchaseKind.ArmyLarge:
+                    if (!SectQuery.HasStandingTemple(em, faction)) return false;
+                    if (PetriarchyArmy.Roster().Count == 0) return false;
+                    rpCost = ArmyPrice(kind);
+                    return FactionReligionPointsHelper.CanAfford(em, faction, rpCost);
+
+                case ReligionPurchaseKind.ExploreRuins:
+                    return int.TryParse(sectId, out int territory)
+                        && TheWaningBorder.Entities.Monument.CanExplore(em, faction, territory);
 
                 case ReligionPurchaseKind.UnlockB:
                 case ReligionPurchaseKind.UnlockWildcard:
@@ -78,6 +108,25 @@ namespace TheWaningBorder.Systems.Sect
             if (kind == ReligionPurchaseKind.Tithe)
                 return FactionReligionPointsHelper.TryBuyTithe(em, faction);
 
+            if (kind == ReligionPurchaseKind.ExploreRuins)
+                return int.TryParse(sectId, out int territory)
+                    && TheWaningBorder.Entities.Monument.TryExplore(em, faction, territory);
+
+            if (kind >= ReligionPurchaseKind.SupportSupplies && kind <= ReligionPurchaseKind.SupportVeilsteel)
+            {
+                if (!FactionReligionPointsHelper.TrySpend(em, faction, rpCost)) return false;
+                FactionEconomy.Add(em, faction, SupportPays(kind));
+                return true;
+            }
+
+            if (kind >= ReligionPurchaseKind.ArmySmall && kind <= ReligionPurchaseKind.ArmyLarge)
+            {
+                if (!FactionReligionPointsHelper.TrySpend(em, faction, rpCost)) return false;
+                if (PetriarchyArmy.Summon(em, faction, ArmySize(kind)) > 0) return true;
+                FactionReligionPointsHelper.Refund(em, faction, rpCost);
+                return false;
+            }
+
             if (!TryGetSect(em, faction, sectId, out var bank, out int idx, out var sect)) return false;
             if (!FactionReligionPointsHelper.TrySpend(em, faction, rpCost)) return false;
 
@@ -89,6 +138,34 @@ namespace TheWaningBorder.Systems.Sect
             state.Set(idx, sect);
             em.SetComponentData(bank, state);
             return true;
+        }
+
+        /// <summary>What one RP of Petriarchy support pays.</summary>
+        public static TheWaningBorder.Core.Cost SupportPays(ReligionPurchaseKind kind)
+        {
+            var cfg = FactionReligionPointsHelper.Cfg;
+            return kind switch
+            {
+                ReligionPurchaseKind.SupportSupplies => TheWaningBorder.Core.Cost.Of(supplies: cfg.supportSupplies),
+                ReligionPurchaseKind.SupportIron => TheWaningBorder.Core.Cost.Of(iron: cfg.supportIron),
+                ReligionPurchaseKind.SupportVeilstone => TheWaningBorder.Core.Cost.Of(veilstone: cfg.supportVeilstone),
+                ReligionPurchaseKind.SupportVeilsteel => TheWaningBorder.Core.Cost.Of(veilsteel: cfg.supportVeilsteel),
+                _ => default,
+            };
+        }
+
+        public static int ArmyPrice(ReligionPurchaseKind kind)
+        {
+            var cfg = FactionReligionPointsHelper.Cfg;
+            return kind == ReligionPurchaseKind.ArmyLarge ? cfg.armyLargeRp
+                : kind == ReligionPurchaseKind.ArmyMedium ? cfg.armyMediumRp : cfg.armySmallRp;
+        }
+
+        public static int ArmySize(ReligionPurchaseKind kind)
+        {
+            var cfg = FactionReligionPointsHelper.Cfg;
+            return kind == ReligionPurchaseKind.ArmyLarge ? cfg.armyLargeUnits
+                : kind == ReligionPurchaseKind.ArmyMedium ? cfg.armyMediumUnits : cfg.armySmallUnits;
         }
 
         /// <summary>The active slot (2 = B, 3 = wildcard) an unlock kind buys.</summary>

@@ -11,6 +11,37 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.63] — 2026-11-05
+
+### Monuments, ruins and the Petriarchy
+
+- **Monuments.** One stands in each starting curse territory. Stand soldiers on it to
+  take it from the curse or a rival. While you hold it, it pays religion points.
+- **Explore the ruins.** The holder can pay to explore a monument's ruins, once per
+  monument per match, for one random lasting buff from a pool of six.
+- **The Shardroot comes from the ruins.** It descends in front of one hidden monument
+  when that monument is explored, once per match. Religion points no longer count
+  toward it.
+- **The Temple costs no religion points.**
+- **Sect units earn religion points** from the weapon damage they deal.
+- **Ask the Petriarchy for support.** The Temple has a button for each resource that
+  trades 1 religion point for that resource.
+- **The Petriarchy's Army.** The Temple can summon an army of sect units for 5, 10 or
+  20 religion points.
+
+### AI
+
+- **The AI chooses how to win.** Easy and Normal follow one road at a time: conquest,
+  Sanctums or the Shardroot. Hard and Expert follow all three until one is clearly the
+  best chance. Personality changes how each road is weighed.
+- **It reacts.** Holding the Shardroot, it fortifies and ascends. Holding enough
+  Sanctums, it stops attacking players and goes for the rest. When a rival's army
+  stands on its Sanctums, it attacks that rival's capital if it has the numbers.
+- **Balanced enshrines the Shardroot** instead of giving it to the king.
+- **Reinforcements stay with their army.** They follow it and join it near the front,
+  rather than merging close to home.
+- Monuments use a placeholder statue for now, with a light in the holder's colour.
+
 ## [0.0.62] — 2026-11-04
 
 ### AI armies and movement

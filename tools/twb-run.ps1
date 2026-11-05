@@ -102,6 +102,10 @@ param(
     # Per-colour personality, "Red=Turtle,Blue=Rush" (Balanced|Economic|
     # TechBoom|Rush|Turtle|Defensive); omitted colours keep their default.
     [string]$FactionPersonality = "",
+    # Colours that build and defend but never attack: "Blue,Red" (a new-player stand-in).
+    [string]$FactionPassive = "",
+    [string]$FactionStart = "",   # "Blue=0,Red=3": start position per colour
+    [switch]$NoCurse,             # control arm: the match raises no curse node
     [string]$Label = "",
 
     # ── multiplayer only ──────────────────────────────────────────────────
@@ -168,6 +172,9 @@ function RunTagArgs {
     if ($Difficulty -ne "")        { $a += @("-twbDifficulty", $Difficulty) }
     if ($FactionDifficulty -ne "") { $a += @("-twbFactionDifficulty", (Quote-Arg ($FactionDifficulty -replace '\s', ''))) }
     if ($FactionPersonality -ne "") { $a += @("-twbFactionPersonality", (Quote-Arg ($FactionPersonality -replace '\s', ''))) }
+    if ($FactionPassive -ne "")    { $a += @("-twbFactionPassive", (Quote-Arg $FactionPassive)) }
+    if ($FactionStart -ne "")      { $a += @("-twbFactionStart", (Quote-Arg $FactionStart)) }
+    if ($NoCurse)                  { $a += "-twbNoCurse" }
     if ($Label -ne "")             { $a += @("-twbLabel", (Quote-Arg $Label)) }
     return ,$a
 }

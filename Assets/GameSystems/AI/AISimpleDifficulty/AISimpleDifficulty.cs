@@ -33,6 +33,18 @@ namespace TheWaningBorder.AI
         public float IntelFreshnessSeconds;
         /// <summary>No attack missions launch before this game time (seconds).</summary>
         public float FirstAttackEarliestSeconds;
+        public int MaxWaveUnits;
+        public int ReinforceMode;
+        public int TargetStyle;
+        public int SanctumMode;
+        public bool VictoryMultiFocus;
+        public float SanctumLateSeconds;
+        public int WallsForbidden;
+        public int ArmyCapFixed;
+        public float HoldBackAheadRatio;
+        public int SpareCapitals;
+        public int ExtractorLimit;
+        public float LevelUpsFromSeconds;
         /// <summary>How large an army this difficulty keeps standing, before
         /// the plan's ArmyScale multiplies it.</summary>
         public int SustainArmyCap;
@@ -132,6 +144,18 @@ namespace TheWaningBorder.AI
                 ThinkInterval = so.thinkInterval,
                 IntelFreshnessSeconds = so.intelFreshnessSeconds,
                 FirstAttackEarliestSeconds = so.firstAttackEarliestSeconds,
+                MaxWaveUnits = so.maxWaveUnits,
+                ReinforceMode = so.reinforceMode,
+                TargetStyle = so.targetStyle,
+                SanctumMode = so.sanctumMode,
+                VictoryMultiFocus = so.victoryMultiFocus,
+                SanctumLateSeconds = so.sanctumLateSeconds,
+                WallsForbidden = so.wallsForbidden,
+                ArmyCapFixed = so.armyCapFixed,
+                HoldBackAheadRatio = so.holdBackAheadRatio,
+                SpareCapitals = so.spareCapitals,
+                ExtractorLimit = so.extractorLimit,
+                LevelUpsFromSeconds = so.levelUpsFromSeconds,
                 SustainArmyCap = so.sustainArmyCap,
                 AttackWaveIntervalSeconds = so.attackWaveIntervalSeconds,
                 WaveBaseUnits = so.waveBaseUnits,

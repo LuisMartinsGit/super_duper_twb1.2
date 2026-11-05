@@ -198,6 +198,43 @@ namespace TheWaningBorder.AI
 
         // ── Aggression ────────────────────────────────────────────────────
 
+        /// <summary>Largest army one wave or reinforcement may carry; 0 = no limit. (2026-11-04, Game_AI.md § 2)</summary>
+        public int maxWaveUnits;
+
+        /// <summary>0 timer and population cap, 1 timer only, 2 no reinforcement armies. (2026-11-04, Game_AI.md § 2)</summary>
+        public int reinforceMode;
+
+        /// <summary>Who a wave goes for: 0/1 nearest, 2 weakest, 3 biggest threat. (2026-11-04, Game_AI.md § 2)</summary>
+        public int targetStyle;
+
+        /// <summary>Sanctum armies: 0 always, 1 only past sanctumLateSeconds, 2 never. (2026-11-04, Game_AI.md § 2)</summary>
+        public int sanctumMode;
+
+        /// <summary>The victory plan (Game_AI.md § 6aa): every road at once until
+        /// one is clearly best. Off, one road at a time.</summary>
+        public bool victoryMultiFocus;
+
+        /// <summary>Match time when a sanctumMode 1 tier starts raising Sanctum armies. (2026-11-04, Game_AI.md § 2)</summary>
+        public float sanctumLateSeconds;
+
+        /// <summary>1 = this tier builds no walls, whatever the personality says. (2026-11-04, Game_AI.md § 2)</summary>
+        public int wallsForbidden;
+
+        /// <summary>1 = the army limit is hard: unspent money and Sanctums do not raise it. (2026-11-04, Game_AI.md § 2)</summary>
+        public int armyCapFixed;
+
+        /// <summary>Stop attacking when this many times ahead of every rival; 0 = never hold back. (2026-11-04, Game_AI.md § 2)</summary>
+        public float holdBackAheadRatio;
+
+        /// <summary>1 = no wave at a capital unless its owner has recently attacked this faction. (2026-11-04, Game_AI.md § 2)</summary>
+        public int spareCapitals;
+
+        /// <summary>Most Gatherer's Huts and Mines together; 0 = no limit. (2026-11-04, Game_AI.md § 2)</summary>
+        public int extractorLimit;
+
+        /// <summary>No building level-ups before this match time. (2026-11-04, Game_AI.md § 2)</summary>
+        public float levelUpsFromSeconds;
+
         /// <summary>No attack missions launch before this game time (seconds).
         /// AoE4 community measurement: first Hardest attack is around 8 min;
         /// lower tiers attack later.</summary>

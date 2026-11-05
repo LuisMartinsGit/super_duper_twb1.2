@@ -170,6 +170,8 @@ namespace TheWaningBorder.AI
             /// <summary>A reinforcement column on its way to join an army —
             /// the only kind of mission TryMergeIntoArmy absorbs.</summary>
             public bool Column;
+            /// <summary>A column's next look at where the army is now.</summary>
+            public float NextFollowTime;
             /// <summary>When this army finished staging and began waiting
             /// for its sisters (0 = not yet).</summary>
             public float ReadyAt;
@@ -1535,6 +1537,14 @@ namespace TheWaningBorder.AI
                 }
             }
 
+            // THE TIER'S LARGEST WAVE (Game_AI.md § 2): Easy never brings a big army.
+            if (profile.MaxWaveUnits > 0 && !FinishingVictim(faction, out _))
+            {
+                minUnits = math.min(minUnits, profile.MaxWaveUnits);
+                if (idleMilitary.Count > profile.MaxWaveUnits)
+                    idleMilitary.RemoveRange(profile.MaxWaveUnits, idleMilitary.Count - profile.MaxWaveUnits);
+            }
+
             if (idleMilitary.Count < minUnits) return false; // wait for the army
 
             // M2: scored target selection from intel; legacy ladder fallback.
@@ -1663,6 +1673,9 @@ namespace TheWaningBorder.AI
                 // ONE WAR AT A TIME (§ 6i): the war already on outranks the
                 // doctrine's pick of the moment.
                 victim = CommitWarVictim(em, faction, victim, now);
+                // Its soldiers stand on its Sanctums: its capital (Game_AI.md § 6aa).
+                bool strikeHome = VictoryStrikeHome(faction, out Faction strikeVictim);
+                if (strikeHome) victim = strikeVictim;
                 waveVictim = victim;
                 if (victim != faction && TryShardrootObjective(em, faction, victim, out Entity hEnt, out float3 hPos))
                 {
@@ -1697,6 +1710,11 @@ namespace TheWaningBorder.AI
                     bool crippled = closeout && Cfg.crippledTerritories > 0
                         && TerritoriesHeld(victim) <= Cfg.crippledTerritories;
                     if (crippled) _lastDoctrine = $"closeout: {victim} is beaten — for the throat";
+                    if (strikeHome)
+                    {
+                        crippled = true;
+                        _lastDoctrine = $"{victim} holds its Sanctums with its army — for its capital";
+                    }
                     if (finishing && victim == finishV)
                     {
                         crippled = true;
@@ -1863,6 +1881,26 @@ namespace TheWaningBorder.AI
                     (publicStart ? " (a start position: public knowledge)" : " (recon timed out)"));
             }
             else _waveIntelHold.Remove((int)faction);
+
+            // A CAPITAL IS LEFT ALONE UNTIL ITS OWNER STARTS IT (Game_AI.md § 2): a new
+            // player can lose outer buildings to Easy, not the game.
+            if (profile.SpareCapitals != 0 && !kingLeads
+                && TryCapitalAt(em, faction, targetPos, target, out Faction capitalOwner)
+                && TheWaningBorder.Core.Diagnostics.FactionPressureLedger.PressureOn(faction, capitalOwner, Cfg.spareCapitalMemorySeconds, now) <= 0f)
+            {
+                if (TryNearestUnwalledSighting(em, brainEntity, faction, capitalOwner, originPos, now,
+                        out float3 outerPos, out Entity outerEnt, out string outerWhat))
+                {
+                    target = outerEnt;
+                    targetPos = outerPos;
+                    _lastDoctrine = $"sparing {capitalOwner}'s capital: {outerWhat}";
+                }
+                else
+                {
+                    AILogger.Log(faction, "WAVE", $"wave {aiState.WaveNumber + 1} held — only {capitalOwner}'s capital is known, and it has not attacked us");
+                    return false;
+                }
+            }
 
             var assault = AIEngagement.AssessAssault(em, faction, idleMilitary, targetPos);
 
@@ -2097,14 +2135,17 @@ namespace TheWaningBorder.AI
             // objective separates enough from the first.
             var sisters = new System.Collections.Generic.List<IncomeTarget>();
             int armies = math.max(1, profile.ConcurrentArmies);
+            // A MAIN ARMY AND RAIDING PARTIES, NOT EQUAL THIRDS (2026-11-04). Expert split
+            // a 92-unit wave into three armies of 30: each met the defence alone and
+            // retreated, and it could not beat a passive stand-in in an hour.
             if (armies > 1 && !rerouted
-                && idleMilitary.Count / armies >= math.max(1, Cfg.armyMinUnits))
+                && idleMilitary.Count >= math.max(1, Cfg.sisterMinWaveUnits))
                 PickSisterTargets(em, brainEntity, faction, originPos, target, targetPos, waveVictim, now,
                     idleMilitary, armies, armies - 1,
                     personality != null ? personality.riskMultiplier : 1f, settings, sisters);
             int bodies = 1 + sisters.Count;
             int group = bodies > 1 ? ++_nextArmyGroup : 0;
-            int share = idleMilitary.Count / bodies;
+            int share = (int)math.floor(idleMilitary.Count * math.saturate(Cfg.sisterArmyShare));
 
             var pool = new System.Collections.Generic.List<Entity>(idleMilitary);
             if (kingLeads) pool.Remove(_kingLeads);   // the main army's, below
@@ -2240,7 +2281,7 @@ namespace TheWaningBorder.AI
             // gets double the leash instead of the axe.
             float lifetime = CloseoutArmed(em, faction, now)
                 ? Cfg.waveMaxLifetime * 2f : Cfg.waveMaxLifetime;
-            if (now - aiState.WaveStartTime > lifetime)
+            if (now - aiState.WaveStartTime > lifetime && !FinishingVictim(faction, out _))
             {
                 aiState.WaveActive = 0;
                 AILogger.Log(faction, "WAVE",
@@ -2331,25 +2372,44 @@ namespace TheWaningBorder.AI
             // TickAttackWaves launches it this same tick, with a fresh target.
             bool armyAlive = false;
             foreach (var mission in MissionsFor(faction))
-                if (mission.Type == MissionType.Attack && mission.Members.Count > 0) { armyAlive = true; break; }
+                if (mission.Type == MissionType.Attack && mission.Phase != MissionPhase.Direct
+                    && mission.Members.Count > 0) { armyAlive = true; break; }
             if (!armyAlive)
             {
                 aiState.WaveActive = 0;
-                aiState.NextWaveTime = now;
+                // Never sooner than the tier's own time between waves.
+                aiState.NextWaveTime = math.max(now,
+                    aiState.WaveStartTime + ProfileOf(faction).AttackWaveIntervalSeconds);
                 aiState.ArmyDiedAt = now;
                 AILogger.Log(faction, "WAVE",
                     $"wave {aiState.WaveNumber} is over ({arrived} on the objective) — the next army goes now");
                 return;
             }
 
+            // THE ARMY IS GONE, A COLUMN IS NOT: the largest column carries on as
+            // the army, and the other columns now follow it (Game_AI.md § 6z).
+            PromoteColumnIfArmyGone(faction);
+
             // A REINFORCEMENT ARMY (2026-11-04, developer). While the army lives,
             // soldiers gather at home. All of them leave together when
             // waveReinforceSeconds has passed since the last army, or at once when
             // the population cap is reached. A column musters, marches and strikes
             // like the main army and merges into it on arrival (TryMergeIntoArmy).
+            var tierNow = ProfileOf(faction);
+            if (tierNow.ReinforceMode == 2) return;   // this tier sends none
             PopulationHelper.TryGetFactionPopulation(faction, out int popNow, out int popCap);
-            bool capped = popCap > 0 && popNow >= popCap - 2;
+            bool capped = tierNow.ReinforceMode == 0 && popCap > 0 && popNow >= popCap - 2;
             bool due = now >= aiState.NextReinforceArmyTime;
+            // FINISHING: whatever stands at home follows at once, to the capital.
+            bool finishingNow = FinishingVictim(faction, out Faction finishVictim);
+            if (finishingNow)
+            {
+                due = true;
+                capped = false;
+                Entity fh = FindFactionBuilding<HallTag>(em, finishVictim);
+                if (fh != Entity.Null && em.HasComponent<LocalTransform>(fh))
+                    aiState.WaveTarget = em.GetComponentData<LocalTransform>(fh).Position;
+            }
             if (!capped && !due) return;
 
             // THE STANDING FLOOR IS NEVER SENT (Game_AI.md 6a).
@@ -2357,6 +2417,9 @@ namespace TheWaningBorder.AI
             int canSend = math.max(0, standing - homeFloor);
             if (homeFloor > 0 && reinforcements.Count > canSend)
                 reinforcements.RemoveRange(canSend, reinforcements.Count - canSend);
+
+            if (!finishingNow && tierNow.MaxWaveUnits > 0 && reinforcements.Count > tierNow.MaxWaveUnits)
+                reinforcements.RemoveRange(tierNow.MaxWaveUnits, reinforcements.Count - tierNow.MaxWaveUnits);
 
             // Too few to be an army: they wait, whichever trigger fired. At the
             // population cap every death is replaced at once, and each small group
@@ -2389,6 +2452,20 @@ namespace TheWaningBorder.AI
                 }
             }
             aiState.WaveSkipped = 0;
+
+            // A column still mustering takes the newcomers: one body leaves,
+            // instead of two a few seconds apart.
+            foreach (var waiting in MissionsFor(faction))
+            {
+                if (!waiting.Column || waiting.Phase != MissionPhase.Mustering || waiting.Engaged) continue;
+                waiting.Members.AddRange(reinforcements);
+                CommandRouter.IssueFormationMove(
+                    em, reinforcements, waiting.MusterPos, FormationShape.Box, CommandSource.AI);
+                aiState.NextReinforceArmyTime = now + tierNow.AttackWaveIntervalSeconds;
+                AILogger.Log(faction, "COLUMN",
+                    $"{reinforcements.Count} more join the column of {waiting.Members.Count} still mustering");
+                return;
+            }
 
             Entity myHall = FindFactionBuilding<HallTag>(em, faction);
             float3 from = myHall != Entity.Null && em.HasComponent<LocalTransform>(myHall)
@@ -2428,7 +2505,7 @@ namespace TheWaningBorder.AI
                     em, column.Members, aiState.WaveTarget, FormationShape.Box, CommandSource.AI);
             }
             MissionsFor(faction).Add(column);
-            aiState.NextReinforceArmyTime = now + Cfg.waveReinforceSeconds;
+            aiState.NextReinforceArmyTime = now + tierNow.AttackWaveIntervalSeconds;
             AILogger.Log(faction, "WAVE",
                 $"reinforcement army of {reinforcements.Count} leaves for wave {aiState.WaveNumber} " +
                 $"({(capped ? "population cap reached" : "timer")}; {committed} committed, {arrived} on the objective)");
@@ -2469,6 +2546,22 @@ namespace TheWaningBorder.AI
                     continue;
                 }
 
+                // A COLUMN'S OBJECTIVE IS THE ARMY (Game_AI.md § 6z): it merges
+                // when it reaches the army, and otherwise walks to where the army
+                // is now. Decided first, so reaching a stale position never sends
+                // it off on a war of its own.
+                Mission columnMain = mission.Column && mission.Type == MissionType.Attack
+                    ? MainArmyOf(missions) : null;
+                if (columnMain != null)
+                {
+                    float3 columnAt = ArmyCentroid(em, mission, out int columnCounted);
+                    if (columnCounted > 0)
+                    {
+                        if (TryMergeIntoArmy(em, missions, m, columnAt, hasHall, hallPos)) continue;
+                        TickColumnFollow(em, faction, mission, columnMain, columnAt, now);
+                    }
+                }
+
                 // A location march (Target == Null) is 'down' only on
                 // ARRIVAL — the point of marching at a memory is finding out
                 // what is really there (2026-08-31 intel-flow directive).
@@ -2489,6 +2582,7 @@ namespace TheWaningBorder.AI
                     float ddx = adx - mission.TargetPos.x, ddz = adz - mission.TargetPos.z;
                     objectiveDown = alive > 0 && ddx * ddx + ddz * ddz < 30f * 30f;
                 }
+                if (columnMain != null) objectiveDown = false;
                 // A mission that never set its deadline (the posture defence)
                 // keeps the flat clock.
                 bool timedOut = mission.Deadline > 0f
@@ -2759,16 +2853,6 @@ namespace TheWaningBorder.AI
                 float3 centroid = sum / mission.Members.Count;
                 TickRoute(em, mission, centroid);   // § 6k: the next waypoint round the curse
 
-                // A reinforcement column that has reached the army it was
-                // sent to join becomes part of it: one roster, one centroid,
-                // one set of tactics. (Columns are the later missions in the
-                // list; the army they join is an earlier one.)
-                // Only a COLUMN is absorbed (6f): a sister army mustering
-                // beside the main army is its own body, not a reinforcement.
-                if (mission.Type == MissionType.Attack && mission.Column && m > 0
-                    && TryMergeIntoArmy(em, missions, m, centroid))
-                    continue;
-
                 // MUSTER GATE (2026-09-07): the army leaves once most of it
                 // stands at the muster point, or the wait runs out — one
                 // straggler must not hold the wave at the gate.
@@ -2996,37 +3080,123 @@ namespace TheWaningBorder.AI
                 CommandRouter.IssueFormationMove(em, body, dest, FormationShape.Box, CommandSource.AI);
         }
 
+        /// <summary>The body columns are sent to join: the wave's primary army,
+        /// else its largest other attack army. Never a column, and never the
+        /// defence mission (MissionPhase.Direct), which stands at home.</summary>
+        private static Mission MainArmyOf(System.Collections.Generic.List<Mission> missions)
+        {
+            Mission best = null;
+            for (int i = 0; i < missions.Count; i++)
+            {
+                var s = missions[i];
+                if (s.Type != MissionType.Attack || s.Column || s.Phase == MissionPhase.Direct
+                    || s.Members.Count == 0) continue;
+                if (s.Primary) return s;
+                if (best == null || s.Members.Count > best.Members.Count) best = s;
+            }
+            return best;
+        }
+
+        /// <summary>No army left, but a column is on the road: the largest one
+        /// becomes the army, with its objective and its own tactics.</summary>
+        private void PromoteColumnIfArmyGone(Faction faction)
+        {
+            var missions = MissionsFor(faction);
+            if (MainArmyOf(missions) != null) return;
+            Mission best = null;
+            for (int i = 0; i < missions.Count; i++)
+            {
+                var s = missions[i];
+                if (!s.Column || s.Type != MissionType.Attack || s.Members.Count == 0) continue;
+                if (best == null || s.Members.Count > best.Members.Count) best = s;
+            }
+            if (best == null) return;
+            best.Column = false;
+            best.Primary = true;
+            AILogger.Log(faction, "COLUMN",
+                $"promoted: the army is gone, {best.Members.Count} carry on as the army");
+        }
+
+        /// <summary>Point a marching column at where the army is now. Waits out
+        /// its muster and any fight of its own, and renews its deadline, because
+        /// a march that keeps being redirected is not a failed one.</summary>
+        private void TickColumnFollow(EntityManager em, Faction faction, Mission column, Mission main,
+            float3 columnAt, float now)
+        {
+            if (column.Phase == MissionPhase.Mustering || column.Engaged || column.FallingBack) return;
+            if (now < column.NextFollowTime) return;
+            column.NextFollowTime = now + Cfg.columnFollowSeconds;
+
+            float3 dest;
+            if (main.FallingBack) dest = main.FallbackPos;
+            else
+            {
+                dest = ArmyCentroid(em, main, out int counted);
+                if (counted == 0) return;
+            }
+            dest = StandableToward(dest, columnAt);
+
+            bool moved = math.distance(dest.xz, column.TargetPos.xz) > Cfg.columnFollowRadius;
+            bool late = now > column.Deadline - Cfg.columnFollowSeconds;
+            if (column.Phase == MissionPhase.Striking && !moved && !late) return;
+
+            column.Phase = MissionPhase.Striking;
+            column.Target = Entity.Null;
+            column.TargetPos = dest;
+            column.StagePos = dest;
+            column.Breaching = false;
+            column.StalledSince = now;
+            column.LegStartTime = now;
+            column.Deadline = DeadlineFor(now, columnAt, dest);
+            March(em, faction, column, dest, true, columnAt);
+        }
+
         /// <summary>
-        /// Merge mission <paramref name="index"/> (a reinforcement column)
-        /// into an earlier attack mission whose centroid is within
-        /// reinforceMergeRadius of <paramref name="centroid"/>. Returns true
-        /// when it merged (the caller drops the column).
+        /// Merge mission <paramref name="index"/> (a reinforcement column) into
+        /// an attack army whose centroid is within reinforceMergeRadius of
+        /// <paramref name="centroid"/>. Not another column, not the defence
+        /// mission, and not an army falling back, whose orders would end the
+        /// column's march. Returns true when it merged (the caller drops the column).
         /// </summary>
         private bool TryMergeIntoArmy(EntityManager em,
-            System.Collections.Generic.List<Mission> missions, int index, float3 centroid)
+            System.Collections.Generic.List<Mission> missions, int index, float3 centroid,
+            bool hasHall, float3 hallPos)
         {
             var column = missions[index];
             float r2 = Cfg.reinforceMergeRadius * Cfg.reinforceMergeRadius;
-            for (int a = 0; a < index; a++)
+            for (int a = 0; a < missions.Count; a++)
             {
+                if (a == index) continue;
                 var army = missions[a];
-                if (army.Type != MissionType.Attack || army.Members.Count == 0) continue;
+                if (army.Type != MissionType.Attack || army.Column || army.Phase == MissionPhase.Direct
+                    || army.FallingBack || army.Members.Count == 0) continue;
                 float3 ac = ArmyCentroid(em, army, out int counted);
                 if (counted == 0) continue;
                 float dx = ac.x - centroid.x, dz = ac.z - centroid.z;
                 if (dx * dx + dz * dz > r2) continue;
 
-                for (int i = 0; i < column.Members.Count; i++)
-                    if (!army.Members.Contains(column.Members[i]))
-                        army.Members.Add(column.Members[i]);
-                // The newcomers take the army's current leg.
+                var joining = new System.Collections.Generic.List<Entity>(column.Members);
+                for (int i = 0; i < joining.Count; i++)
+                    if (!army.Members.Contains(joining[i]))
+                        army.Members.Add(joining[i]);
+                // The newcomers take the army's current leg; in a fight the
+                // tactics layer already commands the whole roster.
                 army.NextRegroupTime = 0f;
+                if (!army.Engaged)
+                {
+                    if (army.Phase == MissionPhase.Mustering)
+                        CommandRouter.IssueFormationMove(em, joining, army.MusterPos, FormationShape.Box, CommandSource.AI);
+                    else if (army.Phase == MissionPhase.Staging)
+                        CommandRouter.IssueFormationMove(em, joining, army.StagePos, FormationShape.Box, CommandSource.AI);
+                    else
+                        CommandRouter.IssueFormationAttackMove(em, joining, army.TargetPos, FormationShape.Box, CommandSource.AI);
+                }
                 // Did it get there? (Game_AI.md § 6z: "COLUMN:" lines are the measure.)
-                if (column.Members.Count > 0 && em.Exists(column.Members[0])
-                    && em.HasComponent<FactionTag>(column.Members[0]))
-                    AILogger.Log(em.GetComponentData<FactionTag>(column.Members[0]).Value, "COLUMN",
-                        $"merged: {column.Members.Count} joined the army of {army.Members.Count} " +
-                        $"after {TheWaningBorder.Core.SimClock.Now - column.StartTime:0}s");
+                if (joining.Count > 0 && em.Exists(joining[0]) && em.HasComponent<FactionTag>(joining[0]))
+                    AILogger.Log(em.GetComponentData<FactionTag>(joining[0]).Value, "COLUMN",
+                        $"merged: {joining.Count} joined the army of {army.Members.Count} " +
+                        $"after {TheWaningBorder.Core.SimClock.Now - column.StartTime:0}s, " +
+                        $"{(hasHall ? math.distance(centroid.xz, hallPos.xz) : -1f):0} m from home");
                 missions.RemoveAt(index);
                 return true;
             }
@@ -3087,6 +3257,9 @@ namespace TheWaningBorder.AI
                 && (who == AIPersonality.Rush || who == AIPersonality.Aggressive)) return 0;
             // THE ALL-IN (Game_AI.md § 6n): past allInAfterSeconds the floor
             // is the home guard — the share the personality does not commit.
+            // FINISHING (Game_AI.md § 6u): a token guard, the army goes for the kill.
+            if (FinishingVictim(faction, out _))
+                return (int)math.ceil(CountAliveMilitary(em, faction) * math.saturate(Cfg.finishGuardShare));
             if (AllInArmed(faction)) return _allInGuard[(int)faction];
             if (profile.StandingArmyFloorFraction <= 0f || desired <= 0) return 0;
             PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int cap);
@@ -3560,8 +3733,33 @@ namespace TheWaningBorder.AI
         /// its known strength (threat), how beaten it looks (opportunity, in
         /// the closeout), whether its ground touches ours (border) and how far
         /// its nearest ground is.</summary>
+        /// <summary>A hostile capital is the objective: the target itself, or one
+        /// standing within sight of a march on a location.</summary>
+        private static bool TryCapitalAt(EntityManager em, Faction mine, float3 pos, Entity target, out Faction owner)
+        {
+            owner = mine;
+            if (target != Entity.Null && em.Exists(target) && em.HasComponent<HallTag>(target)
+                && em.HasComponent<FactionTag>(target))
+            {
+                owner = em.GetComponentData<FactionTag>(target).Value;
+                return owner != mine;
+            }
+            for (int i = 0; i < GameSettings.TotalPlayers; i++)
+            {
+                var f = (Faction)i;
+                if (f == mine || !Alliances.AreHostile(mine, f)) continue;
+                Entity hall = FindFactionBuilding<HallTag>(em, f);
+                if (hall == Entity.Null || !em.HasComponent<LocalTransform>(hall)) continue;
+                if (math.distance(em.GetComponentData<LocalTransform>(hall).Position.xz, pos.xz) > Cfg.spareCapitalRadius) continue;
+                owner = f;
+                return true;
+            }
+            return false;
+        }
+
         private Faction ScoredVictim(EntityManager em, Faction mine, bool closeout, out string why)
         {
+            int style = ProfileOf(mine).TargetStyle;
             why = null;
             Faction best = mine;
             float bestScore = float.MinValue;
@@ -3583,6 +3781,10 @@ namespace TheWaningBorder.AI
                 float strength = known / (float)maxKnown;
                 float opp = closeout ? 2f - strength : 1f;                       // the weakest reads 2
                 float threat = 1f + math.max(0f, Cfg.victimThreatWeight) * strength;
+                // THE TIER'S TASTE IN VICTIMS (Game_AI.md § 2).
+                if (style <= 1) { opp = 1f; threat = 1f; }                       // the nearest
+                else if (style == 2) { opp = 2f - strength; threat = 1f; }       // the weakest
+                else threat = 1f + 2f * math.max(0f, Cfg.victimThreatWeight) * strength; // the biggest threat
                 float d = TryVictimGround(em, f, home, new float3(float.MaxValue, 0f, float.MaxValue),
                               out float3 at, out _) ? math.distance(at.xz, home.xz) : scale * 4f;
                 float near = 1f / (1f + d / scale);
@@ -3683,6 +3885,8 @@ namespace TheWaningBorder.AI
             ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality,
             AIDifficultyProfile profile, float now)
         {
+            // A test stand-in for a new player: builds and defends, never attacks.
+            if ((GameSettings.PassiveAIMask >> (int)faction & 1u) != 0u) return;
             if (now < profile.FirstAttackEarliestSeconds) return;
 
             // WAVE HEARTBEAT (2026-08-30): the second-wave freeze was
@@ -3696,6 +3900,14 @@ namespace TheWaningBorder.AI
                     $"heartbeat now={(int)now}s next={(int)aiState.NextWaveTime}s " +
                     $"active={aiState.WaveActive} n={aiState.WaveNumber} " +
                     $"posture={aiState.Posture} start={(int)aiState.WaveStartTime}s");
+            }
+
+            // THE VICTORY PLAN (Game_AI.md § 6aa): a road that does not go through
+            // the enemy's army sends no wave and no reinforcement.
+            if (VictoryHoldsWaves(faction))
+            {
+                aiState.NextWaveTime = math.max(aiState.NextWaveTime, now + Cfg.waveRetrySeconds);
+                return;
             }
 
             // The live army's reinforcement armies, and the news that it died.
@@ -3714,10 +3926,23 @@ namespace TheWaningBorder.AI
             // ONE ARMY AT A TIME (2026-11-04): while it lives, the next body of
             // soldiers leaves as its reinforcement, above.
             if (aiState.WaveActive != 0 && kingLead == Entity.Null) return;
-            // THE FIRST ARMY LEAVES AT A FIXED TIME (2026-11-04, developer): a size
-            // bar on a growing population cap was a moving target, and first waves
-            // left around minute 20.
-            if (aiState.WaveNumber == 0 && kingLead == Entity.Null && now < Cfg.waveFirstSeconds) return;
+            // EASY HOLDS BACK ONCE IT IS CLEARLY AHEAD (Game_AI.md § 2): a new player
+            // should be able to come back.
+            if (profile.HoldBackAheadRatio > 0f && kingLead == Entity.Null)
+            {
+                int myScore = BoardScore(em, faction), bestOther = 0;
+                for (int i = 0; i < GameSettings.TotalPlayers; i++)
+                {
+                    var f = (Faction)i;
+                    if (f != faction && Alliances.AreHostile(faction, f))
+                        bestOther = math.max(bestOther, BoardScore(em, f));
+                }
+                if (bestOther > 0 && myScore >= bestOther * profile.HoldBackAheadRatio)
+                {
+                    aiState.NextWaveTime = now + Cfg.waveRetrySeconds;
+                    return;
+                }
+            }
             if (now < aiState.NextWaveTime && kingLead == Entity.Null) return;
 
             // CLAIMS OUTRANK WAVES while open ground waits for soldiers and
@@ -3837,7 +4062,7 @@ namespace TheWaningBorder.AI
                 // or above its desired size — a winner should convert that
                 // NOW, not politely wait a full interval.
                 // Never slower than the five-minute cadence, whatever the tier.
-                float interval = math.min(profile.AttackWaveIntervalSeconds, Cfg.waveOverdueSeconds)
+                float interval = profile.AttackWaveIntervalSeconds
                     * (aiState.Posture == AIPosture.Pressure ? 0.5f : 1f);
                 if (allIn && Cfg.allInWaveIntervalSeconds > 0f)
                     interval = math.min(interval, Cfg.allInWaveIntervalSeconds);
@@ -3845,7 +4070,7 @@ namespace TheWaningBorder.AI
                 if (FinishingVictim(faction, out _) && Cfg.finishWaveIntervalSeconds > 0f)
                     interval = math.min(interval, Cfg.finishWaveIntervalSeconds);
                 aiState.NextWaveTime = now + interval;
-                aiState.NextReinforceArmyTime = now + Cfg.waveReinforceSeconds;
+                aiState.NextReinforceArmyTime = now + profile.AttackWaveIntervalSeconds;
                 AILogger.Log(faction, "WAVE",
                     $"wave {aiState.WaveNumber} LAUNCHED at {(int)now}s with {waveSize} unit(s) " +
                     $"(min {minUnits}, posture {aiState.Posture}); " +

@@ -127,7 +127,22 @@ namespace TheWaningBorder.AI
         private void TickSanctumArmies(EntityManager em, Faction faction, ref SimpleAIState aiState, float now)
         {
             if (!Cfg.sanctumArmyEnabled) return;
+            if ((GameSettings.PassiveAIMask >> (int)faction & 1u) != 0u) return;
+            // The tier decides whether it goes for Sanctums at all (Game_AI.md § 2).
+            var tier = ProfileOf(faction);
+            // The victory plan replaces the tier's gate (Game_AI.md § 6aa): an Easy AI
+            // on the Sanctum road goes for them; it just goes for nothing else.
+            if (!Cfg.victoryPlanEnabled
+                && (tier.SanctumMode == 2 || (tier.SanctumMode == 1 && now < tier.SanctumLateSeconds))) return;
             var armies = SanctumArmiesOf(faction);
+            // FINISHING: the garrisons join the kill (Game_AI.md § 6u).
+            if (FinishingVictim(faction, out _))
+            {
+                for (int i = armies.Count - 1; i >= 0; i--)
+                    ReleaseSanctumArmy(armies[i]);
+                armies.Clear();
+                return;
+            }
             int key = (int)faction;
             if (_sanctumNextThink.TryGetValue(key, out float next) && now < next) return;
             _sanctumNextThink[key] = now + math.max(1f, Cfg.sanctumThinkInterval);
@@ -151,6 +166,7 @@ namespace TheWaningBorder.AI
             // 30+ soldiers out of the push; the garrisons already standing stay.
             if (FinishingVictim(faction, out _)) { _sanctumWanted.Remove(key); return; }
 
+            if (!VictoryAllowsSanctumArmy(faction)) { _sanctumWanted.Remove(key); return; }
             RaiseSanctumArmy(em, faction, ref aiState, armies, now);
         }
 

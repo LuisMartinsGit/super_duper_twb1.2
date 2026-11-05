@@ -89,6 +89,7 @@ namespace TheWaningBorder.AI
         private static readonly int[] _prey = NewAllInGuard();
         /// <summary>Per faction: the BEATEN faction it is finishing (§ 6u), or -1.</summary>
         private static readonly int[] _finish = NewAllInGuard();
+        private static readonly float[] _finishSince = new float[ProfileSlots];
         private static int _allInEpoch = -1;
 
         private static int[] NewAllInGuard()
@@ -135,6 +136,15 @@ namespace TheWaningBorder.AI
             bool beaten = TryFindBeaten(em, faction, now, out Faction beatenF, out string beatenWhy);
             // EVERYONE AGAINST THE HOLDER (§ 6p, 2026-10-09) outranks the hunt.
             int prey;
+            // A VERDICT HOLDS (2026-11-04): a victim that read as beaten stopped
+            // reading so whenever its last soldiers went out of sight, and the push
+            // stood down with it. It stays beaten for finishHoldSeconds at least.
+            if (!beaten && _finish[k] >= 0 && BoardScore(em, (Faction)_finish[k]) >= 0
+                && now - _finishSince[k] < Cfg.finishHoldSeconds)
+            {
+                beaten = true;
+                beatenF = (Faction)_finish[k];
+            }
             // THE LOSING PLAYER AND THE TABLE'S THREAT (2026-11-03, § 6x).
             // Developer: "losing players should always attack who is attacking
             // them and fortify"; everyone else turns on a faction that is
@@ -173,9 +183,12 @@ namespace TheWaningBorder.AI
             {
                 prey = (int)beatenF;
                 if (prey != _finish[k])
+                {
+                    _finishSince[k] = now;
                     AILogger.Log(faction, "FINISH",
                         $"{beatenF} is beaten ({beatenWhy}) — every wave for its capital until it falls" +
                         (holderYields ? $"; {holder}'s Shardroot siege is shelved" : ""));
+                }
             }
             else
             {
@@ -454,6 +467,7 @@ namespace TheWaningBorder.AI
             out Faction victim, out string why)
         {
             victim = faction; why = null;
+            if (ProfileOf(faction).SpareCapitals != 0) return false;   // Easy never goes for the kill
             if (Cfg.finishAfterSeconds <= 0f || now < Cfg.finishAfterSeconds) return false;
             if (!TheWaningBorder.World.Regions.RegionMap.Ready || !HasAgedUp(em, faction)) return false;
             if (CountAliveMilitary(em, faction) < math.max(1, Cfg.finishMinArmy)) return false;
@@ -513,10 +527,11 @@ namespace TheWaningBorder.AI
         /// kept.</summary>
         private static float AllInRetreatRatio(Faction faction, float ratio)
         {
-            if (ratio <= 0f || !AllInArmed(faction)) return ratio;
-            // FINISHING (§ 6u): the army holds a winning fight longer still.
+            if (ratio <= 0f) return ratio;
+            // FINISHING (§ 6u): the army holds a winning fight, all-in or not.
             if (FinishingVictim(faction, out _))
                 return math.max(ratio, math.max(Cfg.allInRetreatRatio, Cfg.finishRetreatRatio));
+            if (!AllInArmed(faction)) return ratio;
             return math.max(ratio, Cfg.allInRetreatRatio);
         }
     }

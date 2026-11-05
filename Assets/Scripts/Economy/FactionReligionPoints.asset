@@ -24,9 +24,22 @@ MonoBehaviour:
   titheIron: 150
   titheVeilstone: 100
   titheStep: 1.5
-  templeRp: 1
+  templeRp: 0
   unlockSecondRp: 1
   unlockWildcardRp: 2
   chapelLevel2Rp: 2
   chapelLevel3Rp: 3
   heroRp: 1
+  sectDamagePerRp: 3000
+  supportSupplies: 250
+  supportIron: 120
+  supportVeilstone: 60
+  supportVeilsteel: 25
+  armySmallRp: 5
+  armyMediumRp: 10
+  armyLargeRp: 20
+  armySmallUnits: 6
+  armyMediumUnits: 14
+  armyLargeUnits: 32
+  armyRingRadius: 18
+  armyRingStep: 4

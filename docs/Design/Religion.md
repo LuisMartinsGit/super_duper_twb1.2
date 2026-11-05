@@ -7,6 +7,8 @@
 > passives** (§2, §3, §4). The religion menu that drives all of it:
 > [Religion_Menu.md](Religion_Menu.md).
 
+> **2026-11-05:** [Monuments_And_Petriarchy.md](Monuments_And_Petriarchy.md) supersedes parts of this file: the Temple costs no RP, monuments trickle points, sect units earn RP from damage, the Temple trades RP for resources and sells the Petriarchy's Army, and religion points no longer count toward the Shardroot's descent.
+
 > **2026-10-09:** every religion point any player earns also counts down
 > the global "religion points until the Shardroot descends" counter
 > ([Curse_And_Shardroot.md §3.1c](Curse_And_Shardroot.md)).

@@ -199,8 +199,10 @@ namespace TheWaningBorder.Bootstrap
             // reads it exactly as it would for a hand-started skirmish.
             ApplyDifficulty(args);
             ApplyPersonality(args);
+            ApplyPassive(args);
             ApplyCulture(args);
             ApplyTeams(args);
+            ApplyStarts(args);
             MatchLogSession.RunInfo = DescribeRun(CommandLine.Str(args, "-twbLabel"));
 
             MatchMetrics.Enabled = true;
@@ -522,6 +524,50 @@ namespace TheWaningBorder.Bootstrap
             // ApplyColorSelections already published the (team-less) table;
             // publish it again now the slots carry their teams.
             Alliances.ApplyFromLobby();
+        }
+
+        /// <summary>-twbFactionStart "Blue=0,Red=3": the slot's start position, the
+        /// index a lobby player picks on the map. A batch can then test every seat.</summary>
+        private static void ApplyStarts(string[] args)
+        {
+            string spec = CommandLine.Str(args, "-twbFactionStart");
+            if (string.IsNullOrEmpty(spec)) return;
+            foreach (var raw in spec.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var pair = raw.Split('=');
+                if (pair.Length != 2
+                    || !Enum.TryParse(pair[0].Trim(), true, out Faction faction)
+                    || !int.TryParse(pair[1].Trim(), out int start))
+                {
+                    Debug.LogError($"[HeadlessBatch] -twbFactionStart: cannot read '{raw}' (want <Faction>=<start index>)");
+                    continue;
+                }
+                bool applied = false;
+                for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
+                {
+                    var slot = LobbyConfig.Slots[i];
+                    if (slot.Faction != faction) continue;
+                    slot.StartIndex = start;
+                    applied = true;
+                }
+                if (applied) Debug.Log($"[HeadlessBatch] {faction} starts at #{start}");
+                else Debug.LogError($"[HeadlessBatch] -twbFactionStart: {faction} is not a slot in this match");
+            }
+        }
+
+        /// <summary>-twbFactionPassive Blue,Red: those AIs build and defend but never attack.</summary>
+        private static void ApplyPassive(string[] args)
+        {
+            GameSettings.PassiveAIMask = 0u;
+            // -twbNoCurse: the control arm of a batch; no curse node is raised.
+            GameSettings.NoCurseForTest = Array.IndexOf(args, "-twbNoCurse") >= 0;
+            string spec = CommandLine.Str(args, "-twbFactionPassive");
+            if (string.IsNullOrEmpty(spec)) return;
+            foreach (var raw in spec.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (Enum.TryParse(raw.Trim(), true, out Faction f)) GameSettings.PassiveAIMask |= 1u << (int)f;
+                else Debug.LogError($"[HeadlessBatch] -twbFactionPassive: cannot read '{raw}'");
+            }
         }
 
         private static void ApplyPersonality(string[] args)

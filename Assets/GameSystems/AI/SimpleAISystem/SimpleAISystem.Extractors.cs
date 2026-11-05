@@ -58,8 +58,26 @@ namespace TheWaningBorder.AI
         /// One per attempt: each is a real purchase, and building four at once
         /// is how the economy wallet empties and unit production stops.
         /// </summary>
+        private static readonly ComponentType[] QT_TierHuts = { ComponentType.ReadOnly<GathererHutTag>(), ComponentType.ReadOnly<FactionTag>() };
+        private static readonly ComponentType[] QT_TierMines = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<FactionTag>() };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_TierHuts, QC_TierMines;
+
+        /// <summary>Has this faction reached its tier's extractor limit (Game_AI.md § 2)?</summary>
+        private static bool AtExtractorLimit(EntityManager em, Faction faction)
+        {
+            int limit = ProfileOf(faction).ExtractorLimit;
+            if (limit <= 0) return false;
+            int n = 0;
+            using (var f = QC_TierHuts.Get(em, QT_TierHuts).ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp))
+                for (int i = 0; i < f.Length; i++) if (f[i].Value == faction) n++;
+            using (var f = QC_TierMines.Get(em, QT_TierMines).ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp))
+                for (int i = 0; i < f.Length; i++) if (f[i].Value == faction) n++;
+            return n >= limit;
+        }
+
         private void EnsureExtractors(EntityManager em, Faction faction, float now)
         {
+            if (AtExtractorLimit(em, faction)) return;
             if (!RegionMap.Ready || !TerritoryOwnership.Ready) return;
 
             int key = (int)faction;

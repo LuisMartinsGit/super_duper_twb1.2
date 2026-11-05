@@ -166,6 +166,7 @@ namespace TheWaningBorder.Systems.Border
 
         protected override void OnUpdate()
         {
+            if (GameSettings.NoCurseForTest) return;   // the batch's control arm
             if (!GameSettings.BorderEnabled) return;
             if (!RegionMap.Ready) return;
 

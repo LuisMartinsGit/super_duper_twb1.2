@@ -45,5 +45,24 @@ namespace TheWaningBorder.Economy
         public int chapelLevel2Rp;
         public int chapelLevel3Rp;
         public int heroRp;
+
+        // ── Monuments_And_Petriarchy.md §4-§6 ──
+        /// <summary>Weapon damage a faction's sect units deal for one RP.</summary>
+        public int sectDamagePerRp;
+        /// <summary>What one RP buys from the Petriarchy, per resource.</summary>
+        public int supportSupplies;
+        public int supportIron;
+        public int supportVeilstone;
+        public int supportVeilsteel;
+        /// <summary>The Petriarchy's Army: price and size of the three calls.</summary>
+        public int armySmallRp;
+        public int armyMediumRp;
+        public int armyLargeRp;
+        public int armySmallUnits;
+        public int armyMediumUnits;
+        public int armyLargeUnits;
+        /// <summary>Metres from the Temple the army forms, and between its rings.</summary>
+        public float armyRingRadius;
+        public float armyRingStep;
     }
 }

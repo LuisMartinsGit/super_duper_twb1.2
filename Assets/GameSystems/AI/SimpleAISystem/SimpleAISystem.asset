@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -138,15 +138,21 @@ MonoBehaviour:
   regroupInterval: 5
   regroupLooseFraction: 0.25
   reinforceMergeRadius: 35
+  columnFollowSeconds: 20
+  columnFollowRadius: 40
   stagingTimeoutSeconds: 240
   raidPartySize: 3
   raidSurplus: 2
   reinforceInterval: 15
   reinforceMinGroup: 10
-  waveFirstSeconds: 720
-  waveReinforceSeconds: 300
+  spareCapitalRadius: 40
+  spareCapitalMemorySeconds: 600
   reinforceCapMinGroup: 20
   waveReplacePopShare: 0.1
+  finishHoldSeconds: 300
+  finishGuardShare: 0.05
+  sisterMinWaveUnits: 60
+  sisterArmyShare: 0.15
   waveReplaceMaxWaitSeconds: 180
   waveSkipStrengthRatio: 0.5
   waveSkipSeconds: 180
@@ -505,7 +511,7 @@ MonoBehaviour:
   finishArmyShare: 0.4
   finishIntelMaxAgeSeconds: 180
   finishWaveIntervalSeconds: 40
-  finishRetreatRatio: 4
+  finishRetreatRatio: 8
   finishPressMinUnits: 8
   warShelfSeconds: 600
   maxedPopShare: 0.85
@@ -590,3 +596,29 @@ MonoBehaviour:
   victimBorderBonus: 0.5
   victimThreatWeight: 0.6
   wallEnginesMemorySeconds: 1200
+  monumentEnabled: 1
+  monumentThinkInterval: 5
+  monumentEarliestSeconds: 240
+  monumentSquadMin: 12
+  monumentLaunchMargin: 1.2
+  monumentThreatRadius: 30
+  monumentReorderSeconds: 15
+  monumentBlockedSeconds: 120
+  petriarchyTradeBelow: 200
+  petriarchyArmySaveRp: 10
+  victoryPlanEnabled: 1
+  victoryThinkInterval: 10
+  victoryPrioritizeScore: 0.6
+  victoryMinHoldSeconds: 180
+  victorySwitchMargin: 1.2
+  victoryConquestBase: 0.35
+  victoryConquestPerRatio: 0.5
+  victorySanctumBase: 0.2
+  victoryShardrootBase: 0.2
+  victoryShardrootPerMonument: 0.5
+  victoryShardrootOnGround: 0.4
+  victoryStrikeHomeBonus: 0.4
+  victoryGarrisonShare: 0.4
+  victoryStrikeSuperiority: 1.5
+  victoryBaseRadius: 60
+  victoryFortifyTowerScale: 1.5

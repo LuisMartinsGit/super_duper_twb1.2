@@ -629,7 +629,8 @@ namespace TheWaningBorder.UI.Data
 
                     // The Temple also costs a Religion Point (Religion.md §2),
                     // which is earned by killing the curse.
-                    if (building.id == "TempleOfRidan" && !em.Equals(default(EntityManager)))
+                    if (building.id == "TempleOfRidan" && !em.Equals(default(EntityManager))
+                        && FactionReligionPointsHelper.Cfg.templeRp > 0)
                     {
                         int rpCost = FactionReligionPointsHelper.Cfg.templeRp;
                         bool rpOk = FactionReligionPointsHelper.CanAfford(em, faction, rpCost);

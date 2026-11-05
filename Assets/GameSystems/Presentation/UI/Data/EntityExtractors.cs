@@ -412,6 +412,23 @@ namespace TheWaningBorder.UI.Data
                 info.Description = Loc.T("The Shardroot lies here. Any unit that reaches it takes it at once -- right-click it with a unit to claim it. King Lexor bears it as the Shardbound King.");
             }
 
+            // A monument (Monuments_And_Petriarchy.md): no health, nothing to fight.
+            if (em.HasComponent<MonumentState>(entity))
+            {
+                var ms = em.GetComponentData<MonumentState>(entity);
+                info.Type = "Monument";
+                info.Name = "Monument";
+                info.Faction = (int)ms.Holder >= 8 ? "Neutral" : ms.Holder.ToString();
+                info.CurrentHealth = null;
+                info.MaxHealth = null;
+                info.Description = (int)ms.Holder >= 8
+                    ? Loc.T("Stand your soldiers here to take it. It pays religion to whoever holds it.")
+                    : Loc.T("It pays religion to its holder.");
+                info.Description += "\n" + (ms.Explored != 0
+                    ? Loc.T("Its ruins have been explored.")
+                    : Loc.T("Its ruins are unexplored."));
+            }
+
             // Temple: the faction's Religion Points (the Temple has no levels)
             if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<FactionTag>(entity))
             {
@@ -873,6 +890,28 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<VaultTag>(entity) && em.HasComponent<VaultStorage>(entity))
             {
                 info.Type = ActionType.VaultManagement;
+                return info;
+            }
+
+            // A monument the local player holds: Explore (the panel only reaches
+            // here for an owned selection).
+            if (em.HasComponent<MonumentState>(entity))
+            {
+                var ms = em.GetComponentData<MonumentState>(entity);
+                var cost = TheWaningBorder.Entities.Monument.ExploreCost;
+                bool can = TheWaningBorder.Entities.Monument.CanExplore(em, GameSettings.LocalPlayerFaction, ms.Territory);
+                info.Type = ActionType.UnitTraining;
+                info.Actions.Add(new ActionButton
+                {
+                    Id = "Monument_Explore",
+                    Label = Loc.T("Explore the Ruins"),
+                    Tooltip = ms.Explored != 0
+                        ? Loc.T("These ruins have already been explored.")
+                        : Loc.T("Explore the ruins: one random lasting buff. The Shardroot may lie here."),
+                    Cost = cost,
+                    Enabled = can,
+                    CanAfford = FactionEconomy.CanAfford(em, GameSettings.LocalPlayerFaction, cost),
+                });
                 return info;
             }
 
