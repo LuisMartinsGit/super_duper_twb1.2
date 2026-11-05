@@ -11,6 +11,12 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.68] — 2026-11-05
+
+### Fixed
+- **Water and mountains no longer start explored.** They stay under fog until a unit sees
+  them, which removes the stray explored patches at match start.
+
 ## [0.0.67] — 2026-11-05
 
 ### Combat

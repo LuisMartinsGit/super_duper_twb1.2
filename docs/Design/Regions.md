@@ -75,12 +75,12 @@ smooth, natural-looking border instead of a hard rectangular cut.
 | Claimable | **No** |
 | Takes culture look | **No** |
 | Takes curse look | **No** |
-| Fog | **Explored from the start, never *revealed*** — permanently in the remembered/dimmed state, never in live vision |
+| Fog | **Unexplored at match start, like all water and mountains (2026-11-05)**; a unit's sight explores it as it would any ground |
 
-The fog rule is the unusual one and is deliberate: the ring is scenery. You can
-see it is there, so the map reads as a whole and its edge does not look like a
-cliff someone cut with a ruler, but no vision is ever granted there because
-nothing can ever happen there.
+**Water and mountains never start explored, anywhere (2026-11-05).** Only the
+walkable and forested ground of your own home territory does. Starting them explored
+left detached patches of explored ground and graphical artifacts, and on a narrow map
+it gave away most of its water and mountains.
 
 ### Territories
 

@@ -71,50 +71,14 @@ namespace TheWaningBorder.World.Regions
                 // inside the grid walk.
                 int homeRegion = home;
                 Faction faction = pair.Key;
-                // NearestRegion so the mountains and water INSIDE your own
-                // ground are revealed too -- they belong to no region, but
-                // leaving unexplored holes in your home would look broken.
-                mgr.RevealWhere(faction, xz => RegionMap.NearestRegion(xz.x, xz.y) == homeRegion);
+                // Water and mountains stay unexplored until a unit sees them
+                // (Regions.md, 2026-11-05): claimable ground only.
+                mgr.RevealWhere(faction, xz => RegionMap.NearestRegion(xz.x, xz.y) == homeRegion
+                                               && RegionMap.IsClaimable(xz.x, xz.y));
                 revealed++;
             }
 
-            RevealNatureRing(mgr);
-
-            TWBLog.Log($"[RegionStartReveal] Revealed {revealed} home region(s) + the Nature ring.");
-        }
-
-        /// <summary>Depth from the map edge searched for ring ground.</summary>
-        private const float RingSearchDepth = 70f;
-
-        /// <summary>
-        /// The Nature ring starts EXPLORED for everybody, and is never lit.
-        ///
-        /// Regions.md §1: the ring is scenery. It exists so the map ends in
-        /// something that reads as terrain rather than a ruler cut -- which it
-        /// cannot do if it is hidden behind fog nobody can ever lift, because
-        /// nothing can walk there to lift it. Marking it explored shows the
-        /// terrain; it is never marked VISIBLE, so it stays in the dimmed
-        /// remembered state for the whole match, which is exactly the intent.
-        ///
-        /// Only ring ground is revealed, NOT every unclaimable cell. Mid-map
-        /// mountains are also unclaimable, but where they sit is real scouting
-        /// information -- they decide where armies can walk. The ring decides
-        /// nothing, so it costs nothing to show.
-        /// </summary>
-        private static void RevealNatureRing(FogOfWarManager mgr)
-        {
-            Vector2 min = mgr.WorldMin, max = mgr.WorldMax;
-
-            bool IsRing(Vector2 xz)
-            {
-                float edge = Mathf.Min(Mathf.Min(xz.x - min.x, max.x - xz.x),
-                                       Mathf.Min(xz.y - min.y, max.y - xz.y));
-                if (edge > RingSearchDepth) return false;
-                return !RegionMap.IsClaimable(xz.x, xz.y);
-            }
-
-            for (int f = 0; f < 8; f++)
-                mgr.RevealWhere((Faction)f, IsRing);
+            TWBLog.Log($"[RegionStartReveal] Revealed {revealed} home region(s).");
         }
     }
 }
