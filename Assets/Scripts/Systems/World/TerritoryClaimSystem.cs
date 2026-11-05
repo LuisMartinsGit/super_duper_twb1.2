@@ -857,7 +857,7 @@ namespace TheWaningBorder.Systems.World
         /// PopulationCost, so they weigh by tier: crystalling 1,
         /// veilstinger 2, godsplinter 3.
         /// </summary>
-        public static int PopOf(EntityManager em, Entity e, int side)
+        private static int PopOf(EntityManager em, Entity e, int side)
         {
             if (em.HasComponent<PopulationCost>(e))
                 return em.GetComponentData<PopulationCost>(e).Amount;

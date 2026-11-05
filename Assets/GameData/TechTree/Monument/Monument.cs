@@ -1,13 +1,13 @@
 // Monument.cs
 // MONUMENTS (docs/Design/Monuments_And_Petriarchy.md, 2026-11-05): one in each
-// starting curse territory. Conquered by standing on it, trickles religion
+// starting curse territory. Any unit in its ring for ten seconds takes it; it trickles religion
 // points to its holder, and its ruins can be explored once, for a random buff.
 // One hidden monument also releases the match's single Shardroot.
 //
 // Not a building on purpose: no BuildingTag and no Health, so nothing targets
 // it, and territory, elimination and score never see it. FactionTag follows the
 // holder so the selection panel treats a held monument as the player's own;
-// Faction.Border means the curse holds it (or, with no curse, nobody does).
+// Faction.Border means nobody holds it. The curse never does.
 
 using System.Collections.Generic;
 using Unity.Collections;
@@ -26,8 +26,9 @@ public struct MonumentState : IComponentData
 {
     public int Territory;
     public Faction Holder;
-    /// <summary>The capture meter, in population-seconds (0 to capturePopSeconds).</summary>
-    public int Meter;
+    /// <summary>Who is taking it right now (Border = nobody), and for how long.</summary>
+    public Faction Capturer;
+    public int CaptureSeconds;
     public byte Explored;
     public byte HidesShardroot;
 }
@@ -153,7 +154,7 @@ namespace TheWaningBorder.Entities
             {
                 Territory = territory,
                 Holder = Faction.Border,
-                Meter = Cfg.capturePopSeconds,
+                Capturer = Faction.Border,
                 HidesShardroot = (byte)(hidesShardroot ? 1 : 0),
             });
             return e;

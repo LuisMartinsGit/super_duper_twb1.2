@@ -15,11 +15,10 @@ namespace TheWaningBorder.Entities
         public static MonumentSystemConfig I
             => _i != null ? _i : (_i = ComponentConfig.Require<MonumentSystemConfig>());
 
-        /// <summary>Metres from the monument a unit counts toward its meter.</summary>
+        /// <summary>The ring's radius, in metres.</summary>
         public float captureRadius;
-        /// <summary>The meter's size in population-seconds: ten population
-        /// unopposed push it ten a second.</summary>
-        public int capturePopSeconds;
+        /// <summary>Seconds a unit must stay inside the ring to take the monument.</summary>
+        public int captureSeconds;
         /// <summary>A held monument pays one religion point every this-many seconds.</summary>
         public float secondsPerPoint;
 
@@ -42,6 +41,13 @@ namespace TheWaningBorder.Entities
         public float lightHeight;
         public float lightRange;
         public float lightIntensity;
-        public Color curseLightColor;
+        /// <summary>Ring and light before anyone holds it.</summary>
+        public Color neutralColor;
+        public float ringWidth;
+        public float ringLift;
+        public int ringSegments;
+        public float ringGlow;
+        public float arcWidthScale;
+        public float arcGlowScale;
     }
 }

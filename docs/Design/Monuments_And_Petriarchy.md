@@ -21,13 +21,13 @@ for instead of a counter that fills by itself.
 - A monument is **not a building**: no health, cannot be attacked or destroyed,
   does not hold a territory, does not count for elimination, score or Sanctum
   dominion.
-- **It is conquered by standing on it.** Military units inside its capture
-  circle push one meter, weighted by population, allies summed; the stronger
-  side pushes by the difference (the Territory_Claims §2.2 tug of war, at one
-  point). Workers do not count. Reaching empty flips the holder; the new holder
-  then refills it. An empty circle leaves the meter alone.
-- **The curse holds every monument at match start**, and curse units count as a
-  side, so it can retake one. A monument the curse holds pays nothing.
+- **A visible ring marks it. Any unit inside the ring for `captureSeconds` takes
+  it**, regardless of curse presence: a worker or scout counts, and curse units
+  neither block it nor take it. An arc fills along the ring as it is taken; ring
+  and light wear the holder's colour.
+- The timer needs one side in the ring, allies together. **Hostile sides inside at
+  the same time freeze it**, so a holder with a unit inside keeps the monument. Leaving
+  the ring resets it. Nobody holds a monument at match start.
 - **A held monument trickles religion points** to its holder through the same
   escalating points ladder as curse kills and the Temple. It works from Age 0:
   it does not depend on territory claims, which open at age-up.
@@ -79,7 +79,7 @@ its population cap. Heroes are not included.
 
 ## 7. AI
 
-The AI sends a squad to take the nearest monument it can beat, explores what it
+The AI runs a squad into the ring of the nearest monument (a plain move, not an attack-move, so it does not stop to fight on the way), explores what it
 holds as soon as it can pay, and after its sect purchases spends remaining RP on
 Petriarchy support when a resource is short, otherwise on the largest army it can
 afford. Values are on `SimpleAISystem.asset`. Code: `SimpleAISystem.Monuments.cs`

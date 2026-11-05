@@ -11,6 +11,26 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.64] — 2026-11-05
+
+### Monuments
+
+- **Monuments have a ring.** Any unit inside it for 10 seconds takes the monument,
+  whether or not the curse is there. An arc fills as it is taken, and the ring shows
+  who holds it.
+- **Monuments can now be captured.** In 0.0.63 no unit ever counted, so monuments,
+  exploring, buffs and the Shardroot could not be reached.
+- **The curse no longer holds or retakes monuments.** Nobody holds one at match start.
+
+### AI
+
+- **Personality now changes how the AI chooses to win on every tier.** In 0.0.63 it
+  only worked on Easy and for Balanced.
+- **Hard and Expert keep all three roads open for longer** instead of committing to
+  conquest from the first minute.
+- **The AI runs squads into monument rings** and sends larger ones. It gives up on a
+  monument for a while after losing a squad there.
+
 ## [0.0.63] — 2026-11-05
 
 ### Monuments, ruins and the Petriarchy

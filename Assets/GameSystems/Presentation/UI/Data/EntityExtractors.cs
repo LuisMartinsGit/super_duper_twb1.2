@@ -422,7 +422,8 @@ namespace TheWaningBorder.UI.Data
                 info.CurrentHealth = null;
                 info.MaxHealth = null;
                 info.Description = (int)ms.Holder >= 8
-                    ? Loc.T("Stand your soldiers here to take it. It pays religion to whoever holds it.")
+                    ? string.Format(Loc.T("Keep any unit inside the ring for {0} seconds to take it. It pays religion to whoever holds it."),
+                        TheWaningBorder.Entities.MonumentSystemConfig.I.captureSeconds)
                     : Loc.T("It pays religion to its holder.");
                 info.Description += "\n" + (ms.Explored != 0
                     ? Loc.T("Its ruins have been explored.")

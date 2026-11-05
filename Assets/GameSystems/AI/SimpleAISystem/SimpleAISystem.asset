@@ -600,23 +600,24 @@ MonoBehaviour:
   monumentThinkInterval: 5
   monumentEarliestSeconds: 240
   monumentSquadMin: 12
-  monumentLaunchMargin: 1.2
-  monumentThreatRadius: 30
+  monumentLaunchMargin: 2
+  monumentThreatRadius: 45
   monumentReorderSeconds: 15
-  monumentBlockedSeconds: 120
+  monumentBlockedSeconds: 300
   petriarchyTradeBelow: 200
   petriarchyArmySaveRp: 10
   victoryPlanEnabled: 1
   victoryThinkInterval: 10
-  victoryPrioritizeScore: 0.6
+  victoryPrioritizeScore: 0.7
   victoryMinHoldSeconds: 180
   victorySwitchMargin: 1.2
   victoryConquestBase: 0.35
-  victoryConquestPerRatio: 0.5
+  victoryConquestPerRatio: 0.25
   victorySanctumBase: 0.2
   victoryShardrootBase: 0.2
   victoryShardrootPerMonument: 0.5
   victoryShardrootOnGround: 0.4
+  victoryShardrootPerFailedSquad: 0.08
   victoryStrikeHomeBonus: 0.4
   victoryGarrisonShare: 0.4
   victoryStrikeSuperiority: 1.5

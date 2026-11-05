@@ -231,6 +231,10 @@ namespace TheWaningBorder.Data.AI
                 noOverdueRelease = target.noOverdueRelease,
                 shardrootToKing = target.shardrootToKing,
                 allInCommitment = target.allInCommitment,
+                // The roads to victory vary by personality on every tier (§ 6aa).
+                victoryConquestWeight = target.victoryConquestWeight,
+                victorySanctumWeight = target.victorySanctumWeight,
+                victoryShardrootWeight = target.victoryShardrootWeight,
                 // Magnitudes blend.
                 wallGuardShare = L(b.wallGuardShare, target.wallGuardShare),
                 raidPartyScale = L(b.raidPartyScale, target.raidPartyScale),

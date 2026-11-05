@@ -1782,6 +1782,7 @@ namespace TheWaningBorder.AI
         public float victoryShardrootBase;
         public float victoryShardrootPerMonument;
         public float victoryShardrootOnGround;
+        public float victoryShardrootPerFailedSquad;
         /// <summary>What an enemy army standing on its Sanctums adds to conquest.</summary>
         public float victoryStrikeHomeBonus;
         /// <summary>The share of its seen soldiers on its Sanctums that counts as away.</summary>

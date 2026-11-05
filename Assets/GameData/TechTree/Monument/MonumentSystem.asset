@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: MonumentSystem
   m_EditorClassIdentifier: 
   captureRadius: 18
-  capturePopSeconds: 120
+  captureSeconds: 10
   secondsPerPoint: 2
   exploreSupplies: 400
   exploreIron: 200
@@ -35,4 +35,10 @@ MonoBehaviour:
   lightHeight: 7
   lightRange: 14
   lightIntensity: 4
-  curseLightColor: {r: 0.55, g: 0.2, b: 0.9, a: 1}
+  neutralColor: {r: 0.85, g: 0.8, b: 0.65, a: 1}
+  ringWidth: 0.6
+  ringLift: 0.35
+  ringSegments: 96
+  ringGlow: 2.5
+  arcWidthScale: 1.6
+  arcGlowScale: 2

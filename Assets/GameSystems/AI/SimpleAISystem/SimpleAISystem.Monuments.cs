@@ -1,7 +1,7 @@
 // SimpleAISystem.Monuments.cs
 // The AI and the monuments (docs/Design/Monuments_And_Petriarchy.md §7): one
-// squad at a time takes the nearest monument it can beat and stands on it until
-// the meter is full, and whatever the faction holds it explores once it can pay.
+// squad at a time runs into the ring of the nearest monument and stays until it
+// is taken, and whatever the faction holds it explores once it can pay.
 
 using System.Collections.Generic;
 using Unity.Collections;
@@ -28,6 +28,7 @@ namespace TheWaningBorder.AI
         private readonly Dictionary<int, MonumentSquad> _monumentSquads = new Dictionary<int, MonumentSquad>();
         private readonly Dictionary<int, float> _monumentNextThink = new Dictionary<int, float>();
         private readonly Dictionary<(int, int), float> _monumentBlocked = new Dictionary<(int, int), float>();
+        private readonly Dictionary<int, int> _monumentFailedSquads = new Dictionary<int, int>();
         private int _monumentEpoch = -1;
 
         private void TickMonuments(EntityManager em, Faction faction, ref SimpleAIState aiState, float now)
@@ -40,6 +41,7 @@ namespace TheWaningBorder.AI
                 _monumentSquads.Clear();
                 _monumentNextThink.Clear();
                 _monumentBlocked.Clear();
+                _monumentFailedSquads.Clear();
             }
             int key = (int)faction;
             if (_monumentNextThink.TryGetValue(key, out float next) && now < next) return;
@@ -84,12 +86,14 @@ namespace TheWaningBorder.AI
             if (squad.Members.Count == 0 || !em.Exists(squad.Monument))
             {
                 _monumentBlocked[((int)faction, squad.Monument.Index)] = now + Cfg.monumentBlockedSeconds;
+                _monumentFailedSquads.TryGetValue((int)faction, out int failed);
+                _monumentFailedSquads[(int)faction] = failed + 1;
                 AILogger.Log(faction, "MONUMENT", "the squad is dead, the monument waits");
                 return false;
             }
 
             var s = em.GetComponentData<MonumentState>(squad.Monument);
-            if (s.Holder == faction && s.Meter >= MonumentSystemConfig.I.capturePopSeconds)
+            if (s.Holder == faction)
             {
                 AILogger.Log(faction, "MONUMENT", $"territory {s.Territory}'s monument is ours, the squad goes home");
                 return false;
@@ -97,7 +101,7 @@ namespace TheWaningBorder.AI
 
             if (now >= squad.NextOrder)
             {
-                AICommon.IssueGroupOrder(em, squad.Members, squad.Position, attackMove: true, Cfg.waveArrivedRadius);
+                AICommon.IssueGroupOrder(em, squad.Members, squad.Position, attackMove: false, Cfg.waveArrivedRadius);
                 squad.NextOrder = now + Cfg.monumentReorderSeconds;
             }
             return true;
@@ -148,7 +152,7 @@ namespace TheWaningBorder.AI
             if (squad.Members.Count < Cfg.monumentSquadMin || power < need) return;
 
             foreach (var m in squad.Members) _sanctumGuards.Add(m);
-            AICommon.IssueGroupOrder(em, squad.Members, bestPos, attackMove: true, Cfg.waveArrivedRadius);
+            AICommon.IssueGroupOrder(em, squad.Members, bestPos, attackMove: false, Cfg.waveArrivedRadius);
             squad.NextOrder = now + Cfg.monumentReorderSeconds;
             _monumentSquads[key] = squad;
             AILogger.Log(faction, "MONUMENT",

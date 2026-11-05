@@ -276,6 +276,9 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < monuments.Length; i++)
                 if (em.GetComponentData<MonumentState>(monuments[i]).Holder == faction) mine++;
             float chance = Cfg.victoryShardrootBase + Cfg.victoryShardrootPerMonument * mine / monuments.Length;
+            // Reacting to failure: every squad lost on a monument makes this road look worse.
+            _monumentFailedSquads.TryGetValue((int)faction, out int failed);
+            chance = math.max(0f, chance - failed * Cfg.victoryShardrootPerFailedSquad);
             if (AIShardroot.Locate(em, faction, out _, out _) == AIShardroot.Where.Ground)
                 chance += Cfg.victoryShardrootOnGround;
             return chance;
