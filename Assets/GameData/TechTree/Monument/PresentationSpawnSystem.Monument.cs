@@ -8,8 +8,9 @@
 // visible at the edge, in the holder's colour; a capture fills in from the edge
 // toward the centre, in the capturer's colour.
 //
-// The decal's driver is NOT a child of the statue: fog hides the statue's view,
-// and every player must be able to watch a circle fill up.
+// The circle shows only where the viewer has vision now, or on a monument it owns.
+// The statue's view also stands on last-seen ground, and a circle there would show a
+// capture happening out of sight, so the decal has its own driver and its own test.
 
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -99,6 +100,16 @@ namespace TheWaningBorder.Rendering
             if (_texture != null) Destroy(_texture);
         }
 
+        /// <summary>Does the viewer see this monument right now? Spectators and a
+        /// match with no fog see everything.</summary>
+        public static bool VisibleToViewer(Faction holder, Vector3 position)
+        {
+            var fog = TheWaningBorder.World.FogOfWar.FogOfWarManager.Instance;
+            var viewer = GameSettings.ViewFaction;
+            if (fog == null || viewer == null) return true;
+            return holder == viewer.Value || fog.IsVisible(viewer.Value, position);
+        }
+
         private static Color ColorOf(Faction f)
             => (int)f >= 8 ? MonumentSystemConfig.I.neutralColor : FactionColors.Get(f);
 
@@ -117,6 +128,11 @@ namespace TheWaningBorder.Rendering
 
             var s = em.GetComponentData<MonumentState>(_entity);
             var cfg = MonumentSystemConfig.I;
+
+            bool show = VisibleToViewer(s.Holder, _center);
+            if (_decal != null && _decal.gameObject.activeSelf != show) _decal.gameObject.SetActive(show);
+            if (!show) return;
+
             bool capturing = s.CaptureSeconds > 0 && (int)s.Capturer < 8;
             float target = capturing ? (float)s.CaptureSeconds / cfg.captureSeconds : 0f;
 

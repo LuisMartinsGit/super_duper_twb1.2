@@ -25,10 +25,11 @@ for instead of a counter that fills by itself.
   for `captureSeconds` takes it**, regardless of curse presence: a worker or scout
   counts, and curse units neither block it nor take it.
 - **The circle is a ground decal, like the selection decals.** Its outer edge is
-  always visible, for every player, in fog too. Inside, alpha runs linearly from fully
-  transparent at the centre to fully visible at the edge, in the owner's colour. A
-  capture fills in from the edge toward the centre in the capturer's colour, and
-  every player can watch it.
+  always visible, but **fog hides it**: a player sees the circle only with vision of
+  it now, or on a monument it owns. Inside, alpha runs linearly from fully transparent
+  at the centre to fully visible at the edge, in the owner's colour. A capture fills
+  in from the edge toward the centre in the capturer's colour, and anyone with vision
+  of it can watch.
 - **Monuments are selectable by everyone.** The panel shows the owner (`Derelict` until
   someone claims it), and the owner gets the Explore button.
 - The timer needs one side in the ring, allies together. **Hostile sides inside at
@@ -45,7 +46,8 @@ for instead of a counter that fills by itself.
 - **Every monument has its own buff.** The pool of six is shuffled from the match
   seed and dealt out, one per monument, so no two match unless a map has more than six.
   Which is which stays hidden until explored. **Exploring activates it for the explorer,
-  for good, and from then on anyone can read it** by selecting the monument. The six
+  for good, and from then on anyone can read it** by selecting the monument or hovering
+  over it in the world (out of sight, hovering says only that it is a monument). The six
   are tech SOs in `TechTree/Monument/Buffs/`, granted rather than researched, and listed
   on `MonumentSystem.asset`.
 - The deal comes from the match seed, so every peer and replay agrees.

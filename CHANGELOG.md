@@ -11,6 +11,14 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.66] — 2026-11-05
+
+### Monuments
+
+- **Fog hides the claim circle.** You see it only with vision of the monument, or on one
+  you own.
+- **Hover over a monument** in the world to read its owner and its buff.
+
 ## [0.0.65] — 2026-11-05
 
 ### Building placement

@@ -219,7 +219,28 @@ namespace TheWaningBorder.UI.Ingame
                 SetShown(text);
                 return;
             }
-            SetShown(null);
+            // Nothing of the UI under the pointer: the world.
+            SetShown(_hits.Count == 0 ? WorldHoverText() : null);
+        }
+
+        /// <summary>The monument under the pointer (Monuments_And_Petriarchy.md §2).
+        /// On last-seen ground it says only what it is: who holds it now and what
+        /// happened there are out of sight.</summary>
+        private static string WorldHoverText()
+        {
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated) return null;
+            var em = world.EntityManager;
+            var e = TheWaningBorder.Input.ScreenPick.EntityUnderMouse(~0, em);
+            if (e == Unity.Entities.Entity.Null || !em.HasComponent<MonumentState>(e)) return null;
+
+            string title = TheWaningBorder.Core.Localization.Loc.T("Monument");
+            var state = em.GetComponentData<MonumentState>(e);
+            var at = em.GetComponentData<Unity.Transforms.LocalTransform>(e).Position;
+            if (!TheWaningBorder.Rendering.MonumentCircle.VisibleToViewer(state.Holder, at))
+                return title;
+            return "<b>" + title + "</b>\n"
+                + TheWaningBorder.UI.Data.EntityInfoExtractor.GetDisplayInfo(e, em).Description;
         }
 
         private void SetShown(string text)
