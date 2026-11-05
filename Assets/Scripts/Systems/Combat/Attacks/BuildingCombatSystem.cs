@@ -16,8 +16,8 @@ namespace TheWaningBorder.Systems.Combat
     public partial struct BuildingCombatSystem : ISystem
     {
         // 25 -> 32.5 (2026-09-03): arrow flight sped up 30 percent.
-        private const float ArrowSpeed = 32.5f;
-        private const float LaserSpeed = 55f;
+        private const float ArrowSpeed = 22.75f;
+        private const float LaserSpeed = 38.5f;
 
         // Border emplacements only fire on worker-class units inside this
         // range (guard-the-well rule, Curse & Shardroot canon §2.1) — the
@@ -62,6 +62,7 @@ namespace TheWaningBorder.Systems.Combat
         // structural step at playback instead of create + three or more
         // adds. Same component set, same creation order.
         private EntityArchetype _arrowArch;
+        private EntityArchetype _pendingArch;
         private EntityArchetype _laserArch;
         private EntityArchetype _boltArch;
         private EntityArchetype _shellArch;
@@ -84,6 +85,7 @@ namespace TheWaningBorder.Systems.Combat
 
             var em = state.EntityManager;
             _arrowArch = em.CreateArchetype(typeof(LocalTransform), typeof(ArrowProjectile), typeof(Projectile));
+            _pendingArch = em.CreateArchetype(typeof(PendingBuildingShot));
             _laserArch = em.CreateArchetype(typeof(LocalTransform), typeof(ArrowProjectile), typeof(Projectile),
                 typeof(LaserProjectileTag));
             _boltArch = em.CreateArchetype(typeof(LocalTransform), typeof(ArrowProjectile), typeof(Projectile),
@@ -99,6 +101,25 @@ namespace TheWaningBorder.Systems.Combat
             var em = state.EntityManager;
             var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
+
+            // Shots of earlier volleys whose departure time has come. A shot from a
+            // building that has since fallen never leaves; one whose target has died
+            // still flies, to where the target was.
+            foreach (var (pending, pendingEntity) in SystemAPI.Query<RefRO<PendingBuildingShot>>().WithEntityAccess())
+            {
+                var shot = pending.ValueRO;
+                if (time < shot.DueTime) continue;
+                ecb.DestroyEntity(pendingEntity);
+                if (!em.Exists(shot.Shooter) || !em.HasComponent<LocalTransform>(shot.Shooter)) continue;
+                if (em.HasComponent<Health>(shot.Shooter) && em.GetComponentData<Health>(shot.Shooter).Value <= 0) continue;
+                float3 aim = em.Exists(shot.Target) && em.HasComponent<LocalTransform>(shot.Target)
+                    ? em.GetComponentData<LocalTransform>(shot.Target).Position
+                    : shot.LastTargetPos;
+                float3 muzzle = BuildingFirePoints.MuzzleFor(em, shot.Shooter, shot.Faction, aim);
+                CreateProjectile(ref ecb, in this, muzzle, aim, math.length(aim - muzzle),
+                    shot.Shooter, shot.Faction, shot.Damage, time, shot.Target,
+                    shot.IsLaser != 0, shot.DmgType, shot.IsBallistaBolt != 0);
+            }
 
             // Snapshot all potential targets (anything with Health + FactionTag
             // + Transform) — MINUS the three things nothing may auto-acquire.
@@ -383,10 +404,13 @@ namespace TheWaningBorder.Systems.Combat
                         attackerBorderMod *= 1f + buff.AttBonus;
                     }
 
-                    // Spawn height: use entity's Radius + 0.5f (taller buildings shoot higher)
-                    float spawnYOffset = em.HasComponent<Radius>(entity)
-                        ? em.GetComponentData<Radius>(entity).Value + 0.5f
-                        : 1.5f;
+                    // One shot leaves now; several leave at random moments over the
+                    // volley spread, so a volley does not read as a metronome.
+                    int shotCount = targets.Length
+                        + (hasSiegeShot ? 1 : 0)
+                        + (fd.KeepResearch != 0 && (fd.KeepTechs & FlagBallista) != 0 ? 1 : 0);
+                    bool stagger = shotCount > 1;
+                    int shotIndex = 0;
 
                     for (int t = 0; t < targets.Length; t++)
                     {
@@ -400,9 +424,8 @@ namespace TheWaningBorder.Systems.Combat
 
                         int modifiedDamage = math.max(1, (int)(attackData.Damage * borderMod
                             * (slits ? TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ArrowSlitsDamage : 1f)));
-                        CreateProjectile(ref ecb, in this, myPos, targets[t].Position,
-                            targets[t].Distance, entity, myFaction,
-                            modifiedDamage, time, targets[t].Entity, isBorder, dmgType, spawnYOffset);
+                        FireOrQueue(ref ecb, in this, em, stagger, shotIndex++, entity, myFaction,
+                            targets[t].Position, targets[t].Entity, modifiedDamage, time, isBorder, dmgType, false);
                     }
 
                     // Keep emplacements: extra per-volley shots at the nearest
@@ -416,11 +439,9 @@ namespace TheWaningBorder.Systems.Combat
                     if (hasSiegeShot)
                     {
                         var nearest = targets.Length > 0 ? targets[0] : nearestWall;
-                        CreateProjectile(ref ecb, in this, myPos, nearest.Position,
-                            nearest.Distance, entity, myFaction,
-                            em.GetComponentData<BuildingSiegeShot>(entity).Damage, time,
-                            nearest.Entity, isLaser: false, DamageType.Siege, spawnYOffset,
-                            ballistaBolt: true);
+                        FireOrQueue(ref ecb, in this, em, stagger, shotIndex++, entity, myFaction,
+                            nearest.Position, nearest.Entity, em.GetComponentData<BuildingSiegeShot>(entity).Damage,
+                            time, false, DamageType.Siege, true);
                     }
 
                     if (fd.KeepResearch != 0)
@@ -428,15 +449,14 @@ namespace TheWaningBorder.Systems.Combat
                         var nearest = targets.Length > 0 ? targets[0] : nearestWall;
                         if ((fd.KeepTechs & FlagBallista) != 0)
                         {
-                            CreateProjectile(ref ecb, in this, myPos, nearest.Position,
-                                nearest.Distance, entity, myFaction,
-                                18, time, nearest.Entity, isLaser: false,
-                                DamageType.Siege, spawnYOffset, ballistaBolt: true);
+                            FireOrQueue(ref ecb, in this, em, stagger, shotIndex++, entity, myFaction,
+                                nearest.Position, nearest.Entity, 18, time, false, DamageType.Siege, true);
                         }
                         if ((fd.KeepTechs & FlagTrebuchet) != 0)
                         {
-                            CreateTrebuchetShot(ref ecb, _shellArch, myPos, nearest.Position,
-                                entity, myFaction, 36, time, nearest.Entity, spawnYOffset);
+                            CreateTrebuchetShot(ref ecb, _shellArch,
+                                BuildingFirePoints.MuzzleFor(em, entity, myFaction, nearest.Position), nearest.Position,
+                                entity, myFaction, 36, time, nearest.Entity);
                         }
                     }
 
@@ -757,10 +777,40 @@ namespace TheWaningBorder.Systems.Combat
             return true;
         }
 
+        private static void FireOrQueue(ref EntityCommandBuffer ecb, in BuildingCombatSystem sys, EntityManager em,
+            bool stagger, int shotIndex, Entity shooter, Faction faction, float3 targetPos, Entity target,
+            int damage, float time, bool isLaser, DamageType dmgType, bool ballistaBolt)
+        {
+            if (!stagger)
+            {
+                float3 muzzle = BuildingFirePoints.MuzzleFor(em, shooter, faction, targetPos);
+                CreateProjectile(ref ecb, in sys, muzzle, targetPos, math.length(targetPos - muzzle),
+                    shooter, faction, damage, time, target, isLaser, dmgType, ballistaBolt);
+                return;
+            }
+            // Seeded from the simulation, so every lockstep peer draws the same delay.
+            uint hash = math.hash(new int3(shooter.Index, (int)(time * 1000f), shotIndex));
+            float delay = (hash % 1024u) / 1024f * BuildingCombatSystemConfig.I.volleySpreadSeconds;
+            var pending = ecb.CreateEntity(sys._pendingArch);
+            ecb.SetComponent(pending, new PendingBuildingShot
+            {
+                DueTime = time + delay,
+                Shooter = shooter,
+                Target = target,
+                LastTargetPos = targetPos,
+                Faction = faction,
+                Damage = damage,
+                DmgType = dmgType,
+                IsLaser = (byte)(isLaser ? 1 : 0),
+                IsBallistaBolt = (byte)(ballistaBolt ? 1 : 0),
+            });
+        }
+
+        /// <param name="start">The world position the shot leaves from (BuildingFirePoints).</param>
         private static void CreateProjectile(ref EntityCommandBuffer ecb, in BuildingCombatSystem sys,
             float3 start, float3 targetPos, float distance,
             Entity shooter, Faction faction, int damage, float time, Entity target,
-            bool isLaser = false, DamageType dmgType = DamageType.Ranged, float spawnYOffset = 1.5f,
+            bool isLaser = false, DamageType dmgType = DamageType.Ranged,
             bool ballistaBolt = false)
         {
             float speed = isLaser ? LaserSpeed : ArrowSpeed;
@@ -789,7 +839,7 @@ namespace TheWaningBorder.Systems.Combat
 
             ecb.SetComponent(projectile, new LocalTransform
             {
-                Position = start + new float3(0, spawnYOffset, 0),
+                Position = start,
                 Rotation = quaternion.LookRotation(velocity, new float3(0, 1, 0)),
                 Scale = 1f
             });
@@ -811,7 +861,8 @@ namespace TheWaningBorder.Systems.Combat
                 Damage = damage,
                 Target = target,
                 Faction = faction,
-                DmgType = dmgType
+                DmgType = dmgType,
+                KeepStartHeight = 1
             });
 
             // Veilstone buildings fire lasers (LaserProjectileTag, for the
@@ -828,10 +879,9 @@ namespace TheWaningBorder.Systems.Combat
         /// ProjectileSystem runs the Bezier arc path).
         /// </summary>
         private static void CreateTrebuchetShot(ref EntityCommandBuffer ecb, EntityArchetype shellArch,
-            float3 start, float3 targetPos, Entity shooter, Faction faction,
-            int damage, float time, Entity target, float spawnYOffset)
+            float3 spawnPos, float3 targetPos, Entity shooter, Faction faction,
+            int damage, float time, Entity target)
         {
-            float3 spawnPos = start + new float3(0, spawnYOffset, 0);
             var direction = math.normalizesafe(targetPos - spawnPos, new float3(0, 0, 1));
 
             var shell = ecb.CreateEntity(shellArch);
@@ -857,7 +907,8 @@ namespace TheWaningBorder.Systems.Combat
                 Damage = damage,
                 Target = target,
                 Faction = faction,
-                DmgType = DamageType.Siege
+                DmgType = DamageType.Siege,
+                KeepStartHeight = 1
             });
             ecb.SetComponent(shell, new AOEProjectile { Radius = 4f });
             ecb.SetComponent(shell, new HighArcProjectile { ArcFraction = 0.25f });

@@ -75,6 +75,9 @@ namespace TheWaningBorder.Data
         /// (the Watch Tower ladder; the Garrison's level-3 arrows).
         /// enabled = false: the multipliers above are the whole story.</summary>
         public BuildingAttack attack;
+        /// <summary>Where this level's shots leave from, as BuildingDefSO.firePoints:
+        /// baked from this level's prefab, since the towers change with the level.</summary>
+        public Vector3[] firePoints;
         /// <summary>Line of sight at this level; 0 = unchanged.</summary>
         public float lineOfSight;
 

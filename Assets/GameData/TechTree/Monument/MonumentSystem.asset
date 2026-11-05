@@ -25,7 +25,7 @@ MonoBehaviour:
   - Ruin_WardedPlate
   - Ruin_PilgrimsRoad
   - Ruin_WatchersEye
-  shardrootOffset: 7
+  shardrootStartClearance: 40
   outcropClearance: 10
   placementRings: 6
   placementRingStep: 6

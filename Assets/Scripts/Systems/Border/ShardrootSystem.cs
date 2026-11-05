@@ -332,14 +332,18 @@ namespace TheWaningBorder.Systems.Border
                 if (_beaconAcc.Due(SystemAPI.Time.DeltaTime, BeaconInterval))
                 {
                     bool pinged = false;
-                    foreach (var xf in SystemAPI
+                    foreach (var (xf, shardroot) in SystemAPI
                         .Query<RefRO<LocalTransform>>()
-                        .WithAll<ShardrootTag>())
+                        .WithAll<ShardrootTag>()
+                        .WithEntityAccess())
                     {
-                        SimSignals.Ping(
-                            xf.ValueRO.Position,
-                            SimPingKind.Discovery,
-                            BeaconInterval + 0.5f, big: true);
+                        // Hidden: only those who know the spot get the beacon
+                        // (Monuments_And_Petriarchy.md §3).
+                        if (!TheWaningBorder.Entities.ShardrootPickup.HiddenFromView(em, shardroot))
+                            SimSignals.Ping(
+                                xf.ValueRO.Position,
+                                SimPingKind.Discovery,
+                                BeaconInterval + 0.5f, big: true);
                         pinged = true;
                         break; // there is only ever one Shardroot
                     }

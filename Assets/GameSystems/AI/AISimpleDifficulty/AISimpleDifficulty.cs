@@ -45,6 +45,22 @@ namespace TheWaningBorder.AI
         public int SpareCapitals;
         public int ExtractorLimit;
         public float LevelUpsFromSeconds;
+        /// <summary>Pacing (Game_AI.md § 2a) — see the SO fields.</summary>
+        public float ExtractorGapSeconds;
+        public float WasteBuildSeconds;
+        public int WasteBuildMax;
+        public int ResearchMaxConcurrent;
+        public float ResearchGapSeconds;
+        public int ResearchMaxLevel;
+        public float LevelThreeFromSeconds;
+        public float LevelUpGapSeconds;
+        public int LevelUpMaxConcurrent;
+        public int MaxSects;
+        public float SectPowerGapSeconds;
+        public bool AttacksBlind;
+        public bool ArmyStraggles;
+        public bool FightsToDeath;
+        public float ShardrootReactSeconds;
         /// <summary>How large an army this difficulty keeps standing, before
         /// the plan's ArmyScale multiplies it.</summary>
         public int SustainArmyCap;
@@ -156,6 +172,21 @@ namespace TheWaningBorder.AI
                 SpareCapitals = so.spareCapitals,
                 ExtractorLimit = so.extractorLimit,
                 LevelUpsFromSeconds = so.levelUpsFromSeconds,
+                ExtractorGapSeconds = so.extractorGapSeconds,
+                WasteBuildSeconds = so.wasteBuildSeconds,
+                WasteBuildMax = so.wasteBuildMax,
+                ResearchMaxConcurrent = so.researchMaxConcurrent,
+                ResearchGapSeconds = so.researchGapSeconds,
+                ResearchMaxLevel = so.researchMaxLevel,
+                LevelThreeFromSeconds = so.levelThreeFromSeconds,
+                LevelUpGapSeconds = so.levelUpGapSeconds,
+                LevelUpMaxConcurrent = so.levelUpMaxConcurrent,
+                MaxSects = so.maxSects,
+                SectPowerGapSeconds = so.sectPowerGapSeconds,
+                AttacksBlind = so.attacksBlind,
+                ArmyStraggles = so.armyStraggles,
+                FightsToDeath = so.fightsToDeath,
+                ShardrootReactSeconds = so.shardrootReactSeconds,
                 SustainArmyCap = so.sustainArmyCap,
                 AttackWaveIntervalSeconds = so.attackWaveIntervalSeconds,
                 WaveBaseUnits = so.waveBaseUnits,

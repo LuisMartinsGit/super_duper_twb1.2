@@ -27,9 +27,9 @@ AI (`Systems/Border/`) is a separate system and is NOT covered here.
 apart, and Easy must forgive a new player. Each tier's profile sets when its first attack
 comes, the time between waves, its largest wave, its army limit, who it attacks, whether
 it sends reinforcement armies, and whether it goes for Sanctums or builds walls. **Easy
-holds back on purpose:** it builds few extractors and levels late, it stops attacking once
-clearly ahead, and it leaves a capital alone unless that player has recently attacked it.
-That is a deliberate exception to "every AI tries to win"; it is still no cheat. No tier
+plays badly rather than holding back (2026-11-05, § 2a):** it leaves a capital alone unless
+that player has recently attacked it, and it loses the rest of its strength to its own
+decisions. It is still no cheat. No tier
 has a resource or vision bonus. A tier that fights on several fronts keeps a main army: a
 wave splits off side armies only at `sisterMinWaveUnits`, each `sisterArmyShare` of it. **Above Easy, a tier
 finishes what it has won:** once a rival reads as beaten (it stays so for `finishHoldSeconds`),
@@ -39,6 +39,37 @@ hugely outmatched. The
 test for the ladder: a passive stand-in for a new
 player survives long against Easy and less long at each tier above, and each tier beats
 the one below head to head.
+
+### 2a. Pacing: a tier is how well it plays, not how long it waits (2026-11-05)
+
+Developer: an Easy AI should be one that barely plays the game correctly and suffers
+naturally from bad decisions, not a perfect economy manager that hoards wealth waiting for
+a timer. Measured the same day on 0.0.66: Easy had started 40 techs by minute 15 against 13
+and 19 for Hard, because its low army limit left money with nowhere else to go, and an
+overflowing bank made it research faster; then its late level gate released 37 techs in
+five minutes. So every kind of spending has its own pace, set per tier on the difficulty
+profile and scaled per personality (§ 3). `AIPacing` is the only reader, and every AI path
+that spends goes through it, surplus spending included: a full bank never buys speed.
+
+| Area | Handle (on `AIDifficultyProfileSO`) | What it does |
+|---|---|---|
+| Economy | `extractorGapSeconds` | least time between new extractors, rebuilds included; only the opening huts are exempt |
+| Economy | `wasteBuildSeconds`, `wasteBuildMax` | how often it buys a building it does not need, and how many |
+| Tech | `researchMaxConcurrent` | research processes in progress or queued at once; 0 = no limit |
+| Tech | `researchGapSeconds` | least time between starting two researches |
+| Tech | `researchMaxLevel` | highest `minBuildingLevel` this tier ever researches; 0 = no limit |
+| Upgrades | `levelUpsFromSeconds`, `levelThreeFromSeconds` | when the level 2 phase and the level 3 phase open |
+| Upgrades | `levelUpGapSeconds`, `levelUpMaxConcurrent` | one building type at a time, spaced out, so a phase never lands as one difficulty bump |
+| Religion | `maxSects`, `sectPowerGapSeconds` | how many sects it adopts, and how often it casts a sect power |
+| Military | `attacksBlind` | launches without reading the defence: no wave is skipped or held for strength |
+| Military | `armyStraggles` | no muster, no staging, no formation, no regrouping: the wave walks in strung out |
+| Military | `fightsToDeath` | a losing army never retreats |
+| Shardroot | `shardrootReactSeconds` | how long after seeing it on the ground the AI sends anyone; a strike never exceeds `maxWaveUnits` |
+
+**What this means for Easy.** Its money leaves through bad decisions instead of piling up:
+small waves walk in without intel and die, it replaces them, and it buys buildings it has
+no use for. The level gates exist to spread levels out, not to dam them up. Values are on
+the four assets in `AISimpleDifficulty/Profiles/`.
 
 Difficulty changes *behavior quality only*. No resource or vision cheats
 on any shipped tier; if cheat tiers are ever added they must be clearly
@@ -70,7 +101,7 @@ labeled with their multiplier (AoE4's hidden-Hardest-cheat backlash).
 | Vault share / withdraw on need (`vaultDepositShare`, `vaultWithdrawOnNeed`, §5h) | small / timer only | half / yes | most / yes | most / yes |
 | Optional build-step skip chance | 25% | 10% | 0% | 0% |
 | Forward staging before attacks | off | off | on | on |
-| Sustained army cap (`sustainArmyCap`, a hard ceiling) | 60 | 120 | 180 | 200 |
+| Sustained army cap (`sustainArmyCap`, a hard ceiling; `armyCapFixed` stops it rising with unspent money, § 6j. Easy, Normal and Hard are fixed since 2026-11-05: Hard's rose to the population ceiling, far past Normal) | on the profile SO | on the profile SO | on the profile SO | on the profile SO |
 | Expansion (extra GathererHuts near untapped deposits) | off | on | on | on |
 | Counter-aware target choice / focus-fire weight (`tactics`, §6e) | off / off | 0.5 / 0.6 | 0.85 / 0.85 | 1 / 1 |
 | Ranged hold a line behind the melee (§6e) | off | on | on | on |
@@ -175,6 +206,13 @@ The shipped assets had drifted far from the old table anyway (55 / 100 / 125 /
 150 against a documented 10 / 16 / 24 / 32), so nothing was reading it.
 
 ## 3. Personalities (weights, not scripts)
+
+**Pace (2026-11-05, § 2a).** A personality scales its tier's pace, blended by
+`personalityWeight` like its other magnitudes: `researchPaceScale` and
+`researchExtraConcurrent` (TechBoom researches faster and runs one more at a time),
+`extractorPaceScale` (Economic builds extractors sooner), `levelUpPaceScale` (the patient
+personalities level sooner) and `attackPaceScale` (the first attack and the time between
+waves: Rush sooner, Turtle later). Below 1 is faster. Values are on `AISettings.asset`.
 
 **Dampened by tier (2026-10-05, approved).** A personality pulled every tier
 by the same amount, and in mixed matches the pull outweighed the tier: an
@@ -2617,6 +2655,8 @@ fight drops its route; the tactics layer re-routes it when the march resumes.
 Logs: `ROUTE: N march round the curse to (x,z) — k waypoint(s)`.
 
 ## 6l. The Shardroot and the king (2026-10-07)
+
+**Hidden until picked up (2026-11-05, Monuments_And_Petriarchy.md § 3):** `AIShardroot.Locate` reports a hidden Shardroot only to a faction that explored the monument that reveals it; to every other it does not exist, in the strike and in the victory plan alike.
 
 Developer: "No one goes for the shardroot and no one uses king lexor's
 heightened form." Nothing in the AI looked at the artifact; units took it only

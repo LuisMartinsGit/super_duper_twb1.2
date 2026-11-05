@@ -47,6 +47,10 @@ namespace TheWaningBorder.Systems.Visibility
         private EntityQuery _embeddedQuery;
         private EntityQuery _revealQuery;
         private TheWaningBorder.Systems.World.FogRevealSystemConfig _revealCfg;
+        /// <summary>Who each spot's fog lifts for, a bit per Faction: everyone,
+        /// unless the artifact still lies hidden (Monuments_And_Petriarchy.md §3).</summary>
+        private readonly System.Collections.Generic.List<uint> _shardrootSeers =
+            new System.Collections.Generic.List<uint>(4);
         private readonly System.Collections.Generic.List<float3> _shardrootSpots =
             new System.Collections.Generic.List<float3>(2);
 
@@ -213,26 +217,43 @@ namespace TheWaningBorder.Systems.Visibility
 
             var em = EntityManager;
             _shardrootSpots.Clear();
+            _shardrootSeers.Clear();
             if (!_shardrootQuery.IsEmptyIgnoreFilter)
             {
                 using var ents = _shardrootQuery.ToEntityArray(Allocator.Temp);
                 for (int i = 0; i < ents.Length; i++)
-                    if (TryShardrootSpot(em, ents[i], out var p)) _shardrootSpots.Add(p);
+                    if (TryShardrootSpot(em, ents[i], out var p))
+                    {
+                        _shardrootSpots.Add(p);
+                        _shardrootSeers.Add(em.HasComponent<TheWaningBorder.Entities.ShardrootHidden>(ents[i])
+                            ? em.GetComponentData<TheWaningBorder.Entities.ShardrootHidden>(ents[i]).RevealedTo
+                            : uint.MaxValue);
+                    }
             }
             if (!_embeddedQuery.IsEmptyIgnoreFilter)
             {
                 using var xfs = _embeddedQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-                for (int i = 0; i < xfs.Length; i++) _shardrootSpots.Add(xfs[i].Position);
+                for (int i = 0; i < xfs.Length; i++)
+                {
+                    _shardrootSpots.Add(xfs[i].Position);
+                    _shardrootSeers.Add(uint.MaxValue);
+                }
             }
             if (_shardrootSpots.Count == 0) return;
 
             const int players = 8;   // Faction.Blue (0) .. Faction.White (7)
+            int stamps = 0;
+            for (int s = 0; s < _shardrootSeers.Count; s++)
+                for (int f = 0; f < players; f++)
+                    if ((_shardrootSeers[s] & (1u << f)) != 0) stamps++;
+            if (stamps == 0) return;
             var grown = new NativeArray<FogOfWarManager.StampCommand>(
-                mobiles.Length + _shardrootSpots.Count * players, Allocator.TempJob);
+                mobiles.Length + stamps, Allocator.TempJob);
             NativeArray<FogOfWarManager.StampCommand>.Copy(mobiles, grown, mobiles.Length);
             int at = mobiles.Length;
             for (int s = 0; s < _shardrootSpots.Count; s++)
                 for (int f = 0; f < players; f++)
+                    if ((_shardrootSeers[s] & (1u << f)) != 0)
                     grown[at++] = new FogOfWarManager.StampCommand
                     {
                         Position = (Vector3)_shardrootSpots[s],

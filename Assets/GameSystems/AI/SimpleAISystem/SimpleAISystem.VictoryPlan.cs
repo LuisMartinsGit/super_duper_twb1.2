@@ -204,7 +204,7 @@ namespace TheWaningBorder.AI
             if (q.IsEmptyIgnoreFilter) return;
             using var states = q.ToComponentDataArray<ShardrootState>(Allocator.Temp);
             var s = states[0];
-            found = s.Found != 0;
+            found = s.Found != 0 && !TheWaningBorder.Entities.ShardrootPickup.AnyHiddenFrom(em, faction);
             if (!found) return;
             var holder = s.AscensionFaction != Faction.Border ? s.AscensionFaction : s.HolderFaction;
             if (holder == Faction.Border) return;

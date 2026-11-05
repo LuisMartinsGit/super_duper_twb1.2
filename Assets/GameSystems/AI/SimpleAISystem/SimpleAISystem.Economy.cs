@@ -836,6 +836,7 @@ namespace TheWaningBorder.AI
             using var hosts = q.ToEntityArray(Allocator.Temp);
             using var hostFacs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             var plan = culture == Cultures.Alanthor ? GetArmyPlan(em, faction) : null;
+            if (!AIPacing.ResearchTurn(em, faction)) return;   // Game_AI.md § 2a
             for (int tier = 0; tier < SweepHostTiers; tier++)
             for (int i = 0; i < hosts.Length; i++)
             {
@@ -869,6 +870,8 @@ namespace TheWaningBorder.AI
                     if (math.max(1, tech.minBuildingLevel) > level) continue;
                     if (research != null
                         && !research.MeetsPrerequisites(faction, tech.prerequisites)) continue;
+
+                    if (!AIPacing.ResearchLevelAllowed(em, faction, tech.minBuildingLevel)) continue;
 
                     // Check-then-issue, mirroring TryResearchTech — the SPEND
                     // lives in ResearchCommandDirect on every peer
@@ -907,12 +910,14 @@ namespace TheWaningBorder.AI
                         }
                     }
 
+                    AIPacing.NoteResearch(em, faction);
                     TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
                         em, building, techId,
                         TheWaningBorder.Core.Commands.CommandSource.AI);
                     InvalidateThinkMemo();
                     AILogger.Log(faction, "RESEARCH", $"sweep: {techId} at {buildingId}");
                     if (overflowing) LogSurplus(faction, $"research {techId} at {buildingId}");
+                    if (!AIPacing.ResearchTurn(em, faction)) return;
                     break; // one tech per building per sweep
                 }
             }

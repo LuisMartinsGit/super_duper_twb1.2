@@ -13,3 +13,6 @@ MonoBehaviour:
   m_Name: BuildingCombatSystem
   m_EditorClassIdentifier: 
   noTargetRetryDelay: 0.25
+  volleySpreadSeconds: 0.6
+  wallFireHeight: 8
+  firePointOutset: 1.5

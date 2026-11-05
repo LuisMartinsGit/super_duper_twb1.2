@@ -65,6 +65,11 @@ namespace TheWaningBorder.Data
 
         public BuildingAttack attack = new BuildingAttack();
 
+        /// <summary>Where this building's shots leave from, in metres from its centre
+        /// in the entity's own frame (every tower top; a level SO overrides it). Baked
+        /// from the prefab by Waning Border > Art > Bake Building Fire Points.</summary>
+        public Vector3[] firePoints;
+
         public List<BuildingLevel> levels = new List<BuildingLevel>();
 
         public List<UnitUpgrade> unitUpgrades = new List<UnitUpgrade>();

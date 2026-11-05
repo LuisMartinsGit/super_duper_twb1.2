@@ -30,6 +30,7 @@ MonoBehaviour:
   slotIncomePerMinute: 0
   interestMultiplier: 0
   tradeRateMultiplier: 0
+  tradeRoutes: 0
   attack:
     enabled: 0
     damage: 12
@@ -38,5 +39,11 @@ MonoBehaviour:
     cooldown: 1.5
     maxTargets: 1
     siegeShotDamage: 0
+  firePoints:
+  - {x: -0.0057475567, y: 6.4459558, z: 0.0053954124}
+  - {x: 3.4168272, y: 4.9528036, z: -3.4168375}
+  - {x: 3.326931, y: 4.9528036, z: 3.4168139}
+  - {x: -3.4168038, y: 4.9528036, z: 3.416834}
+  - {x: -3.416823, y: 4.9528036, z: -3.4168167}
   lineOfSight: 0
   prefab: {fileID: 7646223963695624410, guid: 524489aad7ae4774a966db3f31270104, type: 3}

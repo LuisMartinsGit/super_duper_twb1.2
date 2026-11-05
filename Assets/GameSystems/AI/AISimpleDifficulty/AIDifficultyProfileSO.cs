@@ -196,6 +196,39 @@ namespace TheWaningBorder.AI
         /// or below 1 are read as 1.05.</summary>
         public float economyDefenceMargin;
 
+        // ── Pacing (docs/Design/Game_AI.md § 2a). AIPacing is the only reader. ──
+
+        /// <summary>Least seconds between new extractors, rebuilds included. 0 = no gap.</summary>
+        public float extractorGapSeconds;
+        /// <summary>Seconds between buying a building it does not need. 0 = never.</summary>
+        public float wasteBuildSeconds;
+        /// <summary>Most needless buildings bought in a match.</summary>
+        public int wasteBuildMax;
+        /// <summary>Research in progress or queued at once. 0 = no limit.</summary>
+        public int researchMaxConcurrent;
+        /// <summary>Least seconds between starting two researches. 0 = no gap.</summary>
+        public float researchGapSeconds;
+        /// <summary>Highest tech minBuildingLevel this tier researches. 0 = no limit.</summary>
+        public int researchMaxLevel;
+        /// <summary>Match time when the level 3 phase opens (level 2 is levelUpsFromSeconds).</summary>
+        public float levelThreeFromSeconds;
+        /// <summary>Least seconds between starting two level-ups. 0 = no gap.</summary>
+        public float levelUpGapSeconds;
+        /// <summary>Level-ups in progress or queued at once. 0 = no limit.</summary>
+        public int levelUpMaxConcurrent;
+        /// <summary>Sects this tier adopts. 0 = no limit.</summary>
+        public int maxSects;
+        /// <summary>Least seconds between casting two sect powers. 0 = no gap.</summary>
+        public float sectPowerGapSeconds;
+        /// <summary>Launches without reading the defence: no wave skipped or held for strength.</summary>
+        public bool attacksBlind;
+        /// <summary>No muster, staging, formation or regrouping: a wave walks in strung out.</summary>
+        public bool armyStraggles;
+        /// <summary>A losing army never retreats.</summary>
+        public bool fightsToDeath;
+        /// <summary>Seconds after first seeing the Shardroot on the ground before a strike goes.</summary>
+        public float shardrootReactSeconds;
+
         // ── Aggression ────────────────────────────────────────────────────
 
         /// <summary>Largest army one wave or reinforcement may carry; 0 = no limit. (2026-11-04, Game_AI.md § 2)</summary>

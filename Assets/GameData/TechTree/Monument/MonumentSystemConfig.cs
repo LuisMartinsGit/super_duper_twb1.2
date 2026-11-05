@@ -29,7 +29,7 @@ namespace TheWaningBorder.Entities
         public string[] buffTechIds;
 
         /// <summary>Metres in front of the monument the Shardroot lands.</summary>
-        public float shardrootOffset;
+        public float shardrootStartClearance;
 
         public float outcropClearance;
         public int placementRings;

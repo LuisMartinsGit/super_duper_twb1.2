@@ -121,6 +121,7 @@ namespace TheWaningBorder.Bootstrap
                 initialStepIndex = int.MaxValue;
                 ageUpIssued = 1; // already aged up — don't try to trigger again
             }
+            em.AddComponentData(brainEntity, default(AIPacingState));
             em.AddComponentData(brainEntity, new SimpleAIState
             {
                 StepIndex = initialStepIndex,

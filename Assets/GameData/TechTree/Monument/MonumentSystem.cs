@@ -25,6 +25,8 @@ namespace TheWaningBorder.Systems.Economy
 
         private SimCadence.Periodic _tick;
         private SimCadence.Periodic _points;
+        private SimCadence.Periodic _secretLog;
+        private const float SecretLogSeconds = 60f;
 
         private readonly int[] _inside = new int[Sides];
 
@@ -48,6 +50,8 @@ namespace TheWaningBorder.Systems.Economy
             using var monuments = Monument.All(em, Allocator.Temp);
             if (monuments.Length == 0) return;
 
+            if (tick) Monument.TryPlaceShardroot(em);
+            if (_secretLog.Due(dt, SecretLogSeconds)) Monument.LogHiddenShardroot(em);
             if (tick) TickRings(em, monuments);
             if (pay) PayPoints(em, monuments);
         }

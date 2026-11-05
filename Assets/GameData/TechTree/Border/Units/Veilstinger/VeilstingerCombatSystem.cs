@@ -35,7 +35,7 @@ namespace TheWaningBorder.Systems.Border
         // Bezier arc parameters. The arrow path in ProjectileSystem uses
         // proj.FlightTime as the Bezier traversal time; ~0.7s reads as a
         // clearly-arched lob at typical Veilstinger range (8–24 m).
-        private const float ArcFlightTime = 0.7f;
+        private const float ArcFlightTime = 1f;
 
         // Gun offset constants relative to the unit's center
         // These approximate the leftgun/rightgun child positions on the Veilstinger prefab

@@ -913,10 +913,10 @@ namespace TheWaningBorder.UI.Data
                 {
                     Id = "Monument_Explore",
                     Label = Loc.T("Explore the Ruins"),
-                    Tooltip = ms.Explored != 0
+                    Tooltip = TheWaningBorder.Entities.Monument.HasExplored(ms, GameSettings.LocalPlayerFaction)
                         ? string.Format(Loc.T("Already explored: {0}"),
                             TechCatalog.GetTechnology(TheWaningBorder.Entities.Monument.BuffOf(ms)).desc)
-                        : Loc.T("Explore the ruins to activate this monument's buff, for good. The Shardroot may lie here."),
+                        : Loc.T("Explore the ruins to activate this monument's buff, for good. It may also show you where the Shardroot lies."),
                     Cost = cost,
                     Enabled = can,
                     CanAfford = FactionEconomy.CanAfford(em, GameSettings.LocalPlayerFaction, cost),

@@ -50,8 +50,8 @@ namespace TheWaningBorder.Systems.Combat
         // they were refusing to fight.
         private const float DefaultMaxRange = 25f;
         // 30 -> 39 (2026-09-03): arrow flight sped up 30 percent.
-        private const float ArrowSpeed = 39f;
-        private const float BoltSpeed = 55f; // Siege projectiles (ballista bolts) fly faster
+        private const float ArrowSpeed = 27.3f;
+        private const float BoltSpeed = 38.5f; // Siege projectiles (ballista bolts) fly faster
 
         /// <summary>The per-unit reads, through lookups (2026-10-15 perf
         /// pass — see CombatLookups). Created once, refreshed every update.</summary>
@@ -344,14 +344,14 @@ namespace TheWaningBorder.Systems.Combat
 
             float speed = (dmgType == DamageType.Siege) ? BoltSpeed : ArrowSpeed;
             if (projectileSpeed > 0f) speed = projectileSpeed;
-            // Catapult stones hang in the air — a 2-3 s arc scaled by range
+            // Catapult stones hang in the air — a 2.9-4.3 s arc scaled by range
             // (design 2026-08-02) instead of the fast siege-bolt speed.
             // Flat-trajectory shooters (the Ballista refit) keep their
             // authored projectileSpeed — a hang-time override would make the
             // straight bolt crawl.
             if (catapultShot && trajectory != ShotTrajectory.Flat)
             {
-                float flight = math.clamp(distance / 9f, 2f, 3f);
+                float flight = math.clamp(distance / 6.3f, 2.86f, 4.29f);
                 speed = math.max(0.1f, distance / flight);
             }
             var velocity = direction * speed;
@@ -391,7 +391,7 @@ namespace TheWaningBorder.Systems.Combat
                 ecb.AddComponent(arrow, new AOEProjectile { Radius = aoeRadius });
 
             // Trajectory profile (design 2026-07-04):
-            //   low  — default capped Bezier arc (shortbow), no component.
+            //   low  — default Bezier arc (shortbow), no component.
             //   flat — crossbow bolt: ArcFraction 0 flattens the Bezier into a
             //          straight line; combined with a high ProjectileSpeed it
             //          reads as a fast, direct shot.
@@ -401,8 +401,8 @@ namespace TheWaningBorder.Systems.Combat
             else if (trajectory == ShotTrajectory.High)
                 ecb.AddComponent(arrow, new HighArcProjectile
                 {
-                    // Catapult lobs peak noticeably higher than longbow shots.
-                    ArcFraction = catapultShot ? 0.45f : 0.30f
+                    // Longbows lob above the default arrow arc (ProjectileSystem).
+                    ArcFraction = catapultShot ? 0.45f : 0.60f
                 });
 
             // Siege BOLTS pierce through multiple targets; catapult stones

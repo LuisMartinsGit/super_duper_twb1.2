@@ -15,11 +15,26 @@ MonoBehaviour:
   tier: 0
   thinkInterval: 5.0
   intelFreshnessSeconds: 150
-  firstAttackEarliestSeconds: 1200
-  levelUpsFromSeconds: 1800
+  firstAttackEarliestSeconds: 600
+  levelUpsFromSeconds: 900
+  extractorGapSeconds: 120
+  wasteBuildSeconds: 150
+  wasteBuildMax: 12
+  researchMaxConcurrent: 1
+  researchGapSeconds: 90
+  researchMaxLevel: 2
+  levelThreeFromSeconds: 2100
+  levelUpGapSeconds: 240
+  levelUpMaxConcurrent: 1
+  maxSects: 1
+  sectPowerGapSeconds: 120
+  attacksBlind: 1
+  armyStraggles: 1
+  fightsToDeath: 1
+  shardrootReactSeconds: 90
   extractorLimit: 6
   spareCapitals: 1
-  holdBackAheadRatio: 1.5
+  holdBackAheadRatio: 0
   armyCapFixed: 1
   wallsForbidden: 1
   sanctumLateSeconds: 0
@@ -27,9 +42,9 @@ MonoBehaviour:
   victoryMultiFocus: 0
   targetStyle: 0
   reinforceMode: 2
-  maxWaveUnits: 15
-  attackWaveIntervalSeconds: 480
-  waveBaseUnits: 4
+  maxWaveUnits: 10
+  attackWaveIntervalSeconds: 210
+  waveBaseUnits: 5
   standingArmyFloorFraction: 0
   waveMinArmyFraction: 0
   territoryCadenceScale: 2.5
@@ -37,12 +52,12 @@ MonoBehaviour:
   reconquestMargin: 0
   strengthWaveRatioScale: 1.3
   personalityWeight: 1
-  sustainArmyCap: 40
+  sustainArmyCap: 50
   concurrentArmies: 1
   incomeTargeting: 1
   supportThinkScale: 1.5
-  counterResponse: 0.4
-  basicsShareScale: 1.35
+  counterResponse: 0
+  basicsShareScale: 1.6
   expansionDrive: 0.5
   reserveForCapitalLevel: 0
   economyUpgradesPerThink: 0

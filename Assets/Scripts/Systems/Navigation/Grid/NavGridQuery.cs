@@ -319,6 +319,55 @@ namespace TheWaningBorder.Systems.Navigation
             return gate || _cachedCost.Cost[i] != NavCostField.CostImpassable;
         }
 
+        /// <summary>Every cell reachable on foot from the walkable cell nearest
+        /// this point (Monuments_And_Petriarchy.md §3). One-time use: it walks the
+        /// whole grid. False until the field is built.</summary>
+        public static bool TryFloodWalkable(float x, float z, out bool[] reach, out float2 origin,
+            out float cellSize, out int width, out int height)
+        {
+            reach = null; origin = default; cellSize = 0f; width = 0; height = 0;
+            if (!EnsureCache() || !_cachedCost.Flags.IsCreated || !_cachedCost.Cost.IsCreated) return false;
+            width = _cachedGrid.Width; height = _cachedGrid.Height;
+            cellSize = _cachedGrid.CellSize;
+            origin = new float2(_cachedGrid.Origin.x, _cachedGrid.Origin.z);
+            int w = width, h = height;
+            var cost = _cachedCost.Cost;
+            var flags = _cachedCost.Flags;
+            bool Open(int i) => (flags[i] & NavCostField.FlagGate) != 0 || cost[i] != NavCostField.CostImpassable;
+
+            // The start is usually a capital's own footprint: the nearest open cell.
+            int sx = math.clamp((int)math.floor((x - origin.x) / cellSize), 0, w - 1);
+            int sz = math.clamp((int)math.floor((z - origin.y) / cellSize), 0, h - 1);
+            int start = -1;
+            for (int r = 0; r < math.max(w, h) && start < 0; r++)
+                for (int dz = -r; dz <= r && start < 0; dz++)
+                    for (int dx = -r; dx <= r; dx++)
+                    {
+                        if (math.max(math.abs(dx), math.abs(dz)) != r) continue;
+                        int cx = sx + dx, cz = sz + dz;
+                        if (cx < 0 || cz < 0 || cx >= w || cz >= h) continue;
+                        if (!Open(cz * w + cx)) continue;
+                        start = cz * w + cx;
+                        break;
+                    }
+            if (start < 0) return false;
+
+            reach = new bool[w * h];
+            var open = new System.Collections.Generic.Queue<int>();
+            reach[start] = true;
+            open.Enqueue(start);
+            while (open.Count > 0)
+            {
+                int i = open.Dequeue();
+                int cx = i % w, cz = i / w;
+                if (cx > 0 && !reach[i - 1] && Open(i - 1)) { reach[i - 1] = true; open.Enqueue(i - 1); }
+                if (cx < w - 1 && !reach[i + 1] && Open(i + 1)) { reach[i + 1] = true; open.Enqueue(i + 1); }
+                if (cz > 0 && !reach[i - w] && Open(i - w)) { reach[i - w] = true; open.Enqueue(i - w); }
+                if (cz < h - 1 && !reach[i + w] && Open(i + w)) { reach[i + w] = true; open.Enqueue(i + w); }
+            }
+            return true;
+        }
+
         /// <summary>
         /// True when the ground cell under <paramref name="world"/> cannot
         /// take a wall: a building, obstacle or wall already stands there

@@ -118,7 +118,13 @@ namespace TheWaningBorder.AI
             var pq = QC_Pickup.Get(em, QT_Pickup);
             using (var ents = pq.ToEntityArray(Allocator.Temp))
             using (var xfs = pq.ToComponentDataArray<LocalTransform>(Allocator.Temp))
-                if (ents.Length > 0) { entity = ents[0]; pos = xfs[0].Position; return Where.Ground; }
+                if (ents.Length > 0)
+                {
+                    // Hidden from this faction: as far as it knows, there is none.
+                    if (TheWaningBorder.Entities.ShardrootPickup.HiddenFrom(em, ents[0], faction)) return Where.None;
+                    entity = ents[0]; pos = xfs[0].Position;
+                    return Where.Ground;
+                }
             return Where.None;
         }
 

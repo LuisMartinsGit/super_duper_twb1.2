@@ -518,6 +518,9 @@ namespace TheWaningBorder.Systems.Border
             for (int i = 0; i < ents.Length; i++)
                 if (best < 0 || ents[i].Index < ents[best].Index) best = i;
             if (best < 0) return false;
+            // The curse does not know where it lies hidden, and a guard would
+            // show everyone (Monuments_And_Petriarchy.md §3).
+            if (em.HasComponent<TheWaningBorder.Entities.ShardrootHidden>(ents[best])) return false;
             pos = xfs[best].Position;
             return true;
         }

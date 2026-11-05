@@ -495,6 +495,25 @@ a wall worth manning:
 - The Wall Rule still stands: the men on a wall do not make its pieces
   attackable by anything but siege.
 
+## Building volleys
+
+A building's shots leave from its towers, not from its centre:
+
+- **Where:** the top of a tower, at the edge of its gallery facing the target. A
+  building with several towers (the Fortress) shoots each arrow from the tower nearest
+  that arrow's target. A building with no tower shoots from its highest roof.
+- **When:** a volley of more than one shot does not leave at once. Each shot draws its
+  own random delay, up to `volleySpreadSeconds` on `BuildingCombatSystem.asset`. The
+  delay moves the shot within the volley and never costs damage: every shot still flies.
+  A shot not yet away when its building falls never leaves; one whose target has died
+  still flies, to where the target was. A single-shot volley leaves at once.
+
+The points are data on the SO that gives the building its model
+(`BuildingDefSO.firePoints`, `BuildingLevelDefSO.firePoints`), since the towers change
+with the level. They are measured from the prefab by
+`Waning Border > Art > Bake Building Fire Points`: **run it after changing a shooter's
+art.** Wall pieces have no level SO and use `wallFireHeight` on the same config.
+
 ## Directed building fire
 
 Every building that shoots (`BuildingRangedAttack` — watch / totem

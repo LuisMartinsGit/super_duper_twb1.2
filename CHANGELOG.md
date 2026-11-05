@@ -11,6 +11,40 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.67] — 2026-11-05
+
+### Combat
+
+- **Arrows fly in a real parabola.** The arc now scales with the length of the shot at
+  every range. Longbows lob higher still; crossbow bolts stay straight.
+- **Buildings shoot from their tower tops.** The Fortress shoots each arrow from the
+  tower nearest its target.
+- **Volleys are no longer in lockstep.** When a building fires more than one shot, each
+  leaves after its own short random delay.
+- **Every projectile is 30 % slower.** Arrows, bolts, stones and curse shots stay in the
+  air longer and are easier to follow.
+
+### Monuments
+- **The Shardroot is hidden on the map from the start.** It lies at a random walkable
+  spot that nobody can see. Exploring the right monument shows you the spot, and only those
+  who explored it know. Everyone sees it once someone picks it up. Any unit that walks
+  onto it takes it.
+- **Monuments can be explored once per player.** Take a monument someone else explored
+  and you can explore it too, for its buff and whatever it knows.
+
+### AI
+- **Difficulty is now how well the AI plays.** Every tier and personality has its own pace
+  for extractors, research, building levels and sect powers, and a full bank no longer
+  speeds any of them up.
+- **Research has a limit** on how many run at once, and levels now come in phases, one
+  building type at a time, so a tier no longer jumps in strength when level 2 opens.
+- **Easy plays badly.** It attacks small and blind, walks in strung out, never retreats,
+  wastes money on buildings it does not need, adopts one sect, and never reaches the top
+  techs. It no longer sits on a fortune waiting for a timer.
+- **Hard keeps a smaller army.** Its limit no longer rises with unspent money.
+- **Easy no longer snatches the Shardroot.** It reacts late, and sends no more than its
+  largest wave.
+
 ## [0.0.66] — 2026-11-05
 
 ### Monuments

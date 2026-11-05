@@ -78,8 +78,13 @@ namespace TheWaningBorder.AI
             // own (step 4) passes here, whichever path asked for it.
             reason = ProductionGate(em, faction, buildingId, _thinkNow, out bool extra, out string detail);
             if (reason != null) return false;
+            // THE TIER'S EXTRACTOR PACE (Game_AI.md § 2a), past the opening huts.
+            bool extractor = AIPacing.IsExtractor(buildingId)
+                && !(buildingId == "GatherersHut" && CountWorkingHuts(em, faction) < Cfg.hutPipelineFreeCount);
+            if (extractor && !AIPacing.ExtractorTurn(em, faction)) { reason = "extractor pace"; return false; }
             bool ok = TryBuildBuildingCore(em, faction, buildingId, out reason, anchorOverride);
             if (ok && extra) NoteExtraProduction(faction, buildingId, detail);
+            if (ok && extractor) AIPacing.NoteExtractor(em, faction);
             return ok;
         }
 

@@ -55,6 +55,14 @@ namespace TheWaningBorder.Data.AI
             public float victoryShardrootWeight;
 
             public AIPersonality personality;
+            /// <summary>Pace over the tier's (Game_AI.md § 3): below 1 is faster.</summary>
+            public float researchPaceScale;
+            /// <summary>Research processes on top of the tier's limit.</summary>
+            public int researchExtraConcurrent;
+            public float extractorPaceScale;
+            public float levelUpPaceScale;
+            /// <summary>Scales the tier's first attack and time between waves.</summary>
+            public float attackPaceScale;
             /// <summary>Min idle units before a maintenance attack launches.</summary>
             public int attackThreshold;
             /// <summary>The standing army kept before anything else military;
@@ -207,6 +215,11 @@ namespace TheWaningBorder.Data.AI
             {
                 personality = p,
                 weight = weight,
+                researchPaceScale = L(b.researchPaceScale, target.researchPaceScale),
+                researchExtraConcurrent = I(b.researchExtraConcurrent, target.researchExtraConcurrent),
+                extractorPaceScale = L(b.extractorPaceScale, target.extractorPaceScale),
+                levelUpPaceScale = L(b.levelUpPaceScale, target.levelUpPaceScale),
+                attackPaceScale = L(b.attackPaceScale, target.attackPaceScale),
                 attackThreshold = I(b.attackThreshold, target.attackThreshold),
                 militaryFloor = I(b.militaryFloor, target.militaryFloor),
                 riskMultiplier = L(b.riskMultiplier, target.riskMultiplier),

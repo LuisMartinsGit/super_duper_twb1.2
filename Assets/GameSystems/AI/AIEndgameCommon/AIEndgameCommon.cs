@@ -237,6 +237,12 @@ namespace TheWaningBorder.AI
             Entity temple = FindFactionBuilding<TempleOfRidanTag>(em, faction);
             if (temple == Entity.Null) return;
 
+            // The tier's sect limit (Game_AI.md § 2a).
+            int adopted = 0;
+            for (int i = 0; i < priority.Length; i++)
+                if (SectQuery.IsAdopted(em, faction, priority[i])) adopted++;
+            if (!AIPacing.MayAdoptSect(em, faction, adopted)) return;
+
             for (int i = 0; i < priority.Length; i++)
             {
                 string sectId = priority[i];

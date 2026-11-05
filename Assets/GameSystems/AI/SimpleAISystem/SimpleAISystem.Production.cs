@@ -495,6 +495,10 @@ namespace TheWaningBorder.AI
             if (TheWaningBorder.Core.Commands.CommandRouter.IsResearchQueued(
                     em, faction, techId, out _, out _)) return true;
 
+            // The tier's research pace (Game_AI.md § 2a).
+            if (!AIPacing.ResearchTurn(em, faction) || !AIPacing.ResearchLevelAllowed(em, faction, def.minBuildingLevel))
+            { blockReason = "research pace"; return false; }
+
             // Resolve a host that can actually TAKE the research now —
             // completed, research-capable, queue not full. The old
             // first-found lookup gambled on chunk order: with the hut
@@ -569,6 +573,7 @@ namespace TheWaningBorder.AI
 
             // Through CommandRouter (CommandSource.AI) so host-AI research
             // replicates to clients in multiplayer.
+            AIPacing.NoteResearch(em, faction);
             TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(em, bldg, techId,
                 TheWaningBorder.Core.Commands.CommandSource.AI);
             InvalidateThinkMemo();

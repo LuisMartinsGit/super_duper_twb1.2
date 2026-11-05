@@ -30,7 +30,7 @@ namespace TheWaningBorder.Systems.Border
         // Long-arc lob: ~1.4 s flight time reads as a slow, weighty trebuchet
         // shell rather than a hitscan beam. Combined with HighArcProjectile,
         // this gives an obvious telegraph the player can dodge.
-        private const float BombardFlightTime = 1.4f;
+        private const float BombardFlightTime = 2f;
 
 
         public void OnCreate(ref SystemState state)

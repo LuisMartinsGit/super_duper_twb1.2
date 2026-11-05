@@ -53,7 +53,7 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < monuments.Length; i++)
             {
                 var s = em.GetComponentData<MonumentState>(monuments[i]);
-                if (s.Holder != faction || s.Explored != 0) continue;
+                if (s.Holder != faction || Monument.HasExplored(s, faction)) continue;
                 if (CommandRouter.IssueReligionPurchase(em, faction, ReligionPurchaseKind.ExploreRuins,
                         s.Territory.ToString(), CommandSource.AI))
                     AILogger.Log(faction, "MONUMENT", $"exploring the ruins in territory {s.Territory}");

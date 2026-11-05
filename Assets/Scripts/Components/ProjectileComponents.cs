@@ -33,6 +33,30 @@ public struct Projectile : IComponentData
 
     /// <summary>Damage type of the projectile (for damage modifier lookup)</summary>
     public DamageType DmgType;
+
+    /// <summary>1 = fly from Start's own height (a building's muzzle); 0 = from
+    /// chest height above the terrain under Start.</summary>
+    public byte KeepStartHeight;
+}
+
+/// <summary>
+/// One shot of a building's volley waiting for its random departure time
+/// (docs/Design/Combat_Pacing.md § Building volleys). A plain entity with no
+/// transform or projectile data, so nothing draws or hits with it;
+/// BuildingCombatSystem turns it into a projectile when it falls due.
+/// </summary>
+public struct PendingBuildingShot : IComponentData
+{
+    public float DueTime;
+    public Entity Shooter;
+    public Entity Target;
+    /// <summary>Where to aim if the target is gone by the time this departs.</summary>
+    public float3 LastTargetPos;
+    public Faction Faction;
+    public int Damage;
+    public DamageType DmgType;
+    public byte IsLaser;
+    public byte IsBallistaBolt;
 }
 
 /// <summary>
@@ -49,14 +73,14 @@ public struct AOEProjectile : IComponentData
 /// Overrides the default arc height for a single projectile so siege-class
 /// shots (Godsplinter, future trebuchet-class units) can lob high parabolic
 /// shots across long range. ProjectileSystem reads this when computing the
-/// Bezier control point; absent → falls back to the global ArcHeight cap.
+/// Bezier control point; absent → falls back to ProjectileSystem's default fraction.
 /// </summary>
 public struct HighArcProjectile : IComponentData
 {
     /// <summary>
-    /// Peak arc height as a fraction of horizontal travel distance.
-    /// 0.3 means the apex sits at 30 % of horizontalDist above the midpoint —
-    /// a 60 m shot peaks ~18 m high.
+    /// Bezier control point height as a fraction of horizontal travel distance.
+    /// The flight peaks at half of it: 0.3 puts the apex at 15 % of horizontalDist
+    /// above the midpoint, so a 60 m shot peaks ~9 m high.
     /// </summary>
     public float ArcFraction;
 }

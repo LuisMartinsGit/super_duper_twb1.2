@@ -185,12 +185,14 @@ namespace TheWaningBorder.AI
             if (!TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.TryGetNextCost(
                     em, best, out var bestCost, out byte bestLevel)) return;
             if (bestLevel <= 1) return;
+            if (!AIPacing.LevelAllowed(em, faction, bestLevel)) return;   // Game_AI.md § 2a
             if (!FactionEconomy.CanAfford(em, faction, bestCost)) return;
             if (!AIBudget.LeavesMilitaryVeilstone(em, faction, bestCost)) return;
 
             var result = TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.Execute(
                 em, best, TheWaningBorder.Core.Commands.CommandSource.AI);
             if (result != UpgradeBuildingResult.Ok) return;
+            AIPacing.NoteLevelUp(em, faction);
             InvalidateThinkMemo();
             AILogger.Log(faction, "BUILDING",
                 $"Upgrading {TheWaningBorder.Entities.TradingOutpost.BuildingId} to L{bestLevel}");
@@ -201,6 +203,7 @@ namespace TheWaningBorder.AI
         private static bool TryTradeResearchFrom(EntityManager em, Faction faction, Entity host, string[] ids)
         {
             if (ids == null) return false;
+            if (!AIPacing.ResearchTurn(em, faction)) return false;   // Game_AI.md § 2a
             var research = FactionResearchState.Instance;
             byte culture = CultureConfig.GetCompletedCulture(em, faction);
             int level = 1;
@@ -216,10 +219,12 @@ namespace TheWaningBorder.AI
                 if (IsResearchInFlight(em, faction, techId)) continue;
                 if (!TechCatalog.CultureAllows(tech, culture)) continue;
                 if (math.max(1, tech.minBuildingLevel) > level) continue;
+                if (!AIPacing.ResearchLevelAllowed(em, faction, tech.minBuildingLevel)) continue;
                 if (research != null && !research.MeetsPrerequisites(faction, tech.prerequisites)) continue;
                 var cost = AICommon.ToCost(tech.cost);
                 if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
 
+                AIPacing.NoteResearch(em, faction);
                 TheWaningBorder.Core.Commands.CommandRouter.IssueResearch(
                     em, host, techId, TheWaningBorder.Core.Commands.CommandSource.AI);
                 InvalidateThinkMemo();

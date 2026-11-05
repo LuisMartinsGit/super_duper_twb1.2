@@ -31,8 +31,27 @@ namespace TheWaningBorder.Rendering
         private EntityManager _queryOwner;
         private float _nextPoll;
 
+        /// <summary>Every frame, so a hidden artifact never shows for a poll
+        /// (Monuments_And_Petriarchy.md §3). The inactive view has no collider
+        /// either, so it cannot be clicked or hovered.</summary>
+        private void ShowOnlyWhatThisScreenKnows()
+        {
+            var world = EntityWorld.DefaultGameObjectInjectionWorld;
+            if (world == null || !world.IsCreated || EntityViewManager.Instance == null) return;
+            var em = world.EntityManager;
+            if (_queryOwner != em || _pickups == default) return;
+            using var ents = _pickups.ToEntityArray(Allocator.Temp);
+            foreach (var e in ents)
+            {
+                if (!EntityViewManager.Instance.TryGetView(e, out var view) || view == null) continue;
+                bool show = !TheWaningBorder.Entities.ShardrootPickup.HiddenFromView(em, e);
+                if (view.activeSelf != show) view.SetActive(show);
+            }
+        }
+
         void Update()
         {
+            ShowOnlyWhatThisScreenKnows();
             var cfg = Cfg;
             if (cfg == null || Time.time < _nextPoll) return;
             _nextPoll = Time.time + cfg.pollSeconds;
@@ -52,6 +71,7 @@ namespace TheWaningBorder.Rendering
                 foreach (var e in ents)
                 {
                     if (!EntityViewManager.Instance.TryGetView(e, out var view) || view == null) continue;
+                    if (TheWaningBorder.Entities.ShardrootPickup.HiddenFromView(em, e)) { view.SetActive(false); continue; }
                     _seen.Add(e);
                     if (_idle.TryGetValue(e, out var fx) && fx != null) continue;
                     _idle[e] = VfxSpawn.Spawn(cfg.idlePrefab, view.transform, VfxSpawn.Foot(view), cfg.groundScale, loop: true);

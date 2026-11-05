@@ -102,10 +102,18 @@ namespace TheWaningBorder.AI
 
             bool wanted = (where == AIShardroot.Where.Ground || where == AIShardroot.Where.Hostile)
                 && now >= cfg.earliestSeconds
-                && AICommon.IsKnownGround(faction, pos);
+                && (AICommon.IsKnownGround(faction, pos) || ShardrootPickup.RevealedTo(em, holder, faction));
             if (!wanted)
             {
                 s.Roster.Clear(); s.LaunchedAt = -1f;
+                KingJoinsArmy(em, faction, king, now);
+                return;
+            }
+
+            // THE TIER'S REACTION (Game_AI.md § 2a): whoever opened the ruins
+            // has this long before a slow tier stirs.
+            if (where == AIShardroot.Where.Ground && !AIPacing.ShardrootReacted(em, faction))
+            {
                 KingJoinsArmy(em, faction, king, now);
                 return;
             }
@@ -124,6 +132,15 @@ namespace TheWaningBorder.AI
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
                 if (s.Roster.Contains(e)) continue;
                 _shardrootFree.Add(e);
+            }
+
+            // Never more than the tier's largest wave (Game_AI.md § 2a).
+            int maxStrike = ProfileOf(faction).MaxWaveUnits;
+            if (maxStrike > 0)
+            {
+                int room = math.max(0, maxStrike - s.Roster.Count);
+                if (_shardrootFree.Count > room)
+                    _shardrootFree.RemoveRange(room, _shardrootFree.Count - room);
             }
 
             // A strike on the way: reinforce while it is fresh and still winning.

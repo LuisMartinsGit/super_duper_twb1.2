@@ -681,6 +681,19 @@ public static class TechCatalog
         missing = so.name; return false;
     }
 
+    /// <summary>Where a building's shots leave from at this culture and level:
+    /// the same SO its model comes from (TryGetBuildingVisual). Null when none are
+    /// authored (a wall piece, a curse node).</summary>
+    public static Vector3[] BuildingFirePoints(string buildingId, string ladderId, byte culture, int level)
+    {
+        EnsureLoaded();
+        if (string.IsNullOrEmpty(buildingId)) return null;
+        string ladder = string.IsNullOrEmpty(ladderId) ? buildingId : ladderId;
+        if (level > 0 && culture != Cultures.None && TryGetBuildingLevel(culture, ladder, level, out var lvl))
+            return lvl.firePoints;
+        return _buildingSOsById.TryGetValue(buildingId, out var so) ? so.firePoints : null;
+    }
+
     /// <summary>The building SO carrying <paramref name="presentationId"/>
     /// (first in catalog order) — the fallback for entities BuildingIds.Of
     /// does not name.</summary>

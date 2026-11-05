@@ -23,5 +23,17 @@ namespace TheWaningBorder.Systems.Combat
         /// waits before scanning again. Without it an idle tower re-scanned
         /// every target in the world on every tick.</summary>
         public float noTargetRetryDelay;
+
+        /// <summary>Latest a shot may leave after its volley began, in seconds, when
+        /// a building fires more than one. Each shot draws its delay from 0 to this.</summary>
+        public float volleySpreadSeconds;
+
+        /// <summary>Height above the ground of a shot from a manned wall tower or
+        /// hub, whose art has no level SO to carry fire points.</summary>
+        public float wallFireHeight;
+
+        /// <summary>Metres from a fire point toward the target at which a shot appears:
+        /// about a tower gallery's radius.</summary>
+        public float firePointOutset;
     }
 }

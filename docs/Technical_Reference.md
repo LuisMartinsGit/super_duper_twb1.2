@@ -508,7 +508,7 @@ Flow: Validate target -> Check range -> In range: stop, apply damage on cooldown
 
 ### Projectile System
 
-**Arrows**: Quadratic Bezier curve, FlightDuration 0.8s, ArcHeight 3 units, HitRadius 0.8. Guaranteed hit if target alive. Siege projectiles (Ballista/Catapult) render at 2.5x scale for visual distinction.
+**Arrows**: Quadratic Bezier curve, FlightDuration 0.8s, arc proportional to distance (`DefaultArcFraction`; `HighArcProjectile` overrides it per shot), HitRadius 0.8. Guaranteed hit if target alive. Siege projectiles (Ballista/Catapult) render at 2.5x scale for visual distinction.
 
 **Lasers**: Straight line at constant velocity. Terrain collision check. Used by Veilstone buildings and Veilstingers.
 

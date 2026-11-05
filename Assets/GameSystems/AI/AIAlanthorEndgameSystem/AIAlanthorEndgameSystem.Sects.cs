@@ -208,6 +208,8 @@ namespace TheWaningBorder.AI
                     // CommandSource.AI queues on the host and replicates, so
                     // every peer Fires on the same tick. CanFire above already
                     // vetted the cast; the router re-checks it on every peer.
+                    if (!AIPacing.SectPowerTurn(em, faction)) return;   // Game_AI.md § 2a
+                    AIPacing.NoteSectPower(em, faction);
                     TheWaningBorder.Core.Commands.CommandRouter.IssueSectPower(
                         em, faction, sectId, slot, target,
                         TheWaningBorder.Core.Commands.CommandSource.AI, pick);
@@ -885,7 +887,10 @@ namespace TheWaningBorder.AI
                     var cost = AICommon.ToCost(tdef.cost);
                     if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
                     if (AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
+                    if (!AIPacing.ResearchTurn(em, faction)
+                        || !AIPacing.ResearchLevelAllowed(em, faction, tdef.minBuildingLevel)) return;
 
+                    AIPacing.NoteResearch(em, faction);
                     CommandRouter.IssueResearch(em, host, techId, CommandSource.AI);
                     AILogger.Log(faction, "STRATEGY",
                         $"Alanthor: researching {techId} at the {sectId.Substring(5)} building");

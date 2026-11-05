@@ -932,6 +932,18 @@ namespace TheWaningBorder.AI
             float3 fromTarget = originPos - targetPos;
             fromTarget.y = 0f;
             float approachDist = math.length(fromTarget);
+            // A TIER THAT STRAGGLES (Game_AI.md § 2a) skips all of what follows:
+            // every soldier walks at the objective at his own speed.
+            if (ProfileOf(_thinkFaction).ArmyStraggles)
+            {
+                mission.Phase = MissionPhase.Striking;
+                mission.LegStartTime = now;
+                AICommon.IssueGroupOrder(em, mission.Members, targetPos, attackMove: true, Cfg.waveArrivedRadius);
+                mission.Deadline = DeadlineFor(now, originPos, targetPos);
+                mission.LastCentroid = originPos;
+                mission.StalledSince = now;
+                return;
+            }
             // STAGING IS FOR EVERYONE (2026-08-30 directive — was Hard+ via
             // personality.forwardStaging, and the default headless tier is
             // Normal, so batch armies attack-moved across the whole map).
@@ -1908,7 +1920,7 @@ namespace TheWaningBorder.AI
             // if it believes the army is much weaker than target and wait 3
             // minutes, but it can never skip two waves"). This replaced the strength
             // gate, which could hold an army indefinitely.
-            if (!kingLeads && aiState.WaveSkipped == 0)
+            if (!kingLeads && !profile.AttacksBlind && aiState.WaveSkipped == 0)
             {
                 int knownNow = KnownDefenceAt(em, brainEntity, faction, targetPos, assault);
                 if (assault.MyPower < knownNow * Cfg.waveSkipStrengthRatio)
@@ -2002,7 +2014,7 @@ namespace TheWaningBorder.AI
             else if (allIn && !assault.ShouldFight)
                 AILogger.Log(faction, "WAVE",
                     $"ALL-IN — attacking at ratio {assault.Ratio:0.00} (committed)");
-            else if (target != Entity.Null && !assault.ShouldFight && !overdue && !kingLeads)
+            else if (target != Entity.Null && !assault.ShouldFight && !overdue && !kingLeads && !profile.AttacksBlind)
             {
                 AILogger.Log(faction, "WAVE",
                     $"hold — assault at ({targetPos.x:0},{targetPos.z:0}) unfavourable: " +
@@ -2011,7 +2023,7 @@ namespace TheWaningBorder.AI
                     $"ratio {assault.Ratio:0.00}");
                 return false;
             }
-            else if (!assault.ShouldFight && !kingLeads && Cfg.waveOverdueMaxRatio > 0f && assault.Ratio > Cfg.waveOverdueMaxRatio)
+            else if (!assault.ShouldFight && !kingLeads && !profile.AttacksBlind && Cfg.waveOverdueMaxRatio > 0f && assault.Ratio > Cfg.waveOverdueMaxRatio)
             {
                 // OVERDUE IS NOT SUICIDAL (2026-10-05, Game_AI.md 6a). The
                 // overdue release used to override the assessment outright:
@@ -2953,6 +2965,7 @@ namespace TheWaningBorder.AI
                 // centroid. Raids disengage more readily (they harass, they
                 // don't trade).
                 if (aiState.RetreatCooldown > 0f || !hasHall) continue;
+                if (ProfileOf(faction).FightsToDeath) continue;   // Game_AI.md § 2a
 
                 // Don't retreat from our own base defense.
                 float dxh = centroid.x - hallPos.x, dzh = centroid.z - hallPos.z;
@@ -3047,6 +3060,7 @@ namespace TheWaningBorder.AI
             // A falling-back army is being walked AWAY on purpose; folding
             // its "stragglers" back toward the objective would undo that.
             if (mission.FallingBack) return;
+            if (ProfileOf(faction).ArmyStraggles) return;   // Game_AI.md § 2a
             if (now < mission.NextRegroupTime) return;
             mission.NextRegroupTime = now + Cfg.regroupInterval;
 

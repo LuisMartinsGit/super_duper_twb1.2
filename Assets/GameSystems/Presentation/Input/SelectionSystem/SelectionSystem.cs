@@ -579,7 +579,7 @@ namespace TheWaningBorder.Input
             // neutral Border), so the tests below would refuse it. Owned by
             // nobody, so it never takes an order.
             if (_em.HasComponent<ShardrootPickupTag>(e))
-                return true;
+                return !TheWaningBorder.Entities.ShardrootPickup.HiddenFromView(_em, e);
 
             // A monument, held or not: its panel shows its owner and its buff.
             if (_em.HasComponent<MonumentTag>(e))

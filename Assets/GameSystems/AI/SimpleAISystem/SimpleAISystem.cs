@@ -160,6 +160,7 @@ namespace TheWaningBorder.AI
 
                 // Difficulty is DATA (AoE4 model): one brain, per-tier knobs.
                 var profile = AISimpleDifficulty.GetProfile(brain.Difficulty);
+                AIPacing.ApplyAttackPace(ref profile, brain.Personality);
                 // The static helpers (training pre-flight, age-up saving) read
                 // the tier through ProfileOf (SimpleAISystem.EconomyDrive.cs).
                 NoteProfile(brain.Owner, profile, brain.Personality);
@@ -356,6 +357,7 @@ namespace TheWaningBorder.AI
                     // VEILSTONE SURPLUS (Game_AI.md 5e): the Outpost's research,
                     // and the throttled veilstone-held state line.
                     TickSurplus(em, brain.Owner, now);
+                    TickWaste(em, brain.Owner);
                     // The Vault, and the ECON / PRODUCTION measurement lines
                     // (Game_AI.md § 5h).
                     TickEconomyDrive(em, brain.Owner, aiState.Posture, profile, now);

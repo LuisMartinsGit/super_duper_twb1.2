@@ -320,6 +320,13 @@ namespace TheWaningBorder.AI
                 if (em.GetComponentData<FactionEra>(bank).Value < 2) continue;
                 if (!HasCulture(em, faction)) continue;
 
+                // PHASES (Game_AI.md § 2a): the tier's gap between level-ups.
+                if (!AIPacing.LevelUpTurn(em, faction))
+                {
+                    AIPivotalReserve.Clear(faction, CapitalReserveKey);
+                    continue;
+                }
+
                 // Reserve check — keep some resources for non-upgrade use.
                 //
                 // The ECONOMY ENGINE IS EXEMPT (2026-08-18, log-proven): a
@@ -366,14 +373,14 @@ namespace TheWaningBorder.AI
                     && !AIPivotalReserve.IsSuspended(faction);
                 if (!reserveCapital) AIPivotalReserve.Clear(faction, CapitalReserveKey);
 
-                for (int a = 0; a < attempts; a++)
+                for (int a = 0; a < attempts && AIPacing.LevelUpTurn(em, faction); a++)
                     if (!TryUpgradeOne(em, faction, (rotation + a) % PriorityOrder.Length,
                             reservesOk, overflowing, veilstoneHeld, reserveCapital, profile, time))
                         break;
 
                 // ECONOMY LEVELS FIRST (Game_AI.md 5h): a level is income,
                 // which is what the army is waiting on.
-                for (int e = 0; e < profile.EconomyUpgradesPerThink; e++)
+                for (int e = 0; e < profile.EconomyUpgradesPerThink && AIPacing.LevelUpTurn(em, faction); e++)
                     if (!TryEconomyUpgrade(em, faction, e, profile.ArmyBeforeSaves))
                         break;
             }
@@ -420,6 +427,7 @@ namespace TheWaningBorder.AI
                 if (best == Entity.Null) continue;
                 if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var cost, out byte next)) continue;
                 if (next <= 1) continue;   // L1 is the free age-up level
+                if (!AIPacing.LevelAllowed(em, faction, next)) continue;
                 if (!ValueGate(em, faction, best, cost, Cfg.soldiersPerEconomyBuilding, surplus: false)) continue;
                 // Outside the budget's lump-sum reservation (the Fortress pot,
                 // Game_AI.md 5c): a level paid from the bank directly used
@@ -449,6 +457,7 @@ namespace TheWaningBorder.AI
                 }
                 if (UpgradeBuildingCommandHelper.Execute(em, best,
                         TheWaningBorder.Core.Commands.CommandSource.AI) != UpgradeBuildingResult.Ok) continue;
+                AIPacing.NoteLevelUp(em, faction);
                 AILogger.Log(faction, "ECON", $"upgrade {id} -> L{next} ({cost.Supplies}s {cost.Iron}i)");
                 return true;
             }
@@ -732,6 +741,7 @@ namespace TheWaningBorder.AI
             // The FACTION's Fortress level — every Fortress stands there
             // (2026-10-19, faction-wide levels).
             byte lvl = TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, faction, "Fortress");
+            if (!AIPacing.LevelAllowed(em, faction, (byte)(lvl + 1))) return CapitalUpgrade.NotNeeded;
             if (lvl >= Cfg.capitalPriorityLevel || lvl >= BuildingUpgradeConfig.MaxLevel)
                 return CapitalUpgrade.NotNeeded;
             // Already paid for and waiting / in progress on ANY Fortress:
@@ -764,6 +774,7 @@ namespace TheWaningBorder.AI
                 TheWaningBorder.Core.Commands.CommandSource.AI);
             if (result == UpgradeBuildingResult.Ok)
             {
+                AIPacing.NoteLevelUp(em, faction);
                 AILogger.Log(faction, "BUILDING", $"Upgrading the capital to L{lvl + 1} (priority)");
                 AILogger.Log(faction, "ECON", $"upgrade Fortress (capital) -> L{lvl + 1}");
                 if (surplus) AILogger.Log(faction, "SURPLUS", $"upgrade Fortress (capital) to L{lvl + 1}");
@@ -951,10 +962,12 @@ namespace TheWaningBorder.AI
                 && !AIBudget.LeavesMilitaryVeilstone(em, faction, nextCost))
                 return false;
 
+            if (!AIPacing.LevelAllowed(em, faction, (byte)(bestLevel + 1))) return false;
             var result = UpgradeBuildingCommandHelper.Execute(em, best,
                 TheWaningBorder.Core.Commands.CommandSource.AI);
             if (result == UpgradeBuildingResult.Ok)
             {
+                AIPacing.NoteLevelUp(em, faction);
                 AILogger.Log(faction, "BUILDING",
                     $"Upgrading {buildingId} to L{bestLevel + 1}");
                 if (surplus) AILogger.Log(faction, "SURPLUS", $"upgrade {buildingId} to L{bestLevel + 1}");

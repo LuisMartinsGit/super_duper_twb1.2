@@ -23,8 +23,11 @@ namespace TheWaningBorder.Systems.Combat
     {
         // Flight parameters
         private const float FlightDuration = 0.8f;     // How long arrows take to reach target
-        private const float BoltSpeed = 55f;             // Siege bolt speed (matches RangedCombatSystem)
-        private const float ArcHeight = 3f;            // Height of arc above midpoint
+        private const float BoltSpeed = 38.5f;             // Siege bolt speed (matches RangedCombatSystem)
+        // Control point height as a fraction of horizontal distance. A quadratic
+        // Bezier peaks at HALF its control height: 0.5 peaks at a quarter of the
+        // distance and leaves the bow at 45 degrees.
+        private const float DefaultArcFraction = 0.5f;
         private const float HitRadius = 0.8f;          // Distance to register a hit
 
         // Maximum pitch angle in radians (60 degrees)
@@ -275,27 +278,20 @@ namespace TheWaningBorder.Systems.Combat
                             // Use terrain-sampled heights for slope-accurate start/end
                             float3 startPos = proj.Start; // Already offset +1.5f at creation
                             float terrainAtStart = TerrainUtility.GetHeight(startPos.x, startPos.z);
-                            startPos.y = terrainAtStart + 1.5f; // Chest height above terrain
+                            // Chest height above terrain, except a building's shot,
+                            // which leaves from its own muzzle (a tower top).
+                            if (proj.KeepStartHeight == 0) startPos.y = terrainAtStart + 1.5f;
 
                             float terrainAtEnd = TerrainUtility.GetHeight(targetPos.x, targetPos.z);
                             targetPos.y = terrainAtEnd + 1.0f; // Target center above terrain
 
                             float3 midpoint = (startPos + targetPos) * 0.5f;
                             float horizontalDist = math.length(new float2(targetPos.x - startPos.x, targetPos.z - startPos.z));
-                            // HighArcProjectile overrides the default capped arc so
-                            // siege-class shots (Godsplinter, trebuchets, …) lob
-                            // dramatic high parabolas at long range. The default
-                            // path caps at ArcHeight=3 once horizontalDist≥15 m,
-                            // which reads as a flat shot at 50 m+ ranges.
-                            float dynamicArcHeight;
-                            if (plan.HasHighArc != 0)
-                            {
-                                dynamicArcHeight = horizontalDist * plan.ArcFraction;
-                            }
-                            else
-                            {
-                                dynamicArcHeight = ArcHeight * math.min(1f, horizontalDist / 15f);
-                            }
+                            // The arc scales with the shot, so every range keeps the
+                            // same parabola. HighArcProjectile sets a shot's own shape:
+                            // longbows and siege lob higher, flat bolts use 0.
+                            float arcFraction = plan.HasHighArc != 0 ? plan.ArcFraction : DefaultArcFraction;
+                            float dynamicArcHeight = horizontalDist * arcFraction;
                             float3 controlPoint = midpoint + new float3(0, dynamicArcHeight, 0);
 
                             float oneMinusT = 1f - t;

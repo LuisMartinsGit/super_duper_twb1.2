@@ -510,7 +510,9 @@ fortifies — never a script.
 
 **Easy / Normal / Hard / Expert.** Modeled on Age of Empires IV: difficulty
 is pure behavior quality — **no AI tier ever cheats resources or vision**.
-Each tier is a data profile:
+Easy plays badly: it researches and levels one thing at a time, sends small armies in
+without scouting them and never retreats, and it wastes money on buildings it does not
+need. Each tier is a data profile:
 
 | Knob | Easy | Normal | Hard | Expert |
 |---|---|---|---|---|

@@ -143,7 +143,8 @@ namespace TheWaningBorder.UI.Ingame
             // visible to every player), wherever it is: on the ground, on a
             // carrier (drawn over the unit's own dot), in a hero or a Temple,
             // or embedded in a Maw.
-            DrawSimpleBlips(_shardrootQ.Get(em, ShardrootQueryTypes), 3, ShardrootBlip);
+            if (!TheWaningBorder.Entities.ShardrootPickup.AnyHiddenFromView(em))
+                DrawSimpleBlips(_shardrootQ.Get(em, ShardrootQueryTypes), 3, ShardrootBlip);
             DrawSimpleBlips(_shardrootEmbeddedQ.Get(em, ShardrootEmbeddedQueryTypes), 3, ShardrootBlip);
         }
 

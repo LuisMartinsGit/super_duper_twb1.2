@@ -41,8 +41,9 @@ for instead of a counter that fills by itself.
 
 ## 2. Exploring the ruins
 
-- The holder of a monument may pay to **explore its ruins, once per monument per
-  match**, whoever explores it. The price is on `MonumentSystem.asset`.
+- The holder of a monument may pay to **explore its ruins, once per player per
+  monument (2026-11-05)**: taking a monument someone else explored lets you explore it
+  too, and you get its buff as well. The price is on `MonumentSystem.asset`.
 - **Every monument has its own buff.** The pool of six is shuffled from the match
   seed and dealt out, one per monument, so no two match unless a map has more than six.
   Which is which stays hidden until explored. **Exploring activates it for the explorer,
@@ -52,17 +53,25 @@ for instead of a counter that fills by itself.
   on `MonumentSystem.asset`.
 - The deal comes from the match seed, so every peer and replay agrees.
 
-## 3. The Shardroot's descent
+## 3. The hidden Shardroot (2026-11-05)
 
-- **One monument, chosen at random from the match seed when monuments are
-  placed, hides the Shardroot.** Nobody can see which.
-- **Exploring that monument makes the Shardroot descend in front of it.** It is
-  random but guaranteed: each exploration may be the one, and the last ruin
-  explored always is if none before it was.
-- **One Shardroot per match.** Religion points no longer count toward it, and
-  there is no time or random-spawn fallback.
-- From there the artifact behaves as before: it can be carried, handed to the
-  king or enshrined (Curse_And_Shardroot.md §3).
+- **The Shardroot lies on the map from the start, invisible**, at a random walkable
+  spot from the match seed: reachable on foot, and at least
+  `shardrootStartClearance` from every starting capital.
+- **One monument, chosen at random from the match seed, knows where.** Nobody can
+  see which. **Every player who explores that monument learns the spot**, on the map
+  and in the world, and no one else does; allies are not told. So a monument that
+  changes hands can tell several players.
+- **It is visible to all only once it is picked up**, and it stays public from then
+  on, also when a bearer drops it. Until then nobody sees it, in vision or on the
+  minimap, and its fog lifts only for those who know the spot. Spectators with no faction selected see it.
+- **Any unit that walks onto it takes it, whether or not its owner knew**, so a
+  lucky scout can stumble on it.
+- **The curse does not know either:** it guards the artifact only when a bearer has
+  dropped it, and hunts the holder as before.
+- **One Shardroot per match.** Religion points no longer count toward it, and there
+  is no time fallback. From the pickup on it behaves as before: it can be carried,
+  handed to the king or enshrined (Curse_And_Shardroot.md §3).
 
 ## 4. Temple and religion income
 
@@ -90,7 +99,8 @@ its population cap. Heroes are not included.
 ## 7. AI
 
 The AI runs a squad into the ring of the nearest monument (a plain move, not an attack-move, so it does not stop to fight on the way), explores what it
-holds as soon as it can pay, and after its sect purchases spends remaining RP on
+holds as soon as it can pay. It knows the Shardroot's spot only as a player would, by
+exploring the right monument, and then strikes for it (Game_AI.md § 6l). After its sect purchases it spends remaining RP on
 Petriarchy support when a resource is short, otherwise on the largest army it can
 afford. Values are on `SimpleAISystem.asset`. Code: `SimpleAISystem.Monuments.cs`
 and `AIEndgameCommon`.
@@ -106,4 +116,6 @@ command); `Sects/PetriarchyArmy.cs`; `Sects/SectDamageReligion.cs`.
 - Whether armies paying for themselves through sect damage makes a runaway.
 - How early the first exploration lands, since it can end the match by ascension
   about ten minutes after that.
+- How often an army stumbles on the hidden Shardroot by accident, and whether a first
+  pickup with no curse guard comes too cheaply to whoever was told.
 - The art is an interim Synty statue, with a light in the holder's colour.

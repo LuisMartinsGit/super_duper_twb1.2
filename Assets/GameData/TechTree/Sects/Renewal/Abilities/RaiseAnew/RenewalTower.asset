@@ -63,6 +63,8 @@ MonoBehaviour:
     cooldown: 1.8
     maxTargets: 1
     siegeShotDamage: 0
+  firePoints:
+  - {x: 1.8189894e-12, y: 6.379327, z: -0.100393154}
   levels: []
   unitUpgrades: []
   prefab: {fileID: 4362895386666546648, guid: d27c7afb51b07684abcec2e905f8c165, type: 3}

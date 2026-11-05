@@ -31,6 +31,11 @@ MonoBehaviour:
   retreatCooldownSeconds: 30
   personalities:
   - personality: 0
+    researchPaceScale: 1
+    researchExtraConcurrent: 0
+    extractorPaceScale: 1
+    levelUpPaceScale: 1
+    attackPaceScale: 1
     victoryConquestWeight: 1
     victorySanctumWeight: 1
     victoryShardrootWeight: 1
@@ -61,6 +66,11 @@ MonoBehaviour:
     shardrootToKing: 0
     allInCommitment: 0.8
   - personality: 1
+    researchPaceScale: 1.2
+    researchExtraConcurrent: 0
+    extractorPaceScale: 1.1
+    levelUpPaceScale: 1.2
+    attackPaceScale: 0.85
     victoryConquestWeight: 1.5
     victorySanctumWeight: 0.7
     victoryShardrootWeight: 0.6
@@ -91,6 +101,11 @@ MonoBehaviour:
     shardrootToKing: 1
     allInCommitment: 0.9
   - personality: 2
+    researchPaceScale: 1
+    researchExtraConcurrent: 0
+    extractorPaceScale: 1
+    levelUpPaceScale: 0.8
+    attackPaceScale: 1.2
     victoryConquestWeight: 0.7
     victorySanctumWeight: 1
     victoryShardrootWeight: 1.4
@@ -121,6 +136,11 @@ MonoBehaviour:
     shardrootToKing: 0
     allInCommitment: 0.7
   - personality: 3
+    researchPaceScale: 1
+    researchExtraConcurrent: 0
+    extractorPaceScale: 0.6
+    levelUpPaceScale: 0.8
+    attackPaceScale: 1.2
     victoryConquestWeight: 0.7
     victorySanctumWeight: 1.4
     victoryShardrootWeight: 1
@@ -151,6 +171,11 @@ MonoBehaviour:
     shardrootToKing: 0
     allInCommitment: 0.8
   - personality: 4
+    researchPaceScale: 1.5
+    researchExtraConcurrent: 0
+    extractorPaceScale: 1.2
+    levelUpPaceScale: 1.5
+    attackPaceScale: 0.75
     victoryConquestWeight: 1.6
     victorySanctumWeight: 0.6
     victoryShardrootWeight: 0.6
@@ -181,6 +206,11 @@ MonoBehaviour:
     shardrootToKing: 1
     allInCommitment: 0.9
   - personality: 5
+    researchPaceScale: 0.6
+    researchExtraConcurrent: 1
+    extractorPaceScale: 1
+    levelUpPaceScale: 0.9
+    attackPaceScale: 1.25
     victoryConquestWeight: 0.7
     victorySanctumWeight: 1
     victoryShardrootWeight: 1.4
@@ -211,6 +241,11 @@ MonoBehaviour:
     shardrootToKing: 0
     allInCommitment: 0.8
   - personality: 6
+    researchPaceScale: 1.1
+    researchExtraConcurrent: 0
+    extractorPaceScale: 1.1
+    levelUpPaceScale: 0.7
+    attackPaceScale: 1.4
     victoryConquestWeight: 0.5
     victorySanctumWeight: 1
     victoryShardrootWeight: 1.6

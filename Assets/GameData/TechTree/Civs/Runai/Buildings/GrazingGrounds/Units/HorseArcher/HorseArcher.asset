@@ -33,7 +33,7 @@ MonoBehaviour:
   aimTime: 0.3
   radius: 0.6
   trajectory: flat
-  projectileSpeed: 30
+  projectileSpeed: 21
   cost:
     Supplies: 110
     Iron: 70

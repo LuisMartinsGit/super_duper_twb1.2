@@ -29,7 +29,10 @@ public struct MonumentState : IComponentData
     /// <summary>Who is taking it right now (Border = nobody), and for how long.</summary>
     public Faction Capturer;
     public int CaptureSeconds;
+    /// <summary>1 once anyone has explored it: its buff is then public.</summary>
     public byte Explored;
+    /// <summary>Who has explored it, a bit per Faction: once per player.</summary>
+    public uint ExploredBy;
     /// <summary>This monument's own buff: an index into the shuffled pool.</summary>
     public byte Buff;
     public byte HidesShardroot;
@@ -64,6 +67,17 @@ namespace TheWaningBorder.Entities
             ComponentType.ReadOnly<LocalTransform>(),
         };
         private static CachedEntityQuery QC_CurseNodes;
+
+        /// <summary>Random draws before giving up on the start clearance.</summary>
+        private const int ShardrootPlacementTries = 512;
+
+        private static readonly ComponentType[] QT_Halls =
+        {
+            ComponentType.ReadOnly<HallTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private static CachedEntityQuery QC_Halls;
 
         private static readonly ComponentType[] QT_ShardrootState = { ComponentType.ReadWrite<ShardrootState>() };
         private static CachedEntityQuery QC_ShardrootState;
@@ -194,10 +208,13 @@ namespace TheWaningBorder.Entities
         public static Cost ExploreCost => Cost.Of(
             supplies: Cfg.exploreSupplies, iron: Cfg.exploreIron, veilstone: Cfg.exploreVeilstone);
 
+        public static bool HasExplored(in MonumentState s, Faction faction)
+            => (s.ExploredBy & (1u << (int)faction)) != 0;
+
         public static bool CanExplore(EntityManager em, Faction faction, int territory)
         {
             if (!TryFind(em, territory, out _, out var s)) return false;
-            return s.Holder == faction && s.Explored == 0
+            return s.Holder == faction && !HasExplored(s, faction)
                 && FactionEconomy.CanAfford(em, faction, ExploreCost);
         }
 
@@ -209,6 +226,7 @@ namespace TheWaningBorder.Entities
             if (!FactionEconomy.Spend(em, faction, ExploreCost, SpendCategory.Religion)) return false;
 
             state.Explored = 1;
+            state.ExploredBy |= 1u << (int)faction;
             em.SetComponentData(entity, state);
 
             string buff = GrantBuff(faction, state);
@@ -221,7 +239,7 @@ namespace TheWaningBorder.Entities
                     : Loc.T("The ruins hold nothing more for you."));
 
             if (state.HidesShardroot != 0)
-                Descend(em, em.GetComponentData<LocalTransform>(entity).Position);
+                RevealShardroot(em, faction);
             return true;
         }
 
@@ -242,25 +260,89 @@ namespace TheWaningBorder.Entities
             return id;
         }
 
-        /// <summary>The single Shardroot descends in front of this monument.</summary>
-        private static void Descend(EntityManager em, float3 monument)
+        /// <summary>Lay the match's single Shardroot, hidden, at a random walkable
+        /// spot (Monuments_And_Petriarchy.md §3). Runs from MonumentSystem until the
+        /// nav field exists; every peer draws the same spot from the match seed.</summary>
+        public static void TryPlaceShardroot(EntityManager em)
         {
             var q = QC_ShardrootState.Get(em, QT_ShardrootState);
             if (q.IsEmptyIgnoreFilter) return;
             using var ents = q.ToEntityArray(Allocator.Temp);
             var state = em.GetComponentData<ShardrootState>(ents[0]);
             if (state.Found != 0) return;
+
+            using var halls = QC_Halls.Get(em, QT_Halls).ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var hallFacs = QC_Halls.Get(em, QT_Halls).ToComponentDataArray<FactionTag>(Allocator.Temp);
+            if (halls.Length == 0) return;
+            int first = 0;
+            for (int i = 1; i < halls.Length; i++)
+                if (hallFacs[i].Value < hallFacs[first].Value) first = i;
+            var from = halls[first].Position;
+            if (!TheWaningBorder.Systems.Navigation.NavGridQuery.TryFloodWalkable(from.x, from.z, out var reach, out var origin,
+                    out float cell, out int width, out int height)) return;
+
+            uint seed = (uint)GameSettings.SpawnSeed * 2654435761u + 977u;
+            seed ^= seed >> 13; seed *= 0x5bd1e995u; seed ^= seed >> 15;
+            var rng = new Unity.Mathematics.Random(seed | 1u);
+            float clear2 = Cfg.shardrootStartClearance * Cfg.shardrootStartClearance;
+            float3 at = from;
+            bool any = false;
+            for (int t = 0; t < ShardrootPlacementTries; t++)
+            {
+                int cx = rng.NextInt(0, width), cz = rng.NextInt(0, height);
+                if (!reach[cz * width + cx]) continue;
+                float x = origin.x + (cx + 0.5f) * cell, z = origin.y + (cz + 0.5f) * cell;
+                bool clear = true;
+                for (int i = 0; i < halls.Length && clear; i++)
+                    clear = math.distancesq(halls[i].Position.xz, new float2(x, z)) >= clear2;
+                if (!clear && any) continue;
+                at = new float3(x, TerrainUtility.GetHeight(x, z), z);
+                any = true;
+                if (clear) break;
+            }
+
             state.Found = 1;
             em.SetComponentData(ents[0], state);
-
-            float3 at = monument + new float3(0f, 0f, Cfg.shardrootOffset);
-            at.y = TerrainUtility.GetHeight(at.x, at.z);
             var pickup = ShardrootPickup.Create(em, at, RitualKind.ViolentExtraction, ShardrootState.ShardrootPower);
             em.AddComponent<ShardrootTag>(pickup);
+            em.AddComponentData(pickup, default(ShardrootHidden));
             TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, pickup);
-            SimSignals.Announce(Loc.T("The SHARDROOT DESCENDS before the ruins!"));
+            UnityEngine.Debug.Log($"[Shardroot] hidden at ({at.x:F0},{at.z:F0})");
+        }
+
+        private static readonly ComponentType[] QT_HiddenRoot =
+        {
+            ComponentType.ReadOnly<ShardrootHidden>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        private static CachedEntityQuery QC_HiddenRoot;
+
+        /// <summary>Logs who may see the hidden artifact, so a match's logs show
+        /// whether its secret held (Monuments_And_Petriarchy.md §3).</summary>
+        public static void LogHiddenShardroot(EntityManager em)
+        {
+            var q = QC_HiddenRoot.Get(em, QT_HiddenRoot);
+            if (q.IsEmptyIgnoreFilter) return;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            var at = em.GetComponentData<LocalTransform>(ents[0]).Position;
+            uint knows = em.GetComponentData<ShardrootHidden>(ents[0]).RevealedTo;
+            string fog = "", known = "";
+            for (int f = 0; f < GameSettings.TotalPlayers; f++)
+            {
+                if (TheWaningBorder.Systems.Visibility.FogOfWarSystem.IsRevealedToFaction((Faction)f, at)) fog += (Faction)f + " ";
+                if ((knows & (1u << f)) != 0) known += (Faction)f + " ";
+            }
+            UnityEngine.Debug.Log($"[Shardroot] hidden at ({at.x:F0},{at.z:F0}); told: {(known == "" ? "nobody" : known)}; ground explored by: {(fog == "" ? "nobody" : fog)}");
+        }
+
+        /// <summary>The right monument's exploration tells whoever explored it.</summary>
+        private static void RevealShardroot(EntityManager em, Faction faction)
+        {
+            if (!ShardrootPickup.TryReveal(em, faction, out float3 at)) return;
+            UnityEngine.Debug.Log($"[Shardroot] {faction} learned the spot ({at.x:F0},{at.z:F0})");
+            if (faction != GameSettings.LocalPlayerFaction) return;
+            SimSignals.Announce(Loc.T("The ruins show you where the SHARDROOT lies."));
             SimSignals.Ping(at, SimPingKind.Discovery, 20f, big: true);
-            UnityEngine.Debug.Log($"[Shardroot] DESCENT -- the ruins are explored: the artifact descends at ({at.x:F0},{at.z:F0})");
         }
     }
 }

@@ -16,7 +16,22 @@ MonoBehaviour:
   thinkInterval: 2.0
   intelFreshnessSeconds: 75
   firstAttackEarliestSeconds: 900
-  levelUpsFromSeconds: 0
+  levelUpsFromSeconds: 480
+  extractorGapSeconds: 60
+  wasteBuildSeconds: 0
+  wasteBuildMax: 0
+  researchMaxConcurrent: 2
+  researchGapSeconds: 45
+  researchMaxLevel: 0
+  levelThreeFromSeconds: 1200
+  levelUpGapSeconds: 120
+  levelUpMaxConcurrent: 1
+  maxSects: 2
+  sectPowerGapSeconds: 45
+  attacksBlind: 0
+  armyStraggles: 0
+  fightsToDeath: 0
+  shardrootReactSeconds: 30
   extractorLimit: 0
   spareCapitals: 0
   holdBackAheadRatio: 0
