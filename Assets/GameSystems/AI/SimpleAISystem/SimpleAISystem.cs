@@ -161,6 +161,8 @@ namespace TheWaningBorder.AI
                 // Difficulty is DATA (AoE4 model): one brain, per-tier knobs.
                 var profile = AISimpleDifficulty.GetProfile(brain.Difficulty);
                 AIPacing.ApplyAttackPace(ref profile, brain.Personality);
+                if (AICheat.IsCheating(brain.Owner))
+                    profile.SustainArmyCap = AICheat.ScalePopulation(brain.Owner, profile.SustainArmyCap);
                 // The static helpers (training pre-flight, age-up saving) read
                 // the tier through ProfileOf (SimpleAISystem.EconomyDrive.cs).
                 NoteProfile(brain.Owner, profile, brain.Personality);

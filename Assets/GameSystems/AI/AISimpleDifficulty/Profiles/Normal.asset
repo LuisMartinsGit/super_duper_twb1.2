@@ -42,7 +42,7 @@ MonoBehaviour:
   victoryMultiFocus: 0
   targetStyle: 1
   reinforceMode: 1
-  maxWaveUnits: 30
+  maxWaveUnits: 40
   attackWaveIntervalSeconds: 300
   waveBaseUnits: 12
   standingArmyFloorFraction: 0.08
@@ -52,7 +52,7 @@ MonoBehaviour:
   reconquestMargin: 1.6
   strengthWaveRatioScale: 1.15
   personalityWeight: 0.85
-  sustainArmyCap: 100
+  sustainArmyCap: 120
   concurrentArmies: 1
   incomeTargeting: 1
   supportThinkScale: 1

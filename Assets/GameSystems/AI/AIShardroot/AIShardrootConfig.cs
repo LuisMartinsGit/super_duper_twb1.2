@@ -39,6 +39,9 @@ namespace TheWaningBorder.AI
         /// <summary>Fewest units a strike party is sent with.</summary>
         public int minPartySize;
 
+        /// <summary>Soldiers a faction told the spot pulls off other work to fetch it.</summary>
+        public int toldStrikeUnits;
+
         /// <summary>A strike under way is reinforced with newly free units
         /// for this long, seconds; after that the next think plans afresh.</summary>
         public float reinforceSeconds;

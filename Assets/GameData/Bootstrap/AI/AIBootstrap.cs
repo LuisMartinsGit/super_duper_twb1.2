@@ -183,6 +183,7 @@ namespace TheWaningBorder.Bootstrap
                     return slot.AIDifficulty switch
                     {
                         LobbyAIDifficulty.Beginner => AIDifficulty.Easy,
+                        LobbyAIDifficulty.Cheating => AIDifficulty.Expert,
                         LobbyAIDifficulty.Easy => AIDifficulty.Easy,
                         LobbyAIDifficulty.Normal => AIDifficulty.Normal,
                         LobbyAIDifficulty.Hard => AIDifficulty.Hard,

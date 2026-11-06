@@ -69,17 +69,19 @@ namespace TheWaningBorder.Systems.Training
                 .WithEntityAccess())
             {
                 int fac = (int)factionTag.ValueRO.Value;
+                int absoluteMax = FactionPopulation.AbsoluteMaxFor(factionTag.ValueRO.Value);
 
                 maxPop.TryGetValue(fac, out int totalMax);
+                totalMax = TheWaningBorder.AI.AICheat.ScalePopulation(factionTag.ValueRO.Value, totalMax);
                 curPop.TryGetValue(fac, out int totalCur);
 
                 // Runai / Feraldis override: pop max is always 200
                 if (em.HasComponent<RunaiPopOverride>(entity) || em.HasComponent<FeraldisPopOverride>(entity))
-                    totalMax = FactionPopulation.AbsoluteMax;
+                    totalMax = absoluteMax;
 
                 // Clamp max to absolute cap
-                if (totalMax > FactionPopulation.AbsoluteMax)
-                    totalMax = FactionPopulation.AbsoluteMax;
+                if (totalMax > absoluteMax)
+                    totalMax = absoluteMax;
 
                 pop.ValueRW.Max = totalMax;
                 pop.ValueRW.Current = totalCur;

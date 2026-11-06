@@ -16,7 +16,9 @@ namespace TheWaningBorder.Core.Config
         Expert,
         /// <summary>The Easy profile, and it never attacks (Game_AI.md § 2). Last, because
         /// the other values index per-tier tables.</summary>
-        Beginner
+        Beginner,
+        /// <summary>Plays as Expert, with a labelled bonus (Game_AI.md § 2b).</summary>
+        Cheating
     }
 
     /// <summary>

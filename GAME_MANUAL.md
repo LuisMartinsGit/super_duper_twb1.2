@@ -514,7 +514,8 @@ fortifies — never a script.
 **Easy / Normal / Hard / Expert.** Modeled on Age of Empires IV: difficulty
 is pure behavior quality — **no AI tier ever cheats resources or vision**.
 Beginner is the gentlest: it builds and defends but never attacks, for learning the game
-(skirmish only). Easy plays badly: it researches and levels one thing at a time, sends small armies in
+(skirmish only). Cheating is the one tier that does cheat, and says so: it plays as Expert
+with more income, population and stats (skirmish only). Easy plays badly: it researches and levels one thing at a time, sends small armies in
 without scouting them and never retreats, and it wastes money on buildings it does not
 need. Each tier is a data profile:
 

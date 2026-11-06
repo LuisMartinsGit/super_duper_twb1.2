@@ -30,6 +30,11 @@ namespace TheWaningBorder.AI
         /// matches on each profile's own <see cref="AIDifficultyProfileSO.tier"/>.</summary>
         public AIDifficultyProfileSO[] profiles;
 
+        /// <summary>The Cheating tier's bonuses (Game_AI.md § 2b).</summary>
+        public float cheatIncomeMultiplier;
+        public float cheatPopulationMultiplier;
+        public float cheatStatMultiplier;
+
         /// <summary>
         /// The profile for a tier, or null when the ladder has no asset for it.
         ///

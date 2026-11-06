@@ -124,7 +124,7 @@ namespace TheWaningBorder.AI
             // more than the game allows to exist.
             int armyWant = math.clamp(
                 (int)math.round(profile.SustainArmyCap * plan.ArmyScale),
-                1, math.min(profile.SustainArmyCap, FactionPopulation.AbsoluteMax));
+                1, math.min(profile.SustainArmyCap, FactionPopulation.AbsoluteMaxFor(faction)));
             // THE WORKER RULE (2026-10-03): 3 + 1 per conquered territory
             // (WorkerFloorFor). It replaced the crew that grew with open
             // sites, which hired past the operator's rule.
@@ -140,7 +140,7 @@ namespace TheWaningBorder.AI
             // While the opening huts are still being saved for, "about to"
             // means nearly out: the normal floor (8) fires at the starting
             // 9/16, and that house was the first thing to eat the hut money.
-            if (popMax < FactionPopulation.AbsoluteMax && popMax - pop <= HousingHeadroomFloor(faction))
+            if (popMax < FactionPopulation.AbsoluteMaxFor(faction) && popMax - pop <= HousingHeadroomFloor(faction))
                 goals.Add(new Goal(GoalKind.Build, "Hut", 1, 0,
                     AIBudgetCategory.EconomyExpansion, "population blocked"));
 
@@ -317,7 +317,7 @@ namespace TheWaningBorder.AI
                     goals.Add(new Goal(GoalKind.Build, "Hut", want, CountFactionBuildings<HutTag>(em, faction),
                         AIBudgetCategory.EconomyExpansion, "waystations"));
             }
-            else if (popMax < FactionPopulation.AbsoluteMax && !OpeningHutsPending(faction))
+            else if (popMax < FactionPopulation.AbsoluteMaxFor(faction) && !OpeningHutsPending(faction))
                 goals.Add(new Goal(GoalKind.Build, "Hut", HousingTarget(em, faction, pop), CountFactionBuildings<HutTag>(em, faction),
                     AIBudgetCategory.EconomyExpansion, "housing ahead"));
 
@@ -528,10 +528,10 @@ namespace TheWaningBorder.AI
             int hallProvides = math.max(0, TechCatalog.Building("Fortress").populationProvided);
             const int Buffer = 40;              // room to keep training into
 
-            int wantMax = math.min(FactionPopulation.AbsoluteMax, pop + Buffer);
+            int wantMax = math.min(FactionPopulation.AbsoluteMaxFor(faction), pop + Buffer);
             int fromHuts = math.max(0, wantMax - hallProvides);
             int need = (fromHuts + perHut - 1) / perHut;
-            int ceiling = (FactionPopulation.AbsoluteMax - hallProvides + perHut - 1) / perHut;
+            int ceiling = (FactionPopulation.AbsoluteMaxFor(faction) - hallProvides + perHut - 1) / perHut;
             int cap = TechCatalog.Building("Hut").maxPerFaction;   // Houses: 20
             if (cap > 0) ceiling = math.min(ceiling, cap);
             return math.clamp(need, 1, ceiling);

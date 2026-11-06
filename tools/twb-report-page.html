@@ -1832,7 +1832,7 @@ function objectiveNow(m,t){
     else if(e.k==="taken"){ S.spot=[e.x,e.z]; S.state="carried"; S.who=e.f; S.since=e.t; }
     else if(e.k==="dropped"){ S.spot=[e.x,e.z]; S.state="ground"; S.who=e.f; S.since=e.t; S.asc=null; }
     else if(e.k==="king"){ S.state="king"; S.who=e.f; S.since=e.t; }
-    else if(e.k==="kingDied"){ S.spot=[e.x,e.z]; S.state="ground"; S.who=null; S.since=e.t; S.kingDied=e; }
+    else if(e.k==="kingDied"){ S.kingDied=e; }
     else if(e.k==="ascension"){ S.state="temple"; S.who=e.f; S.since=e.t; S.asc={f:e.f,end:e.t+e.secs}; }
     else if(e.k==="templeDown"){ S.spot=[e.x,e.z]; S.state="ground"; S.who=null; S.since=e.t; S.asc=null; }
     else if(e.k==="dominion"){ S.dom={f:e.f,end:e.t+e.secs}; }

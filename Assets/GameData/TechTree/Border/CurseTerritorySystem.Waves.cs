@@ -818,6 +818,8 @@ namespace TheWaningBorder.Systems.Border
             bool ai = slot.Type == TheWaningBorder.Core.Config.SlotType.AI
                       || (GameSettings.IsObserver && slot.Type == TheWaningBorder.Core.Config.SlotType.Observer);
             if (!ai) return Normal;
+            if (slot.AIDifficulty == TheWaningBorder.Core.Config.LobbyAIDifficulty.Cheating)
+                return (int)TheWaningBorder.Core.Config.LobbyAIDifficulty.Expert;
             return slot.AIDifficulty == TheWaningBorder.Core.Config.LobbyAIDifficulty.Beginner
                 ? (int)TheWaningBorder.Core.Config.LobbyAIDifficulty.Easy
                 : (int)slot.AIDifficulty;

@@ -30,6 +30,10 @@ namespace TheWaningBorder.Economy
         /// <summary>Hard cap on population - cannot exceed this value. 300
         /// since 2026-10-01 (was 200), alongside doubled House population.</summary>
         public const int AbsoluteMax = 300;
+
+        /// <summary>The cap for this faction: higher for a Cheating AI (Game_AI.md § 2b).</summary>
+        public static int AbsoluteMaxFor(Faction faction)
+            => TheWaningBorder.AI.AICheat.ScalePopulation(faction, AbsoluteMax);
         
         // ==================== Helpers ====================
         

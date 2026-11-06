@@ -18,6 +18,7 @@ MonoBehaviour:
   assessRadius: 30
   launchMargin: 1.4
   minPartySize: 8
+  toldStrikeUnits: 8
   reinforceSeconds: 90
   kingLeadsStrike: 1
   kingJoinsArmy: 1

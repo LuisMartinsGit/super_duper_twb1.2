@@ -15,23 +15,23 @@ MonoBehaviour:
   tier: 2
   thinkInterval: 0.5
   intelFreshnessSeconds: 55
-  firstAttackEarliestSeconds: 780
-  levelUpsFromSeconds: 360
-  extractorGapSeconds: 40
+  firstAttackEarliestSeconds: 760
+  levelUpsFromSeconds: 320
+  extractorGapSeconds: 33
   wasteBuildSeconds: 0
   wasteBuildMax: 0
   researchMaxConcurrent: 3
-  researchGapSeconds: 30
+  researchGapSeconds: 25
   researchMaxLevel: 0
-  levelThreeFromSeconds: 900
-  levelUpGapSeconds: 80
+  levelThreeFromSeconds: 800
+  levelUpGapSeconds: 68
   levelUpMaxConcurrent: 1
   maxSects: 3
-  sectPowerGapSeconds: 20
+  sectPowerGapSeconds: 13
   attacksBlind: 0
   armyStraggles: 0
   fightsToDeath: 0
-  shardrootReactSeconds: 15
+  shardrootReactSeconds: 12
   extractorLimit: 0
   spareCapitals: 0
   holdBackAheadRatio: 0
@@ -42,23 +42,23 @@ MonoBehaviour:
   victoryMultiFocus: 1
   targetStyle: 2
   reinforceMode: 0
-  maxWaveUnits: 38
-  attackWaveIntervalSeconds: 270
+  maxWaveUnits: 50
+  attackWaveIntervalSeconds: 260
   waveBaseUnits: 12
   standingArmyFloorFraction: 0.08
   waveMinArmyFraction: 0.1
-  territoryCadenceScale: 1.25
-  fortressDelaySeconds: 110
+  territoryCadenceScale: 1.17
+  fortressDelaySeconds: 88
   reconquestMargin: 1.45
   strengthWaveRatioScale: 1.08
   personalityWeight: 0.6
-  sustainArmyCap: 120
+  sustainArmyCap: 150
   concurrentArmies: 2
   incomeTargeting: 1
   supportThinkScale: 0.85
-  counterResponse: 0.85
+  counterResponse: 0.9
   basicsShareScale: 0.92
-  expansionDrive: 1.1
+  expansionDrive: 1.15
   reserveForCapitalLevel: 1
   economyUpgradesPerThink: 1
   productionQueueDepth: 2
@@ -78,10 +78,10 @@ MonoBehaviour:
   economyDefenceDelaySeconds: 3
   economyDefenceMargin: 1.75
   tactics:
-    counterTargetWeight: 0.7
-    focusFireWeight: 0.72
+    counterTargetWeight: 0.75
+    focusFireWeight: 0.77
     kiting: 1
-    flankFraction: 0.1
+    flankFraction: 0.13
     retreatRatio: 1.5
     reengageRatio: 0.9
     rangedBehindMelee: 1

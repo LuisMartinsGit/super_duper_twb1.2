@@ -67,6 +67,27 @@ namespace TheWaningBorder.AI
             return s;
         }
 
+        /// <summary>Adds the soldiers nearest the spot to the strike until it has
+        /// <paramref name="want"/>, taking them off whatever they were doing.</summary>
+        private void DraftForTheShardroot(EntityManager em, Faction faction, Entity king, float3 pos, int want, ShardrootStrike s)
+        {
+            var roster = OwnCombatRoster(em, faction);
+            var busy = new List<(float Dist, int Order, Entity Unit)>();
+            for (int i = 0; i < roster.Count; i++)
+            {
+                Entity e = roster.E[i];
+                if (e == king || roster.Verb(i) || IsClaimSquadMember(e)) continue;
+                if (s.Roster.Contains(e) || _shardrootFree.Contains(e)) continue;
+                busy.Add((math.distancesq(em.GetComponentData<LocalTransform>(e).Position.xz, pos.xz), i, e));
+            }
+            busy.Sort((a, b) => a.Dist != b.Dist ? a.Dist.CompareTo(b.Dist) : a.Order.CompareTo(b.Order));
+            for (int i = 0; i < busy.Count && _shardrootFree.Count < want; i++)
+            {
+                ReleaseFromMissions(faction, busy[i].Unit);
+                _shardrootFree.Add(busy[i].Unit);
+            }
+        }
+
         private void TickShardroot(EntityManager em, Faction faction, ref SimpleAIState aiState, float now)
         {
             var cfg = AIShardroot.Cfg;
@@ -135,6 +156,12 @@ namespace TheWaningBorder.AI
                 _shardrootFree.Add(e);
             }
 
+            // TOLD WHERE IT LIES (Game_AI.md § 6l, 2026-11-06): do not wait for idle units,
+            // pull the nearest soldiers out of whatever they are doing.
+            bool told = where == AIShardroot.Where.Ground && ShardrootPickup.RevealedTo(em, holder, faction);
+            if (told && _shardrootFree.Count < cfg.toldStrikeUnits)
+                DraftForTheShardroot(em, faction, king, pos, cfg.toldStrikeUnits, s);
+
             // Never more than the tier's largest wave (Game_AI.md § 2a).
             int maxStrike = ProfileOf(faction).MaxWaveUnits;
             if (maxStrike > 0)
@@ -160,7 +187,7 @@ namespace TheWaningBorder.AI
                 return;
             }
 
-            if (_shardrootFree.Count < math.max(1, cfg.minPartySize))
+            if (_shardrootFree.Count < (told ? 1 : math.max(1, cfg.minPartySize)))
             {
                 LogShardroot(faction, s, now, $"Shardroot seen at ({pos.x:0},{pos.z:0}) — {_shardrootFree.Count} free units, too few to go");
                 KingJoinsArmy(em, faction, king, now);

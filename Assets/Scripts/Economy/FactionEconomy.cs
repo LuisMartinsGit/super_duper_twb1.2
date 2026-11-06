@@ -174,9 +174,10 @@ namespace TheWaningBorder.Economy
         /// booked as <see cref="SpendCategory.Overflow"/> so the ledger
         /// balances against the bank. Observation only.
         /// </summary>
-        public static bool Add(EntityManager em, Faction fac, in Cost c, IncomeSource source)
+        public static bool Add(EntityManager em, Faction fac, in Cost original, IncomeSource source)
         {
-            if (c.IsZero) return true;
+            if (original.IsZero) return true;
+            var c = TheWaningBorder.AI.AICheat.ScaleIncome(fac, original, source);
             if (!TryGetBank(em, fac, out var bank)) return false;
 
             var r = em.GetComponentData<FactionResources>(bank);

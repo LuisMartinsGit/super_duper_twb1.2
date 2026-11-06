@@ -39,10 +39,10 @@ namespace TheWaningBorder.AI
             // "unspent".
             if (FactionEconomy.TryGetResources(em, faction, out var bank)
                 && bank.Supplies + bank.Iron >= Cfg.armyCapRaiseThreshold
-                && baseCap + st.Bonus < FactionPopulation.AbsoluteMax
+                && baseCap + st.Bonus < FactionPopulation.AbsoluteMaxFor(faction)
                 && !AIPivotalReserve.StrictHold(em, faction))
             {
-                st.Bonus = System.Math.Min(st.Bonus + Cfg.armyCapRaiseStep, FactionPopulation.AbsoluteMax - baseCap);
+                st.Bonus = System.Math.Min(st.Bonus + Cfg.armyCapRaiseStep, FactionPopulation.AbsoluteMaxFor(faction) - baseCap);
                 AILogger.Log(faction, "ARMY",
                     $"army cap raised to {baseCap + st.Bonus} ({bank.Supplies + bank.Iron} supplies + iron unspent)");
             }

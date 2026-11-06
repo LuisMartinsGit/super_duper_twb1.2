@@ -47,6 +47,16 @@ and the same behaviour the ladder's passive stand-in has always had. It is a lob
 (`LobbyAIDifficulty.Beginner`), not a fifth profile asset, and it is offered in the skirmish
 lobby only; `GameSettings.IsPassiveAI` is the one test.
 
+### 2b. Cheating (2026-11-06)
+
+A sixth skirmish choice above Expert, and the one exception to "no tier cheats": it plays
+exactly as Expert does, and it gets a labelled bonus to income, population and stats
+(health, damage, speed and sight, on every unit and building). It is a lobby choice
+(`LobbyAIDifficulty.Cheating`), not a profile, and is named CHEATING wherever a tier is
+shown. The bonuses are on `AISimpleDifficulty.asset`; `AICheat` is the only reader. Income
+that only returns or moves money (refunds, the Vault, grants) earns no bonus. **Expert
+stays free of every limit**, so anything a tier may not do has no business on it.
+
 ### 2a. Pacing: a tier is how well it plays, not how long it waits (2026-11-05)
 
 Developer: an Easy AI should be one that barely plays the game correctly and suffers
@@ -2662,6 +2672,10 @@ fight drops its route; the tactics layer re-routes it when the march resumes.
 Logs: `ROUTE: N march round the curse to (x,z) — k waypoint(s)`.
 
 ## 6l. The Shardroot and the king (2026-10-07)
+
+**A faction told the spot goes for it (2026-11-06).** Told by a monument, an AI does not
+wait for free units: it pulls its nearest soldiers, up to `toldStrikeUnits`, out of whatever
+they are doing, after its tier's reaction time and within its largest wave.
 
 **Hidden until picked up (2026-11-05, Monuments_And_Petriarchy.md § 3):** `AIShardroot.Locate` reports a hidden Shardroot only to a faction that explored the monument that reveals it; to every other it does not exist, in the strike and in the victory plan alike.
 

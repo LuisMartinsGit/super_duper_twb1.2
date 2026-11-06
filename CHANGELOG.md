@@ -11,6 +11,19 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.71] — 2026-11-06
+
+### AI
+- **New Cheating tier in the skirmish menu.** It plays as Expert with +20 % income,
+  population and stats on everything.
+- **Normal can finish a match.** It keeps a bigger army and sends bigger waves.
+- **Hard is a little stronger again**, after 0.0.70 moved it too far from Expert.
+- **An AI told where the Shardroot lies now goes for it** instead of waiting for idle units.
+
+### Balance
+- **Houses hold less, so population comes from levelling them.** Level 1 holds 5, level 2
+  holds 10 and level 3 holds 15, so 20 full houses reach the 300 limit late in a match.
+
 ## [0.0.70] — 2026-11-06
 
 ### Fixed

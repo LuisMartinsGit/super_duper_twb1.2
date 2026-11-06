@@ -1364,7 +1364,7 @@ namespace TheWaningBorder.AI
             // 1,440 against the ~12,000 earned in twenty minutes. One per call
             // keeps it paced and lets the budget refuse when the money is
             // genuinely needed elsewhere.
-            if (max >= FactionPopulation.AbsoluteMax) return;
+            if (max >= FactionPopulation.AbsoluteMaxFor(faction)) return;
 
             // BUILD AHEAD ONLY OUT OF SURPLUS.
             //

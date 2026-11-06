@@ -29,15 +29,17 @@ namespace TheWaningBorder.UI.Menus.Panels
     {
         private static readonly string[] StrategyNames = LobbyOptions.StrategyNames;
         private static readonly string[] DifficultyNames =
-            { "EASY", "STANDARD", "HARD", "EXPERT", "BEGINNER" };   // by LobbyAIDifficulty
+            { "EASY", "STANDARD", "HARD", "EXPERT", "BEGINNER", "CHEATING" };   // by LobbyAIDifficulty
         /// <summary>The dropdown's order, gentlest first. Beginner is the enum's last value
         /// so the other values keep indexing per-tier tables, hence the two helpers.</summary>
         private static readonly string[] DifficultyOptions =
-            { "BEGINNER", "EASY", "STANDARD", "HARD", "EXPERT" };
+            { "BEGINNER", "EASY", "STANDARD", "HARD", "EXPERT", "CHEATING" };
         private static int OptionOf(LobbyAIDifficulty level)
-            => level == LobbyAIDifficulty.Beginner ? 0 : (int)level + 1;
+            => level == LobbyAIDifficulty.Beginner ? 0
+               : level == LobbyAIDifficulty.Cheating ? 5 : (int)level + 1;
         private static LobbyAIDifficulty LevelOf(int option)
-            => option == 0 ? LobbyAIDifficulty.Beginner : (LobbyAIDifficulty)(option - 1);
+            => option == 0 ? LobbyAIDifficulty.Beginner
+               : option == 5 ? LobbyAIDifficulty.Cheating : (LobbyAIDifficulty)(option - 1);
         // The STARTING AGE dropdown was replaced by START WITH CULTURE
         // (StartCultureOption, 2026-10-14): AgeDropdown stays wired in the
         // scene only as the cell the toggle is built into.

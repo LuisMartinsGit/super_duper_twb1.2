@@ -1347,7 +1347,7 @@ OBJECTIVE_RULES = (
     ("taken", re.compile(r"^(\w+) now holds the artifact at \((-?\d+),(-?\d+)\)")),
     ("released", re.compile(r"^(\w+) no longer holds the artifact")),
     ("dropped", re.compile(r"^bearer \((\w+)\) died at \((-?\d+),(-?\d+)\)")),
-    ("kingDied", re.compile(r"^(\w+)'s king detonates at \((-?\d+),(-?\d+)\)")),
+    ("kingDied", re.compile(r"^\w+ killed (\w+)'s Shardbound King")),
     ("king", re.compile(r"^(\w+): the Hall hands the artifact to King Lexor")),
     ("ascension", re.compile(r"^ASCENSION -- (\w+) enshrines the artifact: (\d+)s to victory")),
     ("ascended", re.compile(r"^ASCENSION COMPLETE -- (\w+) wins")),
@@ -1392,7 +1392,7 @@ def objectives_of(hd):
                     v = list(g.groups())
                     if kind in ("hidden", "moved", "templeDown"):
                         e["x"], e["z"] = int(v[0]), int(v[1])
-                    elif kind in ("learned", "taken", "dropped", "kingDied"):
+                    elif kind in ("learned", "taken", "dropped"):
                         e["f"], e["x"], e["z"] = v[0], int(v[1]), int(v[2])
                     elif kind in ("ascension", "dominion"):
                         e["f"], e["secs"] = v[0], int(v[1])
