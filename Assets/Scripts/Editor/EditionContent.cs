@@ -123,6 +123,9 @@ namespace TheWaningBorder.EditorTools
                     Debug.Log($"[EditionContent] Also stripped {configs} component config(s) and {cards} ability card(s).");
 
                 AssetDatabase.SaveAssets();
+                // The build must pack the stripped catalog, not the imported copy from
+                // before the strip (the stale-catalog leak, seen 0.0.50 and 0.0.69).
+                AssetDatabase.ImportAsset(CatalogPath, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
                 Debug.Log($"[EditionContent] Edition {edition}: stripped {stripped.Count} def(s) of " +
                           $"{string.Join(" + ", cultures)} from the catalog and {branches} model " +
                           "branch(es) from shared building prefabs.");

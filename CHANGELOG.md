@@ -11,6 +11,12 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.70] — 2026-11-06
+
+### Fixed
+- **0.0.69 carried other cultures' files by mistake.** This build removes them. Everything
+  else from 0.0.69 is here unchanged.
+
 ## [0.0.69] — 2026-11-06
 
 ### Monuments

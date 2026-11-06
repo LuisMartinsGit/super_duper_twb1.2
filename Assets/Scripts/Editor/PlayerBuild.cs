@@ -134,6 +134,11 @@ namespace TheWaningBorder.EditorTools
             string baseVersion = PlayerSettings.bundleVersion;
             string builtVersion = edition == "A" ? baseVersion : baseVersion + edition;
 
+            // A stamp left by an earlier build must not vouch for this one: a build the
+            // leak gate refuses writes none, and release.ps1 trusts the stamp (0.0.69
+            // shipped 528 assets of other cultures past exactly that).
+            File.Delete(Path.Combine(outDir, "edition.txt"));
+
             BuildReport report;
             using (var strip = EditionContent.Strip(edition))
             {
