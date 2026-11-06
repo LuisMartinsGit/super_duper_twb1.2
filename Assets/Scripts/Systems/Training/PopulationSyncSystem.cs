@@ -1,3 +1,4 @@
+using TheWaningBorder.AI;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -69,10 +70,17 @@ namespace TheWaningBorder.Systems.Training
                 .WithEntityAccess())
             {
                 int fac = (int)factionTag.ValueRO.Value;
-                int absoluteMax = FactionPopulation.AbsoluteMaxFor(factionTag.ValueRO.Value);
+                int absoluteMax = FactionPopulation.AbsoluteMax;
 
                 maxPop.TryGetValue(fac, out int totalMax);
-                totalMax = TheWaningBorder.AI.AICheat.ScalePopulation(factionTag.ValueRO.Value, totalMax);
+                // A Cheating AI's bonus, read from the bank: this system is Burst-compiled,
+                // so it cannot ask AICheat (Game_AI.md § 2b).
+                if (em.HasComponent<CheatPopulation>(entity))
+                {
+                    float mult = em.GetComponentData<CheatPopulation>(entity).Multiplier;
+                    totalMax = (int)(totalMax * mult + 0.5f);
+                    absoluteMax = (int)(absoluteMax * mult + 0.5f);
+                }
                 curPop.TryGetValue(fac, out int totalCur);
 
                 // Runai / Feraldis override: pop max is always 200

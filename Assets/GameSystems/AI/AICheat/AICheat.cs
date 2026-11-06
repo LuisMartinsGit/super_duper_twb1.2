@@ -74,6 +74,13 @@ namespace TheWaningBorder.AI
                 : population;
     }
 
+    /// <summary>On a cheater's bank: PopulationSyncSystem is Burst-compiled and reads the
+    /// population bonus from here rather than from managed code.</summary>
+    public struct CheatPopulation : IComponentData
+    {
+        public float Multiplier;
+    }
+
     /// <summary>Stamped once a cheater's unit or building has had its stat bonus.</summary>
     public struct CheatStatsApplied : IComponentData { }
 
@@ -93,10 +100,26 @@ namespace TheWaningBorder.AI
         };
         private static CachedEntityQuery QC_New;
 
+        private static readonly ComponentType[] QT_Banks =
+        {
+            ComponentType.ReadOnly<TheWaningBorder.Economy.FactionPopulation>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.Exclude<CheatPopulation>(),
+        };
+        private static CachedEntityQuery QC_Banks;
+
         protected override void OnUpdate()
         {
             if (!AICheat.AnyCheating()) return;
             var em = EntityManager;
+            using (var banks = QC_Banks.Get(em, QT_Banks).ToEntityArray(Allocator.Temp))
+                foreach (var bank in banks)
+                    if (AICheat.IsCheating(em.GetComponentData<FactionTag>(bank).Value))
+                        em.AddComponentData(bank, new CheatPopulation
+                        {
+                            Multiplier = AISimpleDifficultyConfig.I.cheatPopulationMultiplier,
+                        });
+
             using var ents = QC_New.Get(em, QT_New).ToEntityArray(Allocator.Temp);
             float m = AISimpleDifficultyConfig.I.cheatStatMultiplier;
             for (int i = 0; i < ents.Length; i++)

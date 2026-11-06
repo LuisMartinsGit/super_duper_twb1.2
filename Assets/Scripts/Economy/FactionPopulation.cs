@@ -32,7 +32,7 @@ namespace TheWaningBorder.Economy
         public const int AbsoluteMax = 300;
 
         /// <summary>The cap for this faction: higher for a Cheating AI (Game_AI.md § 2b).</summary>
-        public static int AbsoluteMaxFor(Faction faction)
+        public static int AbsoluteMaxFor(Faction faction) // managed callers only: not for Burst
             => TheWaningBorder.AI.AICheat.ScalePopulation(faction, AbsoluteMax);
         
         // ==================== Helpers ====================
