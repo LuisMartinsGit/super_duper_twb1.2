@@ -227,6 +227,7 @@ canvas.chart.tall{height:200px}
       <div class="clock" id="clock">0:00<small>match time</small></div>
       <div class="counts" id="counts"></div>
       <div class="caption" id="caption"></div>
+      <div class="caption" id="objstate"></div>
       <div class="mapctl">
         <button type="button" class="btn" id="zin" aria-label="Zoom in">+</button>
         <button type="button" class="btn" id="zout" aria-label="Zoom out">&minus;</button>
@@ -1347,6 +1348,7 @@ function draw(){
   var TT=(TERR.on&&m.terr)?drawTerritory(g,m,R.t,k,PX,PZ):null;
   /* the cursed ground at the replay time, over the territory tint */
   if(m.curseGround) drawCurse(g,m,R.t,k,PX,PZ);
+  drawObjectives(g,m,R.t,PX,PZ);
 
   /* region seeds, when the trace recorded them -- with the ownership meter
      under the name while someone is filling or draining it */
@@ -1622,6 +1624,7 @@ function draw(){
         ' · <b>'+best.army+'</b> marched'+(best.arrived?', '+best.arrived+' arrived':', none arrived')+
         ' <span class="t">'+esc(best.why)+'</span>';
   setHTML("caption", cap);
+  setHTML("objstate", objectiveText(m,t));
 
   /* ?debug=1: what was drawn against what is alive, and what it cost. Every
      live unit is exactly one of: drawn on its own, inside a formation glyph,
@@ -1787,6 +1790,17 @@ function renderTransport(){
 
   /* wave marks on the scrubber, the way the original showed its moments */
   var mk=document.getElementById("marks"); mk.textContent="";
+  (m.objectives||[]).forEach(function(ev){
+    if(!m.tmax||!OBJ_MARK[ev.k]) return;
+    var d=document.createElement("button");
+    d.className="mark"; d.style.left=(ev.t/m.tmax*100)+"%";
+    d.style.background="none"; d.style.border="0"; d.style.cursor="pointer";
+    d.style.color=ev.f?fhue(ev.f):"#ffd94d";
+    d.textContent=OBJ_MARK[ev.k];
+    d.title=(ev.f?ev.f+" ":"")+OBJ_NAME[ev.k]+" at "+mmss(ev.t);
+    d.onclick=function(){ R.t=ev.t; sc.value=String(ev.t); draw(); };
+    mk.appendChild(d);
+  });
   (m.waveList||[]).forEach(function(wv){
     if(!m.tmax) return;
     var d=document.createElement("button");
@@ -1802,6 +1816,59 @@ function renderTransport(){
 }
 
 /* ── tables ─────────────────────────────────────────────────────────── */
+/* THE SHARDROOT AND THE TIMED VICTORIES (2026-11-06): what decides a match says so
+   on the map. A replay watches every side, so the hidden artifact is drawn too. */
+var OBJ_MARK={kingDied:"☠",learned:"◆?",taken:"◆",dropped:"◇",king:"♔",ascension:"⧗",ascended:"★",templeDown:"✕",dominion:"⧗",dominionWon:"★"};
+var OBJ_NAME={kingDied:"lost the Shardbound King",learned:"learned where the Shardroot lies",taken:"took the Shardroot",dropped:"dropped the Shardroot",
+  king:"made King Lexor the Shardbound King",ascension:"began Ascension",ascended:"won by Ascension",
+  templeDown:"enshrining Temple destroyed",dominion:"began Sanctum dominion",dominionWon:"won by Sanctum dominion"};
+function objectiveNow(m,t){
+  var S={spot:null,state:"",who:null,since:0,told:[],asc:null,dom:null,won:null};
+  (m.objectives||[]).forEach(function(e){
+    if(e.t>t) return;
+    if(e.k==="hidden"){ S.spot=[e.x,e.z]; S.state="hidden"; S.since=e.t; }
+    else if(e.k==="moved"){ S.spot=[e.x,e.z]; S.moves=(S.moves||0)+1; }
+    else if(e.k==="learned"){ if(S.told.indexOf(e.f)<0) S.told.push(e.f); }
+    else if(e.k==="taken"){ S.spot=[e.x,e.z]; S.state="carried"; S.who=e.f; S.since=e.t; }
+    else if(e.k==="dropped"){ S.spot=[e.x,e.z]; S.state="ground"; S.who=e.f; S.since=e.t; S.asc=null; }
+    else if(e.k==="king"){ S.state="king"; S.who=e.f; S.since=e.t; }
+    else if(e.k==="kingDied"){ S.spot=[e.x,e.z]; S.state="ground"; S.who=null; S.since=e.t; S.kingDied=e; }
+    else if(e.k==="ascension"){ S.state="temple"; S.who=e.f; S.since=e.t; S.asc={f:e.f,end:e.t+e.secs}; }
+    else if(e.k==="templeDown"){ S.spot=[e.x,e.z]; S.state="ground"; S.who=null; S.since=e.t; S.asc=null; }
+    else if(e.k==="dominion"){ S.dom={f:e.f,end:e.t+e.secs}; }
+    else if(e.k==="ascended"||e.k==="dominionWon"){ S.won={f:e.f,how:e.k==="ascended"?"Ascension":"Sanctum dominion"}; }
+  });
+  return S;
+}
+function objectiveText(m,t){
+  if(!(m.objectives||[]).length) return "";
+  var S=objectiveNow(m,t), who=function(f){ return '<b style="color:'+fhue(f)+'">'+esc(f)+'</b>'; }, parts=[];
+  if(S.state==="hidden") parts.push("Shardroot hidden, known to "+(S.told.length?S.told.map(who).join(", "):"nobody")+(S.moves?", moved "+S.moves+"x":""));
+  else if(S.state==="carried") parts.push("Shardroot carried by "+who(S.who)+" since "+mmss(S.since)+", the curse hunts them");
+  else if(S.state==="king") parts.push('<b>King Lexor ascended</b>: '+who(S.who)+"'s Shardbound King since "+mmss(S.since)+", the curse hunts them");
+  else if(S.state==="temple") parts.push("Shardroot enshrined by "+who(S.who));
+  else if(S.state==="ground") parts.push("Shardroot on the ground since "+mmss(S.since));
+  if(S.kingDied&&t-S.kingDied.t<60) parts.push('<b>'+who(S.kingDied.f)+"'s Shardbound King died</b>");
+  if(S.asc&&!S.won) parts.push('<b>Ascension</b> '+who(S.asc.f)+" "+mmss(Math.max(0,S.asc.end-t))+" left");
+  if(S.dom&&!S.won&&S.dom.end>t) parts.push('<b>Sanctum dominion</b> '+who(S.dom.f)+" "+mmss(S.dom.end-t)+" left if held");
+  if(S.won) parts.push(who(S.won.f)+" won by "+S.won.how);
+  return parts.join(" · ");
+}
+function drawObjectives(g,m,t,PX,PZ){
+  if(!(m.objectives||[]).length) return;
+  var S=objectiveNow(m,t);
+  if(!S.spot||(S.state!=="hidden"&&S.state!=="ground")) return;
+  var x=PX(S.spot[0]), y=PZ(S.spot[1]), r=9;
+  g.save(); g.lineWidth=2; g.strokeStyle="#ffd94d"; g.fillStyle="#ffd94d";
+  g.globalAlpha=S.state==="hidden"?.55:1;
+  if(S.state==="hidden") g.setLineDash([3,3]);
+  g.beginPath(); g.moveTo(x,y-r); g.lineTo(x+r,y); g.lineTo(x,y+r); g.lineTo(x-r,y); g.closePath();
+  if(S.state==="hidden") g.stroke(); else g.fill();
+  g.setLineDash([]); g.font="11px "+(css("--mono")||"monospace"); g.textAlign="center"; g.textBaseline="bottom";
+  g.fillText(S.state==="hidden"?"Shardroot (hidden)":"Shardroot",x,y-r-2);
+  g.restore();
+}
+
 function renderWaves(){
   var m=M[sel], host=document.getElementById("waves");
   var ws=m.waveList||[];

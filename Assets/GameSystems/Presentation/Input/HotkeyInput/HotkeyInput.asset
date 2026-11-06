@@ -22,5 +22,11 @@ MonoBehaviour:
   cycleIdleWorkers: 98
   planningMode: 122
   planningExecute: 13
+  religionMenu: 114
+  religionTree: 116
+  panUp: 273
+  panDown: 274
+  panLeft: 276
+  panRight: 275
   controlGroupFirst: 49
   controlGroupCount: 9

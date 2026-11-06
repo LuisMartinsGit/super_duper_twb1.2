@@ -44,8 +44,9 @@ public static class LogPaths
             string preferred;
             try
             {
-                preferred = Path.GetFullPath(
-                    Path.Combine(Application.dataPath, "..", FolderName));
+                // The player's own folder; beside the .exe only for test runs (UserPaths).
+                preferred = TheWaningBorder.Core.Config.UserPaths.In(FolderName)
+                    ?? Path.GetFullPath(Path.Combine(Application.dataPath, "..", FolderName));
             }
             catch
             {

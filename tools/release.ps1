@@ -199,7 +199,10 @@ Write-Host "Packaging $BuildPath ..." -ForegroundColor Cyan
 # Never ship these. Unity puts the literal words DoNotShip in the Burst folder
 # name; logs would hand every tester a copy of whoever built it match history,
 # and the game recreates the folder on launch anyway.
-$excludedTopLevel = @('logs')
+# settings.json holds the build machine's name and settings (test runs write it
+# beside the exe); shipped, it reached every player as LUIS-INDIE. Players' own
+# settings live in their user folder (PlayerProfile.cs).
+$excludedTopLevel = @('logs', 'settings.json', 'Replays', 'Saves')
 $excludedPattern = '*_BurstDebugInformation_DoNotShip'
 
 # ZipFile rather than Compress-Archive: the cmdlet is very slow on a build this

@@ -20,4 +20,8 @@
     <DefineConstants>$(DefineConstants);TWB_EDITION_$(TwbEdition)</DefineConstants>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="ShippedFiles.txt.gz" />
+  </ItemGroup>
+
 </Project>

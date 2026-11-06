@@ -59,6 +59,24 @@ the list shows them greyed out with the build that made them.
 
 ---
 
+## Where things live (2026-11-06)
+
+- **The install** is `C:\Program Files\Shardroot Entertainment\The Waning Border`, like
+  any other game. The launcher asks Windows once to create that folder and let ordinary
+  users write to it; nothing else ever runs elevated, and updates never ask.
+- **The player's files** are `%APPDATA%\ShardrootEntertainment\TheWaningBorder`: settings,
+  key bindings, saves, replays, logs and the launcher's own settings. An update never
+  touches that folder. Test runs (Editor, batch mode) keep theirs beside the project or .exe.
+- **The release ships none of those.** A name nobody chose shows as PLAYER, never the
+  computer's name, and the first-run prompt asks until the player answers.
+- **Old installs.** The launcher copies settings, saves and replays out, installs fresh,
+  then deletes from the old folder ONLY files whose path, size and SHA-256 appear in the
+  record of what releases shipped (`ShippedFileCleanup`, `tools/gen-shipped-index.py`).
+  Everything else stays where it is, so a folder with the player's own files in it
+  survives with those files. If that cannot be proven, nothing is deleted.
+- **Before a release:** `python tools/gen-shipped-index.py`, then
+  `tools/Launcher/publish.ps1`, then the player build.
+
 ## 2. What every match records
 
 Logs are the whole point of this build. They go in a **`logs` folder beside the

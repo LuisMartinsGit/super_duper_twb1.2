@@ -297,6 +297,18 @@ public static class GameSettings
     /// attack, a stand-in for a new player (-twbFactionPassive).</summary>
     public static uint PassiveAIMask = 0u;
 
+    /// <summary>Builds and defends but never attacks: the test harness's stand-in, or a
+    /// lobby slot set to Beginner (Game_AI.md § 2). The slot lives through a replay's header.</summary>
+    public static bool IsPassiveAI(Faction faction)
+    {
+        if ((PassiveAIMask >> (int)faction & 1u) != 0u) return true;
+        var slots = TheWaningBorder.Core.Config.LobbyConfig.Slots;
+        int i = (int)faction;
+        return slots != null && i >= 0 && i < slots.Length && slots[i] != null
+               && slots[i].Type == TheWaningBorder.Core.Config.SlotType.AI
+               && slots[i].AIDifficulty == TheWaningBorder.Core.Config.LobbyAIDifficulty.Beginner;
+    }
+
     /// <summary>Test harness only (-twbNoCurse): the match raises no curse node,
     /// the control arm for measuring what the curse does to a match.</summary>
     public static bool NoCurseForTest;

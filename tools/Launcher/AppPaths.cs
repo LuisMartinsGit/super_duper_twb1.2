@@ -4,9 +4,8 @@ namespace TheWaningBorder.Launcher;
 /// The on-disk layout the updater maintains.
 ///
 /// <code>
-/// ROOT\                 chosen by the tester on the first install (InstallLocation);
-///                       %LOCALAPPDATA%\Programs\Shardroot Entertainment\The Waning Border\
-///                       is only the suggestion
+/// ROOT\                 C:\Program Files\Shardroot Entertainment\The Waning Border\
+///                       (2026-11-06, InstallLocation); user files are NOT here, see UserData
 ///   TWBLauncher.exe     the launcher; the GAME keeps it current (LauncherSelfUpdate)
 ///   version.txt         the installed build's version
 ///   launcher.log        one line per decision the updater took
@@ -45,10 +44,24 @@ internal static class AppPaths
     /// </summary>
     public static string InstallName => Product + Edition.Suffix;
 
-    /// <summary>What the first install suggests, and where every install before 2026-10-16 lives.</summary>
+    /// <summary>Where the game installs, like any other game on the machine.</summary>
     public static string DefaultRoot { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), Company, InstallName);
+
+    /// <summary>Where every install before 2026-11-06 lived, unless its tester chose a folder.</summary>
+    public static string LegacyDefaultRoot { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Programs", Company, InstallName);
+
+    /// <summary>
+    /// The player's own files: settings, saves, replays and logs. The game writes the
+    /// same folder (UserPaths.cs). An update never touches it.
+    /// </summary>
+    public static string UserData { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "ShardrootEntertainment", "TheWaningBorder");
+
+    public static string UserLogs => Path.Combine(UserData, "logs");
 
     /// <summary>The install root. Set once per run by InstallLocation.Resolve, before anything reads it.</summary>
     public static string Root { get; private set; } = DefaultRoot;
@@ -80,16 +93,18 @@ internal static class AppPaths
         Environment.GetFolderPath(Environment.SpecialFolder.Programs), Company, InstallName + ".lnk");
 
     /// <summary>
-    /// Settings live in %APPDATA%, not the install root, so wiping and
+    /// Settings live in the user folder, not the install root, so wiping and
     /// re-copying the folder does not make a tester re-enter their key.
     /// One file per edition: the demo keeps the original name, so existing
     /// testers keep their key; a developer edition must not inherit a demo
     /// key it would only be refused with.
     /// </summary>
     public static string SettingsFile { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "TheWaningBorder",
-        Edition.IsDemo ? "launcher.json" : $"launcher-{Edition.Id}.json");
+        UserData, Edition.IsDemo ? "launcher.json" : $"launcher-{Edition.Id}.json");
+
+    /// <summary>The same files before 2026-11-06, read once so a tester keeps their key.</summary>
+    public static string OldSettingsFolder { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TheWaningBorder");
 
     /// <summary>
     /// Inside the root, not %TEMP%: a tester who installs on another drive

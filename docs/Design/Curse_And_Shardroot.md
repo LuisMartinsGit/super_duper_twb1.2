@@ -1074,9 +1074,13 @@ it drops from a detonated holder (§3.1).
     within `DetonationRadius` is launched skyward and killed on landing,
     friend and foe alike, and buildings in the radius take
     `DetonationBuildingDamage`. The artifact drops in the crater.
-  - **Nearly invincible** (§ 3.1b) — he takes only a fraction of every hit,
-    regenerates, and cannot be thrown or disabled; the numbers are on
-    `ShardboundKing.asset` beside `ShardboundKing.cs`.
+  - **Very hard to kill, not unkillable (2026-11-06)** (§ 3.1b) — he takes only a
+    fraction of every hit, regenerates only out of combat, and cannot be thrown or
+    disabled, though slows work on him; the numbers are on `ShardboundKing.asset`
+    beside `ShardboundKing.cs`. Developer: losing the king and the Shardroot is a risk
+    every tier takes, and in Hard and Expert matches he should be seen to die. Committing
+    enough troops must visibly work: while hit he does not regenerate, and only
+    `damageCapPerSecondOfMax` limits how fast he falls.
   - The **Hall choice** for Alanthor therefore routes the artifact to the
     king: a courier reaching the Hall hands it to a living King Lexor;
     only if he is dead does the Hall awaken the placeholder champion.
@@ -1123,8 +1127,8 @@ target. The artifact is now the asymmetry that decides a match.
 
 - **The choice.** A courier carrying the Shardroot home picks one:
   - **The King (Hall).** A living King Lexor takes it and becomes the
-    **Shardbound King**, now **nearly invincible**: he takes only a small
-    fraction of all damage, regenerates, and cannot be thrown or disabled,
+    **Shardbound King**, now **very hard to kill**: he takes only a small
+    fraction of all damage, regenerates out of combat, and cannot be thrown or disabled,
     on top of his cleave, Shardbound Fury and death detonation (above). He
     is an army in one body, and the war goes where he goes.
     **He cannot be swarmed (2026-10-09).** Developer: "King Lexor needs to

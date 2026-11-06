@@ -127,7 +127,7 @@ namespace TheWaningBorder.AI
         private void TickSanctumArmies(EntityManager em, Faction faction, ref SimpleAIState aiState, float now)
         {
             if (!Cfg.sanctumArmyEnabled) return;
-            if ((GameSettings.PassiveAIMask >> (int)faction & 1u) != 0u) return;
+            if (GameSettings.IsPassiveAI(faction)) return;
             // The tier decides whether it goes for Sanctums at all (Game_AI.md § 2).
             var tier = ProfileOf(faction);
             // The victory plan replaces the tier's gate (Game_AI.md § 6aa): an Easy AI

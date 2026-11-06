@@ -34,7 +34,7 @@ namespace TheWaningBorder.AI
         private void TickMonuments(EntityManager em, Faction faction, ref SimpleAIState aiState, float now)
         {
             if (!Cfg.monumentEnabled) return;
-            if ((GameSettings.PassiveAIMask >> (int)faction & 1u) != 0u) return;
+            if (GameSettings.IsPassiveAI(faction)) return;
             if (_monumentEpoch != SimCadence.Epoch)
             {
                 _monumentEpoch = SimCadence.Epoch;

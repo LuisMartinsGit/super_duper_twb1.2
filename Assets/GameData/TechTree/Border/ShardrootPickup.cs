@@ -16,6 +16,11 @@ namespace TheWaningBorder.Entities
     public struct ShardrootHidden : IComponentData
     {
         public uint RevealedTo;
+        /// <summary>Sides with a unit inside the pass circle at the last check, a bit per
+        /// Faction (the curse included).</summary>
+        public uint Near;
+        /// <summary>How many times it has moved: draws each new spot from the match seed.</summary>
+        public int Moves;
     }
 
     /// <summary>

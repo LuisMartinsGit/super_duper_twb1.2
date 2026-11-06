@@ -44,5 +44,5 @@ $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
 Write-Host ""
 Write-Host "Launcher (edition $Edition) published: $exe ($size MB)" -ForegroundColor Green
 $installName = if ($Edition -eq 'A') { 'The Waning Border' } else { "The Waning Border $Edition" }
-Write-Host "Testers run it from anywhere: it installs into %LOCALAPPDATA%\Programs\Shardroot Entertainment\$installName."
+Write-Host "Testers run it from anywhere: it installs into %ProgramFiles%\Shardroot Entertainment\$installName."
 Write-Host "Builds carry it (AlphaBuildPostProcess), so the next release also updates every tester's launcher."

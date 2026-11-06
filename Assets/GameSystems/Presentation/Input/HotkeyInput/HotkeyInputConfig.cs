@@ -51,6 +51,18 @@ namespace TheWaningBorder.Input
         /// <summary>Executes a planned batch without leaving planning mode.</summary>
         public KeyCode planningExecute;
 
+        /// <summary>Opens the religion quick menu.</summary>
+        public KeyCode religionMenu;
+
+        /// <summary>Opens the full-screen religion tree.</summary>
+        public KeyCode religionTree;
+
+        /// <summary>Pans the camera.</summary>
+        public KeyCode panUp;
+        public KeyCode panDown;
+        public KeyCode panLeft;
+        public KeyCode panRight;
+
         /// <summary>First control-group key; the rest follow it in KeyCode order.</summary>
         public KeyCode controlGroupFirst;
 

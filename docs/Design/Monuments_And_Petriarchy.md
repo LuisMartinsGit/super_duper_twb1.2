@@ -65,8 +65,13 @@ for instead of a counter that fills by itself.
 - **It is visible to all only once it is picked up**, and it stays public from then
   on, also when a bearer drops it. Until then nobody sees it, in vision or on the
   minimap, and its fog lifts only for those who know the spot. Spectators with no faction selected see it.
-- **Any unit that walks onto it takes it, whether or not its owner knew**, so a
-  lucky scout can stumble on it.
+- **Any unit that walks onto it takes it, whether or not its owner knew.**
+- **A unit that passes without taking it sends it elsewhere (2026-11-05).** When every
+  unit of a side, the curse included, has left the `shardrootPassRadius` circle around
+  the hidden artifact without picking it up, it moves to a new random walkable spot,
+  clear of every unit and capital. Stumbling on it is much rarer, and it removes itself
+  from common travel lanes. Whoever knew the spot still knows it, and is told it moved.
+  Once picked up, the artifact is public and this rule ends.
 - **The curse does not know either:** it guards the artifact only when a bearer has
   dropped it, and hunts the holder as before.
 - **One Shardroot per match.** Religion points no longer count toward it, and there

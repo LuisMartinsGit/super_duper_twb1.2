@@ -906,8 +906,8 @@ namespace TheWaningBorder.UI.Ingame
                 && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != null
                 && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject.GetComponent<TMP_InputField>() != null)
                 return;
-            if (UnityEngine.Input.GetKeyDown(KeyCode.R)) SetShown(!_shown);
-            if (UnityEngine.Input.GetKeyDown(KeyCode.T)) SetTreeOpen(!_treeOpen);
+            if (TheWaningBorder.Input.KeyBindings.Down(TheWaningBorder.Input.KeyAction.ReligionMenu)) SetShown(!_shown);
+            if (TheWaningBorder.Input.KeyBindings.Down(TheWaningBorder.Input.KeyAction.ReligionTree)) SetTreeOpen(!_treeOpen);
             bool shift = UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
             bool ctrl = UnityEngine.Input.GetKey(KeyCode.LeftControl) || UnityEngine.Input.GetKey(KeyCode.RightControl);
             for (int i = 0; i < SectConfig.MaxAdoptedSects; i++)

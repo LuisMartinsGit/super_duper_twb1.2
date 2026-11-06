@@ -106,7 +106,7 @@ namespace TheWaningBorder.UI.Menus
                               "You can change it any time in Settings."),
                   30f, FontStyles.Normal, 80f).color = new Color(1f, 1f, 1f, 0.7f);
 
-            _field = Field(card, PlayerProfile.PlayerName);
+            _field = Field(card, PlayerProfile.ChosenName);
 
             var confirm = TextButton(card, Loc.T("CONTINUE"));
             confirm.onClick.AddListener(Confirm);

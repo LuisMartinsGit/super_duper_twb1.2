@@ -31,6 +31,10 @@ namespace TheWaningBorder.Entities
         /// <summary>Metres in front of the monument the Shardroot lands.</summary>
         public float shardrootStartClearance;
 
+        /// <summary>Metres: a side that enters this circle round the hidden Shardroot and
+        /// leaves without taking it sends it elsewhere.</summary>
+        public float shardrootPassRadius;
+
         public float outcropClearance;
         public int placementRings;
         public float placementRingStep;

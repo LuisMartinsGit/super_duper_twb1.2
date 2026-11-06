@@ -13,7 +13,10 @@ namespace TheWaningBorder.Core.Config
         Easy,
         Normal,
         Hard,
-        Expert
+        Expert,
+        /// <summary>The Easy profile, and it never attacks (Game_AI.md § 2). Last, because
+        /// the other values index per-tier tables.</summary>
+        Beginner
     }
 
     /// <summary>

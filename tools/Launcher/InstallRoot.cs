@@ -18,7 +18,9 @@ internal static class InstallRoot
 
         Directory.CreateDirectory(AppPaths.Root);
 
-        MigrateLegacyLayout(notes);
+        // MigrateLegacyLayout is no longer called (2026-11-06): moving an old game\
+        // brought along whatever else was in it, and the updater later replaces that
+        // folder whole. A fresh install, then a shipped-only cleanup, keeps the promise.
         PlaceLauncher(notes);
         EnsureStartMenuShortcut(notes);
 

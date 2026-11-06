@@ -26,6 +26,7 @@ MonoBehaviour:
   - Ruin_PilgrimsRoad
   - Ruin_WatchersEye
   shardrootStartClearance: 40
+  shardrootPassRadius: 30
   outcropClearance: 10
   placementRings: 6
   placementRingStep: 6

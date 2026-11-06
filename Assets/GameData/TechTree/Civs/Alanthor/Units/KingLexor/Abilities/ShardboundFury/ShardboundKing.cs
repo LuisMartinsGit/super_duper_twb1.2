@@ -1,11 +1,12 @@
 // ShardboundKing.cs
-// The Shardbound King is NEARLY INVINCIBLE (docs/Design/Curse_And_Shardroot.md
-// § 3.1b, 2026-10-07): while King Lexor bears the Shardroot he
+// The Shardbound King is VERY HARD TO KILL (docs/Design/Curse_And_Shardroot.md
+// § 3.1b, nerfed 2026-11-06): while King Lexor bears the Shardroot he
 //   * takes only damageTakenFraction of every hit -- applied at the single
 //     incoming-damage hook, AbilityDamageHooks.IncomingMultiplier, which the
 //     melee, projectile, splash, spell and damage-over-time paths all call;
-//   * regenerates regenPerSecondOfMax of his max HP each second (this file's
-//     system, sim dt, fractional carry kept on the component so peers agree);
+//   * regenerates regenPerSecondOfMax of his max HP each second, only once no hit
+//     has landed for outOfCombatSeconds (this file's system, sim dt, fractional
+//     carry kept on the component so peers agree);
 //   * CANNOT BE SWARMED (2026-10-09): he loses at most damageCapPerSecondOfMax
 //     of his max HP a second, however many hit him. A budget refills at that
 //     rate (one second's worth at most) and every hit spends it; what the
@@ -14,7 +15,7 @@
 //     DamageOverTime.Accrue / ScaleTick -- each hit is capped exactly once;
 //   * cannot be thrown or disabled -- Shardbound Fury / the death detonation
 //     skip him, Sew Disorder / Blinding Glare / Recall the Codex skip him at
-//     their source, and any slow (SpellDebuff) is cleared each tick here.
+//     their source. Slows (SpellDebuff) work on him since 2026-11-06.
 // His cleave, Shardbound Fury and death detonation are ShardboundFury.cs.
 // The numbers are ShardboundKing.asset (ShardboundKingConfig), never here.
 
@@ -35,6 +36,8 @@ namespace TheWaningBorder.Entities
         public float DamageBudget;
         /// <summary>1 once his killer has been paid the bounty (§3.1c).</summary>
         public byte BountyPaid;
+        /// <summary>Sim time of the last hit on him: regeneration waits on it.</summary>
+        public float LastHitAt;
     }
 
     public static class ShardboundKingRules
@@ -62,6 +65,7 @@ namespace TheWaningBorder.Entities
             var k = em.GetComponentData<ShardboundKing>(victim);
             int allowed = math.max(0, math.min(damage, (int)k.DamageBudget));
             k.DamageBudget -= allowed;
+            k.LastHitAt = SimClock.Now;
             em.SetComponentData(victim, k);
             return allowed;
         }
@@ -86,10 +90,6 @@ namespace TheWaningBorder.Entities
             for (int i = 0; i < kings.Length; i++)
             {
                 var e = kings[i];
-                // Cannot be disabled: a slow landed this tick is shed at once.
-                if (TransientState.Active<SpellDebuff>(em, e))
-                    TransientState.Clear<SpellDebuff>(em, e);
-
                 var hp = em.GetComponentData<Health>(e);
                 var k = em.GetComponentData<ShardboundKing>(e);
                 // The swarm cap's budget refills every tick, wounded or not.
@@ -116,6 +116,12 @@ namespace TheWaningBorder.Entities
                 }
                 if (hp.Value <= 0 || hp.Value >= hp.Max
                     || TransientState.Active<DeathAnimationState>(em, e))
+                {
+                    em.SetComponentData(e, k);
+                    continue;
+                }
+                // No regeneration in combat: enough force must visibly work.
+                if (SimClock.Now - k.LastHitAt < ShardboundKingConfig.I.outOfCombatSeconds)
                 {
                     em.SetComponentData(e, k);
                     continue;

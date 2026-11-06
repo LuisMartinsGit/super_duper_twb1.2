@@ -148,6 +148,9 @@ military units over economy units when both are inside the box.
 
 ### Keyboard Hotkeys
 
+These are the defaults. **Settings > Key Bindings** rebinds most of them; Esc, the control
+group keys, F1-F6 and the modifiers are fixed.
+
 | Key | Command |
 |---|---|
 | **A** | Enter Attack-Move mode — next right-click is an attack-move order. |
@@ -510,7 +513,8 @@ fortifies — never a script.
 
 **Easy / Normal / Hard / Expert.** Modeled on Age of Empires IV: difficulty
 is pure behavior quality — **no AI tier ever cheats resources or vision**.
-Easy plays badly: it researches and levels one thing at a time, sends small armies in
+Beginner is the gentlest: it builds and defends but never attacks, for learning the game
+(skirmish only). Easy plays badly: it researches and levels one thing at a time, sends small armies in
 without scouting them and never retreats, and it wastes money on buildings it does not
 need. Each tier is a data profile:
 

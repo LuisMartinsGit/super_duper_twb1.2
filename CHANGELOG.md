@@ -11,6 +11,38 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.69] — 2026-11-06
+
+### Monuments
+- **The hidden Shardroot moves when someone passes it.** A unit that comes within 30 m
+  and leaves without taking it sends it to a new random spot, so it clears itself from
+  travel lanes and is much harder to stumble on.
+
+### Combat
+- **The Shardbound King can be killed.** He takes more damage, no longer regenerates in
+  combat and heals more slowly out of it, and slows now work on him. He can still not be
+  thrown or stunned, and his damage and Fury are unchanged.
+
+### Fixed
+- **Your settings and name now survive updates.** They were reset by every update, and
+  the build machine's name could appear as yours. You will be asked for your name once
+  more if it was never really chosen.
+
+### Install
+- **The game moves to Program Files**, under Shardroot Entertainment\The Waning Border.
+  Windows asks for permission once. The old install is then cleared of the files the game
+  shipped, and nothing else is deleted.
+- **Your files move to AppData\Roaming\ShardrootEntertainment\TheWaningBorder**: settings,
+  saves, replays and logs. Your old ones are copied there.
+
+### Settings
+- **New Key Bindings tab.** Rebind commands, camera panning and the religion keys.
+
+### AI
+- **New Beginner tier in the skirmish menu.** It builds and defends but never attacks.
+- **Hard is toned down**, closer to Normal and further from Expert.
+- **Easy and Normal build extractors at the same pace**, a little faster for Easy.
+
 ## [0.0.68] — 2026-11-05
 
 ### Fixed

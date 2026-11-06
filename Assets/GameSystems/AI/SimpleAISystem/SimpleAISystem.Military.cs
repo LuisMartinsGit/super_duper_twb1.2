@@ -566,6 +566,7 @@ namespace TheWaningBorder.AI
         {
             if (personality == null || !personality.raidingEnabled || personality.raidIntervalSeconds <= 0f) return;
             if (GameSettings.TutorialActive) return;
+            if (GameSettings.IsPassiveAI(faction)) return;
             if (_raidEpoch != SimCadence.Epoch) { _raidEpoch = SimCadence.Epoch; _nextRaidAt.Clear(); _raidRepelled.Clear(); }
             int fk = (int)faction;
             if (_nextRaidAt.TryGetValue(fk, out float at) && now < at) return;
@@ -3900,7 +3901,7 @@ namespace TheWaningBorder.AI
             AIDifficultyProfile profile, float now)
         {
             // A test stand-in for a new player: builds and defends, never attacks.
-            if ((GameSettings.PassiveAIMask >> (int)faction & 1u) != 0u) return;
+            if (GameSettings.IsPassiveAI(faction)) return;
             if (now < profile.FirstAttackEarliestSeconds) return;
 
             // WAVE HEARTBEAT (2026-08-30): the second-wave freeze was

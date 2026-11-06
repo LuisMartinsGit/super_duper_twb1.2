@@ -16,6 +16,14 @@ internal sealed class LauncherSettings
     [JsonPropertyName("key")]
     public string Key { get; set; } = "";
 
+    /// <summary>Old installs still to clear (ShippedFileCleanup).</summary>
+    [JsonPropertyName("legacyRoots")]
+    public List<string> LegacyRoots { get; set; } = new();
+
+    /// <summary>Old installs whose user files have been copied out (UserDataMigration).</summary>
+    [JsonPropertyName("migratedRoots")]
+    public List<string> MigratedRoots { get; set; } = new();
+
     /// <summary>The install folder the tester chose (InstallLocation). Empty until the first install.</summary>
     [JsonPropertyName("installRoot")]
     public string InstallRoot { get; set; } = "";
@@ -29,6 +37,8 @@ internal sealed class LauncherSettings
     {
         try
         {
+            ImportOldFiles();
+
             if (File.Exists(AppPaths.SettingsFile))
             {
                 var loaded = JsonSerializer.Deserialize<LauncherSettings>(
@@ -48,6 +58,21 @@ internal sealed class LauncherSettings
         }
 
         return new LauncherSettings();
+    }
+
+    /// <summary>Copies (never moves) the launcher's files from the folder they used
+    /// to live in, once, so a tester keeps their key and upload record.</summary>
+    private static void ImportOldFiles()
+    {
+        if (File.Exists(AppPaths.SettingsFile)) return;
+        foreach (var name in new[] { Path.GetFileName(AppPaths.SettingsFile), "uploaded-logs.json" })
+        {
+            var old = Path.Combine(AppPaths.OldSettingsFolder, name);
+            var now = Path.Combine(AppPaths.UserData, name);
+            if (!File.Exists(old) || File.Exists(now)) continue;
+            Directory.CreateDirectory(AppPaths.UserData);
+            File.Copy(old, now);
+        }
     }
 
     public void Save()

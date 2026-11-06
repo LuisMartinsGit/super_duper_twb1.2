@@ -29,7 +29,7 @@ internal sealed class LogUploader(string apiBase, string key)
 
     public async Task<(int sent, int skipped)> SweepAsync(IProgress<string> status, CancellationToken ct)
     {
-        var logsRoot = Path.Combine(AppPaths.Game, "logs");
+        var logsRoot = AppPaths.UserLogs;
         if (!Directory.Exists(logsRoot)) return (0, 0);
 
         var done = UploadLedger.Load();

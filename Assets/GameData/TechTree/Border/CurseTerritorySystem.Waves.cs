@@ -817,7 +817,10 @@ namespace TheWaningBorder.Systems.Border
             var slot = slots[i];
             bool ai = slot.Type == TheWaningBorder.Core.Config.SlotType.AI
                       || (GameSettings.IsObserver && slot.Type == TheWaningBorder.Core.Config.SlotType.Observer);
-            return ai ? (int)slot.AIDifficulty : Normal;
+            if (!ai) return Normal;
+            return slot.AIDifficulty == TheWaningBorder.Core.Config.LobbyAIDifficulty.Beginner
+                ? (int)TheWaningBorder.Core.Config.LobbyAIDifficulty.Easy
+                : (int)slot.AIDifficulty;
         }
 
         private static string DifficultyName(int d)

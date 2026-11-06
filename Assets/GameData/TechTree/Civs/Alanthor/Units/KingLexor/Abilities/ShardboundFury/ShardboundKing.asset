@@ -12,9 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5a06349bf7a4413a1f4a457cf7d4f15, type: 3}
   m_Name: ShardboundKing
   m_EditorClassIdentifier: 
-  damageTakenFraction: 0.1
-  regenPerSecondOfMax: 0.02
-  damageCapPerSecondOfMax: 0.03
+  damageTakenFraction: 0.25
+  regenPerSecondOfMax: 0.01
+  outOfCombatSeconds: 8
+  damageCapPerSecondOfMax: 0.04
   bindSupplies: 10000
   bindIron: 0
   bindVeilstone: 1500

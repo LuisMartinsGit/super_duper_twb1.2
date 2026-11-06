@@ -45,13 +45,19 @@ namespace TheWaningBorder.Systems.Economy
             float dt = SystemAPI.Time.DeltaTime;
             bool tick = _tick.Due(dt, TickSeconds);
             bool pay = _points.Due(dt, Cfg.secondsPerPoint);
-            if (!tick && !pay) return;
+            bool secretLog = _secretLog.Due(dt, SecretLogSeconds);
+            if (!tick && !pay && !secretLog) return;
 
             using var monuments = Monument.All(em, Allocator.Temp);
             if (monuments.Length == 0) return;
 
             if (tick) Monument.TryPlaceShardroot(em);
-            if (_secretLog.Due(dt, SecretLogSeconds)) Monument.LogHiddenShardroot(em);
+            if (tick) Monument.TickHiddenShardroot(em);
+            if (secretLog)
+            {
+                UnityEngine.Debug.Log($"[Clock] sim {SimClock.Now:F0}");
+                Monument.LogHiddenShardroot(em);
+            }
             if (tick) TickRings(em, monuments);
             if (pay) PayPoints(em, monuments);
         }

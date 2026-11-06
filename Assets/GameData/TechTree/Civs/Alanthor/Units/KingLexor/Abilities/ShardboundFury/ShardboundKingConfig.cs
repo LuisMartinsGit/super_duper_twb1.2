@@ -26,6 +26,9 @@ namespace TheWaningBorder.Entities
         /// max HP.</summary>
         public float regenPerSecondOfMax;
 
+        /// <summary>Seconds with no hit on him before he regenerates at all.</summary>
+        public float outOfCombatSeconds;
+
         /// <summary>The most he can lose in one second, as a fraction of his
         /// max HP, after damageTakenFraction -- however many strike him, so a
         /// swarm cannot overwhelm him. 0 turns the cap off.</summary>

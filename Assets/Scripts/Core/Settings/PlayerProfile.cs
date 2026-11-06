@@ -2,14 +2,22 @@
 // The player's name and every persisted setting, in one JSON file.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
 namespace TheWaningBorder.Core.Config
 {
     /// <summary>
-    /// One file, next to the executable, holding who the player is and how
-    /// they like the game set up.
+    /// One file holding who the player is and how they like the game set up.
+    ///
+    /// IT LIVES IN THE USER'S OWN FOLDER, UserPaths (2026-11-06). It used
+    /// to sit beside the .exe, and the launcher replaces that whole folder on every
+    /// update, so every update reset every setting; worse, the build's own file went
+    /// out in every release, which is how the build machine's name reached players.
+    /// The Editor and batch-mode test runs still use a file beside the project or the
+    /// .exe, so tests never touch a person's settings. The match log names the path,
+    /// for a tester to send back.
     ///
     /// WHY A FILE AND NOT PlayerPrefs. Everything here used to live in
     /// PlayerPrefs, which on Windows means the registry
@@ -31,11 +39,31 @@ namespace TheWaningBorder.Core.Config
     public static class PlayerProfile
     {
         private const string FileName = "settings.json";
+        private const int CurrentVersion = 1;
+
+        /// <summary>What a nameless player is called. Never the computer's name.</summary>
+        private const string FallbackName = "PLAYER";
+
+        /// <summary>The build machine's name, shipped in every settings.json until
+        /// 2026-11-06: nobody chose it.</summary>
+        private const string ShippedName = "LUIS-INDIE";
+
+        /// <summary>A key the player rebound: KeyBindings' action name and its KeyCode.</summary>
+        [Serializable]
+        private class KeyOverride
+        {
+            public string Action;
+            public int Key;
+        }
 
         [Serializable]
         private class Data
         {
+            public List<KeyOverride> Keys = new List<KeyOverride>();
             public string PlayerName = "";
+            /// <summary>1 once a file from before 2026-11-06 has been cleaned of
+            /// the machine name it may carry. See Load.</summary>
+            public int Version;
             public string Language = "";          // "" = pick from the system
             public int GraphicsQuality = -1;      // -1 = leave the project default
             public int ResolutionWidth;
@@ -111,9 +139,39 @@ namespace TheWaningBorder.Core.Config
 
         public static string PlayerName
         {
-            get => Load().PlayerName;
+            get { var n = Load().PlayerName; return string.IsNullOrWhiteSpace(n) ? FallbackName : n; }
             set { Load().PlayerName = Sanitize(value); Save(); }
         }
+
+        /// <summary>The player's key for a command, if they rebound it.</summary>
+        public static bool TryGetKey(string action, out int key)
+        {
+            key = 0;
+            var keys = Load().Keys;
+            if (keys == null) return false;
+            foreach (var k in keys)
+                if (k.Action == action) { key = k.Key; return true; }
+            return false;
+        }
+
+        public static void SetKey(string action, int key)
+        {
+            var d = Load();
+            if (d.Keys == null) d.Keys = new List<KeyOverride>();
+            var hit = d.Keys.Find(k => k.Action == action);
+            if (hit != null) hit.Key = key;
+            else d.Keys.Add(new KeyOverride { Action = action, Key = key });
+            Save();
+        }
+
+        public static void ClearKeys()
+        {
+            Load().Keys = new List<KeyOverride>();
+            Save();
+        }
+
+        /// <summary>The name exactly as given, empty if none: what the prompt pre-fills.</summary>
+        public static string ChosenName => Load().PlayerName ?? "";
 
         public static string Language
         {
@@ -124,66 +182,66 @@ namespace TheWaningBorder.Core.Config
         public static int HealthBars
         {
             get => Load().HealthBars;
-            set { Load().HealthBars = value; }
+            set { Load().HealthBars = value; Save(); }
         }
 
         public static int DragPriority
         {
             get => Load().DragPriority;
-            set { Load().DragPriority = value; }
+            set { Load().DragPriority = value; Save(); }
         }
 
         /// <summary>-1 until the player has expressed a preference; then 0 / 1.</summary>
         public static int InkOutlines
         {
             get => Load().InkOutlines;
-            set { Load().InkOutlines = value; }
+            set { Load().InkOutlines = value; Save(); }
         }
 
         /// <summary>HUD size multiplier, clamped to the Settings range.</summary>
         public static float HudScale
         {
             get => UnityEngine.Mathf.Clamp(Load().HudScale <= 0f ? 1.1f : Load().HudScale, 0.5f, 2f);
-            set { Load().HudScale = UnityEngine.Mathf.Clamp(value, 0.5f, 2f); }
+            set { Load().HudScale = UnityEngine.Mathf.Clamp(value, 0.5f, 2f); Save(); }
         }
 
         public static int GraphicsQuality
         {
             get => Load().GraphicsQuality;
-            set { Load().GraphicsQuality = value; }
+            set { Load().GraphicsQuality = value; Save(); }
         }
 
         public static int ResolutionWidth
         {
             get => Load().ResolutionWidth;
-            set { Load().ResolutionWidth = value; }
+            set { Load().ResolutionWidth = value; Save(); }
         }
 
         public static int ResolutionHeight
         {
             get => Load().ResolutionHeight;
-            set { Load().ResolutionHeight = value; }
+            set { Load().ResolutionHeight = value; Save(); }
         }
 
         /// <summary>-1 until the player has expressed a preference.</summary>
         public static int Fullscreen
         {
             get => Load().Fullscreen;
-            set { Load().Fullscreen = value; }
+            set { Load().Fullscreen = value; Save(); }
         }
 
         /// <summary>0-100.</summary>
         public static float MasterVolume
         {
             get => Load().MasterVolume;
-            set { Load().MasterVolume = value; }
+            set { Load().MasterVolume = value; Save(); }
         }
 
         /// <summary>0-100.</summary>
         public static float MusicVolume
         {
             get => Load().MusicVolume;
-            set { Load().MusicVolume = value; }
+            set { Load().MusicVolume = value; Save(); }
         }
 
         /// <summary>
@@ -201,7 +259,7 @@ namespace TheWaningBorder.Core.Config
         public static float GameSpeed
         {
             get => Load().GameSpeed;
-            set { Load().GameSpeed = UnityEngine.Mathf.Clamp(value, 0.25f, 2f); }
+            set { Load().GameSpeed = UnityEngine.Mathf.Clamp(value, 0.25f, 2f); Save(); }
         }
 
         // ── Storage ─────────────────────────────────────────────────────
@@ -225,11 +283,13 @@ namespace TheWaningBorder.Core.Config
             if (_data != null) return _data;
 
             string path = Resolve();
-            if (File.Exists(path))
+            // A player's file from before the move: the one beside the .exe, once.
+            string source = File.Exists(path) ? path : OldPathIfAny(path);
+            if (source != null)
             {
                 try
                 {
-                    string raw = File.ReadAllText(path);
+                    string raw = File.ReadAllText(source);
                     _data = JsonUtility.FromJson<Data>(raw) ?? new Data();
 
                     // A file written before NameConfirmed existed has no such
@@ -256,7 +316,19 @@ namespace TheWaningBorder.Core.Config
                                      "Starting from defaults.");
                     _data = new Data();
                 }
-                if (string.IsNullOrEmpty(_data.PlayerName)) _data.PlayerName = DefaultName();
+                // Nobody chose the build machine's name or their own computer's:
+                // ask once more, and never again after this.
+                if (_data.Version < CurrentVersion)
+                {
+                    _data.Version = CurrentVersion;
+                    if (IsMachineName(_data.PlayerName))
+                    {
+                        _data.PlayerName = "";
+                        _data.NameConfirmed = false;
+                    }
+                    Save();
+                }
+                Debug.Log($"[PlayerProfile] Settings at {path}");
                 return _data;
             }
 
@@ -283,10 +355,11 @@ namespace TheWaningBorder.Core.Config
                 Debug.LogWarning("[PlayerProfile] Settings read too early to migrate " +
                                  $"({e.GetType().Name}); using defaults for this call and " +
                                  "deferring file creation.");
-                return new Data { PlayerName = DefaultName() };
+                return new Data();
             }
 
             IsFirstRun = true;
+            seeded.Version = CurrentVersion;
             _data = seeded;
             Save();
             Debug.Log($"[PlayerProfile] Created {path} with defaults.");
@@ -301,7 +374,6 @@ namespace TheWaningBorder.Core.Config
         /// </summary>
         private static Data FromLegacyPrefs() => new Data
         {
-            PlayerName = DefaultName(),
             Language = PlayerPrefs.GetString("language", ""),
             GraphicsQuality = PlayerPrefs.GetInt("graphics_quality", -1),
             ResolutionWidth = PlayerPrefs.GetInt("resolution_width", 0),
@@ -311,12 +383,25 @@ namespace TheWaningBorder.Core.Config
             MusicVolume = PlayerPrefs.GetFloat("music_volume", 50f),
         };
 
-        /// <summary>Machine name as the pre-filled suggestion — a real word the
-        /// player recognises, rather than an empty box or "Player 1".</summary>
-        private static string DefaultName()
+        private static bool IsMachineName(string name)
         {
-            try { return Sanitize(Environment.MachineName); }
-            catch { return "PLAYER"; }
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            if (string.Equals(name, ShippedName, StringComparison.OrdinalIgnoreCase)) return true;
+            try { return string.Equals(name, Sanitize(Environment.MachineName), StringComparison.OrdinalIgnoreCase); }
+            catch { return false; }
+        }
+
+        private static string BesideExe()
+            => System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", FileName));
+
+        private static string OldPathIfAny(string current)
+        {
+            try
+            {
+                string old = BesideExe();
+                return old != current && File.Exists(old) ? old : null;
+            }
+            catch { return null; }
         }
 
         public static void Save()
@@ -334,48 +419,26 @@ namespace TheWaningBorder.Core.Config
         }
 
         /// <summary>
-        /// Where the file lives. Same shape as <see cref="LogPaths"/>:
-        /// Application.dataPath is &lt;Game&gt;_Data in a player and
-        /// &lt;project&gt;/Assets in the editor, so one level up lands beside
-        /// the .exe and at the project root respectively. Falls back to
-        /// persistentDataPath when the install folder is read-only — losing
-        /// the convenient location beats losing the settings.
+        /// Where the file lives: the user's own folder, which an update never
+        /// touches. The Editor and batch-mode test runs keep a file beside the
+        /// project or the .exe, so a test never reads or writes a person's settings;
+        /// the release leaves that file out.
         /// </summary>
         private static string Resolve()
         {
             if (!string.IsNullOrEmpty(_path)) return _path;
-
-            string preferred = null;
             try
             {
-                preferred = System.IO.Path.GetFullPath(
-                    System.IO.Path.Combine(Application.dataPath, "..", FileName));
-                // Prove it is writable HERE rather than discovering it at the
-                // first Save, which would be after the player has changed
-                // something and expects it kept.
-                if (!File.Exists(preferred))
-                {
-                    File.WriteAllText(preferred, "{}");
-                    File.Delete(preferred);
-                }
-                _path = preferred;
+                string path = UserPaths.In(FileName) ?? BesideExe();
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                _path = path;
                 return _path;
             }
             catch
             {
-                try
-                {
-                    _path = System.IO.Path.Combine(Application.persistentDataPath, FileName);
-                }
-                catch
-                {
-                    // Even persistentDataPath can refuse this early. A bare
-                    // filename resolves against the working directory, which
-                    // is the install folder for a player — good enough to not
-                    // throw, and Resolve is retried until it caches a path.
-                    return FileName;
-                }
-                return _path;
+                // Reached too early for the engine to answer. A bare filename is
+                // good enough not to throw, and this is retried until a path caches.
+                return FileName;
             }
         }
     }

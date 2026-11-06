@@ -1339,6 +1339,86 @@ def score_leader(final):
     return best
 
 
+OBJECTIVE_LINE = re.compile(r"^\[([\d.]+)s\] LOG: \[(Shardroot|Shardbound|Sanctum|Monument|Clock)\] (.*)$")
+OBJECTIVE_RULES = (
+    ("hidden", re.compile(r"^hidden at \((-?\d+),(-?\d+)\)$")),
+    ("moved", re.compile(r"^moved to \((-?\d+),(-?\d+)\)")),
+    ("learned", re.compile(r"^(\w+) learned the spot \((-?\d+),(-?\d+)\)")),
+    ("taken", re.compile(r"^(\w+) now holds the artifact at \((-?\d+),(-?\d+)\)")),
+    ("released", re.compile(r"^(\w+) no longer holds the artifact")),
+    ("dropped", re.compile(r"^bearer \((\w+)\) died at \((-?\d+),(-?\d+)\)")),
+    ("kingDied", re.compile(r"^(\w+)'s king detonates at \((-?\d+),(-?\d+)\)")),
+    ("king", re.compile(r"^(\w+): the Hall hands the artifact to King Lexor")),
+    ("ascension", re.compile(r"^ASCENSION -- (\w+) enshrines the artifact: (\d+)s to victory")),
+    ("ascended", re.compile(r"^ASCENSION COMPLETE -- (\w+) wins")),
+    ("templeDown", re.compile(r"^enshrining Temple destroyed at \((-?\d+),(-?\d+)\)")),
+    ("dominion", re.compile(r"^DOMINION -- (\w+) .*?(\d+)s to victory")),
+    ("dominionWon", re.compile(r"^DOMINION COMPLETE -- (\w+) wins")),
+)
+
+
+def objectives_of(hd):
+    """The Shardroot's story and the timed victories, on match time, from the
+    console: what the map must say out loud. A console stamp counts from app start,
+    so match time is measured from the monuments being placed."""
+    out, t0, clock = [], None, []
+    for cn in console_names(hd):
+        try:
+            lines = open(os.path.join(hd, cn), encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        with lines:
+            for line in lines:
+                m = OBJECTIVE_LINE.match(line.strip())
+                if not m:
+                    continue
+                t, text = float(m.group(1)), m.group(3)
+                if m.group(2) == "Clock":
+                    g = re.match(r"^sim (\d+)", text)
+                    if g:
+                        clock.append((t, float(g.group(1))))
+                    continue
+                if m.group(2) == "Monument":
+                    if t0 is None and "monuments placed" in text:
+                        t0 = t
+                    continue
+                for kind, rule in OBJECTIVE_RULES:
+                    g = rule.match(text)
+                    if not g:
+                        continue
+                    if kind == "hidden" and any(e["k"] == "hidden" for e in out):
+                        break
+                    e = {"t": t, "k": kind}
+                    v = list(g.groups())
+                    if kind in ("hidden", "moved", "templeDown"):
+                        e["x"], e["z"] = int(v[0]), int(v[1])
+                    elif kind in ("learned", "taken", "dropped", "kingDied"):
+                        e["f"], e["x"], e["z"] = v[0], int(v[1]), int(v[2])
+                    elif kind in ("ascension", "dominion"):
+                        e["f"], e["secs"] = v[0], int(v[1])
+                    else:
+                        e["f"] = v[0]
+                    out.append(e)
+                    break
+        if out:
+            break
+    base = t0 or 0.0
+    for e in out:
+        e["t"] = max(0, int(sim_time(e["t"], clock) if clock else e["t"] - base))
+    return out
+
+
+def sim_time(t, clock):
+    """Console time to sim time, between the [Clock] lines (the console clock
+    drifts from the sim's in a busy batch)."""
+    if t <= clock[0][0]:
+        return clock[0][1] - (clock[0][0] - t)
+    for (a, sa), (b, sb) in zip(clock, clock[1:]):
+        if t <= b:
+            return sa + (sb - sa) * (t - a) / max(1e-6, b - a)
+    return clock[-1][1] + (t - clock[-1][0])
+
+
 def score_of(hd):
     """The per-faction score series and where it ended, from
     Metrics_Score.csv. None for a match recorded before the file existed.
@@ -1731,6 +1811,8 @@ def build(match):
         terr=(trace or {}).get("terr"),
         # The cursed ground over time (MapTrace KG/KS/KR); None before 2026-10-17.
         curseGround=(trace or {}).get("curse"),
+        # The Shardroot and the timed victories (see objectives_of).
+        objectives=objectives_of(hd),
         frames=frames, fidelity=fidelity,
         # Per-unit tracks (see "per-unit tracks"). `frames` stays empty: only
         # the page's live snapshots fill it.

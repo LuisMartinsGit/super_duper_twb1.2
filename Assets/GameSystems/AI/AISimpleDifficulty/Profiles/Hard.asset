@@ -14,24 +14,24 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   tier: 2
   thinkInterval: 0.5
-  intelFreshnessSeconds: 40
-  firstAttackEarliestSeconds: 720
-  levelUpsFromSeconds: 240
-  extractorGapSeconds: 20
+  intelFreshnessSeconds: 55
+  firstAttackEarliestSeconds: 780
+  levelUpsFromSeconds: 360
+  extractorGapSeconds: 40
   wasteBuildSeconds: 0
   wasteBuildMax: 0
-  researchMaxConcurrent: 4
-  researchGapSeconds: 15
+  researchMaxConcurrent: 3
+  researchGapSeconds: 30
   researchMaxLevel: 0
-  levelThreeFromSeconds: 600
-  levelUpGapSeconds: 45
-  levelUpMaxConcurrent: 2
-  maxSects: 4
-  sectPowerGapSeconds: 0
+  levelThreeFromSeconds: 900
+  levelUpGapSeconds: 80
+  levelUpMaxConcurrent: 1
+  maxSects: 3
+  sectPowerGapSeconds: 20
   attacksBlind: 0
   armyStraggles: 0
   fightsToDeath: 0
-  shardrootReactSeconds: 5
+  shardrootReactSeconds: 15
   extractorLimit: 0
   spareCapitals: 0
   holdBackAheadRatio: 0
@@ -42,23 +42,23 @@ MonoBehaviour:
   victoryMultiFocus: 1
   targetStyle: 2
   reinforceMode: 0
-  maxWaveUnits: 45
-  attackWaveIntervalSeconds: 240
+  maxWaveUnits: 38
+  attackWaveIntervalSeconds: 270
   waveBaseUnits: 12
   standingArmyFloorFraction: 0.08
   waveMinArmyFraction: 0.1
-  territoryCadenceScale: 1
-  fortressDelaySeconds: 45
-  reconquestMargin: 1.3
-  strengthWaveRatioScale: 1
+  territoryCadenceScale: 1.25
+  fortressDelaySeconds: 110
+  reconquestMargin: 1.45
+  strengthWaveRatioScale: 1.08
   personalityWeight: 0.6
-  sustainArmyCap: 140
+  sustainArmyCap: 120
   concurrentArmies: 2
   incomeTargeting: 1
-  supportThinkScale: 0.75
-  counterResponse: 1
-  basicsShareScale: 0.85
-  expansionDrive: 1.25
+  supportThinkScale: 0.85
+  counterResponse: 0.85
+  basicsShareScale: 0.92
+  expansionDrive: 1.1
   reserveForCapitalLevel: 1
   economyUpgradesPerThink: 1
   productionQueueDepth: 2
@@ -73,15 +73,15 @@ MonoBehaviour:
   capitalReserveRestSeconds: 60
   homeProductionPerLine: 2
   provinceProductionPerTerritory: 2
-  productionSaturationThreshold: 0.65
-  productionSaturationSeconds: 45
+  productionSaturationThreshold: 0.72
+  productionSaturationSeconds: 52
   economyDefenceDelaySeconds: 3
   economyDefenceMargin: 1.75
   tactics:
-    counterTargetWeight: 0.85
-    focusFireWeight: 0.85
+    counterTargetWeight: 0.7
+    focusFireWeight: 0.72
     kiting: 1
-    flankFraction: 0.2
+    flankFraction: 0.1
     retreatRatio: 1.5
     reengageRatio: 0.9
     rangedBehindMelee: 1

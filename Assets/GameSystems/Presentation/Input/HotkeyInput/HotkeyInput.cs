@@ -1,6 +1,7 @@
 // HotkeyInput.cs
 // The keyboard: mode keys, stop, stances, idle-worker cycle, formation cycle,
-// planning mode, control groups. Every binding comes from HotkeyInput.asset.
+// planning mode, control groups. The defaults are HotkeyInput.asset, and a player may
+// rebind most of them (KeyBindings).
 // Part of: Input/ — split out of RTSInputManager.
 
 using System.Collections.Generic;
@@ -52,19 +53,19 @@ namespace TheWaningBorder.Input
             if (cfg == null) return;   // the error is already logged by Require
 
             // Arms attack-move
-            if (UnityEngine.Input.GetKeyDown(cfg.attackMove))
+            if (KeyBindings.Down(KeyAction.AttackMove))
                 _modes.ArmAttackMove();
 
             // Arms patrol
-            if (UnityEngine.Input.GetKeyDown(cfg.patrol))
+            if (KeyBindings.Down(KeyAction.Patrol))
                 _modes.ArmPatrol();
 
             // Cycle formation shape (Box -> Line -> Wedge -> Staggered)
-            if (UnityEngine.Input.GetKeyDown(cfg.cycleFormation))
+            if (KeyBindings.Down(KeyAction.CycleFormation))
                 _formation.Cycle();
 
             // Stop all selected units
-            if (UnityEngine.Input.GetKeyDown(cfg.stop))
+            if (KeyBindings.Down(KeyAction.Stop))
             {
                 _modes.Disarm();
                 _orders.IssueStopToSelection();
@@ -73,29 +74,29 @@ namespace TheWaningBorder.Input
             // Stances (docs/Design/Stances.md §6). Hold also stops the unit,
             // so it disarms any aiming mode like Stop does; the other two are
             // modes and leave the current order alone.
-            if (UnityEngine.Input.GetKeyDown(cfg.holdPosition))
+            if (KeyBindings.Down(KeyAction.HoldPosition))
             {
                 _modes.Disarm();
                 _orders.IssueHoldPositionToSelection();
             }
-            if (UnityEngine.Input.GetKeyDown(cfg.aggressiveStance))
+            if (KeyBindings.Down(KeyAction.AggressiveStance))
                 _orders.IssueStanceToSelection(UnitStanceMode.Aggressive);
-            if (UnityEngine.Input.GetKeyDown(cfg.defensiveStance))
+            if (KeyBindings.Down(KeyAction.DefensiveStance))
                 _orders.IssueStanceToSelection(UnitStanceMode.Defensive);
 
             // Cycle through idle workers (workers with no BuildOrder/RepairOrder)
-            if (UnityEngine.Input.GetKeyDown(cfg.cycleIdleWorkers))
+            if (KeyBindings.Down(KeyAction.CycleIdleWorkers))
                 CycleIdleWorkers();
 
             // Toggle planning mode (BFME2); the execute key also fires it
-            if (UnityEngine.Input.GetKeyDown(cfg.planningMode))
+            if (KeyBindings.Down(KeyAction.PlanningMode))
             {
                 if (PlanningModeOverlay.IsActive)
                     PlanningModeOverlay.ExecuteAll(_em);
                 else
                     PlanningModeOverlay.Toggle();
             }
-            if (PlanningModeOverlay.IsActive && UnityEngine.Input.GetKeyDown(cfg.planningExecute))
+            if (PlanningModeOverlay.IsActive && KeyBindings.Down(KeyAction.PlanningExecute))
                 PlanningModeOverlay.ExecuteAll(_em);
 
             HandleControlGroups(cfg);

@@ -51,16 +51,16 @@ namespace TheWaningBorder.Core.Replay
 
         static readonly Dictionary<string, string> _resolved = new Dictionary<string, string>();
 
-        // Same policy as LogPaths: next to the exe if writable, else the
-        // persistent data path (an install under Program Files is read-only).
+        // Same policy as LogPaths: the player's own folder (UserPaths), next to
+        // the exe for test runs, else the persistent data path.
         static string Resolve(string folder)
         {
             if (_resolved.TryGetValue(folder, out var hit)) return hit;
             string chosen = null;
             try
             {
-                string preferred = System.IO.Path.GetFullPath(
-                    System.IO.Path.Combine(Application.dataPath, "..", folder));
+                string preferred = TheWaningBorder.Core.Config.UserPaths.In(folder)
+                    ?? System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", folder));
                 Directory.CreateDirectory(preferred);
                 chosen = preferred;
             }

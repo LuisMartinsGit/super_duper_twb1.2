@@ -17,7 +17,7 @@ MonoBehaviour:
   intelFreshnessSeconds: 150
   firstAttackEarliestSeconds: 600
   levelUpsFromSeconds: 900
-  extractorGapSeconds: 120
+  extractorGapSeconds: 70
   wasteBuildSeconds: 150
   wasteBuildMax: 12
   researchMaxConcurrent: 1

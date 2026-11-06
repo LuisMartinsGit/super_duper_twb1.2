@@ -29,7 +29,15 @@ namespace TheWaningBorder.UI.Menus.Panels
     {
         private static readonly string[] StrategyNames = LobbyOptions.StrategyNames;
         private static readonly string[] DifficultyNames =
-            { "EASY", "STANDARD", "HARD", "EXPERT" };
+            { "EASY", "STANDARD", "HARD", "EXPERT", "BEGINNER" };   // by LobbyAIDifficulty
+        /// <summary>The dropdown's order, gentlest first. Beginner is the enum's last value
+        /// so the other values keep indexing per-tier tables, hence the two helpers.</summary>
+        private static readonly string[] DifficultyOptions =
+            { "BEGINNER", "EASY", "STANDARD", "HARD", "EXPERT" };
+        private static int OptionOf(LobbyAIDifficulty level)
+            => level == LobbyAIDifficulty.Beginner ? 0 : (int)level + 1;
+        private static LobbyAIDifficulty LevelOf(int option)
+            => option == 0 ? LobbyAIDifficulty.Beginner : (LobbyAIDifficulty)(option - 1);
         // The STARTING AGE dropdown was replaced by START WITH CULTURE
         // (StartCultureOption, 2026-10-14): AgeDropdown stays wired in the
         // scene only as the cell the toggle is built into.
@@ -835,15 +843,15 @@ namespace TheWaningBorder.UI.Menus.Panels
                 diff.gameObject.SetActive(occupied && aiRow);
                 if (occupied && aiRow)
                 {
-                    SetOptions(diff, DifficultyNames);
-                    diff.SetValueWithoutNotify((int)slot.AIDifficulty);
+                    SetOptions(diff, DifficultyOptions);
+                    diff.SetValueWithoutNotify(OptionOf(slot.AIDifficulty));
                     diff.onValueChanged.AddListener(v =>
                     {
-                        LobbyConfig.Slots[idx].AIDifficulty = (LobbyAIDifficulty)v;
+                        LobbyConfig.Slots[idx].AIDifficulty = LevelOf(v);
                         // The name column carries the difficulty, so keep it
                         // in step rather than letting the two disagree.
                         if (name != null)
-                            name.text = string.Format(Loc.T("AI ({0})"), Loc.T(DifficultyNames[v]));
+                            name.text = string.Format(Loc.T("AI ({0})"), Loc.T(DifficultyOptions[v]));
                     });
                 }
             }

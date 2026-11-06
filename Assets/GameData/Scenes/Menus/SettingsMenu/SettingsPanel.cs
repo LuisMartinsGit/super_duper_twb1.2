@@ -144,6 +144,7 @@ namespace TheWaningBorder.UI.Menus.Panels
 
         void Awake()
         {
+            gameObject.AddComponent<KeyBindingsTab>();
             _playerName       = Find<TMP_InputField>("PlayerNameInput");
             _quality          = Find<TMP_Dropdown>("QualityDropdown");
             _resolution       = Find<TMP_Dropdown>("ResolutionDropdown");

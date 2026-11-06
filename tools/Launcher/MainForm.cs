@@ -144,6 +144,17 @@ internal sealed class MainForm : Form
             // it then does nothing — the one silent case left otherwise.
             Log($"Launcher started from {AppPaths.ExePath}");
             foreach (var note in notes) Log(note);
+
+            // Run from the install folder, so nothing holds the old one open and the
+            // old launcher can be cleared with the rest.
+            if (InstallLocation.HandOverToInstalledLauncher())
+            {
+                Log($"Handed over to {AppPaths.LauncherExe}");
+                Close();
+                return;
+            }
+
+            InstallLocation.CopyUserFilesOut(_settings, Log);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -202,6 +213,7 @@ internal sealed class MainForm : Form
         if (manifest.Version == AppPaths.ReadInstalledVersion() && AppPaths.FindGameExe() is not null)
         {
             SetStatus($"Up to date - version {manifest.Version}.", Theme.Text);
+            await ClearOldInstallsAsync(manifest).ConfigureAwait(true);
             Launch();
             return;
         }
@@ -232,7 +244,61 @@ internal sealed class MainForm : Form
         }
 
         SetStatus($"Updated to version {manifest.Version}.", Theme.Text);
+        await ClearOldInstallsAsync(manifest).ConfigureAwait(true);
         Launch();
+    }
+
+    /// <summary>
+    /// Once the install in the right folder works, clears old ones of the files the game
+    /// shipped, and only those (ShippedFileCleanup). Never stops anyone playing.
+    /// </summary>
+    private async Task ClearOldInstallsAsync(Manifest manifest)
+    {
+        if (_settings.LegacyRoots.Count == 0) return;
+        if (AppPaths.FindGameExe() is null || manifest.Version != AppPaths.ReadInstalledVersion()) return;
+
+        // Still running from the fallback old folder: nothing to clear yet.
+        if (!string.Equals(AppPaths.Root, AppPaths.DefaultRoot, StringComparison.OrdinalIgnoreCase)) return;
+
+        // The current release's own files must be known too: the old launcher may
+        // have installed it into the old folder before this one took over.
+        if (manifest.Files is not { Count: > 0 }) return;
+
+        SetDetail("Clearing the old install...");
+        try
+        {
+            await Task.Run(() =>
+            {
+                var cleanup = new ShippedFileCleanup();
+                if (!cleanup.AddEmbeddedRecord())
+                {
+                    Log("Old install left alone: this launcher has no record of what was shipped.");
+                    return;
+                }
+                foreach (var f in manifest.Files) cleanup.Add(f.Path, f.Size, f.Sha256);
+
+                foreach (var root in _settings.LegacyRoots.ToArray())
+                {
+                    if (!ShippedFileCleanup.IsSafeRoot(root, AppPaths.Root))
+                    {
+                        Log($"Old install at {root} left alone: not a folder this launcher may clear.");
+                        _settings.LegacyRoots.Remove(root);
+                        continue;
+                    }
+
+                    var (deleted, failed) = cleanup.Clean(root, AppPaths.ExePath);
+                    Log($"Cleared {deleted} shipped file(s) from {root}; {failed} could not be deleted. " +
+                        "Anything else there was left as it was.");
+                    if (failed == 0) _settings.LegacyRoots.Remove(root);
+                }
+                _settings.Save();
+            }).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"Old install left for next time ({ex.Message}).");
+        }
+        SetDetail("");
     }
 
     /// <summary>

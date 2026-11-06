@@ -365,10 +365,10 @@ namespace TheWaningBorder.CameraRig
                 return;
 
             Vector3 dir = Vector3.zero;
-            if (UnityEngine.Input.GetKey(KeyCode.LeftArrow))  dir.x -= 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.RightArrow)) dir.x += 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.DownArrow))  dir.z -= 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.UpArrow))    dir.z += 1f;
+            if (TheWaningBorder.Input.KeyBindings.Held(TheWaningBorder.Input.KeyAction.PanLeft))  dir.x -= 1f;
+            if (TheWaningBorder.Input.KeyBindings.Held(TheWaningBorder.Input.KeyAction.PanRight)) dir.x += 1f;
+            if (TheWaningBorder.Input.KeyBindings.Held(TheWaningBorder.Input.KeyAction.PanDown))  dir.z -= 1f;
+            if (TheWaningBorder.Input.KeyBindings.Held(TheWaningBorder.Input.KeyAction.PanUp))    dir.z += 1f;
             if (dir.sqrMagnitude <= 0.01f) return;
 
             Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;

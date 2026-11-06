@@ -100,7 +100,8 @@ namespace TheWaningBorder.AI
             }
             ClearShardrootSaving(faction);
 
-            bool wanted = (where == AIShardroot.Where.Ground || where == AIShardroot.Where.Hostile)
+            bool wanted = !GameSettings.IsPassiveAI(faction)
+                && (where == AIShardroot.Where.Ground || where == AIShardroot.Where.Hostile)
                 && now >= cfg.earliestSeconds
                 && (AICommon.IsKnownGround(faction, pos) || ShardrootPickup.RevealedTo(em, holder, faction));
             if (!wanted)

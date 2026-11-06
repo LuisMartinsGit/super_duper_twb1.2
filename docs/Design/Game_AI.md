@@ -40,6 +40,13 @@ test for the ladder: a passive stand-in for a new
 player survives long against Easy and less long at each tier above, and each tier beats
 the one below head to head.
 
+**Beginner (2026-11-06).** A fifth skirmish tier below Easy: the Easy profile, but it never
+attacks. It builds, defends and claims ground, sends no waves or raids, and does not go for
+Sanctums, monuments or the Shardroot. It is a sparring partner for someone learning the game,
+and the same behaviour the ladder's passive stand-in has always had. It is a lobby choice
+(`LobbyAIDifficulty.Beginner`), not a fifth profile asset, and it is offered in the skirmish
+lobby only; `GameSettings.IsPassiveAI` is the one test.
+
 ### 2a. Pacing: a tier is how well it plays, not how long it waits (2026-11-05)
 
 Developer: an Easy AI should be one that barely plays the game correctly and suffers

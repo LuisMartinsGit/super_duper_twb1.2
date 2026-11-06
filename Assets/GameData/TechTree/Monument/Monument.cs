@@ -271,35 +271,7 @@ namespace TheWaningBorder.Entities
             var state = em.GetComponentData<ShardrootState>(ents[0]);
             if (state.Found != 0) return;
 
-            using var halls = QC_Halls.Get(em, QT_Halls).ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var hallFacs = QC_Halls.Get(em, QT_Halls).ToComponentDataArray<FactionTag>(Allocator.Temp);
-            if (halls.Length == 0) return;
-            int first = 0;
-            for (int i = 1; i < halls.Length; i++)
-                if (hallFacs[i].Value < hallFacs[first].Value) first = i;
-            var from = halls[first].Position;
-            if (!TheWaningBorder.Systems.Navigation.NavGridQuery.TryFloodWalkable(from.x, from.z, out var reach, out var origin,
-                    out float cell, out int width, out int height)) return;
-
-            uint seed = (uint)GameSettings.SpawnSeed * 2654435761u + 977u;
-            seed ^= seed >> 13; seed *= 0x5bd1e995u; seed ^= seed >> 15;
-            var rng = new Unity.Mathematics.Random(seed | 1u);
-            float clear2 = Cfg.shardrootStartClearance * Cfg.shardrootStartClearance;
-            float3 at = from;
-            bool any = false;
-            for (int t = 0; t < ShardrootPlacementTries; t++)
-            {
-                int cx = rng.NextInt(0, width), cz = rng.NextInt(0, height);
-                if (!reach[cz * width + cx]) continue;
-                float x = origin.x + (cx + 0.5f) * cell, z = origin.y + (cz + 0.5f) * cell;
-                bool clear = true;
-                for (int i = 0; i < halls.Length && clear; i++)
-                    clear = math.distancesq(halls[i].Position.xz, new float2(x, z)) >= clear2;
-                if (!clear && any) continue;
-                at = new float3(x, TerrainUtility.GetHeight(x, z), z);
-                any = true;
-                if (clear) break;
-            }
+            if (!TryPickHiddenSpot(em, 0, out float3 at)) return;
 
             state.Found = 1;
             em.SetComponentData(ents[0], state);
@@ -309,6 +281,101 @@ namespace TheWaningBorder.Entities
             TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, pickup);
             UnityEngine.Debug.Log($"[Shardroot] hidden at ({at.x:F0},{at.z:F0})");
         }
+
+        /// <summary>A random spot reachable on foot from the first capital, clear of every
+        /// capital and of every unit; the match seed and the move count pick it, so every
+        /// peer draws the same one. False until the nav field and capitals exist.</summary>
+        private static bool TryPickHiddenSpot(EntityManager em, int moves, out float3 at)
+        {
+            at = default;
+            using var halls = QC_Halls.Get(em, QT_Halls).ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var hallFacs = QC_Halls.Get(em, QT_Halls).ToComponentDataArray<FactionTag>(Allocator.Temp);
+            if (halls.Length == 0) return false;
+            int first = 0;
+            for (int i = 1; i < halls.Length; i++)
+                if (hallFacs[i].Value < hallFacs[first].Value) first = i;
+            var from = halls[first].Position;
+            if (!TheWaningBorder.Systems.Navigation.NavGridQuery.TryFloodWalkable(from.x, from.z, out var reach,
+                    out var origin, out float cell, out int width, out int height)) return false;
+            using var units = QC_PassUnits.Get(em, QT_PassUnits).ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            uint seed = (uint)GameSettings.SpawnSeed * 2654435761u + 977u + (uint)moves * 40503u;
+            seed ^= seed >> 13; seed *= 0x5bd1e995u; seed ^= seed >> 15;
+            var rng = new Unity.Mathematics.Random(seed | 1u);
+            float hall2 = Cfg.shardrootStartClearance * Cfg.shardrootStartClearance;
+            float pass2 = Cfg.shardrootPassRadius * Cfg.shardrootPassRadius;
+            at = from;
+            bool any = false;
+            for (int t = 0; t < ShardrootPlacementTries; t++)
+            {
+                int cx = rng.NextInt(0, width), cz = rng.NextInt(0, height);
+                if (!reach[cz * width + cx]) continue;
+                float x = origin.x + (cx + 0.5f) * cell, z = origin.y + (cz + 0.5f) * cell;
+                var p = new float2(x, z);
+                bool clear = true;
+                for (int i = 0; i < halls.Length && clear; i++)
+                    clear = math.distancesq(halls[i].Position.xz, p) >= hall2;
+                for (int i = 0; i < units.Length && clear; i++)
+                    clear = math.distancesq(units[i].Position.xz, p) >= pass2;
+                if (!clear && any) continue;
+                at = new float3(x, TerrainUtility.GetHeight(x, z), z);
+                any = true;
+                if (clear) break;
+            }
+            return any;
+        }
+
+        /// <summary>A unit that passes without taking the hidden artifact sends it
+        /// elsewhere (Monuments_And_Petriarchy.md §3): a side that was inside the circle
+        /// at the last check and has nobody in it now has passed. Runs once a second.</summary>
+        public static void TickHiddenShardroot(EntityManager em)
+        {
+            var q = QC_HiddenRoot.Get(em, QT_HiddenRoot);
+            if (q.IsEmptyIgnoreFilter) return;
+            using var roots = q.ToEntityArray(Allocator.Temp);
+            var root = roots[0];
+            var pos = em.GetComponentData<LocalTransform>(root);
+            var h = em.GetComponentData<ShardrootHidden>(root);
+
+            var uq = QC_PassUnits.Get(em, QT_PassUnits);
+            using var xfs = uq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var facs = uq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var hps = uq.ToComponentDataArray<Health>(Allocator.Temp);
+            float r2 = Cfg.shardrootPassRadius * Cfg.shardrootPassRadius;
+            uint now = 0;
+            for (int i = 0; i < xfs.Length; i++)
+            {
+                if (hps[i].Value <= 0) continue;
+                int side = (int)facs[i].Value;
+                if (side < 0 || side >= 32) continue;
+                if (math.distancesq(xfs[i].Position.xz, pos.Position.xz) <= r2) now |= 1u << side;
+            }
+            uint passed = h.Near & ~now;
+            h.Near = now;
+            if (passed != 0 && TryPickHiddenSpot(em, h.Moves + 1, out float3 at))
+            {
+                h.Moves++;
+                h.Near = 0;
+                pos.Position = at;
+                em.SetComponentData(root, pos);
+                UnityEngine.Debug.Log($"[Shardroot] moved to ({at.x:F0},{at.z:F0})");
+                if ((h.RevealedTo & (1u << (int)GameSettings.LocalPlayerFaction)) != 0)
+                {
+                    SimSignals.Notify(Loc.T("Someone passed the SHARDROOT and it moved."));
+                    SimSignals.Ping(at, SimPingKind.Discovery, 20f, big: true);
+                }
+            }
+            em.SetComponentData(root, h);
+        }
+
+        private static readonly ComponentType[] QT_PassUnits =
+        {
+            ComponentType.ReadOnly<UnitTag>(),
+            ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
+        };
+        private static CachedEntityQuery QC_PassUnits;
 
         private static readonly ComponentType[] QT_HiddenRoot =
         {
