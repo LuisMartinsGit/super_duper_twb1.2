@@ -121,6 +121,7 @@ namespace TheWaningBorder.Abilities
         CleanseFalloff = 47,       // width (m) of the falloff band outside the cleared circle
         CleanseMaxRadius = 48,     // the cleared circle stops growing at this radius (m)
         CleanseHeal = 49,          // (unused since 2026-10-22: the ward does not heal)
+        CleansePulse = 50,         // one burst: the aimed Radius circle is cleared and a CleanseFalloff band thinned; no ward is left (2026-11-06)
     }
 
     /// <summary>

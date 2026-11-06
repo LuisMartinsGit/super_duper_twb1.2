@@ -164,8 +164,32 @@ public static class CultureConfig
         using var tags = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
         using var prog = q.ToComponentDataArray<FactionProgress>(Unity.Collections.Allocator.Temp);
         for (int i = 0; i < tags.Length; i++)
-            if (tags[i].Value == faction) return prog[i].Culture;
-        return Cultures.None;
+            if (tags[i].Value == faction && prog[i].Culture != Cultures.None) return prog[i].Culture;
+        return RecordedCulture(em, faction);
+    }
+
+    /// <summary>
+    /// A CULTURE IS FOR LIFE (2026-11-06, docs/Design/Overview.md § Culture is
+    /// permanent): the moment a faction ages up, its culture is written on its
+    /// BANK, which no attack can destroy. The capital's FactionProgress is only
+    /// a copy. It used to be the one record, so losing the last Fortress
+    /// silently returned a faction to Age 0. Every age-up path writes here.
+    /// </summary>
+    public static void RecordCulture(Unity.Entities.EntityManager em, Faction faction, byte culture)
+    {
+        if (culture == Cultures.None) return;
+        if (!TheWaningBorder.Economy.FactionEconomy.TryGetBank(em, faction, out var bank)) return;
+        var record = new FactionCultureRecord { Culture = culture };
+        if (em.HasComponent<FactionCultureRecord>(bank)) em.SetComponentData(bank, record);
+        else em.AddComponentData(bank, record);
+    }
+
+    /// <summary>The culture on the faction's bank, standing capital or not.</summary>
+    private static byte RecordedCulture(Unity.Entities.EntityManager em, Faction faction)
+    {
+        if (!TheWaningBorder.Economy.FactionEconomy.TryGetBank(em, faction, out var bank)) return Cultures.None;
+        return em.HasComponent<FactionCultureRecord>(bank)
+            ? em.GetComponentData<FactionCultureRecord>(bank).Culture : Cultures.None;
     }
 
     /// <summary>
@@ -196,6 +220,9 @@ public static class CultureConfig
             seen |= 1UL << f;
             byFaction[f] = prog[i].Culture;
         }
+        // A faction whose capitals are all gone keeps its culture.
+        for (int f = 0; f < byFaction.Length && f < 8; f++)
+            if (byFaction[f] == Cultures.None) byFaction[f] = RecordedCulture(em, (Faction)f);
     }
 
     /// <summary>

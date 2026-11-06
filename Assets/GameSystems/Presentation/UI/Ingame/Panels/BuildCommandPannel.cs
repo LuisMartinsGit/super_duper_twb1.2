@@ -627,7 +627,7 @@ namespace TheWaningBorder.UI.Ingame
                 Vector2 start = anchor != Entity.Null
                     ? new Vector2(_em.GetComponentData<Unity.Transforms.LocalTransform>(anchor).Position.x,
                                   _em.GetComponentData<Unity.Transforms.LocalTransform>(anchor).Position.z)
-                    : new Vector2(down.x, down.z);
+                    : ClosestLegalWallSpot(new Vector2(down.x, down.z), fac);
                 _drawStartPos = start;
                 tool.Begin(start);
                 if (_placingInstance != null) _placingInstance.SetActive(false);
@@ -637,7 +637,16 @@ namespace TheWaningBorder.UI.Ingame
             if (!tool.Drawing) return;
 
             if (UnityEngine.Input.GetMouseButton(0) && TryGetMouseWorld(out Vector3 cur))
+            {
                 tool.Extend(new Vector2(cur.x, cur.z));
+                // Dragged onto ground no hub can stand on: the wall ends at the
+                // closest legal point on the stroke, and its hub seals the rest
+                // (Build_Grid.md § The terrain seal). Not when the cursor is
+                // joining a standing hub or cell, whose own ground reads taken.
+                if (FindNearestHubForSnap((float3)cur, fac, Entity.Null) == Entity.Null
+                    && FindNearestCellForSnap((float3)cur, fac) == Entity.Null)
+                    tool.TrimEndTo(xz => WallSpotLegal(fac, xz));
+            }
 
             bool startsOnHub = _drawStartHub != Entity.Null;
             var startKind = startsOnHub ? CommandRouter.WallPathKind.ExistingHub
@@ -821,17 +830,55 @@ namespace TheWaningBorder.UI.Ingame
             CancelPlacementPreviewOnly();
         }
 
+        /// <summary>How far a press on illegal ground looks for a spot to start
+        /// the wall, metres.</summary>
+        private const float WallStartSearchRadius = 12f;
+
+        /// <summary>Could a hub of the kind being drawn stand here, as far as
+        /// the terrain and the owner's ground go? What stands on the spot is
+        /// the path checks' business, not this one's.</summary>
+        private bool WallSpotLegal(Faction fac, Vector2 xz)
+        {
+            var p = new float3(xz.x, 0f, xz.y);
+            return BuildCommandHelper.TerrainSiteOk(p, BuildCommandHelper.GetBuildingSize(WallHubId))
+                && MeetsTerritoryRequirement(fac, p, WallHubId);
+        }
+
+        /// <summary>The legal hub spot nearest the press, or the press itself
+        /// (which then previews red) when there is none in reach.</summary>
+        private Vector2 ClosestLegalWallSpot(Vector2 press, Faction fac)
+        {
+            if (WallSpotLegal(fac, press)) return press;
+            const int Samples = 24;
+            for (float r = 1f; r <= WallStartSearchRadius; r += 1f)
+                for (int k = 0; k < Samples; k++)
+                {
+                    float a = k / (float)Samples * 2f * Mathf.PI;
+                    var p = press + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+                    if (WallSpotLegal(fac, p)) return p;
+                }
+            return press;
+        }
+
         private void UpdatePreviewColor(bool valid)
         {
             if (_placingInstance == null) return;
             if (_previewModeValid == valid) return; // materials already hold this state
             _previewModeValid = valid;
+            PaintGhost(_placingInstance, valid);
+        }
 
-            // Placeable: solid opaque white. Blocked: translucent red. The ghost wears
-            // its own two materials: tinting the art's own was at the mercy of which
-            // colour property each shader happens to expose, and red did not always show.
+        /// <summary>
+        /// Placeable: solid opaque white. Blocked: translucent red. The ghost wears
+        /// its own two materials: tinting the art's own was at the mercy of which
+        /// colour property each shader happens to expose, and red did not always show.
+        /// Shared with every other placement ghost (GroundPlacement).
+        /// </summary>
+        public static void PaintGhost(GameObject ghost, bool valid)
+        {
+            if (ghost == null) return;
             var preview = valid ? PreviewValidMaterial() : PreviewBlockedMaterial();
-            foreach (var renderer in _placingInstance.GetComponentsInChildren<Renderer>())
+            foreach (var renderer in ghost.GetComponentsInChildren<Renderer>())
             {
                 if (renderer is ParticleSystemRenderer) continue;
                 var slots = new Material[renderer.sharedMaterials.Length];

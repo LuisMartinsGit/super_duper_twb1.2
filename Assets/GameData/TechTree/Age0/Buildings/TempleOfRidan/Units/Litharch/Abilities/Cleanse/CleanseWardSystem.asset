@@ -17,6 +17,7 @@ MonoBehaviour:
   minSpacingMetres: 15
   maxHealth: 500
   bodyRadius: 1
+  footprintCells: 1
   sight: 10
   defenseMelee: 2
   defenseRanged: 3

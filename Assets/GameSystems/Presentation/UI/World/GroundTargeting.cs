@@ -62,6 +62,7 @@ namespace TheWaningBorder.UI.World
         public static void Begin(float radius, Color color, Action<float3> onConfirm, Refusal refusal)
         {
             EntityTargeting.Cancel();
+            GroundPlacement.Cancel();
             EnsureInstance();
             _instance._onConfirm = onConfirm;
             _instance._refusal = refusal;
@@ -164,7 +165,7 @@ namespace TheWaningBorder.UI.World
             _armedThisFrame = false;
         }
 
-        private static bool TryGetMouseGround(out float3 point)
+        internal static bool TryGetMouseGround(out float3 point)
         {
             point = default;
             var cam = TheWaningBorder.Core.PresentationState.GameplayCamera;

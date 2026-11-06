@@ -165,7 +165,9 @@ namespace TheWaningBorder.Systems.Buildings
                 culture = em.GetComponentData<FactionProgress>(ents[i]).Culture;
                 return true;
             }
-            return false;
+            // No capital standing: the culture is still the faction's.
+            culture = CultureConfig.GetCompletedCulture(em, faction);
+            return culture != Cultures.None;
         }
     }
 }

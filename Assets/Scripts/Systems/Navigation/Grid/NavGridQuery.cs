@@ -384,6 +384,20 @@ namespace TheWaningBorder.Systems.Navigation
             return (_cachedCost.Flags[i] & (NavCostField.FlagBuildingFootprint | WallCellFlags)) != 0;
         }
 
+        /// <summary>
+        /// <see cref="WallBlockedAt"/> without the terrain half: only a
+        /// building, obstacle or wall standing on the cell. Off the grid
+        /// nothing stands.
+        /// </summary>
+        public static bool WallOccupiedAt(float3 world)
+        {
+            if (!EnsureCache() || !_cachedCost.Flags.IsCreated) return false;
+            int2 c = WorldToCellInt2(world);
+            if (c.x < 0 || c.y < 0 || c.x >= _cachedGrid.Width || c.y >= _cachedGrid.Height) return false;
+            int i = c.y * _cachedCost.Width + c.x;
+            return (_cachedCost.Flags[i] & (NavCostField.FlagBuildingFootprint | WallCellFlags)) != 0;
+        }
+
         /// <summary>World centre of a cell from the cached grid — the cheap
         /// form of <see cref="GetCellWorldCenter"/> for per-step callers.</summary>
         public static float3 CellCenter(int2 cell)

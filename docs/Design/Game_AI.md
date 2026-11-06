@@ -2932,6 +2932,11 @@ it on the support cadence (`AISupport.thinkInterval`,
   channels. While it is on that errand (`cleanseErrandSeconds`) or
   channelling, the army-follow step (§ 6m) leaves it alone, because a move
   order would end the channel.
+- **Ward or pulse (2026-11-06):** a ward goes on the nearest grid site within
+  reach that the engine will accept and whose circle still covers the cell
+  (`TryWardSite`). Where there is none, or the team's cap or spacing refuses a
+  ward, or Cleanse is on cooldown, the Litharch casts **Cleanse Pulse** if that
+  is ready.
 - **Aim into the patch (2026-10-19):** the cast clears its whole starting
   circle at once (§6.9.7), so the AI does not centre it on the nearest cursed
   cell (half the circle would land on clean ground): it aims

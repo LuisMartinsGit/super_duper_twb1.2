@@ -255,6 +255,8 @@ namespace TheWaningBorder.UI.Ingame
             AbilityEffectKind.FireRatePct      => Signed(e.Value) + Loc.T("% fire rate"),
             AbilityEffectKind.SummonPledgeArmy => Loc.T("calls in a temporary army that grows with the hero's level"),
             AbilityEffectKind.ShardboundFury   => Loc.T("hurls every enemy in the radius into the air; enemy buildings take heavy damage"),
+            AbilityEffectKind.CleanseGround    => Loc.T("places a Cleansing Ward that clears cursed ground in a growing circle until it is destroyed"),
+            AbilityEffectKind.CleansePulse     => Loc.T("one strong pulse clears the cursed ground in the circle; leaves no building behind"),
             _ => null,
         };
 
@@ -325,6 +327,48 @@ namespace TheWaningBorder.UI.Ingame
                         if (!em.Exists(caster)) return;
                         TheWaningBorder.Core.Commands.CommandRouter.IssueUnitAbilitySlot(
                             em, caster, slot, target, null);
+                    });
+                return;
+            }
+
+            // CLEANSE places a building, from a distance: the ghost, the grid
+            // and the same test the simulation will run on the snapped site
+            // (Territory_Claims.md §6.9.7, 2026-11-06).
+            if (card != null && card.HasEffect(AbilityEffectKind.CleanseGround))
+            {
+                Entity caster = _primary;
+                var c = card;
+                TheWaningBorder.UI.World.GroundPlacement.Begin(
+                    TheWaningBorder.Rendering.CleanseWardVisual.Build(),
+                    TheWaningBorder.Entities.CleanseWard.FootprintMetres,
+                    card.Radius, AimRingColor, card.Range,
+                    () =>
+                    {
+                        var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                        if (world == null || !world.IsCreated) return null;
+                        var em = world.EntityManager;
+                        if (!em.Exists(caster) || !em.HasComponent<Unity.Transforms.LocalTransform>(caster)) return null;
+                        return em.GetComponentData<Unity.Transforms.LocalTransform>(caster).Position;
+                    },
+                    (Unity.Mathematics.float3 cursor, out Unity.Mathematics.float3 site) =>
+                    {
+                        site = TheWaningBorder.Entities.CleanseWard.SiteFor(cursor);
+                        var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                        if (world == null || !world.IsCreated) return null;
+                        var em = world.EntityManager;
+                        if (!em.Exists(caster)) return Loc.T("The caster is gone");
+                        if (!AbilityTargetRules.AimInSight(em, c, caster, site))
+                            return Loc.T(CastTargetRules.Describe(CastTargetRefusal.NotInSight, CastTargetKind.None));
+                        return TheWaningBorder.Entities.CleanseWard.SiteRefusal(em, caster, c, site);
+                    },
+                    site =>
+                    {
+                        var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                        if (world == null || !world.IsCreated) return;
+                        var em = world.EntityManager;
+                        if (!em.Exists(caster)) return;
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueUnitAbilitySlot(
+                            em, caster, slot, default, site);
                     });
                 return;
             }

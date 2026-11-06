@@ -323,9 +323,12 @@ namespace TheWaningBorder.UI.Ingame
             // special selections (temple upgrade lever, vault, wall
             // conversions, hut age-up, bazaar wagon, hub wall).
             bool authored = ActionsPanelPrefabBinder.Active;
+            // The Temple's whole panel is on the authored grid too: leaving it
+            // out here raised a second, empty "Temple of Ridan" panel beside it.
             if (authored && (hasLayout
                 || info.Type == ActionType.UnitTraining
-                || info.Type == ActionType.UnitTrainingAndResearch)) { Hide(); return; }
+                || info.Type == ActionType.UnitTrainingAndResearch
+                || info.Type == ActionType.TempleTraining)) { Hide(); return; }
 
             BeginContent();
 
@@ -361,7 +364,12 @@ namespace TheWaningBorder.UI.Ingame
                         break;
 
                     case ActionType.WallInstanceUpgrade:
-                        _title.text = Loc.T("Upgrade Wall");
+                        // This action type also carries gates and anything with
+                        // men inside it, so the title says what is selected.
+                        _title.text = Loc.T(em.HasComponent<WallGateTag>(_entity) ? "Gate"
+                            : em.HasBuffer<WallGarrisonSlot>(_entity)
+                              && TheWaningBorder.Entities.WallGarrison.OccupantCount(em, _entity) > 0 ? "Garrison"
+                            : "Upgrade Wall");
                         RenderClassicActions(em, info.Actions, treatAsTraining: false);
                         break;
 
@@ -799,7 +807,8 @@ namespace TheWaningBorder.UI.Ingame
                 : Loc.T("Empty");
             _statusA.text = string.Format(
                 Loc.T("Interest: {0:F0}%/min (simple, on the deposit)   Stored: {1}"),
-                vault.InterestRate * 100f, stored);
+                TheWaningBorder.Systems.Economy.VaultInterestSystem.EffectiveRate(
+                    em, _entity, faction, vault.InterestRate) * 100f, stored);
 
             bool locked = vault.LockTimer > 0f;
             if (locked)
@@ -817,7 +826,14 @@ namespace TheWaningBorder.UI.Ingame
                 tooltip: Loc.T("Pick which resource this vault stores. Locked to the stored type once a deposit is made."),
                 onClick: () =>
                 {
-                    _vaultSelectedResource = _vaultSelectedResource >= 5 ? 1 : _vaultSelectedResource + 1;
+                    // Only what this faction may deposit: supplies, plus each
+                    // resource its Vault research has opened. (Glow was offered
+                    // here too, and no Glow could ever move.)
+                    var research = FactionResearchState.Instance;
+                    do _vaultSelectedResource = _vaultSelectedResource >= 4 ? 1 : _vaultSelectedResource + 1;
+                    while (_vaultSelectedResource != 1 && !(research != null && research.HasResearched(faction,
+                        _vaultSelectedResource == 2 ? "IronSubsidies"
+                        : _vaultSelectedResource == 3 ? "VeilstoneMonetization" : "VeilsteelBonds")));
                     _timer = RefreshInterval; // repaint next frame
                 });
 

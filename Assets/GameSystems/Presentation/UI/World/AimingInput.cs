@@ -25,7 +25,7 @@ namespace TheWaningBorder.UI.World
         {
             get
             {
-                if (GroundTargeting.IsActive || EntityTargeting.IsActive) return true;
+                if (GroundTargeting.IsActive || EntityTargeting.IsActive || GroundPlacement.IsActive) return true;
                 if (!_swallowing) return false;
                 if (UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButtonUp(0)
                     || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButtonUp(1))

@@ -300,15 +300,7 @@ namespace TheWaningBorder.Economy
             // Pre-age-up the culture is None; SectConfig.AdoptionCost handles
             // that as a same-cluster default — irrelevant in practice since
             // Temple isn't buildable until Age 2 and culture is chosen at age-up.
-            var query = QC_HallTagFactionTagFactionProgress.Get(em, QT_HallTagFactionTagFactionProgress);
-            using var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
-            using var factions = query.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
-            using var progress = query.ToComponentDataArray<FactionProgress>(Unity.Collections.Allocator.Temp);
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (factions[i].Value == faction) return progress[i].Culture;
-            }
-            return Cultures.None;
+            return CultureConfig.GetCompletedCulture(em, faction);
         }
     }
 }

@@ -71,7 +71,7 @@ MonoBehaviour:
   emergencyBankFloor: 800
   emergencyTowerCap: 12
   emergencyRetrySeconds: 25
-  siegeTrainFloor: 6
+  siegeTrainFloor: 3
   siegeTrainRetrySeconds: 20
   economyWorkerFloor: 3
   hutPipelineFreeCount: 4

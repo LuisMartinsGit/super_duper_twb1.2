@@ -375,7 +375,7 @@ namespace TheWaningBorder.UI.Ingame
             // placement, GroundTargeting cancels the aim ring. Both run their
             // own key check this frame, so this must not also fire.
             if (WorkerCommandPanel.IsPlacingBuilding) return;
-            if (GroundTargeting.IsActive || EntityTargeting.IsActive) return;
+            if (GroundTargeting.IsActive || EntityTargeting.IsActive || GroundPlacement.IsActive) return;
 
             if (PlanningModeOverlay.IsActive) { PlanningModeOverlay.Cancel(); return; }
             if (TheWaningBorder.Input.RTSInputManager.CancelModesOrSelection()) return;

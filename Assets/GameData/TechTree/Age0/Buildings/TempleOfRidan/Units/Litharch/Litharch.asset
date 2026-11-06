@@ -53,6 +53,7 @@ MonoBehaviour:
   bonusVsTags: []
   abilities:
   - Cleanse
+  - Cleanse Pulse
   prefab: {fileID: 2303961623429646327, guid: e520ba514f1e6ca42a8c8895b9d885ea, type: 3}
   presentationId: 207
   animatorController: {fileID: 9100000, guid: 7c16b49f586728f47ad4c7ce2c42355f, type: 2}

@@ -1181,6 +1181,31 @@ namespace TheWaningBorder.World.Terrain
             return true;
         }
 
+        /// <summary>
+        /// <see cref="IsFootprintPassable"/> for the TERRAIN alone: true when no
+        /// cell under the footprint is <see cref="TerrainBlocked"/>, whatever
+        /// stands on them. Off-grid cells are the caller's map-bounds test.
+        /// </summary>
+        public bool IsFootprintClearOfTerrain(float3 center, int2 size)
+        {
+            if (!_cells.IsCreated) return true;
+
+            float halfW = size.x * _cellSize / 2f;
+            float halfH = size.y * _cellSize / 2f;
+
+            int2 minCell = WorldToCell(new float3(center.x - halfW + 0.01f, 0f, center.z - halfH + 0.01f));
+            int2 maxCell = WorldToCell(new float3(center.x + halfW - 0.01f, 0f, center.z + halfH - 0.01f));
+
+            minCell = math.max(minCell, int2.zero);
+            maxCell = math.min(maxCell, new int2(_width - 1, _height - 1));
+
+            for (int y = minCell.y; y <= maxCell.y; y++)
+                for (int x = minCell.x; x <= maxCell.x; x++)
+                    if (_cells[y * _width + x] == TerrainBlocked)
+                        return false;
+            return true;
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // OBSTACLE BLOCKING (trees, rocks)
         // ═══════════════════════════════════════════════════════════════════════

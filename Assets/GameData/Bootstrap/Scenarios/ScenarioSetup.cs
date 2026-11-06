@@ -2382,6 +2382,8 @@ namespace TheWaningBorder.Bootstrap
         /// FactionProgress.</summary>
         internal static void StampCulture(EntityManager em, Entity hall, byte culture)
         {
+            if (em.HasComponent<FactionTag>(hall))
+                CultureConfig.RecordCulture(em, em.GetComponentData<FactionTag>(hall).Value, culture);
             if (em.HasComponent<FactionProgress>(hall))
                 em.SetComponentData(hall, new FactionProgress { Culture = culture });
             else

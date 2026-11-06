@@ -252,17 +252,47 @@ namespace TheWaningBorder.Core.Commands.Types
         public static TheWaningBorder.World.Regions.PlacementRefusal CheckBuildPosition(
             EntityManager em, float3 position, int2 buildingSize, string buildingId)
         {
-            const TheWaningBorder.World.Regions.PlacementRefusal Ok =
-                TheWaningBorder.World.Regions.PlacementRefusal.None;
-            const TheWaningBorder.World.Regions.PlacementRefusal Terrain =
-                TheWaningBorder.World.Regions.PlacementRefusal.Terrain;
-
             // THE VEIL (Curse & Shardroot canon §2.3): veilstone crust is
             // unbuildable ground — humanity is being pushed back. Reclaim it
             // (mine the frontier crystals, starve the wells, sanctify with a
             // Font) before building on it.
             if (!PassesCrustRule(em, position, buildingId))
                 return TheWaningBorder.World.Regions.PlacementRefusal.CursedGround;
+            return CheckSiteGeometry(em, position, buildingSize, buildingId);
+        }
+
+        /// <summary>
+        /// The terrain half of placement, and nothing that stands on the
+        /// ground: map bounds, water, slope, impassable terrain cells. Reads no
+        /// entities, so it is cheap enough to ask per drag sample and per
+        /// search ring, and reads only the map, so every peer agrees (the wall
+        /// draw tool's closest-valid-spot, AlanthorWall.NoNearerHubSpot).
+        /// </summary>
+        public static bool TerrainSiteOk(float3 position, int2 buildingSize)
+        {
+            FootprintAabb(position, buildingSize, out float2 min, out float2 max);
+            if (!InsideMapBounds(min, max)) return false;
+            if (!TerrainPointOk(position.x, position.z)) return false;
+            if (!TerrainPointOk(min.x, min.y)) return false;
+            if (!TerrainPointOk(max.x, min.y)) return false;
+            if (!TerrainPointOk(min.x, max.y)) return false;
+            if (!TerrainPointOk(max.x, max.y)) return false;
+            var grid = PassabilityGrid.Instance;
+            return grid == null || grid.IsFootprintClearOfTerrain(position, buildingSize);
+        }
+
+        /// <summary>
+        /// <see cref="CheckBuildPosition"/> without the cursed-ground stage: the
+        /// geometry a thing placed ON the curse answers to, which is the
+        /// Cleansing Ward (CleanseWard.SiteRefusal, Territory_Claims.md §6.9.7).
+        /// </summary>
+        public static TheWaningBorder.World.Regions.PlacementRefusal CheckSiteGeometry(
+            EntityManager em, float3 position, int2 buildingSize, string buildingId)
+        {
+            const TheWaningBorder.World.Regions.PlacementRefusal Ok =
+                TheWaningBorder.World.Regions.PlacementRefusal.None;
+            const TheWaningBorder.World.Regions.PlacementRefusal Terrain =
+                TheWaningBorder.World.Regions.PlacementRefusal.Terrain;
 
             // Compute AABB half-extents for the new building
             FootprintAabb(position, buildingSize, out float2 newMin, out float2 newMax);

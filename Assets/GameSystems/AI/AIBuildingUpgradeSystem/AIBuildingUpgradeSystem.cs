@@ -554,14 +554,7 @@ namespace TheWaningBorder.AI
 
         private static bool HasCulture(EntityManager em, Faction faction)
         {
-            var query = QC_HallTagFactionTagFactionProgress.Get(em, QT_HallTagFactionTagFactionProgress);
-            using var ents = query.ToEntityArray(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
-                if (em.GetComponentData<FactionProgress>(ents[i]).Culture != Cultures.None) return true;
-            }
-            return false;
+            return CultureConfig.GetCompletedCulture(em, faction) != Cultures.None;
         }
 
         /// <summary>One level-up (or none). True when one was queued.</summary>

@@ -51,18 +51,7 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<FactionTag>(entity))
             {
                 var buildingFaction = em.GetComponentData<FactionTag>(entity).Value;
-                // Shares _hallCultureQuery with the Buildings partial (same types).
-                var hallQuery = _hallCultureQuery.Get(em, HallCultureQueryTypes);
-                var hallEntities = hallQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-                for (int i = 0; i < hallEntities.Length; i++)
-                {
-                    if (em.GetComponentData<FactionTag>(hallEntities[i]).Value == buildingFaction)
-                    {
-                        factionCulture = em.GetComponentData<FactionProgress>(hallEntities[i]).Culture;
-                        break;
-                    }
-                }
-                hallEntities.Dispose();
+                factionCulture = CultureConfig.GetCompletedCulture(em, buildingFaction);
             }
 
             // Get current resources for rich tooltip coloring

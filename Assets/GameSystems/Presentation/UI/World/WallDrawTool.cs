@@ -90,7 +90,7 @@ namespace TheWaningBorder.UI.World
             {
                 if (_raw.Count == 0) return Vector2.zero;
                 Vector2 last = _raw[_raw.Count - 1];
-                if (_raw.Count < 2 || Cfg == null) return last;
+                if (_raw.Count < 2 || Cfg == null || _endTrimmed) return last;
                 float reach = 1.5f * Mathf.Max(0.25f, Cfg.sampleSpacing);
                 return (_cursor - last).sqrMagnitude <= reach * reach ? _cursor : last;
             }
@@ -129,6 +129,7 @@ namespace TheWaningBorder.UI.World
             _raw.Clear(); _rawArc.Clear(); _pts.Clear();
             _raw.Add(start); _rawArc.Add(0f);
             _cursor = start;
+            _endTrimmed = false;
             Problem = PathProblem.None;
             ClosesLoop = false;
             _badFrom = _badTo = -1;
@@ -149,6 +150,7 @@ namespace TheWaningBorder.UI.World
             if (!Drawing || Cfg == null || _raw.Count == 0) return;
             float spacing = Mathf.Max(0.25f, Cfg.sampleSpacing);
             _cursor = cursor;
+            _endTrimmed = false;
 
             // Backtrack: the earliest sample the cursor is within reach of,
             // ignoring the tail the cursor is always near while drawing
@@ -198,6 +200,30 @@ namespace TheWaningBorder.UI.World
                 _raw.Add(last);
                 len -= spacing;
             }
+        }
+
+        /// <summary>The cursor is past the last legal point: the path ends on
+        /// its last sample, not at the cursor (<see cref="TrimEndTo"/>).</summary>
+        private bool _endTrimmed;
+
+        /// <summary>
+        /// THE CLOSEST VALID POSITION (2026-11-06, docs/Design/Build_Grid.md §
+        /// The terrain seal): when the end of the stroke is on ground no hub
+        /// can stand on, the stroke ends at its last sample that can take one,
+        /// and that hub then seals across the rest. Called after every
+        /// <see cref="Extend"/>; the track regrows toward the cursor next
+        /// frame, so a drag that carries on to legal ground beyond (the far
+        /// bank) simply runs straight across.
+        /// </summary>
+        public void TrimEndTo(System.Func<Vector2, bool> legal)
+        {
+            if (_raw.Count < 2 || legal == null || legal(EndXZ)) return;
+            while (_raw.Count > 1 && !legal(_raw[_raw.Count - 1]))
+            {
+                _raw.RemoveAt(_raw.Count - 1);
+                _rawArc.RemoveAt(_rawArc.Count - 1);
+            }
+            _endTrimmed = true;
         }
 
         /// <summary>Stop drawing; the path and hubs stay available until Clear.</summary>

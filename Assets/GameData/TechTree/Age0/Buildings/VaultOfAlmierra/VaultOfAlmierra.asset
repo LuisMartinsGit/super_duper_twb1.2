@@ -37,7 +37,7 @@ MonoBehaviour:
   interestPerMinute: 0.05
   interestPrincipalCap: 3000
   interestMaxSeconds: 600
-  coffersRate: 0.04
+  coffersRate: 0.055
   merchantChartersRate: 0.06
   sovereignBondsRate: 0.08
   maxPerFaction: 1

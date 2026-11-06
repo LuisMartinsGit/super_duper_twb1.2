@@ -157,12 +157,7 @@ namespace TheWaningBorder.AI
         /// age-up research.</summary>
         private static byte FactionCultureOf(EntityManager em, Faction faction)
         {
-            var q = QC_HallTagFactionTagFactionProgress.Get(em, QT_HallTagFactionTagFactionProgress);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var prog = q.ToComponentDataArray<FactionProgress>(Allocator.Temp);
-            for (int i = 0; i < facs.Length; i++)
-                if (facs[i].Value == faction) return prog[i].Culture;
-            return Cultures.None;
+            return CultureConfig.GetCompletedCulture(em, faction);
         }
 
         /// <summary>Under-construction foundations of a tag — the "in

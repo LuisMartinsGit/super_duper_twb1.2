@@ -659,10 +659,23 @@ on deep ground.
 
 #### 6.9.7 The Litharch's Cleanse plants a Cleansing Ward (2026-10-22)
 
-Every Litharch has an active, **aimed** ability, **Cleanse**: the player (or
-the AI) picks a point within its reach and the Litharch **plants a Cleansing
-Ward** there — a small stone ward with a crystal on it. The Litharch is free
-the moment it lands; the ward does the work.
+Every Litharch has an active ability, **Cleanse**: the player (or the AI)
+**places a Cleansing Ward** the way any building is placed, except that the
+Litharch stands off and does it from a distance — a small stone ward with a
+crystal on it. The Litharch is free the moment it lands; the ward does the
+work.
+
+- **Placement is building placement (2026-11-06).** The cast shows the ward's
+  ghost, the build grid and its footprint, **snapped to the 2 m build grid**,
+  white where it may stand and red where it may not, and a refused click names
+  the rule and keeps placing. It answers to the building geometry rules (map
+  edge, terrain, overlap, resource nodes, obstacles, the owner's own plans).
+  It does **not** answer to the territory gate or the cursed-ground rule: a
+  ward exists to stand on cursed ground no one holds yet. It must lie within
+  the card's reach of the Litharch (shown as a second ring); it is not clamped
+  to the reach any more, because a ward that lands somewhere other than its
+  ghost is not placement. The simulation re-runs the same test, so a refused
+  cast costs no cooldown.
 
 - **The ward is a building** the player owns. It stands **until it is
   destroyed** — it has no lifetime. Its HP, armour, body and sight are on
@@ -704,9 +717,20 @@ own body, pulse and art are `CleanseWardSystem.asset`. The 2026-10-18 model
 (the Litharch channelling in place, healing allies in the circle, broken by a
 hit or an order) is retired; the `CleanseHeal` effect on the card is unused.
 
-The Litharch is the one non-hero unit allowed **two active abilities**: Cleanse
-from the start, and Deploy Field Hospital once the Sect of Renewal's research
-is bought. The spells bar draws one button per active, so both are castable.
+**Cleanse Pulse (2026-11-06)** is the Litharch's second cleansing ability, for
+when ground has to be cleared now and nothing need stand there afterwards: an
+aimed ring (not a placement), a **single strong pulse** that clears its whole
+circle and thins a falloff band in one burst, and **leaves no building** — so
+there is nothing to defend, no team cap and no spacing rule, and nothing keeps
+a living node's creep from growing back. Aimed beyond its reach it lands at the
+edge of the reach, toward the point. Its numbers are on
+`TempleOfRidan/Units/Litharch/Abilities/CleansePulse/CleansePulse.asset`. The
+AI uses it where a ward is refused or still on cooldown.
+
+The Litharch is the one non-hero unit allowed **several active abilities**:
+Cleanse and Cleanse Pulse from the start, and Deploy Field Hospital once the
+Sect of Renewal's research is bought. The spells bar draws one button per
+active, so all are castable.
 
 #### 6.9.8 Owned ground sheds the curse (2026-10-18)
 

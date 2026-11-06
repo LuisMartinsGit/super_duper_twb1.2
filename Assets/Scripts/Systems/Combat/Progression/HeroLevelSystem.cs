@@ -70,7 +70,10 @@ namespace TheWaningBorder.Systems.Combat
                 // of its own because this is already the one place that sees
                 // every fresh corpse exactly once.
                 if (em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(e)
-                    && em.HasComponent<HeroLevel>(e))
+                    && em.HasComponent<HeroLevel>(e)
+                    // A sect hero is recruited again at level 1 (Religion.md §4): its
+                    // death must not overwrite the level saved for the king.
+                    && !em.HasComponent<SectHeroTag>(e))
                 {
                     TheWaningBorder.Abilities.HeroRevival.RecordDeath(
                         faction.ValueRO.Value, em.GetComponentData<HeroLevel>(e).Value);

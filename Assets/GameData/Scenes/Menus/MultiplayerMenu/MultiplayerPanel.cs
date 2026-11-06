@@ -81,7 +81,7 @@ namespace TheWaningBorder.UI.Menus.Panels
         private const float JOIN_RETRY_INTERVAL = 1.0f;
         private const float JOIN_TIMEOUT = 6.0f;
 
-        private static readonly string[] DifficultyNames = { "EASY", "NORMAL", "HARD", "EXPERT" };
+        private static readonly string[] DifficultyNames = LobbyOptions.DifficultyNames;
         private static readonly Color TextDim = new Color(0.784f, 0.824f, 0.808f, 0.60f);
 
         private enum LobbyState
@@ -651,10 +651,10 @@ namespace TheWaningBorder.UI.Menus.Panels
             switch (_state)
             {
                 case LobbyState.HostLobby:
-                    RebuildSlots(isHost: true);
+                    RebuildSlotsIfChanged(isHost: true);
                     break;
                 case LobbyState.ClientLobby:
-                    RebuildSlots(isHost: false);
+                    RebuildSlotsIfChanged(isHost: false);
                     if (_selectedMapIndex != _renderedMapIndex) RefreshMap();
                     SyncPills();
                     break;
@@ -919,9 +919,89 @@ namespace TheWaningBorder.UI.Menus.Panels
 
         // ── Dynamic lists: player slots + discovered games ──────────────
 
+        /// <summary>
+        /// The periodic refresh rebuilds the roster ONLY when what it shows has
+        /// changed. It used to destroy and re-clone every row on every refresh,
+        /// which is what made the rows blink, and it swallowed clicks and shut
+        /// any dropdown the player had open, because the row under the pointer
+        /// no longer existed. An open dropdown also holds a rebuild back: the
+        /// change is still pending on the next refresh.
+        /// </summary>
+        private void RebuildSlotsIfChanged(bool isHost)
+        {
+            if (LobbySignature(isHost) == _renderedSignature) return;
+            if (SlotsContent != null)
+                foreach (var dd in SlotsContent.GetComponentsInChildren<TMP_Dropdown>())
+                    if (dd.IsExpanded) return;
+            RebuildSlots(isHost);
+        }
+
+        private string _renderedSignature;
+
+        /// <summary>Everything a roster row draws, as one comparable string.</summary>
+        private string LobbySignature(bool isHost)
+        {
+            var sb = new StringBuilder(256);
+            sb.Append(isHost).Append('|').Append(_mySlotIndex).Append('|').Append(LobbyConfig.ActiveSlotCount)
+              .Append('|').Append(MaxPlayers()).Append('|').Append(_startWithCulture);
+            for (int i = 0; i < TotalSlotRows; i++)
+            {
+                var n = _networkSlots[i];
+                var l = LobbyConfig.Slots[i];
+                sb.Append('|').Append((int)n.Type).Append(',').Append(n.PlayerName).Append(',').Append((int)n.AIDifficulty)
+                  .Append(',').Append(l.ColorIndex).Append(',').Append(l.TeamIndex).Append(',').Append(l.StartIndex)
+                  .Append(',').Append((int)l.AIStrategy).Append(',').Append(l.StartCulture);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>The difficulty dropdown's extra last entry on the host's
+        /// rows: an open seat waits for a player instead of running an AI.</summary>
+        private const string OpenSeatOption = "OPEN SEAT";
+
+        private bool _rowTemplateConverted;
+
+        /// <summary>
+        /// Give the row template the skirmish roster's columns: a team dropdown
+        /// and a difficulty dropdown, cloned off the authored personality
+        /// dropdown so they are the same widget, in the columns (and with the
+        /// widths) the chip and the cycle buttons held. Once, on the template,
+        /// so every row is the same clone.
+        /// </summary>
+        private void ConvertRowTemplate()
+        {
+            if (_rowTemplateConverted) return;
+            _rowTemplateConverted = true;
+            var t = SlotRowTemplate.transform;
+            var strat = t.Find("StrategyDropdown");
+            if (strat == null) return;   // an older template: it keeps its own widgets
+
+            void Replace(string oldName, string newName)
+            {
+                var old = t.Find(oldName);
+                if (old == null) return;
+                var clone = Instantiate(strat.gameObject, t, false);
+                clone.name = newName;
+                clone.transform.SetSiblingIndex(old.GetSiblingIndex());
+                if (old.TryGetComponent(out LayoutElement from) && clone.TryGetComponent(out LayoutElement to))
+                {
+                    to.minWidth = from.minWidth;
+                    to.preferredWidth = from.preferredWidth;
+                    to.flexibleWidth = from.flexibleWidth;
+                }
+                DestroyImmediate(old.gameObject);
+            }
+            Replace("TeamChip", "TeamDropdown");
+            Replace("DifficultyButton", "DifficultyDropdown");
+            var ai = t.Find("AiButton");
+            if (ai != null) DestroyImmediate(ai.gameObject);
+        }
+
         private void RebuildSlots(bool isHost)
         {
             if (SlotsContent == null || SlotRowTemplate == null) return;
+            ConvertRowTemplate();
+            _renderedSignature = LobbySignature(isHost);
 
             // The template is a stencil, never a row: left active in the scene
             // it rendered as a permanent extra player line. Same fix as the
@@ -1012,8 +1092,8 @@ namespace TheWaningBorder.UI.Menus.Panels
                 if (strip.TryGetComponent(out Button stripBtn)) stripBtn.interactable = false;
             }
 
-            foreach (var node in new[] { "TeamChip", "HostBadge", "AiButton",
-                                         "DifficultyButton", "StrategyDropdown",
+            foreach (var node in new[] { "TeamChip", "TeamDropdown", "HostBadge", "AiButton",
+                                         "DifficultyButton", "DifficultyDropdown", "StrategyDropdown",
                                          StartCultureOption.RowDropdownName, "RemoveButton" })
                 t.Find(node)?.gameObject.SetActive(false);
 
@@ -1120,137 +1200,107 @@ namespace TheWaningBorder.UI.Menus.Panels
                 }
             }
 
-            // Team column: a number, or "-" for no team. This used to print
-            // "TEAM {row+1}", which merely echoed the row index and has been
-            // actively misleading since teams became real.
-            // docs/Design/Teams.md
-            var chipRoot = t.Find("TeamChip");
-            var chip = chipRoot?.GetComponentInChildren<TMP_Text>(true);
-            if (chip != null)
-                chip.text = LobbyConfig.Slots[index].TeamIndex == Alliances.NoTeam
-                    ? "-" : LobbyConfig.Slots[index].TeamIndex.ToString();
-            if (chipRoot != null && isHost)
+            // The same columns as the skirmish roster: team, name, personality,
+            // difficulty. Everyone sees every value; only the host may change
+            // them (a client's dropdowns are shown read-only, and their edits
+            // would be overwritten by the next TWB_LOBBY anyway).
+            var team = t.Find("TeamDropdown")?.GetComponent<TMP_Dropdown>();
+            if (team != null)
             {
-                // Only the host edits teams — team assignment rides the lobby
-                // state the host broadcasts.
-                var chipBtn = chipRoot.GetComponent<Button>()
-                              ?? chipRoot.gameObject.AddComponent<Button>();
-                chipBtn.onClick.AddListener(() =>
-                {
-                    var s = LobbyConfig.Slots[idx];
-                    s.TeamIndex = (byte)((s.TeamIndex + 1) % (Alliances.MaxTeams + 1));
-                    if (chip != null)
-                        chip.text = s.TeamIndex == Alliances.NoTeam ? "-" : s.TeamIndex.ToString();
-                    SyncLobbyState();
-                });
+                team.gameObject.SetActive(true);
+                team.interactable = isHost;
+                SetOptions(team, LobbyOptions.TeamNames);
+                team.SetValueWithoutNotify(Mathf.Clamp(LobbyConfig.Slots[idx].TeamIndex, 0, Alliances.MaxTeams));
+                if (isHost)
+                    team.onValueChanged.AddListener(v =>
+                    {
+                        LobbyConfig.Slots[idx].TeamIndex = (byte)v;
+                        SyncLobbyState();
+                    });
             }
 
             var badge = t.Find("HostBadge");
             var name = t.Find("NameLabel")?.GetComponent<TMP_Text>();
-            var aiBtn = t.Find("AiButton")?.GetComponent<Button>();
-            var diffBtn = t.Find("DifficultyButton")?.GetComponent<Button>();
-            // Present in MultiplayerMenu.unity, absent from MainMenu's older
-            // template — null-safe so both keep working.
             var stratDd = t.Find("StrategyDropdown")?.GetComponent<TMP_Dropdown>();
+            var diffDd = t.Find("DifficultyDropdown")?.GetComponent<TMP_Dropdown>();
 
             if (badge != null) badge.gameObject.SetActive(index == 0 && slot.Type == SlotType.Human);
-            if (aiBtn != null) aiBtn.gameObject.SetActive(false);
-            if (diffBtn != null) diffBtn.gameObject.SetActive(false);
-            if (stratDd != null) stratDd.gameObject.SetActive(false);
 
-            if (slot.Type == SlotType.Human)
+            if (name != null)
             {
-                if (name != null)
+                name.gameObject.SetActive(true);
+                name.alignment = TextAlignmentOptions.MidlineLeft;
+                switch (slot.Type)
                 {
-                    string label = string.IsNullOrEmpty(slot.PlayerName) ? Loc.T("Player") : slot.PlayerName;
-                    if (index == _mySlotIndex && !_isHost) label += Loc.T("  (YOU)");
-                    name.text = label.ToUpperInvariant();
-                    name.color = Color.white;
-                    name.gameObject.SetActive(true);
+                    case SlotType.Human:
+                        string label = string.IsNullOrEmpty(slot.PlayerName) ? Loc.T("Player") : slot.PlayerName;
+                        if (index == _mySlotIndex && !_isHost) label += Loc.T("  (YOU)");
+                        name.text = label.ToUpperInvariant();
+                        name.color = Color.white;
+                        break;
+                    case SlotType.AI:
+                        name.text = string.Format(Loc.T("AI ({0})"), Loc.T(DifficultyNames[(int)slot.AIDifficulty]));
+                        name.color = Color.white;
+                        break;
+                    default:
+                        name.text = isHost ? Loc.T("waiting for player…") : Loc.T("OPEN");
+                        name.color = TextDim;
+                        break;
                 }
             }
-            else if (slot.Type == SlotType.AI)
+
+            bool aiSlot = slot.Type == SlotType.AI;
+            if (stratDd != null)
             {
-                if (isHost)
+                stratDd.gameObject.SetActive(aiSlot);
+                if (aiSlot)
                 {
-                    if (name != null) name.gameObject.SetActive(false);
-                    if (aiBtn != null)
-                    {
-                        aiBtn.gameObject.SetActive(true);
-                        SetButtonLabel(aiBtn, "AI");
-                        aiBtn.onClick.AddListener(() =>
-                        {
-                            slot.Type = SlotType.Empty;
-                            RebuildSlots(true);
-                        });
-                    }
-                    if (diffBtn != null)
-                    {
-                        diffBtn.gameObject.SetActive(true);
-                        SetButtonLabel(diffBtn, DifficultyNames[(int)slot.AIDifficulty]);
-                        diffBtn.onClick.AddListener(() =>
-                        {
-                            slot.AIDifficulty = (LobbyAIDifficulty)(((int)slot.AIDifficulty + 1) % 4);
-                            RebuildSlots(true);
-                            SyncLobbyState();
-                        });
-                    }
-                    // AI personality — the same seven the skirmish lobby
-                    // offers, off the same table. It lives on LobbyConfig.Slots
-                    // rather than _networkSlots because that is the copy the
-                    // AI bootstrap reads when the match starts.
-                    if (stratDd != null)
-                    {
-                        stratDd.gameObject.SetActive(true);
-                        SetOptions(stratDd, LobbyOptions.StrategyNames);
-                        stratDd.SetValueWithoutNotify((int)LobbyConfig.Slots[idx].AIStrategy);
+                    // It lives on LobbyConfig.Slots rather than _networkSlots
+                    // because that is the copy the AI bootstrap reads.
+                    stratDd.interactable = isHost;
+                    SetOptions(stratDd, LobbyOptions.StrategyNames);
+                    stratDd.SetValueWithoutNotify((int)LobbyConfig.Slots[idx].AIStrategy);
+                    if (isHost)
                         stratDd.onValueChanged.AddListener(v =>
                         {
                             LobbyConfig.Slots[idx].AIStrategy = (LobbyAIStrategy)v;
                             SyncLobbyState();
                         });
-                    }
-                }
-                else if (name != null)
-                {
-                    name.text = string.Format(Loc.T("AI · {0}"),
-                        Loc.T(DifficultyNames[(int)slot.AIDifficulty]));
-                    name.color = TextDim;
-                    name.gameObject.SetActive(true);
                 }
             }
-            else // Empty
+            // Difficulty, and on the host's rows the seat itself: the last entry
+            // opens the seat for a player, any other runs an AI at that level.
+            bool seatRow = aiSlot || (isHost && slot.Type == SlotType.Empty && index != 0);
+            if (diffDd != null)
             {
-                if (isHost)
+                diffDd.gameObject.SetActive(seatRow);
+                if (seatRow)
                 {
-                    if (name != null)
-                    {
-                        name.text = Loc.T("waiting for player…");
-                        name.color = TextDim;
-                        name.gameObject.SetActive(true);
-                    }
-                    if (aiBtn != null)
-                    {
-                        aiBtn.gameObject.SetActive(true);
-                        SetButtonLabel(aiBtn, "OPEN");
-                        aiBtn.onClick.AddListener(() =>
+                    diffDd.interactable = isHost;
+                    var options = new List<string>(LobbyOptions.DifficultyOptions);
+                    if (isHost) options.Add(OpenSeatOption);
+                    SetOptions(diffDd, options.ToArray());
+                    diffDd.SetValueWithoutNotify(aiSlot
+                        ? LobbyOptions.OptionOf(slot.AIDifficulty) : options.Count - 1);
+                    if (isHost)
+                        diffDd.onValueChanged.AddListener(v =>
                         {
-                            slot.Type = SlotType.AI;
-                            RebuildSlots(true);
+                            if (v >= LobbyOptions.DifficultyOptions.Length) slot.Type = SlotType.Empty;
+                            else
+                            {
+                                slot.Type = SlotType.AI;
+                                slot.AIDifficulty = LobbyOptions.LevelOf(v);
+                            }
+                            // The next refresh redraws the row, once this
+                            // dropdown has finished closing.
+                            SyncLobbyState();
                         });
-                    }
-                }
-                else if (name != null)
-                {
-                    name.text = Loc.T("OPEN");
-                    name.color = TextDim;
-                    name.gameObject.SetActive(true);
                 }
             }
 
             // START WITH CULTURE: the host picks for every slot, a client for
             // its own (TWB_CULT); everyone sees every pick.
-            var cultureDd = StartCultureOption.RowDropdown(t, stratDd);
+            var cultureDd = StartCultureOption.RowDropdown(t, diffDd != null ? diffDd : stratDd);
             if (cultureDd != null)
             {
                 bool show = _startWithCulture && slot.Type != SlotType.Empty;
@@ -1299,13 +1349,11 @@ namespace TheWaningBorder.UI.Menus.Panels
             LobbyRowLayout.Column(strip, LobbyRowLayout.ColColor, scale, ref order);
             LobbyRowLayout.Column(name != null ? name.transform : null,
                                   LobbyRowLayout.ColName, scale, ref order, flexible: 1f);
-            LobbyRowLayout.Column(t.Find("TeamChip"), LobbyRowLayout.ColTeam, scale, ref order);
+            LobbyRowLayout.Column(team != null ? team.transform : null, LobbyRowLayout.ColTeam, scale, ref order);
             LobbyRowLayout.Column(stratDd != null ? stratDd.transform : null,
                                   LobbyRowLayout.ColStrat, scale, ref order);
-            LobbyRowLayout.Column(diffBtn != null ? diffBtn.transform : null,
+            LobbyRowLayout.Column(diffDd != null ? diffDd.transform : null,
                                   LobbyRowLayout.ColDiff, scale, ref order);
-            LobbyRowLayout.Column(aiBtn != null ? aiBtn.transform : null,
-                                  LobbyRowLayout.ColButton, scale, ref order);
             LobbyRowLayout.Column(badge, LobbyRowLayout.ColBadge, scale, ref order);
             LobbyRowLayout.Column(remove, LobbyRowLayout.ColRemove, scale, ref order);
         }
@@ -2300,6 +2348,9 @@ namespace TheWaningBorder.UI.Menus.Panels
             for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 LobbyConfig.Slots[i].Type = _networkSlots[i].Type;
+                // The AI bootstrap reads this copy: without it every lobby's AI
+                // ran at the default difficulty whatever the row said.
+                LobbyConfig.Slots[i].AIDifficulty = _networkSlots[i].AIDifficulty;
                 if (_networkSlots[i].Type == SlotType.Human)
                 {
                     GameSettings.FactionToPlayerMapping[LobbyConfig.Slots[i].Faction] = (ulong)i;
@@ -2400,6 +2451,9 @@ namespace TheWaningBorder.UI.Menus.Panels
             for (int i = 0; i < LobbyConfig.ActiveSlotCount; i++)
             {
                 LobbyConfig.Slots[i].Type = _networkSlots[i].Type;
+                // The AI bootstrap reads this copy: without it every lobby's AI
+                // ran at the default difficulty whatever the row said.
+                LobbyConfig.Slots[i].AIDifficulty = _networkSlots[i].AIDifficulty;
                 if (_networkSlots[i].Type == SlotType.Human)
                 {
                     GameSettings.FactionToPlayerMapping[LobbyConfig.Slots[i].Faction] = (ulong)i;

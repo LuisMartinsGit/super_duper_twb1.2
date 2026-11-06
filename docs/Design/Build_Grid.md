@@ -327,9 +327,27 @@ and it must fire **only against a real obstacle**:
   the last cell, so a hub within the seal range (9 m) of an edge throws a
   curtain straight to it, square to the edge, measured from the grid's bounds —
   one seal per edge in range, two in a corner.
-- **A seal obeys the whole-length rule.** Its curtain must be clear (no
-  building, node, wall or impassable ground) from past the hub's joint to just
-  short of the rock or edge it laps into, or it is not laid. A hub may carry
-  several seals, never two on the same bearing.
+- **The closest valid position always seals (2026-11-06).** Beyond the 9 m, a
+  hub still seals against a face up to 30 m away when it stands at (within 3 m
+  of) the **closest spot to that face a hub could legally stand** — the ground
+  between is water's edge, a bank too steep to build on, or someone else's
+  land, so the player had no way to put it nearer. "Could stand" is the terrain
+  half of placement plus the owner's ground. Without that test a hub on the
+  flat above a ramp would throw a long diagonal across the ramp; with it, it
+  does not, because the top of the ramp's edge is nearer the face.
+- **Drawing never comes up short.** A stroke dragged onto ground no hub can
+  stand on (water, too steep, beyond the owner's ground) ends at its last legal
+  point instead of being refused, and a press on such ground starts at the
+  closest legal spot within 12 m. That hub then seals by the rule above.
+- **A seal is tested for what stands in its way, not for the terrain it is
+  closing.** Its curtain must be free of buildings, obstacles and walls (across
+  its full thickness) from past the hub's joint to just short of the rock or
+  edge it laps into, and may not cross ground another faction holds, or it is
+  not laid. It used to refuse impassable ground as well, so a 4 m stone curtain
+  meeting a shoreline at any angle was refused by the water it was reaching
+  for: about a third of the valid spots beside Moatwatch's moat, and nearly half
+  on a Keep's own ground. If the nearest face cannot be sealed, the next
+  nearest is tried. A hub carries one terrain seal plus any edge seals, never
+  two on the same bearing.
 - **Nothing seals before the mask is baked.** Gate on
   `PassabilityGrid.IsMaskReady`, never on `Cells.IsCreated`.

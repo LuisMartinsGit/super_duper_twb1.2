@@ -117,13 +117,7 @@ namespace TheWaningBorder.AI
         /// the only culture allowed to attack wells.</summary>
         private static bool IsFeraldisCulture(EntityManager em, Faction faction)
         {
-            var q = QC_HallTagFactionTagFactionProgress.Get(em, QT_HallTagFactionTagFactionProgress);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var progs = q.ToComponentDataArray<FactionProgress>(Allocator.Temp);
-            for (int i = 0; i < facs.Length; i++)
-                if (facs[i].Value == faction)
-                    return progs[i].Culture == Cultures.Feraldis;
-            return false;
+            return CultureConfig.GetCompletedCulture(em, faction) == Cultures.Feraldis;
         }
 
         /// <summary>Nearest live SmallNode — the curse anchor a non-Feraldis

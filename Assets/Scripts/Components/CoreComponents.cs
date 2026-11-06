@@ -79,6 +79,13 @@ public struct FactionTag : IComponentData
 /// <summary>
 /// Tracks the cultural progress of a faction (for Era 2+ content).
 /// </summary>
+/// <summary>A faction's culture for the rest of the match, on its bank
+/// (CultureConfig.RecordCulture). It never goes back.</summary>
+public struct FactionCultureRecord : IComponentData
+{
+    public byte Culture;
+}
+
 public struct FactionProgress : IComponentData
 {
     public byte Culture;

@@ -20,6 +20,36 @@ namespace TheWaningBorder.UI.Menus.Panels
         /// StartingResourcesLevel (2026-10-16: was NORMAL / MAX).</summary>
         public static readonly string[] ResourceNames = { "LOW", "NORMAL", "HIGH", "MAX" };
 
+        /// <summary>Difficulty names, index-parallel with LobbyAIDifficulty.</summary>
+        public static readonly string[] DifficultyNames =
+            { "EASY", "STANDARD", "HARD", "EXPERT", "BEGINNER", "CHEATING" };
+
+        /// <summary>The dropdown's order, gentlest first. Beginner and Cheating
+        /// sit last in the enum so the other values keep indexing per-tier
+        /// tables, hence <see cref="OptionOf"/> and <see cref="LevelOf"/>. Both
+        /// lobbies read these, so a new tier reaches both.</summary>
+        public static readonly string[] DifficultyOptions =
+            { "BEGINNER", "EASY", "STANDARD", "HARD", "EXPERT", "CHEATING" };
+
+        public static int OptionOf(LobbyAIDifficulty level)
+            => level == LobbyAIDifficulty.Beginner ? 0
+               : level == LobbyAIDifficulty.Cheating ? 5 : (int)level + 1;
+
+        public static LobbyAIDifficulty LevelOf(int option)
+            => option == 0 ? LobbyAIDifficulty.Beginner
+               : option == 5 ? LobbyAIDifficulty.Cheating : (LobbyAIDifficulty)(option - 1);
+
+        /// <summary>Team names: the dropdown value IS the team index.</summary>
+        public static readonly string[] TeamNames = BuildTeamNames();
+
+        private static string[] BuildTeamNames()
+        {
+            var names = new string[Alliances.MaxTeams + 1];
+            names[Alliances.NoTeam] = "NO TEAM";
+            for (int i = 1; i < names.Length; i++) names[i] = $"TEAM {i}";
+            return names;
+        }
+
         /// <summary>AI personalities, index-parallel with LobbyAIStrategy.</summary>
         public static readonly string[] StrategyNames =
             { "RANDOM", "ECONOMIST", "BALANCED", "TECHNOLOGIST", "AGGRESSOR", "TURTLE", "DEFENDER" };

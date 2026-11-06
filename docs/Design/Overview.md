@@ -43,6 +43,11 @@ on equal footing — there are only **two "ages"**.
   | **Runai** | Economy |
   | **Alanthor** | Defense |
 
+  **Culture is permanent (2026-11-06):** once a faction ages up it never goes
+  back, even if its Fortress, its landmark and its Temple are all destroyed. The
+  culture is recorded on the faction, not on a building; a rebuilt capital rises
+  as a Fortress of that culture, and only its own culture's landmark can be
+  rebuilt.
   At age-up the Shelter becomes the **Fortress** automatically, for every
   culture. From age-up onward, all progression is made through **building
   upgrades** (up to **level 3**; each culture's level 1 is free at age-up, and

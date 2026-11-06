@@ -24,6 +24,17 @@ namespace TheWaningBorder.Rendering
         private static CleanseSfxConfig Cfg
             => _cfg != null ? _cfg : (_cfg = ComponentConfig.Require<CleanseSfxConfig>());
 
+        private static CleanseSfx _active;
+        void OnEnable() => _active = this;
+
+        /// <summary>The landing burst at a point: a Cleanse Pulse, which has no
+        /// ward to poll (CleanseWardVfx drains it).</summary>
+        public static void PlayBurst(Vector3 at)
+        {
+            if (_active == null || Cfg == null) return;
+            _active.Play(Cfg, at, Cfg.burstVolume);
+        }
+
         private readonly Dictionary<Entity, int> _seenPulse = new();
         private readonly HashSet<Entity> _alive = new();
         private readonly List<Entity> _scratch = new();

@@ -28,18 +28,10 @@ namespace TheWaningBorder.UI.Menus.Panels
     public sealed class SkirmishPanel : MonoBehaviour
     {
         private static readonly string[] StrategyNames = LobbyOptions.StrategyNames;
-        private static readonly string[] DifficultyNames =
-            { "EASY", "STANDARD", "HARD", "EXPERT", "BEGINNER", "CHEATING" };   // by LobbyAIDifficulty
-        /// <summary>The dropdown's order, gentlest first. Beginner is the enum's last value
-        /// so the other values keep indexing per-tier tables, hence the two helpers.</summary>
-        private static readonly string[] DifficultyOptions =
-            { "BEGINNER", "EASY", "STANDARD", "HARD", "EXPERT", "CHEATING" };
-        private static int OptionOf(LobbyAIDifficulty level)
-            => level == LobbyAIDifficulty.Beginner ? 0
-               : level == LobbyAIDifficulty.Cheating ? 5 : (int)level + 1;
-        private static LobbyAIDifficulty LevelOf(int option)
-            => option == 0 ? LobbyAIDifficulty.Beginner
-               : option == 5 ? LobbyAIDifficulty.Cheating : (LobbyAIDifficulty)(option - 1);
+        private static readonly string[] DifficultyNames = LobbyOptions.DifficultyNames;
+        private static readonly string[] DifficultyOptions = LobbyOptions.DifficultyOptions;
+        private static int OptionOf(LobbyAIDifficulty level) => LobbyOptions.OptionOf(level);
+        private static LobbyAIDifficulty LevelOf(int option) => LobbyOptions.LevelOf(option);
         // The STARTING AGE dropdown was replaced by START WITH CULTURE
         // (StartCultureOption, 2026-10-14): AgeDropdown stays wired in the
         // scene only as the cell the toggle is built into.
@@ -52,15 +44,7 @@ namespace TheWaningBorder.UI.Menus.Panels
         /// raising the team cap cannot leave the lobby offering fewer teams
         /// than the game supports.
         /// </summary>
-        private static readonly string[] TeamNames = BuildTeamNames();
-
-        private static string[] BuildTeamNames()
-        {
-            var names = new string[Alliances.MaxTeams + 1];
-            names[Alliances.NoTeam] = "NO TEAM";
-            for (int i = 1; i < names.Length; i++) names[i] = $"TEAM {i}";
-            return names;
-        }
+        private static readonly string[] TeamNames = LobbyOptions.TeamNames;
 
         public MapPreviewWidget MapPreview;
         public Button PrevMapButton;

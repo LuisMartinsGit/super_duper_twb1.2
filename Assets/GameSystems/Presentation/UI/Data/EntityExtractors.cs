@@ -730,6 +730,9 @@ namespace TheWaningBorder.UI.Data
                     AddWallLevelAction(info.Actions, entity, em,
                                        GameSettings.LocalPlayerFaction);
                 ApplyWallLock(ref info, entity, em, GameSettings.LocalPlayerFaction);
+                // A palisade its owner can no longer extend has nothing to
+                // offer: no panel, rather than an empty "Extend Wall" one.
+                if (info.Actions.Count == 0) info.Type = ActionType.None;
                 return info;
             }
 
@@ -1147,6 +1150,9 @@ namespace TheWaningBorder.UI.Data
         private static void ApplyWallLock(ref EntityActionInfo info, Entity entity,
                                           EntityManager em, Faction faction)
         {
+            // Wall research belongs on wall pieces only. A Watch Tower reaches
+            // here through the garrison branch, and it is not a wall.
+            if (!em.HasComponent<WallTag>(entity)) return;
             if (!TheWaningBorder.Entities.WallTiers.TryGetLevelResearch(
                     em, faction, out var host, out int slot, out var techId))
                 return;

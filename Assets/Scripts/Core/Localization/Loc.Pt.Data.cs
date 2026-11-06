@@ -118,6 +118,12 @@ namespace TheWaningBorder.Core.Localization
             t["Elite Cavalry"] = "Cavalaria de Elite";
             t["War Horn"] = "Corno de Guerra";
             t["Cleanse"] = "Purificar";
+            t["Garrison"] = "Guarnição";
+            t["Gate"] = "Portão";
+            t["Cleanse Pulse"] = "Pulso Purificador";
+            t["Out of the Litharch's reach"] = "Fora do alcance do Litarca";
+            t["places a Cleansing Ward that clears cursed ground in a growing circle until it is destroyed"] = "coloca uma Guarda Purificadora que limpa o solo amaldiçoado num círculo crescente até ser destruída";
+            t["one strong pulse clears the cursed ground in the circle; leaves no building behind"] = "um pulso forte limpa o solo amaldiçoado no círculo; não deixa nenhum edifício";
             t["Full Gallop"] = "A Todo o Galope";
             t["Reinforced Bolts"] = "Virotes Reforçados";
             t["Iron-Shod Ram"] = "Aríete Ferrado";

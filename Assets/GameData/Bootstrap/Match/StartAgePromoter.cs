@@ -136,6 +136,8 @@ namespace TheWaningBorder.Bootstrap
                 var fp = em.GetComponentData<FactionProgress>(hall);
                 if (fp.Culture != Cultures.None) return;
                 fp.Culture = culture;
+                if (em.HasComponent<FactionTag>(hall))
+                    CultureConfig.RecordCulture(em, em.GetComponentData<FactionTag>(hall).Value, culture);
                 em.SetComponentData(hall, fp);
             }
 

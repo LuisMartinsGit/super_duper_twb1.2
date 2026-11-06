@@ -80,7 +80,8 @@ namespace TheWaningBorder.Systems.Work
                 if (em.HasComponent<FactionTag>(hallEntity))
                     faction = em.GetComponentData<FactionTag>(hallEntity).Value;
 
-                // 1. Set FactionProgress.Culture on the Hall
+                // 1. Record it for life, then set FactionProgress.Culture on the Hall
+                CultureConfig.RecordCulture(em, faction, culture);
                 if (em.HasComponent<FactionProgress>(hallEntity))
                 {
                     var progress = em.GetComponentData<FactionProgress>(hallEntity);

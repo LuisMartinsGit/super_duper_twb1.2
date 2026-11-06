@@ -17,7 +17,7 @@ MonoBehaviour:
   unitClass: machinery_siege
   hp: 220
   speed: 3.2
-  trainingTime: 26.6
+  trainingTime: 90
   damage: 40
   damageType: siege
   armorType: ranged
@@ -26,7 +26,7 @@ MonoBehaviour:
     ranged: 6
     siege: 0
     magic: 0
-  attackCooldown: 4
+  attackCooldown: 7
   attackRange: 22
   minAttackRange: 6
   lineOfSight: 26
@@ -35,11 +35,11 @@ MonoBehaviour:
   trajectory: flat
   projectileSpeed: 38.5
   cost:
-    Supplies: 20
-    Iron: 44
-    Veilstone: 121
-    Veilsteel: 0
-  populationCost: 2
+    Supplies: 30
+    Iron: 66
+    Veilstone: 180
+    Veilsteel: 30
+  populationCost: 5
   minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0

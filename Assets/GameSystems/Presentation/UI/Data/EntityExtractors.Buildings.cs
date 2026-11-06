@@ -503,17 +503,7 @@ namespace TheWaningBorder.UI.Data
             byte factionCulture = Cultures.None;
             if (!em.Equals(default(EntityManager)))
             {
-                var hallQuery = _hallCultureQuery.Get(em, HallCultureQueryTypes);
-                var hallEntities = hallQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
-                for (int i = 0; i < hallEntities.Length; i++)
-                {
-                    if (em.GetComponentData<FactionTag>(hallEntities[i]).Value == faction)
-                    {
-                        factionCulture = em.GetComponentData<FactionProgress>(hallEntities[i]).Culture;
-                        break;
-                    }
-                }
-                hallEntities.Dispose();
+                factionCulture = CultureConfig.GetCompletedCulture(em, faction);
             }
 
             // Get faction era for era gating
@@ -548,6 +538,12 @@ namespace TheWaningBorder.UI.Data
 
                     // Choice building exclusion: if one is built, hide the other two
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
+                        continue;
+                    // ...and a faction that has chosen only ever rebuilds its own:
+                    // its culture outlives the landmark (Overview.md § Culture is
+                    // permanent), so another culture's would buy nothing.
+                    if (BuildingFactory.IsChoiceBuilding(building.id) && factionCulture != Cultures.None
+                        && TheWaningBorder.Systems.Work.LandmarkAgeUp.CultureOf(building.id) != factionCulture)
                         continue;
 
                     // A LOCKED cell the palette still shows (2026-11-02: the

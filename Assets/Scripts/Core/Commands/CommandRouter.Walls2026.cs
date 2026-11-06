@@ -344,6 +344,24 @@ namespace TheWaningBorder.Core.Commands
         }
 
         /// <summary>
+        /// True when something STANDS under the wall's cross-section at
+        /// <paramref name="p"/>: a building, obstacle or wall. Terrain does not
+        /// count. This is the terrain seal's test, whose whole purpose is to
+        /// reach impassable ground (docs/Design/Build_Grid.md § The terrain seal).
+        /// </summary>
+        public static bool WallCrossSectionOccupied(float3 p, float3 tangent, bool palisade)
+        {
+            float3 t = new float3(tangent.x, 0f, tangent.z);
+            t = math.lengthsq(t) > 1e-6f ? math.normalize(t) : new float3(0f, 0f, 1f);
+            float3 right = new float3(t.z, 0f, -t.x);
+            float half = TheWaningBorder.Entities.AlanthorWall.DepthOf(palisade) * 0.5f;
+            for (float o = -half; o <= half + 1e-3f; o += 1f)
+                if (TheWaningBorder.Systems.Navigation.NavGridQuery.WallOccupiedAt(p + right * o))
+                    return true;
+            return false;
+        }
+
+        /// <summary>
         /// The whole-length test: every metre of <paramref name="line"/>
         /// clear (<see cref="WallCrossSectionClear"/>), and — every two
         /// metres — no resource node and none of the owner's plans under it.

@@ -65,8 +65,9 @@ namespace TheWaningBorder.AI
             if (!cfg.cleanseEnabled || healers.Count == 0) return;
             if (!TheWaningBorder.Systems.Border.CurseGroundSystem.Ready) return;
             int cleanse = AbilityCatalog.IndexOf("Cleanse");
-            var card = AbilityCatalog.Get(cleanse);
-            if (card == null) return;
+            var wardCard = AbilityCatalog.Get(cleanse);
+            if (wardCard == null) return;
+            int pulse = AbilityCatalog.IndexOf("Cleanse Pulse");
 
             // A channel never ends by itself: let go of one that has nothing
             // left to do, so the Litharch returns to healing and its cooldown
@@ -98,8 +99,12 @@ namespace TheWaningBorder.AI
             foreach (var h in healers)
             {
                 if (!em.HasComponent<LocalTransform>(h) || !em.HasComponent<UnitAbilities>(h)) continue;
-                int slot = SlotOf(em.GetComponentData<UnitAbilities>(h), cleanse);
-                if (slot < 0 || !Ready(em, h, slot)) continue;
+                var ua = em.GetComponentData<UnitAbilities>(h);
+                int wardSlot = SlotOf(ua, cleanse);
+                int pulseSlot = pulse >= 0 ? SlotOf(ua, pulse) : -1;
+                bool wardReady = wardSlot >= 0 && Ready(em, h, wardSlot);
+                bool pulseReady = pulseSlot >= 0 && Ready(em, h, pulseSlot);
+                if (!wardReady && !pulseReady) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(h).Position;
                 if (!TheWaningBorder.Systems.Border.CurseGroundSystem.TryNearestCursed(
@@ -107,8 +112,13 @@ namespace TheWaningBorder.AI
                     continue;
                 // A ward already covers that ground, or the team is at its
                 // cap (CleanseWardSystem.asset): the engine would refuse the
-                // cast, so the Litharch is not sent.
-                if (!TheWaningBorder.Entities.CleanseWard.CanPlant(em, faction, spot, out _)) continue;
+                // ward, so this ground gets the pulse, which has neither rule.
+                if (wardReady && !TheWaningBorder.Entities.CleanseWard.CanPlant(em, faction, spot, out _))
+                    wardReady = false;
+                if (!wardReady && !pulseReady) continue;
+                bool castWard = wardReady;
+                int slot = castWard ? wardSlot : pulseSlot;
+                var card = castWard ? wardCard : AbilityCatalog.Get(pulse);
                 float dist = math.distance(p.xz, spot.xz);
 
                 // Aim INTO the patch: the starting circle clears at once, so
@@ -136,8 +146,17 @@ namespace TheWaningBorder.AI
                         $"Litharch walks to cleanse cursed ground at ({spot.x:0},{spot.z:0}) in {RegionMap.NameOf(RegionMap.RegionAt(spot.x, spot.z))}");
                     continue;
                 }
-                // (An aim beyond the reach lands at the reach's edge on the same
-                // line — LitharchCleanse.Begin — which still covers the cell.)
+                // A ward stands on the build grid, inside the reach, on ground
+                // that can take it (LitharchCleanse.Begin refuses anything else):
+                // the nearest such site that still covers the cell. If there is
+                // none, the pulse instead, or a later think.
+                if (castWard && !TryWardSite(em, h, wardCard, p, spot, ref aim))
+                {
+                    if (!pulseReady) continue;
+                    castWard = false;
+                    slot = pulseSlot;
+                    card = AbilityCatalog.Get(pulse);
+                }
                 // The aim must be in sight (Spells.md §6.1), or the engine
                 // refuses the cast: hold it for a later think instead.
                 if (!AbilityTargetRules.AimInSight(em, card, h, aim)) continue;
@@ -145,9 +164,41 @@ namespace TheWaningBorder.AI
                 {
                     _cleanseErrand[h] = now + cfg.cleanseErrandSeconds;
                     AILogger.Log(faction, "SUPPORT",
-                        $"Litharch cleanses at ({spot.x:0},{spot.z:0}) in {RegionMap.NameOf(RegionMap.RegionAt(spot.x, spot.z))}");
+                        $"Litharch {(castWard ? "plants a ward" : "pulses")} at ({spot.x:0},{spot.z:0}) in {RegionMap.NameOf(RegionMap.RegionAt(spot.x, spot.z))}");
                 }
             }
+        }
+
+        /// <summary>
+        /// The ward site nearest <paramref name="aim"/> the engine will accept
+        /// and whose starting circle still covers <paramref name="spot"/>:
+        /// the aim, drawn back inside the reach, then rings around it. The
+        /// card's own test answers (CleanseWard.SiteRefusal), so nothing the
+        /// engine would refuse is ever cast.
+        /// </summary>
+        private static bool TryWardSite(EntityManager em, Entity h, AbilityCard card, float3 from, float3 spot, ref float3 aim)
+        {
+            float2 d = aim.xz - from.xz;
+            float len = math.length(d);
+            float reach = card.Range > 0f ? math.max(0f, card.Range - BuildGrid.CellSize) : float.MaxValue;
+            float3 centre = len > reach
+                ? new float3(from.x + d.x / len * reach, aim.y, from.z + d.y / len * reach)
+                : aim;
+
+            const int Rings = 3, Samples = 8;
+            for (int r = 0; r <= Rings; r++)
+                for (int k = 0; k < (r == 0 ? 1 : Samples); k++)
+                {
+                    float a = k / (float)Samples * 2f * math.PI;
+                    float metres = r * BuildGrid.CellSize;
+                    float3 site = TheWaningBorder.Entities.CleanseWard.SiteFor(
+                        centre + new float3(math.cos(a) * metres, 0f, math.sin(a) * metres));
+                    if (card.Radius > 0f && math.distance(site.xz, spot.xz) >= card.Radius) continue;
+                    if (TheWaningBorder.Entities.CleanseWard.SiteRefusal(em, h, card, site) != null) continue;
+                    aim = site;
+                    return true;
+                }
+            return false;
         }
 
         /// <summary>Nothing to release since 2026-10-22: a Cleanse plants a

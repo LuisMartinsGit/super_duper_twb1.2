@@ -11,6 +11,29 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.72] — 2026-11-06
+
+### Litharch
+- **Cleanse now places a Cleansing Ward like a building.** You get a ghost on the build grid, white or red, and the Litharch places it from a distance.
+- **New ability: Cleanse Pulse.** One strong burst clears cursed ground and leaves no building behind.
+
+### Walls
+- **Walls now close against water and cliffs.** Stone walls were often refused beside water. A wall dragged onto ground it cannot stand on now stops at the closest valid spot and closes the gap from there, on every map.
+
+### Balance
+- **Ballistas, catapults and trebuchets are far more expensive to field.** They train much more slowly, cost more and now need veilsteel, take 5 population and fire more slowly.
+- **The AI keeps fewer siege engines** unless it is attacking walls.
+
+### Multiplayer
+- **The lobby rows match the skirmish menu** and no longer blink, so dropdowns stay open and clicks land.
+- **All difficulty tiers are available in multiplayer, and the chosen difficulty now applies.** Before, every multiplayer AI ran at the default.
+
+### Fixes
+- **A culture is permanent.** Losing your Fortress, Temple and Vault no longer returns you to Age 0.
+- **Selection panels show the right buttons.** A garrisoned Watch Tower no longer shows wall upgrades, the Temple no longer opens an empty second panel, and a palisade you can no longer extend opens no panel.
+- **Vault:** the panel shows the real interest rate and only offers resources you have researched, so depositing iron, veilstone or veilsteel now needs its research. Coffers now raises interest; it used to lower it.
+- **Losing a sect hero no longer changes King Lexor's revival level.**
+
 ## [0.0.71] — 2026-11-06
 
 ### AI

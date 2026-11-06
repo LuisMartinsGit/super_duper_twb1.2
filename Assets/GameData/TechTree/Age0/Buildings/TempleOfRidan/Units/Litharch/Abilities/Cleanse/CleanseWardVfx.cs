@@ -59,6 +59,31 @@ namespace TheWaningBorder.Rendering
         }
     }
 
+    /// <summary>
+    /// A Cleanse Pulse has no entity for the presentation to poll, so its one
+    /// burst is posted here by the executor and drained by CleanseWardVfx.
+    /// Presentation only: nothing the simulation reads.
+    /// </summary>
+    public static class CleansePulseSignals
+    {
+        private const int Cap = 16;
+        private static readonly Queue<(Vector3 At, float Radius)> Pending = new();
+
+        public static void Post(Unity.Mathematics.float3 at, float radius)
+        {
+            if (Pending.Count >= Cap) Pending.Dequeue();   // headless: nobody drains
+            Pending.Enqueue((new Vector3(at.x, at.y, at.z), radius));
+        }
+
+        public static bool TryTake(out Vector3 at, out float radius)
+        {
+            at = default; radius = 0f;
+            if (Pending.Count == 0) return false;
+            (at, radius) = Pending.Dequeue();
+            return true;
+        }
+    }
+
     public sealed class CleanseWardVfx : MonoBehaviour
     {
         private readonly Dictionary<Entity, int> _seenPulse = new();
@@ -76,6 +101,20 @@ namespace TheWaningBorder.Rendering
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
+
+            // Cleanse Pulses: the same aura and burst, heard and seen only
+            // where the local player can see the ground.
+            while (CleansePulseSignals.TryTake(out var pulseAt, out float pulseRadius))
+            {
+                if (!TheWaningBorder.World.FogOfWar.FactionSight.CanSee(
+                        em, GameSettings.LocalPlayerFaction, pulseAt, false)
+                    && !GameSettings.IsSpectating) continue;
+                if (cfg.pulsePrefab != null)
+                    VfxSpawn.OneShot(cfg.pulsePrefab, transform, pulseAt,
+                        pulseRadius / Mathf.Max(0.1f, cfg.pulseAuthoredRadius));
+                CleanseSfx.PlayBurst(pulseAt);
+            }
+
             if (_queryOwner != em || _wards == default)
             {
                 _wards = new EntityQueryBuilder(Allocator.Temp)

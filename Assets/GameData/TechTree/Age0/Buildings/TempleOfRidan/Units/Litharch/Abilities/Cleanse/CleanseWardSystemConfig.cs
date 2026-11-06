@@ -32,6 +32,9 @@ namespace TheWaningBorder.Systems.Border
         // ── The ward as a building ──
         public int maxHealth;
         public float bodyRadius;
+        /// <summary>The ward's side in 2 m build cells: the footprint it snaps
+        /// to and is placed by (2026-11-06).</summary>
+        public int footprintCells;
         public float sight;
         public int defenseMelee;
         public int defenseRanged;

@@ -8,9 +8,11 @@
 // curse's waves strike it first (CurseTerritorySystem.Waves), so a player
 // must defend it. It never decays on cursed ground (CursedGroundDecaySystem).
 //
-// Deliberately NOT a placeable building: no BuildCosts entry, no worker row.
-// Conjured by the ability (AbilityEffectExecutor -> CleanseGround ->
-// LitharchCleanse.Begin), already finished — no UnderConstruction phase.
+// Not in the worker's build palette: no BuildCosts entry, no worker row. The
+// Litharch places it from a distance, on the build grid, like a building
+// (2026-11-06): GroundPlacement shows it, SiteRefusal judges it, and
+// AbilityEffectExecutor -> CleanseGround -> LitharchCleanse.Begin raises it
+// already finished — no UnderConstruction phase.
 // Every number is CleanseWardSystem.asset's or the Cleanse card's.
 
 using TheWaningBorder.Core.Multiplayer;
@@ -32,6 +34,56 @@ namespace TheWaningBorder.Entities
             ComponentType.ReadOnly<LocalTransform>(),
         };
         static TheWaningBorder.Core.CachedEntityQuery QC_Standing;
+
+        /// <summary>The ward's footprint in metres (footprintCells, in build cells).</summary>
+        public static int2 FootprintMetres
+        {
+            get
+            {
+                var cfg = TheWaningBorder.Systems.Border.CleanseWardSystemConfig.I;
+                int cells = cfg != null ? math.max(1, cfg.footprintCells) : 1;
+                return BuildingSizeConfig.ToMeters(new int2(cells, cells));
+            }
+        }
+
+        /// <summary>Where a ward aimed at <paramref name="aim"/> stands: on the
+        /// build grid, at the ground's height there.</summary>
+        public static float3 SiteFor(float3 aim)
+        {
+            float3 site = BuildGrid.Snap(aim, FootprintMetres);
+            site.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(site.x, site.z);
+            return site;
+        }
+
+        /// <summary>
+        /// The one test of a ward's site, with its reason (null = it may stand
+        /// here): the ghost, the AI and the executor all ask this, so red is
+        /// exactly what the simulation refuses. Within the card's reach of the
+        /// caster (plus <paramref name="reachSlack"/>), the building geometry
+        /// rules, not on one of the owner's plans, and the team's cap and
+        /// spacing. Territory and cursed ground are deliberately not asked: a
+        /// ward is planted on the curse, on ground no one holds yet.
+        /// </summary>
+        public static string SiteRefusal(EntityManager em, Entity caster, TheWaningBorder.Abilities.AbilityCard card,
+            float3 site, float reachSlack = 0f)
+        {
+            if (!em.HasComponent<LocalTransform>(caster) || !em.HasComponent<FactionTag>(caster))
+                return TheWaningBorder.Core.Localization.Loc.T("The caster is gone");
+            float3 here = em.GetComponentData<LocalTransform>(caster).Position;
+            if (card.Range > 0f && math.distance(here.xz, site.xz) > card.Range + reachSlack)
+                return TheWaningBorder.Core.Localization.Loc.T("Out of the Litharch's reach");
+
+            var size = FootprintMetres;
+            var r = TheWaningBorder.Core.Commands.Types.BuildCommandHelper.CheckSiteGeometry(em, site, size, null);
+            if (r != TheWaningBorder.World.Regions.PlacementRefusal.None)
+                return TheWaningBorder.World.Regions.PlacementRefusalText.Of(r);
+
+            var faction = em.GetComponentData<FactionTag>(caster).Value;
+            if (PlannedBuildings.OverlapsOwnPlan(em, faction, site, size))
+                return TheWaningBorder.World.Regions.PlacementRefusalText.Of(
+                    TheWaningBorder.World.Regions.PlacementRefusal.Overlap);
+            return CanPlant(em, faction, site, out string why) ? null : why;
+        }
 
         /// <summary>
         /// May <paramref name="faction"/> plant a ward at <paramref name="position"/>?
@@ -100,6 +152,9 @@ namespace TheWaningBorder.Entities
             });
             em.AddComponentData(e, new Health { Value = hp, Max = hp });
             em.AddComponentData(e, new Radius { Value = cfg != null ? math.max(0.5f, cfg.bodyRadius) : 1f });
+            // Its exact footprint, for the nav stamp and every later overlap test.
+            var size = FootprintMetres;
+            em.AddComponentData(e, new BuildingSize { Width = size.x, Height = size.y });
             em.AddComponentData(e, new LineOfSight { Radius = cfg != null ? math.max(1f, cfg.sight) : 10f });
             em.AddComponentData(e, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(e, new Defense

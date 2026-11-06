@@ -2450,7 +2450,10 @@ namespace TheWaningBorder.Core.Commands
             // capital was (the Shelter is the Age 0 name).
             if (buildingId == "Fortress" && em.HasComponent<FactionProgress>(building))
             {
-                byte culture = FactionColors.GetFactionCulture(faction);
+                // The recorded culture outlives every capital: a faction that
+                // lost its last Fortress rebuilds as what it already is.
+                byte culture = CultureConfig.GetCompletedCulture(em, faction);
+                if (culture == Cultures.None) culture = FactionColors.GetFactionCulture(faction);
                 em.SetComponentData(building, new FactionProgress { Culture = culture });
                 if (culture != Cultures.None)
                     TheWaningBorder.Systems.Work.AgeUpSystem.TransformCapitalForCulture(em, building, culture);

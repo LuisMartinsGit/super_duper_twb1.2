@@ -223,6 +223,9 @@ namespace TheWaningBorder.Abilities
                     case AbilityEffectKind.CleanseGround:
                         LitharchCleanse.Begin(em, caster, card, e.Value);
                         break;
+                    case AbilityEffectKind.CleansePulse:
+                        LitharchCleanse.Pulse(em, caster, card);
+                        break;
                     case AbilityEffectKind.FeraldisFieldSacrifice:
                         TheWaningBorder.Feraldis.FeraldisSacrifice.FieldSacrifice(em, caster);
                         break;

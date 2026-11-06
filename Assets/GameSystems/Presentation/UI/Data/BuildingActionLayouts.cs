@@ -379,13 +379,7 @@ namespace TheWaningBorder.UI.Data
 
         private static byte GetFactionCulture(EntityManager em, Faction faction)
         {
-            var q = _cultureQuery.Get(em, CultureQueryTypes);
-            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
-            using var prog = q.ToComponentDataArray<FactionProgress>(Unity.Collections.Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-                if (facs[i].Value == faction) return prog[i].Culture;
-            return Cultures.None;
+            return CultureConfig.GetCompletedCulture(em, faction);
         }
     }
 }

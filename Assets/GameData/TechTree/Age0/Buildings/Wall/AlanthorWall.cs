@@ -911,6 +911,16 @@ namespace TheWaningBorder.Entities
         /// the end bastions and the rock face they stood against.</summary>
         public const float TerrainSealRange = 9f;
 
+        /// <summary>Beyond <see cref="TerrainSealRange"/> a hub still seals to
+        /// a face this far off, but only from the closest spot a hub could
+        /// stand (NoNearerHubSpot). Sized to the widest unbuildable bank on the
+        /// shipped maps (about 28 m, Fiendstone Pass).</summary>
+        public const float TerrainSealReach = 30f;
+
+        /// <summary>A drawn wall ends where the hand stopped, so "the closest
+        /// spot" is judged to within this many metres.</summary>
+        public const float SealClosestTolerance = 3f;
+
         /// <summary>
         /// TERRAIN ANCHOR (2026-08-11): when impassable TERRAIN sits within
         /// <see cref="TerrainSealRange"/> of the hub, span the gap with
@@ -940,23 +950,47 @@ namespace TheWaningBorder.Entities
             Faction faction = em.HasComponent<FactionTag>(hub)
                 ? em.GetComponentData<FactionTag>(hub).Value : Faction.Blue;
 
-            // 16-bearing scan for the nearest SHELTERING terrain face beyond
-            // the tower footprint. Terrain only — buildings and razeable
+            // 16-bearing scan for the SHELTERING terrain faces beyond the tower
+            // footprint, nearest first. Terrain only — buildings and razeable
             // obstacles are not shelter and must not be sealed against — and
-            // a FACE, not a speck: see IsShelteringTerrain.
-            float bestDist = float.MaxValue;
-            float3 bestDir = default;
-            for (int b = 0; b < 16; b++)
+            // a FACE, not a speck: see IsShelteringTerrain. Within
+            // TerrainSealRange a face always qualifies; further out only when
+            // this hub is the closest a hub could get to it
+            // (NoNearerHubSpot, 2026-11-06). The nearest face that can actually
+            // take a curtain gets the one terrain seal.
+            const int Bearings = 16;
+            var faceDist = new float[Bearings];
+            var faceDir = new float3[Bearings];
+            int faces = 0;
+            for (int b = 0; b < Bearings; b++)
             {
-                float ang = (b / 16f) * 2f * math.PI;
+                float ang = (b / (float)Bearings) * 2f * math.PI;
                 float3 dir = new float3(math.cos(ang), 0f, math.sin(ang));
-                for (float d = HubInset + 0.5f; d <= TerrainSealRange; d += 1f)
+                for (float d = HubInset + 0.5f; d <= TerrainSealReach; d += 1f)
                 {
-                    float3 p = hubPos + dir * d;
-                    if (!IsShelteringTerrain(grid, p, dir)) continue;
-                    if (d < bestDist) { bestDist = d; bestDir = dir; }
-                    break; // first sheltering sample decides this bearing
+                    if (!IsShelteringTerrain(grid, hubPos + dir * d, dir)) continue;
+                    // First sheltering sample decides this bearing. Insertion
+                    // sort: ties keep bearing order, the same on every peer.
+                    int at = faces++;
+                    while (at > 0 && faceDist[at - 1] > d)
+                    {
+                        faceDist[at] = faceDist[at - 1];
+                        faceDir[at] = faceDir[at - 1];
+                        at--;
+                    }
+                    faceDist[at] = d;
+                    faceDir[at] = dir;
+                    break;
                 }
+            }
+            bool palisadeHub = IsPalisade(em, hub);
+            for (int i = 0; i < faces; i++)
+            {
+                if (faceDist[i] > TerrainSealRange
+                    && !NoNearerHubSpot(em, faction, palisadeHub, hubPos + faceDir[i] * faceDist[i], faceDist[i]))
+                    continue;
+                // Overlap into the rock cell.
+                if (TrySeal(em, hub, hubPos, faction, faceDir[i], faceDist[i] + 1f, autoConstruct)) break;
             }
             // THE MAP EDGE IS A SEAL TARGET TOO (2026-10-02). Units walk right
             // up to the last cell of the map, so the gap between a hub and the
@@ -966,9 +1000,6 @@ namespace TheWaningBorder.Entities
             // GetCell's "off-grid is blocked", which is what once sealed hubs
             // to the void on every bearing. docs/Design/Build_Grid.md § The
             // terrain seal.
-            if (bestDist != float.MaxValue)
-                TrySeal(em, hub, hubPos, faction, bestDir, bestDist + 1f, autoConstruct);   // overlap into the rock cell
-
             float minX = grid.Origin.x, minZ = grid.Origin.z;
             float maxX = minX + grid.Width * grid.CellSize, maxZ = minZ + grid.Height * grid.CellSize;
             TryEdgeSeal(em, hub, hubPos, faction, new float3(-1f, 0f, 0f), hubPos.x - minX, autoConstruct);
@@ -992,12 +1023,12 @@ namespace TheWaningBorder.Entities
         /// seal is laid by the executor on every peer and must obey the
         /// whole-length rule like any other wall (CommandRouter.WallLineClear).
         /// </summary>
-        static void TrySeal(EntityManager em, Entity hub, float3 hubPos, Faction faction,
+        static bool TrySeal(EntityManager em, Entity hub, float3 hubPos, Faction faction,
             float3 dir, float end, bool autoConstruct)
         {
             float start = HubInset;
             float span = end - start;
-            if (span < 0.5f) return;           // footprint already touches
+            if (span < 0.5f) return true;      // footprint already touches
 
             // Already sealed this way? (a self-link whose curtain heads the
             // same way — a corner hub may carry two seals, never two alike)
@@ -1009,17 +1040,29 @@ namespace TheWaningBorder.Entities
                     if (existing[i].ConnectedHub != hub || !em.Exists(existing[i].Segment)) continue;
                     float3 m = em.GetComponentData<LocalTransform>(existing[i].Segment).Position - hubPos;
                     m.y = 0f;
-                    if (math.lengthsq(m) > 1e-4f && math.dot(math.normalize(m), dir) > 0.86f) return;
+                    if (math.lengthsq(m) > 1e-4f && math.dot(math.normalize(m), dir) > 0.86f) return true;
                 }
             }
 
-            // Clear along the curtain, from beyond the hub's drum to short of
+            // Free along the curtain, from beyond the hub's drum to short of
             // the target (the last stretch laps into the rock / the edge).
+            // OCCUPANCY only: the terrain is what a seal closes against, so a
+            // thick curtain's flank touching the shore must not refuse it
+            // (2026-11-06, docs/Design/Build_Grid.md § The terrain seal).
             bool palisade = IsPalisade(em, hub);
             float clearFrom = TheWaningBorder.Core.Commands.CommandRouter.WallJunctionClearance, clearTo = end - 1.5f;
             for (float s = clearFrom; s <= clearTo; s += 1f)
-                if (!TheWaningBorder.Core.Commands.CommandRouter.WallCrossSectionClear(hubPos + dir * s, dir, palisade))
-                    return;
+                if (TheWaningBorder.Core.Commands.CommandRouter.WallCrossSectionOccupied(hubPos + dir * s, dir, palisade))
+                    return false;
+            // Across no other faction's ground (unclaimed water and banks are fine).
+            for (float s = 0f; s <= end; s += 1f)
+            {
+                float3 p = hubPos + dir * s;
+                int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(
+                    TheWaningBorder.World.Regions.RegionMap.RegionAt(p.x, p.z));
+                if (owner != TheWaningBorder.World.Regions.TerritoryOwnership.Natural && owner != (int)faction)
+                    return false;
+            }
 
             float3 bestDir = dir;
             quaternion rot = quaternion.LookRotationSafe(bestDir, math.up());
@@ -1068,6 +1111,32 @@ namespace TheWaningBorder.Entities
                     }
                 }
             }
+            return true;
+        }
+
+        /// <summary>
+        /// Is a hub <paramref name="dist"/> metres from the terrain face at
+        /// <paramref name="face"/> the closest one could get to it (2026-11-06)?
+        /// True when no spot nearer than <paramref name="dist"/> minus
+        /// <see cref="SealClosestTolerance"/> could take a hub. The test is
+        /// placement's terrain half and the owner's ground, read from
+        /// replicated state and the map, so every peer agrees.
+        /// docs/Design/Build_Grid.md § The terrain seal
+        /// </summary>
+        static bool NoNearerHubSpot(EntityManager em, Faction faction, bool palisade, float3 face, float dist)
+        {
+            const int Samples = 24;
+            var size = BuildingSizeConfig.GetSize(HubIdFor(palisade));
+            for (float r = 2f; r < dist - SealClosestTolerance; r += 1f)
+                for (int k = 0; k < Samples; k++)
+                {
+                    float a = (k / (float)Samples) * 2f * math.PI;
+                    float3 p = face + new float3(math.cos(a) * r, 0f, math.sin(a) * r);
+                    if (TheWaningBorder.Core.Commands.Types.BuildCommandHelper.TerrainSiteOk(p, size)
+                        && TheWaningBorder.Core.Commands.CommandRouter.WallPointOnOwnGround(em, faction, p))
+                        return false;
+                }
+            return true;
         }
 
         /// <summary>
