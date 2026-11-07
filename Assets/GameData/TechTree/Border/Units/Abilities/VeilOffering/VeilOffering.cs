@@ -52,7 +52,7 @@ namespace TheWaningBorder.Systems.Border
             int index = AbilityCatalog.IndexOf(AbilityName);
             if (index < 0) return false;
             var ua = em.GetComponentData<UnitAbilities>(e);
-            if (ua.S0 != index && ua.S1 != index && ua.S2 != index && ua.S3 != index) return false;
+            if (!ua.Has(index)) return false;
 
             TransientState.Clear<MoveCommand>(em, e);
             TransientState.Clear<AttackCommand>(em, e);

@@ -49,7 +49,7 @@ namespace TheWaningBorder.Feraldis
                     if (em.HasComponent<UnitAbilities>(e))
                     {
                         var ua = em.GetComponentData<UnitAbilities>(e);
-                        if (ua.S0 == burners || ua.S1 == burners || ua.S2 == burners || ua.S3 == burners) continue;
+                        if (ua.Has(burners)) continue;
                     }
                     add.Add(e);
                 }

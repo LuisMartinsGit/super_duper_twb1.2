@@ -748,6 +748,9 @@ namespace TheWaningBorder.AI
                 // every peer (docs/Multiplayer_LAN_Readiness.md).
                 var cost = AICommon.ToCost(def.cost);
                 if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                // Each costs RP; chapels and levels come first (Religion.md §4).
+                if (!FactionReligionPointsHelper.CanAfford(em, faction,
+                        FactionReligionPointsHelper.Cfg.sectUnitRp + FactionReligionPointsHelper.Cfg.aiSectUnitRpReserve)) continue;
                 if (AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
                 CommandRouter.IssueTrain(em, chapel, unitId, CommandSource.AI);
                 AILogger.Log(faction, "MILITARY",
@@ -886,6 +889,9 @@ namespace TheWaningBorder.AI
                     // on every peer (docs/Multiplayer_LAN_Readiness.md).
                     var cost = AICommon.ToCost(tdef.cost);
                     if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                // Each costs RP; chapels and levels come first (Religion.md §4).
+                if (!FactionReligionPointsHelper.CanAfford(em, faction,
+                        FactionReligionPointsHelper.Cfg.sectUnitRp + FactionReligionPointsHelper.Cfg.aiSectUnitRpReserve)) continue;
                     if (AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
                     if (!AIPacing.ResearchTurn(em, faction)
                         || !AIPacing.ResearchLevelAllowed(em, faction, tdef.minBuildingLevel)) return;
@@ -978,6 +984,9 @@ namespace TheWaningBorder.AI
                 // every peer (docs/Multiplayer_LAN_Readiness.md).
                 var cost = AICommon.ToCost(def.cost);
                 if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                // Each costs RP; chapels and levels come first (Religion.md §4).
+                if (!FactionReligionPointsHelper.CanAfford(em, faction,
+                        FactionReligionPointsHelper.Cfg.sectUnitRp + FactionReligionPointsHelper.Cfg.aiSectUnitRpReserve)) continue;
                 if (AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
 
                 CommandRouter.IssueTrain(em, host, unitId, CommandSource.AI);

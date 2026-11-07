@@ -198,10 +198,15 @@ this layer asks for.
 | | Sect unit | Sect hero |
 |---|---|---|
 | Trained / recruited at | the sect building | the sect building |
-| Price | the unit's resource price (its SO) | an RP price (`heroRp`) + the hero's resource price (its SO) |
+| Price | the unit's resource price (its SO) **+ `sectUnitRp` religion points, each (2026-11-07)** | an RP price (`heroRp`) + the hero's resource price (its SO) |
 | Limit | **20 per faction**, live and queued | **one** (unique) |
 | Levels | — | 1-10 from kills, exactly as [Heroes.md](Heroes.md); abilities unlock at levels 1, 3 and 6 |
 | Death | train another | recruited again at the sect building for its resources only — revival never costs RP. It returns at level 1 (the Rally-the-Oath / Full-Honours choice is King Lexor's alone) |
+
+**Sect units are considerably stronger than normal units (2026-11-07):** any one beats any
+normal line infantry one on one, and pays for it in RP, refunded if cancelled before it
+spawns. A hero still beats any of them. Heroes: [Heroes.md](Heroes.md), whose death rule
+replaces the row above (a hero returns at its own level).
 
 Sect units are offensive by design. Their kits, and the heroes', are in
 Sects.md.

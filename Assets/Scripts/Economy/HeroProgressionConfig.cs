@@ -85,27 +85,15 @@ namespace TheWaningBorder.Economy
 
         // ── Revival (Heroes.md §4) ──────────────────────────────────────
 
-        /// <summary>Levels lost by taking the cheap revival. Rallying a
-        /// level-6 hero returns him at 3, which is BELOW Honour thy Pledge's
-        /// unlock — that loss is the whole decision.</summary>
-        public const int RallyLevelLoss = 3;
-
-        /// <summary>Cost/time growth per level for reviving a hero AT the
-        /// level he died at. 15 % per level over the first, so a level-10
+        /// <summary>Cost/time growth per level for bringing a hero back, always
+        /// at the level it died at (Heroes.md §5). 15 % per level over the first, so a level-10
         /// death costs 2.35x to undo in full.</summary>
-        public const float FullHonoursPerLevel = 0.15f;
+        public const float RevivalPerLevel = 0.15f;
 
         /// <summary>Multiplier on both cost and training time for a
-        /// Full Honours revival of a hero that died at this level.</summary>
-        public static float FullHonoursMultiplier(int diedAtLevel)
-            => 1f + FullHonoursPerLevel * (Clamp(diedAtLevel) - 1);
-
-        /// <summary>The level a Rally the Oath revival returns him at.</summary>
-        public static byte RallyLevel(int diedAtLevel)
-        {
-            int l = Clamp(diedAtLevel) - RallyLevelLoss;
-            return (byte)(l < MinLevel ? MinLevel : l);
-        }
+        /// hero coming back from a death at this level (Heroes.md §5).</summary>
+        public static float RevivalMultiplier(int diedAtLevel)
+            => 1f + RevivalPerLevel * (Clamp(diedAtLevel) - 1);
 
         public static byte Clamp(int level)
             => (byte)(level < MinLevel ? MinLevel : level > MaxLevel ? MaxLevel : level);

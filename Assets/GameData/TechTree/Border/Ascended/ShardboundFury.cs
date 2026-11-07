@@ -1,11 +1,11 @@
 // ShardboundFury.cs
-// The Shardbound King: what the Shardroot does to King Lexor while he bears
-// it. Canon: docs/Design/Curse_And_Shardroot.md 3.1, "The Shardbound King".
+// Ascended: what the Shardroot does to any hero while it bears the artifact.
+// Canon: docs/Design/Heroes.md §4.
 //
-//   * ShardboundKing        -- on Lexor while he carries the artifact; the
+//   * AscendedHero        -- on Lexor while he carries the artifact; the
 //                              empowerment marker (cleave, the ability, the
 //                              detonation, and the near-invincibility of
-//                              ShardboundKing.cs). ShardboundKingSystem adds
+//                              AscendedHero.cs). AscendedHeroSystem adds
 //                              and removes it as the artifact comes and goes.
 //   * Launched              -- a unit in the air. LaunchSystem flies it on a
 //                              parabola the sim owns (so every peer sees the
@@ -28,8 +28,8 @@ using TheWaningBorder.World.Terrain;
 
 namespace TheWaningBorder.Entities
 {
-    // ShardboundKing (the marker on Lexor while he bears the artifact) lives
-    // in ShardboundKing.cs with his invincibility (§ 3.1b).
+    // AscendedHero (the marker on Lexor while he bears the artifact) lives
+    // in AscendedHero.cs with his invincibility (§ 3.1b).
 
     /// <summary>A unit hurled into the air. Immobile, cannot attack or be
     /// ordered until it lands; LandDamage applies on landing.</summary>
@@ -130,7 +130,7 @@ namespace TheWaningBorder.Entities
                 DetonationLandDamage, DetonationBuildingDamage, spellRouted: false, DamageType.True);
 
             SimSignals.Ping(origin, SimPingKind.Combat, DetonationRadius, big: true);
-            SimSignals.Notify(Loc.T("The SHARDBOUND KING has fallen -- the Shardroot detonates!"));
+            SimSignals.Notify(Loc.T("An ASCENDED hero has fallen -- the Shardroot detonates!"));
             TWBLog.Log($"[Shardbound] {faction}'s king detonates at ({origin.x:F0},{origin.z:F0}): {units} units launched");
         }
 
@@ -173,7 +173,7 @@ namespace TheWaningBorder.Entities
                 if (em.HasComponent<Launched>(e)) continue;
                 if (TransientState.Active<DeathAnimationState>(em, e)) continue;
                 // The Shardbound King cannot be thrown (§ 3.1b).
-                if (em.HasComponent<ShardboundKing>(e)) continue;
+                if (em.HasComponent<AscendedHero>(e)) continue;
 
                 float d = math.sqrt(d2);
                 float t = radius > 0f ? math.saturate(d / radius) : 1f;   // 0 at the centre, 1 at the rim

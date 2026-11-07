@@ -17,11 +17,11 @@ namespace TheWaningBorder.Abilities
             int slot = 0;
             if (abilityNames != null)
             {
-                for (int i = 0; i < abilityNames.Length && slot < 4; i++)
+                for (int i = 0; i < abilityNames.Length && slot < UnitAbilities.Count; i++)
                 {
                     int idx = AbilityCatalog.IndexOf(abilityNames[i]);
                     if (idx < 0) continue;
-                    switch (slot) { case 0: ua.S0 = idx; break; case 1: ua.S1 = idx; break; case 2: ua.S2 = idx; break; default: ua.S3 = idx; break; }
+                    switch (slot) { case 0: ua.S0 = idx; break; case 1: ua.S1 = idx; break; case 2: ua.S2 = idx; break; case 3: ua.S3 = idx; break; default: ua.S4 = idx; break; }
                     slot++;
                 }
             }
@@ -59,12 +59,13 @@ namespace TheWaningBorder.Abilities
             if (abilityIndex < 0 || !em.Exists(e)) return;
             var ua = em.HasComponent<UnitAbilities>(e) ? em.GetComponentData<UnitAbilities>(e) : UnitAbilities.From();
 
-            if (ua.S0 == abilityIndex || ua.S1 == abilityIndex || ua.S2 == abilityIndex || ua.S3 == abilityIndex) return;
+            if (ua.Has(abilityIndex)) return;
 
             if (ua.S0 < 0) ua.S0 = abilityIndex;
             else if (ua.S1 < 0) ua.S1 = abilityIndex;
             else if (ua.S2 < 0) ua.S2 = abilityIndex;
             else if (ua.S3 < 0) ua.S3 = abilityIndex;
+            else if (ua.S4 < 0) ua.S4 = abilityIndex;
             else return; // no free slot
 
             if (em.HasComponent<UnitAbilities>(e)) em.SetComponentData(e, ua);
@@ -83,6 +84,7 @@ namespace TheWaningBorder.Abilities
             else if (ua.S1 == abilityIndex) ua.S1 = -1;
             else if (ua.S2 == abilityIndex) ua.S2 = -1;
             else if (ua.S3 == abilityIndex) ua.S3 = -1;
+            else if (ua.S4 == abilityIndex) ua.S4 = -1;
             else return;
             em.SetComponentData(e, ua);
         }

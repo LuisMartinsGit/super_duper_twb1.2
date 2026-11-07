@@ -15,31 +15,31 @@ MonoBehaviour:
   id: Sect_Surgeon
   displayName: Surgeon
   unitClass: melee
-  hp: 520
-  speed: 3.2
-  trainingTime: 40
-  damage: 28
+  hp: 700
+  speed: 6.2
+  trainingTime: 45
+  damage: 40
   damageType: melee
   armorType: infantry_heavy
   defense:
     melee: 4
-    ranged: 3
+    ranged: 4
     siege: 0
-    magic: 3
-  attackCooldown: 1.3
-  attackRange: 0
+    magic: 4
+  attackCooldown: 1.2
+  attackRange: 1.2
   minAttackRange: 0
-  lineOfSight: 14
+  lineOfSight: 26
   radius: 0.55
   aimTime: 0
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 150
-    Iron: 80
-    Veilstone: 60
+    Supplies: 300
+    Iron: 200
+    Veilstone: 150
     Veilsteel: 0
-  populationCost: 2
+  populationCost: 3
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
@@ -55,6 +55,7 @@ MonoBehaviour:
   - Cauterize
   - Bloodletting
   - Lancet
+  - The Great Rewind
   prefab: {fileID: 32314801045755, guid: 05f7000860a9b9893ac91fd3aeb3f944, type: 3}
   presentationId: 451
   animatorController: {fileID: 0}

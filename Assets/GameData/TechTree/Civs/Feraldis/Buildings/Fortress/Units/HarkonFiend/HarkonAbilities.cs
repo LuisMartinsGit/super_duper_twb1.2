@@ -50,16 +50,29 @@ namespace TheWaningBorder.Feraldis
             });
         }
 
-        /// <summary>Blood Oath: every allied unit in the radius cannot die for the duration.</summary>
+        /// <summary>Blood Oath, Harkon's level-10 game ender (Heroes.md §3): the
+        /// whole army, wherever it stands, cannot die and frenzies for the duration.</summary>
         public static void BloodOath(EntityManager em, Entity caster, AbilityCard card, float duration)
         {
-            ForAllies(em, caster, card.Radius, u =>
+            ForAllies(em, caster, WholeMap, u =>
             {
                 var cling = new LifeCling { Floor = 1, TimeRemaining = duration };
                 if (em.HasComponent<LifeCling>(u)) { em.SetComponentData(u, cling); em.SetComponentEnabled<LifeCling>(u, true); }
                 else em.AddComponentData(u, cling);
+                if (!em.HasComponent<FeraldisUnitTag>(u)) return;
+                if (em.HasComponent<BloodFrenzy>(u))
+                {
+                    var cur = em.GetComponentData<BloodFrenzy>(u);
+                    cur.Remaining = math.max(cur.Remaining, duration);
+                    em.SetComponentData(u, cur);
+                }
+                else em.AddComponentData(u, new BloodFrenzy { Remaining = duration });
             });
+            SimSignals.Announce(string.Format(TheWaningBorder.Core.Localization.Loc.T(
+                "{0} SWEARS THE BLOOD OATH — its army will not die!"), em.GetComponentData<FactionTag>(caster).Value));
         }
+
+        private const float WholeMap = 100000f;
 
         /// <summary>Leap: jump to the aimed point (clamped) and slow every enemy where he lands.</summary>
         public static void Leap(EntityManager em, Entity caster)
@@ -71,6 +84,9 @@ namespace TheWaningBorder.Feraldis
             float3 d = aim - xf.Position; d.y = 0f;
             float len = math.length(d);
             if (len > c.leapMaxDistance && len > 0.01f) aim = xf.Position + d / len * c.leapMaxDistance;
+            // Onto walkable ground, or not at all.
+            TheWaningBorder.Systems.Navigation.NavGridQuery.SnapToWalkable(aim, out aim, out bool landable);
+            if (!landable) return;
             aim.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(aim.x, aim.z);
             xf.Position = aim;
             em.SetComponentData(caster, xf);

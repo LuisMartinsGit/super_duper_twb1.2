@@ -119,6 +119,41 @@ namespace TheWaningBorder.Entities
         }
 
         /// <summary>
+        /// Call to the Banners, Lexor's level-10 game ender (Heroes.md §3): the
+        /// pledge at full strength, in as many rings as it takes, every man at
+        /// the top rank. Numbers come from the card.
+        /// </summary>
+        public static int SummonBanners(EntityManager em, Entity caster, int total, float ttl)
+        {
+            if (caster == Entity.Null || !em.Exists(caster) || !em.HasComponent<LocalTransform>(caster)) return 0;
+            float3 origin = em.GetComponentData<LocalTransform>(caster).Position;
+            Faction faction = em.GetComponentData<FactionTag>(caster).Value;
+            int archers = total / ArcherEvery, made = 0;
+            for (int i = 0; i < total; i++)
+            {
+                float angle = i * BannerAngleStep;
+                float r = SpawnRing + (i / BannersPerRing) * BannerRingGap;
+                var want = new float3(origin.x + math.cos(angle) * r, 0f, origin.z + math.sin(angle) * r);
+                TheWaningBorder.Systems.Navigation.NavGridQuery.SnapToWalkable(want, out float3 pos, out bool ok);
+                if (!ok) pos = origin;
+                pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
+                Entity e = UnitFactory.Create(em, i >= total - archers ? ArcherId : SwordsmanId, pos, faction);
+                if (e == Entity.Null) continue;
+                MakeTemporary(em, e, BannerRank, ttl);
+                made++;
+            }
+            SimSignals.Announce(string.Format(TheWaningBorder.Core.Localization.Loc.T(
+                "{0} CALLS THE BANNERS — all of Alanthor answers!"), faction));
+            SimSignals.Ping(origin, SimPingKind.Combat, SpawnRing * 3f, big: true);
+            return made;
+        }
+
+        private const float BannerAngleStep = 2.39996f;
+        private const int BannersPerRing = 12;
+        private const float BannerRingGap = 2.5f;
+        private const byte BannerRank = 4;
+
+        /// <summary>
         /// Turn a freshly trained unit into a pledged one.
         ///
         /// Two things have to come OFF as well as on. The population cost goes,

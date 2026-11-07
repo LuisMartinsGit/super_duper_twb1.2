@@ -33,7 +33,7 @@ namespace TheWaningBorder.UI.Ingame
     public class SpellsPanelBinder : MonoBehaviour
     {
         private const float PollInterval = 0.2f;
-        private const int MaxSlots = 4; // storage allows 4; design uses 1+1 for non-heroes
+        private const int MaxSlots = UnitAbilities.Count; // design uses 1+1 for non-heroes
 
         /// <summary>Height of one cast row, and the gap below it.</summary>
         private const float RowHeight = 62f;
@@ -256,6 +256,12 @@ namespace TheWaningBorder.UI.Ingame
             AbilityEffectKind.SummonPledgeArmy => Loc.T("calls in a temporary army that grows with the hero's level"),
             AbilityEffectKind.ShardboundFury   => Loc.T("hurls every enemy in the radius into the air; enemy buildings take heavy damage"),
             AbilityEffectKind.CleanseGround    => Loc.T("places a Cleansing Ward that clears cursed ground in a growing circle until it is destroyed"),
+            AbilityEffectKind.HeroCallToTheBanners => string.Format(Loc.T("{0:0} veterans answer around the hero for the duration"), e.Value),
+            AbilityEffectKind.HeroForeclosure  => string.Format(Loc.T("takes {0:0}% of every hostile faction's stockpile"), e.Value),
+            AbilityEffectKind.HeroStopTheHours => string.Format(Loc.T("every hostile unit on the map is frozen for {0:0}s; enemy heroes' abilities go on cooldown"), e.Value),
+            AbilityEffectKind.HeroGreatRewind  => string.Format(Loc.T("your whole army is healed; up to {0:0} fallen units return"), e.Value),
+            AbilityEffectKind.HeroRealmHolds   => string.Format(Loc.T("hostile units on your ground lose {0:0}% of max HP; your buildings cannot be hurt"), e.Value),
+            AbilityEffectKind.HeroBuyOut       => string.Format(Loc.T("enemy buildings in the circle fall and pay you {0:0}% of their worth; capitals lose that share of HP"), e.Value),
             AbilityEffectKind.CleansePulse     => Loc.T("one strong pulse clears the cursed ground in the circle; leaves no building behind"),
             _ => null,
         };
@@ -293,6 +299,8 @@ namespace TheWaningBorder.UI.Ingame
             // meant revealing fog the scout could already see.
             var ua = _em.GetComponentData<UnitAbilities>(_primary);
             var card = AbilityCatalog.Get(ua.Get(slot));
+            // A hero's lesser abilities cast themselves (Heroes.md §3).
+            if (card != null && !card.IsUltimate && _em.HasComponent<HeroLevel>(_primary)) return;
 
             // An Area ability CENTRED ON SELF takes no aim: Honour thy Pledge
             // forms its ring around the king wherever he stands, so putting up
@@ -461,7 +469,8 @@ namespace TheWaningBorder.UI.Ingame
             // Every UNLOCKED active gets its own row. AbilityQuery does the
             // level gating, so a hero below the unlock simply has fewer rows.
             int count = AbilityQuery.ActiveSlots(_em, _primary, _activeSlotScratch);
-            bool autonomous = _em.HasComponent<NotControllableTag>(_primary);
+            bool notControllable = _em.HasComponent<NotControllableTag>(_primary);
+            bool heroCaster = _em.HasComponent<HeroLevel>(_primary);
 
             for (int row = 0; row < MaxSlots; row++)
             {
@@ -475,6 +484,7 @@ namespace TheWaningBorder.UI.Ingame
                 int slot = _rowSlot[row];
                 var active = AbilityCatalog.Get(ua.Get(slot));
                 if (active == null) { go.SetActive(false); _rowSlot[row] = -1; continue; }
+                bool autonomous = notControllable || (heroCaster && !active.IsUltimate);
 
                 float cd = AbilityQuery.CooldownRemaining(_em, _primary, slot);
                 bool channelling = AbilityQuery.TryGetCast(_em, _primary, out int castSlot,

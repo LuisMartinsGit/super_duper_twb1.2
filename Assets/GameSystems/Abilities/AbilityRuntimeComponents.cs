@@ -13,27 +13,50 @@ namespace TheWaningBorder.Abilities
 {
     // ==================== Assignment ====================
 
-    /// <summary>Up to four abilities on a unit, stored as stable AbilityCatalog
+    /// <summary>Up to five abilities on a unit (a hero's four tiers plus a granted
+    /// one: the Runai's The Call), stored as stable AbilityCatalog
     /// indices (-1 = empty). Passive abilities are applied continuously by the
     /// aura/passive systems; active ones are fired via AbilityActivated.</summary>
     public struct UnitAbilities : IComponentData
     {
         // Design rule (2026-08-02): non-hero units carry at most ONE Active
-        // and ONE Passive ability. The four slots exist for future heroes;
+        // and ONE Passive ability. The other slots are for heroes;
         // UI and cast routing (first-ready-active) assume the 1+1 rule.
-        public int S0, S1, S2, S3;
+        public int S0, S1, S2, S3, S4;
 
-        public int Get(int i) => i == 0 ? S0 : i == 1 ? S1 : i == 2 ? S2 : S3;
+        /// <summary>How many slots a unit has. Sizes every loop over them.</summary>
+        public const int Count = 5;
 
-        public static UnitAbilities From(int s0 = -1, int s1 = -1, int s2 = -1, int s3 = -1)
-            => new UnitAbilities { S0 = s0, S1 = s1, S2 = s2, S3 = s3 };
+        public int Get(int i) => i == 0 ? S0 : i == 1 ? S1 : i == 2 ? S2 : i == 3 ? S3 : S4;
+
+        /// <summary>Is this catalog index in any slot?</summary>
+        public bool Has(int index)
+            => S0 == index || S1 == index || S2 == index || S3 == index || S4 == index;
+
+        public static UnitAbilities From(int s0 = -1, int s1 = -1, int s2 = -1, int s3 = -1, int s4 = -1)
+            => new UnitAbilities { S0 = s0, S1 = s1, S2 = s2, S3 = s3, S4 = s4 };
     }
 
     /// <summary>Per-slot cooldown remaining (seconds). Prevents recast while an
     /// active ability is running / cooling.</summary>
     public struct AbilityCooldowns : IComponentData
     {
-        public float C0, C1, C2, C3;
+        public float C0, C1, C2, C3, C4;
+
+        public float Get(int slot)
+            => slot == 0 ? C0 : slot == 1 ? C1 : slot == 2 ? C2 : slot == 3 ? C3 : C4;
+
+        public void Set(int slot, float value)
+        {
+            switch (slot)
+            {
+                case 0: C0 = value; break;
+                case 1: C1 = value; break;
+                case 2: C2 = value; break;
+                case 3: C3 = value; break;
+                default: C4 = value; break;
+            }
+        }
     }
 
     // ==================== Active-ability lifecycle ====================
@@ -189,6 +212,8 @@ namespace TheWaningBorder.Abilities
         public const int HarkonFiend = 2;
         /// <summary>The Runai hero (docs/Design/Age_1_Runai.md §8).</summary>
         public const int RunaiWayfinder = 3;
+        /// <summary>The Alanthor automaton hero (docs/Design/Heroes.md §1).</summary>
+        public const int Ledger = 4;
         /// <summary>The Alanthor sect heroes (docs/Design/Sects.md §4).</summary>
         public const int ArchivistOfHours = 10;
         public const int Surgeon = 11;
@@ -196,20 +221,8 @@ namespace TheWaningBorder.Abilities
         public const int Guildmaster = 13;
     }
 
-    /// <summary>Marks the Ledger automaton so its auto-cast AI can find eligible
-    /// eco buildings.</summary>
+    /// <summary>Marks the Ledger automaton (the one-per-player train gate).</summary>
     public struct LedgerTag : IComponentData { }
-
-    /// <summary>The destination the Ledger's auto-cast roaming last sent it
-    /// to. A live move order pointing anywhere ELSE is the player's, and the
-    /// roaming leaves it alone (AbilityAuraSystem.TickLedgerAutoCast).</summary>
-    public struct LedgerAutoGoal : IComponentData
-    {
-        /// <summary>The (walkable-snapped) destination the roaming wrote.</summary>
-        public Unity.Mathematics.float3 Position;
-        /// <summary>The building position it was heading for.</summary>
-        public Unity.Mathematics.float3 Target;
-    }
 
     /// <summary>Passive Scout-Sight owner — three-level LOS driven by
     /// AbilityAuraSystem.TickScoutSight: a small moving LOS, ramping to the

@@ -55,7 +55,12 @@ namespace TheWaningBorder.Entities
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Cavalry });
-            creator.AddComponent(entity, new Defense { Melee = 3, Ranged = 2, Siege = 0, Magic = 1 });
+            var d = def.defense;
+            creator.AddComponent(entity, new Defense
+            {
+                Melee = d != null ? d.melee : 0, Ranged = d != null ? d.ranged : 0,
+                Siege = d != null ? d.siege : 0, Magic = d != null ? d.magic : 0,
+            });
 
             // Hero / unique + abilities. Abilities come from the SO 'abilities' field;
             // fall back to the design default (King's Call aura + Liquid Courage active).
@@ -70,9 +75,8 @@ namespace TheWaningBorder.Entities
             // He enters at 1 and climbs by fighting; Honour thy Pledge stays
             // hidden until he reaches 4.
             //
-            // A REVIVED king is overwritten by HeroRevival immediately after
-            // this returns — the level he comes back at is the player's choice
-            // (§4), and the factory has no way to know it.
+            // A returning king is overwritten by TrainingSystem immediately
+            // after this returns (§5): the factory cannot know his record.
             creator.AddComponent(entity, new HeroLevel
             {
                 Value = TheWaningBorder.Economy.HeroProgressionConfig.MinLevel

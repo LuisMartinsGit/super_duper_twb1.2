@@ -92,7 +92,7 @@ namespace TheWaningBorder.Rendering
             using (var ents = _abilityUnits.ToEntityArray(Allocator.Temp))
             using (var abil = _abilityUnits.ToComponentDataArray<UnitAbilities>(Allocator.Temp))
                 for (int i = 0; i < ents.Length; i++)
-                    for (int slot = 0; slot < 4; slot++)
+                    for (int slot = 0; slot < TheWaningBorder.Abilities.UnitAbilities.Count; slot++)
                     {
                         int idx = abil[i].Get(slot);
                         if (idx < 0 || idx >= AbilityCatalog.Count) continue;

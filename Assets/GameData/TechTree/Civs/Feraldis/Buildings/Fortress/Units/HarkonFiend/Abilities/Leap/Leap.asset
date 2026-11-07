@@ -20,7 +20,7 @@ MonoBehaviour:
   duration: 0
   cooldown: 30
   radius: 4
-  range: 16
+  range: 0
   effects:
   - kind: 20
     value: 0

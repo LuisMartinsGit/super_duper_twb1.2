@@ -14,32 +14,32 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Ledger
   displayName: Ledger
-  unitClass: support
-  hp: 140
-  speed: 3.5
-  trainingTime: 21
-  damage: 0
+  unitClass: melee
+  hp: 760
+  speed: 5.6
+  trainingTime: 45
+  damage: 38
   damageType: melee
-  armorType: structure_light
+  armorType: infantry_heavy
   defense:
-    melee: 0
-    ranged: 0
-    siege: 0
-    magic: 2
-  attackCooldown: 0
-  attackRange: 0
+    melee: 7
+    ranged: 6
+    siege: 1
+    magic: 3
+  attackCooldown: 1.4
+  attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 26
   aimTime: 0
   radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 0
-    Iron: 22
-    Veilstone: 86
+    Supplies: 300
+    Iron: 200
+    Veilstone: 150
     Veilsteel: 0
-  populationCost: 1
+  populationCost: 3
   minBuildingLevel: 2
   buildSpeed: 0
   gatheringSpeed: 0
@@ -50,10 +50,13 @@ MonoBehaviour:
   aoeRadius: 0
   tags:
   - Infantry
-  - Light
+  - Heavy
   bonusVsTags: []
   abilities:
   - Automate Facility
+  - Iron Frame
+  - Accounts Settled
+  - Foreclosure
   prefab: {fileID: 1436963559484171168, guid: 7d44cd49d975225488171eab9d666c6e, type: 3}
   presentationId: 250
   animatorController: {fileID: 9100000, guid: be46edf8602f66c4186a07269cd01e16, type: 2}

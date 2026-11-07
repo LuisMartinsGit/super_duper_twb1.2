@@ -738,10 +738,7 @@ namespace TheWaningBorder.UI.Ingame
                 PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(em, faction, cost));
                 return;
             }
-            // b.Revival is None for every ordinary train; a fallen hero's
-            // two buttons carry the mode the player picked, and it sets both
-            // the price charged and the level he comes back at.
-            CommandRouter.IssueTrain(em, entity, b.Id, CommandSource.LocalPlayer, b.Revival);
+            CommandRouter.IssueTrain(em, entity, b.Id, CommandSource.LocalPlayer);
         }
 
         private void ExecuteResearch(EntityManager em, Entity entity, in ActionButton b)

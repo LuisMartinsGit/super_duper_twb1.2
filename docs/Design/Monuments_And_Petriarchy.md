@@ -65,7 +65,7 @@ for instead of a counter that fills by itself.
 - **It is visible to all only once it is picked up**, and it stays public from then
   on, also when a bearer drops it. Until then nobody sees it, in vision or on the
   minimap, and its fog lifts only for those who know the spot. Spectators with no faction selected see it.
-- **Any unit that walks onto it takes it, whether or not its owner knew.**
+- **Any HERO that walks onto it takes it, whether or not its owner knew; no other unit can (2026-11-07, [Heroes.md](Heroes.md) §4).**
 - **A unit that passes without taking it sends it elsewhere (2026-11-05).** When every
   unit of a side, the curse included, has left the `shardrootPassRadius` circle around
   the hidden artifact without picking it up, it moves to a new random walkable spot,

@@ -92,7 +92,6 @@ namespace TheWaningBorder.Abilities
             var em = EntityManager;
 
             ApplyPassiveAuras(em);
-            TickLedgerAutoCast(em);
             TickChargeDetection(em, elapsed);
         }
 
@@ -158,10 +157,11 @@ namespace TheWaningBorder.Abilities
             {
                 var slots = auraSlots[a];
                 AbilityCard aura = null;
-                for (int s = 0; s < 4; s++)
+                for (int s = 0; s < UnitAbilities.Count; s++)
                 {
                     var c = AuraCardFor(slots.Get(s));
-                    if (c != null) { aura = c; break; }
+                    // Accounts Settled waits for its level (Heroes.md §3).
+                    if (c != null && AbilityQuery.IsUnlocked(em, auras[a], c)) { aura = c; break; }
                 }
                 if (aura == null) continue;
 
@@ -212,150 +212,7 @@ namespace TheWaningBorder.Abilities
             if (unitsLoaded) { units.Dispose(); unitFac.Dispose(); unitXf.Dispose(); }
         }
 
-        // ---- Ledger: fire Automate Facility on a nearby eligible eco building ----
-        private void TickLedgerAutoCast(EntityManager em)
-        {
-            var ledgerQ = QC_LedgerTagFactionTagLocalTransform.Get(em, QT_LedgerTagFactionTagLocalTransform);
-            using var ledgers = ledgerQ.ToEntityArray(Allocator.Temp);
-            if (ledgers.Length == 0) return;
-
-            int automateIdx = AbilityCatalog.IndexOf("Automate Facility");
-            var card = AbilityCatalog.Get(automateIdx);
-            if (card == null) return;
-
-            var bldgQ = QC_BuildingTagFactionTagLocalTransform.Get(em, QT_BuildingTagFactionTagLocalTransform);
-            using var bldgs = bldgQ.ToEntityArray(Allocator.Temp);
-            using var bldgFac = bldgQ.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var bldgXf = bldgQ.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-
-            float castRange = card.Range + 2f;               // must be ~adjacent to automate
-            float castRangeSq = castRange * castRange;
-
-            // Eligibility is a property of the BUILDING, and nothing in the
-            // ledger loop changes it (the loop writes only the Ledgers), so it
-            // is tested once per building per pass instead of once per
-            // building per Ledger (five EntityManager calls each).
-            // Result-identical. Filled on first use.
-            byte[] eligible = null;
-
-            foreach (var led in ledgers)
-            {
-                bool casting = TransientState.Active<AbilityCastState>(em, led) || TransientState.Active<AbilityActivated>(em, led);
-                var cds = em.HasComponent<AbilityCooldowns>(led) ? em.GetComponentData<AbilityCooldowns>(led) : default;
-
-                Faction fac = em.GetComponentData<FactionTag>(led).Value;
-                float3 pos = em.GetComponentData<LocalTransform>(led).Position;
-
-                // A PLAYER'S MOVE ORDER OUTRANKS THE ROAMING. This loop used to
-                // re-issue its own move (or StopLedger) on every throttle tick,
-                // so a Ledger the player sent somewhere was dragged straight
-                // back to the nearest building, or stopped dead. A live move
-                // whose destination is not the one the roaming last wrote is
-                // the player's: leave the Ledger entirely alone until it
-                // arrives. (UserMoveOrder alone cannot tell them apart — the
-                // roaming's own IssueMove sets it too.)
-                if (IsPlayerMoving(em, led)) continue;
-
-                // Nearest eligible economy building at ANY distance (not just in range).
-                Entity best = Entity.Null; float bestSq = float.MaxValue; float3 bestPos = default;
-                if (eligible == null)
-                {
-                    eligible = new byte[bldgs.Length];
-                    for (int i = 0; i < bldgs.Length; i++)
-                        eligible[i] = (byte)(!TransientState.Active<UnderAutomation>(em, bldgs[i])
-                                             && !TransientState.Active<AutoYieldBoost>(em, bldgs[i])
-                                             && IsEconomyBuilding(em, bldgs[i]) ? 1 : 0);
-                }
-                for (int i = 0; i < bldgs.Length; i++)
-                {
-                    if (bldgFac[i].Value != fac) continue;
-                    if (eligible[i] == 0) continue;
-                    float2 d = new float2(bldgXf[i].Position.x - pos.x, bldgXf[i].Position.z - pos.z);
-                    float sq = math.dot(d, d);
-                    if (sq < bestSq) { bestSq = sq; best = bldgs[i]; bestPos = bldgXf[i].Position; }
-                }
-
-                if (best == Entity.Null)
-                {
-                    // Nothing left to automate — stop roaming.
-                    StopLedger(em, led, pos);
-                    continue;
-                }
-
-                if (bestSq <= castRangeSq)
-                {
-                    // In range: hold position and fire (unless already casting / cooling).
-                    StopLedger(em, led, pos);
-                    if (!casting && cds.C0 <= 0f)
-                        // Slot -1 = "first ready active", the behaviour this
-                        // had before slots became selectable. The Ledger has
-                        // exactly one active, so naming it would be noise.
-                        TransientState.Set(em, led, new AbilityActivated { Target = best, Slot = -1 });
-                }
-                else if (!casting)
-                {
-                    // Walk toward the target building via the AI move path. Only
-                    // (re)issue when the goal actually changed, so we don't spam
-                    // nav-path requests every throttle tick.
-                    // Compared against the goal the roaming RECORDED: the
-                    // move snaps the building centre onto walkable ground, so
-                    // the destination never equals bestPos and the old test
-                    // re-issued the move every throttle tick.
-                    bool needMove = true;
-                    if (em.HasComponent<DesiredDestination>(led) && em.HasComponent<LedgerAutoGoal>(led))
-                    {
-                        var dd = em.GetComponentData<DesiredDestination>(led);
-                        var goal = em.GetComponentData<LedgerAutoGoal>(led);
-                        if (dd.Has == 1 && math.distancesq(goal.Target, bestPos) < 1f
-                            && math.distancesq(dd.Position, goal.Position) < 1f) needMove = false;
-                    }
-                    if (needMove)
-                    {
-                        // CommandSource.System, NOT AI: this system runs on
-                        // EVERY peer (no host gate) and the move is a
-                        // deterministic consequence of the tick. AI-source
-                        // would queue it on the host (+2 ticks) but execute it
-                        // immediately on the client — a tick-offset position
-                        // divergence under lockstep.
-                        TheWaningBorder.Core.Commands.CommandRouter.IssueMove(
-                            em, led, bestPos, TheWaningBorder.Core.Commands.CommandSource.System);
-                        float3 written = em.HasComponent<DesiredDestination>(led)
-                            ? em.GetComponentData<DesiredDestination>(led).Position : bestPos;
-                        AddOrSet(em, led, new LedgerAutoGoal { Position = written, Target = bestPos });
-                    }
-                }
-            }
-        }
-
-        /// <summary>True while the Ledger is executing a move the PLAYER gave
-        /// it — a live destination the roaming did not write.</summary>
-        private static bool IsPlayerMoving(EntityManager em, Entity led)
-        {
-            if (!TransientState.Active<UserMoveOrder>(em, led)) return false;
-            if (!em.HasComponent<DesiredDestination>(led)) return false;
-            var dd = em.GetComponentData<DesiredDestination>(led);
-            if (dd.Has == 0) return false;
-            if (!em.HasComponent<LedgerAutoGoal>(led)) return true;
-            return math.distancesq(dd.Position, em.GetComponentData<LedgerAutoGoal>(led).Position) >= 1f;
-        }
-
-        // Clear a Ledger's movement goal so it stops (used when it arrives at a
-        // building or has nothing to automate). Leaves any in-flight cast alone,
-        // and never touches a destination the PLAYER set — the caller has
-        // already skipped a player-moving Ledger, and this re-checks so no
-        // future caller can clear one by accident.
-        private static void StopLedger(EntityManager em, Entity led, float3 pos)
-        {
-            if (IsPlayerMoving(em, led)) return;
-            if (em.HasComponent<DesiredDestination>(led))
-            {
-                var dd = em.GetComponentData<DesiredDestination>(led);
-                if (dd.Has != 0)
-                    em.SetComponentData(led, new DesiredDestination { Position = pos, Has = 0 });
-            }
-        }
-
-        private static bool IsEconomyBuilding(EntityManager em, Entity b)
+        internal static bool IsEconomyBuilding(EntityManager em, Entity b)
         {
             // Buildings that produce/hold resources are eligible.
             return em.HasComponent<SuppliesIncome>(b) || em.HasComponent<GathererHutTag>(b) || em.HasComponent<HallTag>(b);

@@ -101,7 +101,7 @@ namespace TheWaningBorder.Abilities
             {
                 var e = ents[i];
                 var ua = em.GetComponentData<UnitAbilities>(e);
-                if (ua.S0 != idx && ua.S1 != idx && ua.S2 != idx && ua.S3 != idx) continue;
+                if (!ua.Has(idx)) continue;
 
                 var st = em.GetComponentData<CelestarPassiveState>(e);
                 float3 pos = em.GetComponentData<LocalTransform>(e).Position;
@@ -141,7 +141,7 @@ namespace TheWaningBorder.Abilities
             for (int i = 0; i < ents.Length; i++)
             {
                 var ua = uas[i];
-                if (ua.S0 == idx || ua.S1 == idx || ua.S2 == idx || ua.S3 == idx) add.Add(ents[i]);
+                if (ua.Has(idx)) add.Add(ents[i]);
             }
             for (int i = 0; i < add.Length; i++)
                 em.AddComponentData(add[i], new CelestarPassiveState());

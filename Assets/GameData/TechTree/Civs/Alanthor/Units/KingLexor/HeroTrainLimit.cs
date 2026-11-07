@@ -1,14 +1,6 @@
 ﻿// HeroTrainLimit.cs
-// One-per-player hero gate + escalating respawn cost for King Lexor.
-//   - Only one live/queued King Lexor per faction (checked authoritatively at
-//     the training-command gate).
-//   - Each time he dies, his next training takes +15% longer (RespawnTrainMult).
-//
-// NOTE: the respawn counter is a static dictionary (simple, single-player
-// correct). For lockstep multiplayer this should live on a per-faction ECS
-// singleton so all clients agree — flagged for the netcode pass.
+// One-per-player gate for King Lexor and the Ledger.
 
-using System.Collections.Generic;
 using TheWaningBorder.Core;
 using Unity.Collections;
 using Unity.Entities;
@@ -43,21 +35,6 @@ namespace TheWaningBorder.Abilities
         static CachedEntityQuery QC_LedgerTagFactionTag;
 
         #endregion
-        private const float RespawnTaxPerDeath = 0.15f; // +15% training time per respawn
-        private static readonly Dictionary<int, int> _kingLexorRespawns = new Dictionary<int, int>();
-
-        public static int RespawnCount(Faction f) => _kingLexorRespawns.TryGetValue((int)f, out var n) ? n : 0;
-
-        public static float RespawnTrainMult(Faction f) => 1f + RespawnTaxPerDeath * RespawnCount(f);
-
-        public static void RecordRespawn(Faction f)
-        {
-            int k = (int)f;
-            _kingLexorRespawns[k] = (_kingLexorRespawns.TryGetValue(k, out var n) ? n : 0) + 1;
-        }
-
-        public static void ResetAll() => _kingLexorRespawns.Clear();
-
         public static bool IsKingLexorId(string unitId) => unitId == "King Lexor" || unitId == "KingLexor";
 
         public static bool IsLedgerId(string unitId) => unitId == "Ledger";

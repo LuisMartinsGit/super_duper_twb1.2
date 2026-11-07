@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Feraldis_HarkonFiend
   displayName: Harkon Fiend
   unitClass: human_melee
-  hp: 620
+  hp: 700
   speed: 6.5
   trainingTime: 63
-  damage: 42
+  damage: 34
   damageType: melee
   armorType: infantry_heavy
   defense:
-    melee: 3
-    ranged: 2
+    melee: 4
+    ranged: 3
     siege: 0
     magic: 1
   attackCooldown: 1.2
   attackRange: 1.6
   minAttackRange: 0
-  lineOfSight: 26
+  lineOfSight: 28
   aimTime: 0
   radius: 0.7
   trajectory: 

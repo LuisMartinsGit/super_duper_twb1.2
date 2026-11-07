@@ -64,7 +64,7 @@ namespace TheWaningBorder.Entities
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Magic });
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
-            creator.AddComponent(entity, new Defense { Melee = 0, Ranged = 0, Siege = 0, Magic = 2 });
+            creator.AddComponent(entity, new Defense { Melee = def.defense.melee, Ranged = def.defense.ranged, Siege = def.defense.siege, Magic = def.defense.magic });
             creator.AddComponent<SectUniqueUnitTag>(entity);
             creator.AddComponent(entity, new UnitAbility { Id = AbilityId.Dispel, CooldownDuration = 12f, CooldownRemaining = 0f, Range = 14f });
 

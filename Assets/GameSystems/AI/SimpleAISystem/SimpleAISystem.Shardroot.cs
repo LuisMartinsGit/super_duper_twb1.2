@@ -7,30 +7,14 @@
 // Shardbound King (Lexor bearing the artifact) is the only heightened form
 // he has, so both halves of that report were this one gap.
 //
-// Per faction, every AIShardroot.thinkInterval:
-//   * OUR CARRIER — pull it out of every mission and bring it home by the
-//     road this personality takes (Curse_And_Shardroot.md § 3.1b):
-//       - THE KING (PersonalityBlock.shardrootToKing: Rush, Aggressive,
-//         Balanced) — the nearest own Hall, which hands the artifact to the
-//         living king (ShardrootSystem.AwakenHero): the Shardbound King;
-//       - THE TEMPLE (Turtle, Defensive, Economic, TechBoom) — the nearest
-//         finished Temple of Ridan, which enshrines it and empowers the army.
-//     A road that is closed (no living king / no finished Temple) gives way
-//     to the other; with neither, the Hall (the placeholder champion). The
-//     choice is written on the carrier (ShardrootBearer.Intent) so the other
-//     building's delivery does not intercept it on the way.
-//   * ON THE GROUND, or HELD BY AN ENEMY / THE CURSE — carrier, Shardbound
-//     King or enshrining Temple (everyone targets the bearer) — where we have
-//     seen it —
-//     a strike party of free combat units (the RP hunt's eligibility rules),
-//     weighed against what stands round it (AIEngagement.AssessAssault) and
-//     sent only with launchMargin to spare. The king goes with it and is
-//     walked onto the pickup himself: a hero ordered onto it has right of way
-//     over his own escort (ShardrootCarrySystem), so he carries it straight
-//     away and no Hall trip is needed.
-//   * Otherwise an idle king rides with the army's biggest mission, so his
-//     fight abilities (Liquid Courage, Honour thy Pledge, Shardbound Fury)
-//     find fights instead of waiting at home "not in combat".
+// Per faction, every AIShardroot.thinkInterval (docs/Design/Heroes.md §4):
+//   * OURS: the bearer is an Ascended hero. PersonalityBlock.shardrootToKing keeps
+//     it fighting at the head of the army; the others save the Temple's price and
+//     order it to stow the artifact the moment they can pay. Meanwhile it fights.
+//   * ON THE GROUND, or HELD BY AN ENEMY / THE CURSE, where we have seen it: a
+//     strike party weighed against what stands round it, with our best hero. Only a
+//     hero can take it, so the hero is walked onto the pickup.
+//   * Otherwise an idle hero rides with the army's biggest mission.
 
 using System.Collections.Generic;
 using Unity.Collections;
@@ -95,7 +79,8 @@ namespace TheWaningBorder.AI
             var s = ShardrootFor(faction);
             // The king's retreat is judged every think, not on the slower
             // Shardroot cadence: he can lose a lot in five seconds.
-            Entity livingKing = AIShardroot.LivingKing(em, faction);
+            Entity livingKing = AIShardroot.Locate(em, faction, out Entity bearer, out _) == AIShardroot.Where.Mine
+                ? bearer : AIShardroot.LivingHero(em, faction);
             TickKingRetreat(em, faction, livingKing, s);
             if (now < s.NextThink) return;
             s.NextThink = now + math.max(1f, cfg.thinkInterval);
@@ -109,14 +94,8 @@ namespace TheWaningBorder.AI
             if (where == AIShardroot.Where.Mine)
             {
                 s.Roster.Clear(); s.LaunchedAt = -1f;
-                if (em.HasComponent<ShardboundHeroTag>(holder))
-                {
-                    ClearShardrootSaving(faction);
-                    KingJoinsArmy(em, faction, king, now);
-                    return;
-                }
-                ReleaseFromMissions(faction, holder);
-                BringShardrootHome(em, faction, livingKing, holder, pos, now);
+                DecideTheBearer(em, faction, holder, pos, now);
+                KingJoinsArmy(em, faction, king, now);
                 return;
             }
             ClearShardrootSaving(faction);
@@ -216,67 +195,24 @@ namespace TheWaningBorder.AI
                 $"({pos.x:0},{pos.z:0}) — power {a.MyPower} vs {a.EnemyPower}");
         }
 
-        /// <summary>Our carrier goes home by the personality's road (§ 3.1b):
-        /// King (Hall) or Temple, the other when the preferred one is closed,
-        /// the Hall when neither is open. The road is stamped on the carrier
-        /// so only that building's delivery takes it.</summary>
-        private void BringShardrootHome(EntityManager em, Faction faction, Entity king,
-            Entity holder, float3 pos, float now)
+        /// <summary>The bearer's owner chooses (Heroes.md §4): keep fighting
+        /// Ascended, or stow it in the Temple for the Temple victory, saving the
+        /// price while the hero fights on.</summary>
+        private void DecideTheBearer(EntityManager em, Faction faction, Entity holder, float3 pos, float now)
         {
-            bool hasHall = AIShardroot.TryNearestHall(em, faction, pos, out float3 hall);
-            bool hasTemple = AIShardroot.TryNearestTemple(em, faction, pos, out Entity temple, out float3 templePos);
-            bool kingRoad = hasHall && king != Entity.Null;
-            bool preferKing = PersonalityOf(faction).shardrootToKing;
-
-            byte intent;
-            if (preferKing && kingRoad) intent = ShardrootIntent.Hall;
-            else if (!preferKing && hasTemple) intent = ShardrootIntent.Temple;
-            else if (kingRoad) intent = ShardrootIntent.Hall;
-            else if (hasTemple) intent = ShardrootIntent.Temple;
-            else if (hasHall) intent = ShardrootIntent.Hall;   // the placeholder champion
-            else { ClearShardrootSaving(faction); return; }
-
-            // THE PRICE IS SAVED FOR, AT HOME (2026-10-20, Game_AI.md § 6l).
-            // Enshrining and binding are paid on delivery, and a faction that
-            // cannot pay waits at the building — silently. Green (FiendstonePass,
-            // 2026-10-20) carried it for 43 minutes this way with a bank that
-            // never reached a tenth of the price. Developer's call: the bearer
-            // waits at home and the price becomes the faction's top saving.
-            var price = intent == ShardrootIntent.Temple
-                ? TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.EnshrinePrice
-                : TheWaningBorder.Entities.ShardboundKingConfig.I.BindPrice;
-            SaveForShardroot(em, faction, price, intent, now);
-
-            if (em.HasComponent<ShardrootBearer>(holder))
+            if (PersonalityOf(faction).shardrootToKing
+                || !AIShardroot.TryNearestTemple(em, faction, pos, out Entity temple, out _))
             {
-                var b = em.GetComponentData<ShardrootBearer>(holder);
-                if (b.Intent != intent)
-                {
-                    b.Intent = intent;
-                    em.SetComponentData(holder, b);
-                    AILogger.Log(faction, "SHARDROOT", intent == ShardrootIntent.Temple
-                        ? "the Shardroot goes to the Temple — to be enshrined"
-                        : king != Entity.Null
-                            ? "the Shardroot goes to the Hall — for the king"
-                            : "the Shardroot goes to the Hall — no king lives");
-                }
-            }
-            if (TransientState.Active<UserMoveOrder>(em, holder)) return;
-
-            if (intent == ShardrootIntent.Temple)
-            {
-                // Measured to the wall, as the enshrine is (ShardrootCarrySystem).
-                if (TargetGeometry.SurfaceDistXZ(em, pos, templePos, temple)
-                    <= TheWaningBorder.Core.Config.BorderConstants.ShardrootDepositRadius * 0.5f) return;
-                CommandRouter.IssueMove(em, holder, templePos, CommandSource.AI);
-                AILogger.Log(faction, "SHARDROOT",
-                    $"we carry the Shardroot — bringing it to the Temple at ({templePos.x:0},{templePos.z:0})");
+                ClearShardrootSaving(faction);
                 return;
             }
-            if (math.distance(hall.xz, pos.xz) <= ShardrootState.HallDeliverRadius * 0.5f) return;
-            CommandRouter.IssueMove(em, holder, hall, CommandSource.AI);
-            AILogger.Log(faction, "SHARDROOT",
-                $"we carry the Shardroot — bringing it to the Hall at ({hall.x:0},{hall.z:0})");
+            var price = TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.EnshrinePrice;
+            SaveForShardroot(em, faction, price, now);
+            if (!TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction, price)) return;
+            if (em.HasComponent<ShardrootEnshrineOrder>(holder)) return;
+            ReleaseFromMissions(faction, holder);
+            CommandRouter.IssueEnshrineShardroot(em, holder, temple, CommandSource.AI);
+            AILogger.Log(faction, "SHARDROOT", "the bearer goes to stow the Shardroot in the Temple");
         }
 
         /// <summary>Savings key of the Shardroot's price (AIPivotalReserve).</summary>
@@ -297,7 +233,7 @@ namespace TheWaningBorder.AI
         private readonly HashSet<int> _shardrootSoft = new HashSet<int>();
 
         private void SaveForShardroot(EntityManager em, Faction faction,
-            TheWaningBorder.Core.Cost price, byte intent, float now)
+            TheWaningBorder.Core.Cost price, float now)
         {
             if (TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction, price))
             {
@@ -338,7 +274,7 @@ namespace TheWaningBorder.AI
             AIPivotalReserve.Set(faction, ShardrootReserveKey, price, strict, exemptMilitary: true);
             AIBudget.ClearReservation(faction, ShardrootReservePriority);
 
-            string road = intent == ShardrootIntent.Temple ? "enshrine" : "binding";
+            const string road = "enshrine";
             bool wasSoft = _shardrootSoft.Contains(key);
             if (wasSoft == strict)
             {
@@ -407,9 +343,10 @@ namespace TheWaningBorder.AI
         /// over his escort), or attack-moves on an enemy carrier.</summary>
         private static void SendKingOnto(EntityManager em, Entity king, float3 pos, AIShardroot.Where where)
         {
-            if (king == Entity.Null || !AIShardroot.Cfg.kingLeadsStrike) return;
+            if (king == Entity.Null) return;
+            // Only a hero can take it, so this order is not optional on the ground.
             if (where == AIShardroot.Where.Ground) CommandRouter.IssueMove(em, king, pos, CommandSource.AI);
-            else CommandRouter.IssueAttackMove(em, king, pos, CommandSource.AI);
+            else if (AIShardroot.Cfg.kingLeadsStrike) CommandRouter.IssueAttackMove(em, king, pos, CommandSource.AI);
         }
 
         /// <summary>An idle king rides with the biggest mission in the field.</summary>
@@ -430,7 +367,7 @@ namespace TheWaningBorder.AI
             if (math.distance(kp.xz, best.LastCentroid.xz) < 12f) return;
             CommandRouter.IssueAttackMove(em, king, best.LastCentroid, CommandSource.AI);
             AILogger.Log(faction, "SHARDROOT",
-                $"King Lexor rides out to the army ({best.Members.Count} strong) at ({best.LastCentroid.x:0},{best.LastCentroid.z:0})");
+                $"the hero rides out to the army ({best.Members.Count} strong) at ({best.LastCentroid.x:0},{best.LastCentroid.z:0})");
         }
 
         /// <summary>
@@ -440,6 +377,8 @@ namespace TheWaningBorder.AI
         /// anything turned him round, until he has healed to
         /// kingRecoveredHpFraction. Losing him loses the Shardroot he bears.
         /// </summary>
+        private const float HomeRadius = 12f;
+
         private void TickKingRetreat(EntityManager em, Faction faction, Entity king, ShardrootStrike s)
         {
             var cfg = AIShardroot.Cfg;
@@ -448,7 +387,7 @@ namespace TheWaningBorder.AI
             { s.KingRetreat = false; return; }
             var hp = em.GetComponentData<Health>(king);
             float frac = hp.Max > 0 ? hp.Value / (float)hp.Max : 1f;
-            bool bound = em.HasComponent<ShardboundKing>(king);
+            bool bound = em.HasComponent<AscendedHero>(king);
 
             // The Shardbound King fights longer (2026-10-20): he leads the
             // waves now, and his retreat threshold is his own.
@@ -459,13 +398,13 @@ namespace TheWaningBorder.AI
                 if (frac > retreatAt) return;
                 s.KingRetreat = true;
                 AILogger.Log(faction, "SHARDROOT",
-                    $"King Lexor{(bound ? " (Shardbound)" : "")} at {frac * 100f:F0}% health -- pulled back to heal");
+                    $"the hero{(bound ? " (Ascended)" : "")} at {frac * 100f:F0}% health -- pulled back to heal");
             }
             else if (frac >= cfg.kingRecoveredHpFraction)
             {
                 s.KingRetreat = false;
                 AILogger.Log(faction, "SHARDROOT",
-                    $"King Lexor healed to {frac * 100f:F0}% -- back to the fight");
+                    $"the hero healed to {frac * 100f:F0}% -- back to the fight");
                 return;
             }
 
@@ -473,7 +412,7 @@ namespace TheWaningBorder.AI
             ReleaseFromMissions(faction, king);
             float3 kp = em.GetComponentData<LocalTransform>(king).Position;
             if (!AIShardroot.TryNearestHall(em, faction, kp, out float3 hall)) return;
-            if (math.distance(kp.xz, hall.xz) <= ShardrootState.HallDeliverRadius) return;
+            if (math.distance(kp.xz, hall.xz) <= HomeRadius) return;
             if (TransientState.Active<MoveCommand>(em, king)
                 && math.distance(em.GetComponentData<MoveCommand>(king).Destination.xz, hall.xz) < 1f) return;
             CommandRouter.IssueMove(em, king, hall, CommandSource.AI);

@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Sect_Artificer
   displayName: Artificer
   unitClass: ranged
-  hp: 95
-  speed: 2.6
+  hp: 230
+  speed: 4.8
   trainingTime: 24
-  damage: 24
+  damage: 52
   damageType: ranged
   armorType: infantry_light
   defense:
-    melee: 1
-    ranged: 2
+    melee: 2
+    ranged: 3
     siege: 0
-    magic: 2
+    magic: 3
   attackCooldown: 3.0
-  attackRange: 14
+  attackRange: 16
   minAttackRange: 0
-  lineOfSight: 16
+  lineOfSight: 22
   radius: 0.5
   trajectory: 
   projectileSpeed: 0

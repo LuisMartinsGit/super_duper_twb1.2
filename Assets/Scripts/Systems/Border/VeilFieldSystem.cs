@@ -164,7 +164,6 @@ namespace TheWaningBorder.Systems.Border
                 {
                     ComponentType.ReadOnly<LitharchTag>(),
                     ComponentType.ReadOnly<TheWaningBorder.Abilities.UniqueUnitTag>(),
-                    ComponentType.ReadOnly<ShardboundHeroTag>(),
                 },
             });
             _cleanseScholarQuery = GetEntityQuery(

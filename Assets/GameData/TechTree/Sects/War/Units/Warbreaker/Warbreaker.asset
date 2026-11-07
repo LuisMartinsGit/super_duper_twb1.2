@@ -15,28 +15,28 @@ MonoBehaviour:
   id: Sect_Warbreaker
   displayName: Warbreaker
   unitClass: melee
-  hp: 260
-  speed: 4.4
+  hp: 340
+  speed: 5.5
   trainingTime: 21
-  damage: 18
+  damage: 26
   damageType: melee
   armorType: infantry_heavy
   defense:
-    melee: 0
-    ranged: 0
+    melee: 5
+    ranged: 4
     siege: 0
-    magic: 0
+    magic: 1
   attackCooldown: 1.2
-  attackRange: 0
+  attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 18
   aimTime: 0
   radius: 0.6
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 0
-    Iron: 0
+    Supplies: 100
+    Iron: 70
     Veilstone: 0
     Veilsteel: 0
   populationCost: 2

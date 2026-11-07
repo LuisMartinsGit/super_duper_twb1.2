@@ -15,28 +15,28 @@ MonoBehaviour:
   id: Sect_Judicator
   displayName: Judicator
   unitClass: melee
-  hp: 160
-  speed: 3.4
+  hp: 300
+  speed: 5.2
   trainingTime: 21
-  damage: 16
+  damage: 26
   damageType: melee
   armorType: infantry_heavy
   defense:
-    melee: 0
-    ranged: 0
+    melee: 6
+    ranged: 4
     siege: 0
-    magic: 0
+    magic: 2
   attackCooldown: 1.2
-  attackRange: 0
+  attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 18
   aimTime: 0
   radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 0
-    Iron: 0
+    Supplies: 75
+    Iron: 45
     Veilstone: 0
     Veilsteel: 0
   populationCost: 1

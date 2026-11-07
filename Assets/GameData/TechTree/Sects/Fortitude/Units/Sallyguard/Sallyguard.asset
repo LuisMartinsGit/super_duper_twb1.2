@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Sect_Sallyguard
   displayName: Sallyguard
   unitClass: melee
-  hp: 150
-  speed: 3.0
+  hp: 300
+  speed: 5.0
   trainingTime: 22
-  damage: 17
+  damage: 24
   damageType: melee
   armorType: infantry_heavy
   defense:
-    melee: 4
-    ranged: 2
+    melee: 6
+    ranged: 5
     siege: 1
-    magic: 1
-  attackCooldown: 1.6
-  attackRange: 0
+    magic: 2
+  attackCooldown: 1.5
+  attackRange: 1.2
   minAttackRange: 0
-  lineOfSight: 11
+  lineOfSight: 18
   radius: 0.5
   trajectory: 
   projectileSpeed: 0

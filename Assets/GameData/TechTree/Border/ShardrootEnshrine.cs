@@ -4,13 +4,9 @@
 // the temple (should be: select the hero who has it -> right click to stow
 // away the shardroot. Hero needs to be next to the building)".
 //
-// The AI enshrines by walking its courier to its Temple with Intent = Temple
-// (SimpleAISystem.Shardroot.cs); ShardrootCarrySystem's delivery pass then
-// enshrines it. A player's right-click on the Temple used to be a plain
-// formation move: the bearer stopped wherever its slot fell, walked past its
-// own Hall on the way (which binds the artifact there first), and a faction
-// that could not pay the enshrine price was told nothing. This is the same
-// sim path made explicit:
+// Since 2026-11-07 this is the ONLY way into the Temple, for the player and the
+// AI alike: a hero passing its Temple keeps the artifact unless ordered to stow it
+// (docs/Design/Heroes.md §4).
 //
 //   * Check      — who may give the order and on what (issue side AND every
 //                  peer's executor; the refusal text the input layer shows).
@@ -45,9 +41,6 @@ namespace TheWaningBorder.Entities
             NotOwn,
             /// <summary>The Temple is still a construction site / dead.</summary>
             Unfinished,
-            /// <summary>The bearer is the Shardbound Hero: the Hall choice
-            /// holds until he falls (§ 3.1b).</summary>
-            Bound,
             /// <summary>The faction cannot pay the enshrine price (§ 3.1c).</summary>
             CannotPay,
         }
@@ -93,7 +86,6 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<UnderConstruction>(temple) || !em.HasComponent<ShardrootStored>(temple)
                 || (em.HasComponent<Health>(temple) && em.GetComponentData<Health>(temple).Value <= 0))
                 return Refusal.Unfinished;
-            if (em.HasComponent<ShardboundHeroTag>(unit)) return Refusal.Bound;
             if (checkPrice && !TheWaningBorder.Economy.FactionEconomy.CanAfford(em, f,
                     ShardrootEmpowermentConfig.I.EnshrinePrice))
                 return Refusal.CannotPay;
@@ -109,7 +101,6 @@ namespace TheWaningBorder.Entities
                 case Refusal.NotTemple:  return Loc.T("The Shardroot can only be enshrined in a Temple of Ridan");
                 case Refusal.NotOwn:     return Loc.T("The Shardroot can only be enshrined in your own Temple of Ridan");
                 case Refusal.Unfinished: return Loc.T("The Temple of Ridan must be finished to enshrine the Shardroot");
-                case Refusal.Bound:      return Loc.T("The Shardroot is bound to its hero until he falls");
                 case Refusal.CannotPay:  return string.Format(Loc.T("Enshrining the Shardroot costs {0}"), PriceText());
             }
             return null;
@@ -142,14 +133,7 @@ namespace TheWaningBorder.Entities
         {
             if (Check(em, unit, temple, checkPrice: false) != Refusal.None) return;
 
-            var bearer = em.GetComponentData<ShardrootBearer>(unit);
-            byte prev = bearer.Intent;
-            if (em.HasComponent<ShardrootEnshrineOrder>(unit))
-                prev = em.GetComponentData<ShardrootEnshrineOrder>(unit).PrevIntent;
-            bearer.Intent = ShardrootIntent.Temple;
-            em.SetComponentData(unit, bearer);
-
-            var order = new ShardrootEnshrineOrder { Temple = temple, PrevIntent = prev };
+            var order = new ShardrootEnshrineOrder { Temple = temple };
             if (em.HasComponent<ShardrootEnshrineOrder>(unit)) em.SetComponentData(unit, order);
             else em.AddComponentData(unit, order);
 
@@ -276,16 +260,29 @@ namespace TheWaningBorder.Entities
         private static void Drop(EntityManager em, EntityCommandBuffer ecb, Entity unit,
             in ShardrootEnshrineOrder order)
         {
-            if (em.HasComponent<ShardrootBearer>(unit))
-            {
-                var b = em.GetComponentData<ShardrootBearer>(unit);
-                if (b.Intent == ShardrootIntent.Temple)
-                {
-                    b.Intent = order.PrevIntent;
-                    em.SetComponentData(unit, b);
-                }
-            }
             ecb.RemoveComponent<ShardrootEnshrineOrder>(unit);
+        }
+
+        /// <summary>
+        /// SET IT DOWN SAFELY (docs/Design/Heroes.md §4): the bearer lays the
+        /// artifact on the ground where it stands, with no explosion; the
+        /// Ascended state leaves it next tick. It cannot retake the pickup until
+        /// it has stepped out of reach. Runs on every peer at the command's tick.
+        /// </summary>
+        public static void DropSafely(EntityManager em, Entity unit)
+        {
+            if (!IsBearer(em, unit)) return;
+            var bearer = em.GetComponentData<ShardrootBearer>(unit);
+            var at = em.GetComponentData<LocalTransform>(unit).Position;
+            var pickup = ShardrootPickup.Create(em, at, bearer.Source, bearer.Amount);
+            em.AddComponent<ShardrootTag>(pickup);
+            TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, pickup);
+            var state = em.GetComponentData<ShardrootPickupState>(pickup);
+            state.DroppedBy = unit;
+            em.SetComponentData(pickup, state);
+            em.RemoveComponent<ShardrootTag>(unit);
+            em.RemoveComponent<ShardrootBearer>(unit);
+            if (em.HasComponent<ShardrootEnshrineOrder>(unit)) em.RemoveComponent<ShardrootEnshrineOrder>(unit);
         }
     }
 }

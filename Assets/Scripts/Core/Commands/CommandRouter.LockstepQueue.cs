@@ -432,22 +432,14 @@ namespace TheWaningBorder.Core.Commands
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }
-
-        /// <param name="revival">Hero revival mode, riding in TargetEntityId
-        /// — free on a Train command (EntityNetworkId holds the building,
-        /// BuildingId the unit type) and already serialized. It MUST cross the
-        /// wire: the two modes charge different prices and hand back different
-        /// levels, so a peer that assumed None would fork the bank.</param>
-        private static void QueueTrainForLockstep(EntityManager em, Entity building, string unitId,
-            TheWaningBorder.Abilities.HeroRevivalMode revival
-                = TheWaningBorder.Abilities.HeroRevivalMode.None)
+        private static void QueueTrainForLockstep(EntityManager em, Entity building, string unitId)
         {
             int buildingId = GetNetworkId(em, building);
 
             if (buildingId <= 0)
             {
                 if (!MayExecuteLocally(em, building, "Train")) return;
-                TrainCommandDirect(em, building, unitId, revival);
+                TrainCommandDirect(em, building, unitId);
                 return;
             }
 
@@ -456,7 +448,6 @@ namespace TheWaningBorder.Core.Commands
                 Type = LockstepCommandType.Train,
                 EntityNetworkId = buildingId,
                 BuildingId = unitId, // Reuse BuildingId field to carry the unit type
-                TargetEntityId = (int)revival
             };
             LockstepServiceLocator.Instance.QueueCommand(cmd);
         }

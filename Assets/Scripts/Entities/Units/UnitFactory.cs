@@ -140,7 +140,7 @@ namespace TheWaningBorder.Entities
             r["Alanthor_Trebuchet"]   = new UnitRecipe(Trebuchet.Create, Trebuchet.Create, UnitClass.Siege, Trebuchet.PresentationID);
             // Alanthor capital units, trained at the Fortress (data-driven
             // abilities; placeholder art).
-            r["Ledger"]               = new UnitRecipe(Ledger.Create, Ledger.Create, UnitClass.Economy, Ledger.PresentationID);
+            r["Ledger"]               = new UnitRecipe(Ledger.Create, Ledger.Create, UnitClass.Melee, Ledger.PresentationID);
             var kingLexor             = new UnitRecipe(KingLexor.Create, KingLexor.Create, UnitClass.Melee, KingLexor.PresentationID);
             r["King Lexor"] = r["KingLexor"] = kingLexor;
 

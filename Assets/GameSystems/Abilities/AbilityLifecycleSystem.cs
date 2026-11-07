@@ -99,7 +99,7 @@ namespace TheWaningBorder.Abilities
                     // An explicit slot is the player naming WHICH ability;
                     // -1 keeps the old "first ready active" behaviour, which
                     // is still right for every unit that has only one.
-                    int slot = act.Slot >= 0 && act.Slot < 4
+                    int slot = act.Slot >= 0 && act.Slot < UnitAbilities.Count
                         ? (RequestedSlotUsable(slots, em, e, act.Slot) ? act.Slot : -1)
                         : FirstActiveSlot(slots, em, e);
                     TransientState.Clear<AbilityActivated>(em, e);
@@ -333,13 +333,12 @@ namespace TheWaningBorder.Abilities
         private static int FirstActiveSlot(UnitAbilities slots, EntityManager em, Entity e)
         {
             var cds = em.HasComponent<AbilityCooldowns>(e) ? em.GetComponentData<AbilityCooldowns>(e) : default;
-            for (int s = 0; s < 4; s++)
+            for (int s = 0; s < UnitAbilities.Count; s++)
             {
                 var card = AbilityCatalog.Get(slots.Get(s));
                 if (card == null || card.Activation != AbilityActivation.Active) continue;
                 if (!AbilityQuery.IsUnlocked(em, e, card)) continue;
-                float cd = s == 0 ? cds.C0 : s == 1 ? cds.C1 : s == 2 ? cds.C2 : cds.C3;
-                if (cd <= 0f) return s;
+                if (cds.Get(s) <= 0f) return s;
             }
             return -1;
         }
@@ -353,14 +352,13 @@ namespace TheWaningBorder.Abilities
             if (card == null || card.Activation != AbilityActivation.Active) return false;
             if (!AbilityQuery.IsUnlocked(em, e, card)) return false;
             var cds = em.HasComponent<AbilityCooldowns>(e) ? em.GetComponentData<AbilityCooldowns>(e) : default;
-            float cd = slot == 0 ? cds.C0 : slot == 1 ? cds.C1 : slot == 2 ? cds.C2 : cds.C3;
-            return cd <= 0f;
+            return cds.Get(slot) <= 0f;
         }
 
         private static void SetCooldown(EntityManager em, Entity e, int slot, float cd)
         {
             var c = em.HasComponent<AbilityCooldowns>(e) ? em.GetComponentData<AbilityCooldowns>(e) : default;
-            switch (slot) { case 0: c.C0 = cd; break; case 1: c.C1 = cd; break; case 2: c.C2 = cd; break; default: c.C3 = cd; break; }
+            c.Set(slot, cd);
             AddOrSet(em, e, c);
         }
 
@@ -384,6 +382,7 @@ namespace TheWaningBorder.Abilities
         {
             c.C0 = math.max(0f, c.C0 - Dt); c.C1 = math.max(0f, c.C1 - Dt);
             c.C2 = math.max(0f, c.C2 - Dt); c.C3 = math.max(0f, c.C3 - Dt);
+            c.C4 = math.max(0f, c.C4 - Dt);
         }
     }
 

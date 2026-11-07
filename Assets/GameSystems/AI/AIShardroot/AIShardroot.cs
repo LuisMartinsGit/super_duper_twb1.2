@@ -128,18 +128,43 @@ namespace TheWaningBorder.AI
             return Where.None;
         }
 
-        /// <summary>This faction's living King Lexor, or Entity.Null.</summary>
-        public static Entity LivingKing(EntityManager em, Faction faction)
+        /// <summary>This faction's living hero to send for the Shardroot, the
+        /// highest level first (only heroes can take it, Heroes.md §4), or Entity.Null.</summary>
+        public static Entity LivingHero(EntityManager em, Faction faction)
         {
             var q = QC_Hero.Get(em, QT_Hero);
             using var ents = q.ToEntityArray(Allocator.Temp);
-            using var tags = q.ToComponentDataArray<UniqueUnitTag>(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
             using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
+            Entity best = Entity.Null;
+            int bestLevel = -1;
             for (int i = 0; i < ents.Length; i++)
-                if (facs[i].Value == faction && hps[i].Value > 0 && tags[i].Kind == UniqueUnitKind.KingLexor)
-                    return ents[i];
-            return Entity.Null;
+            {
+                if (facs[i].Value != faction || hps[i].Value <= 0) continue;
+                int level = em.HasComponent<HeroLevel>(ents[i]) ? em.GetComponentData<HeroLevel>(ents[i]).Value : 0;
+                if (level > bestLevel) { bestLevel = level; best = ents[i]; }
+            }
+            return best;
+        }
+
+        /// <summary>The nearest hostile capital on ground this faction knows,
+        /// where its aimed level-10 abilities land.</summary>
+        public static bool TryNearestHostileCapital(EntityManager em, Faction faction, float3 from, out float3 pos)
+        {
+            pos = default;
+            var q = QC_Hall.Get(em, QT_Hall);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            float best = float.MaxValue;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (!Alliances.AreHostile(faction, facs[i].Value)) continue;
+                if (!AICommon.IsKnownGround(faction, xfs[i].Position)) continue;
+                float d = math.distancesq(xfs[i].Position.xz, from.xz);
+                if (d < best) { best = d; pos = xfs[i].Position; }
+            }
+            return best < float.MaxValue;
         }
 
         /// <summary>The nearest finished, living Temple of Ridan of this
@@ -166,7 +191,7 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>The nearest finished Hall (the capital) of this faction —
-        /// where a carrier hands the artifact to the king.</summary>
+        /// where a hurt hero goes to heal.</summary>
         public static bool TryNearestHall(EntityManager em, Faction faction, float3 from, out float3 hallPos)
         {
             hallPos = default;

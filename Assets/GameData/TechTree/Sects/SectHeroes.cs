@@ -1,5 +1,5 @@
 // SectHeroes.cs
-// EVERY SECT'S UNIT IS A HERO (docs/Design/Religion.md §4, 2026-09-29).
+// A SECT'S HERO (docs/Design/Religion.md §4, docs/Design/Heroes.md).
 //
 //   * one per sect per faction — live or queued;
 //   * the first recruit costs 1 RP on top of its resources; a hero recruited
@@ -36,11 +36,9 @@ namespace TheWaningBorder.Systems.Sect
         static CachedEntityQuery QC_Queues;
 
         /// <summary>
-        /// The sect whose HERO this unit id is, or null. A sect with an
-        /// authored hero (SectConfig.HeroIdFor, the Alanthor cluster since
-        /// 2026-10-15) has a separate trainable unit; a sect without one
-        /// still treats its single sect unit as its hero (the Runai and
-        /// Feraldis clusters, until their pass).
+        /// The sect whose HERO this unit id is, or null. Only authored heroes
+        /// count (SectConfig.HeroIdFor): a sect's line unit is never a hero,
+        /// in any cluster (Heroes.md §1, 2026-11-07).
         /// </summary>
         public static string SectIdForUnit(string unitId)
         {
@@ -48,24 +46,20 @@ namespace TheWaningBorder.Systems.Sect
             for (int i = 0; i < SectConfig.AllSectIds.Length; i++)
             {
                 string sect = SectConfig.AllSectIds[i];
-                string hero = SectConfig.HeroIdFor(sect);
-                if (hero != null ? hero == unitId : SectConfig.UnitIdFor(sect) == unitId)
-                    return sect;
+                if (SectConfig.HeroIdFor(sect) == unitId) return sect;
             }
             return null;
         }
 
-        /// <summary>The sect whose LIMITED unit (Religion.md §4: 20 per
-        /// faction) this unit id is, or null. Only sects with an authored
-        /// hero have a separate limited unit.</summary>
+        /// <summary>The sect whose LINE unit (Religion.md §4: limited per
+        /// faction, RP each) this unit id is, or null.</summary>
         public static string SectIdForLimitedUnit(string unitId)
         {
             if (string.IsNullOrEmpty(unitId)) return null;
             for (int i = 0; i < SectConfig.AllSectIds.Length; i++)
             {
                 string sect = SectConfig.AllSectIds[i];
-                if (SectConfig.HeroIdFor(sect) != null && SectConfig.UnitIdFor(sect) == unitId)
-                    return sect;
+                if (SectConfig.UnitIdFor(sect) == unitId) return sect;
             }
             return null;
         }
@@ -116,6 +110,15 @@ namespace TheWaningBorder.Systems.Sect
                 || !em.HasComponent<SectAdoptionState>(bank)) return 0;
             var sect = em.GetComponentData<SectAdoptionState>(bank).Get(idx);
             return sect.HeroRecruited != 0 ? 0 : FactionReligionPointsHelper.Cfg.heroRp;
+        }
+
+        /// <summary>The RP a recruit of this unit costs right now: each sect
+        /// unit, and a sect hero's first recruit. 0 for everything else.</summary>
+        public static int RpFor(EntityManager em, Faction faction, string unitId)
+        {
+            if (SectIdForLimitedUnit(unitId) != null) return FactionReligionPointsHelper.Cfg.sectUnitRp;
+            string hero = SectIdForUnit(unitId);
+            return hero != null ? RpDue(em, faction, hero) : 0;
         }
 
         /// <summary>

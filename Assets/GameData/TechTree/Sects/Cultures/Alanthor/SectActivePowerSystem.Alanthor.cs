@@ -187,7 +187,7 @@ namespace TheWaningBorder.Systems.Sect
                 // strand the unit permanently.
                 if (TransientState.Active<SectDisordered>(em, e)) continue;
                 // The Shardbound King cannot be disabled (Curse_And_Shardroot.md § 3.1b).
-                if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(e)) continue;
+                if (em.HasComponent<TheWaningBorder.Entities.AscendedHero>(e)) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(e).Position;
                 float dx = p.x - center.x, dz = p.z - center.z;

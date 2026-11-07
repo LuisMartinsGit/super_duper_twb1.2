@@ -2046,9 +2046,7 @@ namespace TheWaningBorder.Bootstrap
             SpawnBattalion(em, "Alanthor_Swordsman", new float3(-ArmySpacing * 0.6f, 0f, ArtifactToKing + 6f), Faction.Blue);
             SpawnBattalion(em, "Alanthor_Longbowman", new float3(ArmySpacing * 0.6f, 0f, ArtifactToKing + 6f), Faction.Blue);
 
-            // The two doors the artifact can go through. Capital delivery awakens
-            // the Shardbound Hero (HallDeliverRadius around any HallTag
-            // building); the Temple enshrines it.
+            // The capital, and the Temple the bearer may stow the artifact in.
             float hallZ = ArtifactToKing + KingToHall;
             BuildingFactory.Create(em, "Fortress", new float3(-16f, 0f, hallZ), Faction.Blue);
             BuildingFactory.Create(em, "TempleOfRidan", new float3(16f, 0f, hallZ), Faction.Blue);

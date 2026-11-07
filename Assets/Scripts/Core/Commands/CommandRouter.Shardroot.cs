@@ -52,6 +52,41 @@ namespace TheWaningBorder.Core.Commands
             }
         }
 
+        /// <summary>The bearer sets the Shardroot down safely (docs/Design/Heroes.md
+        /// §4). One lockstep command, LockstepCommandType.DropShardroot.</summary>
+        public static void IssueDropShardroot(EntityManager em, Entity bearer,
+            CommandSource source = CommandSource.LocalPlayer)
+        {
+            if (ShouldDropCommand(source)) return;
+            if (bearer == Entity.Null || !em.Exists(bearer)) return;
+            if (IsBlockedByNotControllable(em, bearer, source)) return;
+            if (!ShardrootEnshrine.IsBearer(em, bearer)) return;
+
+            if (ShouldQueueForLockstep(source))
+            {
+                int bearerId = GetNetworkId(em, bearer);
+                if (bearerId <= 0)
+                {
+                    if (!MayExecuteLocally(em, bearer, "DropShardroot")) return;
+                    ShardrootEnshrine.DropSafely(em, bearer);
+                    return;
+                }
+                LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
+                {
+                    Type = LockstepCommandType.DropShardroot,
+                    EntityNetworkId = bearerId,
+                });
+            }
+            else
+            {
+                ShardrootEnshrine.DropSafely(em, bearer);
+            }
+        }
+
+        /// <summary>Executor — runs on every peer (LockstepManager).</summary>
+        public static void DropShardrootDirect(EntityManager em, Entity bearer)
+            => ShardrootEnshrine.DropSafely(em, bearer);
+
         /// <summary>Executor — runs on every peer (LockstepManager).</summary>
         public static void EnshrineShardrootDirect(EntityManager em, Entity bearer, Entity temple)
             => ShardrootEnshrine.Execute(em, bearer, temple);

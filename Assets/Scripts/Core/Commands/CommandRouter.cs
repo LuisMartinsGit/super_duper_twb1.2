@@ -867,6 +867,14 @@ namespace TheWaningBorder.Core.Commands
             if (IsBlockedByNotControllable(em, unit, source)) return false;
             if (!em.HasComponent<TheWaningBorder.Abilities.UnitAbilities>(unit)) return false;
             if (!TheWaningBorder.Abilities.AbilityQuery.HasReadyActiveAbility(em, unit)) return false;
+            // A hero's abilities below level 10 cast themselves
+            // (docs/Design/Heroes.md §3): only its game ender takes an order.
+            if (em.HasComponent<HeroLevel>(unit))
+            {
+                var heroCard = slot < 0 ? null : TheWaningBorder.Abilities.AbilityCatalog.Get(
+                    em.GetComponentData<TheWaningBorder.Abilities.UnitAbilities>(unit).Get(slot));
+                if (heroCard == null || !heroCard.IsUltimate) return false;
+            }
 
             // Under lockstep the aim rides the command and is stamped when it
             // executes, on every peer. Stamping it here would write it on the
@@ -918,16 +926,8 @@ namespace TheWaningBorder.Core.Commands
         /// <summary>
         /// Issue a train command to queue a unit at a building.
         /// </summary>
-        /// <param name="revival">Which revival the player is paying for when
-        /// this unit is a fallen hero (docs/Design/Heroes.md §4). None for
-        /// every ordinary train, and for a hero who has never died.
-        /// The MODE has to cross the wire — the two options charge different
-        /// prices and return different levels, so a peer that guessed would
-        /// fork both the bank and the hero.</param>
         public static void IssueTrain(EntityManager em, Entity building, string unitId,
-            CommandSource source = CommandSource.LocalPlayer,
-            TheWaningBorder.Abilities.HeroRevivalMode revival
-                = TheWaningBorder.Abilities.HeroRevivalMode.None)
+            CommandSource source = CommandSource.LocalPlayer)
         {
             if (ShouldDropCommand(source)) return;
             if (building == Entity.Null || !em.Exists(building)) return;
@@ -956,11 +956,11 @@ namespace TheWaningBorder.Core.Commands
 
             if (ShouldQueueForLockstep(source))
             {
-                QueueTrainForLockstep(em, building, unitId, revival);
+                QueueTrainForLockstep(em, building, unitId);
             }
             else
             {
-                TrainCommandDirect(em, building, unitId, revival);
+                TrainCommandDirect(em, building, unitId);
             }
         }
 
@@ -1612,9 +1612,7 @@ namespace TheWaningBorder.Core.Commands
         /// purchase of any multiplayer match desynced it
         /// (docs/Multiplayer_LAN_Readiness.md).
         /// </summary>
-        public static void TrainCommandDirect(EntityManager em, Entity building, string unitId,
-            TheWaningBorder.Abilities.HeroRevivalMode revival
-                = TheWaningBorder.Abilities.HeroRevivalMode.None)
+        public static void TrainCommandDirect(EntityManager em, Entity building, string unitId)
         {
             if (!em.HasBuffer<ProductionQueueItem>(building))
             {
@@ -1706,6 +1704,13 @@ namespace TheWaningBorder.Core.Commands
                             TheWaningBorder.Economy.SectConfig.SectUnitLimit));
                     return;
                 }
+                if (!TheWaningBorder.Economy.FactionReligionPointsHelper.CanAfford(em, unitFaction,
+                        TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg.sectUnitRp))
+                {
+                    if (notifyLocal)
+                        SimSignals.NotifyError(Loc.T("Not enough Religion Points"));
+                    return;
+                }
             }
 
             // SECT HEROES (docs/Design/Religion.md §4): one per sect, only
@@ -1759,13 +1764,11 @@ namespace TheWaningBorder.Core.Commands
             {
                 var trainFaction = em.GetComponentData<FactionTag>(building).Value;
 
-                // Full Honours costs more the more he was worth (Heroes.md
-                // §4). Folded into the SAME multiplier the queue item records,
-                // so CancelProductionCommandHelper refunds exactly what was
-                // taken — a separately-applied surcharge would have refunded
-                // the base price and quietly paid the player to cancel.
-                boonMult *= TheWaningBorder.Abilities.HeroRevival
-                    .PriceMultiplier(trainFaction, revival);
+                // A fallen hero costs more the higher it stood (Heroes.md §5).
+                // Folded into the SAME multiplier the queue item records, so
+                // CancelProductionCommandHelper refunds exactly what was taken.
+                boonMult *= TheWaningBorder.Abilities.FactionHeroRecords
+                    .PriceMultiplier(em, trainFaction, unitId);
                 var cost = TheWaningBorder.Economy.WarSectCostHelper.MilitaryDiscount(
                     em, trainFaction, unitId,
                     TheWaningBorder.Data.UnitCosts.Get(unitId));
@@ -1778,20 +1781,21 @@ namespace TheWaningBorder.Core.Commands
                 }
                 if (heroRp > 0)
                     TheWaningBorder.Economy.FactionReligionPointsHelper.TrySpend(em, trainFaction, heroRp);
+                // Each sect unit costs RP as well (Religion.md §4).
+                if (limitedSect != null)
+                    TheWaningBorder.Economy.FactionReligionPointsHelper.TrySpend(em, trainFaction,
+                        TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg.sectUnitRp);
             }
 
             // Behind whatever the building is already making — a unit
             // queued after a research waits for the research, which is the
             // one queue the player asked for.
-            // Level carries the hero's return level for a revival (0 for
-            // everything else). Read by TrainingSystem when the unit spawns.
+            // Level carries a fallen hero's level (0 for everything else).
+            // Read by TrainingSystem when the unit spawns.
             byte returnLevel = 0;
-            if (revival != TheWaningBorder.Abilities.HeroRevivalMode.None
-                && em.HasComponent<FactionTag>(building))
-            {
-                returnLevel = TheWaningBorder.Abilities.HeroRevival.ReturnLevel(
-                    em.GetComponentData<FactionTag>(building).Value, revival);
-            }
+            if (em.HasComponent<FactionTag>(building))
+                TheWaningBorder.Abilities.FactionHeroRecords.TryGet(em,
+                    em.GetComponentData<FactionTag>(building).Value, unitId, out returnLevel, out _);
 
             em.GetBuffer<ProductionQueueItem>(building).Add(new ProductionQueueItem
             {

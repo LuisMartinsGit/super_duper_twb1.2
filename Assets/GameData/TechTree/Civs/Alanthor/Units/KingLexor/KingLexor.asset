@@ -15,26 +15,26 @@ MonoBehaviour:
   id: King Lexor
   displayName: King Lexor
   unitClass: melee
-  hp: 650
-  speed: 7
-  trainingTime: 63
-  damage: 45
+  hp: 720
+  speed: 7.0
+  trainingTime: 45
+  damage: 46
   damageType: melee
   armorType: cavalry_heavy
   defense:
-    melee: 6
+    melee: 5
     ranged: 5
     siege: 0
     magic: 3
   attackCooldown: 1.4
-  attackRange: 1
+  attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 26
+  lineOfSight: 28
   radius: 0.6
   cost:
-    Supplies: 0
-    Iron: 138
-    Veilstone: 350
+    Supplies: 300
+    Iron: 200
+    Veilstone: 150
     Veilsteel: 0
   populationCost: 3
   minBuildingLevel: 3
@@ -49,6 +49,7 @@ MonoBehaviour:
   - King's Call
   - Liquid Courage
   - Honour thy Pledge
+  - Call to the Banners
   prefab: {fileID: 55333835282279, guid: 52da919c6d7ad7cc3aaa7e3f816e9c7f, type: 3}
   presentationId: 251
   animatorController: {fileID: 0}

@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Sect_Ashblade
   displayName: Ashblade
   unitClass: melee
-  hp: 155
-  speed: 5
+  hp: 260
+  speed: 6.4
   trainingTime: 21
-  damage: 14
+  damage: 26
   damageType: melee
   armorType: infantry_heavy
   defense:
-    melee: 0
-    ranged: 0
+    melee: 3
+    ranged: 3
     siege: 0
-    magic: 0
-  attackCooldown: 1.2
-  attackRange: 0
+    magic: 1
+  attackCooldown: 1.1
+  attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 18
   aimTime: 0
   radius: 0.5
   trajectory: 

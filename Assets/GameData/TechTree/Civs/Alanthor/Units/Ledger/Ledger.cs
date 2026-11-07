@@ -7,11 +7,9 @@ using TheWaningBorder.Abilities;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Ledger — Alanthor Automaton (trained at the Fortress). Roams to allied economy
-    /// buildings and "automates" them: +30% yield for 30 s, then the building is
-    /// Under Automation (60 s lockout). Driven by the Automate Facility ability
-    /// (auto-cast by AbilityAuraSystem). Non-combatant. Placeholder art (pid 250
-    /// -> capsule) per the tree; stats are placeholders.
+    /// Ledger — Alanthor's automaton hero (trained at the Fortress, one per player).
+    /// A hero like any other (docs/Design/Heroes.md §1): it fights, takes orders and
+    /// levels from kills. Automate Facility casts itself on economy buildings in sight.
     /// </summary>
     public static class Ledger
     {
@@ -30,15 +28,17 @@ namespace TheWaningBorder.Entities
             float hp = def.hp;
             float speed = def.speed;
             float los = def.lineOfSight;
+            float damage = def.damage;
 
             var entity = creator.CreateEntity();
             creator.AddComponent(entity, new PresentationId { Id = PresentationID });
             creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             creator.AddComponent(entity, new FactionTag { Value = faction });
-            creator.AddComponent(entity, new UnitTag { Class = UnitClass.Economy });
+            creator.AddComponent(entity, new UnitTag { Class = UnitClass.Melee });
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
-            creator.AddComponent(entity, new Damage { Value = 0 });
+            creator.AddComponent(entity, new Damage { Value = (int)damage });
+            creator.AddComponent(entity, new AttackCooldown { Cooldown = def.attackCooldown, Timer = 0f });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Target { Value = Entity.Null });
             creator.AddComponent(entity, new Radius { Value = def.radius });
@@ -46,14 +46,18 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new DesiredDestination { Position = float3.zero, Has = 0 });
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
-            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryLight });
+            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
+            var d = def.defense;
+            creator.AddComponent(entity, new Defense
+            {
+                Melee = d != null ? d.melee : 0, Ranged = d != null ? d.ranged : 0,
+                Siege = d != null ? d.siege : 0, Magic = d != null ? d.magic : 0,
+            });
 
-            // Fully autonomous: the player can select it to see it, but cannot
-            // command it (NotControllableTag blocks LocalPlayer orders; the
-            // AbilityAuraSystem steers it via CommandSource.AI). LedgerTag lets
-            // the auto-cast AI find it.
             creator.AddComponent<LedgerTag>(entity);
-            creator.AddComponent<NotControllableTag>(entity);
+            creator.AddComponent(entity, new UniqueUnitTag { Kind = UniqueUnitKind.Ledger });
+            creator.AddComponent(entity, new HeroLevel { Value = HeroProgressionConfig.MinLevel });
+            creator.AddComponent(entity, new HeroExperience { Xp = 0 });
             string[] abilityNames = (def != null && def.abilities != null && def.abilities.Length > 0)
                 ? def.abilities : new[] { "Automate Facility" };
             creator.AddComponent(entity, AbilityAssignment.Build(abilityNames));

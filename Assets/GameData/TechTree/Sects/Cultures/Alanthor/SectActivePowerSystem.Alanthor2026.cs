@@ -92,6 +92,11 @@ namespace TheWaningBorder.Systems.Sect
             picks.Dispose();
         }
 
+        /// <summary>The Great Rewind's door to the same log (Heroes.md §3).</summary>
+        public static void ReviveFallen(EntityManager em, Faction faction, float3 center,
+            float radius, float hpFraction, float window, float most)
+            => ApplyRevive(em, faction, center, radius, hpFraction, window, most);
+
         // ── Fortitude: Ward Discharge ───────────────────────────────────────
 
         /// <summary>Arm the caster's structure nearest the cast point.</summary>

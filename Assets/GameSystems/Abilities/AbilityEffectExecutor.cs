@@ -293,6 +293,26 @@ namespace TheWaningBorder.Abilities
                     case AbilityEffectKind.SectCalledIn:
                         break;
 
+                    // The level-10 game enders (docs/Design/Heroes.md §3).
+                    case AbilityEffectKind.HeroCallToTheBanners:
+                        TheWaningBorder.Entities.PledgeArmy.SummonBanners(em, caster, (int)e.Value, dur);
+                        break;
+                    case AbilityEffectKind.HeroForeclosure:
+                        HeroUltimates.Foreclosure(em, caster, e.Value);
+                        break;
+                    case AbilityEffectKind.HeroStopTheHours:
+                        HeroUltimates.StopTheHours(em, caster, card, e.Value);
+                        break;
+                    case AbilityEffectKind.HeroGreatRewind:
+                        HeroUltimates.GreatRewind(em, caster, dur, e.Value);
+                        break;
+                    case AbilityEffectKind.HeroRealmHolds:
+                        HeroUltimates.RealmHolds(em, caster, e.Value, dur);
+                        break;
+                    case AbilityEffectKind.HeroBuyOut:
+                        HeroUltimates.BuyOut(em, caster, card, e.Value);
+                        break;
+
                     case AbilityEffectKind.SummonPledgeArmy:
                         // Everything about the summon is read off the caster's
                         // hero level, so the card carries no numbers for it —

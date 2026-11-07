@@ -283,7 +283,7 @@ namespace TheWaningBorder.Systems.Combat
             // The Shardbound King's blows cleave: every hostile
             // within CleaveRadius of the target takes a share of
             // the same hit (Curse_And_Shardroot.md 3.1).
-            if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(entity))
+            if (em.HasComponent<TheWaningBorder.Entities.AscendedHero>(entity))
                 Cleave(em, entity, tgt.Value, finalDamage);
 
             // Match-long damage ledger — what Wrath's Spite pools

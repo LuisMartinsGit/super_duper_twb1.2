@@ -62,7 +62,9 @@ namespace TheWaningBorder.Core.Multiplayer
         // a destroyed tower ejects its garrison instead of killing it, and a
         // unit on a wall-walk fights only what is in its reach — the same
         // command stream yields a different world on an 8 peer.
-        public const int ProtocolVersion = 9;
+        // 10 (2026-11-07): opcode 58 DropShardroot, heroes auto-cast on every peer,
+        // Train no longer carries a revival mode, sect units cost RP.
+        public const int ProtocolVersion = 10;
 
         // ═══════════════════════════════════════════════════════════════
         // BUILD FINGERPRINT

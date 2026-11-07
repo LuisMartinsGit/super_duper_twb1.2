@@ -11,6 +11,25 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.73] — 2026-11-07
+
+### Heroes
+- **Heroes are now the strongest units in the game.** Every hero beats any other unit one on one and stands about even with every other hero. All stats were reviewed, and the Ledger now fights, takes orders and levels from kills.
+- **Heroes never lose a level.** A fallen hero trains again at the same level with all its XP, for more money and time the higher it stood. Rally the Oath and Full Honours are gone.
+- **Hero abilities cast themselves**, within the hero's line of sight, up to level 9. You no longer press them.
+- **Level 10 is a game ender, and it is yours to cast:** Call to the Banners, Foreclosure, Stop the Hours, The Great Rewind, The Realm Holds and Buy Out, plus reworked Blood Oath and Exodus.
+- **Everyone can see a hero's level.** Heroes wear a new small bar with health, XP and level, whatever your health-bar setting. Fog still hides them.
+- **Bloodletting** no longer cuts your army's HP: units attack faster and take more damage. **Liquidate** now fires only on a building about to fall. **Stake** works only on extractors.
+- **Recall, Exodus and Leap now land on walkable ground.**
+
+### Shardroot
+- **Only heroes can pick up the Shardroot**, and any hero carrying it is Ascended, at no price. Other units walk over it.
+- **Killing an Ascended hero makes it explode.** Its owner can avoid that with the new **Drop** button, which sets the Shardroot down safely, or by stowing it in the Temple for the Temple victory, which works as before.
+- **The Fortress no longer takes the Shardroot.** There is no binding price and no placeholder champion.
+
+### Sects
+- **Sect units are far stronger than normal units and cost 1 Religion Point each**, on top of their resources. Cancelling one before it spawns refunds the point. Every sect's unit now follows this rule, with a limit of 20.
+
 ## [0.0.72] — 2026-11-06
 
 ### Litharch

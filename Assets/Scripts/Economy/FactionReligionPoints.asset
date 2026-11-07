@@ -30,6 +30,8 @@ MonoBehaviour:
   chapelLevel2Rp: 2
   chapelLevel3Rp: 3
   heroRp: 1
+  sectUnitRp: 1
+  aiSectUnitRpReserve: 3
   sectDamagePerRp: 3000
   supportSupplies: 250
   supportIron: 120

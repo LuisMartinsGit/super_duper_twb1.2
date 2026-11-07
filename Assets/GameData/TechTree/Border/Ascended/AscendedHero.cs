@@ -1,6 +1,6 @@
-// ShardboundKing.cs
-// The Shardbound King is VERY HARD TO KILL (docs/Design/Curse_And_Shardroot.md
-// § 3.1b, nerfed 2026-11-06): while King Lexor bears the Shardroot he
+// AscendedHero.cs
+// ASCENDED (docs/Design/Heroes.md §4). While a hero carries the Shardroot it is
+// VERY HARD TO KILL:
 //   * takes only damageTakenFraction of every hit -- applied at the single
 //     incoming-damage hook, AbilityDamageHooks.IncomingMultiplier, which the
 //     melee, projectile, splash, spell and damage-over-time paths all call;
@@ -17,7 +17,7 @@
 //     skip him, Sew Disorder / Blinding Glare / Recall the Codex skip him at
 //     their source. Slows (SpellDebuff) work on him since 2026-11-06.
 // His cleave, Shardbound Fury and death detonation are ShardboundFury.cs.
-// The numbers are ShardboundKing.asset (ShardboundKingConfig), never here.
+// The numbers are AscendedHero.asset (AscendedHeroConfig), never here.
 
 using Unity.Collections;
 using Unity.Entities;
@@ -26,9 +26,9 @@ using TheWaningBorder.Core;
 
 namespace TheWaningBorder.Entities
 {
-    /// <summary>King Lexor bearing the Shardroot. Added and removed by
-    /// ShardboundKingSystem only (one entity, at most once per holding).</summary>
-    public struct ShardboundKing : IComponentData
+    /// <summary>A hero bearing the Shardroot: Ascended. Added and removed by
+    /// AscendedHeroSystem only (one entity, at most once per holding).</summary>
+    public struct AscendedHero : IComponentData
     {
         /// <summary>Fractional regeneration not yet paid as a whole hit point.</summary>
         public float RegenCarry;
@@ -38,31 +38,33 @@ namespace TheWaningBorder.Entities
         public byte BountyPaid;
         /// <summary>Sim time of the last hit on him: regeneration waits on it.</summary>
         public float LastHitAt;
+        /// <summary>Seconds until Shardbound Fury may fire by itself again.</summary>
+        public float FuryCooldown;
     }
 
-    public static class ShardboundKingRules
+    public static class AscendedHeroRules
     {
         /// <summary>Multiplier on damage the king takes while Shardbound; 1
         /// for anyone else. Read by AbilityDamageHooks.IncomingMultiplier.</summary>
         public static float IncomingMultiplier(EntityManager em, Entity victim)
         {
-            if (!em.HasComponent<ShardboundKing>(victim)) return 1f;
-            return math.clamp(ShardboundKingConfig.I.damageTakenFraction, 0f, 1f);
+            if (!em.HasComponent<AscendedHero>(victim)) return 1f;
+            return math.clamp(AscendedHeroConfig.I.damageTakenFraction, 0f, 1f);
         }
 
         /// <summary>One second's worth of the swarm cap for this Health; 0
         /// when the cap is off.</summary>
         public static float BudgetMax(Health hp)
-            => math.max(0f, ShardboundKingConfig.I.damageCapPerSecondOfMax) * hp.Max;
+            => math.max(0f, AscendedHeroConfig.I.damageCapPerSecondOfMax) * hp.Max;
 
         /// <summary>The part of an already-scaled hit the Shardbound King
         /// actually loses: what is left of this second's budget, which the
         /// hit then spends. Anyone else, or a cap of 0, takes it whole.</summary>
         public static int CapIncoming(EntityManager em, Entity victim, int damage)
         {
-            if (damage <= 0 || !em.HasComponent<ShardboundKing>(victim)) return damage;
-            if (ShardboundKingConfig.I.damageCapPerSecondOfMax <= 0f) return damage;
-            var k = em.GetComponentData<ShardboundKing>(victim);
+            if (damage <= 0 || !em.HasComponent<AscendedHero>(victim)) return damage;
+            if (AscendedHeroConfig.I.damageCapPerSecondOfMax <= 0f) return damage;
+            var k = em.GetComponentData<AscendedHero>(victim);
             int allowed = math.max(0, math.min(damage, (int)k.DamageBudget));
             k.DamageBudget -= allowed;
             k.LastHitAt = SimClock.Now;
@@ -73,25 +75,25 @@ namespace TheWaningBorder.Entities
 
     /// <summary>Regeneration and disable immunity of the Shardbound King.</summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    public partial struct ShardboundKingRegenSystem : ISystem
+    public partial struct AscendedHeroRegenSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
             var kings = new NativeList<Entity>(Allocator.Temp);
-            foreach (var (_, entity) in SystemAPI.Query<RefRO<ShardboundKing>>()
+            foreach (var (_, entity) in SystemAPI.Query<RefRO<AscendedHero>>()
                          .WithAll<Health>().WithEntityAccess())
                 kings.Add(entity);
             if (kings.Length == 0) { kings.Dispose(); return; }
 
-            float rate = math.max(0f, ShardboundKingConfig.I.regenPerSecondOfMax);
-            float cap = math.max(0f, ShardboundKingConfig.I.damageCapPerSecondOfMax);
+            float rate = math.max(0f, AscendedHeroConfig.I.regenPerSecondOfMax);
+            float cap = math.max(0f, AscendedHeroConfig.I.damageCapPerSecondOfMax);
             for (int i = 0; i < kings.Length; i++)
             {
                 var e = kings[i];
                 var hp = em.GetComponentData<Health>(e);
-                var k = em.GetComponentData<ShardboundKing>(e);
+                var k = em.GetComponentData<AscendedHero>(e);
                 // The swarm cap's budget refills every tick, wounded or not.
                 k.DamageBudget = math.min(cap * hp.Max, k.DamageBudget + cap * hp.Max * dt);
                 // THE BOUNTY (§3.1c, 2026-10-09): whoever brings the
@@ -106,11 +108,11 @@ namespace TheWaningBorder.Entities
                         var owner = em.HasComponent<FactionTag>(e) ? em.GetComponentData<FactionTag>(e).Value : killer;
                         if (killer != Faction.Border && killer != owner && Alliances.AreHostile(killer, owner))
                         {
-                            TheWaningBorder.Economy.FactionEconomy.Add(em, killer, ShardboundKingConfig.I.Bounty,
+                            TheWaningBorder.Economy.FactionEconomy.Add(em, killer, AscendedHeroConfig.I.Bounty,
                                 TheWaningBorder.Economy.IncomeSource.Loot);
                             SimSignals.Notify(string.Format(TheWaningBorder.Core.Localization.Loc.T(
-                                "{0} has slain the Shardbound King of {1} — a king's ransom is theirs!"), killer, owner));
-                            UnityEngine.Debug.Log($"[Shardbound] {killer} killed {owner}'s Shardbound King -- bounty paid");
+                                "{0} has slain the Ascended hero of {1} — a king's ransom is theirs!"), killer, owner));
+                            UnityEngine.Debug.Log($"[Shardbound] {killer} killed {owner}'s Ascended hero -- bounty paid");
                         }
                     }
                 }
@@ -121,7 +123,7 @@ namespace TheWaningBorder.Entities
                     continue;
                 }
                 // No regeneration in combat: enough force must visibly work.
-                if (SimClock.Now - k.LastHitAt < ShardboundKingConfig.I.outOfCombatSeconds)
+                if (SimClock.Now - k.LastHitAt < AscendedHeroConfig.I.outOfCombatSeconds)
                 {
                     em.SetComponentData(e, k);
                     continue;

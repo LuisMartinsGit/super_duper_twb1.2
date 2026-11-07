@@ -542,24 +542,32 @@ attacked to break the hold; destroyed wells are untouchable until they
 respawn. **Hold every well on the map at once and you WIN** — reaching
 all-but-one triggers a map-wide warning, so expect company.
 
-One well secretly holds the **SHARDROOT**. The first player to claim that
-well unearths it: a persistent artifact any unit can carry (visible to
-everyone on the minimap). Deliver it to your **Fortress** to awaken the
-**Shardbound Hero**, or to your **Temple** to enshrine it (all god/sect
-powers surge — but the Temple detonates catastrophically if it falls, and
-the Shardroot drops in the crater). The choice is locked until the vessel
-dies. And beware: while you hold it, **the Border hunts you**.
+The **SHARDROOT** lies hidden on the map. **Only a hero can take it**, and a hero
+carrying it is **Ascended**: very hard to kill, cleaving, and hurling crowds of
+enemies into the air by itself. Everyone can see the bearer, and the curse and
+every rival come for it. If an Ascended hero is killed, **it explodes**, killing
+everything nearby on either side, and the Shardroot drops where it fell.
 
-**Enshrining it yourself:** select the unit carrying the Shardroot (King
-Lexor or any courier) and **right-click your own finished Temple of Ridan** —
-the cursor reads "Enshrine the Shardroot". The bearer walks up to the Temple
-and stows the artifact there as soon as it stands beside it, and it will not
-hand the artifact to the Fortress on the way. The **Enshrine** button on the
-bearer's action panel does the same with your nearest Temple. Enshrining is
-very expensive: if you cannot pay, the order is refused and the notice tells
-you the price (if the bank runs short on the way, the bearer waits at the
-Temple until you can). A King who has already been bound at the Fortress
-cannot give it up — the choice holds until he falls.
+**You can choose instead.** With the bearer selected:
+
+- **Drop** sets the Shardroot on the ground safely. The hero loses its power, and any
+  hero may take the artifact. The hero that dropped it must step away before retaking it.
+- **Enshrine**, or **right-click your own finished Temple of Ridan**, walks the hero to
+  the Temple to stow it there. Your army is empowered and a 10-minute countdown to
+  victory starts for everyone to see. It is very expensive: if you cannot pay, the order
+  is refused and the notice tells you the price. If the Temple falls, it detonates and
+  the Shardroot drops.
+
+### Heroes
+
+Heroes are stronger than any other unit, trained at a building, one of each. They level
+from kills, and their level and progress show on a small bar anyone can see. A fallen hero
+trains again **at the same level**, for more money and time the higher it stood. **Every
+ability below level 10 casts itself** within the hero's line of sight. The **level-10
+ability is yours to cast**, on a very long cooldown, and can end the game.
+
+**Sect units** are far stronger than normal units and cost **1 Religion Point each** on top
+of their resources; cancelling one before it spawns refunds the point.
 
 ### Scout Vision
 

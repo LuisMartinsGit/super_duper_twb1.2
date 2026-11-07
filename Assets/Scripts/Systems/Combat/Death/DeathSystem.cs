@@ -148,13 +148,6 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     var dead = deadEntities[i];
 
-                    // King Lexor respawn tax: record his death so the next one trains slower.
-                    if (state.EntityManager.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(dead) &&
-                        state.EntityManager.GetComponentData<TheWaningBorder.Abilities.UniqueUnitTag>(dead).Kind == TheWaningBorder.Abilities.UniqueUnitKind.KingLexor &&
-                        state.EntityManager.HasComponent<FactionTag>(dead))
-                        TheWaningBorder.Abilities.HeroTrainLimit.RecordRespawn(
-                            state.EntityManager.GetComponentData<FactionTag>(dead).Value);
-
                     // Units get a death animation delay; buildings are destroyed immediately
                     bool isBuilding = state.EntityManager.HasComponent<BuildingTag>(dead);
 

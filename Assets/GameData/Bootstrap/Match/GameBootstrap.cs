@@ -290,12 +290,7 @@ namespace TheWaningBorder.Bootstrap
             // single-player and non-deterministic matches.
             SimCadence.BeginMatch();
 
-            // Per-match statics that outlive the scene. A carried-over hero
-            // death ledger would price the next match's FIRST king as a
-            // revival — charging Full Honours for a man who has never fallen.
-            // (HeroTrainLimit.ResetAll had no caller at all; it does now.)
-            TheWaningBorder.Abilities.HeroRevival.ResetAll();
-            TheWaningBorder.Abilities.HeroTrainLimit.ResetAll();
+            // Per-match statics that outlive the scene.
             // TerritoryOwnership.Reset had no caller either. Its curse-held
             // set is fed by CurseTerritorySystem, whose own per-match reset
             // clears the system's mirror but never un-marks the static — so

@@ -127,7 +127,8 @@ namespace TheWaningBorder.UI.Ingame
             var hovered = mode == HealthBarMode.None
                 ? Entity.Null
                 : TheWaningBorder.Input.RTSInputManager.HoveredEntity;
-            if (hovered != Entity.Null && _em.Exists(hovered) && HasDrawableBar(hovered))
+            if (hovered != Entity.Null && _em.Exists(hovered) && HasDrawableBar(hovered)
+                && !_em.HasComponent<HeroLevel>(hovered))
             {
                 if (ShouldShowBar(hovered))
                 {
@@ -142,7 +143,7 @@ namespace TheWaningBorder.UI.Ingame
                 for (int i = 0; i < selection.Count; i++)
                 {
                     var e = selection[i];
-                    if (_drawn.Contains(e)) continue;
+                    if (_drawn.Contains(e) || _em.HasComponent<HeroLevel>(e)) continue;
                     if (!_em.Exists(e)) continue;
                     if (_em.HasComponent<Disabled>(e)) continue;   // inside a building
                     if (!HasDrawableBar(e)) continue;
@@ -153,11 +154,66 @@ namespace TheWaningBorder.UI.Ingame
             }
 
             DrawUnpromptedBars(cam, mode);
+            DrawHeroBars(cam);
 
             // Hide pool items that weren't claimed this frame.
             for (int i = _activeCount; i < _pool.Count; i++)
                 _pool[i].SetActive(false);
 
+        }
+
+        // ── Hero bars (docs/Design/Heroes.md §2) ───────────────────────────
+        // Every hero the viewer can see, friend or foe, whatever the setting:
+        // its own small authored bar with health, XP and level, instead of the
+        // plain one.
+        private static readonly ComponentType[] QT_Heroes =
+        {
+            ComponentType.ReadOnly<HeroLevel>(), ComponentType.ReadOnly<Health>(),
+            ComponentType.ReadOnly<LocalTransform>(), ComponentType.ReadOnly<FactionTag>(),
+        };
+        private static CachedEntityQuery QC_Heroes;
+        private readonly List<HeroBarWidget> _heroBars = new();
+        private GameObject _heroBarPrefab;
+        private bool _heroBarLooked;
+
+        private void DrawHeroBars(Camera cam)
+        {
+            if (!_heroBarLooked)
+            {
+                _heroBarLooked = true;
+                var catalog = Resources.Load<GameUICatalog>("GameUICatalog");
+                _heroBarPrefab = catalog != null ? catalog.heroBar : null;
+                if (_heroBarPrefab == null) Debug.LogError("[GameUI] GameUICatalog.heroBar is unassigned - heroes have no bar.");
+            }
+            int used = 0;
+            if (_heroBarPrefab != null)
+            {
+                var q = QC_Heroes.Get(_em, QT_Heroes);
+                using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+                using var hps = q.ToComponentDataArray<Health>(Unity.Collections.Allocator.Temp);
+                using var xfs = q.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
+                using var lvls = q.ToComponentDataArray<HeroLevel>(Unity.Collections.Allocator.Temp);
+                using var facs = q.ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp);
+                for (int i = 0; i < ents.Length; i++)
+                {
+                    if (hps[i].Max <= 0 || hps[i].Value <= 0 || !IsVisible(ents[i])) continue;
+                    var wp = xfs[i].Position;
+                    Vector3 sp = cam.WorldToScreenPoint(new Vector3(wp.x, wp.y + yOffsetAboveEntity, wp.z));
+                    if (sp.z < 0f) continue;
+                    while (_heroBars.Count <= used)
+                        _heroBars.Add(Instantiate(_heroBarPrefab, _canvasRect, false).GetComponent<HeroBarWidget>());
+                    int level = lvls[i].Value;
+                    int floor = TheWaningBorder.Economy.HeroProgressionConfig.XpToReach(level);
+                    int next = TheWaningBorder.Economy.HeroProgressionConfig.XpToReach(level + 1);
+                    int xp = _em.HasComponent<HeroExperience>(ents[i]) ? _em.GetComponentData<HeroExperience>(ents[i]).Xp : floor;
+                    float progress = next > floor ? Mathf.Clamp01((xp - floor) / (float)(next - floor)) : 1f;
+                    var bar = _heroBars[used++];
+                    bar.Place(new Vector2(sp.x, sp.y));
+                    bar.Show(Mathf.Clamp01((float)hps[i].Value / hps[i].Max), progress, level,
+                        FactionColors.Get(facs[i].Value));
+                }
+            }
+            for (int i = used; i < _heroBars.Count; i++) _heroBars[i].Hide();
         }
 
         /// <summary>
@@ -223,6 +279,8 @@ namespace TheWaningBorder.UI.Ingame
 
                     var hp = hps[i];
                     if (hp.Max <= 0 || hp.Value <= 0) continue;
+                    // Heroes wear their own bar (DrawHeroBars).
+                    if (_em.HasComponent<HeroLevel>(e)) continue;
 
                     // A spent shield is lost hit points too (Combat_Pacing.md).
                     // Same test as EntityInfoExtractor.TryGetShield.

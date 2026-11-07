@@ -1,5 +1,7 @@
 # Spells: the unified model
 
+> **2026-11-07:** heroes changed. [Heroes.md](Heroes.md) is canon for hero stats, levels, auto-cast (no manual hero abilities below level 10; reach = the hero's line of sight), level-10 abilities, revival at the same level, and who carries the Shardroot. Text here that disagrees is out of date.
+
 Scope: every ability a player or AI **casts**, meaning the ability cards (unit and
 hero actives and passives) and the sect active powers. This page covers the
 fields a spell has, how its damage lands, how a cast starts and gets

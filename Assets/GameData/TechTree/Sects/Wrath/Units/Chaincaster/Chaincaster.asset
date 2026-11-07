@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Sect_Chaincaster
   displayName: Chaincaster
   unitClass: magic
-  hp: 105
-  speed: 3.5
+  hp: 220
+  speed: 5.0
   trainingTime: 21
-  damage: 10
+  damage: 34
   damageType: magic
   armorType: infantry_heavy
   defense:
-    melee: 0
-    ranged: 0
+    melee: 1
+    ranged: 1
     siege: 0
-    magic: 0
-  attackCooldown: 1.2
+    magic: 3
+  attackCooldown: 1.5
   attackRange: 14
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 20
   aimTime: 0.5
   radius: 0.5
   trajectory: 

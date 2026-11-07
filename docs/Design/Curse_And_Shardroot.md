@@ -1025,6 +1025,14 @@ a Border-credited death) held it inside a dormant husk until regrowth. The
 vessel broke; the artifact drops at the rubble, up for grabs, the same way
 it drops from a detonated holder (§3.1).
 
+### 3.0 Superseded for carrying and the Hall road (2026-11-07)
+
+**[Heroes.md](Heroes.md) §4 is canon for who takes the Shardroot and what carrying it
+does:** only heroes capture it, any hero is Ascended while it carries it, a hero killed
+with it explodes, and the owner may drop it safely or stow it in the Temple for the Temple
+victory (§3.1c stands). The Hall road, the binding price, couriers, the placeholder
+champion and the "one choice, no backsies" text below are history.
+
 ### 3.1 Lifecycle (power, not victory)
 
 - **Drop & carry**: a physical, **persistent** pickup; any unit carries
@@ -1076,8 +1084,8 @@ it drops from a detonated holder (§3.1).
     `DetonationBuildingDamage`. The artifact drops in the crater.
   - **Very hard to kill, not unkillable (2026-11-06)** (§ 3.1b) — he takes only a
     fraction of every hit, regenerates only out of combat, and cannot be thrown or
-    disabled, though slows work on him; the numbers are on `ShardboundKing.asset`
-    beside `ShardboundKing.cs`. Developer: losing the king and the Shardroot is a risk
+    disabled, though slows work on him; the numbers are on `AscendedHero.asset`
+    beside `AscendedHero.cs`. Developer: losing the king and the Shardroot is a risk
     every tier takes, and in Hard and Expert matches he should be seen to die. Committing
     enough troops must visibly work: while hit he does not regenerate, and only
     `damageCapPerSecondOfMax` limits how fast he falls.
@@ -1157,7 +1165,7 @@ target. The artifact is now the asymmetry that decides a match.
   economic ones enshrine (Game_AI.md § 6l).
 - The numbers — the king's damage fraction, regeneration and per-second
   damage cap, the civilization's damage and protection bonuses — live in their config
-  assets (`ShardboundKing.asset` beside King Lexor's Shardbound Fury,
+  assets (`AscendedHero.asset` beside King Lexor's Shardbound Fury,
   `ShardrootEmpowerment.asset` beside the Temple of Ridan), never here.
 
 ### 3.1c The Wonder and the Ring-lord (2026-10-09, CURRENT — supersedes §3's host well / Maw / spawn roll, and §3.1b where they differ)
@@ -1207,7 +1215,7 @@ a free upgrade:
 
 - **Binding the King** (Hall road) and **enshrining** (Temple road) each cost
   a very large price, paid when the courier delivers. The price is a config
-  value beside each road (`ShardboundKing.asset`, `ShardrootEmpowerment.asset`),
+  value beside each road (`AscendedHero.asset`, `ShardrootEmpowerment.asset`),
   never here.
 - **A faction that cannot pay cannot deliver:** its courier waits at the
   building, carrying the artifact and hunted by everyone, until the bank
@@ -1253,7 +1261,7 @@ a free upgrade:
 - **Conquest is his only victory**: no clock.
 - **Stopping him must feel great** (the "stop Sauron" moment): killing the
   Shardbound King pays a **bounty** to the faction that lands the killing blow
-  — a config value beside `ShardboundKing.asset`, in addition to the artifact
+  — a config value beside `AscendedHero.asset`, in addition to the artifact
   dropping where he falls for the taking. Open: what the bounty is (resources,
   religion points, a temporary army-wide rally) — see §9.
 

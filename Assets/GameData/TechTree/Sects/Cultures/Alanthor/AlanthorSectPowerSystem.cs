@@ -29,8 +29,8 @@ namespace TheWaningBorder.Systems.Sect
     [UpdateBefore(typeof(DeathSystem))]
     public partial class AlanthorSectPowerSystem : SystemBase
     {
-        /// <summary>How long a death stays revivable (the longest Revive window).</summary>
-        public const double DeathLogSeconds = 20.0;
+        /// <summary>How long a death stays revivable (The Great Rewind's window).</summary>
+        public const double DeathLogSeconds = 60.0;
 
         /// <summary>Sim time of the current tick, for Revive's window.</summary>
         public static double Now { get; private set; }

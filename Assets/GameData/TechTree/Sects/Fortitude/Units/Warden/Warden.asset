@@ -15,31 +15,31 @@ MonoBehaviour:
   id: Sect_Warden
   displayName: Warden
   unitClass: melee
-  hp: 760
-  speed: 2.8
-  trainingTime: 40
-  damage: 30
+  hp: 860
+  speed: 5.2
+  trainingTime: 45
+  damage: 36
   damageType: melee
   armorType: infantry_heavy
   defense:
-    melee: 7
-    ranged: 6
+    melee: 8
+    ranged: 7
     siege: 2
     magic: 3
   attackCooldown: 1.5
-  attackRange: 0
+  attackRange: 1.2
   minAttackRange: 0
-  lineOfSight: 16
+  lineOfSight: 26
   radius: 0.6
   aimTime: 0
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 150
-    Iron: 100
-    Veilstone: 50
+    Supplies: 300
+    Iron: 200
+    Veilstone: 150
     Veilsteel: 0
-  populationCost: 2
+  populationCost: 3
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
@@ -57,6 +57,7 @@ MonoBehaviour:
   - Drillmaster
   - Sally Forth
   - Challenge
+  - The Realm Holds
   prefab: {fileID: 12305725100316, guid: 9792701039fdde92073eb07449aaab68, type: 3}
   presentationId: 452
   animatorController: {fileID: 0}

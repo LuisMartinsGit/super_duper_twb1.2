@@ -121,6 +121,13 @@ namespace TheWaningBorder.Abilities
         CleanseFalloff = 47,       // width (m) of the falloff band outside the cleared circle
         CleanseMaxRadius = 48,     // the cleared circle stops growing at this radius (m)
         CleanseHeal = 49,          // (unused since 2026-10-22: the ward does not heal)
+        // The level-10 game enders (docs/Design/Heroes.md §3) — HeroUltimates, PledgeArmy.
+        HeroCallToTheBanners = 51, // Value soldiers answer around the caster for the card's duration
+        HeroForeclosure = 52,      // Value% of every hostile stockpile moves to the caster's bank
+        HeroStopTheHours = 53,     // every hostile unit is frozen for Value seconds
+        HeroGreatRewind = 54,      // army healed; up to Value units fallen within the duration return
+        HeroRealmHolds = 55,       // hostiles on your ground lose Value% max HP; your buildings safe for the duration
+        HeroBuyOut = 56,           // hostile buildings in the aimed Radius fall and pay Value% of their worth
         CleansePulse = 50,         // one burst: the aimed Radius circle is cleared and a CleanseFalloff band thinned; no ward is left (2026-11-06)
     }
 
@@ -217,6 +224,10 @@ namespace TheWaningBorder.Abilities
 
         /// <summary>True when the player must click a unit or building to cast it.</summary>
         public bool IsEntityTargeted => TargetKind != CastTargetKind.None;
+
+        /// <summary>A hero's level-10 game ender: cast by hand, not limited to
+        /// the hero's line of sight (docs/Design/Heroes.md §3).</summary>
+        public bool IsUltimate => UnlocksAtLevel >= 10;
 
         public bool HasEffect(AbilityEffectKind kind)
         {

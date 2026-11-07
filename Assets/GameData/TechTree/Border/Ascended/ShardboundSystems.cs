@@ -1,10 +1,11 @@
 // ShardboundSystems.cs
 // The two sim systems behind the Shardbound King (ShardboundFury.cs):
 //
-//   ShardboundKingSystem  stamps ShardboundKing + grants Shardbound Fury the
-//                         tick King Lexor carries the artifact, and takes both
-//                         away the tick he stops (dropped on death, handed to
-//                         the Temple). Nothing else may add or remove the tag.
+//   AscendedHeroSystem  stamps AscendedHero the tick ANY hero carries the
+//                         artifact and takes it away the tick it stops (dropped,
+//                         dead, stowed in the Temple). Nothing else may add or
+//                         remove the tag. It also fires Shardbound Fury by itself
+//                         when enemies crowd the hero (docs/Design/Heroes.md §4).
 //   LaunchSystem          flies every Launched unit on a parabola the SIM
 //                         owns -- LocalTransform.y is written from sim time,
 //                         so the arc is identical on every peer and the view
@@ -25,7 +26,7 @@ using TheWaningBorder.World.Terrain;
 namespace TheWaningBorder.Entities
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    public partial struct ShardboundKingSystem : ISystem
+    public partial struct AscendedHeroSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {
@@ -33,45 +34,78 @@ namespace TheWaningBorder.Entities
             var grant = new NativeList<Entity>(Allocator.Temp);
             var revoke = new NativeList<Entity>(Allocator.Temp);
 
-            foreach (var (unique, entity) in SystemAPI
+            foreach (var (_, entity) in SystemAPI
                 .Query<RefRO<UniqueUnitTag>>()
                 .WithAll<ShardrootTag>()
-                .WithNone<ShardboundKing>()
+                .WithNone<AscendedHero>()
                 .WithEntityAccess())
             {
-                if (unique.ValueRO.Kind == UniqueUnitKind.KingLexor) grant.Add(entity);
+                grant.Add(entity);
             }
             foreach (var (_, entity) in SystemAPI
-                .Query<RefRO<ShardboundKing>>()
+                .Query<RefRO<AscendedHero>>()
                 .WithNone<ShardrootTag>()
                 .WithEntityAccess())
             {
                 revoke.Add(entity);
             }
 
-            int fury = AbilityCatalog.IndexOf(ShardboundFury.AbilityName);
             for (int i = 0; i < grant.Length; i++)
             {
                 var e = grant[i];
-                em.AddComponent<ShardboundKing>(e);
+                em.AddComponent<AscendedHero>(e);
                 // He is bound with a full second of the swarm cap in hand.
                 if (em.HasComponent<Health>(e))
-                    em.SetComponentData(e, new ShardboundKing
-                    { DamageBudget = ShardboundKingRules.BudgetMax(em.GetComponentData<Health>(e)) });
-                AbilityAssignment.AddAbility(em, e, fury);
+                    em.SetComponentData(e, new AscendedHero
+                    { DamageBudget = AscendedHeroRules.BudgetMax(em.GetComponentData<Health>(e)) });
                 var f = em.HasComponent<FactionTag>(e) ? em.GetComponentData<FactionTag>(e).Value : Faction.Blue;
-                SimSignals.Notify(string.Format(Loc.T("{0}'s King Lexor is SHARDBOUND — nearly invincible!"), f));
-                TWBLog.Log($"[Shardbound] {f}: King Lexor bears the Shardroot -- cleave + Fury granted");
+                SimSignals.Notify(string.Format(Loc.T("{0}'s hero is ASCENDED — nearly invincible!"), f));
+                TWBLog.Log($"[Shardbound] {f}: a hero bears the Shardroot -- Ascended");
             }
             for (int i = 0; i < revoke.Length; i++)
             {
                 var e = revoke[i];
-                em.RemoveComponent<ShardboundKing>(e);
-                AbilityAssignment.RemoveAbility(em, e, fury);
-                TWBLog.Log("[Shardbound] the king no longer bears the Shardroot -- empowerment withdrawn");
+                em.RemoveComponent<AscendedHero>(e);
+                TWBLog.Log("[Shardbound] a hero no longer bears the Shardroot -- Ascended state withdrawn");
             }
             grant.Dispose();
             revoke.Dispose();
+            TickFury(ref state, em);
+        }
+    }
+
+    public partial struct AscendedHeroSystem
+    {
+        /// <summary>Every Ascended hero's Fury: its own clock, no ability slot,
+        /// and it fires when enough enemies stand inside the card's radius.</summary>
+        private void TickFury(ref SystemState state, EntityManager em)
+        {
+            var kings = new NativeList<Entity>(Allocator.Temp);
+            float dt = SystemAPI.Time.DeltaTime;
+            foreach (var (k, entity) in SystemAPI.Query<RefRW<AscendedHero>>().WithEntityAccess())
+            {
+                if (k.ValueRO.FuryCooldown > 0f) k.ValueRW.FuryCooldown -= dt;
+                if (k.ValueRO.FuryCooldown <= 0f) kings.Add(entity);
+            }
+            if (kings.Length > 0)
+            {
+                var card = AbilityCatalog.Get(ShardboundFury.AbilityName);
+                int need = math.max(1, AscendedHeroConfig.I.furyMinEnemies);
+                for (int i = 0; card != null && i < kings.Length; i++)
+                {
+                    var e = kings[i];
+                    if (em.GetComponentData<Health>(e).Value <= 0) continue;
+                    using var near = TheWaningBorder.Systems.Sect.SectHeroAbilities.UnitsNear(em,
+                        em.GetComponentData<LocalTransform>(e).Position, card.Radius,
+                        em.GetComponentData<FactionTag>(e).Value, hostile: true);
+                    if (near.Length < need) continue;
+                    var k = em.GetComponentData<AscendedHero>(e);
+                    k.FuryCooldown = card.Cooldown;
+                    em.SetComponentData(e, k);
+                    AbilityEffectExecutor.Apply(em, e, card, Entity.Null);
+                }
+            }
+            kings.Dispose();
         }
     }
 

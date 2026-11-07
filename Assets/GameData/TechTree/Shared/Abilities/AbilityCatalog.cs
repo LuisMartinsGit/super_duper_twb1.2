@@ -189,7 +189,7 @@ namespace TheWaningBorder.Abilities
                 Aftermath = null,
             },
             // 13 -- Shardbound Fury (King Lexor while he bears the Shardroot;
-            // granted and withdrawn by ShardboundKingSystem, never authored on
+            // granted and withdrawn by AscendedHeroSystem, never authored on
             // the unit). Every enemy in the radius is hurled 4-10 m into the
             // air and slammed down; enemy buildings in it take heavy damage.
             // Numbers live in ShardboundFury.cs. Curse_And_Shardroot.md 3.1.

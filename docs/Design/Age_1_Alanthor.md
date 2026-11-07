@@ -1,5 +1,7 @@
 # Age 1 — Alanthor
 
+> **2026-11-07:** heroes changed. [Heroes.md](Heroes.md) is canon for hero stats, levels, auto-cast (no manual hero abilities below level 10; reach = the hero's line of sight), level-10 abilities, revival at the same level, and who carries the Shardroot. Text here that disagrees is out of date.
+
 > Defensive culture. Stone / medieval aesthetic. Strength comes from walls,
 > long-range archery, and steady building toughness.
 >

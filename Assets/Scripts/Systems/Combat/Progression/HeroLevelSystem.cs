@@ -54,6 +54,7 @@ namespace TheWaningBorder.Systems.Combat
             var victimXp = new NativeList<int>(Allocator.Temp);
             var victimKiller = new NativeList<Entity>(Allocator.Temp);
             var stamp = new NativeList<Entity>(Allocator.Temp);
+            var fallen = new NativeList<Entity>(Allocator.Temp);
 
             foreach (var (health, xform, faction, e) in SystemAPI
                 .Query<RefRO<Health>, RefRO<LocalTransform>, RefRO<FactionTag>>()
@@ -65,19 +66,10 @@ namespace TheWaningBorder.Systems.Combat
 
                 stamp.Add(e);
 
-                // A HERO falling is the input to the revival price
-                // (Heroes.md §4). Recorded here rather than in a death system
-                // of its own because this is already the one place that sees
-                // every fresh corpse exactly once.
-                if (em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(e)
-                    && em.HasComponent<HeroLevel>(e)
-                    // A sect hero is recruited again at level 1 (Religion.md §4): its
-                    // death must not overwrite the level saved for the king.
-                    && !em.HasComponent<SectHeroTag>(e))
-                {
-                    TheWaningBorder.Abilities.HeroRevival.RecordDeath(
-                        faction.ValueRO.Value, em.GetComponentData<HeroLevel>(e).Value);
-                }
+                // A HERO falling keeps its level and XP (Heroes.md §5). Recorded
+                // here rather than in a death system of its own because this is
+                // already the one place that sees every fresh corpse exactly once.
+                if (em.HasComponent<HeroLevel>(e) && em.HasComponent<UnitTypeId>(e)) fallen.Add(e);
 
                 int xp = XpValueOf(em, e);
                 if (xp <= 0) continue;
@@ -104,6 +96,18 @@ namespace TheWaningBorder.Systems.Combat
             victimXp.Dispose();
             victimKiller.Dispose();
             stamp.Dispose();
+            // After the award, so a hero killed in the same tick as its last
+            // kill keeps that XP too. Structural on the bank: outside the query.
+            for (int i = 0; i < fallen.Length; i++)
+            {
+                var e = fallen[i];
+                TheWaningBorder.Abilities.FactionHeroRecords.Record(em,
+                    em.GetComponentData<FactionTag>(e).Value,
+                    em.GetComponentData<UnitTypeId>(e).Value.ToString(),
+                    em.GetComponentData<HeroLevel>(e).Value,
+                    em.HasComponent<HeroExperience>(e) ? em.GetComponentData<HeroExperience>(e).Xp : 0);
+            }
+            fallen.Dispose();
 
             // ── 3. Derive the level from banked XP ──────────────────────
             //

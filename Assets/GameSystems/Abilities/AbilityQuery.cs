@@ -29,7 +29,7 @@ namespace TheWaningBorder.Abilities
 
         /// <summary>
         /// The unit's usable Active slots, in slot order, written into
-        /// <paramref name="into"/> (length 4). Returns how many were written.
+        /// <paramref name="into"/> (length UnitAbilities.Count). Returns how many were written.
         /// Locked abilities are skipped entirely — see IsUnlocked.
         /// </summary>
         public static int ActiveSlots(EntityManager em, Entity unit, int[] into)
@@ -37,7 +37,7 @@ namespace TheWaningBorder.Abilities
             int n = 0;
             if (into == null || !em.Exists(unit) || !em.HasComponent<UnitAbilities>(unit)) return 0;
             var slots = em.GetComponentData<UnitAbilities>(unit);
-            for (int s = 0; s < 4 && n < into.Length; s++)
+            for (int s = 0; s < UnitAbilities.Count && n < into.Length; s++)
             {
                 var card = AbilityCatalog.Get(slots.Get(s));
                 if (card == null || card.Activation != AbilityActivation.Active) continue;
@@ -53,7 +53,7 @@ namespace TheWaningBorder.Abilities
             if (!em.Exists(unit) || !em.HasComponent<UnitAbilities>(unit)) return false;
             var slots = em.GetComponentData<UnitAbilities>(unit);
             var cds = em.HasComponent<AbilityCooldowns>(unit) ? em.GetComponentData<AbilityCooldowns>(unit) : default;
-            for (int s = 0; s < 4; s++)
+            for (int s = 0; s < UnitAbilities.Count; s++)
             {
                 var card = AbilityCatalog.Get(slots.Get(s));
                 if (card == null || card.Activation != AbilityActivation.Active) continue;
@@ -70,7 +70,7 @@ namespace TheWaningBorder.Abilities
             slot = -1;
             if (!em.Exists(unit) || !em.HasComponent<UnitAbilities>(unit)) return null;
             var slots = em.GetComponentData<UnitAbilities>(unit);
-            for (int s = 0; s < 4; s++)
+            for (int s = 0; s < UnitAbilities.Count; s++)
             {
                 var card = AbilityCatalog.Get(slots.Get(s));
                 if (card == null || card.Activation != AbilityActivation.Active) continue;
@@ -109,6 +109,6 @@ namespace TheWaningBorder.Abilities
         }
 
         private static float Cd(AbilityCooldowns c, int slot)
-            => slot == 0 ? c.C0 : slot == 1 ? c.C1 : slot == 2 ? c.C2 : c.C3;
+            => c.Get(slot);
     }
 }

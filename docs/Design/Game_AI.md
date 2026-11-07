@@ -1,5 +1,7 @@
 # Game AI (Computer Opponents) — Design
 
+> **2026-11-07:** heroes changed. [Heroes.md](Heroes.md) is canon for hero stats, levels, auto-cast (no manual hero abilities below level 10; reach = the hero's line of sight), level-10 abilities, revival at the same level, and who carries the Shardroot. Text here that disagrees is out of date.
+
 Canonical design for the skirmish/computer-opponent AI, modeled on Age of
 Empires IV's shipped architecture — see
 [docs/Research/AoE4_AI_Study.md](../Research/AoE4_AI_Study.md) for sources.

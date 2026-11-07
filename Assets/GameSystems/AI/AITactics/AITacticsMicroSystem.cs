@@ -445,7 +445,7 @@ namespace TheWaningBorder.AI
         // DATA-DRIVEN ACTIVES (UnitAbilities / AbilityCatalog cards)
         // ─────────────────────────────────────────────────────────────────
 
-        private readonly int[] _slots = new int[4];
+        private readonly int[] _slots = new int[UnitAbilities.Count];
         /// <summary>The Call's callable escorts per faction, counted at most
         /// once per pass (-1 = not counted yet): the count walks every escort
         /// of the map, and every Worker of a Runai AI carries the card.</summary>
@@ -498,6 +498,18 @@ namespace TheWaningBorder.AI
                     if (AbilityQuery.CooldownRemaining(em, e, slot) > 0f) continue;
                     var card = AbilityCatalog.Get(abil.Get(slot));
                     if (card == null) continue;
+                    // A hero's lesser abilities cast themselves on every peer
+                    // (HeroAutoCastSystem); only its game ender is the AI's call.
+                    if (em.HasComponent<HeroLevel>(e))
+                    {
+                        if (card.IsUltimate && TryHeroUltimate(em, e, slot, card, faction))
+                        {
+                            MarkCast(e);
+                            AILogger.Log(faction, "ABILITY", $"{card.Name} cast ({AITactics.IdOf(em, e)})");
+                            break;
+                        }
+                        continue;
+                    }
                     // A card the AI never drives costs no context read (a
                     // Worker's The Return, a Scout's reveal...).
                     var kind = KindOf(card);
@@ -563,6 +575,29 @@ namespace TheWaningBorder.AI
                 }
             }
             return true;
+        }
+
+        /// <summary>
+        /// A hero's level-10 game ender (docs/Design/Heroes.md §3): when it would
+        /// decide something. Stockpiles are always worth taking; an aimed one goes
+        /// at the nearest hostile capital this faction knows; the rest wait for a
+        /// real fight in the scan.
+        /// </summary>
+        private bool TryHeroUltimate(EntityManager em, Entity e, int slot, AbilityCard card, Faction faction)
+        {
+            float3 pos = em.GetComponentData<LocalTransform>(e).Position;
+            float3? aim = null;
+            if (card.IsAimed)
+            {
+                if (!AIShardroot.TryNearestHostileCapital(em, faction, pos, out float3 capital)) return false;
+                aim = capital;
+            }
+            else if (!card.HasEffect(AbilityEffectKind.HeroForeclosure))
+            {
+                ReadContext(em, e, faction);
+                if (_cand.Count < Cfg.heroUltimateMinEnemies) return false;
+            }
+            return CommandRouter.IssueUnitAbilitySlot(em, e, slot, Entity.Null, aim, CommandSource.AI);
         }
 
         private enum Verdict : byte { Ignore, Hold, Cast }

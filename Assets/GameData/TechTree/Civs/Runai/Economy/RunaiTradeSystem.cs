@@ -698,7 +698,7 @@ namespace TheWaningBorder.Runai
                 if (em.HasComponent<UnitAbilities>(e))
                 {
                     var ua = em.GetComponentData<UnitAbilities>(e);
-                    if (ua.S0 == idx || ua.S1 == idx || ua.S2 == idx || ua.S3 == idx) continue;
+                    if (ua.Has(idx)) continue;
                 }
                 add.Add(e);
             }

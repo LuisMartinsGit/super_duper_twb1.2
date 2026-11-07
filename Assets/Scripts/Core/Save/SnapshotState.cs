@@ -43,7 +43,6 @@ namespace TheWaningBorder.Core.Save
             typeof(TheWaningBorder.Influence.BloodMap),
             typeof(TheWaningBorder.Systems.Border.CurseWrath),
             typeof(TheWaningBorder.Abilities.HeroTrainLimit),
-            typeof(TheWaningBorder.Abilities.HeroRevival),
             typeof(TheWaningBorder.Abilities.AlanthorActiveHelper),
             typeof(FactionColors),
             typeof(TheWaningBorder.Core.Commands.Issuing.SelectionOrders),

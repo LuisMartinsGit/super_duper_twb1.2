@@ -232,6 +232,8 @@ namespace TheWaningBorder.AI
 
         /// <summary>Radius of the per-caster enemy / ally read.</summary>
         public float abilityScanRadius;
+        /// <summary>Enemies in the scan before a hero's level-10 game ender is worth casting.</summary>
+        public int heroUltimateMinEnemies;
 
         /// <summary>An enemy this close to a caster puts it "in combat".</summary>
         public float contactDistance;

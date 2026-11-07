@@ -154,7 +154,7 @@ namespace TheWaningBorder.Systems.Border
                     var cls = units[i].Class;
                     if (cls == UnitClass.Worker || cls == UnitClass.Economy || cls == UnitClass.Scout) continue;
                     if (em.HasComponent<CaravanTag>(ents[i])) continue;
-                    if (em.HasComponent<TheWaningBorder.Entities.ShardboundKing>(ents[i])) continue;
+                    if (em.HasComponent<TheWaningBorder.Entities.AscendedHero>(ents[i])) continue;
                     if (TransientState.Active<SectDisordered>(em, ents[i])) continue;
                     if (!CurseSees(xfs[i].Position)) continue;
                     _convByFaction[f].Add((ents[i], xfs[i].Position));

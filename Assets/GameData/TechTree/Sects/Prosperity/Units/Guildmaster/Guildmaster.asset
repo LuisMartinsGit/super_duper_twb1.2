@@ -15,10 +15,10 @@ MonoBehaviour:
   id: Sect_Guildmaster
   displayName: Guildmaster
   unitClass: melee
-  hp: 460
-  speed: 3.6
-  trainingTime: 40
-  damage: 22
+  hp: 640
+  speed: 7.0
+  trainingTime: 45
+  damage: 34
   damageType: melee
   armorType: infantry_light
   defense:
@@ -26,20 +26,20 @@ MonoBehaviour:
     ranged: 3
     siege: 0
     magic: 2
-  attackCooldown: 1.1
-  attackRange: 0
+  attackCooldown: 1.0
+  attackRange: 1.2
   minAttackRange: 0
-  lineOfSight: 16
+  lineOfSight: 26
   radius: 0.55
   aimTime: 0
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 180
-    Iron: 60
-    Veilstone: 40
+    Supplies: 300
+    Iron: 200
+    Veilstone: 150
     Veilsteel: 0
-  populationCost: 2
+  populationCost: 3
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
@@ -55,6 +55,7 @@ MonoBehaviour:
   - Called In
   - Stake
   - Liquidate
+  - Buy Out
   prefab: {fileID: 122908383832175, guid: 07dc6767e48d386dd2d2cdde551e3f20, type: 3}
   presentationId: 453
   animatorController: {fileID: 0}

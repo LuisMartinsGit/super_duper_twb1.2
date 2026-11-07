@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Sect_VaultKeeper
   displayName: Vault Keeper
   unitClass: melee
-  hp: 140
-  speed: 3.5
+  hp: 340
+  speed: 4.8
   trainingTime: 21
-  damage: 12
+  damage: 20
   damageType: melee
   armorType: infantry_heavy
   defense:
-    melee: 0
-    ranged: 0
+    melee: 7
+    ranged: 5
     siege: 0
-    magic: 0
+    magic: 2
   attackCooldown: 1.2
-  attackRange: 0
+  attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 18
   aimTime: 0
   radius: 0.5
   trajectory: 

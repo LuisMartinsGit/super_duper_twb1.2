@@ -142,10 +142,9 @@ namespace TheWaningBorder.AI
             string why = null;
             if (mine)
             {
-                bool bound = AIShardroot.Locate(em, faction, out Entity holder, out _) == AIShardroot.Where.Mine
-                    && em.HasComponent<ShardboundHeroTag>(holder);
+                bool bound = PersonalityOf(faction).shardrootToKing;
                 forced = bound ? VictoryPath.Conquest : VictoryPath.Shardroot;
-                why = bound ? "the king carries the Shardroot: he leads the war" : "we hold the Shardroot: fortify and ascend";
+                why = bound ? "our hero carries the Shardroot: it leads the war" : "we hold the Shardroot: fortify and ascend";
             }
             else if (rivalHolds) { forced = VictoryPath.Conquest; why = "a rival holds the Shardroot: everyone against it"; }
             else if (rivalDominion) { forced = VictoryPath.Sanctums; why = "a rival holds every Sanctum: take one back"; }

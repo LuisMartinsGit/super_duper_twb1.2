@@ -194,16 +194,6 @@ public struct EntityQueueSlot
         /// before its sect is adopted, the Temple once built) - as opposed to
         /// an era-locked one, which the palette hides.</summary>
         public bool ShownWhenLocked;
-
-        /// <summary>
-        /// Which revival this button buys, for a hero who has fallen
-        /// (docs/Design/Heroes.md §4). None for every ordinary train — which
-        /// is every button but the two a dead hero's trainer puts up.
-        ///
-        /// The Id stays the plain unit id in all three cases, because the cost
-        /// lookup and the train gate key off it; only the MODE differs.
-        /// </summary>
-        public TheWaningBorder.Abilities.HeroRevivalMode Revival;
     }
 
     /// <summary>

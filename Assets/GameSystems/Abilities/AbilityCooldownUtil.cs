@@ -20,10 +20,10 @@ namespace TheWaningBorder.Abilities
             if (idx < 0) return;
             var ua = em.GetComponentData<UnitAbilities>(caster);
             int slot = -1;
-            for (int s = 0; s < 4; s++) if (ua.Get(s) == idx) { slot = s; break; }
+            for (int s = 0; s < UnitAbilities.Count; s++) if (ua.Get(s) == idx) { slot = s; break; }
             if (slot < 0) return;
             var c = em.GetComponentData<AbilityCooldowns>(caster);
-            switch (slot) { case 0: c.C0 = 0f; break; case 1: c.C1 = 0f; break; case 2: c.C2 = 0f; break; default: c.C3 = 0f; break; }
+            c.Set(slot, 0f);
             em.SetComponentData(caster, c);
         }
     }

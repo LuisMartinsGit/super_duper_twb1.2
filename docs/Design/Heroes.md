@@ -1,188 +1,141 @@
 # Heroes
 
-**Canon for hero levels, hero ability unlocks, and hero death.** Created
-2026-09-08. Supersedes the flat respawn tax in `HeroTrainLimit`
-(a compounding training-time penalty per death), which is replaced by the
-revival choice in §4.
+**Canon for what a hero is, hero levels, the Shardroot's Ascended state, hero
+abilities and hero death.** Rewritten 2026-11-07 from the developer's rules; it
+supersedes the earlier versions of this page and, where they differ, the hero
+passages of [Religion.md](Religion.md) §4, [Sects.md](Sects.md),
+[Spells.md](Spells.md) and [Curse_And_Shardroot.md](Curse_And_Shardroot.md) §3.1.
 
-> **Where the numbers are (2026-10-03).** This doc states the rules. The XP
-> curve, the assist radius and share, the Rally level loss and the Full
-> Honours scale are constants in `HeroProgressionConfig`
-> (`Assets/Scripts/Economy/HeroProgressionConfig.cs`); Honour thy Pledge's
-> unlock level, ring, rank and duration ladder are in its folder
-> (`Civs/Alanthor/Units/KingLexor/Abilities/HonourThyPledge/`, the
-> `PledgeArmy` class and the ability SO); ability cooldowns are on the ability
-> SOs and the spell ladder ([Spells.md](Spells.md) §8-9); a hero's own stats
-> and price are on its unit SO.
+Every stat and price is on the hero's unit SO, every cooldown and radius on the
+ability SO, the XP curve and the revival scale in `HeroProgressionConfig`, and
+the Ascended numbers in `AscendedHero.asset`.
 
-A **hero** is a unit carrying `UniqueUnitTag` — one per faction, gated at the
-training command. King Lexor is the only one built today; he **trains at the
-Fortress** (the capital, from the level its SO's `minBuildingLevel` names). The
-three Shardbound Heroes of [Curse_And_Shardroot.md](Curse_And_Shardroot.md) §3
-join this system when they exist. Sect unique units (`SectUniqueUnitTag`) are
-**not** heroes and do not level.
-**Superseded 2026-09-29 ([Religion.md](Religion.md) §4): every sect's unit is
-now a hero** — one per sect, recruited at its chapel for an RP price
-(Religion.md §5), levelling by this document.
+## 1. What a hero is
 
----
+A hero is **a normal unit, but stronger and with levels**: trained at a building
+and ordered like any soldier, one of each per faction.
 
-## 1. Levels
+| Hero | Trained at | Niche |
+|---|---|---|
+| King Lexor | Fortress | Army general for decisive battles |
+| Ledger | Fortress | Armoured automaton that also drives the economy around it |
+| Archivist of Hours | Reliquary | Ranged magic; shuts down enemy heroes and casters |
+| Surgeon | Mending Hall | Fights on cursed ground and through attrition |
+| Warden | Stonehold | Holds home ground, kills siege |
+| Guildmaster | Treasury | Fast raider who makes fights pay |
+| Harkon Fiend | Feraldis Fortress | Frontline breaker of heavy troops and buildings |
+| Wayfinder | Runai Fortress | Fast leader who moves armies |
 
-**Heroes have levels 1 to 10.** A hero enters play at level 1 and can never
-lose a level while alive.
+**The stat rule.** A hero must **beat every non-hero unit** one on one, sect units
+included, and **stand toe to toe with every other hero**. Heroes differ in how they
+win, not in how much. Checked by 1v1 time-to-kill from the SO stats at level 1,
+without abilities: any two heroes should stay close to even, and no non-hero should
+come close. Every hero's line of sight must be at least its largest ability radius.
 
-Levels are **earned by fighting, never bought.** Everything else in this game
-progresses by paying for it — unit ranks, building levels, technologies — and a
-hero is deliberately the exception. A hero you leave standing in your base is a
-hero that stays at level 1 no matter how rich you are, which is what makes
-"where is my hero right now" a real question and makes the level-gated ability
-in §3 a reward for use rather than for income.
+The Ledger is a hero under this rule: it fights, takes orders and levels from kills.
+[Vault_And_Ledger.md](Vault_And_Ledger.md)'s non-fighting Ledger does not stand.
 
-### 1.1 Experience
+A sect's **line unit is not a hero** ([Religion.md](Religion.md) §4). The sects
+without an authored hero (the Runai and Feraldis clusters) have only their line unit.
 
-| | |
-|---|---|
-| A kill is worth | the victim's **total resource cost**, in XP |
-| The killer | takes the full amount |
-| Allied heroes nearby (`AssistRadius`) | take **a share** (`AssistShare`), so a hero present at the battle still grows |
-| Temporary summoned units | are worth **nothing**, either as killer or as victim |
+## 2. Levels
 
-That last row matters: §3 lets a hero conjure an army, and without the rule the
-ability would be an XP farm feeding itself — summon, let them die, level up,
-summon a bigger army.
+Heroes have levels 1 to 10, **earned from kills, never bought**. A kill is worth the
+victim's total resource cost in XP; the killer takes all of it and allied heroes
+nearby take a share. Temporary summons are worth nothing as killer or victim. The
+step between levels widens every level.
 
-### 1.2 The curve
+Levels unlock abilities. They grant no stat increase.
 
-Cumulative XP to reach each level is a table in `HeroProgressionConfig`
-(first-pass balance). Its shape is the rule: **the step between levels widens
-every level**, so early levels come quickly enough to feel earned in the
-first engagement and level 10 is a whole-match project.
+**Level and progress are public.** Every hero wears its own small bar, whoever owns it
+and whatever the health-bar setting: health, XP toward the next level, and the level
+number. It shows wherever the hero itself is visible; fog still hides it.
+`Scenes/Menus/GameUI/HeroBar/`, drawn by `FloatingHealthBars`.
 
-### 1.3 What a level does
+## 3. Abilities
 
-A level does two things today: it **unlocks abilities** (§2) and it **sets the
-price of dying** (§4).
+Each hero has one ability per tier, unlocked at the level on its SO, and the last at
+**level 10** (five slots: the four tiers and The Call a Runai hero is granted). Below its level an ability is not castable and not shown.
 
-**Levels grant no stat increase yet.** This is deliberate and is the open
-balance item on this doc: a hero that gains raw numbers per level compounds
-with the ability unlocks and with `UnitRank`, and none of that has been played
-yet. Add stat scaling only after the unlock ladder has been tested on its own.
+**Everything below level 10 casts itself.** The player never presses these. They fire
+from `HeroAutoCastSystem`, a simulation system every lockstep peer runs identically,
+on a rule per effect. Their reach is limited to **the hero's own line of sight**: a
+target or aim point outside it is refused (`AbilityTargetRules`), and the AI uses the
+same system.
 
----
+| Hero | Level 1 | Level 3 | Level 4-6 | Level 10: the game ender (manual) |
+|---|---|---|---|---|
+| Lexor | King's Call, Liquid Courage | | L4 Honour thy Pledge | **Call to the Banners:** a great temporary army of veterans around Lexor |
+| Ledger | Automate Facility | Iron Frame | L6 Accounts Settled | **Foreclosure:** takes a large share of every hostile faction's stockpile |
+| Archivist | Catalogued | Stamp of Record | L6 Recall | **Stop the Hours:** every hostile unit on the map is frozen; enemy heroes' abilities go on cooldown |
+| Surgeon | Cauterize | Bloodletting | L6 Lancet | **The Great Rewind:** your whole army healed and the recently fallen return |
+| Warden | Drillmaster | Sally Forth | L6 Challenge | **The Realm Holds:** hostile units on your ground lose most of their HP; your buildings cannot be hurt for a time |
+| Guildmaster | Called In | Stake | L6 Liquidate | **Buy Out:** enemy buildings in a large aimed circle fall (capitals lose a share) and you are paid part of their worth |
+| Harkon | Warcry | Leap | L5 Raze | **Blood Oath:** your whole army cannot die and frenzies for a time |
+| Wayfinder | Wayfinding | Mirage | L5 Caravan of Swords | **Exodus:** your whole army crosses the map to an aimed point |
 
-## 2. Abilities unlock at a level
+**A level-10 ability must be able to end the game.** It is cast by the player (or the
+AI's own rule), with no line-of-sight limit, on a very long cooldown. Blood Rain's
+silence and an enemy Stamp of Record still apply.
 
-An ability may declare the hero level it becomes available at. Below that
-level the ability is **not castable and not shown** — it is not merely greyed
-out, because a button the player cannot explain is worse than no button.
+When they cast themselves:
 
-Abilities with no declared level unlock at 1, which is every ability that
-exists today, so nothing already shipped changes behaviour.
+- **Self-defence** (Liquid Courage, Iron Frame): hurt, with an enemy close.
+- **Ally buffs** (Warcry, Sally Forth, Wayfinding, Bloodletting, Mirage, Caravan of
+  Swords): enemies in sight.
+- **Honour thy Pledge:** several enemies in sight.
+- **Stamp of Record:** the nearest enemy with abilities. **Lancet:** the strongest enemy
+  in sight, a hero first. **Challenge:** enemies inside its radius.
+- **Recall:** badly hurt with enemies in sight. **Leap:** at an enemy in sight not yet
+  in reach. **Raze:** the nearest enemy building in sight.
+- **The Call** (a Wayfinder or other Runai hero): enemies in sight and escorts to call.
+- **Automate Facility:** the nearest eligible own economy building in sight. The Ledger
+  no longer roams; it goes where it is sent. **Stake:** standing at an own extractor with
+  no enemy in sight, and only extractors qualify.
+- **Liquidate:** an own building in sight about to fall (never the capital), which
+  denies the attacker the kill and pays the refund.
 
-**Heroes may carry more than one active ability.** The 2026-08-02 rule that a
-unit carries at most one Active and one Passive was always written as a
-non-hero rule ("the four slots exist for future heroes"), and this is where
-that exception arrives: King Lexor holds King's Call (passive), Liquid Courage
-(active) and Honour thy Pledge (active). The cast path takes the slot it is
-asked for instead of assuming the first ready active.
+**Anything that moves a unit lands it on walkable ground** (Recall, Exodus, Leap, the
+Banners), or that unit stays put.
 
-Their numbers sit on the spell ladder ([Spells.md](Spells.md) §8-9) and the
-ability SOs: Liquid Courage is a hero active; Honour thy Pledge and Shardbound
-Fury are hero ultimates.
+Two kits changed to make this safe. **Bloodletting** no longer cuts allies' HP: own
+units in its radius attack faster and take more damage for its duration. A trigger
+that drops your army to a fraction of its health is not one to fire by itself.
+**Liquidate** fires only on a building about to fall, as above.
 
----
+## 4. The Shardroot: only heroes, Ascended while they carry it
 
-## 3. Honour thy Pledge — King Lexor
+- **Only a hero can capture the Shardroot.** Any other unit walks over it; a hero within
+  reach takes it at once.
+- **Carrying it makes the hero Ascended**, at no price: it takes a fraction of every hit,
+  loses at most a fixed share of max HP per second however many strike it, regenerates
+  out of combat, cannot be thrown or disabled (slows still work), cleaves, and unleashes
+  **Shardbound Fury** by itself when enemies crowd it. Everyone can see the bearer, the
+  curse hunts it and every AI rival goes for it.
+- **Killed while carrying it, the hero explodes:** everything nearby, friend or foe, is
+  thrown and killed, buildings take heavy damage, the artifact drops, and the killer's
+  faction is paid the bounty.
+- **Its owner may choose instead:**
+  - **Drop it safely** on the ground, with no explosion. The power leaves the hero and the
+    artifact is up for grabs. The hero that dropped it cannot retake it until it has
+    stepped out of reach. Action button or lockstep command `DropShardroot`.
+  - **Stow it in the Temple of Ridan** for the Temple victory, unchanged from
+    [Curse_And_Shardroot.md](Curse_And_Shardroot.md) §3.1c: paid on delivery, the army is
+    empowered, the 10-minute countdown runs, and the Temple falling drops it again.
+- **There is no Hall road:** no binding price, no delivery at the Fortress, no placeholder
+  champion.
 
-> *The oath runs both ways. Lexor calls it in.*
+## 5. Death
 
-| | |
-|---|---|
-| **Type** | Active, area centred on the caster |
-| **Unlocks at** | hero level **4** |
-| **Effect** | Spawns a temporary army of sworn Alanthor soldiers on a ring around the king |
-| **Cooldown** | the hero-ultimate band ([Spells.md](Spells.md) §8.2); value on the ability SO |
+**A hero's level is never reset.** A fallen hero is trained again at its building and comes
+back with the same level and every point of XP, for every hero. The price is money and
+time: cost and training time grow with the level it fell at
+(`HeroProgressionConfig.RevivalMultiplier`). Sect heroes pay no RP again. Rally the Oath
+and the revival choice are gone. Per faction and hero, in `FactionHeroRecords` (a buffer on
+the faction bank).
 
-Size, quality and duration all scale with Lexor's level. The rules:
+## 6. Open items
 
-- **soldiers = hero level**;
-- **one in three is an Archer** (rounded down, so the line of Swordsmen always
-  outnumbers the bows);
-- **rank rises every two levels** from rank 1 at the unlock level to rank 4 at
-  level 10;
-- **duration grows with each level above the unlock** (base and step in
-  `PledgeArmy`).
-
-The "upgrades" half of the ability is the rank: pledged soldiers arrive
-already veteran, which is what makes a level-10 call qualitatively different
-from a level-4 one rather than merely larger.
-
-**The pledged are temporary and they are not your army.**
-
-- They **cost no population.** The ability is a burst of tempo, not a way past
-  the population ceiling.
-- They **expire** when their duration runs out, and expiry is a clean removal:
-  it awards no experience to anyone, drops no veteran pickup, and triggers no
-  death effects. Killing them in the field is a normal death.
-- They **give no XP** to whoever kills them (§1.1), so an opponent cannot farm
-  Lexor's own summons.
-
----
-
-## 4. Death and revival
-
-A dead hero is not gone. The faction may call him back at the building that
-trained him (the Fortress, for King Lexor), and the player chooses **how much
-of the man returns**:
-
-| | Returns at | Cost | Training time |
-|---|---|---|---|
-| **Rally the Oath** | `max(1, level − 3)` (`RallyLevelLoss`) | the hero's normal cost | normal |
-| **Full Honours** | the level he died at | scaled up with that level | scaled up with that level |
-
-Full Honours multiplies both cost and training time by a factor that grows
-linearly with the level he died at (`FullHonoursPerLevel` per level above 1),
-so a high-level hero costs well over his original price to bring back whole.
-
-This is the decision the rule exists to create: losing a level-9 hero is a
-genuine loss either way, and the player has to price their own tempo. Take him
-back cheap and fast three levels down and lose Honour thy Pledge's top end, or
-pay far more than his original price and wait for the man himself.
-
-Two consequences worth stating:
-
-- **Rally the Oath can drop an ability.** Dying at level 6 and rallying returns
-  him at 3, below Honour thy Pledge's unlock. That is the cost, and it is the
-  reason the choice is interesting rather than obvious.
-- **Reviving does not restore banked XP.** A hero revived at level L starts at
-  that level's XP floor, so the progress past it is gone. Otherwise Rally the
-  Oath would refund itself within a fight.
-
-The old flat respawn tax (a training-time penalty per death, compounding
-forever) is **retired**. It punished death without ever offering a decision,
-and it never scaled with what was actually lost.
-
----
-
-## 5. Open items
-
-- **Stat scaling per level** (§1.3) — deliberately absent; decide after the
-  unlock ladder has been played.
-- **The other two Shardbound Heroes** need level-gated kits of their own.
-- **XP curve and Honour thy Pledge's ladder are first-pass balance**, tuned on
-  paper, not yet from a match.
-- **The hero numbers are code constants**, not SO/config assets
-  (`HeroProgressionConfig`, `PledgeArmy`) — they should move to config assets
-  under the component-values rule.
-- **Multiplayer**: `HeroTrainLimit`'s respawn counter is a static dictionary
-  and is already flagged for the netcode pass; the revival level must live in
-  per-faction sim state for the same reason.
-
-## 6. Harkon Fiend — the Feraldis hero (2026-10-12)
-
-Trained at the Feraldis Fortress (its SO's `minBuildingLevel`), one per
-faction, levels and revival exactly as above. Abilities by level — Warcry
-(1), Leap (3), **Raze** (5), Blood Oath (10) — are specified in
-[Age_1_Feraldis.md §8](Age_1_Feraldis.md). Raze is the only non-siege effect
-allowed to destroy a wall piece.
+- All hero and sect-unit numbers are first-pass values from the 1v1 check, not played.
+- A level-10 ability's strength and cooldown need playing in real matches.
+- The eight sects outside the Alanthor cluster still have no authored hero.

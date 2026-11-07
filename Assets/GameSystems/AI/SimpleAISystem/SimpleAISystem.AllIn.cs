@@ -272,12 +272,12 @@ namespace TheWaningBorder.AI
             return on >= back * math.max(1f, Cfg.losingPressureRatio);
         }
 
-        private static readonly ComponentType[] QT_ShardboundKings =
+        private static readonly ComponentType[] QT_AscendedHeros =
         {
-            ComponentType.ReadOnly<TheWaningBorder.Entities.ShardboundKing>(),
+            ComponentType.ReadOnly<TheWaningBorder.Entities.AscendedHero>(),
             ComponentType.ReadOnly<FactionTag>(),
         };
-        private static CachedEntityQuery QC_ShardboundKings;
+        private static CachedEntityQuery QC_AscendedHeros;
 
         /// <summary>THE TABLE'S THREAT (§ 6x, developer's six cases): a hostile
         /// faction that (1) holds more territories than the living players'
@@ -312,7 +312,7 @@ namespace TheWaningBorder.AI
             TheWaningBorder.Systems.Economy.SanctumSystem.TryCountdown(em, out dom, out _);
             var kings = new bool[ProfileSlots];
             {
-                var q = QC_ShardboundKings.Get(em, QT_ShardboundKings);
+                var q = QC_AscendedHeros.Get(em, QT_AscendedHeros);
                 if (!q.IsEmptyIgnoreFilter)
                 {
                     using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);

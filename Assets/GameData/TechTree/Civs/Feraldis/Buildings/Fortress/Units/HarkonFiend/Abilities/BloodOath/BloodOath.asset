@@ -17,9 +17,9 @@ MonoBehaviour:
   targeting: 0
   affects: 2
   castTime: 0
-  duration: 5
-  cooldown: 150
-  radius: 14
+  duration: 30
+  cooldown: 600
+  radius: 0
   range: 0
   effects:
   - kind: 22

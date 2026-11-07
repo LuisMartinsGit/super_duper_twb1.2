@@ -28,8 +28,6 @@ namespace TheWaningBorder.Systems.Sect
         public const float PickRadius = 3f;
         /// <summary>Lancet bleed: the single-target band spread over its duration.</summary>
         public const float LancetTotalDamage = 120f;
-        /// <summary>Bloodletting: the HP fraction allies drop to.</summary>
-        public const float BloodlettingFloor = 0.35f;
         /// <summary>Sally Forth: allied move-speed multiplier.</summary>
         public const float SallySpeed = 1.25f;
         /// <summary>Stake: how close to its extractor the Guildmaster must stay.</summary>
@@ -107,7 +105,8 @@ namespace TheWaningBorder.Systems.Sect
             return best;
         }
 
-        private static Entity NearestOwnBuilding(EntityManager em, float3 at, float radius, Faction faction)
+        private static Entity NearestOwnBuilding(EntityManager em, float3 at, float radius, Faction faction,
+            bool extractorsOnly = false)
         {
             Entity best = Entity.Null;
             float bestD = radius * radius;
@@ -119,6 +118,7 @@ namespace TheWaningBorder.Systems.Sect
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction || hps[i].Value <= 0) continue;
+                if (extractorsOnly && !TheWaningBorder.Abilities.AbilityAuraSystem.IsEconomyBuilding(em, ents[i])) continue;
                 float d = math.distancesq(trs[i].Position.xz, at.xz);
                 if (d < bestD) { bestD = d; best = ents[i]; }
             }
@@ -141,10 +141,11 @@ namespace TheWaningBorder.Systems.Sect
             {
                 var slots = em.GetComponentData<UnitAbilities>(target);
                 var cd = em.GetComponentData<AbilityCooldowns>(target);
-                var c0 = AbilityCatalog.Get(slots.Get(0)); if (c0 != null) cd.C0 = math.max(cd.C0, c0.EffectiveCooldown);
-                var c1 = AbilityCatalog.Get(slots.Get(1)); if (c1 != null) cd.C1 = math.max(cd.C1, c1.EffectiveCooldown);
-                var c2 = AbilityCatalog.Get(slots.Get(2)); if (c2 != null) cd.C2 = math.max(cd.C2, c2.EffectiveCooldown);
-                var c3 = AbilityCatalog.Get(slots.Get(3)); if (c3 != null) cd.C3 = math.max(cd.C3, c3.EffectiveCooldown);
+                for (int s = 0; s < UnitAbilities.Count; s++)
+                {
+                    var c = AbilityCatalog.Get(slots.Get(s));
+                    if (c != null) cd.Set(s, math.max(cd.Get(s), c.EffectiveCooldown));
+                }
                 em.SetComponentData(target, cd);
             }
             if (em.HasComponent<UnitAbility>(target))
@@ -168,10 +169,16 @@ namespace TheWaningBorder.Systems.Sect
             float3 delta = past - now;
             delta.y = 0f;
             using var allies = UnitsNear(em, now, card.Radius, FactionOf(em, caster), hostile: false);
+            var own = FactionOf(em, caster);
             for (int i = 0; i < allies.Length; i++)
             {
+                if (FactionOf(em, allies[i]) != own) continue;
                 var lt = em.GetComponentData<LocalTransform>(allies[i]);
-                lt.Position += delta;
+                // Onto walkable ground, or not at all (Heroes.md §3).
+                TheWaningBorder.Systems.Navigation.NavGridQuery.SnapToWalkable(lt.Position + delta, out float3 landing, out bool ok);
+                if (!ok) continue;
+                landing.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(landing.x, landing.z);
+                lt.Position = landing;
                 em.SetComponentData(allies[i], lt);
                 TransientState.Clear<TheWaningBorder.Core.Commands.Types.MoveCommand>(em, allies[i]);
                 TransientState.Clear<TheWaningBorder.Core.Commands.Types.AttackMoveCommand>(em, allies[i]);
@@ -206,16 +213,22 @@ namespace TheWaningBorder.Systems.Sect
 
         // ── Surgeon ─────────────────────────────────────────────────────────
 
-        /// <summary>L3: allies within Radius above 35% HP drop to 35% (never
-        /// killed) and attack <paramref name="attackPct"/>% faster.</summary>
+        /// <summary>L3: own units within Radius attack <paramref name="attackPct"/>%
+        /// faster and take the card's DamageTakenPct more damage (Heroes.md §3:
+        /// it fires by itself, so it must not cut an army's HP).</summary>
         public static void Bloodletting(EntityManager em, Entity caster, AbilityCard card, float attackPct, float dur)
         {
-            using var allies = UnitsNear(em, PosOf(em, caster), card.Radius, FactionOf(em, caster), hostile: false);
+            var own = FactionOf(em, caster);
+            float taken = 1f + card.EffectValue(AbilityEffectKind.DamageTakenPct) / 100f;
+            using var allies = UnitsNear(em, PosOf(em, caster), card.Radius, own, hostile: false);
             for (int i = 0; i < allies.Length; i++)
             {
-                var hp = em.GetComponentData<Health>(allies[i]);
-                int floor = math.max(1, (int)math.round(hp.Max * BloodlettingFloor));
-                if (hp.Value > floor) { hp.Value = floor; em.SetComponentData(allies[i], hp); }
+                if (FactionOf(em, allies[i]) != own) continue;
+                var b = TransientState.Active<SpellBuff>(em, allies[i]) ? em.GetComponentData<SpellBuff>(allies[i]) : default;
+                if (b.DamageMultiplier <= 0f) b.DamageMultiplier = 1f;
+                b.DamageTakenMultiplier = math.max(b.DamageTakenMultiplier, taken);
+                b.TimeRemaining = math.max(b.TimeRemaining, dur);
+                TransientState.Set(em, allies[i], b);
                 var h = TransientState.Active<SectHaste>(em, allies[i]) ? em.GetComponentData<SectHaste>(allies[i]) : default;
                 h.Multiplier = math.max(h.Multiplier, 1f + attackPct / 100f);
                 h.TimeRemaining = math.max(h.TimeRemaining, dur);
@@ -279,7 +292,7 @@ namespace TheWaningBorder.Systems.Sect
         public static void Stake(EntityManager em, Entity caster, float dur)
         {
             if (!em.HasComponent<StakeChannel>(caster)) return;
-            var node = NearestOwnBuilding(em, PosOf(em, caster), StakeRange, FactionOf(em, caster));
+            var node = NearestOwnBuilding(em, PosOf(em, caster), StakeRange, FactionOf(em, caster), extractorsOnly: true);
             if (node == Entity.Null) return;
             em.SetComponentData(caster, new StakeChannel
             {
@@ -300,6 +313,8 @@ namespace TheWaningBorder.Systems.Sect
                 ?? NearestOwnBuilding(em, AimOf(em, caster), PickRadius + 2f, faction);
             if (building == Entity.Null) return;
             if (em.HasComponent<HallTag>(building) || em.HasComponent<FortressTag>(building)) return;
+            // A Temple holding the Shardroot falls only to the enemy (Heroes.md §4).
+            if (em.HasComponent<ShardrootTag>(building)) return;
             var worth = TheWaningBorder.Feraldis.FeraldisRaidIncomeSystem.BuildingWorth(em, building, faction);
             var refund = TheWaningBorder.Feraldis.FeraldisRaidIncomeSystem.Scale(worth, pct / 100f);
             if (!refund.IsZero) FactionEconomy.Add(em, faction, refund, IncomeSource.Other);

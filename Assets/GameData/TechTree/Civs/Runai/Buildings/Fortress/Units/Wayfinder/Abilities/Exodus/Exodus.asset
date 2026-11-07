@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   abilityName: "Exodus"
   activation: 0
-  targeting: 0
+  targeting: 2
   affects: 2
   castTime: 4
   duration: 0
-  cooldown: 300
-  radius: 16
+  cooldown: 600
+  radius: 8
   range: 0
   effects:
   - kind: 29
@@ -28,6 +28,6 @@ MonoBehaviour:
   unlocksAtLevel: 10
   damage: 0
   damageType: 0
-  aimedAtPoint: 0
+  aimedAtPoint: 1
   icon: {fileID: 0}
   vfxPrefab: {fileID: 0}

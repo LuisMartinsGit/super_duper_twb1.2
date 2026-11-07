@@ -69,45 +69,26 @@ namespace TheWaningBorder.Runai
         }
 
         /// <summary>
-        /// Exodus: after its cast, every Runai unit near the Wayfinder (him
-        /// included) is carried to the faction's market nearest him — a
-        /// Fortress or Thessara's Crossing.
+        /// Exodus, the Wayfinder's level-10 game ender (Heroes.md §3): after its
+        /// cast the whole army, wherever it stands, crosses the map to the aimed
+        /// point. Workers and caravans stay at their work.
         /// </summary>
         public static void Exodus(EntityManager em, Entity caster, AbilityCard card)
         {
-            if (!em.HasComponent<LocalTransform>(caster) || !em.HasComponent<FactionTag>(caster)) return;
-            var at = em.GetComponentData<LocalTransform>(caster).Position;
-            var f = em.GetComponentData<FactionTag>(caster).Value;
-
-            var mq = QC_Markets.Get(em, QT_Markets);
-            using var ments = mq.ToEntityArray(Allocator.Temp);
-            using var mfacs = mq.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var mxfs = mq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            float best = float.MaxValue; float3 to = default; bool found = false; float tr = 4f;
-            int bestIndex = int.MaxValue;
-            for (int i = 0; i < ments.Length; i++)
-            {
-                if (mfacs[i].Value != f) continue;
-                var e = ments[i];
-                if (!em.HasComponent<HallTag>(e) && !em.HasComponent<FortressTag>(e)
-                    && !em.HasComponent<ThessarasCrossingTag>(e)) continue;
-                float d = math.distancesq(mxfs[i].Position.xz, at.xz);
-                // Ties go to the lower entity index, so every peer picks the same market.
-                if (d < best || (d == best && e.Index < bestIndex))
-                {
-                    best = d; to = mxfs[i].Position; found = true; bestIndex = e.Index;
-                    tr = (em.HasComponent<Radius>(e) ? em.GetComponentData<Radius>(e).Value : 3f) + 4f;
-                }
-            }
-            if (!found) return;
-
+            if (!em.HasComponent<AbilityAimPoint>(caster) || !em.HasComponent<FactionTag>(caster)) return;
+            var to = em.GetComponentData<AbilityAimPoint>(caster).Position;
             int k = 0;
-            ForAllies(em, caster, card.Radius, u =>
+            ForAllies(em, caster, WholeMap, u =>
             {
-                if (em.HasComponent<BuildingTag>(u)) return;
+                if (em.HasComponent<BuildingTag>(u) || em.HasComponent<CaravanTag>(u)) return;
+                var cls = em.GetComponentData<UnitTag>(u).Class;
+                if (cls == UnitClass.Worker || cls == UnitClass.Economy) return;
                 float a = k++ * 2.39996f;
-                float rr = tr + (k / 12) * 2.5f;
-                var p = new float3(to.x + math.cos(a) * rr, 0f, to.z + math.sin(a) * rr);
+                float rr = card.Radius * 0.5f + (k / 12) * 2.5f;
+                var want = new float3(to.x + math.cos(a) * rr, 0f, to.z + math.sin(a) * rr);
+                // Onto walkable ground, or the unit stays where it is.
+                TheWaningBorder.Systems.Navigation.NavGridQuery.SnapToWalkable(want, out float3 p, out bool ok);
+                if (!ok) return;
                 p.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(p.x, p.z);
                 var xf = em.GetComponentData<LocalTransform>(u);
                 xf.Position = p;
@@ -116,7 +97,11 @@ namespace TheWaningBorder.Runai
                     em.SetComponentData(u, new DesiredDestination { Position = p, Has = 0 });
                 if (em.HasComponent<Target>(u)) em.SetComponentData(u, new Target { Value = Entity.Null });
             });
+            TheWaningBorder.Core.SimSignals.Announce(string.Format(TheWaningBorder.Core.Localization.Loc.T(
+                "{0} calls the EXODUS — its army crosses the map!"), em.GetComponentData<FactionTag>(caster).Value));
         }
+
+        private const float WholeMap = 100000f;
 
         /// <summary>Scatter (the Caravan Master): every caravan in the radius runs to the nearest market.</summary>
         public static void Scatter(EntityManager em, Entity caster, AbilityCard card)

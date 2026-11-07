@@ -173,7 +173,6 @@ namespace TheWaningBorder.UI.Ingame
             if (bearer == Entity.Null) return;
 
             var price = TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.EnshrinePrice;
-            bool bound = em.HasComponent<ShardboundHeroTag>(bearer);
             var b = new ActionButton
             {
                 Id = "EnshrineShardroot",
@@ -182,11 +181,9 @@ namespace TheWaningBorder.UI.Ingame
                           + Loc.T("Carry it to your nearest Temple of Ridan and enshrine it there: "
                                   + "every unit of yours is empowered and the ascension countdown begins. "
                                   + "Or right-click your Temple with the bearer selected.")
-                          + (bound ? "\n" + TheWaningBorder.Entities.ShardrootEnshrine.RefusalText(
-                                TheWaningBorder.Entities.ShardrootEnshrine.Refusal.Bound) : "")
                           + "\n" + Loc.T("Cost: "),
                 Cost = price,
-                Enabled = !bound,
+                Enabled = true,
                 CanAfford = FactionEconomy.CanAfford(em, local, price),
             };
             Entity who = bearer;
@@ -196,6 +193,20 @@ namespace TheWaningBorder.UI.Ingame
                     .EnshrineAtNearestTemple(em, who);
                 if (refusal != null) PlayerNotificationSystem.NotifyError(refusal);
             }, em);
+
+            // ... or set it down, with no explosion (docs/Design/Heroes.md §4).
+            if (_slots.Length <= EnshrineSlot + 1) return;
+            var drop = new ActionButton
+            {
+                Id = "DropShardroot",
+                Label = Loc.T("Drop"),
+                Tooltip = "<b>" + Loc.T("Drop the Shardroot") + "</b>\n"
+                          + Loc.T("Set it down here, safely. The hero loses its power and any hero may take it."),
+                Enabled = true,
+                CanAfford = true,
+            };
+            FillSlot(_slots[EnshrineSlot + 1], drop, Category.Religion, null, () =>
+                TheWaningBorder.Core.Commands.CommandRouter.IssueDropShardroot(em, who), em);
         }
 
         // ── Unit mode: stances (docs/Design/Stances.md §6) ─────────────────

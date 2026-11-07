@@ -45,6 +45,10 @@ namespace TheWaningBorder.Economy
         public int chapelLevel2Rp;
         public int chapelLevel3Rp;
         public int heroRp;
+        /// <summary>RP each sect line unit costs, on top of its resources (Religion.md §4).</summary>
+        public int sectUnitRp;
+        /// <summary>RP the AI keeps for chapels and levels before buying sect units.</summary>
+        public int aiSectUnitRpReserve;
 
         // ── Monuments_And_Petriarchy.md §4-§6 ──
         /// <summary>Weapon damage a faction's sect units deal for one RP.</summary>

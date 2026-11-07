@@ -167,6 +167,10 @@ attack that has already begun. The Alanthor kits below are meant to BITE BACK.
 > Courage, Life Cling, Honour thy Pledge) and against the rest of the cluster:
 > each has a partner ("pairs with") and no two do the same job.
 
+> **2026-11-07:** hero kits, level-10 abilities, auto-casting and hero stats are
+> [Heroes.md](Heroes.md). Bloodletting no longer drops allies' HP, and Liquidate fires on a
+> falling building. Sect line units: [Religion.md](Religion.md) §4.
+
 ### Sect of Antiquity — *the Registry*
 Surveyors, engineers and bureaucrats who license every process and study the
 Old Empire's artifacts. Their magic is recovered Vyrelin seals, lenses and

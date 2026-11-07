@@ -208,7 +208,7 @@ namespace TheWaningBorder.AI
 
         private static int SlotOf(UnitAbilities ua, int idx)
         {
-            for (int s = 0; s < 4; s++) if (ua.Get(s) == idx) return s;
+            for (int s = 0; s < UnitAbilities.Count; s++) if (ua.Get(s) == idx) return s;
             return -1;
         }
 
@@ -216,8 +216,7 @@ namespace TheWaningBorder.AI
         {
             if (!em.HasComponent<AbilityCooldowns>(e)) return true;
             var c = em.GetComponentData<AbilityCooldowns>(e);
-            float cd = slot == 0 ? c.C0 : slot == 1 ? c.C1 : slot == 2 ? c.C2 : c.C3;
-            return cd <= 0f;
+            return c.Get(slot) <= 0f;
         }
 
         private static bool ArmedHostileNear(EntityManager em, Faction faction, float3 at, float radius)

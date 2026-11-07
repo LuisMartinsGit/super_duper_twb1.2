@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Sect_Collector
   displayName: Collector
   unitClass: melee
-  hp: 95
-  speed: 3.8
+  hp: 240
+  speed: 6.4
   trainingTime: 18
-  damage: 11
+  damage: 22
   damageType: melee
   armorType: infantry_light
   defense:
-    melee: 1
-    ranged: 1
+    melee: 3
+    ranged: 3
     siege: 0
-    magic: 0
+    magic: 1
   attackCooldown: 1.0
-  attackRange: 0
+  attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 12
+  lineOfSight: 18
   radius: 0.45
   aimTime: 0
   trajectory: 

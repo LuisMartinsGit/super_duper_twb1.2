@@ -1,5 +1,7 @@
 # Age 1 — Feraldis
 
+> **2026-11-07:** heroes changed. [Heroes.md](Heroes.md) is canon for hero stats, levels, auto-cast (no manual hero abilities below level 10; reach = the hero's line of sight), level-10 abilities, revival at the same level, and who carries the Shardroot. Text here that disagrees is out of date.
+
 > **Industrial dark-magic Vikings who mean to rid the world of the curse.**
 > Feraldis live on the border, between the curse and the sea. They do not
 > fear it and they do not worship it: they burn it out, mine what it leaves,

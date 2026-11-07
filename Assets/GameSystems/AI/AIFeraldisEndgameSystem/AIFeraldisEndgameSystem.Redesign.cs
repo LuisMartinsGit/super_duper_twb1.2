@@ -222,14 +222,14 @@ namespace TheWaningBorder.AI
             int idx = AbilityCatalog.IndexOf(ability);
             if (idx < 0) return false;
             var ua = em.GetComponentData<UnitAbilities>(unit);
-            int slot = ua.S0 == idx ? 0 : ua.S1 == idx ? 1 : ua.S2 == idx ? 2 : ua.S3 == idx ? 3 : -1;
+            int slot = ua.S0 == idx ? 0 : ua.S1 == idx ? 1 : ua.S2 == idx ? 2 : ua.S3 == idx ? 3 : ua.S4 == idx ? 4 : -1;
             if (slot < 0) return false;
             var card = AbilityCatalog.Get(idx);
             if (card == null || !AbilityQuery.IsUnlocked(em, unit, card)) return false;
             if (em.HasComponent<AbilityCooldowns>(unit))
             {
                 var cd = em.GetComponentData<AbilityCooldowns>(unit);
-                float left = slot == 0 ? cd.C0 : slot == 1 ? cd.C1 : slot == 2 ? cd.C2 : cd.C3;
+                float left = cd.Get(slot);
                 if (left > 0f) return false;
             }
             // A single-target card refuses a target it would not accept, so a

@@ -49,7 +49,7 @@ namespace TheWaningBorder.Entities
 
             creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
             creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.InfantryHeavy });
-            creator.AddComponent(entity, new Defense { Melee = 2, Ranged = 1, Siege = 0, Magic = 0 });
+            creator.AddComponent(entity, new Defense { Melee = def.defense.melee, Ranged = def.defense.ranged, Siege = def.defense.siege, Magic = def.defense.magic });
             creator.AddComponent<SectUniqueUnitTag>(entity);
             creator.AddComponent(entity, new UnitAbility { Id = AbilityId.Safeguard, CooldownDuration = 18f, CooldownRemaining = 0f, Range = 0f });
 

@@ -3,9 +3,6 @@
 //   * Seeded host-well selection (deterministic from SpawnSeed).
 //   * TryAward — called by the verb systems (rituals + node death) when a
 //     well is claimed: the FIRST verb on the host well drops the artifact.
-//   * Hall delivery — a carrier reaching its own Hall awakens the
-//     culture's Shardbound Hero (locked choice; Temple enshrinement is
-//     the alternative, handled by ShardrootCarrySystem's deposit path).
 //   * Holder tracking for the minimap beacon and the Border's
 //     hunt-the-holder aggression bias (read by CurseTerritorySystem.Living).
 //   * THE MAW BACKSTOP (section 3): a host well left Wild (unverbed) for
@@ -54,14 +51,6 @@ namespace TheWaningBorder.Systems.Border
             ComponentType.ReadOnly<LocalTransform>(),
         };
         static CachedEntityQuery QC_BorderMainNodeTagLocalTransform;
-
-        static readonly ComponentType[] QT_HallTagFactionTagLocalTransform =
-        {
-            ComponentType.ReadOnly<HallTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-        };
-        static CachedEntityQuery QC_HallTagFactionTagLocalTransform;
 
         static readonly ComponentType[] QT_Embedded =
         {
@@ -252,43 +241,6 @@ namespace TheWaningBorder.Systems.Border
                 }
             }
 
-            // ── Hall delivery → awaken the Shardbound Hero ──────────────
-            if (state.Found != 0)
-            {
-                Entity courier = Entity.Null;
-                float3 courierPos = default;
-                Faction courierFaction = Faction.Border;
-                foreach (var (carrier, xf, fac, entity) in SystemAPI
-                    .Query<RefRO<ShardrootBearer>, RefRO<LocalTransform>, RefRO<FactionTag>>()
-                    .WithAll<ShardrootTag>()
-                    .WithNone<ShardboundHeroTag>()
-                    .WithEntityAccess())
-                {
-                    // A courier bound for the Temple (§ 3.1b, set by the AI)
-                    // passes its Halls without handing the artifact over.
-                    if (carrier.ValueRO.Intent == ShardrootIntent.Temple) break;
-                    courier = entity;
-                    courierPos = xf.ValueRO.Position;
-                    courierFaction = fac.ValueRO.Value;
-                    break; // there is only ever one Shardroot
-                }
-
-                if (courier != Entity.Null
-                    && TryFindOwnHall(em, courierFaction, courierPos,
-                        ShardrootState.HallDeliverRadius, out _))
-                {
-                    // THE PRICE (§3.1c, 2026-10-09): binding is paid on
-                    // delivery; a faction that cannot pay waits at the Hall.
-                    var price = TheWaningBorder.Entities.ShardboundKingConfig.I.BindPrice;
-                    if (TheWaningBorder.Economy.FactionEconomy.Spend(em, courierFaction, price,
-                            TheWaningBorder.Economy.SpendCategory.Religion))
-                        AwakenHero(em, courier, courierPos, courierFaction);
-                    else if (_priceNoticeAcc.Due(SystemAPI.Time.DeltaTime, 30f))
-                        UnityEngine.Debug.Log($"[Shardroot] {courierFaction}'s courier waits at the Hall -- " +
-                            $"the binding costs {price.Supplies}s/{price.Iron}i/{price.Veilstone}v/{price.Veilsteel}vs");
-                }
-            }
-
             // ── Holder tracking (minimap beacon + Border aggression) ────
             // A Faction.Border holder (the ground pickup, or a curse unit
             // carrying it) is "unheld": the curse does not hunt itself.
@@ -365,7 +317,6 @@ namespace TheWaningBorder.Systems.Border
         }
 
         private SimCadence.Periodic _beaconAcc;
-        private SimCadence.Periodic _priceNoticeAcc;
         private const float BeaconInterval = 4f;
 
         /// <summary>
@@ -570,121 +521,6 @@ namespace TheWaningBorder.Systems.Border
             var ps = em.GetComponentData<ShardrootPickupState>(pickup);
             ps.TimeRemaining = float.MaxValue;
             em.SetComponentData(pickup, ps);
-        }
-
-        static readonly ComponentType[] QT_UniqueUnitTagFactionTagHealth =
-        {
-            ComponentType.ReadOnly<TheWaningBorder.Abilities.UniqueUnitTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<Health>(),
-        };
-        static CachedEntityQuery QC_UniqueUnitTagFactionTagHealth;
-
-        private static Entity FindLivingKing(EntityManager em, Faction faction)
-        {
-            var q = QC_UniqueUnitTagFactionTagHealth.Get(em, QT_UniqueUnitTagFactionTagHealth);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var tags = q.ToComponentDataArray<TheWaningBorder.Abilities.UniqueUnitTag>(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-                if (facs[i].Value == faction && hps[i].Value > 0
-                    && tags[i].Kind == TheWaningBorder.Abilities.UniqueUnitKind.KingLexor)
-                    return ents[i];
-            return Entity.Null;
-        }
-
-        private static bool TryFindOwnHall(EntityManager em, Faction faction,
-            float3 pos, float radius, out Entity hall)
-        {
-            hall = Entity.Null;
-            var q = QC_HallTagFactionTagLocalTransform.Get(em, QT_HallTagFactionTagLocalTransform);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (facs[i].Value != faction) continue;
-                if (em.HasComponent<UnderConstruction>(ents[i])) continue;
-                float dx = xfs[i].Position.x - pos.x;
-                float dz = xfs[i].Position.z - pos.z;
-                if (dx * dx + dz * dz <= radius * radius) { hall = ents[i]; return true; }
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Hall choice: consume the carried Shardroot and awaken the
-        /// culture's Shardbound Hero — a heavily empowered champion who
-        /// WIELDS the artifact (it drops from his body on death via the
-        /// existing carrier-death interception). No backsies.
-        /// </summary>
-        private static void AwakenHero(EntityManager em, Entity courier,
-            float3 pos, Faction faction)
-        {
-            byte culture = FactionColors.GetFactionCulture(faction);
-
-            // Alanthor's Shardbound Hero IS King Lexor bearing the artifact
-            // (Curse_And_Shardroot.md 3.1, "The Shardbound King"). A courier
-            // reaching the Hall hands it to the living king; if the courier
-            // is the king himself there is nothing to hand over -- he is
-            // marked the hero and keeps walking. Only a faction with no
-            // living king falls through to the placeholder champion.
-            if (culture == Cultures.Alanthor)
-            {
-                Entity king = FindLivingKing(em, faction);
-                if (king != Entity.Null)
-                {
-                    if (king != courier)
-                    {
-                        em.AddComponent<ShardrootTag>(king);
-                        if (em.HasComponent<ShardrootBearer>(courier))
-                            em.AddComponentData(king, em.GetComponentData<ShardrootBearer>(courier));
-                        else
-                            em.AddComponentData(king, new ShardrootBearer
-                                { Amount = ShardrootState.ShardrootPower, Source = RitualKind.Purification });
-                        if (em.HasComponent<ShardrootTag>(courier)) em.RemoveComponent<ShardrootTag>(courier);
-                        if (em.HasComponent<ShardrootBearer>(courier)) em.RemoveComponent<ShardrootBearer>(courier);
-                    }
-                    em.AddComponent<ShardboundHeroTag>(king);
-                    SimSignals.Notify(string.Format(Loc.T("{0}'s King Lexor takes up the SHARDROOT!"), faction));
-                    UnityEngine.Debug.Log($"[Shardroot] {faction}: the Hall hands the artifact to King Lexor");
-                    return;
-                }
-            }
-            // Culture-flavored base body; stats overridden below. Cultures
-            // without a bespoke age-2 unit fall back to the Swordsman body.
-            string heroId = culture == Cultures.Alanthor ? "Alanthor_Cataphract" : "Swordsman";
-
-            var hero = UnitFactory.Create(em, heroId, pos + new float3(2f, 0f, 2f), faction);
-            if (hero == Entity.Null) return;
-
-            // Shardbound empowerment (kits TBD in balance passes — canon §9).
-            if (em.HasComponent<Health>(hero))
-                em.SetComponentData(hero, new Health { Value = 1500, Max = 1500 });
-            if (em.HasComponent<Damage>(hero))
-                em.SetComponentData(hero, new Damage { Value = 60 });
-            if (em.HasComponent<MoveSpeed>(hero))
-                // Overridden here rather than read from a def, so it does not
-                // move with the SOs and has to be kept in step by hand.
-                em.SetComponentData(hero, new MoveSpeed { Value = 4.2f });
-            if (em.HasComponent<LineOfSight>(hero))
-                em.SetComponentData(hero, new LineOfSight { Radius = 30f });
-
-            em.AddComponent<ShardrootTag>(hero);
-            em.AddComponent<ShardboundHeroTag>(hero);
-            em.AddComponentData(hero, new ShardrootBearer
-            {
-                Amount = ShardrootState.ShardrootPower,
-                Source = RitualKind.Purification,
-            });
-
-            // The courier hands the artifact over.
-            if (em.HasComponent<ShardrootTag>(courier)) em.RemoveComponent<ShardrootTag>(courier);
-            if (em.HasComponent<ShardrootBearer>(courier)) em.RemoveComponent<ShardrootBearer>(courier);
-
-            SimSignals.Notify(string.Format(Loc.T("{0} has awakened the SHARDBOUND HERO!"), faction));
-            UnityEngine.Debug.Log($"[Shardroot] {faction} hero awakened ({heroId} body)");
         }
     }
 }

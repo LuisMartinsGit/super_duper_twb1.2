@@ -7,7 +7,7 @@
 //   150 total damage * 0.10 = 15 applied to HP.
 //
 // The Shardroot rides the same hook (Curse_And_Shardroot.md § 3.1b): the
-// Shardbound King takes only ShardboundKing.asset's fraction, an enshrining
+// Shardbound King takes only AscendedHero.asset's fraction, an enshrining
 // civilization's units take less and (attacker overload) deal more.
 //
 // A REDUCED hit is never erased: the scaled amount is floored AFTER scaling
@@ -46,7 +46,7 @@ namespace TheWaningBorder.Abilities
                 float w = em.GetComponentData<SectDeathWard>(target).DamageTakenMult;
                 if (w > 0f && w < 1f) m *= w;
             }
-            m *= TheWaningBorder.Entities.ShardboundKingRules.IncomingMultiplier(em, target);
+            m *= TheWaningBorder.Entities.AscendedHeroRules.IncomingMultiplier(em, target);
             m *= TheWaningBorder.Entities.ShardrootEmpowerment.IncomingMultiplier(em, target);
             // A building on cursed ground takes more (Territory_Claims.md §6.9.9).
             m *= TheWaningBorder.Systems.Border.CursedGroundDecay.IncomingMultiplier(em, target);
@@ -63,7 +63,7 @@ namespace TheWaningBorder.Abilities
             float m = IncomingMultiplier(em, target);
             int scaled = math.abs(m - 1f) < 1e-4f ? damage : math.max(1, (int)(damage * m));
             // The Shardbound King's swarm cap (Curse_And_Shardroot.md § 3.1b), spent once per hit.
-            return TheWaningBorder.Entities.ShardboundKingRules.CapIncoming(em, target, scaled);
+            return TheWaningBorder.Entities.AscendedHeroRules.CapIncoming(em, target, scaled);
         }
 
         /// <summary>Weapon-hit form: the target's incoming multiplier times
@@ -76,7 +76,7 @@ namespace TheWaningBorder.Abilities
             float m = IncomingMultiplier(em, target)
                 * TheWaningBorder.Entities.ShardrootEmpowerment.OutgoingMultiplier(em, attacker);
             int scaled = m == 1f ? damage : math.max(1, (int)(damage * m));
-            int dealt = TheWaningBorder.Entities.ShardboundKingRules.CapIncoming(em, target, scaled);
+            int dealt = TheWaningBorder.Entities.AscendedHeroRules.CapIncoming(em, target, scaled);
             TheWaningBorder.Systems.Sect.SectDamageReligion.Note(em, attacker, dealt);
             return dealt;
         }

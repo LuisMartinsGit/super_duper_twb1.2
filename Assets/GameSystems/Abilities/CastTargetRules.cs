@@ -191,14 +191,27 @@ namespace TheWaningBorder.Abilities
             if (card.HasEffect(AbilityEffectKind.SectLiquidate) && CastTargetRules.IsCapital(em, target))
             { why = CastTargetRefusal.Capital; return false; }
 
-            // Range 0 = unlimited. Measured to the target's footprint edge.
-            if (card.Range > 0f && em.HasComponent<LocalTransform>(caster))
+            // Range 0 = unlimited. Measured to the target's footprint edge. A
+            // hero's reach below level 10 is its own line of sight (Heroes.md §3).
+            float reach = HeroReach(em, card, caster, out float los) ? los : card.Range;
+            if (reach > 0f && em.HasComponent<LocalTransform>(caster))
             {
                 var from = em.GetComponentData<LocalTransform>(caster).Position;
-                if (TargetGeometry.SurfaceDistXZ(em, from, target) > card.Range)
+                if (TargetGeometry.SurfaceDistXZ(em, from, target) > reach)
                 { why = CastTargetRefusal.OutOfRange; return false; }
             }
             return true;
+        }
+
+        /// <summary>True when <paramref name="caster"/> is a hero and the card is
+        /// below its level-10 game ender, so its reach is <paramref name="los"/>.</summary>
+        public static bool HeroReach(EntityManager em, AbilityCard card, Entity caster, out float los)
+        {
+            los = 0f;
+            if (card == null || card.IsUltimate || caster == Entity.Null || !em.Exists(caster)
+                || !em.HasComponent<HeroLevel>(caster) || !em.HasComponent<LineOfSight>(caster)) return false;
+            los = em.GetComponentData<LineOfSight>(caster).Radius;
+            return los > 0f;
         }
 
         // ── Line of sight (docs/Design/Spells.md §6.1, 2026-10-19) ──────────
@@ -224,6 +237,8 @@ namespace TheWaningBorder.Abilities
             => card != null
                && card.Activation == AbilityActivation.Active
                && !IsReveal(card)
+               // A hero's level-10 game ender reaches past its sight (Heroes.md §3).
+               && !card.IsUltimate
                && (card.IsEntityTargeted
                    || (card.Targeting == AbilityTargeting.Area && card.AimedAtPoint));
 
@@ -283,6 +298,9 @@ namespace TheWaningBorder.Abilities
             if (card.IsEntityTargeted)
                 return TheWaningBorder.Systems.Sect.SectActivePowerHelper.TargetInSight(em, faction, target, fresh);
             if (!em.HasComponent<AbilityAimPoint>(caster)) return true;
+            if (HeroReach(em, card, caster, out float los) && em.HasComponent<LocalTransform>(caster)
+                && math.distance(em.GetComponentData<LocalTransform>(caster).Position.xz,
+                       em.GetComponentData<AbilityAimPoint>(caster).Position.xz) > los) return false;
             return TheWaningBorder.World.FogOfWar.FactionSight.CanSee(
                 em, faction, em.GetComponentData<AbilityAimPoint>(caster).Position, fresh);
         }

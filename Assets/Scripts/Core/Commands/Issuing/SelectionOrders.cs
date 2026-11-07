@@ -269,7 +269,7 @@ namespace TheWaningBorder.Core.Commands.Issuing
         /// sends the bearer to enshrine it there. Returns false when nobody in
         /// the selection carries the artifact or the target is no Temple, so
         /// the caller falls through to its usual handling. A refused order
-        /// (not your Temple, unfinished, bound hero, cannot pay) says why and
+        /// (not your Temple, unfinished, cannot pay) says why and
         /// returns true — the click meant "enshrine", nothing else happens.
         /// Only the bearer takes the order; the rest of the selection walks
         /// alongside it.
@@ -354,9 +354,7 @@ namespace TheWaningBorder.Core.Commands.Issuing
                 if (d < bestD) { bestD = d; best = ents[i]; }
             }
             if (best == Entity.Null)
-                return em.HasComponent<ShardboundHeroTag>(bearer)
-                    ? ShardrootEnshrine.RefusalText(ShardrootEnshrine.Refusal.Bound)
-                    : TheWaningBorder.Core.Localization.Loc.T("You have no finished Temple of Ridan to enshrine the Shardroot in");
+                return TheWaningBorder.Core.Localization.Loc.T("You have no finished Temple of Ridan to enshrine the Shardroot in");
             var refusal = ShardrootEnshrine.Check(em, bearer, best, checkPrice: true);
             if (refusal != ShardrootEnshrine.Refusal.None) return ShardrootEnshrine.RefusalText(refusal);
             CommandRouter.IssueEnshrineShardroot(em, bearer, best, CommandSource.LocalPlayer);

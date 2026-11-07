@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Sect_ArchivistAdept
   displayName: Archivist Adept
   unitClass: magic
-  hp: 110
-  speed: 3.5
+  hp: 230
+  speed: 5.0
   trainingTime: 21
-  damage: 14
+  damage: 36
   damageType: magic
   armorType: infantry_heavy
   defense:
-    melee: 0
-    ranged: 0
+    melee: 1
+    ranged: 2
     siege: 0
-    magic: 0
-  attackCooldown: 1.2
+    magic: 3
+  attackCooldown: 1.6
   attackRange: 14
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 20
   aimTime: 0.4
   radius: 0.5
   trajectory: 

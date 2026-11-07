@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Sect_GlassmarkArcanist
   displayName: Glassmark Arcanist
   unitClass: magic
-  hp: 100
-  speed: 3.5
+  hp: 210
+  speed: 5.0
   trainingTime: 21
-  damage: 18
+  damage: 40
   damageType: magic
   armorType: infantry_heavy
   defense:
-    melee: 0
-    ranged: 0
+    melee: 1
+    ranged: 2
     siege: 0
-    magic: 0
-  attackCooldown: 1.2
+    magic: 2
+  attackCooldown: 1.6
   attackRange: 15
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 20
   aimTime: 0.4
   radius: 0.5
   trajectory: 

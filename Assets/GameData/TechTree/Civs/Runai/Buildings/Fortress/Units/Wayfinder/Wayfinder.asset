@@ -15,21 +15,21 @@ MonoBehaviour:
   id: Runai_Wayfinder
   displayName: The Wayfinder
   unitClass: human_cavalry
-  hp: 600
+  hp: 700
   speed: 7.2
   trainingTime: 45
-  damage: 28
+  damage: 42
   damageType: melee
   armorType: cavalry
   defense:
-    melee: 3
-    ranged: 3
+    melee: 4
+    ranged: 4
     siege: 0
-    magic: 1
+    magic: 2
   attackCooldown: 1.4
   attackRange: 1.6
   minAttackRange: 0
-  lineOfSight: 24
+  lineOfSight: 28
   aimTime: 0
   radius: 0.7
   trajectory: 

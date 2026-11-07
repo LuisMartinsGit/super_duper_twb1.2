@@ -24,6 +24,8 @@ MonoBehaviour:
   effects:
   - kind: 37
     value: 25
+  - kind: 4
+    value: 25
   aftermath: []
   unlocksAtLevel: 3
   damage: 0

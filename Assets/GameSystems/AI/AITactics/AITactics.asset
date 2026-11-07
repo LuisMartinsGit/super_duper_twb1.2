@@ -64,6 +64,7 @@ MonoBehaviour:
   fallbackRetargetShare: 0.6
   fallbackMaxHolds: 1
   abilityScanRadius: 18
+  heroUltimateMinEnemies: 8
   contactDistance: 10
   defensiveHpFraction: 0.45
   buffMinAllies: 3

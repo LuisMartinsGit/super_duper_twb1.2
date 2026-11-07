@@ -38,6 +38,9 @@ namespace TheWaningBorder.UI.Ingame
         /// <summary>The drag-select frame. Replaces the old IMGUI rectangle.</summary>
         public GameObject selectionBox;
 
+        /// <summary>The small bar every hero wears (docs/Design/Heroes.md §2).</summary>
+        public GameObject heroBar;
+
         /// <summary>Top-centre notification pills. Replaces the IMGUI stack.</summary>
         public GameObject notificationStack;
 

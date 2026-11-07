@@ -3692,12 +3692,12 @@ namespace TheWaningBorder.AI
         /// free to lead a wave: alive, not pulled back to heal, serving no
         /// mission, and not inside the retry wait after a failed launch.
         /// </summary>
-        private Entity ShardboundKingToLead(EntityManager em, Faction faction, float now)
+        private Entity AscendedHeroToLead(EntityManager em, Faction faction, float now)
         {
             if (!AIShardroot.Cfg.enabled) return Entity.Null;
             if (_kingWaveRetryAt.TryGetValue((int)faction, out float at) && now < at) return Entity.Null;
             if (AIShardroot.Locate(em, faction, out Entity holder, out _) != AIShardroot.Where.Mine) return Entity.Null;
-            if (holder == Entity.Null || !em.Exists(holder) || !em.HasComponent<ShardboundHeroTag>(holder)) return Entity.Null;
+            if (holder == Entity.Null || !em.Exists(holder) || !em.HasComponent<AscendedHero>(holder)) return Entity.Null;
             if (ShardrootFor(faction).KingRetreat) return Entity.Null;
             if (TransientState.Active<UserMoveOrder>(em, holder)) return Entity.Null;
             foreach (var m in MissionsFor(faction))
@@ -3937,7 +3937,7 @@ namespace TheWaningBorder.AI
             // bearer." An idle Shardbound King launches a wave the moment the
             // normal minimum is met — no cooldown, no claim yield, no strength
             // or assessment hold — and marches at its head.
-            Entity kingLead = ShardboundKingToLead(em, faction, now);
+            Entity kingLead = AscendedHeroToLead(em, faction, now);
             // ONE ARMY AT A TIME (2026-11-04): while it lives, the next body of
             // soldiers leaves as its reinforcement, above.
             if (aiState.WaveActive != 0 && kingLead == Entity.Null) return;

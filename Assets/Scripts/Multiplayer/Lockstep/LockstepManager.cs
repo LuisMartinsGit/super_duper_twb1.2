@@ -1611,11 +1611,7 @@ namespace TheWaningBorder.Multiplayer
                         // faction banks feed the desync checksum, so an
                         // issuer-only debit desynced on the first purchase
                         // (docs/Multiplayer_LAN_Readiness.md).
-                        // TargetEntityId carries the hero revival mode
-                        // (0 = None), which changes both the price and
-                        // the level he returns at.
-                        CommandRouter.TrainCommandDirect(em, entity, cmd.BuildingId,
-                            (TheWaningBorder.Abilities.HeroRevivalMode)cmd.TargetEntityId);
+                        CommandRouter.TrainCommandDirect(em, entity, cmd.BuildingId);
                     }
                     break;
 
@@ -1719,6 +1715,11 @@ namespace TheWaningBorder.Multiplayer
                     CommandRouter.FeraldisOrderDirect(em, entity, targetEntity,
                         (byte)(cmd.SecondaryTargetId & 0xFF), cmd.SecondaryTargetId >> 8, cmd.TargetPosition);
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed FeraldisOrder({cmd.SecondaryTargetId & 0xFF}) from player {cmd.PlayerIndex}");
+                    break;
+
+                case LockstepCommandType.DropShardroot:
+                    // EntityNetworkId: the bearer (docs/Design/Heroes.md §4).
+                    if (entity != Entity.Null) CommandRouter.DropShardrootDirect(em, entity);
                     break;
 
                 case LockstepCommandType.EnshrineShardroot:

@@ -10,6 +10,22 @@ namespace TheWaningBorder.Core.Localization
         private static void AddNotifications(Dictionary<string, string> t)
         {
             // ---- Building placement (BuildCommandPannel) ----
+            t["Drop"] = "Largar";
+            t["Drop the Shardroot"] = "Largar a Shardroot";
+            t["Set it down here, safely. The hero loses its power and any hero may take it."] = "Pousa-a aqui, em segurança. O herói perde o poder e qualquer herói a pode levar.";
+            t["{0}'s hero is ASCENDED — nearly invincible!"] = "O herói de {0} ASCENDEU — quase invencível!";
+            t["An ASCENDED hero has fallen -- the Shardroot detonates!"] = "Um herói ASCENDIDO caiu -- a Shardroot detona!";
+            t["{0} has slain the Ascended hero of {1} — a king's ransom is theirs!"] = "{0} matou o herói Ascendido de {1} — um resgate de rei é seu!";
+            t["Returns at level {0}, with everything it had earned."] = "Regressa ao nível {0}, com tudo o que tinha ganho.";
+            t["Also costs {0} Religion Point(s)"] = "Custa também {0} Ponto(s) de Religião";
+            t["Call to the Banners"] = "Chamada às Bandeiras";
+            t["Iron Frame"] = "Estrutura de Ferro";
+            t["Accounts Settled"] = "Contas Saldadas";
+            t["Foreclosure"] = "Execução da Dívida";
+            t["Stop the Hours"] = "Parar as Horas";
+            t["The Great Rewind"] = "O Grande Retrocesso";
+            t["The Realm Holds"] = "O Reino Resiste";
+            t["Buy Out"] = "Compra Total";
             t["Invalid placement"] = "Colocação inválida";
             t["Maximum 10 Trading Posts"] = "Máximo de 10 Postos Comerciais";
             t["Only one Temple of Ridan per faction"] = "Apenas um Templo de Ridan por facção";

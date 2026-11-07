@@ -1,5 +1,7 @@
 # Age 1 — Runai
 
+> **2026-11-07:** heroes changed. [Heroes.md](Heroes.md) is canon for hero stats, levels, auto-cast (no manual hero abilities below level 10; reach = the hero's line of sight), level-10 abilities, revival at the same level, and who carries the Shardroot. Text here that disagrees is out of date.
+
 > **Nomad traders who hold the curse sacred.** The Runai do not dig the
 > curse's crystal and they do not fight it: they build Sanctuaries over it,
 > pray, and in the end command it. Their wealth is never where it is made —
