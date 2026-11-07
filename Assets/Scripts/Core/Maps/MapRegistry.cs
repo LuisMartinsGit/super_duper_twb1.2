@@ -68,6 +68,11 @@ namespace TheWaningBorder.Core.Maps
             "Assets/GameData/Scenes/Scenarios/",
         };
 
+        /// <summary>Tutorial mission scenes (docs/Design/Tutorial_Missions.md):
+        /// gameplay scenes that ship in every edition and are never lobby maps.
+        /// The ship gate does not touch them.</summary>
+        public const string TutorialRoot = "Assets/GameData/Scenes/Tutorial/";
+
         // ── Ship gate (2026-08-09) ─────────────────────────────────────────
         // The first public build ships ONE map and no dev scenarios. Every
         // other map/scenario scene STAYS in the project and stays fully
@@ -198,7 +203,8 @@ namespace TheWaningBorder.Core.Maps
 
                 bool isMap = path.StartsWith(MapsRoot);
                 bool isScenario = IsUnderScenarioRoot(path);
-                if (!isMap && !isScenario) continue;
+                bool isTutorial = path.StartsWith(TutorialRoot);
+                if (!isMap && !isScenario && !isTutorial) continue;
 
 #if UNITY_EDITOR
                 // Build Settings can hold stale entries for scenes deleted
@@ -217,8 +223,8 @@ namespace TheWaningBorder.Core.Maps
 
                 string sceneName = System.IO.Path.GetFileNameWithoutExtension(path);
 
-                // Scenario scenes are gameplay scenes but not lobby maps.
-                if (isScenario)
+                // Scenario and tutorial scenes are gameplay scenes but not lobby maps.
+                if (isScenario || isTutorial)
                 {
                     _scenarioScenes.Add(sceneName);
                     continue;

@@ -161,7 +161,7 @@ namespace TheWaningBorder.Systems.Economy
             using var s = q.ToComponentDataArray<SanctumDominion>(Allocator.Temp);
             if (s[0].Holder == Faction.Border || s[0].Done != 0) return false;
             holder = s[0].Holder;
-            secondsLeft = math.max(0f, Cfg.dominionSeconds - s[0].Elapsed);
+            secondsLeft = math.max(0f, TheWaningBorder.Tutorial.TutorialMissionState.CountdownOr(Cfg.dominionSeconds) - s[0].Elapsed);
             return true;
         }
 
@@ -213,12 +213,12 @@ namespace TheWaningBorder.Systems.Economy
             {
                 st.Holder = holder; st.Elapsed = 0f; st.NoticeMinutes = -1;
                 UnityEngine.Debug.Log($"[Sanctum] DOMINION -- {holder} (and allies) hold every Sanctum; " +
-                                      $"{Cfg.dominionSeconds:0}s to victory");
+                                      $"{TheWaningBorder.Tutorial.TutorialMissionState.CountdownOr(Cfg.dominionSeconds):0}s to victory");
             }
             else st.Holder = holder;            // the same team; its stand-in may change
 
             st.Elapsed += dt;
-            float left = math.max(0f, Cfg.dominionSeconds - st.Elapsed);
+            float left = math.max(0f, TheWaningBorder.Tutorial.TutorialMissionState.CountdownOr(Cfg.dominionSeconds) - st.Elapsed);
             // WARNINGS (2026-10-19): at the start, every countdownWarningSeconds
             // of time left, and at the final marks — to every player.
             int lastMark = st.NoticeMinutes;

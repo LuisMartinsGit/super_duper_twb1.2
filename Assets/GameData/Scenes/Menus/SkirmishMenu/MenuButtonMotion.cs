@@ -104,6 +104,7 @@ namespace TheWaningBorder.UI.Menus
         {
             TheWaningBorder.Core.SceneNames.Skirmish,
             TheWaningBorder.Core.SceneNames.Scenarios,
+            TheWaningBorder.Core.SceneNames.Tutorials,
             TheWaningBorder.Core.SceneNames.Settings,
         };
 

@@ -87,6 +87,11 @@ def rot(deg):
     return np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
 
 
+def group_identity():
+    """No symmetry: one authored copy of everything (the tutorial missions)."""
+    return [np.eye(2)], (lambda x, z: (x, z, np.zeros_like(x, dtype=int))), (lambda x, z: np.ones_like(x, dtype=bool))
+
+
 def group_mirror_both():
     """x -> -x and z -> -z: four quadrants. The canonical one is south-west,
     which is the one TerritoryResources.MirrorPartners lays nodes in."""
@@ -230,6 +235,7 @@ class Plan:
         self.start_pts = {}          # canon home -> (x, z) canonical
         self.forest_cover = 1.3
         self.forest_banned = set()   # canon codes kept clear of trees
+        self.forest_zone = None      # a shape: plant exactly here instead of the noise clumps
         self.labels = {}             # canon -> short label override
         # pin_curse: the Veilstone rich territories keep the curse every match
         # (RegionSeedMarker.CurseStaysHere). Needed where the map is not
@@ -636,6 +642,9 @@ class Plan:
 
     def _forest(self):
         walk0 = self._walk()
+        if self.forest_zone is not None:
+            self.forest = self.union(self.forest_zone) & self.land & walk0
+            return
         banned = np.zeros(self.region.shape, bool)
         for rec in self.R:
             if rec["canon"] in self.forest_banned or rec["type"] == "Start" or rec["kind"] == "ford":

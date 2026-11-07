@@ -119,6 +119,12 @@ namespace TheWaningBorder.Systems.Core
         protected override void OnUpdate()
         {
             if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.Scenario) return;
+            // The Basic mission decides its own end (TutorialMissionSystem): it
+            // opens with no Fortress, no land and no buildings. The Alanthor mission
+            // hands over when its rival stops being an ally; until then one team is
+            // all that is alive, which this system would call a win.
+            if (GameSettings.TutorialBasicActive) return;
+            if (GameSettings.TutorialAdvancedActive && !TheWaningBorder.Tutorial.TutorialMissionState.ConquestOpen) return;
 
             // Per-match reset (system object outlives matches).
             if (_epoch != SimCadence.Epoch)

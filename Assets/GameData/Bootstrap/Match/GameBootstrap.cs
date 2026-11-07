@@ -893,7 +893,8 @@ namespace TheWaningBorder.Bootstrap
         private static void InitializeAI()
         {
             // Sandbox / PathfindingTest: no AI opponents
-            if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.PathfindingTest)
+            if (GameSettings.IsSandbox || GameSettings.Mode == GameMode.PathfindingTest
+                || GameSettings.TutorialBasicActive)
             {
                 return;
             }

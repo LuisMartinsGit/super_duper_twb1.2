@@ -77,6 +77,7 @@ namespace TheWaningBorder.UI.Ingame
             // Buildings: own always, others visible = solid, revealed = ghost
             // (pre-darkened — the overlay replaces pixels, it doesn't blend).
             var buildingsQ = _buildingsQ.Get(em, BuildingQueryTypes);
+            using (var buildingEnts = buildingsQ.ToEntityArray(Allocator.Temp))
             using (var facs = buildingsQ.ToComponentDataArray<FactionTag>(Allocator.Temp))
             using (var xfs = buildingsQ.ToComponentDataArray<LocalTransform>(Allocator.Temp))
             {
@@ -85,7 +86,14 @@ namespace TheWaningBorder.UI.Ingame
                     var pos = xfs[i].Position;
                     bool mine = facs[i].Value == faction;
                     bool vis = mine || unfogged || FogOfWarSystem.IsVisibleToFaction(faction, pos);
-                    if (!vis && !FogOfWarSystem.IsRevealedToFaction(faction, pos)) continue;
+                    // A hostile building only as the player last saw it, never
+                    // because the ground is explored (Last_Seen_Buildings.md).
+                    if (!vis)
+                    {
+                        bool hostile = !GameSettings.IsSpectating && Alliances.AreHostile(facs[i].Value, faction);
+                        if (hostile ? !TheWaningBorder.Rendering.LastSeenBuildings.IsKnown(buildingEnts[i])
+                                    : !FogOfWarSystem.IsRevealedToFaction(faction, pos)) continue;
+                    }
 
                     Color baseCol = FactionColors.Get(facs[i].Value);
                     Color32 c = vis ? (Color32)baseCol
@@ -93,6 +101,10 @@ namespace TheWaningBorder.UI.Ingame
                     DrawDisc(WorldToOverlayPixel(pos), BuildingRadiusPx, c);
                 }
             }
+            // Buildings destroyed out of sight, still as last seen.
+            foreach (var g in TheWaningBorder.Rendering.LastSeenBuildings.Ghosts)
+                DrawDisc(WorldToOverlayPixel(g.Position), BuildingRadiusPx,
+                    (Color32)Color.Lerp(Color.black, FactionColors.Get(g.Owner), 0.55f));
 
             // Rocks and resource nodes — static landmarks, but only once the
             // ground is EXPLORED (unexplored minimap is solid black; drawing

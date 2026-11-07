@@ -27,6 +27,9 @@ namespace TheWaningBorder.Core
         /// menu by ShipGateMenuTrim, but its scene still ships).</summary>
         public const string Scenarios = "ScenariosMenu";
 
+        /// <summary>The tutorial mission list (docs/Design/Tutorial_Missions.md).</summary>
+        public const string Tutorials = "TutorialsMenu";
+
         /// <summary>Settings screen.</summary>
         public const string Settings = "SettingsMenu";
     }

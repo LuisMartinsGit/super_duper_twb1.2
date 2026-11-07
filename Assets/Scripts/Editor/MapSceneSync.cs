@@ -65,6 +65,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         private static bool IsManaged(string path)
         {
             if (path.StartsWith(MapRegistry.MapsRoot)) return true;
+            if (path.StartsWith(MapRegistry.TutorialRoot)) return true;
             return IsScenario(path);
         }
 
@@ -168,6 +169,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             // Every scene on disk under the managed roots.
             var onDisk = new List<string>();
             CollectScenes(MapRegistry.MapsRoot, onDisk);
+            CollectScenes(MapRegistry.TutorialRoot, onDisk);
             for (int i = 0; i < MapRegistry.ScenarioRoots.Length; i++)
                 CollectScenes(MapRegistry.ScenarioRoots[i], onDisk);
             onDisk.Sort(System.StringComparer.OrdinalIgnoreCase);

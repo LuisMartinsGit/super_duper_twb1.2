@@ -227,6 +227,10 @@ namespace TheWaningBorder.Systems.Border
 
             SyncHoldings(em);
 
+            // A tutorial mission's curse holds its ground and does nothing else:
+            // every unit it sends is scripted (TutorialMissionSystem).
+            if (GameSettings.TutorialMissionActive) return;
+
             // THE LIVING CURSE (§2.11, 2026-09-13): active from tick 0,
             // garrisoned, expanding by merge. The provocation model below is
             // kept intact behind the switch.

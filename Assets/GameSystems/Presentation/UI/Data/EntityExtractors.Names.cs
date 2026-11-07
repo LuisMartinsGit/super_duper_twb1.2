@@ -35,7 +35,8 @@ namespace TheWaningBorder.UI.Data
             name = WithLevel(entity, em, name);
             // A hut whose supply node collapsed under it (Territory_Claims.md
             // § 11.3, 2026-10-19) stands on as "Guild - Lvl 2 (Depleted)".
-            if (em.HasComponent<DepletedHutTag>(entity))
+            bool frozen = TheWaningBorder.Rendering.LastSeenBuildings.TryGetFrozen(entity, out var lastSeen);
+            if (frozen ? lastSeen.Depleted : em.HasComponent<DepletedHutTag>(entity))
                 name = string.Format(Loc.T("{0} (Depleted)"), name);
             return name;
         }
@@ -61,6 +62,18 @@ namespace TheWaningBorder.UI.Data
         /// </summary>
         private static string WithLevel(Entity entity, EntityManager em, string name)
         {
+            // Out of vision the name is the level last seen (Last_Seen_Buildings.md).
+            if (TheWaningBorder.Rendering.LastSeenBuildings.TryGetFrozen(entity, out var lastSeen))
+            {
+                if (lastSeen.Level <= 0) return name;
+                string seenId = TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper
+                    .ResolveBuildingId(em, entity);
+                if (TechCatalog.TryGetBuildingLevel(lastSeen.Culture, seenId, lastSeen.Level, out var seenDef)
+                    && !string.IsNullOrEmpty(seenDef.displayName))
+                    name = seenDef.displayName;
+                return string.Format(Loc.T("{0} - Lvl {1}"), name, lastSeen.Level);
+            }
+
             int level = 0;
             if (em.HasComponent<BuildingUpgradeState>(entity))
                 level = em.GetComponentData<BuildingUpgradeState>(entity).Level;

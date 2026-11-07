@@ -15,9 +15,9 @@ namespace TheWaningBorder.Core.Maps.EditorTools
     public static class LayoutMapStandardSpec
     {
         public static LayoutMapSpec Make(string mapName, string sceneName, string layoutFolder, int floraSeed,
-            int treeAttempts, string displayName = null)
+            int treeAttempts, string displayName = null, string folderOverride = null)
         {
-            string folder = $"Assets/GameData/Scenes/Maps/{mapName}";
+            string folder = folderOverride ?? $"Assets/GameData/Scenes/Maps/{mapName}";
             return new LayoutMapSpec
             {
                 MapName = mapName,

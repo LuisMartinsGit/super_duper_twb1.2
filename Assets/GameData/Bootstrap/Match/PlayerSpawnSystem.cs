@@ -77,6 +77,17 @@ namespace TheWaningBorder.Bootstrap
             // leak into the fresh one.
             GameBootstrap.ClearEntityCaches();
 
+            // A tutorial mission starts with what it says, not a base. The camp
+            // spot stands in as the start, so the clearing, the node layout and
+            // reachability all still have one. docs/Design/Tutorial_Missions.md
+            if (GameSettings.TutorialBasicActive)
+            {
+                var camp = TheWaningBorder.Tutorial.TutorialMissionSystemConfig.I.campSpot;
+                _spawnPositions[GameSettings.LocalPlayerFaction] = TheWaningBorder.Tutorial.TutorialMissionSystem.Ground(camp);
+                TheWaningBorder.Tutorial.TutorialMissionSystem.SpawnStart(em);
+                return;
+            }
+
             int playerCount = GameSettings.TotalPlayers;
 
             // The procedural layout. Hand-authored maps use PlayerStartMarkers

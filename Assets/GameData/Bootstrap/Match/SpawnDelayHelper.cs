@@ -102,8 +102,10 @@ namespace TheWaningBorder.Bootstrap
             // partition (built above) and the fog manager (built in
             // GameBootstrap), and it must land before the player looks at the
             // map rather than after the first frame.
-            TheWaningBorder.World.Regions.RegionStartReveal.RevealHomeRegions(
-                PlayerSpawnSystem.SpawnPositions);
+            // The Basic mission starts in the dark: exploring is the lesson.
+            if (!GameSettings.TutorialBasicActive)
+                TheWaningBorder.World.Regions.RegionStartReveal.RevealHomeRegions(
+                    PlayerSpawnSystem.SpawnPositions);
 
             LoadingScreen.SetStatus("Computing reachability…");
             LoadingScreen.SetProgress(0.66f);
@@ -127,8 +129,13 @@ namespace TheWaningBorder.Bootstrap
                 TheWaningBorder.World.Regions.TerritoryResources.Resolve(
                     starts, (uint)(GameSettings.SpawnSeed ^ 0x7E4417u));
                 if (tw != null && tw.IsCreated)
-                    TheWaningBorder.World.Regions.TerritoryResources.Spawn(tw.EntityManager, starts,
-                        (uint)(GameSettings.SpawnSeed ^ 0x40DE5u));
+                {
+                    if (GameSettings.TutorialBasicActive)
+                        TheWaningBorder.Tutorial.TutorialMissionSystem.SpawnResourceNodes(tw.EntityManager);
+                    else
+                        TheWaningBorder.World.Regions.TerritoryResources.Spawn(tw.EntityManager, starts,
+                            (uint)(GameSettings.SpawnSeed ^ 0x40DE5u));
+                }
             }
             else
             {
@@ -179,7 +186,23 @@ namespace TheWaningBorder.Bootstrap
                 // put curse nodes beside a player's spawn, which the new model
                 // forbids.
                 BorderNodeBootstrap.PrepareCurseFaction();
-                SeedCurseNodes();
+                if (GameSettings.TutorialMissionActive)
+                {
+                    var tw2 = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                    if (tw2 != null && tw2.IsCreated)
+                    {
+                        if (GameSettings.TutorialBasicActive)
+                            TheWaningBorder.Tutorial.TutorialMissionSystem.SpawnNode(tw2.EntityManager);
+                        else
+                        {
+                            var home = PlayerSpawnSystem.SpawnPositions[GameSettings.LocalPlayerFaction];
+                            TheWaningBorder.Tutorial.TutorialAdvancedSystem.SetUp(tw2.EntityManager,
+                                new Unity.Mathematics.float3(home.x, home.y, home.z));
+                        }
+                    }
+                }
+                else
+                    SeedCurseNodes();
             }
 
             // Last sim-entity spawn is above this line. Prewarm below creates
@@ -383,6 +406,14 @@ namespace TheWaningBorder.Bootstrap
 
             var query = QC_HallTagLocalTransform.Get(em, QT_HallTagLocalTransform);
             using var transforms = query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            if (GameSettings.TutorialBasicActive)
+            {
+                // No Fortress yet: reachability is measured from the camp spot.
+                grid.ComputePlayerReachability(new[] {
+                    TheWaningBorder.Tutorial.TutorialMissionSystem.Ground(
+                        TheWaningBorder.Tutorial.TutorialMissionSystemConfig.I.campSpot) });
+                return;
+            }
             if (transforms.Length == 0) return;
 
             var positions = new Unity.Mathematics.float3[transforms.Length];
@@ -402,6 +433,14 @@ namespace TheWaningBorder.Bootstrap
 
             var em = world.EntityManager;
             var faction = GameSettings.LocalPlayerFaction;
+
+            if (GameSettings.TutorialBasicActive)
+            {
+                var start = TheWaningBorder.Tutorial.TutorialMissionSystem.Ground(
+                    TheWaningBorder.Tutorial.TutorialMissionSystemConfig.I.litharchStart);
+                CameraController.FocusOn(new Vector3(start.x, start.y, start.z), instant: true);
+                return;
+            }
 
             var query = BootstrapQueries.Halls(em);
 

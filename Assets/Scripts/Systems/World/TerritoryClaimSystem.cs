@@ -697,6 +697,10 @@ namespace TheWaningBorder.Systems.World
         /// </summary>
         private void WearDisconnected(EntityManager em, int count, float dt)
         {
+            // The Basic mission raises its first Fortress on ground no Fortress
+            // links yet, and a new foundation's few HP would die to this at once.
+            if (GameSettings.TutorialBasicActive) return;
+
             bool any = false;
             for (int t = 0; t < count && !any; t++)
             {
@@ -732,6 +736,8 @@ namespace TheWaningBorder.Systems.World
         {
             int local = (int)GameSettings.LocalPlayerFaction;
             if (side != local || side < 0 || side >= CurseSide) return;
+            // The Basic mission's first steps walk over unclaimed ground on purpose.
+            if (GameSettings.TutorialBasicActive) return;
             float now = UnityEngine.Time.unscaledTime;
             if (now < _nextClaimNotice[side]) return;
             _nextClaimNotice[side] = now + 20f;

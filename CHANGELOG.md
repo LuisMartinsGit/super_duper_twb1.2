@@ -9,7 +9,16 @@ build always name the same number.
 
 ---
 
-## [Unreleased]
+## [0.0.75] — 2026-11-07
+
+### Tutorial
+- **The tutorial is now a scripted mission on its own small map, not a skirmish.** A Litharch searches the woods after the calamity, rescues six lost workers, makes camp, builds up, finds lost soldiers and holds off the curse until its node can be destroyed.
+- **A second mission teaches Alanthor:** the Vault, Guilds and Trading Outposts, the new army, claims, a rival kingdom, religion, a cursed Sanctum, monuments and the three ways to win. The Tutorial menu entry now opens a Tutorials screen that lists both missions with a briefing for each; pick one and press Start Mission.
+- **Only what you are learning is on screen.** Resources, the build menu and each button appear when their step begins.
+- **The infographic cards no longer open by themselves** while they are being reviewed.
+
+### Fixed
+- **Enemy buildings no longer update without vision.** You now see them as you last saw them: a new one on explored ground stays hidden until you have sight of it, upgrades and construction stay frozen, and one destroyed out of sight stays on your screen and minimap until you see that spot again.
 
 ## [0.0.74] — 2026-11-07
 

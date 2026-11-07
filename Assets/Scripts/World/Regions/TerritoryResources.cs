@@ -624,6 +624,17 @@ namespace TheWaningBorder.World.Regions
         private static void Create(EntityManager em, float3 site, int kind)
             => Create(em, site, kind, DealGrade());
 
+        /// <summary>A tutorial mission's nodes, placed by hand instead of dealt from
+        /// the territory type, so they stand where the lesson needs them.
+        /// <paramref name="kind"/>: 0 supply, 1 iron, 2 veilstone.</summary>
+        public static void PlaceAuthored(EntityManager em, float3 position, int kind)
+        {
+            if (ResourceNodeSite.TryResolve(em, position, out var site))
+                Create(em, site, kind, NodePurityGrade.Pure);
+            else
+                UnityEngine.Debug.LogError($"[TerritoryResources] no legal ground for an authored node at {position}.");
+        }
+
         // ── Room for the Trading Outposts (2026-10-18) ──────────────────
         //
         // Every outcrop is laid where all four of its side slots

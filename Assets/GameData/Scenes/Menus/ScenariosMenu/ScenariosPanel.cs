@@ -11,8 +11,9 @@
 // Skirmish and Multiplayer screens work. OnEnable still does all the setup,
 // so the panel behaves the same whether it is switched on or scene-loaded.
 //
-// Entries: the tutorial first, then ScenarioLibrary definitions (thumbnail +
-// description), then the ScenarioCatalog code-driven test scenarios.
+// Entries: ScenarioLibrary definitions (thumbnail + description), then the
+// ScenarioCatalog code-driven test scenarios. The tutorial missions are on the
+// Tutorials screen (TutorialsPanel).
 
 using System.Collections.Generic;
 using TheWaningBorder.Core.Config;
@@ -146,31 +147,8 @@ namespace TheWaningBorder.UI.Menus.Panels
         {
             _entries.Clear();
 
-            // The tutorial heads the list: it is also a top-level main-menu
-            // entry (TutorialMenuItem), but the Training Grounds is where a
-            // new player looks for it, and this path survives even if the
-            // main-menu clone cannot find its template.
-            _entries.Add(new Entry
-            {
-                Name = "Tutorial — The Whole Campaign",
-                Description =
-                    "A guided match on the standard map against one relaxed opponent, from "
-                    + "the opening to the victory condition.\n\n"
-                    + "1. Camera controls\n"
-                    + "2. Territory, the Fortress and the Gatherer's Hut\n"
-                    + "3. Barracks, Spearmen and taking a fight\n"
-                    + "4. The special building, the age-up and the Temple\n"
-                    + "5. Religion Points, sects and their powers\n"
-                    + "6. The curse — why it wakes, what it costs, how to break it\n"
-                    + "7. The wells — the verb, and how the match is won\n\n"
-                    + "Each step tops your bank up so the lesson does not wait on the "
-                    + "economy, and the Temple upgrade carries straight to level 4. "
-                    + "Steps can be done in ANY ORDER and tick themselves off as you play; "
-                    + "skip any of them, or dismiss the coach and keep going as a normal "
-                    + "skirmish.",
-                Thumbnail = null,
-                Launch = TutorialMenuItem.Launch,
-            });
+            // The tutorial missions have their own screen (TutorialsMenu,
+            // opened by the main menu's Tutorial entry), so they are not listed here.
 
             // Rich, data-driven scenarios (thumbnail + description).
             var library = Resources.Load<ScenarioLibrary>(ScenarioLibrary.ResourcePath);

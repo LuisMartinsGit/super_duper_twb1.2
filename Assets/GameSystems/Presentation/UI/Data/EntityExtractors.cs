@@ -100,6 +100,12 @@ namespace TheWaningBorder.UI.Data
                 info.MaxHealth = (int)health.Max;
             }
             TryGetShield(em, entity, out info.CurrentShield, out info.MaxShield);
+            // Shown from memory: its live health is not the player's to know.
+            if (TheWaningBorder.Rendering.LastSeenBuildings.IsFrozen(entity))
+            {
+                info.CurrentHealth = null;
+                info.MaxHealth = null;
+            }
 
             // task-109 Phase 5: aggregated Health bar for wall segments and
             // gate regions. Segments carry a placeholder Health{1,1} (they

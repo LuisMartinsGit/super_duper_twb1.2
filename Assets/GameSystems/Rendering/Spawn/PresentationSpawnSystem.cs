@@ -369,6 +369,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (EntityViewManager.Instance.TryGetView(entity, out var go))
             {
                 EntityViewManager.Instance.UnregisterView(entity);
+                // Destroyed out of sight: the model stays until the spot is seen
+                // again (docs/Design/Last_Seen_Buildings.md).
+                if (TheWaningBorder.Rendering.LastSeenBuildings.TryKeepGhost(entity, go)) continue;
                 if (go != null)
                 {
                     var outcroppingAnim = go.GetComponent<TheWaningBorder.Rendering.VeilstoneOutcroppingCrystalAnimator>();
@@ -1357,6 +1360,9 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     private void SyncView(EntityViewManager evm, Entity entity, LocalTransform lt,
         bool underConstruction, bool interpolate, float stepDuration, int frame)
     {
+        // Out of vision a building stays as last seen, rising site included.
+        if (TheWaningBorder.Rendering.LastSeenBuildings.IsFrozen(entity)) return;
+
         if (!evm.TryGetView(entity, out var go) || go == null)
         {
             _activeViews.Remove(entity);

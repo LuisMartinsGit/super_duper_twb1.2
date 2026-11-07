@@ -1,5 +1,9 @@
 # Tutorial cards and story: proposal (2026-11-07)
 
+> **Superseded for the tutorial itself** by [Tutorial_Missions.md](Tutorial_Missions.md) (same
+> day): the tutorial is now scripted missions, and the cards are held back for review. §1-§3
+> describe the old coach (`TutorialDirector`), which is no longer launched.
+
 **Status: decided in part (§5).** The cards exist. The tutorial text fixes and the story are
 not implemented, and every piece of lore invented here is marked as a proposal. Card
 rosters and research are read from the SOs by `tools/tutorial_cards/gen_cards.py`, which

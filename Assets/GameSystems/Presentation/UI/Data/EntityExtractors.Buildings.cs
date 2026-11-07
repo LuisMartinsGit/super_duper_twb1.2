@@ -704,6 +704,7 @@ namespace TheWaningBorder.UI.Data
                 }
             }
 
+            actions.RemoveAll(a => !TheWaningBorder.Tutorial.TutorialMissionState.AllowsBuilding(a.Id));
             return actions;
         }
 

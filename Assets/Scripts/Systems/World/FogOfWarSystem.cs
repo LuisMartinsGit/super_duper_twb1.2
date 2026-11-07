@@ -641,6 +641,19 @@ namespace TheWaningBorder.Systems.Visibility
 
             var humanFaction = mgr.HumanFaction;
             bool fullPass = !_havePass || humanFaction != _lastHuman;
+
+            // docs/Design/Last_Seen_Buildings.md. A spectator sees its current
+            // view; a loaded save has no memory, so its first pass starts from
+            // the ground the player had explored.
+            TheWaningBorder.Rendering.LastSeenBuildings.ResetIfNewMatch(SimCadence.Epoch);
+            bool lastSeenRule = !GameSettings.IsSpectating;
+            if (lastSeenRule)
+            {
+                TheWaningBorder.Rendering.LastSeenBuildings.BeginPass();
+                TheWaningBorder.Rendering.LastSeenBuildings.TickGhosts(mgr, humanFaction);
+            }
+            else TheWaningBorder.Rendering.LastSeenBuildings.Clear();
+            bool seedFromGround = fullPass && TheWaningBorder.Core.Replay.ReplaySession.SaveFile != null;
             uint sinceVersion = _lastPassVersion;
             // Stamp BEFORE the walk, one version back, so a change stamped
             // with this same version (a MonoBehaviour flip before the next
@@ -793,7 +806,19 @@ namespace TheWaningBorder.Systems.Visibility
                             // Previously the ghost branch required isBuilding, which made
                             // iron / veilstone deposits and any non-BuildingTag static entity
                             // vanish for good once they left vision - fixed here.
-                            show = isVisible || mgr.IsRevealed(humanFaction, (Vector3)position);
+                            //
+                            // A hostile building is not on that list: it follows
+                            // the player's memory, not the ground's. It shows once
+                            // seen and stays as last seen, and a new one on explored
+                            // ground stays unknown (Last_Seen_Buildings.md).
+                            if (lastSeenRule && isBuilding && hasFaction
+                                && Alliances.AreHostile(factions[i].Value, humanFaction))
+                                show = TheWaningBorder.Rendering.LastSeenBuildings.Observe(
+                                    EntityManager, entity, factions[i].Value,
+                                    isVisible || SeesFootprint(mgr, humanFaction, entity, position),
+                                    seedFromGround && mgr.IsRevealed(humanFaction, (Vector3)position));
+                            else
+                                show = isVisible || mgr.IsRevealed(humanFaction, (Vector3)position);
                         }
                     }
 
@@ -822,6 +847,18 @@ namespace TheWaningBorder.Systems.Visibility
         }
 
         private const float StealthProximityReveal = 3f;
+
+        /// <summary>Sight of a building's edge counts as sight of the building:
+        /// its centre is often the last part of it to come into view.</summary>
+        private bool SeesFootprint(FogOfWarManager mgr, Faction viewer, Entity building, float3 centre)
+        {
+            if (!EntityManager.HasComponent<Radius>(building)) return false;
+            float r = EntityManager.GetComponentData<Radius>(building).Value;
+            return mgr.IsVisible(viewer, new Vector3(centre.x + r, 0f, centre.z))
+                || mgr.IsVisible(viewer, new Vector3(centre.x - r, 0f, centre.z))
+                || mgr.IsVisible(viewer, new Vector3(centre.x, 0f, centre.z + r))
+                || mgr.IsVisible(viewer, new Vector3(centre.x, 0f, centre.z - r));
+        }
 
         private static int BucketKey(int x, int z) => (x * 73856093) ^ (z * 19349663);
 

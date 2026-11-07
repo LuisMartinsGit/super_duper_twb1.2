@@ -256,6 +256,123 @@ namespace TheWaningBorder.Core.Localization
             t["Next"] = "Seguinte";
             t["Close"] = "Fechar";
             t["Stop showing cards"] = "Não mostrar mais cartões";
+
+            // ── The tutorial missions (docs/Design/Tutorial_Missions.md) ──
+            t["1: The Basics"] = "1: O Essencial";
+            t["2: Alanthor"] = "2: Alanthor";
+
+            // ── The Tutorials screen (TutorialsMenu.unity, TutorialsPanel) ──
+            t["TUTORIALS"] = "TUTORIAIS";
+            t["MISSIONS"] = "MISSÕES";
+            t["MISSION NAME"] = "NOME DA MISSÃO";
+            t["START MISSION"] = "INICIAR MISSÃO";
+            t["Pick a mission to read its briefing."] = "Escolhe uma missão para leres o seu briefing.";
+            t["Age 0, on a small map with two territories: yours and the curse's.\n\n"
+              + "1. Move the camera and give orders\n"
+              + "2. Rescue the lost workers\n"
+              + "3. Build the Shelter and settle the camp\n"
+              + "4. Huts, Gatherer's Huts, mines and the Barracks\n"
+              + "5. Train Scouts and Spearmen\n"
+              + "6. Survive the curse waves and destroy the node"] =
+                "Era 0, num mapa pequeno com dois territórios: o teu e o da maldição.\n\n"
+              + "1. Mover a câmara e dar ordens\n"
+              + "2. Resgatar os trabalhadores perdidos\n"
+              + "3. Construir o Abrigo e fundar o acampamento\n"
+              + "4. Cabanas, Cabanas do Recoletor, minas e o Quartel\n"
+              + "5. Treinar Batedores e Lanceiros\n"
+              + "6. Sobreviver às vagas da maldição e destruir o nó";
+            t["Your town is built. Age up to Alanthor and win the match.\n\n"
+              + "1. Build the Vault of Almiérra and age up\n"
+              + "2. The Alanthor economy: Guilds and Trading Outposts\n"
+              + "3. The Alanthor army\n"
+              + "4. Walls, towers and claiming territory\n"
+              + "5. Religion Points, the Temple and the sects\n"
+              + "6. The cursed Sanctum, the monument and the Shardroot\n"
+              + "7. Three ways to win: conquest, enshrinement, or every Sanctum"] =
+                "A tua cidade está construída. Avança para Alanthor e vence a partida.\n\n"
+              + "1. Construir o Cofre de Almiérra e avançar de Era\n"
+              + "2. A economia de Alanthor: Guildas e Entrepostos Comerciais\n"
+              + "3. O exército de Alanthor\n"
+              + "4. Muralhas, torres e conquista de território\n"
+              + "5. Pontos de Religião, o Templo e as seitas\n"
+              + "6. O Santuário amaldiçoado, o monumento e a Shardroot\n"
+              + "7. Três formas de vencer: conquista, consagração ou todos os Santuários";
+            t["You are Alanthor now. Your buildings have new forms."] = "Agora são Alanthor. Os teus edifícios têm novas formas.";
+            t["A rival kingdom holds the east."] = "Um reino rival domina o leste.";
+            t["The node is gone. A monument stands in the Sanctum."] = "O nó caiu. Há um monumento no Santuário.";
+            t["The rival kingdom is now your enemy. Choose how to win."] = "O reino rival é agora teu inimigo. Escolhe como vencer.";
+            t["Your capital has fallen."] = "A tua capital caiu.";
+            t["1 - Build the Vault of Almiérra ({0}/{1})"] = "1 - Constrói o Cofre de Almiérra ({0}/{1})";
+            t["2a - Research a Survey at a Guild ({0}/{1})"] = "2a - Investiga uma Prospeção numa Guilda ({0}/{1})";
+            t["2b - Build a Trading Outpost ({0}/{1})"] = "2b - Constrói um Entreposto Comercial ({0}/{1})";
+            t["3 - Build an Archery Range ({0}/{1})"] = "3 - Constrói uma Campo de Tiro com Arco ({0}/{1})";
+            t["4a - Build a Watch Tower ({0}/{1})"] = "4a - Constrói uma Torre de Vigia ({0}/{1})";
+            t["4b - Claim a territory ({0}/{1})"] = "4b - Conquista um território ({0}/{1})";
+            t["5 - Earn Religion Points ({0}/{1})"] = "5 - Ganha Pontos de Religião ({0}/{1})";
+            t["6a - Build the Temple ({0}/{1})"] = "6a - Constrói o Templo ({0}/{1})";
+            t["6b - Adopt a sect ({0}/{1})"] = "6b - Adota uma seita ({0}/{1})";
+            t["7 - Destroy the curse node in the Sanctum ({0}/{1})"] = "7 - Destrói o nó da maldição no Santuário ({0}/{1})";
+            t["8a - Claim the monument ({0}/{1})"] = "8a - Conquista o monumento ({0}/{1})";
+            t["8b - Explore its ruins ({0}/{1})"] = "8b - Explora as suas ruínas ({0}/{1})";
+            t["9 - Win: destroy the rival, enshrine the Shardroot, or hold every Sanctum"] = "9 - Vence: destrói o rival, consagra a Shardroot, ou mantém todos os Santuários";
+            t["The camp has grown into a town, and its Litharch is now its king. Use the special building menu at the top of the screen to place the <b>Vault of Almiérra</b>. When it stands, your people become Alanthor."] = "O acampamento cresceu e é agora uma vila, e o seu Litharch é agora o seu rei. Usa o menu de edifícios especiais no topo do ecrã para colocar o <b>Cofre de Almiérra</b>. Quando estiver de pé, o teu povo torna-se Alanthor.";
+            t["The Alanthor economy"] = "A economia de Alanthor";
+            t["Your Gatherer's Huts are now <b>Guilds</b>: select one and research a Survey for extra income. Your iron Mines keep working, but Alanthor do not mine veilstone. With the <b>Mine</b> button, click a crystal outcrop to raise a <b>Trading Outpost</b>, which buys veilstone or forges it into veilsteel. The Litharch is now <b>King Lexor</b>, your hero."] = "As tuas Cabanas do Recoletor são agora <b>Guildas</b>: seleciona uma e investiga uma Prospeção para ter mais rendimento. As Minas de ferro continuam a trabalhar, mas Alanthor não extrai veilstone. Com o botão <b>Mina</b>, clica num afloramento de cristal para erguer um <b>Entreposto Comercial</b>, que compra veilstone ou a forja em veilsteel. O Litharch é agora o <b>Rei Lexor</b>, o teu herói.";
+            t["The Alanthor army"] = "O exército de Alanthor";
+            t["The Barracks is now the <b>Garrison</b>. You can also build the <b>Archery Range</b>, the <b>Royal Stable</b> and the <b>Siege Yard</b>. Levelling up one building levels every building of that type."] = "O Quartel é agora a <b>Guarnição</b>. Também podes construir a <b>Campo de Tiro com Arco</b>, o <b>Estrebaria Real</b> e o <b>Estaleiro de Cerco</b>. Subir o nível de um edifício sobe o de todos os edifícios desse tipo.";
+            t["Defend and expand"] = "Defende e expande";
+            t["The waves keep coming. <b>Stone Walls</b> close the way and <b>Watch Towers</b> shoot whatever comes near. To take new ground, stand soldiers in a territory that borders yours until its meter fills, then build there to hold it."] = "As vagas continuam a chegar. As <b>Muralhas de Pedra</b> fecham o caminho e as <b>Torres de Vigia</b> disparam sobre o que se aproxima. Para conquistar terreno, mantém soldados num território vizinho até o medidor encher e depois constrói lá para o manter.";
+            t["A rival kingdom"] = "Um reino rival";
+            t["Another kingdom holds the east. It will not march on you. When two hostile armies share a territory, the stronger one pushes the meter. For now it stays out of reach."] = "Outro reino domina o leste. Não marchará contra ti. Quando dois exércitos hostis partilham um território, o mais forte empurra o medidor. Por agora, fica fora de alcance.";
+            t["Religion Points"] = "Pontos de Religião";
+            t["Every curse creature you kill earns religion points, and they turn into Religion Points. They are the key to victory. Keep your army at the walls and let the waves come."] = "Cada criatura da maldição que matas rende pontos, que se transformam em Pontos de Religião. São a chave da vitória. Mantém o exército junto às muralhas e deixa as vagas chegar.";
+            t["Build the <b>Temple</b>, then press <b>R</b> to open the religion menu and adopt a sect of the House of Vaelith. A sect gives you powers and its own unit. Press <b>T</b> for the full tree."] = "Constrói o <b>Templo</b>, depois carrega em <b>R</b> para abrir o menu de religião e adota uma seita da Casa de Vaelith. Uma seita dá-te poderes e uma unidade própria. Carrega em <b>T</b> para ver a árvore completa.";
+            t["The cursed Sanctum"] = "O Santuário amaldiçoado";
+            t["The curse node stands in a Sanctum, marked on the minimap. Select your army, press <b>A</b> and right-click the node. A Sanctum you hold pays Religion Points and shortens your powers' cooldowns."] = "O nó da maldição está num Santuário, assinalado no minimapa. Seleciona o exército, carrega em <b>A</b> e clica com o botão direito no nó. Um Santuário teu paga Pontos de Religião e encurta o tempo de recarga dos teus poderes.";
+            t["The monument"] = "O monumento";
+            t["A monument stands in this territory. Keep any unit inside its circle to claim it, then select it and pay to <b>Explore</b> its ruins. They grant a buff, and these ones show where the Shardroot lies."] = "Há um monumento neste território. Mantém uma unidade dentro do círculo para o conquistar, depois seleciona-o e paga para <b>Explorar</b> as ruínas. Dão um bónus, e estas mostram onde está a Shardroot.";
+            t["The rival is now your enemy. <b>Destroy</b> it. Or send a hero to take the Shardroot, bring it to your Temple and <b>enshrine</b> it for {0}. Or hold <b>every Sanctum</b> for {0}. Choose your road."] = "O rival é agora teu inimigo. <b>Destrói-o</b>. Ou envia um herói buscar a Shardroot, leva-a ao Templo e <b>consagra-a</b> durante {0}. Ou mantém <b>todos os Santuários</b> durante {0}. Escolhe o teu caminho.";
+            t["{0} minutes"] = "{0} minutos";
+            t["You found lost workers. They join you."] = "Encontraste trabalhadores perdidos. Juntam-se a ti.";
+            t["You found lost Spearmen. They join you."] = "Encontraste Lanceiros perdidos. Juntam-se a ti.";
+            t["Everyone is found. Look for a place to camp."] = "Estão todos reunidos. Procura um lugar para acampar.";
+            t["The camp has a Shelter. Now build it up."] = "O acampamento tem um Abrigo. Agora faz com que cresça.";
+            t["Soldiers are lost out there too. Find them, and train more."] = "Também há soldados perdidos lá fora. Encontra-os e treina mais.";
+            t["This clearing will do. The camp's stores are yours."] = "Esta clareira serve. As provisões do acampamento são tuas.";
+            t["Crystallings! The curse has a node to the east. It must fall."] = "Crystallings! A maldição tem um nó a leste. Tem de cair.";
+            t["5 - Survive the curse long enough to vanquish the node"] = "5 - Sobrevive à maldição o tempo suficiente para vencer o nó";
+            t["The curse sends a wave."] = "A maldição envia uma vaga.";
+            t["Mission complete"] = "Missão concluída";
+            t["The node is gone and the camp stands."] = "O nó caiu e o acampamento resiste.";
+            t["Mission failed"] = "Missão falhada";
+            t["The curse destroyed your Shelter."] = "A maldição destruiu o teu Abrigo.";
+            t["1 - Rescue all the workers ({0}/{1})"] = "1 - Salva todos os trabalhadores ({0}/{1})";
+            t["2 - Build the Shelter ({0}/{1})"] = "2 - Constrói o Abrigo ({0}/{1})";
+            t["3a - Build {1} Huts ({0}/{1})"] = "3a - Constrói {1} Cabanas ({0}/{1})";
+            t["3b - Build {1} Gatherer's Huts ({0}/{1})"] = "3b - Constrói {1} Cabanas do Recoletor ({0}/{1})";
+            t["3c - Build {0} Veilstone Mine and {1} Iron Mines ({2}/{0}, {3}/{1})"] = "3c - Constrói {0} Mina de Veilstone e {1} Minas de Ferro ({2}/{0}, {3}/{1})";
+            t["3d - Build a Barracks ({0}/{1})"] = "3d - Constrói um Quartel ({0}/{1})";
+            t["4a - Train Scouts ({0}/{1}) and find the lost Spearmen ({2}/{3})"] = "4a - Treina Batedores ({0}/{1}) e encontra os Lanceiros perdidos ({2}/{3})";
+            t["4b - Train {1} Spearmen ({0}/{1})"] = "4b - Treina {1} Lanceiros ({0}/{1})";
+            t["5 - Survive the curse long enough to vanquish the node (next wave {0})"] = "5 - Sobrevive à maldição o tempo suficiente para vencer o nó (próxima vaga {0})";
+            t["A curse node stands in the east, and it sends a wave every {0} minutes. Keep soldiers near the camp, and train more than you lose. When your army is strong enough, select it, press <b>A</b> and right-click the node. The mission ends when the node falls."] = "Há um nó da maldição a leste, e envia uma vaga a cada {0} minutos. Mantém soldados perto do acampamento e treina mais do que perdes. Quando o teu exército for forte o suficiente, seleciona-o, carrega em <b>A</b> e clica com o botão direito no nó. A missão termina quando o nó cair.";
+            t["Muster"] = "Reunir";
+            t["Select the <b>Shelter</b> and train Scouts, then send them down the side paths off the clearing to find the lost Spearmen. Select the <b>Barracks</b> to train more. Research there too: <b>Stone Weapons</b> makes every soldier hit harder."] = "Seleciona o <b>Abrigo</b> e treina Batedores, depois envia-os pelos caminhos laterais da clareira para encontrar os Lanceiros perdidos. Seleciona o <b>Quartel</b> para treinar mais. Investiga lá também: <b>Armas de Pedra</b> faz cada soldado bater com mais força.";
+            t["After the calamity"] = "Depois da calamidade";
+            t["Your Litharch is searching the wilderness for anything that survived. Look around first: use the <b>arrow keys</b>, hold the <b>middle mouse button</b> and drag, or push the cursor to the edge of the screen. The <b>mouse wheel</b> zooms."] = "O teu Litharch procura na floresta tudo o que sobreviveu. Olha primeiro em redor: usa as <b>setas</b>, mantém o <b>botão do meio do rato</b> e arrasta, ou leva o cursor à borda do ecrã. A <b>roda do rato</b> faz zoom.";
+            t["Select your Litharch"] = "Seleciona o teu Litharch";
+            t["<b>Left-click</b> the Litharch to select them."] = "<b>Clica com o botão esquerdo</b> no Litharch para o selecionar.";
+            t["Give an order"] = "Dá uma ordem";
+            t["<b>Right-click</b> the ground to walk there. The only way on is the path north through the trees."] = "<b>Clica com o botão direito</b> no chão para caminhar até lá. O único caminho é o trilho para norte, por entre as árvores.";
+            t["Hold <b>Shift</b> while you right-click several points along the path. The Litharch walks to each one in turn."] = "Mantém <b>Shift</b> enquanto clicas com o botão direito em vários pontos do trilho. O Litharch caminha até cada um, por ordem.";
+            t["Find the workers"] = "Encontra os trabalhadores";
+            t["People are lost in these woods. Bring the Litharch close and they will join you."] = "Há pessoas perdidas nesta floresta. Aproxima o Litharch e elas juntam-se a ti.";
+            t["A place to camp"] = "Um lugar para acampar";
+            t["Everyone is together. Drag a box to select them all, then lead them to the clearing marked on the minimap."] = "Estão todos juntos. Arrasta uma caixa para os selecionar a todos e leva-os até à clareira assinalada no minimapa.";
+            t["Build the Shelter"] = "Constrói o Abrigo";
+            t["These are your <b>resources</b>, bottom left. This ground is yours now. Select a Worker, choose the <b>Shelter</b> from the build menu and click a spot in the clearing. The more Workers you send, the faster it rises."] = "Estes são os teus <b>recursos</b>, em baixo à esquerda. Este terreno agora é teu. Seleciona um Trabalhador, escolhe o <b>Abrigo</b> no menu de construção e clica num lugar da clareira. Quantos mais Trabalhadores enviares, mais depressa se ergue.";
+            t["Build up the camp"] = "Faz crescer o acampamento";
+            t["Nobody gathers by hand: a building on a resource node pays you by itself. <b>Gatherer's Huts</b> go on supply nodes. The <b>Mine</b> button goes on iron, and on the crystal outcrop it raises a Veilstone Mine. <b>Huts</b> house your people, and the <b>Barracks</b> trains soldiers."] = "Ninguém recolhe à mão: um edifício num nó de recursos paga-te por si só. As <b>Cabanas do Recoletor</b> vão nos nós de provisões. O botão <b>Mina</b> serve para o ferro e, no afloramento de cristal, ergue uma Mina de Veilstone. As <b>Cabanas</b> alojam a tua gente, e o <b>Quartel</b> treina soldados.";
         }
     }
 }

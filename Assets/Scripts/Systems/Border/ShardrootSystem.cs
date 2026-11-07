@@ -384,7 +384,7 @@ namespace TheWaningBorder.Systems.Border
             // must not be reset once the countdown has run out (0.0.38's
             // first ascension won, then cleared itself the next tick).
             if (state.AscensionDone != 0) return;
-            float total = TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.ascensionSeconds;
+            float total = TheWaningBorder.Tutorial.TutorialMissionState.CountdownOr(TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.ascensionSeconds);
             Faction temple = Faction.Border;
             float3 templePos = default;
             if (total > 0f && state.AscensionDone == 0)
@@ -464,7 +464,7 @@ namespace TheWaningBorder.Systems.Border
             if (q.IsEmptyIgnoreFilter) return false;
             using var s = q.ToComponentDataArray<ShardrootState>(Allocator.Temp);
             if (s.Length == 0 || s[0].AscensionFaction == Faction.Border || s[0].AscensionDone != 0) return false;
-            float total = TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.ascensionSeconds;
+            float total = TheWaningBorder.Tutorial.TutorialMissionState.CountdownOr(TheWaningBorder.Entities.ShardrootEmpowermentConfig.I.ascensionSeconds);
             if (total <= 0f) return false;
             faction = s[0].AscensionFaction;
             secondsLeft = math.max(0f, total - s[0].AscensionElapsed);

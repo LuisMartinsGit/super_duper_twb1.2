@@ -429,7 +429,8 @@ namespace TheWaningBorder.UI.Ingame
         private static bool LandmarkAvailable(string id)
         {
             byte c = TheWaningBorder.Systems.Work.LandmarkAgeUp.CultureOf(id);
-            return c != Cultures.None && !CultureConfig.IsComingSoon(c);
+            return c != Cultures.None && !CultureConfig.IsComingSoon(c)
+                && TheWaningBorder.Tutorial.TutorialMissionState.AllowsBuilding(id);
         }
 
         /// <summary>

@@ -114,6 +114,9 @@ namespace TheWaningBorder.Systems.Economy
 
         protected override void OnUpdate()
         {
+            // The Basic tutorial mission hides religion, so it pays and announces none.
+            if (GameSettings.TutorialBasicActive) return;
+
             var em = EntityManager;
             PayForCurseNodes(em);
             if (_curseUnits.IsEmpty) return;

@@ -244,7 +244,9 @@ namespace TheWaningBorder.UI.Ingame
             // Tutorial coach — only for a match launched from the TUTORIAL
             // menu entry. It needs a canvas parent, so it is spawned here
             // rather than alongside the other managers in GameBootstrap.
-            if (GameSettings.TutorialActive)
+            if (GameSettings.TutorialMissionActive)
+                SpawnCodeBuilt<TutorialMissionPanel>("GameUI_TutorialMission");
+            else if (GameSettings.TutorialActive)
                 SpawnCodeBuilt<TutorialDirector>("GameUI_TutorialCoach");
 
             if (catalog.entitySymbols != null)

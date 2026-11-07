@@ -28,6 +28,13 @@ namespace TheWaningBorder.UI.Ingame
 
         private void RefreshBuilding(EntityManager em, Entity building)
         {
+            // Shown from memory: name and level only (Last_Seen_Buildings.md).
+            if (TheWaningBorder.Rendering.LastSeenBuildings.IsFrozen(building))
+            {
+                SetVisible(false);
+                _boundUnit = Entity.Null;
+                return;
+            }
             SetVisible(true);
             bool changed = building != _boundUnit;
             _boundUnit = building;

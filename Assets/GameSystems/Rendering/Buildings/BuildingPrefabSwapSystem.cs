@@ -83,6 +83,8 @@ namespace TheWaningBorder.Rendering
                 // keeps the view its collapse is playing on.
                 if (_em.HasComponent<UnderConstruction>(e) || _em.HasComponent<BuildingCollapseState>(e)) continue;
                 if (_em.HasComponent<Health>(e) && _em.GetComponentData<Health>(e).Value <= 0) continue;
+                // Out of vision it stays as last seen (Last_Seen_Buildings.md).
+                if (LastSeenBuildings.IsFrozen(e)) continue;
                 if (!PresentationSpawnSystem.TryResolveBuildingVisual(_em, e, out GameObject want) || want == null) continue;
                 var view = EntityViewManager.Instance.GetView(e);
                 if (view == null) continue;

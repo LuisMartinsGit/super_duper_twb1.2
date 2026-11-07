@@ -350,6 +350,8 @@ namespace TheWaningBorder.UI.Ingame
         {
             var mgr = TheWaningBorder.Rendering.EntityViewManager.Instance;
             if (mgr == null) return false;
+            // A building shown from memory has no live health to draw.
+            if (TheWaningBorder.Rendering.LastSeenBuildings.IsFrozen(e)) return false;
             return mgr.TryGetView(e, out var go) && go != null && go.activeInHierarchy;
         }
 

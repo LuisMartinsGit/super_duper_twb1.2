@@ -9,12 +9,10 @@
 // layout slot for free — relabels it, drops the inherited Inspector wiring,
 // and points it at the tutorial launch.
 //
-// The tutorial itself is not a separate scene. It is a normal single-player
-// match on the shipped map against one passive AI, with GameSettings.
-// TutorialActive telling GameUIManager to mount TutorialDirector — the coach
-// overlay that walks the WHOLE game, opening to victory condition, in seven
-// chapters. That keeps it working on whatever map actually ships and means it
-// exercises the real game rather than a mock-up.
+// The tutorial is a set of scripted missions on their own small scenes, never a
+// skirmish (docs/Design/Tutorial_Missions.md). The entry loads the Tutorials
+// screen (TutorialsMenu.unity, TutorialsPanel), which lists the missions; picking
+// one and pressing START MISSION calls Launch here.
 
 using TMPro;
 using UnityEngine;
@@ -58,7 +56,7 @@ namespace TheWaningBorder.UI.Menus
             if (template == null)
             {
                 Debug.LogWarning($"[TutorialMenuItem] \"{TemplateMenuItem}\" not found — the "
-                    + "tutorial is still reachable from the Scenarios browser.");
+                    + "main menu has no Tutorial entry.");
                 return;
             }
 
@@ -79,50 +77,56 @@ namespace TheWaningBorder.UI.Menus
                 for (int i = 0; i < button.onClick.GetPersistentEventCount(); i++)
                     button.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
                 button.onClick.RemoveAllListeners();
-                button.onClick.AddListener(Launch);
+                button.onClick.AddListener(OpenTutorialsScreen);
             }
         }
 
+        /// <summary>Load the Tutorials screen, the list of missions.</summary>
+        public static void OpenTutorialsScreen()
+            => SceneManager.LoadScene(TheWaningBorder.Core.SceneNames.Tutorials);
+
+        /// <summary>Start a mission.</summary>
+        public static void Launch(TutorialMissionId mission)
+        {
+            LoadingScreen.Show(Prepare(mission));
+        }
+
         /// <summary>
-        /// Start the tutorial match: shipped map, Age 0 (the tutorial runs the
-        /// full arc from the opening), fog off so the coach's landmarks are
-        /// visible, the curse on because two chapters are fought against it,
-        /// one Easy AI opponent to make the map feel inhabited without
-        /// pressuring a first-time player.
+        /// Configure a mission and return its scene: Age 0, fog on, the curse on
+        /// because each mission is fought against it (the mission scripts it). Basic
+        /// is one faction; Alanthor adds a Beginner AI, which never attacks.
         /// </summary>
-        public static void Launch()
+        public static string Prepare(TutorialMissionId mission = TutorialMissionId.Basic)
         {
             GameSettings.Mode = GameMode.FreeForAll;
             GameSettings.IsMultiplayer = false;
             GameSettings.NetworkRole = NetworkRole.None;
             GameSettings.IsObserver = false;
             GameSettings.LocalPlayerFaction = Faction.Blue;
-            GameSettings.FogOfWarEnabled = false;
+            GameSettings.FogOfWarEnabled = true;
             GameSettings.BorderEnabled = true;
             GameSettings.MaxStartingResources = false;
             GameSettings.StartAge = SkirmishStartAge.Age0;
             GameSettings.PerFactionStartCulture = false;
             GameSettings.StartCulture = Cultures.None;
-            GameSettings.TotalPlayers = 2;
             GameSettings.TutorialActive = true;
+            GameSettings.TutorialMission = mission;
 
             FactionColors.ResetToDefaults();
-            LobbyConfig.SetupSinglePlayer(2);
-            for (int i = 1; i < LobbyConfig.ActiveSlotCount; i++)
+            LobbyConfig.SetupSinglePlayer(2);   // the lobby's floor; Basic only ever spawns Blue
+            if (mission == TutorialMissionId.Advanced)
             {
-                LobbyConfig.Slots[i].AIDifficulty = LobbyAIDifficulty.Easy;
-                // EcoBoom, not a rush personality: the coach walks a beginner
-                // through eight chapters and should not be interrupted by an
-                // early attack.
-                LobbyConfig.Slots[i].AIStrategy = LobbyAIStrategy.EcoBoom;
+                LobbyConfig.Slots[1].AIDifficulty = LobbyAIDifficulty.Beginner;
+                LobbyConfig.Slots[1].AIStrategy = LobbyAIStrategy.EcoBoom;
             }
             LobbyConfig.ApplyColorSelections();
+            GameSettings.TotalPlayers = mission == TutorialMissionId.Advanced ? 2 : 1;
 
-            var maps = MapRegistry.Maps;
-            if (maps.Count > 0) GameSettings.SelectedMapScene = maps[0].SceneName;
-            GameSettings.SpawnSeed = 20260813;   // fixed: the coach's advice is positional
-
-            LoadingScreen.Show(GameSettings.SelectedMapScene);
+            GameSettings.SelectedMapScene = mission == TutorialMissionId.Advanced
+                ? TheWaningBorder.Tutorial.TutorialAdvancedSystemConfig.I.sceneName
+                : TheWaningBorder.Tutorial.TutorialMissionSystemConfig.I.sceneName;
+            GameSettings.SpawnSeed = 20261107;   // fixed: the mission's node layout never changes
+            return GameSettings.SelectedMapScene;
         }
 
         /// <summary>Depth-first search for a named object, inactive ones included.</summary>

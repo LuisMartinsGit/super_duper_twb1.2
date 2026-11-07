@@ -156,6 +156,7 @@ namespace TheWaningBorder.UI.Data
                 });
             }
 
+            actions.RemoveAll(a => !TheWaningBorder.Tutorial.TutorialMissionState.AllowsUnit(a.Id));
             return actions;
         }
 

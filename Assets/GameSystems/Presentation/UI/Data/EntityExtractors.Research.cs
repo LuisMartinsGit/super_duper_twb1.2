@@ -22,6 +22,7 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<TempleOfRidanTag>(entity) && !em.HasComponent<UnderConstruction>(entity)
                 && em.HasComponent<FactionTag>(entity))
                 AddPetriarchyActions(actions, em, em.GetComponentData<FactionTag>(entity).Value);
+            actions.RemoveAll(a => !TheWaningBorder.Tutorial.TutorialMissionState.AllowsResearch(a.Id));
             return actions;
         }
 

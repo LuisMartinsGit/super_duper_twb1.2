@@ -152,6 +152,7 @@ namespace TheWaningBorder.Rendering
                 _lastBusy[entity] = busy;
 
                 if (prev != 1 || busy != 0) continue; // only fire on the 1→0 edge
+                if (LastSeenBuildings.IsFrozen(entity)) continue;
 
                 // Spark position: rally point if set, else just outside the
                 // building footprint on the +X/+Z corner — same exit anchor
@@ -206,6 +207,7 @@ namespace TheWaningBorder.Rendering
                 var uc = constructions[i];
                 float ratio = uc.Total > 0 ? Mathf.Clamp01(uc.Progress / uc.Total) : 1f;
                 active.Add(entity);
+                if (LastSeenBuildings.IsFrozen(entity)) continue;
 
                 // "Being built" = progress moved since last frame. The dust
                 // keeps going for constructionDustIdleSeconds after the last
@@ -281,6 +283,7 @@ namespace TheWaningBorder.Rendering
                 if (!want) continue;
                 if (!EntityViewManager.Instance.TryGetView(e, out var bgo) || bgo == null) continue;
                 alive.Add(e);
+                if (LastSeenBuildings.IsFrozen(e)) continue;
 
                 float radius = FootprintRadius(bgo);
                 float hurt = 1f - frac / Mathf.Max(0.0001f, cfg.damageSmokeStartHealth);   // 0 at start, 1 at zero HP
@@ -396,6 +399,8 @@ namespace TheWaningBorder.Rendering
             {
                 var entity = entities[i];
                 if (_collapsingBuildings.ContainsKey(entity)) continue;
+                // Destroyed out of sight: it stands until the spot is seen again.
+                if (LastSeenBuildings.IsFrozen(entity)) continue;
 
                 // Initialize collapse
                 if (!EntityViewManager.Instance.TryGetView(entity, out var go) || go == null) continue;

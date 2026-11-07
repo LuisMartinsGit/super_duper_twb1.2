@@ -97,6 +97,7 @@ namespace TheWaningBorder.Rendering
             if (_em != world.EntityManager) _em = world.EntityManager;
             if (Entity == Entity.Null || !_em.Exists(Entity)) { _light.enabled = false; return; }
 
+            if (LastSeenBuildings.IsFrozen(Entity)) return;
             _light.enabled = !_em.HasComponent<UnderConstruction>(Entity);
         }
     }

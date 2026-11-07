@@ -1,0 +1,71 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69a256146d5243c696585a8d8d63d6cd, type: 3}
+  m_Name: TutorialMissionSystem
+  m_EditorClassIdentifier:
+  sceneName: TutorialBasic
+  litharchStart: {x: -138, y: -72}
+  campSpot: {x: -14, y: 0}
+  campRadius: 30
+  nodePosition: {x: 122, y: 0}
+  supplyNodes:
+  - {x: -52, y: 26}
+  - {x: -50, y: -24}
+  - {x: 18, y: 36}
+  ironNodes:
+  - {x: 24, y: -30}
+  - {x: 42, y: 6}
+  - {x: -14, y: 42}
+  veilstoneNodes:
+  - {x: -16, y: -40}
+  workerSites:
+  - {x: -118, y: -18}
+  - {x: -138, y: 38}
+  - {x: -92, y: 68}
+  workersPerSite: 2
+  spearmanSites:
+  - {x: -62, y: -74}
+  - {x: 40, y: -76}
+  - {x: 42, y: 74}
+  - {x: -22, y: 80}
+  spearmenPerSite: 4
+  groupSpacing: 2.5
+  grantSupplies: 1600
+  grantIron: 1250
+  grantVeilstone: 330
+  hutsNeeded: 6
+  gatherersHutsNeeded: 3
+  veilstoneMinesNeeded: 1
+  ironMinesNeeded: 2
+  barracksNeeded: 1
+  scoutsNeeded: 2
+  spearmenToTrain: 10
+  harassAtSpearmen: 8
+  harassCrystallings: 4
+  waveCrystallings: 12
+  waveVeilstingers: 2
+  waveIntervalSeconds: 240
+  nodeRevealRadius: 16
+  waveRetargetSeconds: 5
+  campBuildings:
+  - Fortress
+  settleBuildings:
+  - Hut
+  - GatherersHut
+  - Mine
+  - VeilstoneMine
+  - Barracks
+  musterUnits:
+  - Scout
+  - Spearman
+  musterResearch:
+  - StoneWeapons

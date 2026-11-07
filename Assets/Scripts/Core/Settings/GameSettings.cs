@@ -6,6 +6,13 @@ using System.Collections.Generic;
 
 // ==================== Enums ====================
 
+public enum TutorialMissionId : byte
+{
+    None,
+    Basic,
+    Advanced,
+}
+
 public enum GameMode
 {
     FreeForAll,
@@ -292,6 +299,24 @@ public static class GameSettings
     /// running over a normal game.
     /// </summary>
     public static bool TutorialActive = false;
+
+    /// <summary>Which scripted tutorial mission this match is
+    /// (docs/Design/Tutorial_Missions.md). Read through
+    /// <see cref="TutorialMissionActive"/>: every launch path that clears
+    /// TutorialActive thereby clears the mission too.</summary>
+    public static TutorialMissionId TutorialMission = TutorialMissionId.None;
+
+    /// <summary>True in any scripted mission: the curse does only what the mission
+    /// tells it.</summary>
+    public static bool TutorialMissionActive => TutorialActive && TutorialMission != TutorialMissionId.None;
+
+    /// <summary>The Basic mission: one faction, no normal spawns, no AI, no
+    /// elimination, no religion.</summary>
+    public static bool TutorialBasicActive => TutorialActive && TutorialMission == TutorialMissionId.Basic;
+
+    /// <summary>The Alanthor mission: the normal bases and a real rival AI, with the
+    /// real victory check from its last stage.</summary>
+    public static bool TutorialAdvancedActive => TutorialActive && TutorialMission == TutorialMissionId.Advanced;
 
     /// <summary>Test harness: AI factions (bit = Faction) that build and defend but never
     /// attack, a stand-in for a new player (-twbFactionPassive).</summary>
