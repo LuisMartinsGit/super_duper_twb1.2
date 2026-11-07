@@ -11,6 +11,17 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.74] — 2026-11-07
+
+### Tutorial
+- **The tutorial now matches the game.** Culture comes before Territory, because claims open at age-up, and the outdated Temple, Shardroot, hero and victory text is gone.
+- **New steps:** sect buildings and units, monuments, level 10 abilities, walls, scouting and research, and all three ways to win.
+- **Infographic cards open by themselves** as the tutorial reaches each topic, in English and Portuguese. One click dismisses them, and you can turn them off.
+- **New Field Guide in the pause menu:** every card and the tech tree, in any match.
+
+### Heroes
+- A dying hero no longer gains XP it would lose when it returns.
+
 ## [0.0.73] — 2026-11-07
 
 ### Heroes

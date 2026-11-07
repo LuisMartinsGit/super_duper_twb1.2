@@ -1025,6 +1025,12 @@ a Border-credited death) held it inside a dormant husk until regrowth. The
 vessel broke; the artifact drops at the rubble, up for grabs, the same way
 it drops from a detonated holder (§3.1).
 
+### What the curse is (canon, 2026-11-07)
+
+The curse is **the moment the Old Empire stopped**: a frozen instant that is still spreading,
+turning living ground to crystal. Veilstone is that frozen time. The Shardroot is where it
+began. No culture knows this at the start of a match.
+
 ### 3.0 Superseded for carrying and the Hall road (2026-11-07)
 
 **[Heroes.md](Heroes.md) §4 is canon for who takes the Shardroot and what carrying it

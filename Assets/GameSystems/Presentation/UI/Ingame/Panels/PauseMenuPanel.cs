@@ -165,6 +165,9 @@ namespace TheWaningBorder.UI.Ingame
 
             MakeButton(panel, "resume", "Resume", "Close this menu and carry on (Esc).",
                 Close);
+            MakeButton(panel, "guide", "Field Guide",
+                "Read the infographic cards: every feature of the game and the tech tree.",
+                () => TutorialCardViewer.OpenFieldGuide(transform));
             _saveButton = MakeButton(panel, "save", "Save Game",
                 "Name this save and write it. Load it again from Load Game on the main menu.",
                 ShowSavePage);

@@ -35,6 +35,7 @@ namespace TheWaningBorder.Systems.Combat
             ComponentType.ReadOnly<TheWaningBorder.Abilities.UniqueUnitTag>(),
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<Health>(),
         };
         static CachedEntityQuery QC_Heroes;
 
@@ -134,6 +135,7 @@ namespace TheWaningBorder.Systems.Combat
             using var heroes = heroQ.ToEntityArray(Allocator.Temp);
             using var heroXf = heroQ.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             using var heroFac = heroQ.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var heroHp = heroQ.ToComponentDataArray<Health>(Allocator.Temp);
             if (heroes.Length == 0) return;
 
             float assistR2 = HeroProgressionConfig.AssistRadius * HeroProgressionConfig.AssistRadius;
@@ -142,6 +144,9 @@ namespace TheWaningBorder.Systems.Combat
             {
                 for (int h = 0; h < heroes.Length; h++)
                 {
+                    // A fallen hero's record is already written (Heroes.md §5):
+                    // XP landing on its corpse would be lost when it returns.
+                    if (heroHp[h].Value <= 0) continue;
                     // A hero never earns from a friendly death, however it
                     // happened.
                     if (!Alliances.AreHostile(heroFac[h].Value, victimFaction[k])) continue;

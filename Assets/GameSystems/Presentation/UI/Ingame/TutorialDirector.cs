@@ -8,11 +8,14 @@
 //   1  Controls
 //   2  Economy — workers, huts, extractors on nodes
 //   3  Army — soldiers, stances, queued orders
-//   4  Territory — standing armies claim, buildings hold, extractors lock
-//   5  Culture — the age-up landmark
+//   4  Culture — the age-up landmark (first: claims only open at age-up)
+//   5  Territory — standing armies claim, buildings hold, extractors lock
 //   6  The curse — its nodes, its units, and the religion they pay
-//   7  Religion — Temple, chapels, powers, sect heroes
-//   8  The Shardroot and how the match is won
+//   7  Religion — Temple, chapels, powers, sect buildings and units, sect heroes
+//   8  Monuments, level 10, the Shardroot and how the match is won
+//
+// A step may name infographic CARDS (TutorialCardViewer): they open by themselves
+// when it becomes the suggestion, and one click dismisses them.
 //
 // IT NEVER GATES THE PLAYER. This is the design rule the rest of the file
 // exists to serve:
@@ -106,6 +109,8 @@ namespace TheWaningBorder.UI.Ingame
             /// <summary>Religion Points paid out for this step's lesson.</summary>
             public int RpGrant;
             public string GrantLabel;
+            /// <summary>Cards shown once, when this step becomes the suggestion.</summary>
+            public string[] Cards;
             /// <summary>Setup that only makes sense once the player is actually
             /// looking at this step (the curse-node ping). Runs when the step
             /// becomes the suggestion.</summary>
@@ -141,11 +146,11 @@ namespace TheWaningBorder.UI.Ingame
         private const string Ch1 = "1. Controls";
         private const string Ch2 = "2. Economy";
         private const string Ch3 = "3. Army";
-        private const string Ch4 = "4. Territory";
-        private const string Ch5 = "5. Culture";
+        private const string Ch4 = "4. Culture";
+        private const string Ch5 = "5. Territory";
         private const string Ch6 = "6. The curse";
         private const string Ch7 = "7. Religion";
-        private const string Ch8 = "8. Victory";
+        private const string Ch8 = "8. Heroes and victory";
 
         private static readonly Step[] Steps =
         {
@@ -154,6 +159,7 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Chapter = Ch1,
                 Title = "Look around",
+                Cards = new[] { "01" },
                 Body = "Push the mouse to any <b>screen edge</b> to pan, or use the "
                      + "<b>arrow keys</b>. Hold the <b>middle mouse button</b> to drag the "
                      + "view, or click the minimap to jump.\n"
@@ -190,11 +196,12 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Chapter = Ch2,
                 Title = "Box-select and build",
+                Cards = new[] { "05" },
                 Body = "<b>Drag a box</b> over two or more Workers, then pick <b>Hut</b> from "
                      + "the actions panel and left-click the ground.\n"
-                     + "Huts raise your population cap: <b>3</b>, and <b>5 / 8 / 10</b> as "
-                     + "you upgrade them. Your Fortress gives a flat <b>10</b>. Hold "
-                     + "<b>Shift</b> while placing to keep going.",
+                     + "Your order first appears as a <b>white plan</b> only you can see; it "
+                     + "rises when a Worker arrives. Huts raise your population cap, more as "
+                     + "you upgrade them. Hold <b>Shift</b> while placing to keep going.",
                 Grant = Cost.Of(supplies: 300, iron: 150), GrantLabel = "a building fund",
                 Done = (t, em, f) => t._sawMultiWorkerSelection
                                      && t.CountOwned(em, f, HutQueryTypes, ref t._hutQuery) > 0,
@@ -217,6 +224,7 @@ namespace TheWaningBorder.UI.Ingame
                 // within seconds of the match starting.
                 Chapter = Ch2,
                 Title = "Your ground is already paying",
+                Cards = new[] { "03", "04" },
                 NoteSeconds = 9f,
                 Body = "<b>Nobody gathers anything.</b> Income comes from the ground you "
                      + "hold: every territory pays you per minute, and every resource "
@@ -232,10 +240,11 @@ namespace TheWaningBorder.UI.Ingame
                 Chapter = Ch2,
                 Title = "Build on your nodes",
                 Body = "Raise a <b>Gatherer's Hut</b> on a <b>supply node</b> and a <b>Mine</b> "
-                     + "on an ore node — iron, veilstone or veilsteel.\n"
+                     + "on an iron or veilstone node.\n"
                      + "There is <b>one Mine button</b>: the node under your cursor decides "
-                     + "which mine rises. Each node takes exactly one extractor, and "
-                     + "<b>nothing else can be built on a node</b>.",
+                     + "which mine rises. Each node takes exactly one extractor, "
+                     + "<b>nothing else can be built on a node</b>, and every node "
+                     + "eventually runs dry.",
                 Grant = Cost.Of(supplies: 500, iron: 200), GrantLabel = "a survey fund",
                 Done = (t, em, f) => t.HutsBuilt(em, f) >= 1 && t.MinesBuilt(em, f) >= 1,
             },
@@ -245,6 +254,7 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Chapter = Ch3,
                 Title = "Raise a Barracks",
+                Cards = new[] { "06" },
                 Body = "Build a <b>Barracks</b>, then train <b>three Spearmen</b>.\n"
                      + "Units counter each other — select one and read the <b>Bonus vs</b> "
                      + "line in its stats.",
@@ -257,6 +267,7 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Chapter = Ch3,
                 Title = "Chain your orders",
+                Cards = new[] { "02" },
                 Body = "Hold <b>Shift</b> and <b>right-click</b> several points: the orders "
                      + "queue up and run in turn — up to <b>15</b>. The route is drawn on "
                      + "the ground.\n"
@@ -270,54 +281,33 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Chapter = Ch3,
                 Title = "Take the fight out",
+                Cards = new[] { "07" },
                 Body = "<b>Box-select</b> your soldiers and <b>right-click an enemy</b> to "
                      + "attack.\nPress <b>A</b> then click the ground to attack-move — they "
                      + "will engage anything they meet on the way.",
                 Done = (t, em, f) => t.MilitaryHasEnemyTarget(em, f),
             },
+            new Step
+            {
+                Chapter = Ch3,
+                Title = "See first, and grow stronger",
+                Cards = new[] { "09", "08" },
+                NoteSeconds = 12f,
+                Body = "You only know what you can see: use your <b>Scout</b> to find what is "
+                     + "out there, because powers can only be aimed at ground in sight.\n"
+                     + "Armies grow three ways: <b>building levels</b>, which count for every "
+                     + "building of that type, <b>research</b> and <b>unit ranks</b>.",
+            },
 
-            // ── 4. Territory ───────────────────────────────────────────────
+            // ── 4. Culture ─────────────────────────────────────────────────
             new Step
             {
                 Chapter = Ch4,
-                Title = "Claim ground with your army",
-                Body = "<b>Ground belongs to whoever stands on it.</b> March soldiers into a "
-                     + "neighbouring territory and keep them there: its meter fills, "
-                     + "faster the more population stands on it, and at <b>100</b> the "
-                     + "territory is yours. A bar over the territory itself shows the progress.\n"
-                     + "Workers and scouts do not claim. Two hostile armies in one territory "
-                     + "<b>freeze</b> it — you take ground by clearing it.",
-                Grant = Cost.Of(supplies: 400, iron: 300), GrantLabel = "a campaign purse",
-                Done = (t, em, f) => t.TerritoriesHeld(f) >= 2,
-            },
-            new Step
-            {
-                // A NOTE: holding and locking are states, not actions, and a
-                // player who already built an extractor abroad would otherwise
-                // have this ticked before it was ever shown.
-                Chapter = Ch4,
-                Title = "Hold it, or lose it",
-                NoteSeconds = 14f,
-                Body = "Ground you leave <b>empty and unbuilt</b> decays back to nobody.\n"
-                     + "<b>Any building holds</b> a territory against decay — but an enemy "
-                     + "army standing there still drains it.\n"
-                     + "An <b>extractor on a node</b>, or a <b>Fortress</b>, <b>locks</b> it: "
-                     + "the meter cannot be drained at all while one stands. To take locked "
-                     + "ground, raze every lock first.\n"
-                     + "Lose a territory and <b>every building you had in it collapses</b>. "
-                     + "A second Fortress is the most expensive thing you can build — and "
-                     + "the surest lock there is.",
-            },
-
-            // ── 5. Culture ─────────────────────────────────────────────────
-            new Step
-            {
-                Chapter = Ch5,
                 Title = "Build your landmark",
+                Cards = new[] { "14" },
                 Body = "The age-up <b>is</b> a building. Pick the <b>Vault of Almiérra</b> from "
                      + "the top of the screen and place it on ground you own.\n"
-                     + "It costs <b>600 supplies, 300 iron and 200 veilstone</b>, builds "
-                     + "itself in 90 seconds, and every worker you send speeds it up. "
+                     + "It builds itself slowly, and every worker you send speeds it up. "
                      + "<b>Only one per match</b> — and if it is destroyed before it "
                      + "finishes, the progress and everything you paid are lost.",
                 Grant = Cost.Of(supplies: 600, iron: 300, veilstone: 200),
@@ -326,13 +316,61 @@ namespace TheWaningBorder.UI.Ingame
             },
             new Step
             {
-                Chapter = Ch5,
+                Chapter = Ch4,
                 Title = "Age up",
+                Cards = new[] { "15", "T1" },
                 Body = "When the Vault finishes, you <b>are</b> Alanthor: Age 0 ends and your "
-                     + "culture's units, buildings and upgrades open.\n"
+                     + "culture's units, buildings and upgrades open. Only now can your army "
+                     + "claim new ground.\n"
                      + "Protect the site until then. The <b>Advancing</b> pill at the top "
                      + "shows how far it has come.",
                 Done = (t, em, f) => t.Culture(em, f) != Cultures.None,
+            },
+
+            // ── 5. Territory ───────────────────────────────────────────────
+            new Step
+            {
+                Chapter = Ch5,
+                Title = "Claim ground with your army",
+                Cards = new[] { "11" },
+                Body = "<b>Ground belongs to whoever stands on it.</b> After age-up, march "
+                     + "soldiers into a territory bordering yours and keep them there: its "
+                     + "meter fills, faster the more population stands on it, and at "
+                     + "<b>100</b> the territory is yours. A bar over the territory itself "
+                     + "shows the progress.\n"
+                     + "Workers and scouts do not claim. When two hostile armies share a "
+                     + "territory, <b>the stronger side pushes the meter</b> by the difference.",
+                Grant = Cost.Of(supplies: 400, iron: 300), GrantLabel = "a campaign purse",
+                Done = (t, em, f) => t.TerritoriesHeld(f) >= 2,
+            },
+            new Step
+            {
+                // A NOTE: holding and locking are states, not actions, and a
+                // player who already built an extractor abroad would otherwise
+                // have this ticked before it was ever shown.
+                Chapter = Ch5,
+                Title = "Hold it, or lose it",
+                Cards = new[] { "12", "13" },
+                NoteSeconds = 14f,
+                Body = "Ground you leave <b>empty and unbuilt</b> decays back to nobody.\n"
+                     + "<b>Any building holds</b> a territory against decay — but an enemy "
+                     + "army standing there still drains it.\n"
+                     + "An <b>extractor on a node</b>, or a <b>Fortress</b>, <b>locks</b> it: "
+                     + "the meter cannot be drained at all while one stands. To take locked "
+                     + "ground, raze every lock first.\n"
+                     + "Lose a territory and <b>every building you had in it collapses</b>. "
+                     + "Ground cut off from your Fortress slowly wears down.",
+            },
+            new Step
+            {
+                Chapter = Ch5,
+                Title = "Walls and gates",
+                Cards = new[] { "10" },
+                NoteSeconds = 10f,
+                Body = "Alanthor holds ground with stone. Every culture starts with a timber "
+                     + "<b>Palisade</b>; yours becomes a <b>Stone Wall</b> you can level up.\n"
+                     + "Draw walls, convert a piece into a <b>gate</b> or a <b>tower</b>, and "
+                     + "put soldiers on top. <b>Only siege can break a wall.</b>",
             },
 
             // ── 6. The curse ───────────────────────────────────────────────
@@ -343,14 +381,15 @@ namespace TheWaningBorder.UI.Ingame
                 // the first minute.
                 Chapter = Ch6,
                 Title = "The curse",
+                Cards = new[] { "16", "17" },
                 NoteSeconds = 14f,
                 OnSuggest = (t, em, f) => t.PingNearestCurseNode(em, f),
-                Body = "The curse claims ground the same way you do — by standing on it, "
-                     + "at <b>double weight</b>. It raises <b>curse nodes</b> on resource "
-                     + "nodes, and each one <b>locks</b> its territory and fields a "
-                     + "garrison that grows over time.\n"
+                Body = "The curse claims ground the same way you do — by standing on it. "
+                     + "It raises <b>curse nodes</b> on resource nodes, and each one "
+                     + "<b>locks</b> its territory and fields a garrison that grows over time.\n"
                      + "The purple around a node is <b>cursed ground</b>: it slows and "
-                     + "burns anything that stands in it.\n"
+                     + "burns anything that stands in it, and wears down buildings. A "
+                     + "<b>Litharch</b> can clear it.\n"
                      + "The minimap is pinging the nearest node now.",
             },
             new Step
@@ -358,7 +397,7 @@ namespace TheWaningBorder.UI.Ingame
                 Chapter = Ch6,
                 Title = "Kill curse creatures",
                 OnSuggest = (t, em, f) => t.PingNearestCurseNode(em, f),
-                Body = "Curse creatures are the <b>only source of religion</b>. Every kill "
+                Body = "Curse creatures are the <b>surest source of religion</b>. Every kill "
                      + "pays points — the <b>last hit</b> is paid, whatever landed it — and "
                      + "points turn into <b>Religion Points</b>. The first ones come cheap.\n"
                      + "The ring beside your resources shows how close the next one is.",
@@ -384,23 +423,25 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Chapter = Ch7,
                 Title = "Raise the Temple of Ridan",
-                Body = "Place the <b>Temple of Ridan</b>: <b>1 Religion Point</b> plus "
-                     + "200 supplies and 100 iron.\n"
-                     + "It trains the <b>Litharch</b>, adds <b>+50 %</b> to every curse kill "
-                     + "and trickles religion on its own. Its <b>Tithe</b> — click your "
-                     + "Religion Points — buys an RP for resources, dearer each time.",
-                Grant = Cost.Of(supplies: 200, iron: 100), RpGrant = 1,
-                GrantLabel = "Temple materials and a Religion Point",
+                Cards = new[] { "18" },
+                Body = "Place the <b>Temple of Ridan</b>. It costs only resources.\n"
+                     + "It trains the <b>Litharch</b>, adds to every curse kill and trickles "
+                     + "religion on its own. Its <b>Tithe</b> — click your Religion Points — "
+                     + "buys an RP for resources, dearer each time. It can also trade RP for "
+                     + "resources and sell you the <b>Petriarchy's Army</b>.",
+                Grant = Cost.Of(supplies: 200, iron: 100),
+                GrantLabel = "Temple materials",
                 Done = (t, em, f) => t.HasCompletedTemple(em, f),
             },
             new Step
             {
                 Chapter = Ch7,
                 Title = "Adopt a sect",
-                Body = "The <b>religion panel</b> on the right shows your chapel slots. A "
-                     + "chapel adopts a sect: <b>2 RP</b> for a sect of your own culture, "
-                     + "<b>3 RP</b> for any other — and before you age up, every sect is "
-                     + "3.\nIt grants the sect's passive, its research and its first power.",
+                Cards = new[] { "19", "21" },
+                Body = "The <b>religion panel</b> on the right (<b>R</b>) shows your six chapel "
+                     + "slots, and <b>T</b> opens the full tree. A chapel adopts a sect for "
+                     + "RP, cheaper for a sect of your own culture, and the choice is final.\n"
+                     + "It unlocks the sect's first power and lets you raise its building.",
                 Grant = Cost.Of(supplies: 800, iron: 600, veilstone: 400), RpGrant = 3,
                 GrantLabel = "chapel materials and 3 Religion Points",
                 Done = (t, em, f) => t.AdoptedSect(em, f) != null,
@@ -409,39 +450,89 @@ namespace TheWaningBorder.UI.Ingame
             {
                 Chapter = Ch7,
                 Title = "Cast a sect power",
-                Body = "Your sect's slot carries its cells: <b>P</b> is its always-on "
-                     + "passive, the numbered cells are its powers.\n"
-                     + "Click a lit one and pick a target on the map. The <b>+</b> cells "
-                     + "unlock the other powers, and the chapel's level — bought with RP — "
-                     + "is the level of every power it has.",
+                Body = "Each sect has a row of cells: <b>A</b>, <b>B</b> and a wildcard power. "
+                     + "Click a lit one, or press <b>F1-F6</b>, and pick a target in sight.\n"
+                     + "RP unlocks the other powers, and the chapel's level — also bought with "
+                     + "RP — is the level of every power it has.",
                 Done = (t, em, f) => t.AnySectPowerOnCooldown(em, f),
             },
             new Step
             {
                 Chapter = Ch7,
+                Title = "Raise the sect's building",
+                Cards = new[] { "20" },
+                Body = "Workers build the sect's own <b>building</b>. While it stands it gives "
+                     + "the sect's passive effect, and it sells the sect's research.\n"
+                     + "It trains the <b>sect unit</b>: far stronger than a normal soldier, "
+                     + "but each one costs a <b>Religion Point</b> on top of its resources.",
+                Grant = Cost.Of(supplies: 500, iron: 300), RpGrant = 1,
+                GrantLabel = "sect materials and a Religion Point",
+                Done = (t, em, f) => t.AnySectBuilding(em, f),
+            },
+            new Step
+            {
+                Chapter = Ch7,
                 Title = "Recruit a sect hero",
-                Body = "Every sect has <b>one hero</b>, recruited at its chapel for "
-                     + "<b>1 RP</b> plus its price. Heroes gain levels by fighting.\n"
-                     + "If yours falls, recruit it again — a revival costs resources, never "
-                     + "Religion Points.",
+                Cards = new[] { "23" },
+                Body = "The sect's building also recruits its <b>hero</b>, for 1 RP the first "
+                     + "time plus its price. Heroes are the strongest units in the game, and "
+                     + "they gain levels by fighting.\n"
+                     + "Their abilities <b>cast themselves</b> within their sight. If a hero "
+                     + "falls, train it again: it returns at <b>the same level</b>, for more "
+                     + "resources and time, and never for RP.",
                 Grant = Cost.Of(supplies: 400, iron: 300, veilstone: 150), RpGrant = 1,
                 GrantLabel = "a hero's stipend and a Religion Point",
                 Done = (t, em, f) => t.AnySectHeroRecruited(em, f),
             },
 
-            // ── 8. Victory ─────────────────────────────────────────────────
+            // ── 8. Heroes and victory ──────────────────────────────────────
             new Step
             {
                 Chapter = Ch8,
-                Title = "The Shardroot, and the last one standing",
-                NoteSeconds = 16f,
-                Body = "Sooner or later a curse creature rides out carrying the "
-                     + "<b>Shardroot</b>. Kill it and the artifact is yours to carry and "
-                     + "store — and from that moment <b>the whole curse hunts you</b>, "
-                     + "bigger and faster, and ignores everyone else.\n"
-                     + "There is one way to win: <b>be the last player standing</b>. A "
-                     + "faction is out when it has no Fortress, no military building and "
-                     + "no Worker left.",
+                Title = "Take a monument",
+                Cards = new[] { "22" },
+                Body = "Monuments stand in the curse's first territories. Any unit standing in "
+                     + "the circle takes one, even a Worker, and it <b>trickles Religion "
+                     + "Points</b> while you hold it.\n"
+                     + "Pay to <b>explore its ruins</b> for a hidden buff that is yours for "
+                     + "good. One monument also knows where the <b>Shardroot</b> lies hidden.",
+                Done = (t, em, f) => t.MonumentHeldOrNone(em, f),
+            },
+            new Step
+            {
+                Chapter = Ch8,
+                Title = "Level 10",
+                Cards = new[] { "24" },
+                NoteSeconds = 12f,
+                Body = "A hero's <b>level 10 ability</b> is the one you cast yourself. It has a "
+                     + "very long cooldown, it reaches beyond the hero's sight, and it can "
+                     + "<b>end the game</b>.\n"
+                     + "Everyone can see a hero's level on its bar, so everyone knows when one "
+                     + "is close.",
+            },
+            new Step
+            {
+                Chapter = Ch8,
+                Title = "The Shardroot",
+                Cards = new[] { "25" },
+                NoteSeconds = 14f,
+                Body = "<b>Only a hero can take the Shardroot.</b> Carrying it makes the hero "
+                     + "<b>Ascended</b>: very hard to kill, and hunted by the curse and every "
+                     + "rival. If it dies anyway, <b>it explodes</b>.\n"
+                     + "With the bearer selected you can <b>Drop</b> it safely, or stow it in "
+                     + "your Temple for the Temple victory.",
+            },
+            new Step
+            {
+                Chapter = Ch8,
+                Title = "Three ways to win",
+                Cards = new[] { "26" },
+                NoteSeconds = 14f,
+                Body = "<b>Be the last player standing.</b> A faction is out with no Fortress, "
+                     + "military building or Worker left, or after too long with no territory.\n"
+                     + "<b>Keep the Shardroot in your Temple</b> through its countdown, or "
+                     + "<b>hold every Sanctum</b> through theirs. Everyone can see those timers.\n"
+                     + "Open the <b>Field Guide</b> from the pause menu to read any card again.",
             },
         };
 
@@ -594,6 +685,7 @@ namespace TheWaningBorder.UI.Ingame
         private void Awake()
         {
             if (!GameSettings.TutorialActive) { enabled = false; return; }
+            TutorialCardViewer.AutoOff = false;
             _done = new bool[Steps.Length];
             _paid = new bool[Steps.Length];
             _suggested = new bool[Steps.Length];
@@ -773,6 +865,7 @@ namespace TheWaningBorder.UI.Ingame
             {
                 _suggested[_index] = true;
                 Steps[_index].OnSuggest?.Invoke(this, em, faction);
+                TutorialCardViewer.ShowAuto(transform, Steps[_index].Cards);
             }
             ShowStep();
         }
@@ -1113,6 +1206,27 @@ namespace TheWaningBorder.UI.Ingame
 
         /// <summary>Any sect's hero recruited at least once — the latch
         /// SectHeroes.OnSpawned sets (Religion.md §4).</summary>
+        /// <summary>A finished sect building of any sect (Religion.md §3.2).</summary>
+        private bool AnySectBuilding(EntityManager em, Faction faction)
+        {
+            for (int i = 0; i < SectConfig.AllSectIds.Length; i++)
+            {
+                string building = SectConfig.BuildingIdFor(SectConfig.AllSectIds[i]);
+                if (building != null && SectQuery.HasStandingSectBuilding(em, faction, building)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Holds a monument. A map with none has nothing to teach here.</summary>
+        private bool MonumentHeldOrNone(EntityManager em, Faction faction)
+        {
+            using var all = Monument.All(em, Allocator.Temp);
+            if (all.Length == 0) return _index < Steps.Length && Steps[_index].Title == "Take a monument";
+            for (int i = 0; i < all.Length; i++)
+                if (em.GetComponentData<MonumentState>(all[i]).Holder == faction) return true;
+            return false;
+        }
+
         private bool AnySectHeroRecruited(EntityManager em, Faction faction)
         {
             if (!SectQuery.TryGetAdoptionState(em, faction, out var state)) return false;
