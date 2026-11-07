@@ -129,6 +129,7 @@ namespace TheWaningBorder.Systems.Economy
                 s.CaptureSeconds = 0;
                 em.SetComponentData(monument, new FactionTag { Value = s.Holder });
                 UnityEngine.Debug.Log($"[Monument] {s.Holder} took the monument in territory {s.Territory} from {was}");
+                if (s.Holder == GameSettings.LocalPlayerFaction || was == GameSettings.LocalPlayerFaction) SimSignals.Alert(SimAlertKind.Monument);
                 if (s.Holder == GameSettings.LocalPlayerFaction)
                     SimSignals.Notify(Loc.T("You hold a monument. Explore its ruins, and it pays religion."));
                 else if (was == GameSettings.LocalPlayerFaction)

@@ -11,6 +11,8 @@
 // seam exists to remove.
 
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Replay;
+using TheWaningBorder.Systems.Audio;
 using TheWaningBorder.UI.Ingame;
 using TheWaningBorder.UI.World;
 using TheWaningBorder.UI.Data;
@@ -72,6 +74,14 @@ namespace TheWaningBorder.UI.Common
                     TheWaningBorder.CameraRig.CameraController.ShakeAt(p.Position, BigPingTrauma);
             }
 
+            // A replay seek re-runs the match in an instant: drop its sounds. The horn
+            // is the player's own, so a spectator never hears it.
+            bool silent = ReplaySession.FastForwarding;
+            while (SimSignals.TryDrainAlert(out var alert))
+                if (!silent) AlertSounds.MapEvent(alert);
+            while (SimSignals.TryDrainUnderAttack(out var hit))
+                if (!silent && !GameSettings.IsSpectating) AlertSounds.UnderAttack(hit);
+
             if (SimSignals.TryDrainMatchEnd(out var end))
                 ShowMatchEnd(end);
         }
@@ -84,6 +94,11 @@ namespace TheWaningBorder.UI.Common
         /// </summary>
         private void ShowMatchEnd(SimMatchEnd end)
         {
+            // Only a decided match gets the fanfare: a dropped connection or a replay
+            // that simply stops reaches this same screen.
+            if (MatchLifecycle.MatchDecided)
+                AlertSounds.MatchEnd(end.LocalWon || GameSettings.IsSpectating);
+
             if (VictoryPanel.TryShow(end.Title, end.Subtitle, end.LocalWon)) return;
 
             PlayerNotificationSystem.Notify(end.Title + " — " + end.Subtitle);

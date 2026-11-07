@@ -417,6 +417,11 @@ namespace TheWaningBorder.Systems.Combat
                 var af = em.GetComponentData<FactionTag>(attacker).Value;
                 var tf = em.GetComponentData<FactionTag>(target).Value;
                 if (!Alliances.AreHostile(af, tf)) return 0;
+
+                // Presentation: the horn when something of the local player's is hit.
+                // A queue the sim only writes (docs/Design/Alert_Sounds.md).
+                if (tf == GameSettings.LocalPlayerFaction && em.HasComponent<Unity.Transforms.LocalTransform>(target))
+                    TheWaningBorder.Core.SimSignals.UnderAttack(em.GetComponentData<Unity.Transforms.LocalTransform>(target).Position);
             }
 
             int final = baseDamage;

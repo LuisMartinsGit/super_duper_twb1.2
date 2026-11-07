@@ -18,6 +18,11 @@ build always name the same number.
 - **New steps:** sect buildings and units, monuments, level 10 abilities, walls, scouting and research, and all three ways to win.
 - **Infographic cards open by themselves** as the tutorial reaches each topic, in English and Portuguese. One click dismisses them, and you can turn them off.
 - **New Field Guide in the pause menu:** every card and the tech tree, in any match.
+- **The cards are rebuilt from the game's own UI kit:** its frames, icons, mouse and key art, parchment and bars.
+
+### Sound
+- **A horn warns you when enemies hit your units or buildings.** It repeats slowly during one fight and sooner when a new place is hit. Cursed ground and other damage with no attacker do not set it off.
+- **New sounds for big moments:** a bell when the Shardroot is found, changes hands or detonates, chimes for your monuments, a double toll for victory countdowns, and a fanfare or falling horn when your match ends.
 
 ### Heroes
 - A dying hero no longer gains XP it would lose when it returns.

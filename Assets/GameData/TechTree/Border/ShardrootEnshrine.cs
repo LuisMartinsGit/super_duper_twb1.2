@@ -172,6 +172,7 @@ namespace TheWaningBorder.Entities
             {
                 ecb.RemoveComponent<ShardrootTag>(unit);
                 ecb.AddComponent<ShardrootTag>(temple);
+                SimSignals.Alert(SimAlertKind.Shardroot);
                 SimSignals.Notify(
                     string.Format(Loc.T("{0} enshrines the Shardroot — its army is empowered!"), f));
             }

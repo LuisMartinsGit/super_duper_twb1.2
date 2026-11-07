@@ -451,6 +451,7 @@ namespace TheWaningBorder.Systems.Border
             em.AddComponentData(bearer, new ShardrootBearer
                 { Amount = ShardrootState.ShardrootPower, Source = RitualKind.ViolentExtraction });
             em.AddComponent<ShardrootTag>(bearer);
+            SimSignals.Alert(SimAlertKind.Shardroot);
             SimSignals.Announce(Loc.T("The SHARDROOT walks with the curse!"));
             var p = em.GetComponentData<LocalTransform>(bearer).Position;
             SimSignals.Ping(p, SimPingKind.Curse, 12f, big: true);

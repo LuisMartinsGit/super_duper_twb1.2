@@ -38,6 +38,14 @@ namespace TheWaningBorder.Core
         Discovery = 3,
     }
 
+    /// <summary>Which map event a sound announces (docs/Design/Alert_Sounds.md).</summary>
+    public enum SimAlertKind : byte
+    {
+        Shardroot = 0,
+        Monument = 1,
+        Countdown = 2,
+    }
+
     /// <summary>A message for the player, already localised by the caller.</summary>
     public readonly struct SimNotice
     {
@@ -127,6 +135,38 @@ namespace TheWaningBorder.Core
         private static readonly Queue<SimPing> _pings = new Queue<SimPing>();
         private static readonly Queue<SimMatchEnd> _matchEnd = new Queue<SimMatchEnd>();
         private static readonly Queue<SimGain> _gains = new Queue<SimGain>();
+        private static readonly Queue<SimAlertKind> _alerts = new Queue<SimAlertKind>();
+        private static readonly Queue<float3> _attacks = new Queue<float3>();
+
+        /// <summary>An important map event: the presentation plays its sound.</summary>
+        public static void Alert(SimAlertKind kind)
+        {
+            if (_alerts.Count >= MaxQueued) _alerts.Dequeue();
+            _alerts.Enqueue(kind);
+        }
+
+        /// <summary>Presentation only: see TryDrainNotice.</summary>
+        public static bool TryDrainAlert(out SimAlertKind kind)
+        {
+            if (_alerts.Count == 0) { kind = default; return false; }
+            kind = _alerts.Dequeue();
+            return true;
+        }
+
+        /// <summary>A hostile hit landed on something of the local player's.</summary>
+        public static void UnderAttack(float3 position)
+        {
+            if (_attacks.Count >= MaxQueued) _attacks.Dequeue();
+            _attacks.Enqueue(position);
+        }
+
+        /// <summary>Presentation only: see TryDrainNotice.</summary>
+        public static bool TryDrainUnderAttack(out float3 position)
+        {
+            if (_attacks.Count == 0) { position = default; return false; }
+            position = _attacks.Dequeue();
+            return true;
+        }
 
         /// <summary>A faction gained <paramref name="amount"/> at <paramref name="position"/>.</summary>
         public static void Gain(float3 position, Faction faction, Cost amount)
@@ -216,6 +256,8 @@ namespace TheWaningBorder.Core
             _pings.Clear();
             _matchEnd.Clear();
             _gains.Clear();
+            _alerts.Clear();
+            _attacks.Clear();
         }
     }
 }

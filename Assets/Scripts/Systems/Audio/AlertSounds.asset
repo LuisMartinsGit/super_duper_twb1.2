@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 052f41dcd76beb155b4a2f2bcda23532, type: 3}
+  m_Name: AlertSounds
+  m_EditorClassIdentifier:
+  underAttackClip: {fileID: 8300000, guid: 1419f908214d131e222a480aac905c84, type: 3}
+  shardrootClip: {fileID: 8300000, guid: 29b0912acffb0b685c61aaebb7319233, type: 3}
+  monumentClip: {fileID: 8300000, guid: 9ffdfb6d5f9a362d06b96add0e696b49, type: 3}
+  countdownClip: {fileID: 8300000, guid: 06f1b7a775d5fb6a1aa12060064a2837, type: 3}
+  victoryClip: {fileID: 8300000, guid: 42fbe672175a6f1fc6925c1cd716e14f, type: 3}
+  defeatClip: {fileID: 8300000, guid: 1d1457b6ecfa05b822d86cb2b758fd85, type: 3}
+  underAttackVolume: 0.8
+  shardrootVolume: 0.9
+  monumentVolume: 0.7
+  countdownVolume: 0.8
+  victoryVolume: 0.9
+  defeatVolume: 0.85
+  attackRepeatSeconds: 20
+  attackMinGapSeconds: 6
+  attackAreaRadius: 50
+  eventMinGapSeconds: 1.5

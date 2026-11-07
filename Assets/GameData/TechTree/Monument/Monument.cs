@@ -233,6 +233,7 @@ namespace TheWaningBorder.Entities
             string line = buff != null ? TechCatalog.GetTechnology(buff).name : null;
             UnityEngine.Debug.Log($"[Monument] {faction} explored the ruins in territory {territory}: " +
                 $"buff {buff ?? "none left"}, Shardroot {(state.HidesShardroot != 0 ? "HERE" : "not here")}");
+            if (faction == GameSettings.LocalPlayerFaction) SimSignals.Alert(SimAlertKind.Monument);
             if (faction == GameSettings.LocalPlayerFaction)
                 SimSignals.Notify(line != null
                     ? string.Format(Loc.T("The ruins yield {0}."), line)
@@ -361,6 +362,7 @@ namespace TheWaningBorder.Entities
                 UnityEngine.Debug.Log($"[Shardroot] moved to ({at.x:F0},{at.z:F0})");
                 if ((h.RevealedTo & (1u << (int)GameSettings.LocalPlayerFaction)) != 0)
                 {
+                    SimSignals.Alert(SimAlertKind.Shardroot);
                     SimSignals.Notify(Loc.T("Someone passed the SHARDROOT and it moved."));
                     SimSignals.Ping(at, SimPingKind.Discovery, 20f, big: true);
                 }
@@ -408,6 +410,7 @@ namespace TheWaningBorder.Entities
             if (!ShardrootPickup.TryReveal(em, faction, out float3 at)) return;
             UnityEngine.Debug.Log($"[Shardroot] {faction} learned the spot ({at.x:F0},{at.z:F0})");
             if (faction != GameSettings.LocalPlayerFaction) return;
+            SimSignals.Alert(SimAlertKind.Shardroot);
             SimSignals.Announce(Loc.T("The ruins show you where the SHARDROOT lies."));
             SimSignals.Ping(at, SimPingKind.Discovery, 20f, big: true);
         }

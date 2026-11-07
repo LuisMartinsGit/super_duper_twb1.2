@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: ComponentConfigCatalog
   m_EditorClassIdentifier: 
   configs:
+  - {fileID: 11400000, guid: 33c2532349b1d585cc539be4165287b1, type: 2}
   - {fileID: 11400000, guid: bcfecbcde446470c959f9697416b5522, type: 2}
   - {fileID: 11400000, guid: 97a3365f2b404de4b4abe8450b18dd4c, type: 2}
   - {fileID: 11400000, guid: cef635f45ad04b25b040ed58b8eca724, type: 2}

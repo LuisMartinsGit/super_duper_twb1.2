@@ -130,6 +130,7 @@ namespace TheWaningBorder.Entities
                 DetonationLandDamage, DetonationBuildingDamage, spellRouted: false, DamageType.True);
 
             SimSignals.Ping(origin, SimPingKind.Combat, DetonationRadius, big: true);
+            SimSignals.Alert(SimAlertKind.Shardroot);
             SimSignals.Notify(Loc.T("An ASCENDED hero has fallen -- the Shardroot detonates!"));
             TWBLog.Log($"[Shardbound] {faction}'s king detonates at ({origin.x:F0},{origin.z:F0}): {units} units launched");
         }

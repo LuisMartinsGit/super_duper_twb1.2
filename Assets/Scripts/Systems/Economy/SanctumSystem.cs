@@ -197,6 +197,7 @@ namespace TheWaningBorder.Systems.Economy
             {
                 if (st.Holder != Faction.Border)
                 {
+                    SimSignals.Alert(SimAlertKind.Countdown);
                     SimSignals.Announce(CountdownWarnings.SideOf(st.Holder) == CountdownSide.Own
                         ? Loc.T("Your dominion is broken — a Sanctum was lost")
                         : string.Format(Loc.T("{0}'s dominion is broken — a Sanctum was lost"),
@@ -225,6 +226,7 @@ namespace TheWaningBorder.Systems.Economy
                     ref lastMark, out int mark))
             {
                 st.NoticeMinutes = lastMark;
+                SimSignals.Alert(SimAlertKind.Countdown);
                 SimSignals.Announce(WarningText(holder, mark));
                 for (int t = 0; t < RegionMap.Count; t++)
                 {

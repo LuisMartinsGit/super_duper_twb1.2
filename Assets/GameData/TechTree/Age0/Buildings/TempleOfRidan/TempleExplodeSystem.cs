@@ -128,6 +128,7 @@ namespace TheWaningBorder.Systems.Economy
                     ShardrootState.ShardrootPower);
                 em.AddComponent<ShardrootTag>(dropped);
                 TheWaningBorder.Systems.Border.ShardrootSystem.MakePersistent(em, dropped);
+                SimSignals.Alert(SimAlertKind.Shardroot);
                 SimSignals.Notify(
                     Loc.T("The Temple falls — the SHARDROOT lies in the crater!"));
                 UnityEngine.Debug.Log($"[Shardroot] enshrining Temple destroyed at ({explodes[e].x:F0},{explodes[e].z:F0}) " +

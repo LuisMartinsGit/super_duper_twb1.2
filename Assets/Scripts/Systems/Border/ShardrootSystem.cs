@@ -216,6 +216,7 @@ namespace TheWaningBorder.Systems.Border
                             RitualKind.Purification, ShardrootState.ShardrootPower);
                         em.AddComponent<ShardrootTag>(pickup);
                         MakePersistent(em, pickup);
+                        SimSignals.Alert(SimAlertKind.Shardroot);
                         SimSignals.Announce(Loc.T("The SHARDROOT has been unearthed!"));
                         UnityEngine.Debug.Log($"[Shardroot] artifact surfaced by fallback at ({dropPos.x:F0},{dropPos.z:F0}) " +
                             "(host lost, or claimed/destroyed without an award)");
@@ -328,6 +329,7 @@ namespace TheWaningBorder.Systems.Border
         /// </summary>
         private static void AnnounceHolder(Faction from, Faction to)
         {
+            SimSignals.Alert(SimAlertKind.Shardroot);
             bool had = from != Faction.Border, has = to != Faction.Border;
             string text = had && has
                 ? string.Format(Loc.T("{0} seized the Shardroot from {1}!"),
@@ -363,6 +365,7 @@ namespace TheWaningBorder.Systems.Border
             em.AddComponent<ShardrootTag>(pickup);
             MakePersistent(em, pickup);
 
+            SimSignals.Alert(SimAlertKind.Shardroot);
             SimSignals.Announce(Loc.T("The SHARDROOT has been unearthed!"));
             UnityEngine.Debug.Log($"[Shardroot] AWARDED -- {kind} on the host well at ({pos.x:F0},{pos.z:F0}) " +
                 $"drops the artifact{(fromMaw ? " (it was embedded in the Maw)" : "")}");
@@ -396,6 +399,7 @@ namespace TheWaningBorder.Systems.Border
 
             if (temple != state.AscensionFaction)
             {
+                if (state.AscensionFaction != Faction.Border && state.AscensionDone == 0) SimSignals.Alert(SimAlertKind.Countdown);
                 if (state.AscensionFaction != Faction.Border && state.AscensionDone == 0)
                     SimSignals.Announce(CountdownWarnings.SideOf(state.AscensionFaction) == CountdownSide.Own
                         ? Loc.T("Your ascension is broken — the enshrining Temple has fallen!")
@@ -420,6 +424,7 @@ namespace TheWaningBorder.Systems.Border
                     ref lastMark, out int mark))
             {
                 state.AscensionNoticeMinutes = lastMark;
+                SimSignals.Alert(SimAlertKind.Countdown);
                 SimSignals.Announce(AscensionWarningText(temple, mark));
                 SimSignals.Ping(templePos, SimPingKind.Discovery, 15f, big: true);
             }
@@ -500,6 +505,7 @@ namespace TheWaningBorder.Systems.Border
             em.SetComponentData(marker, new ShardrootEmbedded { Well = state.HostNode });
 
             SimSignals.Ping(wellPos, SimPingKind.Discovery, BeaconInterval * 3f, big: true);
+            SimSignals.Alert(SimAlertKind.Shardroot);
             SimSignals.Announce(Loc.T("The SHARDROOT gleams in the heart of a Maw -- verb that well to claim it!"));
             UnityEngine.Debug.Log($"[Shardroot] MAW -- the host well at ({wellPos.x:F0},{wellPos.z:F0}) stood Wild " +
                 $"for {state.HostWildSeconds:F0}s unverbed; the artifact is now visibly embedded in it");
