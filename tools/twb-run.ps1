@@ -87,7 +87,7 @@ param(
     [string[]]$MapRotation = @("FiendstonePass", "YielLymwerra", "Moatwatch", "Highfold", "BrokenOath", "TrineHollow"),
     [int]$Age = 0,
     [switch]$Rich,              # every faction pinned at the resource cap (diagnostic)
-    [switch]$Trace,             # single mode: write MapTrace.txt for the replay
+    [switch]$Trace,             # accepted for old command lines: every match is traced now
     [int]$TracePeriod = 0,      # seconds per trace frame; 0 = auto (1, or 2 past an hour)
     [switch]$FormationTelemetry, # single mode: Formation.csv, every formation member once a second
 
@@ -245,7 +245,9 @@ function Invoke-Single {
             )
             if ($Rich) { $argList += "-twbRich" }
             $argList += (RunTagArgs)
-            if ($Trace) {
+            # EVERY MATCH IS TRACED (2026-11-07, developer: never run matches without
+            # traces). Muster Rolls reports traced matches only.
+            if ($true) {
                 # A LONG MATCH NEEDS A LONGER PERIOD. MapTrace's 400 MB cap
                 # stops the file rather than truncating the match, so the
                 # sample period is scaled off the ceiling -- and an UNLIMITED

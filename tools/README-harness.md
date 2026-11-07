@@ -311,7 +311,7 @@ three.
 | `Metrics_Income.csv` | per sample (since 2026-10-04): `t,faction,flow,source,supplies,iron,veilstone,veilsteel` — what moved in the period ENDING at `t`. `flow=in` is GROSS income by source (`emptySlot`, `gatherersHut`, `mine`, `veilstoneMine`, `fortressLevel` = the capital-level x2/x4 share of territory yield, `capital`, `buildingPassive`, `trade`, `vault`, `curseKill`, `loot`, `refund`, `grant`, `other`); `flow=out` is spending by category (`units`, `buildings`, `upgrades`, `research`, `ageUp`, `trade`, `repair`, `religion`, `vault`, `overflow` = clamped by the 100k bank cap, `other`). `untracked` (either flow) is the bank delta the ledger did not see — a direct bank write. Only non-zero rows. Fed by `Economy/EconomyLedger.cs`, observation only |
 
 plus `Lockstep.log` (a checksum row per tick, per peer), `Console.log`,
-`Perf.log`, `AI_<colour>.log` (the AI's own account of itself) and, when
-`-Trace` is on, `MapTrace.txt` — the per-second replay feed with unit
+`Perf.log`, `AI_<colour>.log` (the AI's own account of itself) and
+`MapTrace.txt` (every match is traced) — the per-second replay feed with unit
 identity that the map replay is actually drawn from (as per-unit tracks; see
 "Reading them").
