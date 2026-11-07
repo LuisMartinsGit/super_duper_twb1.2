@@ -3,7 +3,9 @@
 **Status: decided in part (§5).** The cards exist. The tutorial text fixes and the story are
 not implemented, and every piece of lore invented here is marked as a proposal. Card
 rosters and research are read from the SOs by `tools/tutorial_cards/gen_cards.py`, which
-writes `docs/Tutorial/Cards/`.
+draws every panel, key, icon and bar from the Synty kits and writes
+`Assets/Resources/TutorialCards/<lang>/` (tracked in git). T6, T7 and the contact sheets are in
+`docs/Tutorial/Cards/`.
 
 ## 1. What the tutorial got wrong (fixed 2026-11-07)
 

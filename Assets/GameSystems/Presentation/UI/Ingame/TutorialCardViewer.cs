@@ -2,7 +2,7 @@
 // Shows the infographic cards (docs/Design/Tutorial_Cards_And_Story.md): by itself when
 // a tutorial step becomes the suggestion, and on request as the Field Guide in the pause
 // menu. The cards are images built by tools/tutorial_cards/gen_cards.py, loaded on demand
-// from Resources/UI/TutorialCards/<language>/, because a catalog reference would hold every
+// from Resources/TutorialCards/<language>/, because a catalog reference would hold every
 // card in memory for the whole match.
 //
 // It never gates the player: one click anywhere outside its buttons moves on, and the last
@@ -150,7 +150,7 @@ namespace TheWaningBorder.UI.Ingame
             gameObject.SetActive(true);
             string lang = Loc.IsPortuguese ? "pt" : "en";
             string id = _cards[_at];
-            var sprite = Resources.Load<Sprite>($"UI/TutorialCards/{lang}/card_{id}");
+            var sprite = Resources.Load<Sprite>($"TutorialCards/{lang}/card_{id}");
             if (sprite == null) Debug.LogError($"[GameUI] Tutorial card {lang}/{id} is missing.");
             _image.sprite = sprite;
             _image.enabled = sprite != null;

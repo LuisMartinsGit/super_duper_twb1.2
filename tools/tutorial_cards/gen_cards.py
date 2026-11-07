@@ -3,14 +3,16 @@
 
     python tools/tutorial_cards/gen_cards.py [--only 12,T2]
 
-Writes docs/Tutorial/Cards/<lang>/card_<id>.png (1600 x 900, en and pt) and a contact sheet,
-and copies every card the demo may show to Assets/Resources/UI/TutorialCards/<lang>/, where
-the Field Guide loads them on demand (T6 and T7 stay out: they name other editions' content). The tech tree
-cards and every stated value are read from the SOs at build time, so re-running after a
-balance change is all a card ever needs. Rules text lives here; numbers do not. Needs
-Chrome for rendering and Pillow for the contact sheet.
+Writes Assets/Resources/TutorialCards/<lang>/card_<id>.png (1600 x 900, en and pt), which git
+tracks and the Field Guide loads on demand, and a contact sheet in docs/Tutorial/Cards/. T6 and
+T7 name other editions' content, so they stay out of the game, in docs/Tutorial/Cards/<lang>/.
+The tech tree cards and every stated value are read from the SOs at build time, so re-running
+after a balance change is all a card ever needs. Rules text lives here; numbers do not.
+Every panel, key, icon, bar and ornament is a sprite from the Synty kits, and the fonts are the
+kits' too, so regenerating needs Assets/Synty on disk (it is not in git). Needs Chrome for
+rendering and Pillow for the contact sheet. A card whose content overflows fails the build.
 """
-import argparse, glob, hashlib, html, os, re, shutil, subprocess, sys, tempfile
+import argparse, glob, hashlib, html, math, os, re, shutil, subprocess, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pt import PT
@@ -21,11 +23,11 @@ T = os.path.join(A, "GameData", "TechTree")
 LANG = sys.argv[sys.argv.index("--lang") + 1] if "--lang" in sys.argv else "en"
 BASE = os.path.join(ROOT, "docs", "Tutorial", "Cards")
 OUT = os.path.join(BASE, LANG)
-GAME = os.path.join(A, "Resources", "UI", "TutorialCards", LANG)
+GAME = os.path.join(A, "Resources", "TutorialCards", LANG)
 NOT_IN_GAME = {"T6", "T7"}
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 FONTS = "file:///" + os.path.join(A, "Synty", "InterfaceFantasyMenus", "Fonts").replace(os.sep, "/")
-DIAMOND = "file:///" + os.path.join(A, "Synty", "InterfaceFantasyWarriorHUD", "Sprites", "FantasyWarrior", "SPR_FantasyWarrior_Frame_Diamond_01.png").replace(os.sep, "/")
+OVERFLOW = []
 
 # ── Language ─────────────────────────────────────────────────────────────
 MISSING, _translated = set(), set()
@@ -85,7 +87,7 @@ ASCENSION_MIN = int(num("GameData/TechTree/Age0/Buildings/TempleOfRidan/Shardroo
 SECT_RP = int(num("Scripts/Economy/FactionReligionPoints.asset", "sectUnitRp"))
 
 def unit_names(ids, keep=lambda i: True):
-    return [name(UNITS.get(i, re.sub(r"^(Feraldis|Runai|Alanthor|Sect)_", "", i))) for i in ids if keep(i)]
+    return [name(re.sub(r"^(Feraldis|Runai|Alanthor|Sect)_", "", UNITS.get(i, i))) for i in ids if keep(i)]
 
 def techs_at(at, culture=None, exclude=("Civs/Feraldis", "Civs/Runai")):
     out = []
@@ -103,27 +105,117 @@ def level_groups(items):
     for x in items: groups.setdefault(int(x["lvl"] or 0), []).append(x["name"])
     return groups
 
+BLUE, GOLD, CURSE, CYAN, RED, GREEN = "#4c8fe0", "#e0b65a", "#a76be0", "#55d5e0", "#e0654f", "#8fc46a"
+
+# ── Synty sprites ────────────────────────────────────────────────────────
+# Every panel, key, icon, bar and ornament on a card is a sprite from the Synty kits the game
+# itself uses. A missing sprite stops the build rather than leaving a plain box.
+SYNTY = os.path.join(A, "Synty")
+FW = "InterfaceFantasyWarriorHUD/Sprites/"
+FM = "InterfaceFantasyMenus/Sprites/"
+MK = "InterfaceCore/Sprites/Icons_Input/MouseKeyboard/ICON_Input_PC_"
+
+def sprite(rel):
+    p = os.path.join(SYNTY, rel.replace("/", os.sep) + ".png")
+    if not os.path.exists(p): sys.exit("missing Synty sprite: " + rel)
+    return "file:///" + p.replace(os.sep, "/")
+
+def _icon_index():
+    out = {}
+    for folder, kit in [("Icons_Stats", FW), ("Icons_Map", FW), ("Icons_Status", FW), ("Icons_Elements", FW), ("Icons_Weapons", FW), ("Icons_Resources", FW), ("Icons_Menu", FM), ("Icons_FantasyMenus", FM)]:
+        for f in glob.glob(os.path.join(SYNTY, kit.replace("/", os.sep), folder, "*.png")):
+            b = os.path.basename(f)[:-4]
+            if re.search(r"_(Stroke|Underlay|Side|Border|Mask)$", b): continue
+            white = b.endswith("_Clean")
+            k = re.sub(r"^(ICON|SPR)_(FantasyWarrior_|FantasyMenus_)?(SM_)?|_Clean$", "", b)
+            if k not in out or white:
+                out[k] = ("file:///" + f.replace(os.sep, "/"), white)
+    return out
+ICONS = _icon_index()
+
+def icon(key, color=None, cls="ic"):
+    if key not in ICONS: sys.exit("missing Synty icon: " + key)
+    url, white = ICONS[key]
+    if white:
+        return '<i class="%s" style="background:%s;-webkit-mask-image:url(\'%s\')"></i>' % (cls, color or "var(--gold)", url)
+    return '<i class="%s" style="background-image:url(\'%s\')"></i>' % (cls, url)
+
+def ring(key, color=None):
+    return '<span class="ring">%s</span>' % icon(key, color)
+
+# The icon of every heading on every card, keyed by the English heading. No icon stops the build.
+HEAD = {
+    "Supplies": "Item_Bread_01", "Iron": "Item_Ingot_Iron_01", "Veilstone": "Item_Crystal_01", "Veilsteel": "Item_Gem_04",
+    "Hold ground": "Map_Flag_01", "Find nodes": "Item_Magnifying_Glass_01", "Build an extractor": "Item_Pickaxe_01", "Node runs dry": "Status_Time_01",
+    "Plan": "Item_Parchment_01", "Site": "Item_Hammer_01", "Building": "Map_Home_01",
+    "Shift": "Status_Up_01", "Cancel": "Menu_Delete_01", "Your ground only": "Map_Flag_01", "Population": "Chr_Attach_Soldier_01",
+    "Spearmen stop cavalry": "Status_Defense_01", "Cavalry hunts archers": "Map_Horse_01", "Archers shred infantry": "Stat_Accuracy_01", "Siege breaks buildings": "Status_DefenseBroken_01",
+    "Armour": "Status_Armour_01", "Bonus vs": "Status_AttackUp_01", "High ground": "Status_Up_01", "Flanks": "Status_Critical_01", "On a wall": "Status_FortifiedDefense_01", "Formation": "Icon_Flags_01",
+    "Building levels": "Map_Home_01", "Research": "Item_Book_02", "Unit ranks": "Icon_Medal_01",
+    "Unexplored": "Map_Unknown_01", "Explored": "Item_Parchment_02", "In sight": "Status_Cursed_02", "Scouts": "Item_Magnifying_Glass_01", "Field Intelligence": "Status_Targeted_01",
+    "Palisade": "Item_Wood_01", "Stone Wall": "Item_Rock_01", "Gate or tower": "Map_Home_01", "Hubs and segments": "Menu_Link_01", "Your gates only": "Map_Key_01", "Garrison": "Status_FortifiedDefense_01", "Fall in sections": "Status_DefenseBroken_01",
+    "Who claims": "Chr_Attach_Soldier_01", "Where": "Map_Target_01", "Cut off?": "Status_Down_01", "No limit": "Map_Star_01",
+    "Empty": "Map_Unknown_01", "Held": "Status_Defense_01", "Locked": "Map_Lock_01",
+    "Start": "Map_Home_01", "Normal": "Map_Forage_01", "Iron rich": "Item_Ingot_Iron_01", "Veilstone rich": "Item_Crystal_03", "Sanctum": "Stat_Magic_01",
+    "Build the landmark": "Item_Hammer_02", "Defend the site": "Status_Armour_01", "Your culture opens": "Chr_Attach_King_Crown_01",
+    "Alanthor: Defense": "Status_FortifiedDefense_01", "Feraldis: Military": "Element_Fire_01", "Runai: Economy": "Item_Pouch_01",
+    "Curse nodes": "Status_Cursed_01", "Waves": "Map_Monster_01", "Your reward": "Map_Treasure_01",
+    "Units": "Status_Burninating_01", "Buildings": "Status_DefenseBroken_01", "Litharch: Cleansing Ward": "Chr_Attach_Priest_Hat_01", "Litharch: Cleanse Pulse": "Map_Lightning_01",
+    "Curse kills": "Map_Skull_01", "Monuments": "Map_Flag_01", "Sanctums": "Stat_Magic_01", "The Temple": "Chr_Attach_Priest_Hat_01", "Sect units": "Status_Attack_01", "Razed nodes": "Status_Burninating_01",
+    "Temple of Ridan": "Chr_Attach_Priest_Hat_01", "Chapel": "Item_Book_03", "Powers": "Map_Lightning_01", "Set passive": "Status_Fortified_01",
+    "Sect building": "Map_Home_01", "Sect unit": "Status_Attack_01", "Sect hero": "Chr_Attach_King_Crown_01", "The Temple's other offers": "Item_Pouch_01", "Spend carefully": "Status_Quest_01",
+    "Capture": "Map_Flag_01", "Hold": "Status_Time_01", "Explore": "Item_Key_01",
+    "Stronger": "Stat_Strength_01", "Levels 1-10": "Status_XP_01", "Never reset": "Status_Up_01", "Everyone sees the bar": "Status_Cursed_02",
+    "Keep it": "Status_Critical_01", "Drop it": "Status_Down_01", "Stow it": "Stat_Magic_01",
+    "Last one standing": "Menu_Trophy_01", "Temple victory": "Chr_Attach_Priest_Hat_01", "Sanctum dominion": "Stat_Magic_01",
+}
+HEAD["Spend carefully"] = "Map_Quest_01"
+def head_icon(h, color=None):
+    if h not in HEAD: sys.exit("no icon for heading: " + h)
+    return ring(HEAD[h], color)
+
 # ── Building blocks ──────────────────────────────────────────────────────
 E = html.escape
 RES = dict(s=("#8fc46a", "Supplies"), i=("#b4bcc8", "Iron"), v=("#55d5e0", "Veilstone"), vs=("#e8edf5", "Veilsteel"))
 
 def points(items, cols=1):
-    rows = "".join('<div class="pt"><b>%s</b><span>%s</span></div>' % (tr(h), tr(b)) for h, b in items)
+    rows = "".join('<div class="pt pn">%s<div><b>%s</b><span>%s</span></div></div>' % (head_icon(h, "var(--accent)"), tr(h), tr(b)) for h, b in items)
     return '<div class="pts c%d">%s</div>' % (cols, rows)
 
 def flow(steps, color="var(--gold)"):
     out = []
     for i, (h, b) in enumerate(steps):
-        if i: out.append('<div class="arrow" style="color:%s">&#10148;</div>' % color)
-        out.append('<div class="step" style="border-top-color:%s"><b>%s</b><span>%s</span></div>' % (color, tr(h), tr(b)))
+        if i: out.append('<i class="arrow" style="background:%s;-webkit-mask-image:url(\'%s\')"></i>' % (color, sprite(MK + "Arrow_Right_Clean")))
+        out.append('<div class="step pn"><div class="th">%s<b style="color:%s">%s</b></div><span>%s</span></div>' % (head_icon(h, color), color, tr(h), tr(b)))
     return '<div class="flow">%s</div>' % "".join(out)
 
 def tiles(items, cols=3):
-    cells = "".join('<div class="tile" style="border-top-color:%s"><b style="color:%s">%s</b><span>%s</span></div>' % (c, c, tr(h), tr(b)) for h, b, c in items)
-    return '<div class="tiles" style="grid-template-columns:repeat(%d,1fr)">%s</div>' % (cols, cells)
+    cells = []
+    for it in items:
+        h, b, c = it[:3]
+        ic = ring(it[3], c) if len(it) > 3 else head_icon(h, c)
+        cells.append('<div class="tile pn"><div class="th">%s<b style="color:%s">%s</b></div><span>%s</span></div>' % (ic, c, tr(h), tr(b)))
+    return '<div class="tiles" style="grid-template-columns:repeat(%d,minmax(0,1fr))">%s</div>' % (cols, "".join(cells))
 
+def _mouse(which):
+    return '<img class="mouse" src="%s">' % sprite(MK + "MouseColor_%s_Clean" % which)
+def _cap(text):
+    return '<span class="cap">%s</span>' % text
+def _arrow_cap(which):
+    return '<span class="cap"><i class="capi" style="-webkit-mask-image:url(\'%s\')"></i></span>' % sprite(MK + "Arrow_%s_Clean" % which)
+KEY_ART = {
+    "Screen edge": [_arrow_cap("Left"), _arrow_cap("Right")], "Middle drag": [_mouse("Middle")], "Scroll": [_mouse("Middle")], "Minimap": [_mouse("Left")],
+    "Left-click": [_mouse("Left")], "Drag a box": [_mouse("Left")], "Right-click": [_mouse("Right")], "Ctrl + number": [_cap("Ctrl"), _cap("1")],
+    "Shift + right-click": [_cap("Shift"), _mouse("Right")], "A, then click": [_cap("A"), _mouse("Left")], "Right-drag": [_mouse("Right")],
+    "X": [_cap("X")], "G": [_cap("G")], "D": [_cap("D")], "H": [_cap("H")], "R": [_cap("R")], "T": [_cap("T")], "Delete": [_cap("Del")], "F1-F6": [_cap("F1-F6")],
+}
 def keys(items):
-    return '<div class="keys">%s</div>' % "".join('<div class="key"><kbd>%s</kbd><span>%s</span></div>' % (tr(k), tr(v)) for k, v in items)
+    rows = []
+    for k, v in items:
+        if k not in KEY_ART: sys.exit("no key art for: " + k)
+        label = "" if len(k) == 1 or k == "F1-F6" else "<b>%s</b>" % tr(k)
+        rows.append('<div class="key"><div class="kart">%s</div><div class="ktxt">%s<span>%s</span></div></div>' % ("".join(KEY_ART[k]), label, tr(v)))
+    return '<div class="keys pn">%s</div>' % "".join(rows)
 
 def note(text):
     return '<div class="note">%s</div>' % tr(text)
@@ -136,39 +228,42 @@ def tree(cols):
         for sub, items in subs:
             if sub: body += '<div class="tsub">%s</div>' % E(tr(sub))
             body += "".join('<div class="ti">%s</div>' % E(name(i)) for i in items)
-        out.append('<div class="tcol" style="border-top-color:%s"><div class="tt" style="color:%s">%s</div>%s</div>' % (color, color, E(tr(title) if (LANG == "en" or title in PT) else name(title)), body))
+        out.append('<div class="tcol pn"><div class="tt" style="color:%s">%s</div>%s</div>' % (color, E(tr(title) if (LANG == "en" or title in PT) else name(title)), body))
     tallest = max(sum(len(items) + (1 if sub else 0) for sub, items in subs) for _, _, subs in cols)
-    return '<div class="tree%s" style="grid-template-columns:repeat(%d,1fr)">%s</div>' % (" roomy" if tallest <= 12 else "", len(cols), "".join(out))
+    return '<div class="tree%s" style="grid-template-columns:repeat(%d,minmax(0,1fr))">%s</div>' % (" roomy" if tallest <= 12 else "", len(cols), "".join(out))
+
+def bar(width, height, percent, color, cls=""):
+    """The kit's own bar: Bar_Horizontal_03 over its fill channel, as the hero bar uses it."""
+    s = height / 256.0
+    return ('<div class="bar %s" style="width:%s;height:%dpx"><div class="chan" style="left:%dpx;right:%dpx;top:%dpx;height:%dpx"><i style="width:%d%%;background:%s"></i></div>'
+            '<div class="barf" style="border-width:0 %dpx;border-image-width:0 %dpx"></div></div>') % (
+        cls, width if isinstance(width, str) else "%dpx" % width, height, 120 * s, 120 * s, 96 * s, 64 * s, percent, color, 200 * s, 200 * s)
 
 def meter_svg():
-    s = """<svg viewBox="0 0 720 210" class="svg">
-<rect x="20" y="24" width="680" height="38" rx="4" fill="#080c13" stroke="#5c6778"/>
-<rect x="22" y="26" width="440" height="34" fill="#4c8fe0"/>
-<text x="360" y="50" fill="#efe6d2" text-anchor="middle" font-size="22" font-family="Museum">OWNERSHIP METER</text>
-<text x="20" y="90" fill="#a9b1bd" font-size="21">0: changes hands</text><text x="700" y="90" fill="#a9b1bd" font-size="21" text-anchor="end">100: yours</text>
-<g font-size="22"><rect x="20" y="112" width="24" height="24" fill="#4c8fe0"/><text x="56" y="132" fill="#efe6d2">Your soldiers alone: rises, by the population standing there</text>
-<rect x="20" y="146" width="24" height="24" fill="#e0654f"/><text x="56" y="166" fill="#efe6d2">Two armies: the stronger side pushes, by the difference</text>
-<rect x="20" y="180" width="24" height="24" fill="#5c6778"/><text x="56" y="200" fill="#efe6d2">Nobody and no building: it decays</text></g></svg>"""
-    for k in ("OWNERSHIP METER", "0: changes hands", "100: yours", "Your soldiers alone: rises, by the population standing there",
-              "Two armies: the stronger side pushes, by the difference", "Nobody and no building: it decays"):
-        s = s.replace(">" + k + "<", ">" + tr(k) + "<")
-    return s
+    rows = [("Status_Up_01", BLUE, "Your soldiers alone: rises, by the population standing there"),
+            ("Icon_Swords_01", RED, "Two armies: the stronger side pushes, by the difference"),
+            ("Status_Time_01", "#a9b1bd", "Nobody and no building: it decays")]
+    return ('<div class="meter"><div class="mtitle">%s</div>%s<div class="mends"><span>%s</span><span>%s</span></div>%s</div>') % (
+        tr("OWNERSHIP METER"), bar("100%", 110, 65, BLUE), tr("0: changes hands"), tr("100: yours"),
+        "".join('<div class="mrow">%s<span>%s</span></div>' % (icon(k, c), tr(t)) for k, c, t in rows))
 
 def triangle_svg():
-    def node(x, y, t, c):
-        return '<g><circle cx="%d" cy="%d" r="66" fill="#0e1521" stroke="%s" stroke-width="4"/><text x="%d" y="%d" text-anchor="middle" fill="#efe6d2" font-size="24" font-family="Ortica">%s</text></g>' % (x, y, c, x, y + 8, t)
+    W_, H_ = 620, 470
+    def node(x, y, t, k, c):
+        return '<div class="tn" style="left:%dpx;top:%dpx">%s<b>%s</b></div>' % (x - 90, y - 62, '<span class="ring big">%s</span>' % icon(k, c), t)
     def arrow(x1, y1, x2, y2, t, tx, ty):
-        return '<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#e0b65a" stroke-width="4" marker-end="url(#a)"/><text x="%d" y="%d" fill="#a9b1bd" font-size="19" text-anchor="middle">%s</text>' % (x1, y1, x2, y2, tx, ty, t)
-    return '<svg viewBox="0 0 620 470" class="svg"><defs><marker id="a" markerUnits="userSpaceOnUse" markerWidth="24" markerHeight="24" refX="20" refY="12" orient="auto"><path d="M0 0L24 12L0 24z" fill="#e0b65a"/></marker></defs>' + \
-        arrow(250, 125, 150, 305, tr("beats"), 130, 195) + arrow(205, 375, 412, 375, tr("beats"), 310, 410) + arrow(460, 305, 365, 125, tr("beats"), 490, 195) + \
-        node(310, 76, tr("Spearmen"), "#8fc46a") + node(490, 375, tr("Archers"), "#55d5e0") + node(130, 375, tr("Cavalry"), "#e0654f") + "</svg>"
+        a = math.degrees(math.atan2(y2 - y1, x2 - x1))
+        head = '<i class="thead" style="left:%dpx;top:%dpx;transform:rotate(%.1fdeg);-webkit-mask-image:url(\'%s\')"></i>' % (x2 - 22, y2 - 22, a, sprite(MK + "Arrow_Right_Clean"))
+        return ('<svg class="tline" viewBox="0 0 %d %d"><line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#e0b65a" stroke-width="5"/></svg>' % (W_, H_, x1, y1, x2, y2)) + head + \
+            '<span class="tbeat" style="left:%dpx;top:%dpx">%s</span>' % (tx - 60, ty - 18, t)
+    return '<div class="tri">' + arrow(222, 145, 142, 290, tr("beats"), 120, 200) + arrow(205, 362, 412, 362, tr("beats"), 310, 395) + arrow(478, 290, 398, 145, tr("beats"), 500, 200) + \
+        node(310, 76, tr("Spearmen"), "Status_Defense_01", GREEN) + node(490, 362, tr("Archers"), "Stat_Accuracy_01", CYAN) + node(130, 362, tr("Cavalry"), "Map_Horse_01", RED) + "</div>"
 
 def herobar():
-    return '<div class="hb"><div class="dia">7</div><div class="hp"><i></i></div><div class="xp"><i></i></div></div>'
+    return '<div class="hb"><div class="dia">7</div>%s%s</div>' % (bar(330, 90, 72, BLUE, "hp"), bar(330, 54, 45, GOLD, "xp"))
 
 # ── The cards ────────────────────────────────────────────────────────────
 CH = {1: "Controls", 2: "Economy", 3: "Army", 4: "Culture", 5: "Territory", 6: "The Curse", 7: "Religion", 8: "Heroes and Victory", "T": "Tech Tree"}
-BLUE, GOLD, CURSE, CYAN, RED, GREEN = "#4c8fe0", "#e0b65a", "#a76be0", "#55d5e0", "#e0654f", "#8fc46a"
 cards = []
 def card(cid, ch, title, lede, body, accent=GOLD): cards.append(dict(id=cid, ch=ch, title=tr(title), lede=tr(lede), body=body, accent=accent))
 
@@ -255,7 +350,7 @@ ALS = [("Antiquity", "Registry", "Reliquary", "Artificer", "Archivist of Hours",
        ("Fortitude", "Wardens", "Stonehold", "Sallyguard", "Warden", "Armed structures, tougher buildings, raise a fort"),
        ("Prosperity", "Guild", "Treasury", "Collector", "Guildmaster", "Bounties, faster production, instant income")]
 card("21", 7, "The House of Vaelith", "Alanthor's four sects. Their magic is time: the record, rewind, stored charge, accelerated work.",
-     tiles([(fmt("%s: the %s", tr(a), tr(b)), fmt("<i>%s</i><br>Building: %s<br>Unit: %s<br>Hero: %s", tr(p), name(c), name(d), name(e)), col) for (a, b, c, d, e, p), col in zip(ALS, [CYAN, GREEN, BLUE, GOLD])], 4), CYAN)
+     tiles([(fmt("%s: the %s", tr(a), tr(b)), fmt("<em>%s</em><br>Building: %s<br>Unit: %s<br>Hero: %s", tr(p), name(c), name(d), name(e)), col, k) for (a, b, c, d, e, p), col, k in zip(ALS, [CYAN, GREEN, BLUE, GOLD], ["Status_Time_01", "Status_Health_02", "Status_Fortified_01", "Item_Ingot_Gold_01"])], 4), CYAN)
 card("22", 8, "Monuments and Ruins", "Contested objectives that pay from the very first minute.",
      flow([("Capture", "Any unit, even a worker, standing in the circle takes it"), ("Hold", "Trickles Religion Points. An enemy inside freezes the timer"), ("Explore", "Pay once to gain a hidden buff, yours for good")], GOLD) +
      note("<b>One monument knows where the Shardroot lies hidden.</b> Whoever explores it learns the spot."))
@@ -266,13 +361,13 @@ card("23", 8, "Heroes", "The strongest units in the game. They level from kills,
      '<div class="two aligned"><div>' + herobar() + '</div><div>' + points([("Everyone sees the bar", "Diamond is level, the long bar is health in owner colour, gold is XP.")]) + "</div></div>" +
      note("Abilities below level 10 cast themselves within the hero's sight. Just put your hero in the right place."), RED)
 card("24", 8, "Level 10: The Game Enders", "The one hero ability you cast yourself. Long cooldown, no sight limit.",
-     '<table class="ult">' + "".join("<tr><td>%s</td><td>%s</td><td>%s</td></tr>" % (tr(r[0]), tr(r[1]), tr(r[2])) for r in [
-        ("King Lexor", "Call to the Banners", "A great army of veterans answers around the king for a time."),
-        ("Ledger", "Foreclosure", "Takes half of every enemy's stockpile."),
-        ("Archivist", "Stop the Hours", "Freezes every enemy unit on the map. Enemy heroes lose their abilities for a time."),
-        ("Surgeon", "The Great Rewind", "Heals your whole army, and the units you lost in the last minute come back."),
-        ("Warden", "The Realm Holds", "Enemies on your ground lose most of their health. Your buildings can't be hurt for a time."),
-        ("Guildmaster", "Buy Out", "Enemy buildings in a wide circle fall and pay you. Capitals lose half their health.")]) + "</table>", RED)
+     "".join('<div class="urow pn">%s<div class="r1">%s</div><div class="r2">%s</div><div class="r3">%s</div></div>' % (ring(r[3], RED), tr(r[0]), tr(r[1]), tr(r[2])) for r in [
+        ("King Lexor", "Call to the Banners", "A great army of veterans answers around the king for a time.", "Chr_Attach_King_Crown_01"),
+        ("Ledger", "Foreclosure", "Takes half of every enemy's stockpile.", "Item_Book_03"),
+        ("Archivist", "Stop the Hours", "Freezes every enemy unit on the map. Enemy heroes lose their abilities for a time.", "Status_Time_01"),
+        ("Surgeon", "The Great Rewind", "Heals your whole army, and the units you lost in the last minute come back.", "Status_Health_02"),
+        ("Warden", "The Realm Holds", "Enemies on your ground lose most of their health. Your buildings can't be hurt for a time.", "Status_Fortified_01"),
+        ("Guildmaster", "Buy Out", "Enemy buildings in a wide circle fall and pay you. Capitals lose half their health.", "Item_Ingot_Gold_01")]), RED)
 card("25", 8, "The Shardroot", "Hidden on the map from the start. Only a hero can take it, and then the whole map comes for it.",
      tiles([("Keep it", "The hero is Ascended: very hard to kill, cleaving, hurling crowds into the air. If it dies anyway, it explodes and kills everything nearby.", RED),
             ("Drop it", "Set it down safely. The hero loses its power and any hero can take it.", "#efe6d2"),
@@ -328,61 +423,137 @@ card("T7", "T", "Tech Tree: Runai", "Edition C. Armies by building, read from th
 
 # ── Rendering ────────────────────────────────────────────────────────────
 CSS = """
-@font-face{font-family:Ortica;src:url("%(f)s/Ortica/Ortica-Bold.otf")}
-@font-face{font-family:Museum;src:url("%(f)s/LT Museum/LTMuseum-Bold.ttf")}
-@font-face{font-family:Alegreya;src:url("%(f)s/Alegreya Sans/AlegreyaSans-Medium.ttf")}
-:root{--gold:#e0b65a;--cream:#efe6d2;--dim:#a9b1bd;--line:#3a4658}
+@font-face{font-family:Ortica;src:url("@FONTS/Ortica/Ortica-Bold.otf")}
+@font-face{font-family:Museum;src:url("@FONTS/LT Museum/LTMuseum-Bold.ttf")}
+@font-face{font-family:Alegreya;src:url("@FONTS/Alegreya Sans/AlegreyaSans-Medium.ttf")}
+:root{--gold:#e0b65a;--cream:#efe6d2;--dim:#a9b1bd}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:1600px;height:900px;overflow:hidden}
-body{background:radial-gradient(1200px 520px at 50%% -8%%,#2c2740 0%%,#141a2b 55%%,#0b111c 100%%);color:var(--cream);font:27px/1.3 Alegreya,sans-serif;padding:40px 56px 30px;display:flex;flex-direction:column}
-.tag{font:400 20px Museum,serif;letter-spacing:4px;color:var(--dim);text-transform:uppercase}
-h1{font:400 62px/1.08 Ortica,serif;color:var(--accent);margin:6px 0 8px}
-.lede{font-size:31px;margin-bottom:24px;color:var(--cream)}
-.body{flex:1;display:flex;flex-direction:column;gap:20px;justify-content:center;min-height:0}
-.foot{display:flex;justify-content:space-between;font:400 18px Museum,serif;color:#6e7888;letter-spacing:3px;margin-top:14px}
-.tiles{display:grid;gap:18px}
-.tile{background:linear-gradient(180deg,#1b2638,#141c2a);border:1px solid var(--line);border-top:4px solid;border-radius:6px;padding:22px 24px}
-.tile b{display:block;font:400 32px/1.12 Ortica,serif;margin-bottom:8px}
-.tile span{font-size:26px}
-.pts{display:grid;gap:14px 22px}.pts.c2{grid-template-columns:1fr 1fr}
-.pt{background:#101825;border-left:4px solid var(--accent);padding:12px 18px;border-radius:0 5px 5px 0}
-.pt b{display:block;font:400 27px Ortica,serif;color:var(--cream);margin-bottom:2px}.pt span{font-size:25px;color:#d5d2c9}
-.flow{display:flex;align-items:stretch;gap:10px}
-.step{flex:1;background:linear-gradient(180deg,#1b2638,#141c2a);border:1px solid var(--line);border-top:4px solid;border-radius:6px;padding:20px}
-.step b{display:block;font:400 31px/1.1 Ortica,serif;margin-bottom:8px}.step span{font-size:25px;color:#d5d2c9}
-.arrow{align-self:center;font-size:34px}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:26px}.aligned{align-items:center}
-.keys{display:flex;flex-direction:column;gap:14px}
-.key{display:flex;align-items:center;gap:18px}
-kbd{flex:none;min-width:150px;text-align:center;font:400 23px Museum,serif;background:#0e1521;border:1px solid #6b5f42;border-bottom-width:3px;border-radius:5px;padding:9px 14px;color:var(--gold)}
-.key span{font-size:27px}
-.note{background:#0e1521;border:1px solid var(--line);border-radius:5px;padding:14px 22px;font-size:27px;text-align:center}
-.svg{width:100%%;display:block;font-family:Alegreya}
-.tree{display:grid;gap:12px;align-items:start}
-.tcol{background:linear-gradient(180deg,#1b2638,#141c2a);border:1px solid var(--line);border-top:4px solid;border-radius:6px;padding:14px 16px;overflow:hidden}
-.tt{font:400 25px/1.1 Ortica,serif;margin-bottom:6px}
-.tsub{font:400 15px Museum,serif;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin:9px 0 2px}
-.ti{font-size:19.5px;line-height:1.2;color:#e3dfd3}
-.roomy .ti{font-size:26px;line-height:1.3}.roomy .tt{font-size:29px}.roomy .tsub{font-size:17px;margin-top:14px}.roomy .tcol{padding:20px 18px 24px}
-.ult{width:100%%;border-collapse:collapse}.ult td{padding:14px 12px;border-top:1px solid #2c3647;font-size:26px}.ult tr:first-child td{border-top:0}
-.ult td:first-child{font:400 30px Ortica,serif;white-space:nowrap}.ult td:nth-child(2){font:400 30px Ortica,serif;color:var(--accent);white-space:nowrap}
-.hb{position:relative;width:420px;height:105px;margin:0 auto}
-.dia{position:absolute;left:0;top:0;width:105px;height:105px;background:url("%(d)s") center/contain no-repeat;display:flex;align-items:center;justify-content:center;font:400 44px Ortica,serif;color:#fff;text-shadow:0 2px 3px #000}
-.hp{position:absolute;left:112px;top:30px;width:306px;height:36px;background:#080c13;border:2px solid #8d7a50;border-radius:3px;overflow:hidden}.hp i{display:block;height:100%%;width:72%%;background:#4c8fe0}
-.xp{position:absolute;left:112px;top:72px;width:306px;height:12px;background:#080c13;border:1px solid #5b5240;overflow:hidden}.xp i{display:block;height:100%%;width:45%%;background:#e0b65a}
-""" % dict(f=FONTS, d=DIAMOND)
+i{display:block}
+html,body{width:1600px;height:900px;overflow:hidden;background:#090d16}
+body{position:relative;color:var(--cream);font:26px/1.26 Alegreya,sans-serif;padding:58px 78px 34px;display:flex;flex-direction:column;z-index:0}
+.bgfill{position:absolute;inset:8px;z-index:-3;background:linear-gradient(180deg,#232338,#141a2b 45%,#0d1320);-webkit-mask-box-image:url("@OUTER_MASK") 380 fill / 120px}
+.bgpat{position:absolute;left:400px;top:50px;width:800px;height:800px;z-index:-2;opacity:.05;background:var(--accent);-webkit-mask:url("@PATTERN") center/contain no-repeat}
+.bgframe{position:absolute;inset:8px;z-index:-1;border:120px solid transparent;border-image:url("@OUTER") 380 / 120px}
+.crown{position:absolute;left:50%;top:2px;width:150px;height:72px;margin-left:-75px;background:url("@CROWN") center/contain no-repeat}
+.tag{font:400 19px Museum,serif;letter-spacing:4px;color:var(--dim);text-transform:uppercase;text-align:center;margin-top:18px}
+h1{font:400 56px/1.06 Ortica,serif;color:var(--accent);margin:4px 0 2px;text-align:center}
+.lede{font-size:29px;line-height:1.2;color:var(--cream);text-align:center}
+.rule{height:30px;margin:4px auto 8px;width:760px;background:url("@RULE") center/contain no-repeat}
+.body{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
+.inner{display:flex;flex-direction:column;gap:16px}
+.foot{display:flex;justify-content:space-between;font:400 16px Museum,serif;color:#6e7888;letter-spacing:3px;margin-top:8px;padding:0 26px}
+.dense .tag{margin-top:12px}.dense h1{font-size:44px}.dense .lede{font-size:24px}.dense .rule{height:20px;margin:2px auto 4px}.dense{padding-top:46px}.dense .crown{top:0;height:54px}
+
+.pn{position:relative;z-index:0}
+.pn::before{content:"";position:absolute;inset:0;z-index:-2;background:linear-gradient(180deg,#1f2a3f,#121a28);-webkit-mask-box-image:url("@PANEL_MASK") 120 fill / 30px}
+.pn::after{content:"";position:absolute;inset:0;z-index:-1;border:30px solid transparent;border-image:url("@PANEL") 120 / 30px}
+.ic{width:100%;height:100%;background-size:contain;background-position:center;background-repeat:no-repeat;-webkit-mask-size:contain;-webkit-mask-position:center;-webkit-mask-repeat:no-repeat}
+.ring{flex:none;position:relative;display:block;width:68px;height:68px;padding:15px;background:url("@RING") center/contain no-repeat}
+.ring.big{width:124px;height:124px;padding:30px;margin:0 auto}
+.th{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.th b{font:400 30px/1.08 Ortica,serif}
+
+.tiles{display:grid;gap:14px}
+.tile{padding:18px 24px 20px}
+.tile span{font-size:25px;display:block}
+.flow{display:flex;align-items:stretch;gap:6px}
+.step{flex:1;padding:18px 20px 20px}
+.step .th{flex-direction:column;align-items:flex-start;gap:4px}
+.step span{font-size:24px;color:#d5d2c9;display:block}
+.arrow{flex:none;align-self:center;width:30px;height:30px;-webkit-mask-size:contain;-webkit-mask-position:center;-webkit-mask-repeat:no-repeat}
+.pts{display:grid;gap:10px 16px}.pts.c2{grid-template-columns:1fr 1fr}
+.pt{display:flex;align-items:center;gap:12px;padding:10px 22px 10px 16px}
+.pt b{display:block;font:400 26px/1.1 Ortica,serif;color:var(--cream);margin-bottom:2px}.pt span{font-size:24px;color:#d5d2c9;display:block;line-height:1.2}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}.aligned{align-items:center}
+
+.keys{display:flex;flex-direction:column;gap:10px;padding:22px 26px}
+.key{display:flex;align-items:center;gap:16px;min-height:62px}
+.kart{flex:none;width:150px;display:flex;align-items:center;justify-content:center;gap:6px}
+.mouse{height:62px;width:auto;display:block}
+.cap{position:relative;z-index:0;display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:54px;padding:0 12px;font:400 21px Museum,serif;color:#1c1a15}
+.cap::before{content:"";position:absolute;inset:0;z-index:-1;background:#e6dcc4;-webkit-mask-box-image:url("@KEYCAP") 40 fill / 9px}
+.capi{width:24px;height:24px;background:#1c1a15;-webkit-mask-size:contain;-webkit-mask-position:center;-webkit-mask-repeat:no-repeat}
+.ktxt b{display:block;font:400 24px/1.1 Ortica,serif;color:var(--gold)}
+.ktxt span{font-size:24px;line-height:1.18;display:block}
+
+.note{position:relative;z-index:0;padding:15px 44px;font-size:25px;line-height:1.2;text-align:center;color:#2a2115}
+.note::before{content:"";position:absolute;inset:0;z-index:-1;background:#dccba3;-webkit-mask-box-image:url("@PARCHMENT") 60 fill / 22px}
+.note b{color:#5c1f10}
+
+.tree{display:grid;gap:8px;align-items:start}
+.tcol{padding:13px 15px 16px;overflow:hidden}
+.tcol::before,.tcol::after{}
+.tt{font:400 23px/1.08 Ortica,serif;margin-bottom:4px}
+.tsub{font:400 14px Museum,serif;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin:7px 0 2px}
+.ti{font-size:19px;line-height:1.17;color:#e3dfd3}
+.roomy .ti{font-size:25px;line-height:1.26}.roomy .tt{font-size:28px}.roomy .tsub{font-size:16px;margin-top:12px}.roomy .tcol{padding:20px 18px 24px}
+
+.urow{display:flex;align-items:center;gap:14px;padding:6px 26px 6px 16px;margin-bottom:6px}
+.urow .r1{flex:none;width:190px;font:400 26px/1.05 Ortica,serif}
+.urow .r2{flex:none;width:300px;font:400 26px/1.05 Ortica,serif;color:var(--accent)}
+.urow .r3{font-size:23px;line-height:1.16}
+
+.bar{position:relative;margin:0 auto}
+.chan{position:absolute;background:#080c13;overflow:hidden;-webkit-mask-box-image:url("@BAR_MASK") 0 50 fill / 0 18px}
+.chan i{height:100%}
+.barf{position:absolute;inset:0;border-style:solid;border-color:transparent;border-image:url("@BAR") 0 200 fill}
+.hb{position:relative;width:440px;height:128px;margin:0 auto}
+.dia{position:absolute;left:0;top:6px;width:116px;height:116px;background:url("@DIAMOND") center/contain no-repeat;display:flex;align-items:center;justify-content:center;font:400 42px Ortica,serif;color:#fff;text-shadow:0 2px 3px #000;z-index:2}
+.hb .hp{position:absolute;left:100px;top:6px}.hb .xp{position:absolute;left:100px;top:74px}
+
+.meter{width:100%}
+.mtitle{font:400 24px Museum,serif;letter-spacing:2px;text-align:center;color:var(--cream)}
+.mends{display:flex;justify-content:space-between;font-size:21px;color:var(--dim);margin:-16px 4px 10px;padding:0 26px}
+.mrow{display:flex;align-items:center;gap:12px;margin-top:8px;font-size:23px;line-height:1.14}
+.mrow .ic{flex:none;width:40px;height:40px}
+
+.tri{position:relative;width:620px;height:470px;margin:0 auto}
+.tline{position:absolute;inset:0;width:100%;height:100%}
+.thead{position:absolute;width:44px;height:44px;background:#e0b65a;-webkit-mask-size:contain;-webkit-mask-position:center;-webkit-mask-repeat:no-repeat}
+.tbeat{position:absolute;width:120px;text-align:center;font-size:20px;color:var(--dim)}
+.tn{position:absolute;width:180px;text-align:center}
+.tn b{display:block;font:400 25px/1 Ortica,serif;margin-top:-2px;text-shadow:0 2px 3px #000}
+"""
+for _k, _v in dict(FONTS=FONTS,
+                   OUTER=sprite(FM + "FantasyMenus/SPR_FantasyMenus_Frame_Box_Large_02"), OUTER_MASK=sprite(FM + "FantasyMenus/SPR_FantasyMenus_Frame_Box_Large_02_Mask"),
+                   PANEL=sprite(FM + "FantasyMenus/SPR_FantasyMenus_Frame_Box_Medium_03"), PANEL_MASK=sprite(FM + "FantasyMenus/SPR_FantasyMenus_Frame_Box_Medium_03_Mask"),
+                   PATTERN=sprite(FM + "General/SPR_FantasyMenus_Background_Pattern_03"), CROWN=sprite(FW + "FantasyWarrior/SPR_FantasyWarrior_Frame_Top_01"),
+                   RULE=sprite(FW + "FantasyWarrior/SPR_FantasyWarrior_Tracery_Horizontal_01"), RING=sprite(FW + "FantasyWarrior/SPR_FantasyWarrior_Container_02"),
+                   KEYCAP=sprite(MK + "Button_Clean"), PARCHMENT=sprite(FM + "General/SPR_FantasyMenus_Box_Small_Parchment_02"),
+                   BAR=sprite(FW + "FantasyWarrior/SPR_FantasyWarrior_Bar_Horizontal_03"), BAR_MASK=sprite(FW + "FantasyWarrior/SPR_FantasyWarrior_Bar_Horizontal_03_Mask"),
+                   DIAMOND=sprite(FW + "FantasyWarrior/SPR_FantasyWarrior_Frame_Diamond_01")).items():
+    CSS = CSS.replace("@" + _k + '"', _v + '"').replace("@" + _k + "/", _v + "/")
+
+CHECK = """<script>addEventListener('load',function(){document.fonts.ready.then(function(){
+var b=document.querySelector('.body'),n=document.querySelector('.inner');
+function fits(){if(n.getBoundingClientRect().height>b.clientHeight)return false;
+var ok=true;document.querySelectorAll('.pn').forEach(function(e){if(e.getBoundingClientRect().right>1530)ok=false});document.querySelectorAll('.th b').forEach(function(e){var p=e.closest('.pn').getBoundingClientRect();if(e.getBoundingClientRect().right>p.right-14)ok=false});document.querySelectorAll('.tri,.hb').forEach(function(e){if(e.getBoundingClientRect().width>e.parentElement.getBoundingClientRect().width+1)ok=false});
+document.querySelectorAll('.tcol,.tile,.step,.pt,.urow').forEach(function(e){if(e.scrollWidth>e.clientWidth+1)ok=false});return ok}
+var z=1.34;for(;z>1.0;z-=0.02){n.style.zoom=z;if(fits())break}if(z<=1.0)n.style.zoom=1;
+var bad=[];if(n.getBoundingClientRect().height>b.clientHeight+1)bad.push('body');document.querySelectorAll('.pn').forEach(function(e){if(e.getBoundingClientRect().right>1530)bad.push('right edge '+e.className)});
+document.querySelectorAll('.tcol,.tile,.step,.pt,.urow').forEach(function(e){if(e.scrollHeight>e.clientHeight+1||e.scrollWidth>e.clientWidth+1)bad.push(e.className)});
+var d=document.createElement('meta');d.name=bad.length?'overflow':'fit';d.content=bad.join(';')||String(z);document.head.appendChild(d)})})</script>"""
 
 def page(c, index, total):
     label = tr("Tech Tree") if c["ch"] == "T" else fmt("Chapter %s: %s", c["ch"], tr(CH[c["ch"]]))
-    return '<!doctype html><html><head><meta charset="utf-8"><style>%s</style></head><body style="--accent:%s"><div class="tag">%s</div><h1>%s</h1><div class="lede">%s</div><div class="body">%s</div><div class="foot"><span>THE WANING BORDER</span><span>%s</span></div></body></html>' % (CSS, c["accent"], E(label), c["title"], c["lede"], c["body"], c["id"])
+    dense = ' class="dense"' if 'class="tree"' in c["body"] else ""
+    return ('<!doctype html><html><head><meta charset="utf-8"><style>%s</style>%s</head><body%s style="--accent:%s"><div class="bgfill"></div><div class="bgpat"></div><div class="bgframe"></div><div class="crown"></div>'
+            '<div class="tag">%s</div><h1>%s</h1><div class="lede">%s</div><div class="rule"></div><div class="body"><div class="inner">%s</div></div><div class="foot"><span>THE WANING BORDER</span><span>%s</span></div></body></html>') % (
+        CSS, CHECK, dense, c["accent"], E(label), c["title"], c["lede"], c["body"], c["id"])
 
 def render(c, i, n, tmp):
     h = os.path.join(tmp, c["id"] + ".html")
     open(h, "w", encoding="utf8").write(page(c, i, n))
-    png = os.path.join(OUT, "card_%s.png" % c["id"])
-    subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
-                    "--window-size=1600,900", "--virtual-time-budget=2500", "--user-data-dir=" + os.path.join(tmp, "chrome"),
-                    "--screenshot=" + png, "file:///" + h.replace(os.sep, "/")], capture_output=True, timeout=120)
+    folder = OUT if c["id"] in NOT_IN_GAME else GAME
+    os.makedirs(folder, exist_ok=True)
+    png = os.path.join(folder, "card_%s.png" % c["id"])
+    flags = [CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
+             "--window-size=1600,900", "--virtual-time-budget=2500", "--user-data-dir=" + os.path.join(tmp, "chrome")]
+    url = "file:///" + h.replace(os.sep, "/")
+    subprocess.run(flags + ["--screenshot=" + png, url], capture_output=True, timeout=120)
+    dom = subprocess.run(flags + ["--dump-dom", url], capture_output=True, timeout=120).stdout.decode("utf8", "ignore")
+    m = re.search(r'name="overflow" content="([^"]*)"', dom)
+    if m: OVERFLOW.append("%s/%s: %s" % (LANG, c["id"], m.group(1)))
     return png
 
 META = """fileFormatVersion: 2
@@ -450,14 +621,11 @@ TextureImporter:
 """
 
 def install(card_id):
-    """Copy a card into the game, with a meta whose guid follows from its path."""
+    """Give a game card a meta whose guid follows from its path."""
     if card_id in NOT_IN_GAME: return
-    os.makedirs(GAME, exist_ok=True)
     fn = "card_%s.png" % card_id
-    dst = os.path.join(GAME, fn)
-    shutil.copyfile(os.path.join(OUT, fn), dst)
     guid = hashlib.md5(("TutorialCards/%s/%s" % (LANG, fn)).encode()).hexdigest()
-    open(dst + ".meta", "w", encoding="utf8", newline="\n").write(META % guid)
+    open(os.path.join(GAME, fn) + ".meta", "w", encoding="utf8", newline="\n").write(META % guid)
 
 def folder_meta(path, key):
     if not os.path.exists(path + ".meta"):
@@ -474,7 +642,6 @@ def main():
         return
     if MISSING:
         sys.exit("Missing %s translations:\n  " % LANG + "\n  ".join(sorted(MISSING)))
-    os.makedirs(OUT, exist_ok=True)
     only = set(a.only.split(",")) if a.only else None
     tmp = tempfile.mkdtemp(prefix="twbcards")
     for i, c in enumerate(cards):
@@ -485,8 +652,10 @@ def main():
     folder_meta(root, "TutorialCards"); folder_meta(GAME, "TutorialCards/" + LANG)
     if MISSING:
         sys.exit("Missing %s translations:\n  " % LANG + "\n  ".join(sorted(MISSING)))
+    if OVERFLOW:
+        sys.exit("Cards overflow:\n  " + "\n  ".join(OVERFLOW))
     from PIL import Image
-    paths = [os.path.join(OUT, "card_%s.png" % c["id"]) for c in cards]
+    paths = [os.path.join(OUT if c["id"] in NOT_IN_GAME else GAME, "card_%s.png" % c["id"]) for c in cards]
     paths = [p for p in paths if os.path.exists(p)]
     cols = 6; tw, th = 400, 225
     rows = (len(paths) + cols - 1) // cols
