@@ -9,24 +9,19 @@ using TheWaningBorder.Systems.Economy;
 namespace TheWaningBorder.Entities
 {
     /// <summary>
-    /// Alanthor Trading Outpost — raised BESIDE a veilstone outcrop, it runs one
-    /// of three trades: buy veilstone with supplies and iron (default), forge
-    /// veilstone into veilsteel, or sell veilsteel for iron and supplies — the
-    /// last two unlocked by its own research. docs/Design/Veilstone_Economy.md §3.1.
+    /// Alanthor Trading Outpost — raised BESIDE a resource node (supply, iron
+    /// or veilstone) after the Trade Charters research, it trickles that
+    /// node's resource without ever drawing on it, for as long as the node
+    /// lives (docs/Design/Veilstone_Economy.md §3.1, rewritten 2026-11-09,
+    /// decision 42). The pay is TradingOutpostSystem's.
     ///
-    /// Alanthor do not mine the curse's crystal; they trade in it. The Outpost
-    /// is that trade made physical without caravans (Runai's identity) or a
-    /// menu nobody can contest: a building in the ground beside the crystal,
-    /// which locks its territory and which anyone can burn.
-    ///
-    /// FOUR SIDES PER OUTCROP (2026-10-04, Veilstone_Economy.md §3.1 and
-    /// Build_Grid.md § The Trading Outpost's side slots). An Outpost snaps to
-    /// one of the four orthogonal side slots of an uncursed outcrop — north,
-    /// east, south, west — its footprint flush against the outcrop's square,
-    /// one post per side. The outcrop itself stays an impassable node nobody
-    /// builds on. Each further post around the same outcrop costs more to
-    /// build and to level (<see cref="RampMultiplier"/>); the first post on a
-    /// new outcrop is base price again.
+    /// FOUR SIDES PER NODE (Build_Grid.md § The Trading Outpost's side slots).
+    /// An Outpost snaps to one of the four orthogonal side slots of a living
+    /// node — north, east, south, west — its footprint flush against the
+    /// node's square, one post per side. The node itself stays an impassable
+    /// cell nobody builds on (its extractor stands ON it). Each further post
+    /// around the same node costs more to build (<see cref="RampMultiplier"/>);
+    /// the first post on a new node is base price again.
     ///
     /// Placement (<see cref="TrySnapToSide"/> / <see cref="SnapToSideAmong"/>,
     /// reached through TerritoryOwnership.TrySnapToNode and enforced in
@@ -49,8 +44,8 @@ namespace TheWaningBorder.Entities
         /// <summary>How many posts one outcrop takes: one per side.</summary>
         public const int SideCount = 4;
 
-        /// <summary><see cref="TradingOutpostSite.Side"/> of a post standing on
-        /// the outcrop itself (an age-up conversion with no free side).</summary>
+        /// <summary><see cref="TradingOutpostSite.Side"/> of a post that stands
+        /// on no node's side slot.</summary>
         public const byte OnOutcrop = 255;
 
         /// <summary>Metres within which a position counts as a given slot.
@@ -75,10 +70,8 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(em, entity, default(TradingOutpostTag));
-            EntityBuild.Add(em, entity, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
             EntityBuild.Add(em, entity, default(TradingOutpostCarry));
-            // Hosts its own research: the two trade unlocks and the discount
-            // ladder (Research/ beside this file) — Barracks pattern.
+            // The production queue carries its level-ups (the unified queue).
             EntityBuild.Add(em, entity, new ProductionState { Busy = 0, Remaining = 0 });
             EntityBuild.AddBuffer<ProductionQueueItem>(em, entity);
             EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
@@ -105,7 +98,6 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(ecb, entity, default(TradingOutpostTag));
-            EntityBuild.Add(ecb, entity, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
             EntityBuild.Add(ecb, entity, default(TradingOutpostCarry));
             EntityBuild.Add(ecb, entity, new ProductionState { Busy = 0, Remaining = 0 });
             EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);
@@ -130,8 +122,22 @@ namespace TheWaningBorder.Entities
             };
         }
 
-        // ── Geometry: the four side slots of an outcrop ─────────────────
+        // ── Geometry: the four side slots of a node ────────────────────
 
+        /// <summary>The kind of resource node a post stands beside — which
+        /// resource it trickles.</summary>
+        public enum NodeKind : byte { None = 0, Supply = 1, Iron = 2, Veilstone = 3 }
+
+        static readonly ComponentType[] QT_SupplyNodes =
+        {
+            ComponentType.ReadOnly<SupplyNodeTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static readonly ComponentType[] QT_IronNodes =
+        {
+            ComponentType.ReadOnly<IronMineTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
         static readonly ComponentType[] QT_Outcrops =
         {
             ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
@@ -148,13 +154,63 @@ namespace TheWaningBorder.Entities
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
         };
-        static readonly ComponentType[] QT_Capitals =
+        static CachedEntityQuery QC_SupplyNodes, QC_IronNodes, QC_Outcrops, QC_Outposts, QC_Plans;
+
+        /// <summary>One resource node a post may stand beside.</summary>
+        public struct NodeRef
         {
-            ComponentType.ReadOnly<HallTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-        };
-        static CachedEntityQuery QC_Outcrops, QC_Outposts, QC_Plans, QC_Capitals;
+            public Entity Entity;
+            public float3 Position;
+            public NodeKind Kind;
+        }
+
+        // Main-thread scratch (the cycle, the ghost, the router and the AI).
+        private static readonly System.Collections.Generic.List<NodeRef> _nodes =
+            new System.Collections.Generic.List<NodeRef>(64);
+
+        /// <summary>
+        /// Every resource node, in a FIXED order (supply, iron, veilstone; each
+        /// in query order) — so every lockstep peer walks them identically.
+        /// The returned list is shared scratch: read it before the next call.
+        /// </summary>
+        public static System.Collections.Generic.List<NodeRef> AllNodes(EntityManager em)
+        {
+            _nodes.Clear();
+            AddNodes(em, QC_SupplyNodes.Get(em, QT_SupplyNodes), NodeKind.Supply);
+            AddNodes(em, QC_IronNodes.Get(em, QT_IronNodes), NodeKind.Iron);
+            AddNodes(em, QC_Outcrops.Get(em, QT_Outcrops), NodeKind.Veilstone);
+            return _nodes;
+        }
+
+        private static void AddNodes(EntityManager em, EntityQuery q, NodeKind kind)
+        {
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+                _nodes.Add(new NodeRef { Entity = ents[i], Position = xfs[i].Position, Kind = kind });
+        }
+
+        /// <summary>The kind of a node entity (None for anything else).</summary>
+        public static NodeKind KindOf(EntityManager em, Entity node)
+        {
+            if (node == Entity.Null || !em.Exists(node)) return NodeKind.None;
+            if (em.HasComponent<SupplyNodeTag>(node)) return NodeKind.Supply;
+            if (em.HasComponent<IronMineTag>(node)) return NodeKind.Iron;
+            if (em.HasComponent<VeilstoneOutcroppingTag>(node)) return NodeKind.Veilstone;
+            return NodeKind.None;
+        }
+
+        /// <summary>A node a post may stand beside right now: not spent, and —
+        /// for an outcrop — not Cursed.</summary>
+        public static bool IsLiveNode(EntityManager em, Entity node, NodeKind kind)
+        {
+            if (node == Entity.Null || !em.Exists(node)) return false;
+            if (em.HasComponent<NodeReserve>(node) && em.GetComponentData<NodeReserve>(node).Remaining <= 0f)
+                return false;
+            if (kind == NodeKind.Veilstone
+                && VeilstoneNodeStateSystem.KindOf(em, node) == VeilstoneNodeKind.Cursed) return false;
+            return true;
+        }
 
         /// <summary>Placement snap reach: metres from the cursor (or a
         /// candidate site) to an outcrop's centre (TradingOutpostSystem.asset).</summary>
@@ -191,49 +247,51 @@ namespace TheWaningBorder.Entities
             return dx * dx + dz * dz <= SlotTolerance * SlotTolerance;
         }
 
-        /// <summary>Is (x, z) one of this outcrop's side slots (or the outcrop
-        /// itself, for an age-up conversion that found no free side)?</summary>
-        private static bool AtOutcrop(float3 outcrop, int2 size, float x, float z, out byte side)
+        /// <summary>Is (x, z) one of this node's four side slots?</summary>
+        private static bool AtSide(float3 node, int2 size, float x, float z, out byte side)
         {
             for (int s = 0; s < SideCount; s++)
             {
-                var slot = SideSlot(outcrop, s, size);
+                var slot = SideSlot(node, s, size);
                 if (Near(slot.x, slot.z, x, z)) { side = (byte)s; return true; }
             }
             side = OnOutcrop;
-            return Near(outcrop.x, outcrop.z, x, z);
+            return false;
         }
 
         /// <summary>
-        /// The outcrop a post at (<paramref name="x"/>, <paramref name="z"/>)
-        /// trades at: the one whose side slot it stands on (or, for an age-up
-        /// conversion with no free side, the one it stands on). A slot two
-        /// outcrops share (they stand two posts apart on one axis) resolves to
-        /// the outcrop with the lower coordinates, so every peer names the
-        /// same one.
+        /// The node a post at (<paramref name="x"/>, <paramref name="z"/>)
+        /// stands beside: the one whose side slot it stands on. A slot two
+        /// nodes share resolves to the node with the lower coordinates, so
+        /// every peer names the same one.
         /// </summary>
+        public static bool TryGetNodeOf(EntityManager em, float x, float z,
+            out Entity node, out float3 nodePos, out byte side, out NodeKind kind)
+        {
+            node = Entity.Null;
+            nodePos = default;
+            side = OnOutcrop;
+            kind = NodeKind.None;
+            var size = BuildingSizeConfig.GetSize(BuildingId);
+            var all = AllNodes(em);
+            for (int i = 0; i < all.Count; i++)
+            {
+                var np = all[i].Position;
+                if (!AtSide(np, size, x, z, out byte s)) continue;
+                if (node != Entity.Null
+                    && (np.x > nodePos.x || (np.x == nodePos.x && np.z >= nodePos.z))) continue;
+                node = all[i].Entity;
+                nodePos = np;
+                side = s;
+                kind = all[i].Kind;
+            }
+            return node != Entity.Null;
+        }
+
+        /// <summary><see cref="TryGetNodeOf"/> without the kind.</summary>
         public static bool TryGetOutcropOf(EntityManager em, float x, float z,
             out Entity outcrop, out float3 outcropPos, out byte side)
-        {
-            outcrop = Entity.Null;
-            outcropPos = default;
-            side = OnOutcrop;
-            var size = BuildingSizeConfig.GetSize(BuildingId);
-            var nq = QC_Outcrops.Get(em, QT_Outcrops);
-            using var nodes = nq.ToEntityArray(Allocator.Temp);
-            using var xfs = nq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                var np = xfs[i].Position;
-                if (!AtOutcrop(np, size, x, z, out byte s)) continue;
-                if (outcrop != Entity.Null
-                    && (np.x > outcropPos.x || (np.x == outcropPos.x && np.z >= outcropPos.z))) continue;
-                outcrop = nodes[i];
-                outcropPos = np;
-                side = s;
-            }
-            return outcrop != Entity.Null;
-        }
+            => TryGetNodeOf(em, x, z, out outcrop, out outcropPos, out side, out _);
 
         /// <summary>How many Outposts (any owner, finished or not) stand beside
         /// the outcrop at <paramref name="outcropPos"/>.</summary>
@@ -247,7 +305,7 @@ namespace TheWaningBorder.Entities
             for (int i = 0; i < posts.Length; i++)
             {
                 if (posts[i] == ignore) continue;
-                if (AtOutcrop(outcropPos, size, xfs[i].Position.x, xfs[i].Position.z, out _)) n++;
+                if (AtSide(outcropPos, size, xfs[i].Position.x, xfs[i].Position.z, out _)) n++;
             }
             return n;
         }
@@ -267,7 +325,7 @@ namespace TheWaningBorder.Entities
             {
                 if (facs[i].Value != faction) continue;
                 if (em.GetComponentData<PlannedBuilding>(plans[i]).BuildingId != BuildingId) continue;
-                if (AtOutcrop(outcropPos, size, xfs[i].Position.x, xfs[i].Position.z, out _)) n++;
+                if (AtSide(outcropPos, size, xfs[i].Position.x, xfs[i].Position.z, out _)) n++;
             }
             return n;
         }
@@ -313,8 +371,7 @@ namespace TheWaningBorder.Entities
             return Cost.Of(
                 supplies:  (int)System.Math.Round(c.Supplies  * (double)m),
                 iron:      (int)System.Math.Round(c.Iron      * (double)m),
-                veilstone: (int)System.Math.Round(c.Veilstone * (double)m),
-                veilsteel: (int)System.Math.Round(c.Veilsteel * (double)m));
+                veilstone: (int)System.Math.Round(c.Veilstone * (double)m));
         }
 
         /// <summary>The build price of a new post at <paramref name="slot"/>.</summary>
@@ -423,19 +480,17 @@ namespace TheWaningBorder.Entities
             float r2 = reach * reach;
             var size = BuildingSizeConfig.GetSize(BuildingId);
 
-            var nq = QC_Outcrops.Get(em, QT_Outcrops);
-            using var nodes = nq.ToEntityArray(Allocator.Temp);
-            using var nodeXfs = nq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            var all = AllNodes(em);
             var oq = QC_Outposts.Get(em, QT_Outposts);
             using var postXfs = oq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
             _cands.Clear();
-            for (int i = 0; i < nodes.Length; i++)
+            for (int i = 0; i < all.Count; i++)
             {
-                var np = nodeXfs[i].Position;
+                var np = all[i].Position;
                 float dx = np.x - pos.x, dz = np.z - pos.z;
                 if (dx * dx + dz * dz > r2) continue;
-                if (VeilstoneNodeStateSystem.KindOf(em, nodes[i]) == VeilstoneNodeKind.Cursed) continue;
+                if (!IsLiveNode(em, all[i].Entity, all[i].Kind)) continue;
                 for (int s = 0; s < SideCount; s++)
                 {
                     var slot = SideSlot(np, s, size);
@@ -467,187 +522,23 @@ namespace TheWaningBorder.Entities
             return false;
         }
 
-        // ── Is the post's outcrop still a trading partner? ───────────────
+        // ── Does the post's node still pay? ──────────────────────────────
 
         /// <summary>
-        /// True when an Outpost standing at (<paramref name="x"/>,
-        /// <paramref name="z"/>) still has a trading partner: the outcrop it
-        /// stands beside exists and is not Cursed. A cursed outcrop idles
-        /// EVERY post around it until it is pacified (Veilstone_Economy.md
-        /// §3.1); a Depleted one trades as well as a fresh one.
+        /// True when a post of <paramref name="faction"/> standing at
+        /// (<paramref name="x"/>, <paramref name="z"/>) still has a paying
+        /// node: the node it stands beside exists, is not spent, is not Cursed
+        /// (an outcrop), and lies in a territory <paramref name="faction"/>
+        /// holds (Veilstone_Economy.md §3.1).
         /// </summary>
-        public static bool HasLiveOutcrop(EntityManager em, float x, float z)
+        public static bool TryGetLiveNode(EntityManager em, float x, float z, Faction faction,
+            out Entity node, out NodeKind kind)
         {
-            if (!TryGetOutcropOf(em, x, z, out var outcrop, out _, out _)) return false;
-            return VeilstoneNodeStateSystem.KindOf(em, outcrop) != VeilstoneNodeKind.Cursed;
+            if (!TryGetNodeOf(em, x, z, out node, out var np, out _, out kind)) return false;
+            if (!IsLiveNode(em, node, kind)) return false;
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready) return false;
+            int t = TheWaningBorder.World.Regions.RegionMap.RegionAt(np.x, np.z);
+            return t >= 0 && TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) == (int)faction;
         }
-
-        // ── Age-up: every Alanthor Veilstone Mine becomes a Trading Outpost ──
-
-        static readonly ComponentType[] QT_VeilstoneMines =
-        {
-            ComponentType.ReadOnly<VeilstoneMineTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        static CachedEntityQuery QC_VeilstoneMines;
-
-        /// <summary>
-        /// ALANTHOR DO NOT MINE VEILSTONE, so at age-up every Veilstone Mine the
-        /// faction owns becomes a Trading Outpost (Veilstone_Economy.md §3.1).
-        /// Iron Mines stay as they are.
-        ///
-        /// A TRANSFORM, not a replacement — the same entity, health fraction,
-        /// owner and territory lock — the rule the Hall and the House already
-        /// follow. What changes is WHERE it stands: the mine stood ON its
-        /// outcrop, the Outpost stands BESIDE it, on the free side slot nearest
-        /// the faction's capital (ties: north, east, south, west). With no free
-        /// side the Outpost stays on the outcrop. The mine's level ladder does
-        /// not carry over; the Outpost starts its own at L1 (granted by
-        /// BuildingCultureAutoLevelSystem).
-        ///
-        /// Idempotent and deterministic (query order, sim state only), so it is
-        /// safe from both the age-up and StartAgePromoter on every peer.
-        /// </summary>
-        public static void ConvertMinesForCulture(EntityManager em, Faction faction, byte culture)
-        {
-            if (culture != Cultures.Alanthor) return;
-            var targets = new NativeList<Entity>(Allocator.Temp);
-            Collect(em, QC_VeilstoneMines.Get(em, QT_VeilstoneMines), faction, targets);
-            if (targets.Length == 0) { targets.Dispose(); return; }
-
-            var def = TechCatalog.Building(BuildingId);
-            var size = BuildingSizeConfig.GetSize(BuildingId);
-            bool haveCapital = TryGetCapital(em, faction, out float3 capital);
-            int moved = 0, stayed = 0;
-            for (int i = 0; i < targets.Length; i++)
-            {
-                var e = targets[i];
-                if (em.HasComponent<VeilstoneMineTag>(e)) em.RemoveComponent<VeilstoneMineTag>(e);
-                if (em.HasComponent<BuildingUpgradeState>(e)) em.RemoveComponent<BuildingUpgradeState>(e);
-                // A level-up queued on the mine has nothing left to level.
-                if (em.HasBuffer<ProductionQueueItem>(e)) em.GetBuffer<ProductionQueueItem>(e).Clear();
-
-                em.AddComponent<TradingOutpostTag>(e);
-                em.AddComponentData(e, new TradingOutpostMode { Recipe = TradeRecipe.Hold });
-                if (!em.HasComponent<TradingOutpostCarry>(e)) em.AddComponent<TradingOutpostCarry>(e);
-                if (!em.HasComponent<ProductionState>(e))
-                    em.AddComponentData(e, new ProductionState { Busy = 0, Remaining = 0 });
-                if (!em.HasBuffer<ProductionQueueItem>(e)) em.AddBuffer<ProductionQueueItem>(e);
-                if (!em.HasComponent<BuildingUpgradeable>(e)) em.AddComponent<BuildingUpgradeable>(e);
-                em.SetComponentData(e, new PresentationId { Id = PresentationID });
-                if (em.HasComponent<BuildingSize>(e))
-                    em.SetComponentData(e, new BuildingSize { Width = size.x, Height = size.y });
-                if (em.HasComponent<DisplayName>(e))
-                    em.SetComponentData(e, new DisplayName
-                    {
-                        Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed(BuildingId),
-                    });
-                if (em.HasComponent<Health>(e) && def.hp > 0)
-                {
-                    var h = em.GetComponentData<Health>(e);
-                    float frac = h.Max > 0 ? (float)h.Value / h.Max : 1f;
-                    int max = (int)def.hp;
-                    em.SetComponentData(e, new Health { Value = math.max(1, (int)math.round(max * frac)), Max = max });
-                }
-
-                // Off the outcrop, onto a side.
-                var xf = em.GetComponentData<LocalTransform>(e);
-                float3 outcrop = xf.Position;
-                if (VeilstoneNodeStateSystem.TryGetOutcropAt(em, xf.Position.x, xf.Position.z,
-                        BuildGrid.ResourceNodeMeters, out var node, out _))
-                    outcrop = em.GetComponentData<LocalTransform>(node).Position;
-
-                // Pass 0 keeps the post in the outcrop's own territory (a side
-                // across a border would lock and pay the wrong ground); pass 1
-                // takes any legal side when no same-territory one is free.
-                byte side = OnOutcrop;
-                float bestD2 = float.MaxValue;
-                float3 bestSlot = default;
-                int home = TheWaningBorder.World.Regions.RegionMap.Ready
-                    ? TheWaningBorder.World.Regions.RegionMap.RegionAt(outcrop.x, outcrop.z) : -1;
-                for (int pass = 0; pass < 2 && side == OnOutcrop; pass++)
-                {
-                    for (int s = 0; s < SideCount; s++)
-                    {
-                        var slot = SideSlot(outcrop, s, size);
-                        if (pass == 0 && home >= 0
-                            && TheWaningBorder.World.Regions.RegionMap.RegionAt(slot.x, slot.z) != home) continue;
-                        if (SlotTaken(em, slot)) continue;
-                        if (TheWaningBorder.Core.Commands.Types.BuildCommandHelper.CheckBuildPosition(
-                                em, slot, size, BuildingId) != TheWaningBorder.World.Regions.PlacementRefusal.None)
-                            continue;
-                        float d2 = 0f;
-                        if (haveCapital)
-                        {
-                            float dx = slot.x - capital.x, dz = slot.z - capital.z;
-                            d2 = dx * dx + dz * dz;
-                        }
-                        if (side == OnOutcrop || d2 < bestD2) { side = (byte)s; bestD2 = d2; bestSlot = slot; }
-                    }
-                }
-
-                if (side != OnOutcrop)
-                {
-                    float y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(bestSlot.x, bestSlot.z);
-                    xf.Position = new float3(bestSlot.x, y, bestSlot.z);
-                    em.SetComponentData(e, xf);
-                    moved++;
-                }
-                else
-                {
-                    stayed++;
-                    UnityEngine.Debug.LogWarning(
-                        $"[AgeUp] {faction}: the Veilstone Mine at ({outcrop.x:0},{outcrop.z:0}) has no free side " +
-                        "— its Trading Outpost stays on the outcrop.");
-                }
-
-                var site = new TradingOutpostSite
-                {
-                    OutcropX = outcrop.x,
-                    OutcropZ = outcrop.z,
-                    Side = side,
-                    RampIndex = (byte)math.min(255, CountPostsAt(em, outcrop, e)),
-                };
-                if (em.HasComponent<TradingOutpostSite>(e)) em.SetComponentData(e, site);
-                else em.AddComponentData(e, site);
-            }
-            // The nav cost field restamps on a change in the SET of buildings,
-            // not on a move — ask for one so the posts block their new cells.
-            if (moved > 0) TheWaningBorder.Systems.Navigation.CostFieldStampSystem.RequestRestamp();
-            UnityEngine.Debug.Log($"[AgeUp] {faction}: {targets.Length} Veilstone Mine(s) became Trading Outposts " +
-                                  $"(Alanthor) — {moved} moved beside their outcrop, {stayed} left on it.");
-            targets.Dispose();
-        }
-
-        private static bool TryGetCapital(EntityManager em, Faction faction, out float3 pos)
-        {
-            pos = default;
-            var q = QC_Capitals.Get(em, QT_Capitals);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            bool found = false;
-            for (int i = 0; i < facs.Length; i++)
-            {
-                if (facs[i].Value != faction) continue;
-                var p = xfs[i].Position;
-                // Deterministic among several Fortresses: the lowest coordinates.
-                if (!found || p.x < pos.x || (p.x == pos.x && p.z < pos.z)) { pos = p; found = true; }
-            }
-            return found;
-        }
-
-        private static void Collect(EntityManager em, EntityQuery q, Faction faction, NativeList<Entity> into)
-        {
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-                if (facs[i].Value == faction) into.Add(ents[i]);
-        }
-
-        /// <summary>The trade this Outpost runs (Hold Trade if unset).</summary>
-        public static TradeRecipe RecipeOf(EntityManager em, Entity outpost)
-            => em.HasComponent<TradingOutpostMode>(outpost)
-               ? em.GetComponentData<TradingOutpostMode>(outpost).Recipe
-               : TradeRecipe.Hold;
     }
 }

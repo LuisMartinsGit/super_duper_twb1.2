@@ -22,7 +22,7 @@
 // using the stale authored rect.
 //
 // Wired panels:
-// - RESOURCE PANEL: rows Supplies / Iron / Veilstone / Veilsteel (bank) and
+// - RESOURCE PANEL: rows Supplies / Iron / Veilstone (bank), Religion Points and
 //   Housing (FactionPopulation "Current/Max"), each row with an "amount"
 //   TMP_Text child, refreshed 4x per second.
 // - SELECTION HEADER: "SPR_Screenshot" Image gets the per-entity symbol
@@ -117,7 +117,7 @@ namespace TheWaningBorder.UI.Ingame
         private RectTransform _bottomLeftDock;
         private GameObject _resourcePanel;
         private ResourcePanelExpander _resourceExpander;
-        private TMP_Text _supplies, _iron, _veilstone, _veilsteel, _housing;
+        private TMP_Text _supplies, _iron, _veilstone, _housing;
 
         // ── Religion Points as a resource (Religion.md §1) ──
         private TMP_Text _religion;
@@ -215,10 +215,6 @@ namespace TheWaningBorder.UI.Ingame
             // Idle-builder button (2026-10-09): cycles the local player's
             // inactive builders, panning to each — hidden while spectating.
             SpawnCodeBuilt<IdleBuilderButton>("GameUI_IdleBuilders");
-            // Trade routes: the Trading Outposts' assignments and net trade
-            // (docs/Design/Veilstone_Economy.md § 3.1). Shown only while the
-            // player has a finished Outpost.
-            SpawnCodeBuilt<TradeMenu>("GameUI_TradeMenu");
             // Every player's Score, top-right (docs/Design/Score.md).
             SpawnCodeBuilt<ScoreBoardHUD>("GameUI_ScoreBoard");
 
@@ -266,7 +262,6 @@ namespace TheWaningBorder.UI.Ingame
                 _supplies  = FindAmountLabel(_resourcePanel.transform, "Supplies");
                 _iron      = FindAmountLabel(_resourcePanel.transform, "Iron");
                 _veilstone = FindAmountLabel(_resourcePanel.transform, "Veilstone");
-                _veilsteel = FindAmountLabel(_resourcePanel.transform, "Veilsteel");
                 _housing   = FindAmountLabel(_resourcePanel.transform, "Housing");
                 BuildReligionRow(_resourcePanel.transform, catalog.hud);
                 RegisterResourceIcons(_resourcePanel.transform);
@@ -459,7 +454,7 @@ namespace TheWaningBorder.UI.Ingame
             if (_resourcePanel != null)
             {
                 _resourceExpander = _resourcePanel.AddComponent<ResourcePanelExpander>();
-                _resourceExpander.Init(_supplies, _iron, _veilstone, _veilsteel);
+                _resourceExpander.Init(_supplies, _iron, _veilstone);
             }
 
             RefreshNow();
@@ -621,8 +616,7 @@ namespace TheWaningBorder.UI.Ingame
                 string res = row.name;
                 if (res != TheWaningBorder.UI.Common.ResourceIcons.Supplies
                     && res != TheWaningBorder.UI.Common.ResourceIcons.Iron
-                    && res != TheWaningBorder.UI.Common.ResourceIcons.Veilstone
-                    && res != TheWaningBorder.UI.Common.ResourceIcons.Veilsteel) continue;
+                    && res != TheWaningBorder.UI.Common.ResourceIcons.Veilstone) continue;
                 foreach (var img in row.GetComponentsInChildren<Image>(true))
                 {
                     if (img.transform == row || img.sprite == null) continue;
@@ -633,11 +627,13 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         /// <summary>
-        /// RELIGION POINTS ARE A RESOURCE (docs/Design/Religion.md §1): a
-        /// fifth row in the resource panel, cloned from the Veilsteel row so it
-        /// wears the panel's own layout and type, with the Synty star as its
-        /// icon and a round Synty ring around it that fills as curse kills
-        /// bank points toward the next Religion Point.
+        /// RELIGION POINTS ARE A RESOURCE (docs/Design/Religion.md §1): the
+        /// resource panel's fourth row. The prefab's old fourth resource row
+        /// (authored for veilsteel, which was folded into veilstone on
+        /// 2026-11-09) IS the Religion row now, so it wears the panel's own
+        /// layout and type, with the Synty star as its icon and a round Synty
+        /// ring around it that fills as curse kills bank points toward the next
+        /// Religion Point.
         /// </summary>
         private void BuildReligionRow(Transform panelRoot, GameUICatalog.HudSet hud)
         {
@@ -646,11 +642,12 @@ namespace TheWaningBorder.UI.Ingame
                 if (t.name == "Veilsteel") { source = t; break; }
             if (source == null || hud == null)
             {
-                TWBLog.Log("[GameUI] ResourcePanel: no Veilsteel row or HUD sprites — no Religion row.");
+                TWBLog.Log("[GameUI] ResourcePanel: no fourth resource row or HUD sprites — no Religion row.");
                 return;
             }
 
-            var row = Instantiate(source.gameObject, source.parent);
+            // The prefab row is reused, not cloned: there is no fourth resource to show.
+            var row = source.gameObject;
             row.name = "Religion";
             row.transform.SetAsLastSibling();
 
@@ -762,7 +759,6 @@ namespace TheWaningBorder.UI.Ingame
                 if (_supplies != null)  _supplies.text  = "-";
                 if (_iron != null)      _iron.text      = "-";
                 if (_veilstone != null) _veilstone.text = "-";
-                if (_veilsteel != null) _veilsteel.text = "-";
                 if (_housing != null)   _housing.text   = "-";
                 if (_religion != null)  _religion.text  = "-";
                 if (_religionRing != null) _religionRing.fillAmount = 0f;
@@ -788,7 +784,6 @@ namespace TheWaningBorder.UI.Ingame
                 SetAmount(_supplies,  banks[i].Supplies,  net.Supplies);
                 SetAmount(_iron,      banks[i].Iron,      net.Iron);
                 SetAmount(_veilstone, banks[i].Veilstone, net.Veilstone);
-                SetAmount(_veilsteel, banks[i].Veilsteel, net.Veilsteel);
 
                 // RED WHEN DRAINING (docs/Design/Veilstone_Economy.md §5): a
                 // resource the faction's trades consume faster than it is
@@ -797,7 +792,6 @@ namespace TheWaningBorder.UI.Ingame
                 Tint(_supplies,  net.Supplies);
                 Tint(_iron,      net.Iron);
                 Tint(_veilstone, net.Veilstone);
-                Tint(_veilsteel, net.Veilsteel);
                 RefreshReligion(em, faction);
 
                 if (_housing != null
@@ -930,8 +924,7 @@ namespace TheWaningBorder.UI.Ingame
             {
                 int r = row.name == TheWaningBorder.UI.Common.ResourceIcons.Supplies ? 0
                       : row.name == TheWaningBorder.UI.Common.ResourceIcons.Iron ? 1
-                      : row.name == TheWaningBorder.UI.Common.ResourceIcons.Veilstone ? 2
-                      : row.name == TheWaningBorder.UI.Common.ResourceIcons.Veilsteel ? 3 : -1;
+                      : row.name == TheWaningBorder.UI.Common.ResourceIcons.Veilstone ? 2 : -1;
                 if (r < 0) continue;
                 string res = row.name;
                 UITooltip.Bind(row.gameObject, () => IncomeTooltip(res, r));
@@ -939,7 +932,7 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         private static float Pick(TheWaningBorder.Systems.World.TerritoryYield y, int r)
-            => r == 0 ? y.Supplies : r == 1 ? y.Iron : r == 2 ? y.Veilstone : y.Veilsteel;
+            => r == 0 ? y.Supplies : r == 1 ? y.Iron : y.Veilstone;
 
         private string IncomeTooltip(string resource, int r)
         {
@@ -978,7 +971,6 @@ namespace TheWaningBorder.UI.Ingame
             Line(sb, Loc.T("Unworked nodes"), Part(PE));
             Line(sb, Loc.T("Other buildings"), otherBuildings);
             Line(sb, Loc.T("Trading Outposts"), Pick(_income.Bought, r));
-            Line(sb, Loc.T("Trade inputs"), -Pick(_income.Sold, r));
             // One-off income of the last minute, by source — only the sources
             // that actually paid, so a faction never sees one it cannot have.
             if (_lumpyKnown)

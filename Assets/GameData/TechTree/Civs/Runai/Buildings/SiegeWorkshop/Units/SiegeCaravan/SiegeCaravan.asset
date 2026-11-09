@@ -37,8 +37,7 @@ MonoBehaviour:
   cost:
     Supplies: 200
     Iron: 200
-    Veilstone: 150
-    Veilsteel: 30
+    Veilstone: 210
   populationCost: 4
   minBuildingLevel: 3
   buildSpeed: 0

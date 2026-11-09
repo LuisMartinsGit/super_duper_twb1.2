@@ -13,32 +13,10 @@ MonoBehaviour:
   m_Name: TradingOutpostSystem
   m_EditorClassIdentifier:
   cycleSeconds: 1
-  buySupplies: 50
-  buyIron: 50
-  buyVeilstone: 100
-  forgeVeilstone: 50
-  forgeVeilsteel: 20
-  sellVeilsteel: 50
-  sellIron: 150
-  sellSupplies: 0
-  forgeTech: Alanthor_VeilsteelForging
-  sellTech: Alanthor_VeilsteelExport
-  ironBuySupplies: 200
-  ironBuyIron: 50
-  ironBuyTech:
-  steelSellVeilsteel: 50
-  steelSellSupplies: 400
-  steelSellTech: Alanthor_VeilsteelExport
-  discountTechs:
-  - Alanthor_TradeAgreements1
-  - Alanthor_TradeAgreements2
-  - Alanthor_TradeAgreements3
-  discountPercent:
-  - 20
-  - 45
-  - 50
-  speedTechs:
-  - Alanthor_SwiftCaravans
+  trickleSuppliesPerMinute: 20
+  trickleIronPerMinute: 12
+  trickleVeilstonePerMinute: 10
+  unlockTech: Alanthor_TradeCharters
   nodeReach: 12
   outcropRampMultipliers:
   - 1

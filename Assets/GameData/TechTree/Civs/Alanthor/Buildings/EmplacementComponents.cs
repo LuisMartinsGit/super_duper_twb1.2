@@ -105,8 +105,7 @@ namespace TheWaningBorder.Entities
             return TheWaningBorder.Core.Cost.Of(
                 supplies: def.cost.Supplies,
                 iron: def.cost.Iron,
-                veilstone: def.cost.Veilstone,
-                veilsteel: def.cost.Veilsteel);
+                veilstone: def.cost.Veilstone);
         }
 
         /// <summary>The Replace Equipment timer: the engine SO's trainingTime.</summary>

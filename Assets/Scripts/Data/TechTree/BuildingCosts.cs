@@ -67,7 +67,6 @@ namespace TheWaningBorder.Data
             { "ThessarasBazaar",            Cost.Of(supplies: 600, iron: 200, veilstone: 100) },
             { "Runai_SiegeWorkshop",     Cost.Of(supplies: 320, iron: 140, veilstone: 60) },
             { "Runai_Vault",             Cost.Of(supplies: 1500, iron: 250, veilstone: 200) },
-            { "Runai_VeilsteelFoundry",  Cost.Of(supplies: 450, iron: 120, veilstone: 100) },
 
             // Feraldis Culture Buildings
             { "Feraldis_BeastPen",       Cost.Of(supplies: 150, iron: 30) },
@@ -221,8 +220,7 @@ namespace TheWaningBorder.Data
                 cost = Cost.Of(
                     supplies:  (int)(cost.Supplies  * buildMult),
                     iron:      (int)(cost.Iron      * buildMult),
-                    veilstone: (int)(cost.Veilstone * buildMult),
-                    veilsteel: (int)(cost.Veilsteel * buildMult));
+                    veilstone: (int)(cost.Veilstone * buildMult));
             return cost;
         }
 
@@ -247,8 +245,7 @@ namespace TheWaningBorder.Data
         private static Cost Scale(Cost c, float m) => Cost.Of(
             supplies:  (int)System.Math.Round(c.Supplies  * (double)m),
             iron:      (int)System.Math.Round(c.Iron      * (double)m),
-            veilstone: (int)System.Math.Round(c.Veilstone * (double)m),
-            veilsteel: (int)System.Math.Round(c.Veilsteel * (double)m));
+            veilstone: (int)System.Math.Round(c.Veilstone * (double)m));
 
         /// <summary>
         /// What was actually paid for <paramref name="entity"/>: the
@@ -291,9 +288,9 @@ namespace TheWaningBorder.Data
         /// Register a custom building cost at runtime with individual values.
         /// </summary>
         public static void Register(string id, int supplies = 0, int iron = 0,
-                                    int veilstone = 0, int veilsteel = 0)
+                                    int veilstone = 0)
         {
-            _byId[id] = Cost.Of(supplies, iron, veilstone, veilsteel);
+            _byId[id] = Cost.Of(supplies, iron, veilstone);
         }
 
         /// <summary>
@@ -327,8 +324,6 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<TradeHubTag>(entity)) return "Runai_TradeHub";
             if (em.HasComponent<BazaarTag>(entity)) return "ThessarasBazaar";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
-            // SmelterTag marks the Runai Veilsteel Foundry.
-            if (em.HasComponent<SmelterTag>(entity)) return "Runai_VeilsteelFoundry";
 
             // Alanthor
             if (em.HasComponent<ReliquaryTag>(entity)) return "Sect_Reliquary";
@@ -394,8 +389,7 @@ namespace TheWaningBorder.Data
                     _byId[id] = Cost.Of(
                         supplies: def.cost.Supplies,
                         iron: def.cost.Iron,
-                        veilstone: def.cost.Veilstone,
-                        veilsteel: def.cost.Veilsteel
+                        veilstone: def.cost.Veilstone
                     );
                 }
             }

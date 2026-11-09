@@ -54,7 +54,6 @@ namespace TheWaningBorder.AI
             r.Supplies = Scale(c.Supplies, m, f, 0);
             r.Iron = Scale(c.Iron, m, f, 1);
             r.Veilstone = Scale(c.Veilstone, m, f, 2);
-            r.Veilsteel = Scale(c.Veilsteel, m, f, 3);
             return r;
         }
 

@@ -1,4 +1,4 @@
-﻿// Loc.Pt.GameUI.cs
+// Loc.Pt.GameUI.cs
 // Portuguese (European) for the in-game UI binders: actions panels, spells
 // bar, top choice bar, objectives, formations, worker palette, unit roster,
 // production queue, building upgrade action, religion panel, plus the
@@ -60,7 +60,6 @@ namespace TheWaningBorder.Core.Localization
             t["Supplies"] = "Mantimentos";
             t["Iron"] = "Ferro";
             t["Veilstone"] = "Veilstone";
-            t["Veilsteel"] = "Veilsteel";
             t["Glow"] = "Fulgor";
 
             // Resource bar income tooltip + territory overlay trade lines.
@@ -319,15 +318,48 @@ namespace TheWaningBorder.Core.Localization
                 "Aplica-se aos {0} edifícios deste tipo que possui e a todos os que construir depois.";
             t["Another building of this type is already upgrading"] =
                 "Outro edifício deste tipo já está a ser melhorado";
+            // Decision 42 (2026-11-09): one crystal, Trading Outposts beside any node, stop extracting.
+            t["Trade Charters"] = "Cartas de Comércio";
+            t["Shard Tools"] = "Ferramentas de Estilhaço";
+            t["Shard Pylons"] = "Pilares de Estilhaço";
+            t["Shard Chains"] = "Correntes de Estilhaço";
+            t["Shard Axeheads"] = "Cabeças de Machado de Estilhaço";
+            t["Shard Blades"] = "Lâminas de Estilhaço";
+            t["Shard Shot"] = "Projéteis de Estilhaço";
+            t["Shard Weapons"] = "Armas de Estilhaço";
+            t["Shard-Tipped Javelins"] = "Dardos com Ponta de Estilhaço";
+            t["Shard Lances"] = "Lanças de Estilhaço";
+            t["Runai Foundry"] = "Fundição Runai";
+            t["Smelt"] = "Fundir";
+            t["Trade for Veilstone"] = "Trocar por Veilstone";
+            t["Spend {0} religion points for {1} veilstone. You have {2}."] = "Gasta {0} pontos de religião por {1} veilstone. Tens {2}.";
+            t["Stop Extracting"] = "Parar a Extração";
+            t["Resume Extracting"] = "Retomar a Extração";
+            t["Stop drawing on the node. The building stays and keeps its surveys; the node is saved for the Trading Outposts beside it."] = "Deixa de extrair do nó. O edifício fica e mantém as suas prospeções; o nó é poupado para os Entrepostos Comerciais ao lado.";
+            t["Draw on the node again. When it runs dry it collapses, and every Trading Outpost beside it falls with it."] = "Volta a extrair do nó. Quando se esgotar, colapsa, e todos os Entrepostos Comerciais ao lado caem com ele.";
+            t["Stopped — draws nothing from its node, so the node is saved. Its surveys still pay."] = "Parado — não extrai nada do nó, por isso o nó é poupado. As prospeções continuam a render.";
+            t["Idle — its node is spent, cursed, or not in your ground."] = "Inativo — o seu nó está esgotado, amaldiçoado ou fora do teu território.";
+            t["per minute, never drawn from its node"] = "por minuto, sem nunca gastar o nó";
+            t["Post {0} of {1} beside its node"] = "Posto {0} de {1} junto ao seu nó";
+            t["Falls with its node when the node runs dry — stop its extractor in time."] = "Cai com o seu nó quando este se esgota — para o extrator a tempo.";
+            t["Research Trade Charters at the Fortress (level 3) first."] = "Investiga primeiro as Cartas de Comércio na Fortaleza (nível 3).";
+            t["Stands on a free side of a supply, iron or veilstone node, up to {0} per node. Trickles that node's resource without drawing on it, for as long as the node lives."] = "Fica num lado livre de um nó de mantimentos, ferro ou veilstone, até {0} por nó. Rende o recurso desse nó sem o gastar, enquanto o nó existir.";
+            t["Each further post beside the same node costs {0} to build; a new node starts at base price."] = "Cada posto adicional junto ao mesmo nó custa {0} a construir; um nó novo começa no preço base.";
+            t["The Runai do not mine veilstone — raise a Sanctuary on it"] = "Os Runai não mineram veilstone — ergue um Santuário sobre ele";
+            t["This node is cursed or mined out"] = "Este nó está amaldiçoado ou esgotado";
+            t["Trading Outposts must stand beside a living resource node"] = "Os Entrepostos Comerciais têm de ficar ao lado de um nó de recursos ativo";
+            t["Trading Outposts must stand on a free side of a living resource node"] = "Os Entrepostos Comerciais têm de ficar num lado livre de um nó de recursos ativo";
+            t["Research Trade Charters at the Fortress first"] = "Investiga primeiro as Cartas de Comércio na Fortaleza";
+            t["Alanthor. Unlocks the Trading Outpost: up to four beside any supply, iron or veilstone node, each trickling that node's resource without ever drawing on it, for as long as the node lives."] = "Alanthor. Desbloqueia o Entreposto Comercial: até quatro junto a qualquer nó de mantimentos, ferro ou veilstone, cada um a render o recurso desse nó sem nunca o gastar, enquanto o nó existir.";
+            t["Weapon tier 4: melee units deal a further +75% damage."] = "Armas de nível 4: as unidades corpo a corpo causam mais +75% de dano.";
+            t["Arrow tier 4: ranged units deal a further +75% damage."] = "Flechas de nível 4: as unidades de ataque à distância causam mais +75% de dano.";
+            t["Weapon tier 4: cavalry deal a further +75% damage."] = "Armas de nível 4: a cavalaria causa mais +75% de dano.";
+            t["Munition tier 4: siege engines deal a further +75% damage."] = "Munições de nível 4: as máquinas de cerco causam mais +75% de dano.";
+            t["Unlocks the shard weapon tier at every Feraldis trainer."] = "Desbloqueia o nível de armas de estilhaço em todos os centros de treino Feraldis.";
+            t["Forging & weapons"] = "Forja e armas";
             // Trading Outpost side slots, ramp and levels (2026-10-04).
             t["Trades x{0} — spends and earns that much more per minute."] =
                 "Comercia x{0} — gasta e ganha tanto mais por minuto.";
-            t["Stands on a free side of a veilstone outcrop, up to {0} per outcrop."] =
-                "Fica num lado livre de um afloramento de veilstone, até {0} por afloramento.";
-            t["Each further post beside the same outcrop costs {0} (build and level-ups); a new outcrop starts at base price."] =
-                "Cada entreposto a mais junto ao mesmo afloramento custa {0} (construção e melhorias); um afloramento novo volta ao preço base.";
-            t["Post {0} of {1} beside its outcrop — level-ups cost x{2}"] =
-                "Entreposto {0} de {1} junto ao seu afloramento — melhorias custam x{2}";
             t["Raises this building's stats and unlocks its next tier of units and research."] =
                 "Aumenta as estatísticas deste edifício e desbloqueia o próximo escalão de unidades e investigação.";
             t["Not enough resources to upgrade"] = "Recursos insuficientes para melhorar";

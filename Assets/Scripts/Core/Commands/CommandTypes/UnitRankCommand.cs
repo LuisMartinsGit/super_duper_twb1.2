@@ -1,6 +1,6 @@
 // UnitRankCommand.cs
 // Promote a single military unit to its next rank, charging the
-// per-rank cost gate (Supplies / Veilstone / Veilsteel / Glow).
+// per-rank cost gate (UnitRankConfig.CostFor).
 // Audit fix #1.
 
 using Unity.Entities;

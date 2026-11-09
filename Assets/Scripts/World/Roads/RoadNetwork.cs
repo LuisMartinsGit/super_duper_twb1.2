@@ -131,12 +131,11 @@ namespace TheWaningBorder.World.Roads
         };
         static readonly ComponentType[] QT_Veilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Iron      = { ComponentType.ReadOnly<IronMineTag>(),            ComponentType.ReadOnly<LocalTransform>() };
-        static readonly ComponentType[] QT_Veilsteel = { ComponentType.ReadOnly<VeilsteelDepositTag>(),    ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Supply    = { ComponentType.ReadOnly<SupplyNodeTag>(),          ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Well      = { ComponentType.ReadOnly<BorderMainNodeTag>(),      ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Pocket    = { ComponentType.ReadOnly<SmallNodeTag>(),           ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Grid      = { ComponentType.ReadOnly<NavGridSingleton>() };
-        static CachedEntityQuery QC_Buildings, QC_Veilstone, QC_Iron, QC_Veilsteel, QC_Supply, QC_Well, QC_Pocket, QC_Grid;
+        static CachedEntityQuery QC_Buildings, QC_Veilstone, QC_Iron, QC_Supply, QC_Well, QC_Pocket, QC_Grid;
 
         private readonly List<Site> _sites = new List<Site>();                       // live, this poll
         private readonly Dictionary<Entity, SiteState> _siteStates = new Dictionary<Entity, SiteState>();
@@ -349,7 +348,6 @@ namespace TheWaningBorder.World.Roads
             AddBuildings(em);
             AddNodes(em, QC_Veilstone.Get(em, QT_Veilstone));
             AddNodes(em, QC_Iron.Get(em, QT_Iron));
-            AddNodes(em, QC_Veilsteel.Get(em, QT_Veilsteel));
             AddNodes(em, QC_Supply.Get(em, QT_Supply));
             AddNodes(em, QC_Well.Get(em, QT_Well));
             AddNodes(em, QC_Pocket.Get(em, QT_Pocket));

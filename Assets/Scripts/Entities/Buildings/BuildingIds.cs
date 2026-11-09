@@ -47,9 +47,6 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<TradingPostTag>(entity)) return "Runai_TradingPost";
             if (em.HasComponent<BazaarTag>(entity)) return "ThessarasBazaar";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Runai_SiegeWorkshop";
-            // SmelterTag is the Runai Veilsteel Foundry's marker (the Alanthor
-            // Smelter is gone).
-            if (em.HasComponent<SmelterTag>(entity)) return "Runai_VeilsteelFoundry";
             // Alanthor culture buildings
             if (em.HasComponent<EmplacementTag>(entity))
                 return em.HasComponent<EmplacementCrew>(entity)

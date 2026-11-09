@@ -2,7 +2,7 @@
 // EDITOR-ONLY tool: bake a map's MapInfo asset from the open map scene.
 //   Waning Border > Maps > Bake Map Info From Open Scene
 // Fills SceneName, PlayerCount (from PlayerStartMarkers), the normalized
-// marker positions (player starts / iron / veilstone / veilsteel / curse
+// marker positions (player starts / iron / veilstone / curse
 // nodes), captures a top-down orthographic thumbnail PNG into the map
 // folder, and registers the asset in the Resources MapInfoIndex.
 //
@@ -171,8 +171,6 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 Object.FindObjectsByType<IronPatchMarker>(FindObjectsSortMode.None), min, size);
             info.VeilstoneNodes = Normalize(
                 Object.FindObjectsByType<VeilstoneOutcroppingMarker>(FindObjectsSortMode.None), min, size);
-            info.VeilsteelNodes = Normalize(
-                Object.FindObjectsByType<VeilsteelDepositMarker>(FindObjectsSortMode.None), min, size);
             info.CurseNodes = Normalize(
                 Object.FindObjectsByType<BorderNodeMarker>(FindObjectsSortMode.None), min, size);
             info.SupplyNodes = Normalize(
@@ -205,7 +203,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
             Debug.Log($"[MapInfoBaker] Baked \"{mapName}\": {info.PlayerCount} players, " +
                       $"{info.PlayerStarts.Length} starts, {info.IronDeposits.Length} iron, " +
-                      $"{info.VeilstoneNodes.Length} veilstone, {info.VeilsteelNodes.Length} veilsteel, " +
+                      $"{info.VeilstoneNodes.Length} veilstone, " +
                       $"{info.SupplyNodes.Length} supply, " +
                       $"{info.CurseNodes.Length} curse nodes, thumbnail " +
                       (info.Thumbnail != null ? "captured." : "FAILED."), info);

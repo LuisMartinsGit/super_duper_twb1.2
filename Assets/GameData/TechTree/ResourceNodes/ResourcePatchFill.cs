@@ -138,7 +138,6 @@ namespace TheWaningBorder.Entities
                 {
                     ComponentType.ReadOnly<IronMineTag>(),
                     ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-                    ComponentType.ReadOnly<VeilsteelDepositTag>(),
                 },
                 All = new[] { ComponentType.ReadOnly<LocalTransform>() },
             });

@@ -9,6 +9,28 @@ build always name the same number.
 
 ---
 
+## [0.0.76] — 2026-11-09
+
+0.0.75 was never published; everything in its section below ships with this version too.
+
+### Economy
+- **Veilsteel is gone.** Veilstone is the only crystal now. Everything that cost veilsteel costs veilstone instead (two for each veilsteel), and everything that paid veilsteel pays veilstone. The tier-4 weapon, armour and arrow research is now named **Shard**.
+- **Alanthor keep their Veilstone Mines** when they age up, and can build new ones.
+- **Stop Extracting.** Select a Gatherer's Hut, Guild, Mine or Veilstone Mine and press Stop Extracting: it stops drawing on its node, so the node is saved. The building still holds the ground and keeps paying its surveys. Press it again to resume.
+- **The Trading Outpost is new.** Research **Trade Charters** at the Fortress (level 3). Then build up to four posts beside any supply, iron or veilstone node; each one pays a steady trickle of that node's resource without ever using the node up. But a node that runs dry still collapses, and takes its posts with it — so stop its extractor in time. There is no more trade menu: buy and sell at the Temple.
+
+### Territory
+- **Ground no longer decays when your soldiers leave,** and ground cut off from your Fortress no longer wears down. A territory is lost only to an enemy army — or it decays while the curse holds two or more of its nodes.
+
+### Feraldis and Runai (developer editions)
+- The Great Forge's Veilsteel bay is now **Smelt** (iron into veilstone), and Arms Export turns veilstone into iron. The Runai Sanctuary sells veilstone for religion points.
+
+### Alanthor
+- **Cavalry gallop.** Once the Royal Stable has researched Full Gallop, an Outrider or Cataphract that keeps moving for a few seconds starts to gallop: it takes less damage, deals more, rides straight through enemy units trampling each one once, and strikes whatever it passes without stopping. It stops galloping when it stops.
+
+### Tutorial
+- The Alanthor mission now teaches Stop Extracting instead of building a Trading Outpost.
+
 ## [0.0.75] — 2026-11-07
 
 ### Tutorial

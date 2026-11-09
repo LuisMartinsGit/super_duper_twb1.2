@@ -260,7 +260,7 @@ namespace TheWaningBorder.Core.Commands.Types
             float m = TheWaningBorder.Economy.SectResearchEffects.LevelCostMultiplier(faction, buildingId);
             if (m < 1f)
                 cost = Cost.Of((int)(cost.Supplies * m), (int)(cost.Iron * m),
-                               (int)(cost.Veilstone * m), (int)(cost.Veilsteel * m));
+                               (int)(cost.Veilstone * m));
             return true;
         }
 

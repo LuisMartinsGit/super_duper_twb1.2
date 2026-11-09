@@ -290,14 +290,6 @@ MonoBehaviour:
     - field: "Layout"
       header: 
       tooltip: "Hex-grid layout (dense, even field) vs random tight cluster. Hex-grid suits large patches; random suits small outcrops."
-  - typeName: "TheWaningBorder.World.MapMarkers.VeilsteelDepositMarker"
-    fields:
-    - field: "Amount"
-      header: 
-      tooltip: "Veilsteel units in this node. Design default: 1500."
-    - field: "MapExclusive"
-      header: 
-      tooltip: "This map's authored veilsteel list is COMPLETE - suppress the 1-in-3-territories coverage top-up. Set on maps where veilsteel placement is a design statement (e.g. exclusive to the centre); one ticked marker suppresses for the map."
   - typeName: "TheWaningBorder.World.MapMarkers.VeilstoneOutcroppingMarker"
     fields:
     - field: "NodeCount"

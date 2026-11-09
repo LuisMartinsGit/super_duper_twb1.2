@@ -5,9 +5,9 @@ namespace TheWaningBorder.Systems.Economy
 {
     /// <summary>
     /// Numbers for <see cref="TradingOutpostSystem"/> and the Outpost's
-    /// placement reach (docs/Design/Veilstone_Economy.md §3.1). The asset is
-    /// TradingOutpostSystem.asset, beside the class. Every rate is PER MINUTE,
-    /// the unit the player is shown; the system converts to its cycle.
+    /// placement reach (docs/Design/Veilstone_Economy.md §3.1, rewritten
+    /// 2026-11-09). The asset is TradingOutpostSystem.asset, beside the class.
+    /// Every rate is PER MINUTE, the unit the player is shown.
     ///
     /// No field initialisers: the values live in the asset and nowhere else.
     /// </summary>
@@ -15,65 +15,33 @@ namespace TheWaningBorder.Systems.Economy
                      fileName = "TradingOutpostSystem")]
     public sealed class TradingOutpostSystemConfig : ScriptableObject, IComponentConfig
     {
-        /// <summary>Seconds between trade cycles (how lumpy the bank looks,
-        /// not how much is traded).</summary>
+        /// <summary>Seconds between payment cycles (how lumpy the bank looks,
+        /// not how much is paid).</summary>
         public float cycleSeconds;
 
-        /// <summary>Buy Veilstone (default): supplies and iron spent per minute.</summary>
-        public float buySupplies;
-        public float buyIron;
-        /// <summary>Veilstone bought per minute.</summary>
-        public float buyVeilstone;
+        /// <summary>What one post pays per minute beside a SUPPLY node, before
+        /// the node's purity and the post's level.</summary>
+        public float trickleSuppliesPerMinute;
+        /// <summary>... beside an IRON node.</summary>
+        public float trickleIronPerMinute;
+        /// <summary>... beside an uncursed VEILSTONE outcrop.</summary>
+        public float trickleVeilstonePerMinute;
 
-        /// <summary>Forge Veilsteel: veilstone spent per minute.</summary>
-        public float forgeVeilstone;
-        /// <summary>Veilsteel forged per minute.</summary>
-        public float forgeVeilsteel;
-
-        /// <summary>Sell Veilsteel: veilsteel spent per minute.</summary>
-        public float sellVeilsteel;
-        /// <summary>Iron and supplies earned per minute.</summary>
-        public float sellIron;
-        public float sellSupplies;
-
-        /// <summary>Research that unlocks Forge Veilsteel.</summary>
-        public string forgeTech;
-        /// <summary>Research that unlocks Sell Veilsteel.</summary>
-        public string sellTech;
-        /// <summary>Buy Iron (2026-11-04): supplies in, iron out, a minute.</summary>
-        public float ironBuySupplies;
-        public float ironBuyIron;
-        /// <summary>Tech that unlocks Buy Iron (empty = always).</summary>
-        public string ironBuyTech;
-        /// <summary>Sell Veilsteel for Supplies (2026-11-04): veilsteel in, supplies out, a minute.</summary>
-        public float steelSellVeilsteel;
-        public float steelSellSupplies;
-        /// <summary>Tech that unlocks it (empty = always).</summary>
-        public string steelSellTech;
-
-        /// <summary>The discount research ladder, cheapest first.</summary>
-        public string[] discountTechs;
-        /// <summary>Percent off every recipe's INPUTS at each discount tier.</summary>
-        public float[] discountPercent;
-
-        /// <summary>Research that speeds every trade up (Swift Caravans). Each
-        /// one's effectsList carries a "TradeSpeed" Pct entry (target
-        /// building:Alanthor_TradingOutpost): the recipe's spend AND earn per
-        /// minute are multiplied by 1 + percent/100.</summary>
-        public string[] speedTechs;
+        /// <summary>The research that unlocks building the Outpost (Trade
+        /// Charters, Fortress L3).</summary>
+        public string unlockTech;
 
         /// <summary>Placement snap reach: metres from the cursor (or a
-        /// candidate site) to an outcrop's centre within which the Outpost
-        /// snaps to the nearest free side of that outcrop.</summary>
+        /// candidate site) to a node's centre within which the Outpost
+        /// snaps to the nearest free side of that node.</summary>
         public float nodeReach;
 
         /// <summary>
-        /// THE PER-OUTCROP COST RAMP (2026-10-04, Veilstone_Economy.md §3.1).
-        /// Up to four Outposts stand around one outcrop, one per side; entry
-        /// N multiplies the build price AND every level-up price of the
-        /// outcrop's (N+1)-th post. Index = how many posts already stand
-        /// beside that outcrop (plus the builder's own plans there). A new
-        /// outcrop starts again at entry 0. Past the end the last entry holds.
+        /// THE PER-NODE COST RAMP (Veilstone_Economy.md §3.1). Up to four
+        /// Outposts stand around one node, one per side; entry N multiplies the
+        /// build price of the node's (N+1)-th post. Index = how many posts
+        /// already stand beside that node (plus the builder's own plans there).
+        /// A new node starts again at entry 0. Past the end the last entry holds.
         /// </summary>
         public float[] outcropRampMultipliers;
     }

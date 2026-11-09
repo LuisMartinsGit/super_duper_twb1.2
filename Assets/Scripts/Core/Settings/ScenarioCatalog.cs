@@ -44,6 +44,7 @@ public static class ScenarioCatalog
         ("Shardroot Trial (King Lexor, the artifact, a Red army)", ScenarioType.ShardrootTrial),
         ("Wall Drawing (draw walls: drag, bend limit, backtrack)", ScenarioType.WallDrawing),
         ("Garrison / Archery Range Ladder (L1-L3 side by side)", ScenarioType.GarrisonRangeLadder),
+        ("Gallop Test (galloping vs control cavalry through swordsmen)", ScenarioType.GallopTest),
     };
 
     /// <summary>

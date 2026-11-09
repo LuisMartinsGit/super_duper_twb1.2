@@ -38,7 +38,7 @@ namespace TheWaningBorder.Bootstrap
             if (!MapMarkerRegistry.HasIronMarkers)
             {
                 // Fall back rather than leave the match with NO IRON AT ALL.
-                // Veilstone and veilsteel both already do this, and
+                // Veilstone already does this, and
                 // VeilstoneOutcroppingBootstrap's fallback comment even claims
                 // it is "mirroring how iron is always available" — which was
                 // not true: this path used to just return, so a markerless map

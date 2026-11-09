@@ -20,8 +20,9 @@ namespace TheWaningBorder.Systems.Economy
         /// <summary>Seconds per Religion Point a held Sanctum pays.</summary>
         public float secondsPerPoint;
 
-        /// <summary>Veilsteel a held Sanctum pays a minute (per Sanctum).</summary>
-        public float veilsteelPerMinute;
+        /// <summary>Veilstone a held Sanctum pays a minute (per Sanctum; it paid
+        /// veilsteel until 2026-11-09).</summary>
+        public float veilstonePerMinute;
 
         /// <summary>Share of every sect power's cooldown cut per Sanctum held,
         /// applied once per Sanctum, multiplicatively.</summary>

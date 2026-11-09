@@ -1,4 +1,4 @@
-﻿// Loc.Pt.Notifications.cs
+// Loc.Pt.Notifications.cs
 // Portuguese for player notifications / toasts (PlayerNotificationSystem).
 
 using System.Collections.Generic;
@@ -55,12 +55,8 @@ namespace TheWaningBorder.Core.Localization
             t["The ground here is unsuitable"] = "O terreno aqui não é adequado";
             t["Cannot build on a resource node — only its own extractor may stand there"] = "Não é possível construir sobre um recurso — só o seu próprio extrator pode lá estar";
             t["Your culture cannot build that"] = "A tua cultura não pode construir isso";
-            t["Alanthor do not mine veilstone — raise a Trading Outpost beside it"] = "Os Alanthor não mineram veilstone — ergue um Entreposto Comercial ao lado dele";
             t["Nothing — build on it"] = "Nada — constrói aqui";
             t["/min"] = "/min";
-            t["This veilstone outcrop is cursed or mined out"] = "Este afloramento de veilstone está amaldiçoado ou esgotado";
-            t["Trading Outposts must stand beside an uncursed veilstone outcrop"] = "Os Entrepostos Comerciais têm de ficar ao lado de um afloramento de veilstone não amaldiçoado";
-            t["Trading Outposts must stand on a free side of an uncursed veilstone outcrop"] = "Os Entrepostos Comerciais têm de ficar num lado livre de um afloramento de veilstone não amaldiçoado";
             t["Mines must be built on a free iron or veilstone node"] = "As Minas têm de ser construídas num recurso livre de ferro ou veilstone";
             t["Veilstone Mines must be built on a free, uncursed veilstone outcropping"] = "As Minas de Veilstone têm de ser construídas num afloramento livre e não amaldiçoado";
             t["Something is already built here"] = "Já existe algo construído aqui";

@@ -123,6 +123,7 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public ComponentLookup<FlyingTag> Flying;
             [ReadOnly] public ComponentLookup<NodeUntargetable> NodeUntargetable;
             [ReadOnly] public ComponentLookup<NodeNoAutoAcquire> NodeNoAutoAcquire;
+            [ReadOnly] public ComponentLookup<TheWaningBorder.Abilities.GallopState> Gallop;
             [ReadOnly] public EntityStorageInfoLookup Storage;
 
             public static bool On<T>(in ComponentLookup<T> lk, Entity e)
@@ -192,6 +193,12 @@ namespace TheWaningBorder.Systems.Combat
                     r.Acquire = 0;
                     return r;
                 }
+                // Galloping: strikes in passing, never stops for a target.
+                if (TheWaningBorder.Abilities.AlanthorGallop.IsGalloping(in Gallop, e))
+                {
+                    r.Acquire = 0;
+                    return r;
+                }
                 if (IsOnRampart(e))
                 {
                     r.ScanRadius = reach;
@@ -254,6 +261,7 @@ namespace TheWaningBorder.Systems.Combat
             Flying = SystemAPI.GetComponentLookup<FlyingTag>(true),
             NodeUntargetable = SystemAPI.GetComponentLookup<NodeUntargetable>(true),
             NodeNoAutoAcquire = SystemAPI.GetComponentLookup<NodeNoAutoAcquire>(true),
+            Gallop = SystemAPI.GetComponentLookup<TheWaningBorder.Abilities.GallopState>(true),
             Storage = SystemAPI.GetEntityStorageInfoLookup(),
         };
 

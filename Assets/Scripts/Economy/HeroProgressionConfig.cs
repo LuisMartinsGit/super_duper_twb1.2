@@ -81,7 +81,7 @@ namespace TheWaningBorder.Economy
         public static int XpForKill(CostBlock victimCost)
             => victimCost == null ? 0
              : victimCost.Supplies + victimCost.Iron
-             + victimCost.Veilstone + victimCost.Veilsteel;
+             + victimCost.Veilstone;
 
         // ── Revival (Heroes.md §4) ──────────────────────────────────────
 

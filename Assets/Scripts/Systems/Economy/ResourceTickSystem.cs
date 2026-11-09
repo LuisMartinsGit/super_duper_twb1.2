@@ -54,7 +54,7 @@ namespace TheWaningBorder.Economy
     /// Applies passive resource income from buildings to faction banks.
     ///
     /// Supplies use per-building discrete ticks (e.g., Hall: 50 every 15s, GathererHut: 25 every 10s).
-    /// Other resources (Iron, Veilstone, Veilsteel, Glow) still tick once per game-second.
+    /// Other resources (Iron, Veilstone) still tick once per game-second.
     ///
     /// Only completed buildings contribute (those without UnderConstruction component).
     /// </summary>
@@ -110,7 +110,7 @@ namespace TheWaningBorder.Economy
                     EconomyLedger.Credit(tag.ValueRO.Value,
                             state.EntityManager.HasComponent<FortressTag>(e)
                                 ? IncomeSource.Capital : IncomeSource.BuildingPassive,
-                            amount, 0f, 0f, 0f);
+                            amount, 0f, 0f);
 
                     var key = (byte)tag.ValueRO.Value;
                     if (suppliesPerFaction.TryGetValue(key, out var existing))
@@ -135,7 +135,7 @@ namespace TheWaningBorder.Economy
                         if (bank.ValueRO.Supplies > FactionResources.ResourceCap)
                         {
                             EconomyLedger.Debit(tag.ValueRO.Value, SpendCategory.Overflow,
-                                bank.ValueRO.Supplies - FactionResources.ResourceCap, 0f, 0f, 0f);
+                                bank.ValueRO.Supplies - FactionResources.ResourceCap, 0f, 0f);
                             bank.ValueRW.Supplies = FactionResources.ResourceCap;
                         }
                     }
@@ -156,7 +156,6 @@ namespace TheWaningBorder.Economy
 
             CollectIronIncome(ref state, ref perFactionIncome);
             CollectVeilstoneIncome(ref state, ref perFactionIncome);
-            CollectVeilsteelIncome(ref state, ref perFactionIncome);
 
             if (!perFactionIncome.IsEmpty)
             {
@@ -174,16 +173,14 @@ namespace TheWaningBorder.Economy
                         var resources = bank.ValueRO;
                         resources.Iron += income.Iron * missed;
                         resources.Veilstone += income.Veilstone * missed;
-                        resources.Veilsteel += income.Veilsteel * missed;
                         EconomyLedger.Credit(tag.ValueRO.Value, IncomeSource.BuildingPassive,
-                            0f, income.Iron * missed, income.Veilstone * missed, income.Veilsteel * missed);
+                            0f, income.Iron * missed, income.Veilstone * missed);
                         if (EconomyLedger.Recording)
                         {
                             var unclamped = resources;
                             resources.Clamp();
                             EconomyLedger.Debit(tag.ValueRO.Value, SpendCategory.Overflow, 0f,
-                                unclamped.Iron - resources.Iron, unclamped.Veilstone - resources.Veilstone,
-                                unclamped.Veilsteel - resources.Veilsteel);
+                                unclamped.Iron - resources.Iron, unclamped.Veilstone - resources.Veilstone);
                         }
                         resources.Clamp();
                         bank.ValueRW = resources;
@@ -266,39 +263,11 @@ namespace TheWaningBorder.Economy
             }
         }
 
-        private void CollectVeilsteelIncome(ref SystemState state,
-            ref NativeParallelHashMap<byte, OtherIncomeAccumulator> perFactionIncome)
-        {
-            foreach (var (tag, income) in
-                SystemAPI.Query<RefRO<FactionTag>, RefRW<VeilsteelIncome>>()
-                    .WithNone<UnderConstruction>())
-            {
-                if (income.ValueRO.PerMinute <= 0) continue;
-
-                income.ValueRW.FractionalAccumulator += income.ValueRO.PerMinute / 60f;
-                int whole = (int)income.ValueRO.FractionalAccumulator;
-                if (whole <= 0) continue;
-                income.ValueRW.FractionalAccumulator -= whole;
-
-                var key = (byte)tag.ValueRO.Value;
-                if (perFactionIncome.TryGetValue(key, out var existing))
-                {
-                    existing.Veilsteel += whole;
-                    perFactionIncome[key] = existing;
-                }
-                else
-                {
-                    perFactionIncome.TryAdd(key, new OtherIncomeAccumulator { Veilsteel = whole });
-                }
-            }
-        }
-
 
         private struct OtherIncomeAccumulator
         {
             public int Iron;
             public int Veilstone;
-            public int Veilsteel;
         }
     }
 }

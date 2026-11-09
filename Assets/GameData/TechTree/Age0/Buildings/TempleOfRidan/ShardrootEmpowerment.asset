@@ -16,8 +16,7 @@ MonoBehaviour:
   protection: 0.2
   enshrineSupplies: 10000
   enshrineIron: 0
-  enshrineVeilstone: 1500
-  enshrineVeilsteel: 800
+  enshrineVeilstone: 3100
   ascensionSeconds: 600
   countdownWarningSeconds: 150
   countdownFinalWarnings:

@@ -32,7 +32,6 @@ namespace TheWaningBorder.Data
                     Supplies = udef.cost.Supplies,
                     Iron = udef.cost.Iron,
                     Veilstone = udef.cost.Veilstone,
-                    Veilsteel = udef.cost.Veilsteel,
                 };
             }
             return default;

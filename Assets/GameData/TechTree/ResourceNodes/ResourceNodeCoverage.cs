@@ -1,7 +1,7 @@
-﻿// ResourceNodeCoverage.cs
+// ResourceNodeCoverage.cs
 // The ore half of the node-quota rule (docs/Design/Regions.md §4):
-// EVERY territory carries at least one ore node — iron, veilstone or
-// veilsteel — and never more than four; every home carries veilstone, and
+// EVERY territory carries at least one ore node — iron or veilstone —
+// and never more than four; every home carries veilstone, and
 // half the map does.
 //
 // AUTHORED BY HAND (2026-09-11). Resource nodes are placed by the map
@@ -52,7 +52,6 @@ namespace TheWaningBorder.Bootstrap
         public static bool MapAuthorsResources =>
             MapMarkerRegistry.HasIronMarkers
             || MapMarkerRegistry.HasVeilstoneMarkers
-            || MapMarkerRegistry.HasVeilsteelMarkers
             || MapMarkerRegistry.HasSupplyNodes;
 
         /// <summary>
@@ -191,7 +190,6 @@ namespace TheWaningBorder.Bootstrap
             var counts = new int[RegionMap.Count];
             Accumulate<IronMineTag>(em, counts);
             Accumulate<VeilstoneOutcroppingTag>(em, counts);
-            Accumulate<VeilsteelDepositTag>(em, counts);
             return counts;
         }
 

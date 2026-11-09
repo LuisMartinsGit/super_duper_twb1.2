@@ -474,6 +474,10 @@ namespace TheWaningBorder.Systems.Combat
                 if (TransientState.Active<TheWaningBorder.Abilities.ChargeDamageBonus>(em, attacker))
                     final += em.GetComponentData<TheWaningBorder.Abilities.ChargeDamageBonus>(attacker).Bonus;
             }
+            // A galloping Alanthor rider hits harder (Age_1_Alanthor.md § Galloping).
+            float gallop = TheWaningBorder.Abilities.AlanthorGallop.OutgoingMultiplier(em, attacker);
+            if (gallop != 1f) final = (int)(final * gallop);
+
             // (Liquid Courage's incoming-damage reduction is applied uniformly at
             // every HP-application site via AbilityDamageHooks.ScaleIncoming, not here.)
 

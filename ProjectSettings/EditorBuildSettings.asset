@@ -153,6 +153,9 @@ EditorBuildSettings:
     path: Assets/GameData/Scenes/Scenarios/Scenario_GarrisonRangeLadder.unity
     guid: 3a7c1d5e9b2f4a6c8d0e1f2a3b4c5d61
   - enabled: 1
+    path: Assets/GameData/Scenes/Scenarios/Scenario_GallopTest.unity
+    guid: 4adc9b4ee9b1424ab31a463bb38dfb4e
+  - enabled: 1
     path: Assets/GameData/Scenes/Tutorial/TutorialBasic/TutorialBasic.unity
     guid: ff7f2b37bd1ea2d4eab9c63a81210a55
   - enabled: 1

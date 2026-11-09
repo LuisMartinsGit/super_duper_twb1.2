@@ -1,4 +1,4 @@
-﻿// SectInfo.cs
+// SectInfo.cs
 // Display-time descriptions for the 12 sects. Used by the Religion HUD and the
 // Sect Choice popup to show:
 //   • Lore  — a single sentence of flavour for the picker header.
@@ -34,7 +34,7 @@ namespace TheWaningBorder.Economy
         {
             SectConfig.Antiquity   => "The Registry: surveyors, engineers and keepers of the Old Empire's seals, lenses and glow-engines.",
             SectConfig.Renewal     => "The Hospices: healers of the poor, whose mending returns a body to the moment before the wound.",
-            SectConfig.Fortitude   => "The Wardens: keepers of walls and watch-fires, whose veilsteel stores glow and lets it loose.",
+            SectConfig.Fortitude   => "The Wardens: keepers of walls and watch-fires, whose veilstone stores glow and lets it loose.",
             SectConfig.Prosperity  => "The Guild: workshops and counting rooms where glow-fed engines make time run faster.",
             SectConfig.Silence     => "A doctrine of stillness — to stand is to be unkillable.",
             SectConfig.Justice     => "Every wound your soldiers take is debt; their gods collect at sword-point.",

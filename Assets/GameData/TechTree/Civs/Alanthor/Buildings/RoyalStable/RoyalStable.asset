@@ -59,7 +59,6 @@ MonoBehaviour:
     Supplies: 220
     Iron: 80
     Veilstone: 0
-    Veilsteel: 0
   tags:
   - Building
   attack:

@@ -120,7 +120,6 @@ namespace TheWaningBorder.Entities
             Part(c.Supplies, "supplies");
             Part(c.Iron, "iron");
             Part(c.Veilstone, "veilstone");
-            Part(c.Veilsteel, "veilsteel");
             return sb.Length > 0 ? sb.ToString() : Loc.T("nothing");
         }
 

@@ -25,7 +25,6 @@ namespace TheWaningBorder.UI.Common
         public const string Supplies = "Supplies";
         public const string Iron = "Iron";
         public const string Veilstone = "Veilstone";
-        public const string Veilsteel = "Veilsteel";
 
         private const string Prefix = "TWB_";
         private static readonly Dictionary<string, TMP_SpriteAsset> _assets =

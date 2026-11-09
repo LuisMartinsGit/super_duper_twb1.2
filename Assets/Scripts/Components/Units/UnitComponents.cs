@@ -54,7 +54,7 @@ public struct UnitTypeId : IComponentData
 /// <summary>
 /// Veteran rank for military units (1..5 per the design spec). Lv 1 is the
 /// default for newly-trained units; Lv 2-5 are bought via UnitRankCommand
-/// at the cost gates Supplies / Veilstone / Veilsteel / Glow respectively.
+/// at the cost gates in UnitRankConfig.CostFor.
 ///
 /// Per-level stat scaling (UnitRankConfig.MultiplierFor):
 ///   Lv 1: 1.00× attack/defense/LOS (base)

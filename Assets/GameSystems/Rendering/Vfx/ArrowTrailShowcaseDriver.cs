@@ -12,7 +12,7 @@
 // unreadable without it.
 //
 // It also carries the arrow-effect TUNING PANEL (top right): pick a tier
-// (Stone / Iron / Veilstone / Veilsteel). Stone and Iron: trail width. The two
+// (Stone / Iron / Veilstone / Shard). Stone and Iron: trail width. The two
 // projectile tiers: whole-tip and hit size, plus one button per part of the
 // tip prefab — it selects that Particle System on the prefab so the Inspector
 // edits it with its own controls; the next arrow is rebuilt from the edited
@@ -101,7 +101,7 @@ namespace TheWaningBorder.Rendering
             _panel = GUILayout.Window(0x7A11, _panel, TuningWindow, "Arrow effects (live)", GUILayout.Width(_panel.width));
         }
 
-        private static readonly string[] TierNames = { "Stone", "Iron", "Veilstone", "Veilsteel" };
+        private static readonly string[] TierNames = { "Stone", "Iron", "Veilstone", "Shard" };
         private int _tier = 2;
 
         private void TuningWindow(int id)
@@ -118,7 +118,7 @@ namespace TheWaningBorder.Rendering
                     case 0: changed |= Slider("Trail width", ref arrows.stoneTrailWidth, 0.02f, 2f); break;
                     case 1: changed |= Slider("Trail width", ref arrows.ironTrailWidth, 0.02f, 2f); break;
                     default:
-                        var look = _tier == 2 ? arrows.veilstone : arrows.veilsteel;
+                        var look = _tier == 2 ? arrows.veilstone : arrows.shard;
                         if (look == null) { GUILayout.Label("No settings for this tier."); break; }
                         changed |= Slider("Tip (whole)", ref look.tipScale, 0.02f, 1f);
                         changed |= Slider("Hit", ref look.hitScale, 0.02f, 1f);

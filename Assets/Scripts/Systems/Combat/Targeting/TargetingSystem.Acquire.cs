@@ -176,6 +176,14 @@ namespace TheWaningBorder.Systems.Combat
                 r.Acquire = 0;
                 return r;
             }
+            // GALLOPING (docs/Design/Age_1_Alanthor.md § Galloping): the rider
+            // strikes in passing (AlanthorGallopSystem) and never stops for a
+            // target of its own. An explicit attack order is not acquisition.
+            if (TheWaningBorder.Abilities.AlanthorGallop.IsGalloping(em, e))
+            {
+                r.Acquire = 0;
+                return r;
+            }
             // ON THE WALL-WALK (docs/Design/Age_1_Alanthor.md § The stone
             // wall, 2026-10-20): a man on the battlements fights from them —
             // anything inside his reach, whatever his stance, and never a

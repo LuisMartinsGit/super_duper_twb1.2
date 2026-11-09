@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelTools
   m_EditorClassIdentifier: 
   id: Runai_VeilsteelTools
-  displayName: Veilsteel Tools
+  displayName: Shard Tools
   role: Economy
   effect: 
   desc: "Tool tier 4 - Runai. Workers build faster still."
@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 250
     Iron: 150
-    Veilstone: 100
-    Veilsteel: 30
+    Veilstone: 160
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

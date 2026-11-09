@@ -264,7 +264,6 @@ namespace TheWaningBorder.EditorTools
             combat.attackUpPrefab = P(T + "Age0/Units/Vfx/Unit_AttackUp.prefab");
             combat.frenziedPrefab = P(T + "Sects/Antiquity/Abilities/FriendlyFire/FriendlyFire_Aura.prefab");
             combat.arrowVeilstoneHitPrefab = P(T + "Civs/Alanthor/Buildings/ArcheryRange/Vfx/ArrowHit_Veilstone.prefab");
-            combat.arrowVeilsteelHitPrefab = P(T + "Civs/Alanthor/Buildings/ArcheryRange/Vfx/ArrowHit_Veilsteel.prefab");
             EditorUtility.SetDirty(combat);
 
             // Arrow tiers: one block per tier, each tuned on its own (the Arrow
@@ -274,13 +273,11 @@ namespace TheWaningBorder.EditorTools
             if (arrows.stoneTrailWidth <= 0f) arrows.stoneTrailWidth = 0.33f;
             if (arrows.ironTrailWidth <= 0f) arrows.ironTrailWidth = 0.33f;
             arrows.veilstone ??= new TheWaningBorder.Rendering.ArrowTrailTiersConfig.TipLook();
-            arrows.veilsteel ??= new TheWaningBorder.Rendering.ArrowTrailTiersConfig.TipLook();
+            arrows.shard ??= new TheWaningBorder.Rendering.ArrowTrailTiersConfig.TipLook();
             if (arrows.veilstone.tipScale <= 0f) arrows.veilstone.tipScale = 0.2f;
-            if (arrows.veilsteel.tipScale <= 0f) arrows.veilsteel.tipScale = 0.2f;
             if (arrows.veilstone.hitScale <= 0f) arrows.veilstone.hitScale = 0.15f;
-            if (arrows.veilsteel.hitScale <= 0f) arrows.veilsteel.hitScale = 0.15f;
             arrows.veilstone.tipPrefab = P(T + "Civs/Alanthor/Buildings/ArcheryRange/Vfx/ArrowTip_Veilstone.prefab");
-            arrows.veilsteel.tipPrefab = P(T + "Civs/Alanthor/Buildings/ArcheryRange/Vfx/ArrowTip_Veilsteel.prefab");
+            arrows.shard.tipPrefab = P(T + "Civs/Alanthor/Buildings/ArcheryRange/Vfx/ArrowTip_Veilsteel.prefab");
             EditorUtility.SetDirty(arrows);
 
             // Building dust / smoke: the copies carry converted URP materials,
@@ -368,7 +365,7 @@ namespace TheWaningBorder.EditorTools
         /// <summary>
         /// Lana's dark-magic projectile ships with only a trail_shadow; the
         /// electric one has trail_glow + trail_shadow. Give the Veilstone tip
-        /// copy its own trail_glow — Veilsteel's, same width curve and timing,
+        /// copy its own trail_glow — the Shard tip's, same width curve and timing,
         /// recoloured dark-magic purple — so both tiers have the same two
         /// editable trails. Re-run after every import (the copy is rewritten
         /// from the vendor prefab); does nothing once the trail exists.

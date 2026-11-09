@@ -51,10 +51,9 @@ namespace TheWaningBorder.Data
         // Each tier is scarcer than the last, so a point of it is worth more.
         // Supplies are the unit, and the ladder doubles: a territory pays
         // supplies for free and iron / veilstone only where the map put a node
-        // (docs/Design/Regions.md §4), and veilsteel is rarer still.
+        // (docs/Design/Regions.md §4).
         private const float IronWeight = 2f;
         private const float VeilstoneWeight = 4f;
-        private const float VeilsteelWeight = 8f;
 
         /// <summary>Supplies-equivalent of one second of training. A unit also
         /// costs the BUILDING that made it, for as long as it was in there —
@@ -188,8 +187,7 @@ namespace TheWaningBorder.Data
             if (def?.cost != null)
                 c = def.cost.Supplies
                   + def.cost.Iron * IronWeight
-                  + def.cost.Veilstone * VeilstoneWeight
-                  + def.cost.Veilsteel * VeilsteelWeight;
+                  + def.cost.Veilstone * VeilstoneWeight;
             c += Math.Max(0f, def?.trainingTime ?? 0f) * TimeWeight;
             return Math.Max(1f, c);
         }

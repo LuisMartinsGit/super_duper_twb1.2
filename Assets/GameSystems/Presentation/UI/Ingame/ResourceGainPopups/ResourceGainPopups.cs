@@ -98,7 +98,6 @@ namespace TheWaningBorder.UI.Ingame
             Part(a.Supplies, ResourceIcons.Supplies, "S");
             Part(a.Iron, ResourceIcons.Iron, "I");
             Part(a.Veilstone, ResourceIcons.Veilstone, "V");
-            Part(a.Veilsteel, ResourceIcons.Veilsteel, "Vs");
             return _sb.ToString();
         }
 

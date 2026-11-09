@@ -7,10 +7,10 @@
 //
 //    1  construction (Lv0)          8  Veilstone Surveying I
 //    2  upgrade to Lv1              9  upgrade to Lv3
-//    3  Iron Reinforcements        10  Veilsteel Pylons (no look yet)
+//    3  Iron Reinforcements        10  Shard Pylons (no look yet)
 //    4  Iron Surveying I           11  Iron Surveying III
 //    5  upgrade to Lv2             12  Veilstone Surveying II
-//    6  Veilstone Walls            13  Veilsteel Surveying
+//    6  Veilstone Walls            13  (empty: its survey was cut)
 //    7  Iron Surveying II          14  DAMAGE PHASE (see below)
 //
 // Damage phase: one interval after the last tech, the hut starts draining
@@ -62,7 +62,7 @@ namespace TheWaningBorder.Rendering
             (0, "VeilsteelPylons"),       // 10 (no authored look yet)
             (0, "IronSurveying3"),        // 11 (dissolves tier II out)
             (0, "VeilstoneSurvey2"),      // 12 (dissolves tier I out)
-            (0, "VeilsteelSurvey"),       // 13
+            (0, null),                    // 13 (was Veilsteel Survey, cut 2026-11-09)
         };
 
         // Camera orbit: near-horizontal so the SIDES of the building fill

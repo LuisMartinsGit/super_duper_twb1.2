@@ -15,8 +15,7 @@ MonoBehaviour:
   id: Runai_Sanctuary
   displayName: Sanctuary
   role: Runai veilstone shrine - built atop an outcrop, Inactive or Cursed
-  description: Never drains its outcrop. Veilstone on an Inactive outcrop, veilsteel
-    on a Cursed one; a slow religion trickle; the curse sleeps under it.
+  description: Never drains its outcrop. Buys veilstone with religion points; a slow religion trickle; the curse sleeps under it.
   hp: 800
   armorType: structure_human
   defense:
@@ -53,7 +52,6 @@ MonoBehaviour:
     Supplies: 150
     Iron: 50
     Veilstone: 0
-    Veilsteel: 0
   tags:
   - Building
   attack:

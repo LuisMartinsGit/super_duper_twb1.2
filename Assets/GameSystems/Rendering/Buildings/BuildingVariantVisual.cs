@@ -397,8 +397,6 @@ namespace TheWaningBorder.Rendering
             new TechVisualDef { TechId = "VeilstoneSurvey2",
                 Nodes = new[] { "Veilstone_Surveying_II" },
                 ReplacesNodes = new[] { "Veilstone_Surveying_I" } },
-            new TechVisualDef { TechId = "VeilsteelSurvey",
-                Nodes = new[] { "Veilsteel_Surveying" } },
             new TechVisualDef { TechId = "VeilstoneWalls",
                 Nodes = new[] { "Veilstone_Walls" },
                 ReplacesNodes = new[] { "wall_low" } },

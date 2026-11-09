@@ -50,7 +50,7 @@ namespace TheWaningBorder.Bootstrap
 
         private static string AStatus() =>
             $"t={Time.time:F0} stage={TutorialMissionState.AdvancedStage} survey={TutorialMissionState.SurveyDone} "
-            + $"outposts={TutorialMissionState.Outposts} ranges={TutorialMissionState.Ranges} towers={TutorialMissionState.Towers} "
+            + $"stopped={TutorialMissionState.Stopped} ranges={TutorialMissionState.Ranges} towers={TutorialMissionState.Towers} "
             + $"claimed={TutorialMissionState.Claimed} rp={TutorialMissionState.ReligionPoints} temples={TutorialMissionState.Temples} "
             + $"sect={TutorialMissionState.SectAdopted} node={TutorialMissionState.NodeDead} monument={TutorialMissionState.MonumentHeld}/{TutorialMissionState.MonumentExplored} "
             + $"waves={TutorialMissionState.WavesSent}";
@@ -107,7 +107,7 @@ namespace TheWaningBorder.Bootstrap
                         _researched = true;
                         Log("research " + ACfg.surveyTechs[0]);
                     }
-                    PlaceOutpost(em);
+                    StopAMine(em);
                     break;
                 case AdvancedStage.Military:
                     PlaceOnce(em, ACfg.archeryRangeId);
@@ -167,23 +167,14 @@ namespace TheWaningBorder.Bootstrap
                 CommandRouter.IssueBuild(em, w, site, id, pos, CommandSource.LocalPlayer, append: false);
         }
 
-        private void PlaceOutpost(EntityManager em)
+        /// <summary>Step 2b (2026-11-09): stop extracting at the first finished Mine.</summary>
+        private void StopAMine(EntityManager em)
         {
-            if (_placed.Contains(ACfg.outpostId)) return;
-            using var q = em.CreateEntityQuery(ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>());
-            using var xf = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            var nodes = xf.ToArray().OrderBy(x => math.distancesq(x.Position.xz, _home.xz));
-            foreach (var x in nodes)
-            {
-                if (!TerritoryOwnership.ResolveExtractorAt(em, Me, x.Position, out var id, out var at)) continue;
-                CommandRouter.IssuePlaceBuilding(em, id, at, Me, Entity.Null, out var site, CommandSource.LocalPlayer);
-                if (site == Entity.Null) continue;
-                _placed.Add(ACfg.outpostId);
-                Log($"placed {id} at {at.x:F0},{at.z:F0}");
-                foreach (var w in Workers(em).Take(2))
-                    CommandRouter.IssueBuild(em, w, site, id, at, CommandSource.LocalPlayer, append: false);
-                return;
-            }
+            if (TutorialMissionState.Stopped >= 1) return;
+            var mine = FirstFinished<MineTag>(em);
+            if (mine == Entity.Null) return;
+            CommandRouter.IssueSetExtractorStopped(em, mine, true, CommandSource.LocalPlayer);
+            Log("stopped extracting at a Mine");
         }
 
         private void TrainSoldiers(EntityManager em)

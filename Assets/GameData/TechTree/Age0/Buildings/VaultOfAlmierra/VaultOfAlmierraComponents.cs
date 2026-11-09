@@ -16,7 +16,7 @@ public struct VaultTag : IComponentData { }
 /// </summary>
 public struct VaultStorage : IComponentData
 {
-    /// <summary>0=None, 1=Supplies, 2=Iron, 3=Veilstone, 4=Veilsteel, 5=Glow</summary>
+    /// <summary>0=None, 1=Supplies, 2=Iron, 3=Veilstone</summary>
     public int ResourceType;
     /// <summary>Principal plus the interest it has earned; what a withdrawal pays out.</summary>
     public float StoredAmount;

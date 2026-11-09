@@ -116,8 +116,7 @@ namespace TheWaningBorder.AI
             if (!HoldActive(em, faction, out var shortSet, militaryView: true)) return false;
             return (purchase.Supplies  > 0 && shortSet.Supplies)
                 || (purchase.Iron      > 0 && shortSet.Iron)
-                || (purchase.Veilstone > 0 && shortSet.Veilstone)
-                || (purchase.Veilsteel > 0 && shortSet.Veilsteel);
+                || (purchase.Veilstone > 0 && shortSet.Veilstone);
         }
 
         /// <summary>Withdraw a pending purchase — call on success or when
@@ -152,7 +151,6 @@ namespace TheWaningBorder.AI
                 sum.Supplies  += kv.Value.Supplies;
                 sum.Iron      += kv.Value.Iron;
                 sum.Veilstone += kv.Value.Veilstone;
-                sum.Veilsteel += kv.Value.Veilsteel;
             }
             return sum;
         }
@@ -188,16 +186,15 @@ namespace TheWaningBorder.AI
             if (!HoldActive(em, faction, out var shortSet)) return false;
             return (purchase.Supplies  > 0 && shortSet.Supplies)
                 || (purchase.Iron      > 0 && shortSet.Iron)
-                || (purchase.Veilstone > 0 && shortSet.Veilstone)
-                || (purchase.Veilsteel > 0 && shortSet.Veilsteel);
+                || (purchase.Veilstone > 0 && shortSet.Veilstone);
         }
 
         /// <summary>Which resources the bank is short on against this
         /// faction's summed pending reserves.</summary>
         public struct ShortSet
         {
-            public bool Supplies, Iron, Veilstone, Veilsteel;
-            public bool Any => Supplies || Iron || Veilstone || Veilsteel;
+            public bool Supplies, Iron, Veilstone;
+            public bool Any => Supplies || Iron || Veilstone;
 
             /// <summary>Short resource names, for refusal logs.</summary>
             public override string ToString()
@@ -206,7 +203,6 @@ namespace TheWaningBorder.AI
                 if (Supplies)  s += "supplies ";
                 if (Iron)      s += "iron ";
                 if (Veilstone) s += "veilstone ";
-                if (Veilsteel) s += "veilsteel ";
                 return s.TrimEnd();
             }
         }
@@ -219,9 +215,8 @@ namespace TheWaningBorder.AI
             return set;
         }
 
-        /// <summary>Summed reserves vs bank, per resource (veilsteel
-        /// without the pad). False when nothing is pending or the bank is
-        /// unreadable.</summary>
+        /// <summary>Summed reserves vs bank, per resource. False when
+        /// nothing is pending or the bank is unreadable.</summary>
         private static bool ComputeShort(EntityManager em, Faction faction,
             out ShortSet set, out bool strict, bool militaryView = false)
         {
@@ -238,14 +233,12 @@ namespace TheWaningBorder.AI
                 s    += kv.Value.Supplies;
                 iron += kv.Value.Iron;
                 v    += kv.Value.Veilstone;
-                vs   += kv.Value.Veilsteel;
             }
             if (!any) return false;
             if (!FactionEconomy.TryGetResources(em, faction, out var res)) return false;
             set.Supplies  = res.Supplies  < s + Cfg.pad;
             set.Iron      = res.Iron      < iron + Cfg.pad;
             set.Veilstone = res.Veilstone < v + Cfg.pad;
-            set.Veilsteel = res.Veilsteel < vs;
             return true;
         }
 

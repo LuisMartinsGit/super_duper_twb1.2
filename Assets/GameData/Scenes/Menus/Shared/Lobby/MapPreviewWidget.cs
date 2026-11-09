@@ -39,7 +39,6 @@ namespace TheWaningBorder.UI.Menus.Panels
 
         public static readonly Color StartsColor    = new Color(0.910f, 0.722f, 0.290f);
         public static readonly Color VeilstoneColor = new Color(0.247f, 0.749f, 0.604f);
-        public static readonly Color VeilsteelColor = new Color(0.620f, 0.470f, 0.860f);
         public static readonly Color IronColor      = new Color(0.720f, 0.750f, 0.780f);
         public static readonly Color CurseColor     = new Color(0.850f, 0.300f, 0.250f);
 
@@ -81,9 +80,6 @@ namespace TheWaningBorder.UI.Menus.Panels
             {
                 AddStartMarkers(info.PlayerStarts);
                 AddMarkerSet(info.VeilstoneNodes, VeilstoneColor, "VEILSTONE");
-                // No veilsteel set: veilsteel deposits are no longer spawned
-                // (docs/Design/Veilstone_Economy.md), so the baked positions
-                // would advertise nodes that never appear.
                 AddMarkerSet(info.IronDeposits, IronColor, "IRON");
                 AddMarkerSet(info.CurseNodes, CurseColor, "CURSE");
             }

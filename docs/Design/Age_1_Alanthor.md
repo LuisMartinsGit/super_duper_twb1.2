@@ -29,7 +29,7 @@
 |--------|----------|
 | Focus | **Defense** (walls, towers, long-range archery, building HP) |
 | Style | Stone / Medieval |
-| Economy | Huts (the Guild) and Mines on territory slots, the **Trading Outpost** for veilstone (Alanthor never mine veilstone — [Veilstone_Economy.md](Veilstone_Economy.md)), the **Vault** for interest, and the Guild **Surveys** as the deliberate exception that lets huts produce iron, veilstone and veilsteel |
+| Economy | Huts (the Guild) and Mines on territory slots, Veilstone Mines, the late **Trading Outpost** beside any node (Trade Charters — [Veilstone_Economy.md §3.1](Veilstone_Economy.md)), the **Vault** for interest, and the Guild **Surveys** as the deliberate exception that lets huts produce iron and veilstone |
 | Territory | Ground is owned by standing on it ([Territory_Claims.md](Territory_Claims.md)); the Fortress and extractors lock it. Alanthor builds only on owned ground, walls included |
 | Main upgrade hooks | the **Fortress** (capital, L1-L3) — the tool ladder and the **Mason Guild** building-HP passive; the **Wall Hub** — the wall levels |
 | Techs | **faction-wide.** A tech applies to every unit or building it names, standing and future; there is no per-battalion upgrade (decision 31) |
@@ -79,7 +79,7 @@ under the cultured name:
 | `Alanthor_RoyalStable` | Royal Stable | `RoyalStable/RoyalStable_Lvl1..3` |
 | `Alanthor_Tower` | Watch Tower | `Tower/WatchTower_Lvl1..3` |
 | `Alanthor_SiegeYard` | Siege Yard | `SiegeYard/SiegeYard_Lvl1..3` |
-| `Alanthor_TradingOutpost` (Age 1 only; also the Veilstone Mine after age-up) | Trading Outpost | `TradingOutpost/TradingOutpost_Lvl1..3` |
+| `Alanthor_TradingOutpost` (Age 1 only, after Trade Charters) | Trading Outpost | `TradingOutpost/TradingOutpost_Lvl1..3` |
 | `Alanthor_Wall` — Stone Wall | Stone / Battlemented / Shielded | `Wall/Wall_Lvl1..3` |
 
 Each level carries its **name, upgrade cost and time, HP / train-time /
@@ -136,7 +136,8 @@ everyone; the Alanthor ones are Alanthor-gated and filed in
 | **Armed Scouts** | Age 0, all | — | arms Scouts, standing and newly trained |
 | **Iron Tools** | Alanthor | Fortress L2 | build speed, tier 2 |
 | **Veilstone Tools** | Alanthor | Fortress L3 | build speed, tier 3 |
-| **Veilsteel Tools** | Alanthor | Fortress L3 | build speed, tier 4 |
+| **Shard Tools** (id `VeilsteelTools`) | Alanthor | Fortress L3 | build speed, tier 4 |
+| **Trade Charters** | Alanthor | Fortress L3 | unlocks the Trading Outpost ([§ Trading Outpost](#trading-outpost--alanthor_tradingoutpost-l1-l3-decision-42-2026-11-09)) |
 | **Mason Guild** | Alanthor | Fortress L2 | faction-wide building HP |
 | **Scouting Celestarii** | Alanthor | — | the **Celestar passive** on every Scout ([§ Scouting Celestarii](#scouting-celestarii--the-celestar-passive-2026-10-19)) |
 
@@ -202,7 +203,7 @@ All faction-wide. Gates are the tech SOs' `minBuildingLevel` on the Garrison.
 | **Stone Weapons** | — | melee weapon tier 1 | |
 | **Iron Weapons** | L1 | melee weapon tier 2 | Stone Weapons |
 | **Veilstone Weapons** | L2 | melee weapon tier 3 | Iron Weapons |
-| **Shard-infused Weapons** | L3 | melee weapon tier 4 (needs veilsteel) | Veilstone Weapons |
+| **Shard-infused Weapons** | L3 | melee weapon tier 4 | Veilstone Weapons |
 | **Iron Plate** | L1 | melee armour tier 1 | |
 | **Veilstone Plate** | L2 | melee armour tier 2 | Iron Plate |
 | **Shard Plate** | L3 | melee armour tier 3 | Veilstone Plate |
@@ -244,7 +245,7 @@ minimum range) are in [Combat_Pacing.md § The ranged ladder](Combat_Pacing.md).
 | **Stone-Tipped Arrows** | — | arrow tier 1 | |
 | **Iron-Tipped Arrows** | L1 | arrow tier 2 | Stone-Tipped |
 | **Veilstone-Tipped Arrows** | L2 | arrow tier 3 | Iron-Tipped |
-| **Shard-Tipped Arrows** | L3 | arrow tier 4 (needs veilsteel) | Veilstone-Tipped |
+| **Shard-Tipped Arrows** | L3 | arrow tier 4 | Veilstone-Tipped |
 | **Iron / Veilstone / Shard Brigandine** | L1 / L2 / L3 | ranged armour tiers 1-3, each requiring the previous | |
 | **Seasoned / Veteran / Elite Archers** | L1 / L2 / L3 | veterancy tiers, each requiring the previous | |
 | **Arrow Volley** | — | permanent faster fire for every ranged unit | |
@@ -285,7 +286,6 @@ decision 17): a developed hut ring is Alanthor's late-game mine.
 | **Iron Survey III** | Guild L3 | more iron | Iron Survey II |
 | **Veilstone Survey I** | Guild L2 | every Guild also produces veilstone | Iron Surveying I |
 | **Veilstone Survey II** | Guild L3 | more veilstone | Veilstone Survey I |
-| **Veilsteel Survey** | Guild L3 | every Guild also produces veilsteel | Veilstone Survey II |
 | **Supply Survey I** | Guild L1 | every Guild also produces supplies, depleted Guilds included (2026-10-20, [Veilstone_Economy.md §5.2](Veilstone_Economy.md)) | |
 | **Supply Survey II** | Guild L2 | more supplies | Supply Survey I |
 | **Supply Survey III** | Guild L3 | more supplies | Supply Survey II |
@@ -306,7 +306,7 @@ level scaling are on `TerritoryIncomeSystem.asset`.
 |------|------|---------------|----------|
 | **Iron Reinforcements** | — | the hut auto-repairs once out of combat | |
 | **Veilstone Walls** | Guild L2 | below half HP the hut casts a one-shot **Slow** burst on enemies in its gather radius (long cooldown); faster repair | Iron Reinforcements |
-| **Veilsteel Pylons** | Guild L3 | the burst becomes a **Stop**; faster repair still | Veilstone Walls |
+| **Shard Pylons** (id `VeilsteelPylons`) | Guild L3 | the burst becomes a **Stop**; faster repair still | Veilstone Walls |
 
 Implemented in `GathererHutIncomeSystem` (surveys), `GathererHutReinforcementSystem`
 (repair + slow/stop) and the level SOs.
@@ -336,7 +336,7 @@ Alanthor levels (`VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) carry the
 interest multiplier: **interest applies from L1 and grows with level**
 (decision 12); the banking-grade techs raise the rate (the grade rates are on
 the Vault SO). Its research gates: Veilstone Monetization at **Vault L2**,
-Veilsteel Bonds at **Vault L3**. **One Vault per faction** (2026-10-19,
+Shard Bonds (id `VeilsteelBonds`) at **Vault L3**. **One Vault per faction** (2026-10-19,
 [Age_0.md § Vault](Age_0.md)).
 
 ---
@@ -372,12 +372,39 @@ its scouts are dead ([Game_AI.md](Game_AI.md) §7).
 | **Stone-Barded Lances** | — | cavalry weapon tier 1 | |
 | **Iron-Barded Lances** | L1 | tier 2 | Stone-Barded |
 | **Veilstone Lances** | L2 | tier 3 | Iron-Barded |
-| **Shard-infused Lances** | L3 | tier 4 (needs veilsteel) | Veilstone Lances |
+| **Shard-infused Lances** | L3 | tier 4 | Veilstone Lances |
 | **Iron / Veilstone / Shard Barding** | L1 / L2 / L3 | cavalry armour tiers 1-3, each requiring the previous | |
 | **Seasoned / Veteran / Elite Cavalry** | L1 / L2 / L3 | veterancy tiers, each requiring the previous | |
 | **Charge** (`CavalryCharge`) | L1 | the cavalry version of the Garrison's Charge: speed burst + harder first strike, values on the tech SO | |
 | **War Horn** | L2 | unlocks the War Horn active for cavalry (`RoyalStable/Abilities/WarHorn/`) | |
-| **Full Gallop** | L3 | unlocks the Full Gallop active (a speed burst during which the riders cannot attack) | War Horn |
+| **Full Gallop** | L3 | unlocks **Galloping** (below) for every Alanthor cavalry unit, and the Full Gallop active (a speed burst during which the riders cannot attack) | War Horn |
+
+#### Galloping (2026-11-07)
+
+Unlocked by **Full Gallop**. Alanthor cavalry only (the Outrider and the
+Cataphract); no other culture's riders gallop, and heroes do not.
+
+1. **When.** A rider that keeps moving for a few seconds starts to gallop.
+   "Moving" means covering ground at a good share of its own speed; brief
+   slowdowns through a turn do not count as stopping. It stops galloping the
+   moment it stops (after a short grace), and the clock starts over. How long it
+   takes, the speed share and the grace are on the Full Gallop SO.
+2. **Tougher.** A galloping rider takes less damage from everything, weapons,
+   spells and fire alike.
+3. **Harder.** It deals more damage with everything it does, its trample
+   included.
+4. **Trample.** It rides **through** enemy units instead of steering around
+   them, and every enemy unit it crosses takes trample damage (a share of the
+   rider's own attack) **once per gallop**. Allies are never hurt and are
+   steered around as usual. Buildings and walls still block it.
+5. **It does not stop to attack.** While galloping, a rider takes no target on
+   its own: it keeps riding where it was sent and strikes any enemy unit in
+   reach as it passes, on its normal attack timer, without turning or slowing.
+   An explicit attack order still sends it at that target; the blow it lands on
+   arrival is a galloping blow, and from then on it fights normally.
+
+Every percentage and timing is on `Research/FullGallop.asset` (`effectsList`);
+none is stated here. Code: `Civs/Alanthor/AlanthorGallop*.cs`.
 
 ### Siege Yard — `Alanthor_SiegeYard`
 
@@ -402,7 +429,7 @@ launch angle is solved ballistically so the stone lands where the target is
 
 | Tech | Gate | Effect (rule) | Requires |
 |------|------|---------------|----------|
-| **Stone / Iron / Veilstone / Shard-infused Shot** | — / L1 / L2 / L3 | munition tiers 1-4 (tier 4 needs veilsteel), each requiring the previous | |
+| **Stone / Iron / Veilstone / Shard-infused Shot** | — / L1 / L2 / L3 | munition tiers 1-4 , each requiring the previous | |
 | **Iron / Veilstone / Shard Plating** | L1 / L2 / L3 | siege armour tiers 1-3, each requiring the previous | |
 | **Seasoned / Veteran / Elite Crews** | L1 / L2 / L3 | veterancy tiers, each requiring the previous | |
 | **Reinforced Bolts** | L1 | the Ballista hits harder | |
@@ -450,36 +477,29 @@ Watch Tower:
   always, an enemy's only while you can see the tower. Your own tower shows
   it when selected even when empty.
 
-### Trading Outpost — `Alanthor_TradingOutpost` (L1-L3, decision 40)
+### Trading Outpost — `Alanthor_TradingOutpost` (L1-L3, decision 42, 2026-11-09)
 
-Alanthor's veilstone source: **Alanthor never mine veilstone**, and at age-up
-every Veilstone Mine the faction owns becomes the first Trading Outpost of its
-outcrop, moved off the outcrop onto a side
-([Veilstone_Economy.md §3.1](Veilstone_Economy.md)).
+Alanthor's late-game income: unlocked by **Trade Charters** (Fortress research,
+Fortress L3). Alanthor mine veilstone like everyone else until then, and keep their
+Veilstone Mines at age-up. The full rule is
+[Veilstone_Economy.md §3.1](Veilstone_Economy.md).
 
-- **Placement (2026-10-04):** **beside** an Inactive or Depleted veilstone
-  outcrop, on one of its **four side slots (N / E / S / W)**, flush against
-  it — **up to four posts per outcrop**, one per side, never beside a Cursed
-  one. The outcrop stays an impassable node
-  ([Build_Grid.md § The Trading Outpost's side slots](Build_Grid.md)). Every
-  post locks its territory like an extractor.
-- **Per-outcrop cost ramp:** the 2nd, 3rd and 4th post beside the same
-  outcrop cost progressively more, to build AND to level; the first post
-  beside a new outcrop is base price again. Multipliers:
-  `TradingOutpostSystem.asset` `outcropRampMultipliers`.
-- **Levels:** L1 free, L2 and L3 bought (`TradingOutpost_Lvl1..3`, prices
-  ramped per outcrop). A level raises the post's trade rate — spend and earn
-  alike (`tradeRateMultiplier`) — and its HP.
-- **Trades** (toggled on the building, one at a time): Buy Veilstone (the
-  default), Forge Veilsteel (after Veilsteel Forging), Sell Veilsteel (after
-  Veilsteel Export). It never drains the outcrop.
-- **Cycle:** the trade pays on a short fixed cycle (1 s since 2026-10-03) —
-  the cycle and every rate are in `TradingOutpostSystem.asset`.
-- **Research** (hosted by the Outpost, `TradingOutpost/Research/`): Trade
-  Agreements I-III (chained, cheaper inputs), **Swift Caravans** (after Trade
-  Agreements I — every trade of every Outpost runs faster, inputs and outputs
-  together; the percentage is on its SO), Veilsteel Forging, Veilsteel
-  Export.
+- **Placement:** on one of the four side slots (N / E / S / W) of **any** resource
+  node — supply, iron or veilstone — up to four per node, never beside a Cursed one.
+  Every post locks its territory like an extractor.
+- **Pays:** a trickle of its node's resource (rates on `TradingOutpostSystem.asset`,
+  times the node's purity and the post's level), **never drawn from the node**, only
+  while the node lives. A spent node collapses with every post beside it.
+- **Replaces the empty-node trickle** of its node, so an unworked node with a post no
+  longer wears down.
+- **Per-node cost ramp:** the 2nd, 3rd and 4th post beside one node cost more to build
+  (`outcropRampMultipliers`).
+- **Levels:** L1 free, L2 and L3 bought (`TradingOutpost_Lvl1..3`); a level raises the
+  trickle (`tradeRateMultiplier`) and HP.
+- **No trades, no research of its own.** Trade Agreements, Swift Caravans and Veilsteel
+  Forging / Export are deleted. Buy and sell at the Temple.
+- Pairs with **Stop extracting** ([Veilstone_Economy.md §3.5](Veilstone_Economy.md)):
+  stop the node's extractor before the node runs dry, and the posts keep paying.
 
 ---
 
@@ -1009,7 +1029,7 @@ Levels, abilities and the death / revival choice: [Heroes.md](Heroes.md).
    2026-10-03 (decision 31):** every weapon / armour / arrow / tool / veterancy
    tier is a faction-wide tech.
 5. **Glow tiers** — superseded: the fourth tier of every ladder is the
-   veilsteel-priced Shard tier.
+   Shard tier (veilstone-priced since 2026-11-09).
 6. **Mason Guild** — canonical name; faction-wide building HP (value on the
    tech SO).
 7. **Archery Range ladder** — Stone → Iron → Veilstone → Shard-tipped arrows,

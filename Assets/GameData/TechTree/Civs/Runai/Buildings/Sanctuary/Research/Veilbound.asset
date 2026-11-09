@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 300
     Iron: 150
-    Veilstone: 200
-    Veilsteel: 40
+    Veilstone: 280
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

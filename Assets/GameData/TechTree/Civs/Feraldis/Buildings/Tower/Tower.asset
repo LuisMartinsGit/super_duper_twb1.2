@@ -38,7 +38,6 @@ MonoBehaviour:
     Supplies: 120
     Iron: 60
     Crystal: 0
-    Veilsteel: 0
   tags:
   - 'Building'
   prefab: {fileID: 1723351204898839598, guid: 562267fb5bc6b694fa9dca1a1da89243, type: 3}

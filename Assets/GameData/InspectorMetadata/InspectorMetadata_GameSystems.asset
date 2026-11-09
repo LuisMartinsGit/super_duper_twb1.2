@@ -181,7 +181,7 @@ MonoBehaviour:
     fields:
     - field: "resourcePanel"
       header: 
-      tooltip: "Resource indicator (Supplies / Iron / Veilstone / Veilsteel / Housing)."
+      tooltip: "Resource indicator (Supplies / Iron / Veilstone / Religion / Housing)."
     - field: "selectionHeader"
       header: 
       tooltip: "Selection header: portrait symbol + name label for the current selection."

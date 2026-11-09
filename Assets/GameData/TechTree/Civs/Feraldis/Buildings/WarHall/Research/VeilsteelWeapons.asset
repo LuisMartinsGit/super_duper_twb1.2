@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelWeapons
   m_EditorClassIdentifier: 
   id: Feraldis_VeilsteelWeapons
-  displayName: Veilsteel Weapons
+  displayName: Shard Weapons
   role: Military
   effect: 
   desc: "Melee weapon tier 4: melee units deal +15% damage."
@@ -27,8 +27,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 200
-    Veilstone: 250
-    Veilsteel: 60
+    Veilstone: 370
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

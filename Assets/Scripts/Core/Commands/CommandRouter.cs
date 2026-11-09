@@ -517,7 +517,7 @@ namespace TheWaningBorder.Core.Commands
 
         /// <summary>
         /// Upgrade a faction's equipment tier for a unit class. Adjacent
-        /// tier moves only (Base→Iron→Veilstone→Veilsteel→Glow). Costs are
+        /// tier moves only (Base→Iron→Veilstone→Shard). Costs are
         /// spent immediately from the faction bank; the new tier applies
         /// to all current and future units of that class on the next
         /// EquipmentTierSystem tick.
@@ -561,7 +561,7 @@ namespace TheWaningBorder.Core.Commands
             var tiers = em.GetComponentData<FactionEquipmentTier>(tierEntity);
             EquipmentTier current = tiers.Get(unitClass);
 
-            // Adjacent moves only — no skipping Iron → Veilsteel.
+            // Adjacent moves only — no skipping Iron → Shard.
             if ((byte)targetTier != (byte)current + 1) return false;
 
             var cost = TheWaningBorder.Core.Settings.EquipmentTierConfig.UpgradeCost(current, targetTier);
@@ -1251,8 +1251,7 @@ namespace TheWaningBorder.Core.Commands
             return Cost.Of(
                 supplies:  (int)(techDef.cost.Supplies  * mult),
                 iron:      (int)(techDef.cost.Iron      * mult),
-                veilstone: (int)(techDef.cost.Veilstone * mult),
-                veilsteel: (int)(techDef.cost.Veilsteel * mult));
+                veilstone: (int)(techDef.cost.Veilstone * mult));
         }
 
         /// <summary>
@@ -1978,13 +1977,15 @@ namespace TheWaningBorder.Core.Commands
                     em, buildingId, position.x, position.z))
                 return TheWaningBorder.World.Regions.PlacementRefusal.OffNode;
 
-            // VEILSTONE (docs/Design/Veilstone_Economy.md §3). Alanthor do not
-            // mine it (the iron Mine is still theirs); a Veilstone Mine needs an INACTIVE outcrop (a cursed one
-            // is the curse's, a depleted one is spent); a Trading Outpost needs
-            // an uncursed outcrop beside it that no other Outpost serves. Here,
-            // not only in the ghost, so the AI and the lockstep replay obey it.
+            // VEILSTONE (docs/Design/Veilstone_Economy.md §3). The Runai do not
+            // mine it; a Veilstone Mine needs an INACTIVE outcrop (a cursed one
+            // is the curse's); a Trading Outpost needs Trade Charters and a free
+            // side of a living node of any kind. Here, not only in the ghost, so
+            // the AI and the lockstep replay obey it.
             if (!TheWaningBorder.World.Regions.TerritoryOwnership.MayBuildMine(em, faction, buildingId))
-                return TheWaningBorder.World.Regions.PlacementRefusal.WrongCulture;
+                return buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId
+                    ? TheWaningBorder.World.Regions.PlacementRefusal.NeedsTradeCharters
+                    : TheWaningBorder.World.Regions.PlacementRefusal.WrongCulture;
             // The Runai Sanctuary: Inactive, never a spent outcrop, and a Cursed
             // one only with Consecrated Ground (docs/Design/Age_1_Runai.md §5.1).
             if (buildingId == "Runai_Sanctuary"
@@ -2001,17 +2002,15 @@ namespace TheWaningBorder.Core.Commands
                     && kind != VeilstoneNodeKind.Inactive)
                     return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
             }
-            // The Trading Outpost stands on a SIDE SLOT of an uncursed outcrop
-            // — Inactive or Depleted (a spent outcrop trades as well as a
-            // fresh one), up to four posts per outcrop (2026-10-04).
+            // The Trading Outpost stands on a SIDE SLOT of a living node of any
+            // kind — not spent, not a Cursed outcrop — up to four posts per
+            // node (Veilstone_Economy.md §3.1, 2026-11-09).
             if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
             {
-                if (!TheWaningBorder.Entities.TradingOutpost.TryGetOutcropOf(
-                        em, position.x, position.z, out var outcrop, out _, out byte side)
-                    || side == TheWaningBorder.Entities.TradingOutpost.OnOutcrop)
+                if (!TheWaningBorder.Entities.TradingOutpost.TryGetNodeOf(
+                        em, position.x, position.z, out var node, out _, out _, out var nodeKind))
                     return TheWaningBorder.World.Regions.PlacementRefusal.NoOutcropNearby;
-                if (TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.KindOf(em, outcrop)
-                    == VeilstoneNodeKind.Cursed)
+                if (!TheWaningBorder.Entities.TradingOutpost.IsLiveNode(em, node, nodeKind))
                     return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
             }
 

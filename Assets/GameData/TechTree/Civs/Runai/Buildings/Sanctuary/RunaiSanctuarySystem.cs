@@ -3,7 +3,7 @@
 //
 // Once a second, on every peer:
 //   * each finished Sanctuary pays its religion trickle — its ONLY output
-//     (more on a Cursed outcrop). It never drains the outcrop. Veilsteel is
+//     (more on a Cursed outcrop). It never drains the outcrop. Veilstone is
 //     bought here with those points (Trade, §5.1);
 //   * the Sanctuaries standing on Cursed outcrops are published to RunaiVeil
 //     so the curse raises no garrison at those nodes (the node sleeps);
@@ -175,7 +175,7 @@ namespace TheWaningBorder.Runai
             em.SetComponentData(s, st);
         }
 
-        // ── Trade RP for veilsteel (§5.1) ───────────────────────────────
+        // ── Trade RP for veilstone (§5.1) ───────────────────────────────
 
         /// <summary>True when <paramref name="sanctuary"/> is a finished Runai
         /// Sanctuary whose faction holds enough religion points for one trade.</summary>
@@ -187,14 +187,15 @@ namespace TheWaningBorder.Runai
             return FactionReligionPointsHelper.CanAfford(em, f, math.max(1, Cfg.rpPerTrade));
         }
 
-        /// <summary>Spend rpPerTrade religion points for veilsteelPerTrade
-        /// veilsteel. Runs on every peer from the lockstep order.</summary>
+        /// <summary>Spend rpPerTrade religion points for veilstonePerTrade
+        /// veilstone (it sold veilsteel until 2026-11-09). Runs on every peer
+        /// from the lockstep order.</summary>
         public static void Trade(EntityManager em, Entity sanctuary)
         {
             if (!CanTrade(em, sanctuary)) return;
             var f = em.GetComponentData<FactionTag>(sanctuary).Value;
             if (!FactionReligionPointsHelper.TrySpend(em, f, math.max(1, Cfg.rpPerTrade))) return;
-            FactionEconomy.Add(em, f, new Cost { Veilsteel = Cfg.veilsteelPerTrade }, IncomeSource.Trade);
+            FactionEconomy.Add(em, f, new Cost { Veilstone = Cfg.veilstonePerTrade }, IncomeSource.Trade);
         }
 
         // ── Communion ──────────────────────────────────────────────────

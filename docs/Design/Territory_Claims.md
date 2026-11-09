@@ -22,6 +22,11 @@
 
 ## 1. The model in one paragraph
 
+> **2026-11-09 ([decision 42](Unification_Decisions_2026-10-03.md)):** an empty
+> territory **no longer decays** and cut-off ground **no longer wears down** (§ 10).
+> Ground changes hands by conquest only, or decays while the curse holds two or more
+> of its nodes (§ 2.2). Read "decays" below in that light.
+
 Ground belongs to whoever **stands on it**. Every territory carries one
 ownership meter, 0-100. Military units fill it, an enemy standing alone drains
 it, and an empty, unbuilt territory decays back to nobody. Two hostile sides
@@ -78,8 +83,8 @@ crystalling 1, veilstinger 2, godsplinter 3 (before the ×2).
 | **Two or more mutually hostile sides** have weight > 0 | **Tug of war** (2026-10-20) — the strongest side moves the meter by `(its weight − the strongest hostile side's weight) × claimRate`, exactly as if it stood there alone with that much weight; equal weights move nothing |
 | Only the **holder's** side (or nobody holding yet, and one side present) has weight — or it is the stronger in a tug of war | rises by `weight × claimRate` (claimRate = 1), capped at 100 |
 | Only a **challenger's** side has weight — or it is the stronger in a tug of war | falls by `weight × claimRate`; at 0 the challenger becomes the holder and the value starts rising |
-| **Nobody** has weight, and the holder has **no finished building** there | falls by `decayRate` (**3**) |
-| Nobody has weight, and the holder has a finished building there | **Held** — no change |
+| **Nobody** has weight, and **the curse holds two or more nodes** in the territory (2026-11-09) | falls by `decayRate` (on `TerritoryClaimSystem.asset`) |
+| Nobody has weight otherwise — buildings or not | **Held** — no change. Ground no longer decays when its soldiers leave (2026-11-09, decision 42): it is lost only by conquest, or to the curse as above |
 | The territory is **locked** (§3) | the value is pinned at 100; challengers cannot drain it |
 
 So an unclaimed territory takes **100 points** to claim, and taking one
@@ -957,7 +962,7 @@ number of territories, subject to the connection rule below.
 
 **Connection.** You may only take ground that **borders** territory linked to
 one of your Fortresses through ground you hold. Held ground that **loses** that
-link wears down: every one of your buildings there loses its full health over
+link ~~wears down~~ (removed 2026-11-09, decision 42 — cut-off ground is kept until conquered): every one of your buildings there loses its full health over
 **240 s**, so the lot is gone in about four minutes unless the link is restored.
 The curse is bound by neither rule.
 

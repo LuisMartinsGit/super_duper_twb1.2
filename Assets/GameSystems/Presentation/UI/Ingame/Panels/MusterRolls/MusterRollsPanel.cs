@@ -91,7 +91,7 @@ namespace TheWaningBorder.UI.Ingame
             (RecordSeries.UnitsScore, "Units score"), (RecordSeries.BuildingsScore, "Buildings score"),
             (RecordSeries.StockpileScore, "Stockpile score"), (RecordSeries.KillDeath, "K/D"),
             (RecordSeries.Supplies, "Supplies"), (RecordSeries.Iron, "Iron"),
-            (RecordSeries.Veilstone, "Veilstone"), (RecordSeries.Veilsteel, "Veilsteel"),
+            (RecordSeries.Veilstone, "Veilstone"),
             (RecordSeries.Army, "Army units"), (RecordSeries.Population, "Population"),
             (RecordSeries.Buildings, "Buildings"), (RecordSeries.Territories, "Territories"),
         };

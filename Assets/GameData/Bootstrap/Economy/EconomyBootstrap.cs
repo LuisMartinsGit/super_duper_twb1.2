@@ -12,7 +12,7 @@ namespace TheWaningBorder.Bootstrap
     /// <summary>
     /// Creates and initializes faction economy entities.
     /// Each faction gets a resource bank entity with:
-    /// - FactionResources (Supplies, Iron, Veilstone, Veilsteel)
+    /// - FactionResources (Supplies, Iron, Veilstone)
     /// - FactionPopulation (Current, Max population)
     /// - ResourceTickState (for passive income calculations)
     /// </summary>
@@ -94,7 +94,6 @@ namespace TheWaningBorder.Bootstrap
                 Supplies  = start.supplies,
                 Iron      = start.iron,
                 Veilstone   = start.veilstone,
-                Veilsteel = start.veilsteel
             });
 
             em.SetComponentData(bank, new FactionPopulation

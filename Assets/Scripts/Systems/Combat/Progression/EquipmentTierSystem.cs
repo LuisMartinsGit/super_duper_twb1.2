@@ -2,7 +2,7 @@
 // Applies the per-faction equipment tier multiplier to unit stats. Mirrors
 // UnitRankSystem's stamp-and-apply pattern so the two layers stack cleanly:
 // UnitRank covers per-unit veterancy, EquipmentTier covers faction-wide
-// research. A Lv3 (Veilstone-rank) unit with Veilsteel equipment gets BOTH
+// research. A Lv3 (Veilstone-rank) unit with Shard equipment gets BOTH
 // multipliers applied to Damage / Defense.
 //
 // Stamp pattern: UnitEquipmentApplied tracks the last-applied tier per

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using TheWaningBorder.Core;
 
@@ -54,7 +54,6 @@ public struct EntityDisplayInfo
     public float? SuppliesPerMinute;
     public int? IronPerMinute;
     public int? VeilstonePerMinute;
-    public int? VeilsteelPerMinute;
     public int? ShardrootPerMinute;
 
     /// <summary>
@@ -131,7 +130,6 @@ public struct EntityQueueSlot
     public int RefundSupplies;
     public int RefundIron;
     public int RefundVeilstone;
-    public int RefundVeilsteel;
     public int RefundShardroot;
     public float Progress;
     public bool IsInProduction;

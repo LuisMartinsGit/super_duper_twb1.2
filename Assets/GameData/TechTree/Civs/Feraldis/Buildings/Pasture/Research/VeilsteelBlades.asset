@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelBlades
   m_EditorClassIdentifier: 
   id: Feraldis_VeilsteelBlades
-  displayName: Veilsteel Blades
+  displayName: Shard Blades
   role: Military
   effect: 
   desc: "Cavalry weapon tier 3: cavalry deal +15% damage."
@@ -27,8 +27,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 190
-    Veilstone: 240
-    Veilsteel: 55
+    Veilstone: 350
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

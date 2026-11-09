@@ -5,7 +5,7 @@
 // Within StartClearing.asset → radiusCells build cells of each player's start
 // position (the Fortress spot PlayerSpawnSystem resolved):
 //
-//   * NO RESOURCE NODE stands — supply, iron, veilstone, veilsteel, and so no
+//   * NO RESOURCE NODE stands — supply, iron, veilstone, and so no
 //     curse node either (the curse rises only on resource nodes). Enforced in
 //     ResourceNodeSite.IsLegal, the one legality test every node factory
 //     resolves through, so the territory generator, the marker bootstraps,

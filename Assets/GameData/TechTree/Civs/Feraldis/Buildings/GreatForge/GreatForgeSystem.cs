@@ -3,8 +3,8 @@
 // docs/Design/Age_1_Feraldis.md §4 (2026-10-12):
 //
 //   Soulforge   consumes the slaves crewing the Forge, one at a time → veilstone
-//   Veilsteel   veilstone + iron → veilsteel
-//   Arms Export veilsteel → iron (only iron: Feraldis supplies come from raiding)
+//   Smelt       iron → veilstone
+//   Arms Export veilstone → iron (only iron: Feraldis supplies come from raiding)
 //
 // Speed = bay level rate × (1 + crew stoking bonus) × Draught Furnaces; inputs
 // are discounted by the best Bellows tier held. A cycle the faction cannot
@@ -84,17 +84,17 @@ namespace TheWaningBorder.Feraldis
                             }
                             break;
 
-                        case ForgeRecipe.Veilsteel:
-                            bay.Progress += c.veilsteelOut * rate;
-                            if (bay.Progress >= 1f && c.veilsteelOut > 0f)
+                        case ForgeRecipe.Smelt:
+                            // Progress counts veilstone made (iron -> veilstone).
+                            bay.Progress += c.smeltOutVeilstone * rate;
+                            if (bay.Progress >= 1f && c.smeltOutVeilstone > 0f)
                             {
                                 int units = Mathf.FloorToInt(bay.Progress);
                                 var spend = Cost.Of(
-                                    veilstone: Mathf.CeilToInt(units * c.veilsteelInVeilstone / c.veilsteelOut * keep),
-                                    iron: Mathf.CeilToInt(units * c.veilsteelInIron / c.veilsteelOut * keep));
+                                    iron: Mathf.CeilToInt(units * c.smeltInIron / c.smeltOutVeilstone * keep));
                                 if (FactionEconomy.Spend(em, faction, spend, SpendCategory.Trade))
                                 {
-                                    FactionEconomy.Add(em, faction, Cost.Of(veilsteel: units), IncomeSource.Trade);
+                                    FactionEconomy.Add(em, faction, Cost.Of(veilstone: units), IncomeSource.Trade);
                                     bay.Progress -= units;
                                 }
                                 else bay.Progress = Mathf.Min(bay.Progress, 1f);
@@ -102,14 +102,14 @@ namespace TheWaningBorder.Feraldis
                             break;
 
                         case ForgeRecipe.ArmsExport:
-                            // Progress counts veilsteel consumed.
-                            bay.Progress += c.exportInVeilsteel * rate;
-                            if (bay.Progress >= 1f && c.exportInVeilsteel > 0f)
+                            // Progress counts veilstone consumed.
+                            bay.Progress += c.exportInVeilstone * rate;
+                            if (bay.Progress >= 1f && c.exportInVeilstone > 0f)
                             {
                                 int steel = Mathf.FloorToInt(bay.Progress);
                                 int spendSteel = Mathf.Max(1, Mathf.CeilToInt(steel * keep));
-                                int iron = Mathf.FloorToInt(steel * c.exportOutIron / c.exportInVeilsteel);
-                                if (iron > 0 && FactionEconomy.Spend(em, faction, Cost.Of(veilsteel: spendSteel), SpendCategory.Trade))
+                                int iron = Mathf.FloorToInt(steel * c.exportOutIron / c.exportInVeilstone);
+                                if (iron > 0 && FactionEconomy.Spend(em, faction, Cost.Of(veilstone: spendSteel), SpendCategory.Trade))
                                 {
                                     FactionEconomy.Add(em, faction, Cost.Of(iron: iron), IncomeSource.Trade);
                                     bay.Progress -= steel;
@@ -199,13 +199,12 @@ namespace TheWaningBorder.Feraldis
                 case ForgeRecipe.Soulforge:
                     earn = Cost.Of(veilstone: Mathf.RoundToInt(c.soulforgeSlavesPerMinute * rate * c.soulforgeVeilstonePerSlave));
                     break;
-                case ForgeRecipe.Veilsteel:
-                    spend = Cost.Of(veilstone: Mathf.RoundToInt(c.veilsteelInVeilstone * rate * keep),
-                                    iron: Mathf.RoundToInt(c.veilsteelInIron * rate * keep));
-                    earn = Cost.Of(veilsteel: Mathf.RoundToInt(c.veilsteelOut * rate));
+                case ForgeRecipe.Smelt:
+                    spend = Cost.Of(iron: Mathf.RoundToInt(c.smeltInIron * rate * keep));
+                    earn = Cost.Of(veilstone: Mathf.RoundToInt(c.smeltOutVeilstone * rate));
                     break;
                 case ForgeRecipe.ArmsExport:
-                    spend = Cost.Of(veilsteel: Mathf.RoundToInt(c.exportInVeilsteel * rate * keep));
+                    spend = Cost.Of(veilstone: Mathf.RoundToInt(c.exportInVeilstone * rate * keep));
                     earn = Cost.Of(iron: Mathf.RoundToInt(c.exportOutIron * rate));
                     break;
             }

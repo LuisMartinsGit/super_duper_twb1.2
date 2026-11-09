@@ -10,7 +10,7 @@
 // to gather from it, and answering true there would silently enrol it in the
 // training rally hand-off, the click router and the rally overlay.
 //
-// No ObstacleTag either, unlike iron / veilstone / veilsteel. Those block their
+// No ObstacleTag either, unlike iron / veilstone. Those block their
 // cell so units route around them; a supply node is ground you are meant to
 // BUILD ON, so blocking it would make the one thing it exists for impossible.
 

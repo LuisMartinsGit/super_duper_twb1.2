@@ -869,6 +869,8 @@ namespace TheWaningBorder.Core.Commands
             if (deposit)
             {
                 if (amount <= 0) return;
+                // Supplies, iron, veilstone (1..3); veilsteel (4) is gone (2026-11-09).
+                if (resourceType < 1 || resourceType > 3) return;
                 if (!TheWaningBorder.Economy.FactionEconomy.Spend(
                         em, faction, VaultTransferCost(resourceType, amount), TheWaningBorder.Economy.SpendCategory.Vault)) return;
                 vault.ResourceType = resourceType;
@@ -900,7 +902,6 @@ namespace TheWaningBorder.Core.Commands
             1 => Cost.Of(supplies: amount),
             2 => Cost.Of(iron: amount),
             3 => Cost.Of(veilstone: amount),
-            4 => Cost.Of(veilsteel: amount),
             _ => default,
         };
 

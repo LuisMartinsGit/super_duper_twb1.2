@@ -57,7 +57,6 @@ namespace TheWaningBorder.Economy
         public int supportSupplies;
         public int supportIron;
         public int supportVeilstone;
-        public int supportVeilsteel;
         /// <summary>The Petriarchy's Army: price and size of the three calls.</summary>
         public int armySmallRp;
         public int armyMediumRp;

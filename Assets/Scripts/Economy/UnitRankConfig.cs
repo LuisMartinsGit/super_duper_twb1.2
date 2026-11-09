@@ -4,8 +4,8 @@
 // Costs (per single unit promotion):
 //   Lv 1 → Lv 2 :  50 supplies
 //   Lv 2 → Lv 3 :  25 veilstone
-//   Lv 3 → Lv 4 :  15 veilsteel
-//   Lv 4 → Lv 5 :   5 glow
+//   Lv 3 → Lv 4 :  free
+//   Lv 4 → Lv 5 :   free
 //
 // Stat scalars (multiplier from base):
 //   Lv 1 : 1.00 / 1.00 / 1.00  (atk / def / LOS)
@@ -41,11 +41,10 @@ namespace TheWaningBorder.Economy
         {
             2 => Cost.Of(supplies: 50),
             3 => Cost.Of(veilstone: 25),
-            4 => Cost.Of(veilsteel: 15),
-            // Was 5 Glow; Glow does not exist. Veilsteel is the apex resource
-            // now, so rank 5 is priced there. BALANCE: 25 is a placeholder
-            // scaled off rank 4's 15.
-            5 => Cost.Of(veilsteel: 25),
+            4 => Cost.Of(),
+            // Was 5 Glow; Glow does not exist, so rank 5 is free for now.
+            // BALANCE: placeholder.
+            5 => Cost.Of(),
             _ => default,
         };
 

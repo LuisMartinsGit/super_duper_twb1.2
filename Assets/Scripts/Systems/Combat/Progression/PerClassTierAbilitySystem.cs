@@ -3,9 +3,9 @@
 // universal Veilstone+ shield bar (ShieldBarSystem) by reading the unit's
 // UnitClass + effective tier and stamping class-specific components:
 //
-//   Siege  + Veilstone/Veilsteel/Glow  →  SiegeShieldAura (passive aura, see below)
-//   Magic  + Veilstone/Veilsteel/Glow  →  HeroPhaseShield (per-hit damage absorb)
-//   Support + Veilstone/Veilsteel/Glow →  HeroPhaseShield  (treated as hero archetype)
+//   Siege  + Veilstone/Shard/Glow  →  SiegeShieldAura (passive aura, see below)
+//   Magic  + Veilstone/Shard/Glow  →  HeroPhaseShield (per-hit damage absorb)
+//   Support + Veilstone/Shard/Glow →  HeroPhaseShield  (treated as hero archetype)
 //
 // Aura resolution: SiegeShieldAura entities scan for friendly units in
 // radius and stamp AuraShieldBoost on them. ShieldBarSystem reads the
@@ -16,12 +16,12 @@
 // damage and resets the cooldown.
 //
 // Not in this slice (active abilities, need UI binding):
-//   Spearman Veilsteel: 1HP duplicate squad
+//   Spearman Shard: 1HP duplicate squad
 //   Spearman Glow:      revive battalion members on cooldown
-//   Siege Veilsteel:    temporal echo shots
+//   Siege Shard:    temporal echo shots
 //   Siege Glow:         self-repair from destruction (on-death revive subsumed
 //                       with the removed Glow tier)
-//   Hero Veilsteel:     summon a temporal echo of the hero
+//   Hero Shard:     summon a temporal echo of the hero
 //   Hero Glow:          revive nearby fallen units (one-shot revive subsumed
 //                       with the removed Glow tier)
 
@@ -79,7 +79,7 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         int bonus = tier switch
                         {
-                            EquipmentTier.Veilsteel => EquipmentTierConfig.SiegeShieldAuraVeilsteelBonus,
+                            EquipmentTier.Shard => EquipmentTierConfig.SiegeShieldAuraShardBonus,
                             _                       => EquipmentTierConfig.SiegeShieldAuraVeilstoneBonus,
                         };
                         var aura = new SiegeShieldAura
@@ -111,7 +111,7 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         float reduction = tier switch
                         {
-                            EquipmentTier.Veilsteel => EquipmentTierConfig.HeroPhaseShieldReductionVeilsteel,
+                            EquipmentTier.Shard => EquipmentTierConfig.HeroPhaseShieldReductionShard,
                             _                       => EquipmentTierConfig.HeroPhaseShieldReductionVeilstone,
                         };
 

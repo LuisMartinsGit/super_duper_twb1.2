@@ -234,9 +234,9 @@ namespace TheWaningBorder.Economy
         // AlanthorSectEffectSystem still reads these for any NodeOverYield
         // left in an old world; delete both together.
         public static void HarvestYield(int level, out int supplies, out int iron,
-                                        out int veilstone, out int veilsteel)
+                                        out int veilstone)
         {
-            supplies = 0; iron = 0; veilstone = 0; veilsteel = 0;
+            supplies = 0; iron = 0; veilstone = 0;
         }
 
         public const float HarvestTickSeconds = 5f;

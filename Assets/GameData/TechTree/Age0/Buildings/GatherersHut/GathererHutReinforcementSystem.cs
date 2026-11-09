@@ -5,7 +5,7 @@
 //                            of combat for OutOfCombatThreshold seconds.
 //   * Veilstone walls      → at 75% HP or lower the hut CASTS a Slow burst
 //                            (-50% speed, 7.5 s) on nearby enemies; repair → 10 HP/s.
-//   * Veilsteel Pylons     → at 50% HP or lower the hut casts a STOP burst
+//   * Shard Pylons         → at 50% HP or lower the hut casts a STOP burst
 //                            (-100% speed, 10 s); repair → 20 HP/s.
 //
 // The two wards are INDEPENDENT one-shot bursts, each on its own 90-second
@@ -43,7 +43,7 @@ namespace TheWaningBorder.Economy
         /// value, so the wards cover exactly the ground they always did.</summary>
         private const float AuraRadius = 19.5f;
         private const float SlowDuration = 7.5f;            // Veilstone walls — slow burst duration
-        private const float StopDuration = 10.0f;           // Veilsteel Pylons — stop burst duration
+        private const float StopDuration = 10.0f;           // Shard Pylons — stop burst duration
         private const float WardCooldown = 90.0f;           // seconds between defensive casts (per hut, per ward)
         private const float SlowReduction = 0.5f;           // -50% speed
         private const float StopReduction = 1.0f;           // -100% speed (root)

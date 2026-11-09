@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelWeapons
   m_EditorClassIdentifier: 
   id: Runai_VeilsteelWeapons
-  displayName: Veilsteel Weapons
+  displayName: Shard Weapons
   role: Military
   effect: 
   desc: "Route Guard weapon tier 4: +20% damage."
@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 180
-    Veilstone: 200
-    Veilsteel: 40
+    Veilstone: 280
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

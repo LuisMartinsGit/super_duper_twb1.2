@@ -39,12 +39,11 @@ namespace TheWaningBorder.Entities
         public int bountySupplies;
         public int bountyIron;
         public int bountyVeilstone;
-        public int bountyVeilsteel;
 
         /// <summary>Shardbound Fury fires by itself when this many enemies stand
         /// inside its radius (Heroes.md §4).</summary>
         public int furyMinEnemies;
         public TheWaningBorder.Core.Cost Bounty =>
-            TheWaningBorder.Core.Cost.Of(bountySupplies, bountyIron, bountyVeilstone, bountyVeilsteel);
+            TheWaningBorder.Core.Cost.Of(bountySupplies, bountyIron, bountyVeilstone);
     }
 }

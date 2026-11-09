@@ -276,11 +276,10 @@ namespace TheWaningBorder.Bootstrap
                 // not show the top-up as "untracked" income.
                 int cap = TheWaningBorder.Economy.FactionResources.ResourceCap;
                 TheWaningBorder.Economy.EconomyLedger.Credit(faction, TheWaningBorder.Economy.IncomeSource.Grant,
-                    cap - res.Supplies, cap - res.Iron, cap - res.Veilstone, cap - res.Veilsteel);
+                    cap - res.Supplies, cap - res.Iron, cap - res.Veilstone);
                 res.Supplies  = TheWaningBorder.Economy.FactionResources.ResourceCap;
                 res.Iron      = TheWaningBorder.Economy.FactionResources.ResourceCap;
                 res.Veilstone = TheWaningBorder.Economy.FactionResources.ResourceCap;
-                res.Veilsteel = TheWaningBorder.Economy.FactionResources.ResourceCap;
                 em.SetComponentData(bank, res);
             }
         }

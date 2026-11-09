@@ -50,6 +50,8 @@ namespace TheWaningBorder.Abilities
             m *= TheWaningBorder.Entities.ShardrootEmpowerment.IncomingMultiplier(em, target);
             // A building on cursed ground takes more (Territory_Claims.md §6.9.9).
             m *= TheWaningBorder.Systems.Border.CursedGroundDecay.IncomingMultiplier(em, target);
+            // A galloping Alanthor rider takes less (Age_1_Alanthor.md § Galloping).
+            m *= AlanthorGallop.IncomingMultiplier(em, target);
             return m;
         }
 

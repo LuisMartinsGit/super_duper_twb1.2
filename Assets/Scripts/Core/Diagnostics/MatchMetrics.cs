@@ -1,4 +1,4 @@
-﻿// MatchMetrics.cs
+// MatchMetrics.cs
 // Machine-readable match statistics, for batch runs.
 //
 // ─────────────────────────────────────────────────────────────────────────
@@ -314,7 +314,7 @@ namespace TheWaningBorder.Core.Diagnostics
             {
                 var src = (IncomeSource)s;
                 float a = EconomyLedger.IncomeOf(f, src, 0), b = EconomyLedger.IncomeOf(f, src, 1),
-                      c = EconomyLedger.IncomeOf(f, src, 2), d = EconomyLedger.IncomeOf(f, src, 3);
+                      c = EconomyLedger.IncomeOf(f, src, 2), d = 0f;   // the veilsteel column, kept at 0 (2026-11-09) so the CSV schema and its readers stay stable
                 net[0] += a; net[1] += b; net[2] += c; net[3] += d;
                 AppendFlow(sb, t, faction, "in", IncomeNames[s], a, b, c, d);
             }
@@ -322,7 +322,7 @@ namespace TheWaningBorder.Core.Diagnostics
             {
                 var cat = (SpendCategory)k;
                 float a = EconomyLedger.SpendOf(f, cat, 0), b = EconomyLedger.SpendOf(f, cat, 1),
-                      c = EconomyLedger.SpendOf(f, cat, 2), d = EconomyLedger.SpendOf(f, cat, 3);
+                      c = EconomyLedger.SpendOf(f, cat, 2), d = 0f;
                 net[0] -= a; net[1] -= b; net[2] -= c; net[3] -= d;
                 AppendFlow(sb, t, faction, "out", SpendNames[k], a, b, c, d);
             }
@@ -502,7 +502,7 @@ namespace TheWaningBorder.Core.Diagnostics
                     && em.HasComponent<FactionResources>(bank))
                 {
                     var r = em.GetComponentData<FactionResources>(bank);
-                    su = r.Supplies; ir = r.Iron; ve = r.Veilstone; vs = r.Veilsteel;
+                    su = r.Supplies; ir = r.Iron; ve = r.Veilstone;   // vs stays 0: no veilsteel since 2026-11-09
                 }
 
                 int terr = TerritoryOwnership.Ready ? TerritoryOwnership.CountOf(faction) : 0;

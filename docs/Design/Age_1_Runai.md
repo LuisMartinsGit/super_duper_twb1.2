@@ -1,5 +1,7 @@
 # Age 1 — Runai
 
+> **2026-11-09 ([decision 42](Unification_Decisions_2026-10-03.md)):** veilstone is the only crystal. The Sanctuary sells **veilstone** for religion points (it sold veilsteel); every veilsteel price is veilstone (2 per veilsteel); the tech names read "Shard …" (ids unchanged). Ground no longer decays when its soldiers leave — see Territory_Claims.md § 2.2.
+
 > **2026-11-07:** heroes changed. [Heroes.md](Heroes.md) is canon for hero stats, levels, auto-cast (no manual hero abilities below level 10; reach = the hero's line of sight), level-10 abilities, revival at the same level, and who carries the Shardroot. Text here that disagrees is out of date.
 
 > **Nomad traders who hold the curse sacred.** The Runai do not dig the

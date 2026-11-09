@@ -180,7 +180,7 @@ namespace TheWaningBorder.Systems.Sect
                     var def = TechCatalog.Unit(deadId[i].Value.ToString());
                     if (def != null && def.cost != null)
                         FactionEconomy.Add(em, mark.ByFaction, Cost.Of(def.cost.Supplies, def.cost.Iron,
-                            def.cost.Veilstone, def.cost.Veilsteel), IncomeSource.Loot);
+                            def.cost.Veilstone), IncomeSource.Loot);
                     TransientState.Clear<BountyMarked>(em, e);
                 }
 

@@ -172,12 +172,11 @@ namespace TheWaningBorder.UI.Ingame
                     return;
             }
 
-            // Trading Outpost trades (docs/Design/Veilstone_Economy.md §3.1).
-            if (b.Id.StartsWith("OutpostMode_", System.StringComparison.Ordinal)
-                && int.TryParse(b.Id.Substring("OutpostMode_".Length), out int recipe))
+            // Stop / resume extracting (docs/Design/Veilstone_Economy.md §3.5):
+            // every selected extractor of ours takes the order.
+            if (b.Id == "ExtractorStop" || b.Id == "ExtractorResume")
             {
-                // Every selected outpost of ours takes the trade.
-                TheWaningBorder.Input.OutpostOrders.SetModeForSelection(em, entity, (TradeRecipe)recipe);
+                TheWaningBorder.Input.ExtractorOrders.SetForSelection(em, entity, b.Id == "ExtractorStop");
                 return;
             }
 

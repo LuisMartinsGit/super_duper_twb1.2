@@ -9,6 +9,37 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+42. **One crystal, nodes worth saving, ground that holds (2026-11-09, developer).** A player
+    reported veilstone and veilsteel as confusing and indistinguishable. Decided:
+    (a) **Veilsteel is removed.** Veilstone is the only crystal resource. Every veilsteel
+    price on an SO became veilstone at **2 veilstone per veilsteel**, added to the item's
+    veilstone price. Every veilsteel SOURCE now pays veilstone at the same ratio. These are:
+    the Sanctum trickle, the Vault, the Feraldis curse-node bounty and Great Forge Veilsteel
+    bay (now iron → veilstone), the Runai Sanctuary's religion-points trade (now religion
+    points → veilstone), the Shardroot enshrine price and the Ascended bounty. Veilsteel Survey
+    is cut (Veilstone Survey I-II remain). The Score ladder loses its veilsteel rung.
+    No UI names veilsteel.
+    (b) **Alanthor keep their Veilstone Mines at age-up** (the conversion to Trading Outposts is
+    gone), and may build new ones.
+    (c) **The Trading Outpost is a late research, not a trade.** *Trade Charters*
+    (Fortress research, Fortress L3) unlocks it. Up to four posts stand on the four sides of
+    ANY resource node (supply, iron or veilstone), and each trickles that node's resource
+    while the node lives. The trickle is **never drawn from the node**. A spent node still
+    collapses (Territory_Claims.md § 11.3) and takes its posts with it. While a finished
+    post stands beside a node, that node's own empty-node trickle stops (the post replaces
+    it), so it no longer drains a node nobody works. There is no trade menu, no routes, no
+    Hold, no Buy / Forge / Sell, and the Trade Agreements, Swift Caravans and Veilsteel
+    Forging / Export techs are deleted. Buying and selling go through the Temple (Tithe and
+    its resource trade). The trickle rates are on `TradingOutpostSystem.asset`, the post's
+    level multiplier on `TradingOutpost_Lvl1..3`, and the per-node cost ramp stays.
+    (d) **Stop extracting.** Every extractor (Gatherer's Hut line, Mine, Veilstone Mine) has a
+    toggle that stops it drawing on its node. The building stands, keeps holding and locking
+    the ground, and keeps every survey it pays. The node then pays as an empty node, or
+    nothing at all while a post stands beside it. The decision this creates: harvest more,
+    or stop now and keep the post's trickle.
+    (e) **Ground no longer decays when its soldiers leave** (Territory_Claims.md § 2.2), and
+    **cut-off ground no longer wears down** (§ 10). A territory changes hands only by
+    conquest, or decays when **the curse holds two or more nodes inside it**.
 41. **Vault interest is SIMPLE and CAPPED (2026-10-05, developer):** compounding made the Vault a money printer (2,645 iron deposited became 7.5 million eleven minutes later), so decision 12's "25% interest" model is superseded. (a) Interest is paid on the stored PRINCIPAL — the amount held as of the last deposit — and never on interest already earned; the payout grows linearly. (b) Only the principal up to the Vault SO's `interestPrincipalCap` earns; anything stored above it earns nothing but is still paid out. (c) The banking grades REPLACE the rate with the Vault SO's `coffersRate` / `merchantChartersRate` / `sovereignBondsRate` (the code's hard-coded 50 / 75 / 100% ladder is deleted); the level SOs' `interestMultiplier` still multiplies on top. (d) The base rate `interestPerMinute` and the cap are re-tuned on `Age0/Buildings/VaultOfAlmierra/VaultOfAlmierra.asset`; the techs' descriptions stop stating a number. Code: `VaultStorage.Principal`, set by `CommandRouter.VaultTransferDirect` and read by `VaultInterestSystem`. Rules: [Age_0.md § Vault of Almiérra](Age_0.md), [Age_1_Alanthor.md § Vault](Age_1_Alanthor.md).
 40. **Trading Outposts beside the outcrop, four per outcrop (2026-10-04, developer):** *"On age up, mines in veilstone are moved to the adjacent space. 4 traders posts can be built around a veilstone slot. on NSEW. this way, we can quadruple the amount of veilstone available without adding more slots and while also steeping the cost for building and upgrading more trade posts."* Alanthor only (Runai and Feraldis keep mining outcrops). Supersedes decision 28's on-outcrop placement. (a) An Outpost stands on one of an outcrop's four side slots (N / E / S / W), flush against it, one per side; the outcrop stays an impassable node. (b) At age-up each Veilstone Mine becomes the outcrop's FIRST post, moved to the free side nearest the capital (ties N, E, S, W); the other three sides can then be built. (c) The cost ramp is PER OUTCROP: the 2nd / 3rd / 4th post beside the same outcrop costs more to build AND to level; the first post beside a new outcrop is base price again. Multipliers on `TradingOutpostSystem.asset` (`outcropRampMultipliers`). (d) The Outpost gets three levels, `TradingOutpost_Lvl1..3` level SOs, raising its trade rate (`tradeRateMultiplier`); level prices follow the same ramp. Rules: [Veilstone_Economy.md §3.1](Veilstone_Economy.md), [Build_Grid.md § The Trading Outpost's side slots](Build_Grid.md), [Age_1_Alanthor.md § Trading Outpost](Age_1_Alanthor.md).
 39. **Hut income compensation (after the 0.0.33 batch):** removing the hidden +60/min per hut slowed age-up from 5:32 to 7:52. So the slot income goes up by the same amount: Gatherer's Hut 110/160/260 per minute, Alanthor Guild 130/160/260. The values are on the SOs.

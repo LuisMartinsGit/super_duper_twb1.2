@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 0
-    Veilstone: 390
-    Veilsteel: 87
+    Veilstone: 564
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

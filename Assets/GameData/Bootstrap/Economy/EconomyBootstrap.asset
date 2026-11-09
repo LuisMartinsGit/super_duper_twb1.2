@@ -16,23 +16,19 @@ MonoBehaviour:
     supplies: 200
     iron: 75
     veilstone: 0
-    veilsteel: 0
     religionPoints: 0
   normal:
     supplies: 400
     iron: 150
     veilstone: 0
-    veilsteel: 0
     religionPoints: 5
   high:
     supplies: 1200
     iron: 450
     veilstone: 100
-    veilsteel: 0
     religionPoints: 15
   max:
     supplies: 100000
     iron: 100000
     veilstone: 100000
-    veilsteel: 100000
     religionPoints: 100

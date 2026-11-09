@@ -2,8 +2,8 @@
 // WHERE THE CURSE STARTS (docs/Design/Territory_Claims.md §6.4, 2026-09-29).
 //
 // There are no wells any more. At match start the curse raises
-// `initialNodes` curse nodes on RANDOM RESOURCE NODES — supply, iron,
-// veilstone or veilsteel — with two rules:
+// `initialNodes` curse nodes on RANDOM RESOURCE NODES — supply, iron
+// or veilstone — with two rules:
 //
 //   * never in a player's start territory;
 //   * FAIRNESS: every player's graph distance (RegionMap.AreAdjacent hops)
@@ -158,7 +158,6 @@ namespace TheWaningBorder.Systems.Border
             Collect<SupplyNodeTag>(em, excluded, requiredOwner, list);
             Collect<IronMineTag>(em, excluded, requiredOwner, list);
             Collect<VeilstoneOutcroppingTag>(em, excluded, requiredOwner, list);
-            Collect<VeilsteelDepositTag>(em, excluded, requiredOwner, list);
             list.Sort((a, b) => a.EntityIndex.CompareTo(b.EntityIndex));
             return list;
         }

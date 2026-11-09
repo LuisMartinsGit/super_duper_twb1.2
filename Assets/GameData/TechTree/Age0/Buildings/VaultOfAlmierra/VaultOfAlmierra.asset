@@ -55,13 +55,11 @@ MonoBehaviour:
   - SovereignBonds
   - IronSubsidies
   - VeilstoneMonetization
-  - VeilsteelBonds
   minEra: 0
   cost:
     Supplies: 600
     Iron: 300
     Veilstone: 200
-    Veilsteel: 0
   tags:
   - Building
   attack:

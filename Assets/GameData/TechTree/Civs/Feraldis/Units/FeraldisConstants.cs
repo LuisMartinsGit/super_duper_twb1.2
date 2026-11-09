@@ -173,7 +173,6 @@ namespace TheWaningBorder.Core.Config
         /// rate — a raid is mostly food and loot, not ore.</summary>
         public const float PlunderIronFraction = 0.30f;
         public const float PlunderVeilstoneFraction = 0.15f;
-        public const float PlunderVeilsteelFraction = 0.04f;
 
         /// <summary>Take multipliers from the Raiding survey ladder.</summary>
         public const float RaidingTier1Mult = 1.6f;

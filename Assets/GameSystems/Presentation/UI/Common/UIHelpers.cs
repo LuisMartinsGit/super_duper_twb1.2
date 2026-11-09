@@ -119,7 +119,6 @@ namespace TheWaningBorder.UI.Common
             Add(ResourceIcons.Supplies, "S", cost.Supplies);
             Add(ResourceIcons.Iron, "Fe", cost.Iron);
             Add(ResourceIcons.Veilstone, "Cr", cost.Veilstone);
-            Add(ResourceIcons.Veilsteel, "Vs", cost.Veilsteel);
 
             return sb.Length == 0 ? "Free" : sb.ToString();
         }
@@ -151,7 +150,6 @@ namespace TheWaningBorder.UI.Common
             Short(cost.Supplies, bank.Supplies, TheWaningBorder.Core.Localization.Loc.T("supplies"));
             Short(cost.Iron, bank.Iron, TheWaningBorder.Core.Localization.Loc.T("iron"));
             Short(cost.Veilstone, bank.Veilstone, TheWaningBorder.Core.Localization.Loc.T("veilstone"));
-            Short(cost.Veilsteel, bank.Veilsteel, TheWaningBorder.Core.Localization.Loc.T("veilsteel"));
             return sb.Length == 0 ? head
                 : head + " - " + TheWaningBorder.Core.Localization.Loc.T("need") + " " + sb;
         }
@@ -192,7 +190,6 @@ namespace TheWaningBorder.UI.Common
             Add(ResourceIcons.Supplies, "S", cost.Supplies, available.Supplies);
             Add(ResourceIcons.Iron, "Fe", cost.Iron, available.Iron);
             Add(ResourceIcons.Veilstone, "Cr", cost.Veilstone, available.Veilstone);
-            Add(ResourceIcons.Veilsteel, "Vs", cost.Veilsteel, available.Veilsteel);
 
             return sb.ToString();
         }

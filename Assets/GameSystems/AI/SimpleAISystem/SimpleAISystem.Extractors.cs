@@ -38,11 +38,11 @@ namespace TheWaningBorder.AI
 
         private readonly Dictionary<int, float> _nextExtractorTime = new Dictionary<int, float>();
 
-        /// <summary>The extractor for each node kind, scarcest first. Veilstone
-        /// leads: it is never banked for free any more
-        /// (docs/Design/Veilstone_Economy.md), so Alanthor's Trading Outpost
-        /// and everyone else's Veilstone Mine come before iron and supplies.
-        /// The two are culture-exclusive: each faction skips the other's.
+        /// <summary>The extractor for each node kind, scarcest first: veilstone,
+        /// then iron, then supplies. Every culture but the Runai mines veilstone
+        /// (Alanthor too since 2026-11-09, decision 42); the Runai raise a
+        /// Sanctuary instead. The Trading Outpost leads once Alanthor have
+        /// researched Trade Charters: it stands BESIDE a node and pays forever.
         /// </summary>
         private static readonly (string Building, ComponentType Node)[] ExtractorPlan =
         {
@@ -102,10 +102,6 @@ namespace TheWaningBorder.AI
                 : Cfg.extractorAttemptInterval * math.max(0.1f, ProfileOf(faction).TerritoryCadenceScale));
 
             if (!TechCatalog.IsReady) return;
-            // The Outpost savings goal lasts only while the army is short of
-            // something an Outpost makes; it is re-armed below while it still is.
-            if (!ArmyShortOfTradeGoods(faction))
-                AIPivotalReserve.Clear(faction, OutpostReserveKey);
             if (AICommon.CountIdleWorkers(em, faction) == 0)
             {
                 LogExtractBlocked(faction, now, "no idle worker");
@@ -143,13 +139,14 @@ namespace TheWaningBorder.AI
                 // building we could not raise anyway.
                 if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null) continue;
 
-                // Culture: Alanthor trade beside veilstone, everyone else
-                // mines it (Veilstone_Economy.md §3).
+                // Culture: the Runai never mine veilstone; the Trading Outpost
+                // is Alanthor's, after Trade Charters (Veilstone_Economy.md §3).
                 bool alanthor = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Alanthor;
                 bool runai = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Runai;
                 bool isOutpost = buildingId == OutpostSites.BuildingId;
-                if (isOutpost && !alanthor) continue;
-                if (buildingId == "VeilstoneMine" && (alanthor || runai)) continue;
+                if (isOutpost && (!alanthor
+                    || !TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction))) continue;
+                if (buildingId == "VeilstoneMine" && runai) continue;
                 // The Runai raise a Sanctuary on the outcrop (Age_1_Runai.md §5.1).
                 if (buildingId == "Runai_Sanctuary" && !runai) continue;
 
@@ -162,7 +159,7 @@ namespace TheWaningBorder.AI
                     if (AILogger.Enabled) blocked += $" | {buildingId}: opening huts first";
                     continue;
                 }
-                // A Trading Outpost is priced by WHERE it stands: the per-outcrop
+                // A Trading Outpost is priced by WHERE it stands: the per-node
                 // ramp (Veilstone_Economy.md §3.1). Its free slots come back
                 // cheapest first, so the first one is the price to beat.
                 var planCost = AICommon.ToCost(def.cost);
@@ -176,27 +173,6 @@ namespace TheWaningBorder.AI
                 if (!FactionEconomy.CanAfford(em, faction, planCost))
                 {
                     if (AILogger.Enabled) blocked += $" | {buildingId}: bank short";
-                    // VEILSTONE IS THE ARMY'S WALL (2026-10-03): an Alanthor
-                    // army short of veilstone can only be fed by Outposts,
-                    // so a free outcrop the bank cannot yet pay for becomes
-                    // a savings goal — walls, houses and army growth hold
-                    // until it is raised (AIPivotalReserve). Since 2026-10-12
-                    // the same for iron and veilsteel: the Outposts make
-                    // every resource but supplies (Buy -> Forge -> Sell).
-                    if (isOutpost && ArmyShortOfTradeGoods(faction))
-                    {
-                        _freeNodes.Clear();
-                        CollectFreeNodes(em, faction, buildingId, owned, _freeNodes);
-                        if (_freeNodes.Count > 0)
-                        {
-                            if (!AIPivotalReserve.Has(faction, OutpostReserveKey))
-                                AILogger.Log(faction, "ECONOMY",
-                                    $"army short of{ShortList(faction)} — saving for a Trading Outpost " +
-                                    $"({_freeNodes.Count} free outcrop(s) in held ground)");
-                            AIPivotalReserve.Set(faction, OutpostReserveKey, planCost);
-                        }
-                        else AIPivotalReserve.Clear(faction, OutpostReserveKey);
-                    }
                     continue;
                 }
 
@@ -210,20 +186,15 @@ namespace TheWaningBorder.AI
                 if (_freeNodes.Count == 0)
                 {
                     if (AILogger.Enabled) blocked += $" | {buildingId}: no free owned node";
-                    if (isOutpost) AIPivotalReserve.Clear(faction, OutpostReserveKey);
                     continue;
                 }
                 string reason = null;
 
-                // VEILSTONE SURPLUS (2026-10-04, Game_AI.md 5e): the army is
-                // waiting on veilstone and supplies and iron are piling up —
-                // an Outpost beside EVERY outcrop with a free side this pass
-                // (one per outcrop, cheapest ramp first), not one, for as
-                // long as a worker is free to take the site (the open-site
-                // cap and the bank are re-checked per placement).
-                // TRADE SURPLUS (2026-10-12, § 5a): also when supplies pile
-                // up while the army waits on iron or veilsteel — more posts
-                // is more of every link of the chain that makes them.
+                // SURPLUS (Game_AI.md 5e): the bank is piling up — a post
+                // beside EVERY node with a free side this pass (cheapest ramp
+                // first), not one, for as long as a worker is free to take
+                // the site (the open-site cap and the bank are re-checked per
+                // placement). Each post is income that outlives the nodes.
                 if (isOutpost && IsTradeSurplus(em, faction))
                 {
                     int placed = 0;
@@ -239,13 +210,9 @@ namespace TheWaningBorder.AI
                         placed++;
                         LogSurplus(faction,
                             $"outpost placed at ({_freeNodes[n].x:F0},{_freeNodes[n].z:F0}) " +
-                            $"({_freeNodes.Count} free outcrop(s))");
+                            $"({_freeNodes.Count} free node side(s))");
                     }
-                    if (placed > 0)
-                    {
-                        AIPivotalReserve.Clear(faction, OutpostReserveKey);
-                        return;
-                    }
+                    if (placed > 0) return;
                     if (AILogger.Enabled)
                         blocked += $" | {buildingId}: {_freeNodes.Count} node(s), last refusal: {reason}";
                     continue;
@@ -260,7 +227,6 @@ namespace TheWaningBorder.AI
                     AILogger.Log(faction, "EXTRACT",
                         $"{buildingId} on a free node at " +
                         $"({_freeNodes[n].x:F0},{_freeNodes[n].z:F0})");
-                    if (isOutpost) AIPivotalReserve.Clear(faction, OutpostReserveKey);
                     return;   // one per attempt
                 }
                 // An owed rebuild every free node refuses is dropped after
@@ -282,437 +248,94 @@ namespace TheWaningBorder.AI
             }
         }
 
-        /// <summary>AIPivotalReserve key for a Trading Outpost the army's
-        /// veilstone shortage is waiting on.</summary>
-        private const string OutpostReserveKey = "TradingOutpost";
+        // ── STOP EXTRACTING (2026-11-09, Veilstone_Economy.md §3.5) ─────────
+        //
+        // A spent node collapses with every Trading Outpost beside it, and the
+        // Outpost's trickle is never drawn from the node — so an Alanthor AI
+        // stops each extractor while its node still has a little left, and the
+        // posts beside it (Trade Charters) keep paying forever. HOW CLOSE it
+        // cuts it is the tier's play quality (Game_AI.md § 2a):
+        // AIDifficultyProfileSO.extractorStopMinutes — 0 on Easy, which never
+        // stops and loses its nodes; Normal stops early and leaves ore in the
+        // ground; Expert stops a minute before the end.
 
-        private readonly Dictionary<int, float> _nextOutpostModeTime = new Dictionary<int, float>();
+        private readonly Dictionary<int, float> _nextStopCheck = new Dictionary<int, float>();
 
-        /// <summary>Per faction: the Outposts have stopped BUYING because the
-        /// bank holds more veilstone than the army plan needs (§ 5a, the
-        /// glut rule). Static: the composition reads it (ComputeShares is
-        /// static). Host-only; reset per match.</summary>
-        private static readonly Dictionary<int, bool> _outpostBuyOff = new Dictionary<int, bool>();
+        static readonly ComponentType[] QT_StopHuts = { ComponentType.ReadOnly<GathererHutTag>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<UnderConstruction>(), ComponentType.Exclude<RaiderCampTag>(), ComponentType.Exclude<DepletedHutTag>(), ComponentType.Exclude<ExtractorStopped>() };
+        static readonly ComponentType[] QT_StopMines = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<UnderConstruction>(), ComponentType.Exclude<ExtractorStopped>() };
+        static readonly ComponentType[] QT_StopVeilMines = { ComponentType.ReadOnly<VeilstoneMineTag>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<UnderConstruction>(), ComponentType.Exclude<ExtractorStopped>() };
+        static CachedEntityQuery QC_StopHuts, QC_StopMines, QC_StopVeilMines;
 
-        private static bool OutpostBuyOff(Faction faction)
-            => _outpostBuyOff.TryGetValue((int)faction, out bool off) && off;
+        /// <summary>The extractor's "built on it" range (TerritoryIncomeSystem MineToNodeRange).</summary>
+        private const float StopNodeRange = 12f;
 
         /// <summary>
-        /// Veilstone a minute the army plan spends at full production: the
-        /// share-weighted veilstone price per training second of its role
-        /// rows (unit SOs), times the faction's military trainers. 0 while no
-        /// plan is active (pre-age-up, other cultures).
+        /// Every extractor think: stop each of this faction's extractors whose
+        /// node has fewer than the tier's <c>ExtractorStopMinutes</c> of
+        /// extraction left. Alanthor only — the only culture whose Trading
+        /// Outposts make a saved node worth anything.
         /// </summary>
-        private static float PlanVeilstonePerMinute(EntityManager em, Faction faction)
+        private void ManageExtractorStops(EntityManager em, Faction faction, float now)
         {
-            var p = GetArmyPlan(em, faction);
-            if (!p.Active) return 0f;
-            float perTrainer = 0f, shares = 0f;
-            for (int r = 0; r < p.N; r++)
-            {
-                if (!p.Trainable[r] || p.Share[r] <= 0f || p.Rows[r] == null) continue;
-                if (!TechCatalog.TryGetUnit(p.Rows[r].unitId, out var def) || def?.cost == null) continue;
-                perTrainer += p.Share[r] * def.cost.Veilstone * 60f / math.max(1f, def.trainingTime);
-                shares += p.Share[r];
-            }
-            if (shares <= 0f) return 0f;
-            return perTrainer / shares * math.max(1, CountMilitaryTrainers(em, faction));
+            float minutes = ProfileOf(faction).ExtractorStopMinutes;
+            if (minutes <= 0f) return;                       // this tier never stops
+            if (CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor) return;
+            int key = (int)faction;
+            if (_nextStopCheck.TryGetValue(key, out float next) && now < next) return;
+            _nextStopCheck[key] = now + Cfg.extractorAttemptInterval * 0.5f;
+
+            StopNear(em, faction, QC_StopHuts.Get(em, QT_StopHuts), minutes);
+            StopNear(em, faction, QC_StopMines.Get(em, QT_StopMines), minutes);
+            StopNear(em, faction, QC_StopVeilMines.Get(em, QT_StopVeilMines), minutes);
         }
 
-        /// <summary>The veilstone the bank should hold: the plan's spend for
-        /// outpostVeilstoneNeedMinutes, never below outpostVeilstoneNeedFloor.</summary>
-        private static int OutpostVeilstoneNeed(EntityManager em, Faction faction)
-            => math.min(Cfg.outpostVeilstoneNeedMax > 0 ? Cfg.outpostVeilstoneNeedMax : int.MaxValue,
-                math.max(Cfg.outpostVeilstoneNeedFloor,
-                    (int)math.ceil(PlanVeilstonePerMinute(em, faction) * math.max(0f, Cfg.outpostVeilstoneNeedMinutes))));
-
-        private static readonly string[] _glutTradeTechs = new string[2];
-
-        /// <summary>True while the army's refused purchases were short of
-        /// something a Trading Outpost makes: iron, veilstone or veilsteel.</summary>
-        private static bool ArmyShortOfTradeGoods(Faction faction)
-            => AIBudget.IsMilitaryShort(faction, AIBudget.ResIron)
-            || AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone)
-            || AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilsteel);
-
-        // Trade recipe indices of the allocation below.
-        private const int TBuy = 0, TForge = 1, TSell = 2, TBuyIron = 3, TSellSup = 4, TRecipes = 5;
-        private static readonly float[] _tradeWant = new float[TRecipes];
-        private static readonly int[] _tradeCount = new int[TRecipes];
-        private static readonly int[] _tradeRemaining = new int[TRecipes];
-        private static readonly int[] _tradeDeal = { TSell, TForge, TBuyIron, TSellSup, TBuy };
-        private static TradeRecipe RecipeOfSlot(int slot) => slot switch
+        private static void StopNear(EntityManager em, Faction faction, EntityQuery q, float minutes)
         {
-            TBuy => TradeRecipe.BuyVeilstone, TForge => TradeRecipe.ForgeVeilsteel, TSell => TradeRecipe.SellVeilsteel,
-            TBuyIron => TradeRecipe.BuyIron, _ => TradeRecipe.SellSupplies,
-        };
-
-        /// <summary>
-        /// Choose each of this faction's Trading Outposts' trade
-        /// (Veilstone_Economy.md §3.1; Game_AI.md § 5a), only among the trades
-        /// it has researched. THE OUTPOSTS MAKE EVERY RESOURCE BUT SUPPLIES
-        /// (2026-10-12, the developer's ruling): Buy turns supplies + iron
-        /// into veilstone, Forge veilstone into veilsteel, Sell veilsteel into
-        /// iron — so a chain of the three is an iron mine paid in supplies, and
-        /// supplies (Guilds, the Fortress) are the only thing the posts cannot
-        /// make. Each short resource asks for its own chain:
-        ///   * veilstone  — Buy;
-        ///   * veilsteel  — Forge, fed by Buy;
-        ///   * iron       — Sell, fed by Forge, fed by Buy;
-        /// with the posts split between the chains by how short each resource
-        /// is (army refused for it: 2; below its bank floor: 1), and each
-        /// chain's links in the ratio the faction's real rates need (the
-        /// discounts and the speed tech included — TradingOutpostSystem.PerMinute).
-        /// A link the bank already covers is skipped: banked veilsteel is sold
-        /// without forging, banked veilstone (above the army's need — the glut
-        /// rule) forged without buying, and no Buy runs while the army is short
-        /// of supplies and not of veilstone. Nothing short: the posts HOLD,
-        /// but surplus veilsteel is still sold. Orders go through
-        /// CommandRouter like a player's click.
-        /// </summary>
-        private void ManageTradingOutposts(EntityManager em, Faction faction, float now)
-        {
-            int key = (int)faction;
-            if (_nextOutpostModeTime.TryGetValue(key, out float next) && now < next) return;
-            _nextOutpostModeTime[key] = now + Cfg.extractorAttemptInterval;
-            if (!FactionEconomy.TryGetResources(em, faction, out var bank)) return;
-
-            var q = QC_Outposts.Get(em, QT_Outposts);
+            if (q.IsEmptyIgnoreFilter) return;
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var modes = q.ToComponentDataArray<TradingOutpostMode>(Allocator.Temp);
-            int postCount = 0, mine = 0;   // mine = ROUTE SLOTS (2026-11-04): a post's level runs 1 / 2 / 4
-            for (int i = 0; i < ents.Length; i++)
-                if (facs[i].Value == faction)
-                {
-                    postCount++;
-                    mine += TheWaningBorder.Systems.Economy.TradingOutpostSystem.RouteCapacity(em, ents[i]);
-                }
-            if (postCount == 0) return;
-
-            bool canForge = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(
-                faction, TradeRecipe.ForgeVeilsteel);
-            bool canSell = canForge && TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(
-                faction, TradeRecipe.SellVeilsteel);
-            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
-                faction, TradeRecipe.BuyVeilstone, out var buyIn, out var buyOut);
-            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
-                faction, TradeRecipe.ForgeVeilsteel, out var forgeIn, out var forgeOut);
-            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
-                faction, TradeRecipe.SellVeilsteel, out var sellIn, out var sellOut);
-            bool canBuyIron = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction, TradeRecipe.BuyIron);
-            bool canSellSup = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction, TradeRecipe.SellSupplies);
-            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
-                faction, TradeRecipe.BuyIron, out var ironBuyIn, out var ironBuyOut);
-            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
-                faction, TradeRecipe.SellSupplies, out var supSellIn, out var supSellOut);
-
-            bool veilstoneStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone);
-            bool ironStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResIron);
-            bool steelStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilsteel);
-            // SUPPLIES OUTRANK A VEILSTONE PURCHASE (2026-10-05, Mirror
-            // Marches M2): with 29 Outposts the four-minute need read 13-16k,
-            // so Expert bought veilstone at its whole supply income from 15:00
-            // to 35:00 with 12k banked, and never reached a Fortress's price.
-            // Supplies are the one thing the posts cannot make: while the army
-            // is short of them and not of veilstone, nothing Buys.
-            bool suppliesStarved = AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies);
-
-            // THE GLUT RULE (2026-10-05, § 5a): above what the army plan needs,
-            // the Outposts stop BUYING veilstone for its own sake, and the
-            // chains below forge the banked surplus rather than buy more.
-            int need = OutpostVeilstoneNeed(em, faction);
-            bool wasOff = OutpostBuyOff(faction);
-            bool buyOff = wasOff;
-            if (veilstoneStarved) buyOff = false;
-            else if (suppliesStarved) buyOff = true;
-            else if (!wasOff && bank.Veilstone > need) buyOff = true;
-            else if (wasOff && bank.Veilstone < need * math.saturate(Cfg.outpostBuyResumeFraction)) buyOff = false;
-            _outpostBuyOff[key] = buyOff;
-            if (buyOff != wasOff)
-                AILogger.Log(faction, "TRADE", buyOff
-                    ? $"outposts buy off (veilstone {bank.Veilstone}, need {need}" +
-                      (suppliesStarved && bank.Veilstone <= need ? ", army short of supplies)" : ")")
-                    : $"outposts buy on (veilstone {bank.Veilstone}, need {need}" +
-                      (veilstoneStarved ? ", army short of veilstone)" : ")"));
-
-            bool ironLow = ironStarved || bank.Iron < Cfg.outpostIronFloor;
-            bool steelLow = steelStarved || bank.Veilsteel < Cfg.outpostVeilsteelTarget;
-            // IRON DROUGHT (2026-11-04, Game_AI.md § 6y). Fiendstone, 300 min:
-            // every mine collapsed inside the first hour; from then on selling
-            // veilsteel was 40-50k iron an hour and the surveys 15-38k, every
-            // iron went to units and to BUYING veilstone, the bank sat at
-            // 26-2,356 iron while supplies capped at 100,000 and veilsteel
-            // piled to 8,190. Iron was never "military short" (units cost
-            // supplies and veilstone), so the sell weight never rose above 1.
-            bool ironDrought = bank.Iron < Cfg.outpostIronFloor
-                && bank.Supplies >= bank.Iron * math.max(1f, Cfg.outpostIronDroughtSuppliesRatio);
-
-            // The way to iron and veilsteel is Forge -> Sell: research both as
-            // soon as the first post stands. Waiting until iron was LOW was too
-            // late (2026-10-12 check batch): Forging costs iron, so a faction
-            // that reached 0 iron without it sat on 9-14k supplies with every
-            // post on Hold and no way back.
-            // AND THEY ARE A SAVINGS GOAL (2026-10-12, check batch v2): an
-            // order the bank could pay at the think was refused a tick later
-            // when the same think's new Outpost had spent the iron — silently,
-            // so Forging was "queued" two and three times and never bought.
-            // The next chain tech's price is held (AIPivotalReserve) until it
-            // is queued for real.
-            UpdateChainTechReserve(em, faction, canForge, canSell);
-
-            // Which links the bank already covers.
-            bool canBuy = !(suppliesStarved && !veilstoneStarved);
-            bool vsFromStock = buyOff && !veilstoneStarved;
-            bool steelFromStock = bank.Veilsteel >= Cfg.outpostSellAboveVeilsteel && !steelStarved;
-            // Surplus veilsteel is sold only while iron is not itself piling
-            // up (glutIronAbove): selling at 15k iron threw veilsteel away.
-            bool sellSurplusSteel = canSell && steelFromStock && bank.Iron < Cfg.glutIronAbove;
-
-            // Posts per link, per post of a chain (from the real rates).
-            float forgePerSell = canSell && forgeOut.Veilsteel > 0f && !steelFromStock
-                ? sellIn.Veilsteel / forgeOut.Veilsteel : 0f;
-            float buyPerForge = canBuy && !vsFromStock && buyOut.Veilstone > 0f
-                ? forgeIn.Veilstone / buyOut.Veilstone : 0f;
-
-            // How short each resource is: refused for it 2, under its floor 1.
-            float wVeilstone = veilstoneStarved ? 2f : (!buyOff && canBuy ? 1f : 0f);
-            float wSteel = !canForge ? 0f : steelStarved ? 2f : steelLow ? 1f : 0f;
-            float wIron = !canSell ? 0f : ironStarved ? 2f : ironLow ? 1f : 0f;
-            // A chain that eats more iron (its Buys) than its Sell makes is
-            // not an iron source; only possible with very odd SO numbers.
-            if (wIron > 0f && sellOut.Iron - forgePerSell * buyPerForge * buyIn.Iron <= 0f) wIron = 0f;
-            if (ironDrought && canSell && bank.Veilsteel >= sellIn.Veilsteel)
-            {
-                wIron = 2f;                                   // selling is the iron income now
-                if (wVeilstone > 1f) wVeilstone = 1f;         // buying spends the iron we lack
-            }
-            // THE TWO NEW ROUTES (2026-11-04): supplies -> iron is the direct
-            // answer to an iron drought while supplies pile up; veilsteel ->
-            // supplies the answer to a supplies famine with veilsteel in stock.
-            float wIronBuy = !canBuyIron ? 0f
-                : (ironDrought || ironStarved) && bank.Supplies >= ironBuyIn.Supplies * 10f ? 2f
-                : ironLow && bank.Supplies >= ironBuyIn.Supplies * 20f ? 1f : 0f;
-            float wSupSell = !canSellSup || bank.Veilsteel < supSellIn.Veilsteel ? 0f
-                : suppliesStarved ? 2f
-                : bank.Supplies < Cfg.outpostSuppliesFloor && bank.Veilsteel >= Cfg.outpostSellAboveVeilsteel ? 1f : 0f;
-
-            for (int r = 0; r < TRecipes; r++) _tradeWant[r] = 0f;
-            float wTotal = wVeilstone + wSteel + wIron + wIronBuy + wSupSell;
-            if (wTotal > 0f)
-            {
-                if (wVeilstone > 0f) _tradeWant[TBuy] += mine * wVeilstone / wTotal;
-                if (wSteel > 0f)
-                {
-                    float posts = mine * wSteel / wTotal, size = 1f + buyPerForge;
-                    _tradeWant[TForge] += posts / size;
-                    _tradeWant[TBuy] += posts * buyPerForge / size;
-                }
-                if (wIron > 0f)
-                {
-                    float posts = mine * wIron / wTotal;
-                    float size = 1f + forgePerSell + forgePerSell * buyPerForge;
-                    _tradeWant[TSell] += posts / size;
-                    _tradeWant[TForge] += posts * forgePerSell / size;
-                    _tradeWant[TBuy] += posts * forgePerSell * buyPerForge / size;
-                }
-                if (wIronBuy > 0f) _tradeWant[TBuyIron] += mine * wIronBuy / wTotal;
-                if (wSupSell > 0f) _tradeWant[TSellSup] += mine * wSupSell / wTotal;
-            }
-
-            // Whole posts: floor, then the largest remainders, to `mine` at
-            // most (what is left HOLDS).
-            int assigned = 0;
-            for (int r = 0; r < TRecipes; r++)
-            {
-                _tradeCount[r] = (int)math.floor(_tradeWant[r]);
-                assigned += _tradeCount[r];
-            }
-            int target = (int)math.round(_tradeWant[TBuy] + _tradeWant[TForge] + _tradeWant[TSell]);
-            while (assigned < math.min(target, mine))
-            {
-                int best = -1; float bestRem = -1f;
-                for (int r = 0; r < TRecipes; r++)
-                {
-                    float rem = _tradeWant[r] - _tradeCount[r];
-                    if (rem > bestRem) { bestRem = rem; best = r; }
-                }
-                if (best < 0 || bestRem <= 0f) break;
-                _tradeCount[best]++; assigned++;
-            }
-            // A chain worth at least one whole post keeps its head link even
-            // when the link's own share rounds to nothing (four posts and an
-            // 8-post iron chain). A chain worth less does not: on one post
-            // short of veilstone, a veilsteel chain's head stole the only Buy.
-            if (wIron > 0f && _tradeCount[TSell] == 0 && mine * wIron / wTotal >= 1f)
-                StealTradePost(TSell, mine);
-            if (wSteel > 0f && _tradeCount[TForge] == 0 && mine * wSteel / wTotal >= 1f)
-                StealTradePost(TForge, mine);
-            // Surplus veilsteel is sold for iron even when nothing is short.
-            if (sellSurplusSteel)
-            {
-                // ONE SELL POST PER outpostSellStockPerPost LOADS IN THE BANK
-                // (§ 6y), up to half the posts — not a single post against
-                // 8,000 veilsteel.
-                int sellPosts = (int)math.clamp(math.floor(bank.Veilsteel
-                        / math.max(1f, sellIn.Veilsteel * math.max(1f, Cfg.outpostSellStockPerPost))),
-                    1f, math.max(1f, mine * 0.5f));
-                for (int guard = 0; _tradeCount[TSell] < sellPosts && guard < mine; guard++)
-                {
-                    int before = _tradeCount[TSell];
-                    StealTradePost(TSell, mine);
-                    if (_tradeCount[TSell] == before) break;
-                }
-            }
-            int assignedAll = 0;
-            for (int r = 0; r < TRecipes; r++) assignedAll += _tradeCount[r];
-            int holds = math.max(0, mine - assignedAll);
-
-            // ROUTES PER POST (2026-11-04): each post fills its level's capacity
-            // from the wanted counts in _tradeDeal order. A route may repeat on
-            // one post, so every slot counts.
-            int changed = 0, sells = 0, forges = 0, buys = 0, ironBuys = 0, supSells = 0;
-            for (int r = 0; r < TRecipes; r++) _tradeRemaining[r] = _tradeCount[r];
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                int cap = TheWaningBorder.Systems.Economy.TradingOutpostSystem.RouteCapacity(em, ents[i]);
-                uint want = 0u; int n = 0;
-                for (int d = 0; d < _tradeDeal.Length && n < cap; d++)
-                {
-                    int slot = _tradeDeal[d];
-                    int take = math.min(_tradeRemaining[slot], cap - n);
-                    if (take <= 0) continue;
-                    want = TradeRoutes.With(want, RecipeOfSlot(slot), take);
-                    _tradeRemaining[slot] -= take; n += take;
-                    switch (slot)
-                    {
-                        case TSell: sells += take; break; case TForge: forges += take; break; case TBuy: buys += take; break;
-                        case TBuyIron: ironBuys += take; break; default: supSells += take; break;
-                    }
-                }
-                if (TradeRoutes.CountsOf(modes[i]) == want) continue;
-                TheWaningBorder.Core.Commands.CommandRouter.IssueSetOutpostRoutes(
-                    em, ents[i], want, TheWaningBorder.Core.Commands.CommandSource.AI);
-                changed++;
+                if (!TryNodeReserveNear(em, xfs[i].Position, out float remaining)) continue;
+                // What the extractor draws a minute: the income readout's own
+                // arithmetic (level, purity, crews), so the AI and the tick agree.
+                var y = TheWaningBorder.Systems.World.TerritoryIncomeSystem.BuildingYieldForDisplay(em, ents[i]);
+                float draw = y.Supplies + y.Iron + y.Veilstone;
+                if (draw <= 0f || remaining > draw * minutes) continue;
+                TheWaningBorder.Core.Commands.CommandRouter.IssueSetExtractorStopped(
+                    em, ents[i], true, TheWaningBorder.Core.Commands.CommandSource.AI);
+                AILogger.Log(faction, "EXTRACT",
+                    $"stop extracting at ({xfs[i].Position.x:F0},{xfs[i].Position.z:F0}): " +
+                    $"{remaining:F0} left, {draw:F0}/min — saved for Trading Outposts");
             }
-            if (changed > 0)
-                AILogger.Log(faction, "TRADE",
-                    $"outposts: {sells} sell / {forges} forge / {buys} buy / {ironBuys} buy-iron / {supSells} sell-supplies / {holds} hold " +
-                    $"(short:{ShortList(faction)}{(ironLow && !ironStarved ? " iron-low" : "")}{(ironDrought ? " iron-drought" : "")}" +
-                    $"{(steelLow && !steelStarved && canForge ? " veilsteel-low" : "")}; " +
-                    $"supplies {bank.Supplies}, iron {bank.Iron}, veilstone {bank.Veilstone}/{need}, " +
-                    $"veilsteel {bank.Veilsteel}{(canForge ? "" : ", no forge")}{(canSell ? "" : ", no sell")})");
-            else if (veilstoneStarved && AILogger.Enabled)
-                LogVeilstoneBottleneck(faction, now,
-                    $"{buys} Trading Outpost(s) buying of {mine}, veilstone {bank.Veilstone}, " +
-                    $"supplies {bank.Supplies}, iron {bank.Iron}");
         }
 
-        /// <summary>AIPivotalReserve key of the next Forge/Sell tech.</summary>
-        private const string ChainTechReserveKey = "TradeChainTech";
-
-        /// <summary>
-        /// Research the next missing chain tech — Veilsteel Forging, then
-        /// Veilsteel Export (TradingOutpostSystem.asset forgeTech / sellTech) —
-        /// at a finished Outpost; while it cannot be paid, hold its price as a
-        /// savings goal. Cleared once it is in a queue, researched, or there is
-        /// no finished Outpost to research it at.
-        /// </summary>
-        private static void UpdateChainTechReserve(EntityManager em, Faction faction, bool canForge, bool canSell)
+        /// <summary>The reserve left on the nearest resource node within the
+        /// extractor range of <paramref name="p"/>.</summary>
+        private static bool TryNodeReserveNear(EntityManager em, float3 p, out float remaining)
         {
-            var tcfg = TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg;
-            string tech = tcfg == null ? null : !canForge ? tcfg.forgeTech : !canSell ? tcfg.sellTech : null;
-            Entity host = tech == null ? Entity.Null : FindResearchHost<TradingOutpostTag>(em, faction);
-            if (tech == null || host == Entity.Null || IsResearchInFlight(em, faction, tech)
-                || !TechCatalog.TryGetTechnology(tech, out var def) || def == null)
+            remaining = 0f;
+            var all = OutpostSites.AllNodes(em);
+            float best = StopNodeRange * StopNodeRange;
+            bool found = false;
+            for (int i = 0; i < all.Count; i++)
             {
-                AIPivotalReserve.Clear(faction, ChainTechReserveKey);
-                return;
+                float dx = all[i].Position.x - p.x, dz = all[i].Position.z - p.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 > best || !em.HasComponent<NodeReserve>(all[i].Entity)) continue;
+                best = d2;
+                remaining = em.GetComponentData<NodeReserve>(all[i].Entity).Remaining;
+                found = true;
             }
-            _glutTradeTechs[0] = tech;
-            _glutTradeTechs[1] = null;
-            // Issued or not, the price stays held until the order is SEEN in a
-            // queue (the clear above, next pass): the order is charged a tick
-            // later, and the rest of this think must not spend it first.
-            bool issued = TryTradeResearchFrom(em, faction, host, _glutTradeTechs);
-            if (!issued && !AIPivotalReserve.Has(faction, ChainTechReserveKey))
-                AILogger.Log(faction, "TRADE", $"saving for {tech} (the Outposts' way to iron and veilsteel)");
-            AIPivotalReserve.Set(faction, ChainTechReserveKey, AICommon.ToCost(def.cost));
-        }
-
-        /// <summary>Move one post to <paramref name="to"/>: from Hold when one
-        /// is free, else from the most-populated other link that keeps one.</summary>
-        private static void StealTradePost(int to, int mine)
-        {
-            int total = 0;
-            for (int r = 0; r < TRecipes; r++) total += _tradeCount[r];
-            if (total < mine)
-            {
-                _tradeCount[to]++;
-                return;
-            }
-            int from = -1;
-            for (int r = 0; r < TRecipes; r++)
-                if (r != to && _tradeCount[r] > 1 && (from < 0 || _tradeCount[r] > _tradeCount[from])) from = r;
-            if (from < 0)
-                for (int r = 0; r < TRecipes; r++)
-                    if (r != to && _tradeCount[r] > 0) { from = r; break; }
-            if (from < 0) return;
-            _tradeCount[from]--;
-            _tradeCount[to]++;
-        }
-
-        /// <summary>
-        /// Extra Gatherer's Huts (Guilds) the trade pays for (2026-10-12,
-        /// Game_AI.md § 5a): the supplies the faction's Outposts spend a
-        /// minute on their current trades (TradingOutpostSystem.PerMinuteFor —
-        /// level, discount and speed included; Hold spends nothing), over one
-        /// Guild's first-level slot income (the culture's level SO, Guild_Lvl1
-        /// for Alanthor; the GatherersHut SO's first rung without one), times
-        /// tradeGuildCompensation. 0 for a faction with no trading posts.
-        /// </summary>
-        private static int TradeGuildCompensation(EntityManager em, Faction faction)
-        {
-            if (Cfg.tradeGuildCompensation <= 0f) return 0;
-            float guildIncome = 0f;
-            var lvl = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.LevelDef(em, faction, "GatherersHut", 1);
-            if (lvl != null) guildIncome = lvl.slotIncomePerMinute;
-            if (guildIncome <= 0f && TechCatalog.TryGetBuilding("GatherersHut", out var hut)
-                && hut?.slotIncomePerMinute != null && hut.slotIncomePerMinute.Length > 0)
-                guildIncome = hut.slotIncomePerMinute[0];
-            if (guildIncome <= 0f) return 0;
-            var q = QC_Outposts.Get(em, QT_Outposts);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            float supplies = 0f;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (facs[i].Value != faction) continue;
-                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, ents[i], out var spend, out _);
-                supplies += spend.Supplies;
-            }
-            if (supplies <= 0f) return 0;
-            return (int)math.ceil(supplies / guildIncome * Cfg.tradeGuildCompensation);
-        }
-
-        private readonly Dictionary<int, float> _nextBottleneckLog = new Dictionary<int, float>();
-
-        /// <summary>Throttled (extractLogInterval) note that the army is held
-        /// back by veilstone — the reason a rich Alanthor bank is not an army.</summary>
-        private void LogVeilstoneBottleneck(Faction faction, float now, string state)
-        {
-            int key = (int)faction;
-            if (_nextBottleneckLog.TryGetValue(key, out float next) && now < next) return;
-            _nextBottleneckLog[key] = now + Cfg.extractLogInterval;
-            AILogger.Log(faction, "ECONOMY", $"veilstone is the army's bottleneck: {state}");
+            return found;
         }
 
         static readonly ComponentType[] QT_Outposts =
         {
             ComponentType.ReadOnly<TradingOutpostTag>(),
             ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.ReadOnly<TradingOutpostMode>(),
             ComponentType.Exclude<UnderConstruction>(),
         };
         static CachedEntityQuery QC_Outposts;
@@ -901,18 +524,19 @@ namespace TheWaningBorder.AI
             }
         }
 
-        // Scratch for CollectFreeOutpostSlots: (site, ramp index, distance² to the Hall).
-        private readonly List<(float3 Site, int Ramp, float D2)> _outpostSlots =
-            new List<(float3, int, float)>();
+        // Scratch for CollectFreeOutpostSlots: (site, ramp, safe 0/1, kind order, distance² to the Hall).
+        private readonly List<(float3 Site, int Ramp, int Safe, int Kind, float D2)> _outpostSlots =
+            new List<(float3, int, int, int, float)>();
 
         /// <summary>
-        /// THE TRADING OUTPOST'S SITES (2026-10-04, Veilstone_Economy.md §3.1):
-        /// up to four posts stand around one uncursed outcrop, one per side,
-        /// and every further post beside the same outcrop costs more. One
-        /// candidate per outcrop — its free, buildable side nearest the Hall —
-        /// returned CHEAPEST RAMP FIRST (then nearest the Hall), so the AI
-        /// spreads to fresh outcrops at base price before it pays for a third
-        /// or fourth post on one it already trades at.
+        /// THE TRADING OUTPOST'S SITES (Veilstone_Economy.md §3.1, 2026-11-09):
+        /// up to four posts stand around one living node of ANY kind, one per
+        /// side, and every further post beside the same node costs more. One
+        /// candidate per node — its free, buildable side nearest the Hall —
+        /// returned CHEAPEST RAMP FIRST, then nodes that are already SAFE (no
+        /// extractor drawing on them, or one told to stop: a post beside a node
+        /// still being mined dies with it), then the scarcest resource
+        /// (veilstone, iron, supply), then nearest the Hall.
         ///
         /// Same gates as every extractor site: seen ground, held territory
         /// at the SITE, a reachable approach, no own plan over it, and the
@@ -923,9 +547,6 @@ namespace TheWaningBorder.AI
         {
             const string id = OutpostSites.BuildingId;
             _outpostSlots.Clear();
-            var q = AIQueryCache.NodeAt(em, ComponentType.ReadOnly<VeilstoneOutcroppingTag>());
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             var snap = TheWaningBorder.Core.Commands.Types.BuildSiteSnapshot.Current(em);
             int2 size = BuildingSizeConfig.GetSize(id);
 
@@ -933,12 +554,15 @@ namespace TheWaningBorder.AI
             float3 hallPos = hall != Entity.Null && em.HasComponent<LocalTransform>(hall)
                 ? em.GetComponentData<LocalTransform>(hall).Position : float3.zero;
 
-            for (int i = 0; i < ents.Length; i++)
+            // Copied out: the node list is shared scratch the calls below reuse.
+            _postNodeScratch.Clear();
+            _postNodeScratch.AddRange(OutpostSites.AllNodes(em));
+            for (int i = 0; i < _postNodeScratch.Count; i++)
             {
-                var np = xfs[i].Position;
+                var node = _postNodeScratch[i];
+                var np = node.Position;
                 if (!AICommon.IsKnownGround(faction, np)) continue;
-                if (TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.KindOf(em, ents[i])
-                    == VeilstoneNodeKind.Cursed) continue;
+                if (!OutpostSites.IsLiveNode(em, node.Entity, node.Kind)) continue;
 
                 bool found = false;
                 float bestD2 = float.MaxValue;
@@ -964,12 +588,19 @@ namespace TheWaningBorder.AI
 
                 int ramp = OutpostSites.RampIndexForNewPost(em, faction, best);
                 if (ramp >= OutpostSites.SideCount) continue;
-                _outpostSlots.Add((best, ramp, bestD2));
+                int safe = ExtractorDrawingOn(em, np) ? 1 : 0;
+                int kind = node.Kind == OutpostSites.NodeKind.Veilstone ? 0
+                         : node.Kind == OutpostSites.NodeKind.Iron ? 1 : 2;
+                _outpostSlots.Add((best, ramp, safe, kind, bestD2));
             }
 
             _outpostSlots.Sort((a, b) =>
             {
                 int c = a.Ramp.CompareTo(b.Ramp);
+                if (c != 0) return c;
+                c = a.Safe.CompareTo(b.Safe);
+                if (c != 0) return c;
+                c = a.Kind.CompareTo(b.Kind);
                 if (c != 0) return c;
                 c = a.D2.CompareTo(b.D2);
                 if (c != 0) return c;
@@ -977,6 +608,34 @@ namespace TheWaningBorder.AI
                 return c != 0 ? c : a.Site.z.CompareTo(b.Site.z);
             });
             for (int i = 0; i < _outpostSlots.Count; i++) into.Add(_outpostSlots[i].Site);
+        }
+
+        private readonly List<OutpostSites.NodeRef> _postNodeScratch = new List<OutpostSites.NodeRef>();
+
+        static readonly ComponentType[] QT_Drawing =
+        {
+            ComponentType.ReadOnly<BuildingTag>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.Exclude<ExtractorStopped>(),
+            ComponentType.Exclude<DepletedHutTag>(),
+        };
+        static CachedEntityQuery QC_Drawing;
+
+        /// <summary>Is an extractor (any owner) still drawing on the node at
+        /// <paramref name="np"/>?</summary>
+        private static bool ExtractorDrawingOn(EntityManager em, float3 np)
+        {
+            var q = QC_Drawing.Get(em, QT_Drawing);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            float r2 = StopNodeRange * StopNodeRange;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                float dx = xfs[i].Position.x - np.x, dz = xfs[i].Position.z - np.z;
+                if (dx * dx + dz * dz > r2) continue;
+                if (TheWaningBorder.Core.Commands.CommandRouter.IsStoppableExtractor(em, ents[i])) return true;
+            }
+            return false;
         }
     }
 }

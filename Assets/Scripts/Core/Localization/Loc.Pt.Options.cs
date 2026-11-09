@@ -1,4 +1,4 @@
-﻿// Loc.Pt.Options.cs
+// Loc.Pt.Options.cs
 // Portuguese for the options menu and Unity quality-level names.
 
 using System.Collections.Generic;

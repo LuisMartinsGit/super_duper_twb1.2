@@ -316,7 +316,6 @@ namespace TheWaningBorder.AI
             if (!FactionEconomy.CanAfford(em, faction, Cost.Of(iron: below))) short1 = ReligionPurchaseKind.SupportIron;
             else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(supplies: below))) short1 = ReligionPurchaseKind.SupportSupplies;
             else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(veilstone: below))) short1 = ReligionPurchaseKind.SupportVeilstone;
-            else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(veilsteel: below))) short1 = ReligionPurchaseKind.SupportVeilsteel;
             if (short1 != ReligionPurchaseKind.Tithe
                 && CommandRouter.IssueReligionPurchase(em, faction, short1, null, CommandSource.AI))
             {

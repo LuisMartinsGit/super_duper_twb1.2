@@ -64,7 +64,7 @@ namespace TheWaningBorder.UI.Ingame
                     for (int t = 0; t < RegionMap.Count; t++)
                         if (TerritoryOwnership.OwnerOf(t) == f) held++;
                 string msg = $"supplies {res.Supplies} iron {res.Iron} veilstone {res.Veilstone} " +
-                             $"veilsteel {res.Veilsteel} military {mil[f]} territories {held}";
+                             $"military {mil[f]} territories {held}";
                 if ((Faction)f == local && !GameSettings.IsObserver)
                     TheWaningBorder.AI.AILogger.LogPlayer((Faction)f, "SNAPSHOT", msg);
                 else

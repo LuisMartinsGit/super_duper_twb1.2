@@ -54,20 +54,20 @@ namespace TheWaningBorder.UI.Ingame
 
         private enum Chart
         {
-            Supplies, Iron, Veilstone, Veilsteel,
-            SuppliesPerMin, IronPerMin, VeilstonePerMin, VeilsteelPerMin,
+            Supplies, Iron, Veilstone,
+            SuppliesPerMin, IronPerMin, VeilstonePerMin,
             Military, Population, Territories, Religion,
         }
-        private const int ChartCount = 12;
+        private const int ChartCount = 10;
 
         private static readonly string[] ChartTitles =
         {
-            "Supplies (bank)", "Iron (bank)", "Veilstone (bank)", "Veilsteel (bank)",
-            "Supplies net /min", "Iron net /min", "Veilstone net /min", "Veilsteel net /min",
+            "Supplies (bank)", "Iron (bank)", "Veilstone (bank)",
+            "Supplies net /min", "Iron net /min", "Veilstone net /min",
             "Military units", "Population", "Territories held  (purple = curse)", "Religion Points",
         };
 
-        private static bool Signed(int c) => c >= (int)Chart.SuppliesPerMin && c <= (int)Chart.VeilsteelPerMin;
+        private static bool Signed(int c) => c >= (int)Chart.SuppliesPerMin && c <= (int)Chart.VeilstonePerMin;
 
         private readonly float[][,] _series = new float[ChartCount][,];
         private readonly float[] _curseTerritories = new float[MaxSamples];
@@ -224,7 +224,7 @@ namespace TheWaningBorder.UI.Ingame
             _buildingQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<BuildingTag, FactionTag>().Build(em);
             _outpostQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<TradingOutpostTag, TradingOutpostMode, FactionTag>().Build(em);
+                .WithAll<TradingOutpostTag, FactionTag>().Build(em);
             _brainQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<TheWaningBorder.AI.AIBrain>().Build(em);
             _curseNodeQuery = new EntityQueryBuilder(Allocator.Temp)
@@ -241,7 +241,7 @@ namespace TheWaningBorder.UI.Ingame
             public TerritoryYield Net;
             public int PopCur, PopMax, Military, Economy, Buildings, UnderConstruction, Plans;
             public int Held, Disconnected;
-            public int OutBuy, OutForge, OutSell;
+            public int Posts;
             public int Rp, RpHave, RpNeed, Era;
             public byte Culture;
         }
@@ -275,18 +275,11 @@ namespace TheWaningBorder.UI.Ingame
                     if (em.HasComponent<UnderConstruction>(ents[i])) _rows[f].UnderConstruction++;
                 }
 
-            using (var modes = _outpostQuery.ToComponentDataArray<TradingOutpostMode>(Allocator.Temp))
             using (var facs = _outpostQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
-                for (int i = 0; i < modes.Length; i++)
+                for (int i = 0; i < facs.Length; i++)
                 {
                     int f = (int)facs[i].Value;
-                    if (f < 0 || f >= MaxFactions) continue;
-                    uint mask = TradeRoutes.CountsOf(modes[i]);   // every route the post runs (2026-11-04)
-                    if (TradeRoutes.Has(mask, TradeRecipe.ForgeVeilsteel)) _rows[f].OutForge++;
-                    if (TradeRoutes.Has(mask, TradeRecipe.SellVeilsteel) || TradeRoutes.Has(mask, TradeRecipe.SellSupplies))
-                        _rows[f].OutSell++;
-                    if (TradeRoutes.Has(mask, TradeRecipe.BuyVeilstone) || TradeRoutes.Has(mask, TradeRecipe.BuyIron))
-                        _rows[f].OutBuy++;
+                    if (f >= 0 && f < MaxFactions) _rows[f].Posts++;
                 }
 
             using (var brains = _brainQuery.ToComponentDataArray<TheWaningBorder.AI.AIBrain>(Allocator.Temp))
@@ -347,11 +340,9 @@ namespace TheWaningBorder.UI.Ingame
                 _series[(int)Chart.Supplies][f, idx] = r.Bank.Supplies;
                 _series[(int)Chart.Iron][f, idx] = r.Bank.Iron;
                 _series[(int)Chart.Veilstone][f, idx] = r.Bank.Veilstone;
-                _series[(int)Chart.Veilsteel][f, idx] = r.Bank.Veilsteel;
                 _series[(int)Chart.SuppliesPerMin][f, idx] = r.Net.Supplies;
                 _series[(int)Chart.IronPerMin][f, idx] = r.Net.Iron;
                 _series[(int)Chart.VeilstonePerMin][f, idx] = r.Net.Veilstone;
-                _series[(int)Chart.VeilsteelPerMin][f, idx] = r.Net.Veilsteel;
                 _series[(int)Chart.Military][f, idx] = r.Military;
                 _series[(int)Chart.Population][f, idx] = r.PopCur;
                 _series[(int)Chart.Territories][f, idx] = r.Held;
@@ -471,7 +462,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             Collect(em);
             var sb = new StringBuilder(1024);
-            sb.AppendLine("<b>Faction        Age/Cult  Supplies         Iron             Veilstone        Veilsteel        Pop       Terr(cut)  Mil/Eco  Bld(+site/plan)  Outposts b/f/s  RP (pts)   Score (units/bld/stock)  K/D</b>");
+            sb.AppendLine("<b>Faction        Age/Cult  Supplies         Iron             Veilstone        Pop       Terr(cut)  Mil/Eco  Bld(+site/plan)  Posts  RP (pts)   Score (units/bld/stock)  K/D</b>");
             for (int f = 0; f < MaxFactions; f++)
             {
                 var r = _rows[f];
@@ -483,13 +474,12 @@ namespace TheWaningBorder.UI.Ingame
                 sb.Append(Res(r.Bank.Supplies, r.Net.Supplies));
                 sb.Append(Res(r.Bank.Iron, r.Net.Iron));
                 sb.Append(Res(r.Bank.Veilstone, r.Net.Veilstone));
-                sb.Append(Res(r.Bank.Veilsteel, r.Net.Veilsteel));
                 sb.Append($"{r.PopCur,3}/{r.PopMax,-5} ");
                 string cut = r.Disconnected > 0 ? $"<color=#FF5050>({r.Disconnected})</color>" : "   ";
                 sb.Append($"{r.Held,-4}{cut}  ");
                 sb.Append($"{r.Military,3}/{r.Economy,-4} ");
                 sb.Append($"{r.Buildings,3}(+{r.UnderConstruction}/{r.Plans})      ");
-                sb.Append($"{r.OutBuy}/{r.OutForge}/{r.OutSell}            ");
+                sb.Append($"{r.Posts,-7}");
                 sb.Append($"{r.Rp} ({r.RpHave}/{r.RpNeed})".PadRight(11));
                 // The Score (docs/Design/Score.md): MatchScoreSystem's latest sample.
                 if (TheWaningBorder.Core.Diagnostics.MatchScore.TryGet(fac, out var score))

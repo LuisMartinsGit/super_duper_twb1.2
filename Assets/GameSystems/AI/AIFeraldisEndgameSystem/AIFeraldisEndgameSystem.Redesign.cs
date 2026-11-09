@@ -138,7 +138,7 @@ namespace TheWaningBorder.AI
                 if (FeraldisEconomy.CountLiveOrQueued(em, faction, id) > 0) continue;
                 if (!CommandRouter.CanTrainAtBuilding(em, fortress, id, out _, out _)) continue;
                 if (!TechCatalog.TryGetUnit(id, out var ud) || ud.cost == null) continue;
-                if (!FactionEconomy.CanAfford(em, faction, Cost.Of(ud.cost.Supplies, ud.cost.Iron, ud.cost.Veilstone, ud.cost.Veilsteel))) continue;
+                if (!FactionEconomy.CanAfford(em, faction, Cost.Of(ud.cost.Supplies, ud.cost.Iron, ud.cost.Veilstone))) continue;
                 CommandRouter.IssueTrain(em, fortress, id, CommandSource.AI);
                 AILogger.Log(faction, "MILITARY", $"{id} queued at the Fortress");
             }
@@ -147,13 +147,19 @@ namespace TheWaningBorder.AI
         // ── the Great Forge ─────────────────────────────────────────────────
 
         /// <summary>
-        /// A fixed bay plan that runs the loop (§4.1): Veilsteel first, then
-        /// Soulforge, Arms Export, a second Veilsteel. A bay whose recipe the
-        /// bank cannot feed simply idles a cycle (the system skips it), so the
-        /// plan never needs to Hold. More bays are bought while the bank is rich.
+        /// A fixed bay plan that runs the loop (§4.1, veilstone-only since
+        /// 2026-11-09): Soulforge first (slaves -> veilstone), then Arms Export
+        /// (veilstone -> iron), a second Soulforge, then Smelt (iron ->
+        /// veilstone). A bay whose recipe the bank cannot feed simply idles a
+        /// cycle (the system skips it), so the plan never needs to Hold. More
+        /// bays are bought while the bank is rich.
         /// </summary>
         private static readonly ForgeRecipe[] BayPlan =
-            { ForgeRecipe.Veilsteel, ForgeRecipe.Soulforge, ForgeRecipe.ArmsExport, ForgeRecipe.Veilsteel };
+            { ForgeRecipe.Soulforge, ForgeRecipe.ArmsExport, ForgeRecipe.Soulforge, ForgeRecipe.Smelt };
+
+        /// <summary>Banked veilstone / iron below which Arms Export / Smelt
+        /// would eat what the army needs; the bay forges slaves instead.</summary>
+        private const int ExportVeilstoneFloor = 300, SmeltIronFloor = 400;
 
         private static void ManageForge(EntityManager em, Faction faction)
         {
@@ -166,8 +172,9 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < count; i++)
             {
                 var want = BayPlan[math.min(i, BayPlan.Length - 1)];
-                // Arms Export only when there is veilsteel to spare.
-                if (want == ForgeRecipe.ArmsExport && bank.Veilsteel < 150) want = ForgeRecipe.Veilsteel;
+                // Export / smelt only with stock to spare.
+                if (want == ForgeRecipe.ArmsExport && bank.Veilstone < ExportVeilstoneFloor) want = ForgeRecipe.Soulforge;
+                if (want == ForgeRecipe.Smelt && bank.Iron < SmeltIronFloor) want = ForgeRecipe.Soulforge;
                 if (bays[i].Recipe != want)
                 {
                     CommandRouter.IssueFeraldisOrder(em, forge, Entity.Null, FeraldisOp.ForgeSetRecipe, i * 8 + (int)want, default, CommandSource.AI);

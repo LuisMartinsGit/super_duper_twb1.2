@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Shard-Tipped Arrows
   role: Military
   effect: 
-  desc: "Arrow tier 4: ranged units deal a further +75% damage. Needs Veilsteel."
+  desc: "Arrow tier 4: ranged units deal a further +75% damage."
   researchAt: ArcheryRange
   minBuildingLevel: 3
   researchTime: 50
@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 0
-    Veilstone: 0
-    Veilsteel: 170
+    Veilstone: 340
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

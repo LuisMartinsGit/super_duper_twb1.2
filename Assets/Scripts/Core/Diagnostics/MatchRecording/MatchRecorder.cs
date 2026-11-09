@@ -619,12 +619,12 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
             for (int f = 0; f < MatchRecord.Factions; f++)
             {
                 var faction = (Faction)f;
-                int su = 0, ir = 0, ve = 0, vs = 0;
+                int su = 0, ir = 0, ve = 0;
                 if (FactionEconomy.TryGetBank(em, faction, out var bank)
                     && em.HasComponent<FactionResources>(bank))
                 {
                     var r = em.GetComponentData<FactionResources>(bank);
-                    su = r.Supplies; ir = r.Iron; ve = r.Veilstone; vs = r.Veilsteel;
+                    su = r.Supplies; ir = r.Iron; ve = r.Veilstone;
                 }
                 int pop = 0, popMax = 0;
                 if (_army[f] + _workers[f] + _buildings[f] > 0)
@@ -642,7 +642,6 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
                 Put(RecordSeries.Supplies, f, su);
                 Put(RecordSeries.Iron, f, ir);
                 Put(RecordSeries.Veilstone, f, ve);
-                Put(RecordSeries.Veilsteel, f, vs);
                 Put(RecordSeries.Population, f, pop);
                 Put(RecordSeries.PopulationMax, f, popMax);
                 Put(RecordSeries.Army, f, _army[f]);

@@ -317,7 +317,7 @@ public static class TechCatalog
         {
             if (b == null || b.cost == null) continue;
             if (b.cost.Supplies == 0 && b.cost.Iron == 0
-                && b.cost.Veilstone == 0 && b.cost.Veilsteel == 0)
+                && b.cost.Veilstone == 0)
                 Warn($"building '{b.id}' costs NOTHING — its SO cost block is all zeros, " +
                      "so it is free to build. Author the cost on the asset.");
         }
@@ -842,7 +842,7 @@ public static class TechCatalog
             id = "Ledger", name = "Ledger", unitClass = "support",
             hp = 140f, speed = 3.5f, lineOfSight = 10f, trainingTime = 30f,
             damage = 0f, damageType = "melee", armorType = "structure_light",
-            cost = CostBlock.Of(150, 40, 20, 0),
+            cost = CostBlock.Of(150, 40, 20),
             minBuildingLevel = 2,
             abilities = new[] { "Automate Facility" },
         });
@@ -852,7 +852,7 @@ public static class TechCatalog
             hp = 650f, speed = 7.0f, lineOfSight = 26f, trainingTime = 90f,
             damage = 45f, damageType = "melee", armorType = "cavalry_heavy",
             attackCooldown = 1.4f,
-            cost = CostBlock.Of(600, 250, 100, 0),
+            cost = CostBlock.Of(600, 250, 100),
             minBuildingLevel = 1,
             abilities = new[] { "King's Call", "Liquid Courage" },
         });
@@ -868,7 +868,7 @@ public static class TechCatalog
             hp = 170f, speed = 3.2f, lineOfSight = 10f, trainingTime = 30f,
             damage = 16f, damageType = "melee", armorType = "infantry_heavy",
             attackCooldown = 1.2f,
-            cost = CostBlock.Of(140, 50, 20, 0),
+            cost = CostBlock.Of(140, 50, 20),
             minBuildingLevel = 1,
             abilities = new[] { "Rapid Mend" },
         });
@@ -878,7 +878,7 @@ public static class TechCatalog
             hp = 160f, speed = 3.4f, lineOfSight = 10f, trainingTime = 30f,
             damage = 16f, damageType = "melee", armorType = "infantry_heavy",
             attackCooldown = 1.2f,
-            cost = CostBlock.Of(130, 40, 25, 0),
+            cost = CostBlock.Of(130, 40, 25),
             minBuildingLevel = 1,
             abilities = new[] { "Condemn" },
         });
@@ -888,7 +888,7 @@ public static class TechCatalog
             hp = 260f, speed = 4.4f, lineOfSight = 10f, trainingTime = 36f,
             damage = 18f, damageType = "melee", armorType = "infantry_heavy",
             attackCooldown = 1.4f,
-            cost = CostBlock.Of(180, 70, 30, 0),
+            cost = CostBlock.Of(180, 70, 30),
             minBuildingLevel = 1,
             abilities = new[] { "War Cry" },
         });
@@ -920,7 +920,7 @@ public static class TechCatalog
             damageType = unitClass == "magic" ? "magic" : "melee",
             armorType = "infantry_heavy",
             attackCooldown = 1.2f,
-            cost = CostBlock.Of(supplies, iron, veilstone, 0),
+            cost = CostBlock.Of(supplies, iron, veilstone),
             minBuildingLevel = 1,
         });
     }
@@ -936,7 +936,7 @@ public static class TechCatalog
     {
         if (_buildingsById.ContainsKey(id)) return;
         var raw = BuildCosts.Get(id);
-        var cost = CostBlock.Of(raw.Supplies, raw.Iron, raw.Veilstone, raw.Veilsteel);
+        var cost = CostBlock.Of(raw.Supplies, raw.Iron, raw.Veilstone);
         _buildingsById[id] = new BuildingDef
         {
             id = id, name = name, role = role, hp = hp,

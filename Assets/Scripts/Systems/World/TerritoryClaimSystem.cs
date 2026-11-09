@@ -11,8 +11,10 @@
 //   only the holder present     -> fills by its weight, capped at 100
 //   only a challenger present   -> drains by its weight; at 0 it becomes the
 //                                  holder and starts filling
-//   nobody present, no building -> decays by decayRate
-//   nobody present, a building  -> HELD
+//   nobody present              -> HELD (2026-11-09: ground no longer decays
+//                                  when its soldiers leave), unless the curse
+//                                  holds curseNodesToDecay (two) of its nodes:
+//                                  then it decays by decayRate
 //   locked                      -> pinned; challengers cannot drain it
 //
 // Weight = (summed population of the side's military units there) ^ exponent,
@@ -28,9 +30,9 @@
 // can defend, not a hard cap") — the meter above is the only thing that keeps
 // ground. A player may START a claim only once aged up (Age 0 holds its start
 // territory only), and only on ground that borders the ground connected to
-// one of its Fortresses. Held ground that loses that connection wears down:
-// every building of the holder there loses its full health over
-// DisconnectSeconds (about four minutes).
+// one of its Fortresses. Held ground that loses that connection is KEPT
+// (2026-11-09, decision 42: cut-off ground no longer wears down — it is lost
+// only by conquest, or to the curse as above).
 //
 // Every input is replicated simulation state and every step runs on the
 // lockstep clock, so every peer moves every meter identically. The meter is
@@ -75,10 +77,6 @@ namespace TheWaningBorder.Systems.World
 
         private EntityQuery _unitQuery;
         private EntityQuery _buildingQuery;
-
-        /// <summary>Seconds a building on ground cut off from every Fortress
-        /// takes to wear down from full health (Territory_Claims.md §8).</summary>
-        private const float DisconnectSeconds = 240f;
 
         private EntityQuery _fortressQuery;
         private EntityQuery _seedFortressQuery;
@@ -130,6 +128,9 @@ namespace TheWaningBorder.Systems.World
         private int[] _pop = System.Array.Empty<int>();
         private byte[] _hasBuilding = System.Array.Empty<byte>();
         private byte[] _hasLock = System.Array.Empty<byte>();
+        /// <summary>Per territory: curse nodes standing in it this tick — two
+        /// or more make held ground decay (§ 2.2, 2026-11-09).</summary>
+        private int[] _curseNodes = System.Array.Empty<int>();
 
         // ── A blocked claim shows what blocks it (Territory_Claims.md §3.1,
         // 2026-10-25). Per territory, this tick: the player sides whose claim
@@ -268,6 +269,8 @@ namespace TheWaningBorder.Systems.World
             }
             System.Array.Clear(_hasBuilding, 0, cells);
             System.Array.Clear(_hasLock, 0, cells);
+            if (_curseNodes.Length != count) _curseNodes = new int[count];
+            System.Array.Clear(_curseNodes, 0, count);
             if (_blockMask.Length != count)
             {
                 _blockMask = new byte[count];
@@ -341,10 +344,6 @@ namespace TheWaningBorder.Systems.World
                 }
 
                 bool locked = claimed && holderSide >= 0 && _hasLock[t * Sides + holderSide] != 0;
-                // A Sanctum holds itself (Territory_Claims.md § 11.4,
-                // 2026-10-18): no building is needed to stop its decay.
-                bool held = holderSide >= 0 && (_hasBuilding[t * Sides + holderSide] != 0
-                                                || TerritoryResources.IsSanctum(t));
                 bool lose = false;
                 int loser = holder;
                 int challenger = TerritoryOwnership.Natural;
@@ -381,7 +380,12 @@ namespace TheWaningBorder.Systems.World
 
                 if (lead < 0)
                 {
-                    if (!locked && !held && value > 0)
+                    // Nobody stands here. Held ground is KEPT (2026-11-09,
+                    // decision 42) — it decays only while the curse holds
+                    // curseNodesToDecay of its nodes. A lock still pins it.
+                    bool curseTakes = holderSide >= 0 && holderSide != CurseSide
+                        && _curseNodes[t] >= math.max(1, cfg.curseNodesToDecay);
+                    if (!locked && curseTakes && value > 0)
                     {
                         value -= decay;
                         if (value <= 0)
@@ -494,7 +498,6 @@ namespace TheWaningBorder.Systems.World
             TerritoryOwnership.Publish();
             if (anyLoss) UnityEngine.Debug.Log("[TerritoryClaim] ownership lost — buildings collapsed.");
 
-            WearDisconnected(em, count, dt);
         }
 
         // ── Sanctums (Territory_Claims.md § 11.4, 2026-10-19) ───────────
@@ -687,47 +690,6 @@ namespace TheWaningBorder.Systems.World
             for (int o = 0; o < count; o++)
                 if (_connected[o * Sides + side] != 0 && RegionMap.AreAdjacent(t, o)) return true;
             return false;
-        }
-
-        /// <summary>
-        /// Ground a player holds but has lost the link to every Fortress on
-        /// wears down: each of its buildings there loses its full health over
-        /// <see cref="DisconnectSeconds"/>, so the lot is gone in about four
-        /// minutes unless the link is restored.
-        /// </summary>
-        private void WearDisconnected(EntityManager em, int count, float dt)
-        {
-            // The Basic mission raises its first Fortress on ground no Fortress
-            // links yet, and a new foundation's few HP would die to this at once.
-            if (GameSettings.TutorialBasicActive) return;
-
-            bool any = false;
-            for (int t = 0; t < count && !any; t++)
-            {
-                int side = SideOf(TerritoryOwnership.HolderOf(t));
-                any = side >= 0 && side < CurseSide && TerritoryOwnership.IsClaimed(t)
-                      && _connected[t * Sides + side] == 0 && !TerritoryResources.IsSanctum(t);
-            }
-            if (!any) return;
-
-            using var ents = _buildingQuery.ToEntityArray(Allocator.Temp);
-            using var facs = _buildingQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = _buildingQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                int side = (int)facs[i].Value;
-                if (side < 0 || side >= CurseSide) continue;
-                int t = BuildingRegion(ents[i], xfs[i].Position);
-                if (t == RegionMap.None || !TerritoryOwnership.IsClaimed(t)) continue;
-                if (SideOf(TerritoryOwnership.HolderOf(t)) != side) continue;
-                if (_connected[t * Sides + side] != 0) continue;
-                if (TerritoryResources.IsSanctum(t)) continue;   // a Sanctum needs no link (§ 11.4)
-                var hp = em.GetComponentData<Health>(ents[i]);
-                if (hp.Value <= 0) continue;
-                int wear = math.max(1, (int)math.ceil(hp.Max * dt / DisconnectSeconds));
-                hp.Value = math.max(0, hp.Value - wear);
-                em.SetComponentData(ents[i], hp);
-            }
         }
 
         /// <summary>Tell the local player, at most every 20 s, why its army
@@ -964,6 +926,7 @@ namespace TheWaningBorder.Systems.World
                 if (t == RegionMap.None) continue;
 
                 _hasBuilding[t * Sides + side] = 1;
+                if (side == CurseSide && em.HasComponent<SmallNodeTag>(e)) _curseNodes[t]++;
                 if (IsLocking(em, e))
                 {
                     _hasLock[t * Sides + side] = 1;

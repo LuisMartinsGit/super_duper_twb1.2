@@ -711,7 +711,6 @@ namespace TheWaningBorder.Systems.Border
         {
             into.Clear();
             Collect<VeilstoneOutcroppingTag>(em, territory, into);
-            Collect<VeilsteelDepositTag>(em, territory, into);
             Collect<IronMineTag>(em, territory, into);
             Collect<SupplyNodeTag>(em, territory, into);
             into.Sort((a, b) => a.e.Index.CompareTo(b.e.Index));

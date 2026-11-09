@@ -31,7 +31,7 @@ namespace TheWaningBorder.Systems.Sect
         SupportSupplies = 5,
         SupportIron = 6,
         SupportVeilstone = 7,
-        SupportVeilsteel = 8,
+        // 8 was SupportVeilsteel (veilsteel folded into veilstone, 2026-11-09); never reuse it (replays).
         ArmySmall = 9,
         ArmyMedium = 10,
         ArmyLarge = 11,
@@ -62,7 +62,6 @@ namespace TheWaningBorder.Systems.Sect
                 case ReligionPurchaseKind.SupportSupplies:
                 case ReligionPurchaseKind.SupportIron:
                 case ReligionPurchaseKind.SupportVeilstone:
-                case ReligionPurchaseKind.SupportVeilsteel:
                     if (!SectQuery.HasStandingTemple(em, faction)) return false;
                     rpCost = 1;
                     return FactionReligionPointsHelper.CanAfford(em, faction, rpCost);
@@ -112,7 +111,7 @@ namespace TheWaningBorder.Systems.Sect
                 return int.TryParse(sectId, out int territory)
                     && TheWaningBorder.Entities.Monument.TryExplore(em, faction, territory);
 
-            if (kind >= ReligionPurchaseKind.SupportSupplies && kind <= ReligionPurchaseKind.SupportVeilsteel)
+            if (kind >= ReligionPurchaseKind.SupportSupplies && kind <= ReligionPurchaseKind.SupportVeilstone)
             {
                 if (!FactionReligionPointsHelper.TrySpend(em, faction, rpCost)) return false;
                 FactionEconomy.Add(em, faction, SupportPays(kind));
@@ -149,7 +148,6 @@ namespace TheWaningBorder.Systems.Sect
                 ReligionPurchaseKind.SupportSupplies => TheWaningBorder.Core.Cost.Of(supplies: cfg.supportSupplies),
                 ReligionPurchaseKind.SupportIron => TheWaningBorder.Core.Cost.Of(iron: cfg.supportIron),
                 ReligionPurchaseKind.SupportVeilstone => TheWaningBorder.Core.Cost.Of(veilstone: cfg.supportVeilstone),
-                ReligionPurchaseKind.SupportVeilsteel => TheWaningBorder.Core.Cost.Of(veilsteel: cfg.supportVeilsteel),
                 _ => default,
             };
         }

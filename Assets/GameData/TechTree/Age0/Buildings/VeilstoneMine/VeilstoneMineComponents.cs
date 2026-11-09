@@ -8,8 +8,8 @@ using Unity.Entities;
 /// the way a Gatherer's Hut is for a supply site and a Mine is for iron.
 ///
 /// It exists because the generic Mine did not distinguish node kinds: it
-/// counted every node within 12 m, so one building extracted iron, veilstone
-/// and veilsteel alike and the player never chose WHAT to invest in. Each
+/// counted every node within 12 m, so one building extracted iron and veilstone
+/// alike and the player never chose WHAT to invest in. Each
 /// resource now has its own building, its own node to stand on, and its own
 /// upgrade ladder — which is what makes a territory's contents matter.
 ///

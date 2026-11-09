@@ -1,5 +1,17 @@
 # Veilstone Economy
 
+> **2026-11-09 revision ([decision 42](Unification_Decisions_2026-10-03.md)) — read this
+> first; it overrides everything below that disagrees.**
+>
+> - **Veilsteel no longer exists.** Veilstone is the only crystal. Wherever this doc
+>   says veilsteel is made, forged, bought, sold, paid or spent, read veilstone: every
+>   price converted at 2 veilstone per veilsteel, and every source pays veilstone. The
+>   Veilsteel Survey is cut. The lore of §1 stays background (lore-only, no mechanic).
+> - **Alanthor keep and build Veilstone Mines.** The age-up conversion to Trading
+>   Outposts is gone (§3.1's first row and §4's `ConvertMinesForCulture` are void).
+> - **The Trading Outpost (§3.1) is rewritten — see §3.1 below.**
+> - **Stop extracting** (§3.5): every extractor can stop drawing on its node.
+
 > **Doc version: 2026-10-08. Canon for where veilstone and veilsteel come
 > from.** Numbers (prices, trade rates, income ladders) live on the SOs and in
 > `TradingOutpostSystem.asset`; on a conflict they win (2026-10-03,
@@ -75,56 +87,43 @@ exists, 2026-10-18).
 | **Feraldis** | **Mine** on it (slave-staffed): fast veilstone, drains the node | Destroy the curse node → **veilstone + veilsteel bounty** | nothing |
 | **Runai** | **Sanctuary** on it: religion points, never drains it | **Sanctuary** on it with Consecrated Ground (even in curse-held ground): the node sleeps, more religion points | nothing |
 | **Age 0 (no culture)** | **Veilstone Mine** on it | Destroy the curse node → pacified | nothing |
-| **Alanthor** | Up to four **Trading Outposts** beside it | Destroy the curse node → pacified (back to Inactive) | Up to four **Trading Outposts** beside it |
+| **Alanthor** | **Veilstone Mine** on it; after Trade Charters, up to four **Trading Outposts** beside it (any node, §3.1) | Destroy the curse node → pacified (back to Inactive) | Up to four **Trading Outposts** beside it |
 
-### 3.1 Alanthor — the Trading Outpost
+### 3.1 Alanthor — the Trading Outpost (rewritten 2026-11-09, decision 42)
 
-The Outpost simulates trade without caravans or a menu: it is a building on
-the map, in contested ground, that anyone can burn.
+The Outpost is Alanthor's late-game answer to nodes that run dry. It does not trade:
+it **trickles the resource of the node it stands beside, without ever drawing on that
+node**.
 
 | | |
 |---|---|
-| **Alanthor do not mine veilstone** | No Veilstone Mine once Alanthor (iron Mines stay — they are every culture's). **At age-up every Veilstone Mine the faction owns becomes the FIRST Trading Outpost of its outcrop** — same building (same entity, owner, health fraction and territory lock), but it **moves off the outcrop onto one of its four sides**: the free, buildable side nearest the faction's capital, ties broken north, east, south, west — a side in the outcrop's own territory first, one across a border only when no other is free. The other three sides can then be built. The mine's level is lost; the Outpost starts at its own Level 1. With no free side it stays on the outcrop (a fallback, logged). |
-| Placement (2026-10-04, decision 40 — supersedes the on-outcrop placement of decision 28) | **Beside** an Inactive veilstone outcrop (~~or Depleted~~ — spent outcrops collapse, 2026-10-18), on one of its **four side slots — north, east, south, west** — the post's footprint flush against the outcrop's square and centred on its axis ([Build_Grid.md § The Trading Outpost's side slots](Build_Grid.md)). **At most one post per side, so at most four per outcrop.** The outcrop itself stays an impassable node nobody builds on. The placement ghost snaps to the nearest free side of an outcrop near the cursor and skips a side the ground refuses; it is red when every side is taken or blocked. Never beside a Cursed outcrop. Each post remembers the outcrop it trades at. Alanthor's Mine button and the Outpost's own button both raise it. |
-| **Four posts, one outcrop** | This is how Alanthor's veilstone grows **without more veilstone slots on the map**: an outcrop can carry up to four times the trade it carried as a single Outpost — at a steeper price for every post beyond the first. |
-| Cost, build time | on the `Alanthor_TradingOutpost` SO — the price of the **first** post beside an outcrop |
-| **Per-outcrop cost ramp** | Every further post beside the **same** outcrop costs more — its build price is the base price times the ramp entry for its place (since 2026-10-19 the ramp prices BUILDING only: a level is faction-wide per type, raising every post at once, so its price is the level SO's own wherever it is ordered — [Overview.md § Building levels](Overview.md#building-levels-faction-wide)) (the 1st, 2nd, 3rd or 4th post there). The **first post beside a new outcrop is base price again**, which rewards taking more veilstone ground over stacking one outcrop. A post's place is counted from the posts already standing beside that outcrop (any owner, finished or not) plus the builder's own plans there, and is fixed when its ground is broken. The multipliers are `outcropRampMultipliers` in `TradingOutpostSystem.asset`. The build button names the ramp; the price charged is the one for the side the post snaps to; refunds hand back the price paid. |
-| **Levels 1-3** | Like every Alanthor building, the Outpost has three levels, `TradingOutpost_Lvl1..3` (level SOs in `Civs/Alanthor/Buildings/TradingOutpost/`): L1 granted free (at age-up), L2 and L3 bought, **faction-wide** — one level-up raises every post the faction owns, and a new post is finished at the faction's level (2026-10-19). **A level raises the posts' trade rate** — what it spends and what it earns per minute alike, by the level SO's `tradeRateMultiplier` — and its HP. The HUD reads `Trading Outpost - Lvl N`. |
-| Locks territory | Yes, like an extractor (Territory_Claims.md §3) |
-| **Buy Veilstone** | supplies + iron in, veilstone out |
-| **Forge Veilsteel** (research: Veilsteel Forging) | veilstone in, veilsteel out |
-| **Sell Veilsteel** (research: Veilsteel Export, after Forging) | veilsteel in, iron out (**no supplies since 2026-10-08** — late-game supplies come only from the Fortress, the Vault and territory claims, §5) |
-| **Buy Iron** (2026-11-04; always available) | supplies in, iron out — the late-game iron source once the mines are gone and supplies pile up (rates on `TradingOutpostSystem.asset`) |
-| **Sell Veilsteel for Supplies** (2026-11-04; research: Veilsteel Export) | veilsteel in, supplies out |
-| **Routes per level** (2026-11-04) | A post runs SEVERAL routes at once: `tradeRoutes` on its level SO — L1 one, L2 two, L3 four — and **the same trade may fill several of them**, each copy running the trade once more. Each kind of trade is its own purchase (a kind the bank cannot afford skips the cycle while the others run). A click on a Trade menu cell or a route button adds one copy; on a full post it stops that route; Hold clears them all; a route's header puts every slot of every post on it. The AI deals its wanted route counts over its posts' slots. Repeats are what let late-game trade turn a supply and iron bank into veilstone for fast army production |
-| **Hold** (always available; 2026-10-05) | the post trades nothing — nothing spent, nothing earned — until set to a trade again. A bank that already holds more veilstone than it can use stops paying supplies and iron for more |
-| **Hold is the default** (2026-10-11) | A new post — built, or converted from a Veilstone Mine at age-up — starts on **Hold** and trades nothing until it is assigned a trade. The player assigns posts through the **Trade menu** (a HUD button, shown while the player has a finished post): one column per trade, every finished post listed with the trade it runs, a click moves a post to a trade (a trade's header moves them all), and the top line is the faction's NET trade per minute across every territory — what the posts make less what they spend. Selecting several posts and pressing a trade on the action panel sets them all. The AI assigns its own posts as before |
-| **Trade Agreements I / II / III** (research, chained) | every trade's INPUTS cost progressively less — the discount per tier is `discountPercent` in `TradingOutpostSystem.asset` (reviewed down 2026-10-19 so tier III never makes a trade near-free) |
-| **Swift Caravans** (research, after Trade Agreements I; 2026-10-03) | every trade runs faster — Buy, Forge and Sell alike, inputs and outputs scaled together, on every Outpost the faction owns. The percentage is on the tech SO (`effectsList`, `TradeSpeed` on `building:Alanthor_TradingOutpost`) |
-| Research | Hosted by the Outpost itself (`TradingOutpost/Research/`) |
-| Can't afford a cycle | That cycle is skipped; nothing is spent |
-| Its outcrop turns Cursed | **Every** post beside it idles until the outcrop is pacified |
-| Each post trades on its own | Four posts round one outcrop are four trades — each runs its own recipe toggle, its own level and its own fractional carry. None of them is a slot extractor, so the outcrop's empty-slot trickle (§2) does not change with how many posts stand beside it |
+| **Unlock** | Research **Trade Charters** at the Fortress, gated to Fortress L3 (the tech SO's `minBuildingLevel`). Before it, the Outpost cannot be built. |
+| **Alanthor mine veilstone** | Alanthor build Veilstone Mines like every other culture, and keep them at age-up. The early and mid game is extraction; the Outpost is what comes after. |
+| **Placement** | On one of the four side slots (N, E, S, W) of **any resource node**: supply, iron or veilstone ([Build_Grid.md § The Trading Outpost's side slots](Build_Grid.md)). At most one post per side, four per node. Never beside a Cursed outcrop. A side the extractor or the ground blocks is skipped. The ghost snaps to the nearest free side of the nearest node. |
+| **What it pays** | That node's resource, at the trickle rate for that resource on `TradingOutpostSystem.asset` (`trickleSuppliesPerMinute` / `trickleIronPerMinute` / `trickleVeilstonePerMinute`), times the node's purity and the post's level (`tradeRateMultiplier` on `TradingOutpost_Lvl1..3`). It spends nothing. |
+| **Only while the node lives** | It pays only while its node exists, is not Cursed, and lies in ground its owner holds. **The trickle is never drawn from the node**, but whatever else works the node still is: when the node is spent it collapses (Territory_Claims.md § 11.3) and takes every post beside it. |
+| **It replaces the empty-node trickle** | A node with a finished post of its holder beside it pays no empty-node trickle, so an unworked node stops wearing down once it has a post. |
+| **The decision** | Harvest the node to its last units with the extractor, or **stop extracting** (§3.5) in time and keep the posts paying forever. The node's reserve bar shows what is left. |
+| Cost, build time | On the `Alanthor_TradingOutpost` SO: the price of the **first** post beside a node. |
+| **Per-node cost ramp** | Every further post beside the **same** node costs more (`outcropRampMultipliers` on `TradingOutpostSystem.asset`); the first post beside a new node is base price again. Counted as before (posts standing there plus the builder's own plans), fixed when ground is broken. |
+| **Levels 1-3** | `TradingOutpost_Lvl1..3`, faction-wide like every building level. A level raises the trickle (`tradeRateMultiplier`) and HP. |
+| Locks territory | Yes, like an extractor (Territory_Claims.md §3). |
+| **No trade** | No trade menu, no routes, no Hold, no Buy / Forge / Sell. Trade Agreements, Swift Caravans and Veilsteel Forging / Export are deleted. Resources are bought and sold at the Temple (Tithe, and its resource trade — Monuments_And_Petriarchy.md). |
+| Its node turns Cursed | Every post beside it idles until the node is pacified (or the territory is retaken). |
 
-The trade choice is the balancing act: every Outpost forging or selling is one
-not buying veilstone — per post, so with four posts on an outcrop one can
-forge while three buy. The trade runs on a short fixed cycle (`cycleSeconds`,
-1 s since 2026-10-03, decision 28) with a per-Outpost fractional carry, so the
-per-minute numbers are paid exactly. The Outpost does **not** drain the
-outcrop; trade is not mining. **But it falls with its outcrop (2026-10-18):**
-if the outcrop is fully extracted by something else — its own empty-slot
-trickle, a Feraldis or Age 0 Veilstone Mine — it collapses and takes every
-Outpost on its side slots with it (Territory_Claims.md § 11.3). ~~Depleted
-outcrops left behind by Feraldis are as good as fresh ones for an Outpost.~~
+### 3.5 Stop extracting (2026-11-09)
 
-Every trade rate, the cycle and the Trade Agreements discounts live in
-`TradingOutpostSystem.asset` beside the class (rates authored per minute); the
-research prices, and the Swift Caravans speed-up, are on the tech SOs in
-`TradingOutpost/Research/` (the asset only lists which techs are speed techs,
-`speedTechs`). **The Buy Veilstone output was raised on 2026-10-03** (developer
-directive, chosen over cutting unit prices: veilstone was the Alanthor army's
-bottleneck — Game_AI.md §5a); its inputs were left unchanged, so the trade got
-cheaper per veilstone as well as faster.
+Every extractor — the Gatherer's Hut line (Gatherer's Hut, Guild, Work Camp, Trading Post),
+the Mine and the Veilstone Mine, every culture — carries a **Stop extracting** toggle (the
+selection panel, and the `SetExtractorStopped` lockstep order). A stopped extractor:
+
+- draws nothing from its node and pays no slot income;
+- still stands, holds and **locks** its territory, and still pays every survey on it (the
+  Guild surveys, the Supply Surveys), which are drawn from no node;
+- turns its node back into an empty node: it pays the empty-node trickle (and drains by it)
+  unless a finished Trading Outpost of its holder stands beside it.
+
+Toggle it again to resume. Delete still works, and is the other way to stop.
 
 ### 3.2 Feraldis
 
@@ -138,9 +137,9 @@ cheaper per veilstone as well as faster.
   (not religion points); a destroyed curse node pays **veilstone and
   veilsteel** (`curseNodeVeilstone`, `curseNodeVeilsteel` in
   `FeraldisEconomy.asset`; the old `feraldisNodeVeilsteel` is folded into it).
-- **Veilsteel is forged** at the Great Forge (veilstone + iron); its bays
-  also turn slaves into veilstone and export veilsteel for iron — the
-  Feraldis counterpart of the Trading Outpost loop.
+- ~~**Veilsteel is forged** at the Great Forge~~ (2026-11-09, decision 42):
+  the Great Forge's former Veilsteel bay turns **iron into veilstone**; its
+  other bays turn slaves into veilstone and export veilstone for iron.
 - **Raiding**, not trade, is the late-game supply: the raze bounty, pillage
   on kills and the siphon while attacking an enemy extractor, Outpost or
   Fortress.
@@ -155,8 +154,8 @@ cheaper per veilstone as well as faster.
   a **Cursed** one (allowed even in ground the curse holds; the curse node
   under it sleeps and raises no garrison). It never drains the outcrop and
   **produces only religion points** (more on a cursed outcrop).
-- **Veilsteel is bought at the Sanctuary with religion points** (the trade
-  action, `RunaiSanctuarySystem.asset`); **veilstone** comes only from the
+- **Veilstone is bought at the Sanctuary with religion points** (the trade
+  action, `RunaiSanctuarySystem.asset`; it sold veilsteel until 2026-11-09); **veilstone** comes only from the
   **Waystation road tax** paid by passing caravans (Age_1_Runai.md §3.2).
   A territory's veilstone / veilsteel income is not hauled.
 - The Sanctuary hosts the curse ladder (Veiled Pilgrims → Voice of the Veil).
@@ -185,7 +184,6 @@ economy has two halves:
 | **Supplies** | Guilds / Gatherer's Huts on supply nodes, depleting them | **only** the Fortress's own income, the Vault and territory claims |
 | **Iron** | Mines on iron nodes, depleting them | **only** trade, the Vault and territory claims |
 | **Veilstone** | Trading Outposts (Alanthor) / Veilstone Mines on outcrops | **only** trade, the Vault and territory claims |
-| **Veilsteel** | trade and the Vault | trade and the Vault |
 
 On top of these, **the Guild surveys** (§5.1) pay every resource but
 supplies from upgraded Guilds, from no node — the late-game income a

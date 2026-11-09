@@ -16,8 +16,8 @@
 //   * the capital's own supplies are NOT paid here: the Fortress carries a
 //     SuppliesIncome from its SO (ResourceTickSystem pays it). The flat
 //     50/min this system added on top was cut (unification item 10).
-//   * a cursed veilstone outcrop pays nothing, and there is no veilsteel
-//     node at all (docs/Design/Veilstone_Economy.md, 2026-10-01)
+//   * a cursed veilstone outcrop pays nothing
+//     (docs/Design/Veilstone_Economy.md, 2026-10-01)
 //
 // FINITE NODES (2026-10-18, Territory_Claims.md § 11.3): every node holds a
 // finite reserve and every unit a slot pays — empty or built — is drawn from
@@ -63,10 +63,9 @@ namespace TheWaningBorder.Systems.World
         public float Supplies;
         public float Iron;
         public float Veilstone;
-        public float Veilsteel;
 
         public bool IsEmpty => Supplies <= 0f && Iron <= 0f
-                            && Veilstone <= 0f && Veilsteel <= 0f;
+                            && Veilstone <= 0f;
     }
 
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -154,7 +153,6 @@ namespace TheWaningBorder.Systems.World
         private readonly float[] _carrySupplies = new float[9];
         private readonly float[] _carryIron = new float[9];
         private readonly float[] _carryVeilstone = new float[9];
-        private readonly float[] _carryVeilsteel = new float[9];
 
         /// <summary>
         /// The carry is MATCH state on a system object that outlives matches
@@ -191,7 +189,6 @@ namespace TheWaningBorder.Systems.World
                 System.Array.Clear(_carrySupplies,  0, _carrySupplies.Length);
                 System.Array.Clear(_carryIron,      0, _carryIron.Length);
                 System.Array.Clear(_carryVeilstone, 0, _carryVeilstone.Length);
-                System.Array.Clear(_carryVeilsteel, 0, _carryVeilsteel.Length);
             }
 
             if (!_acc.Due(SystemAPI.Time.DeltaTime, TickInterval)) return;
@@ -228,7 +225,7 @@ namespace TheWaningBorder.Systems.World
                 if (yield.IsEmpty) continue;
                 // Plenty (Prosperity) reads this faction's territory rate.
                 TheWaningBorder.Systems.Sect.AlanthorSectEconomy.AddRate(owner,
-                    yield.Supplies, yield.Iron, yield.Veilstone, yield.Veilsteel);
+                    yield.Supplies, yield.Iron, yield.Veilstone);
 
                 // RUNAI (docs/Design/Age_1_Runai.md §3.1): nothing a Runai
                 // territory makes reaches the bank by itself — it becomes the
@@ -241,7 +238,7 @@ namespace TheWaningBorder.Systems.World
                 {
                     TheWaningBorder.Runai.RunaiTradeSystem.Deposit(em, t, (Faction)owner,
                         yield.Supplies * minutes, yield.Iron * minutes,
-                        yield.Veilstone * minutes, yield.Veilsteel * minutes);
+                        yield.Veilstone * minutes);
                     continue;
                 }
 
@@ -251,7 +248,6 @@ namespace TheWaningBorder.Systems.World
                     Supplies  = Draw(ref _carrySupplies[owner],  yield.Supplies  * minutes),
                     Iron      = Draw(ref _carryIron[owner],      yield.Iron      * minutes),
                     Veilstone = Draw(ref _carryVeilstone[owner], yield.Veilstone * minutes),
-                    Veilsteel = Draw(ref _carryVeilsteel[owner], yield.Veilsteel * minutes),
                 }, IncomeSource.Other);
                 if (split != null) BookSplit((Faction)owner, yield, split, minutes);
             }
@@ -265,16 +261,18 @@ namespace TheWaningBorder.Systems.World
         //
         // Yield() writes each line's per-minute rate into this scratch array
         // when the ledger is recording. Nothing in the payout reads it, so it
-        // cannot change what is paid. Layout: [part * 4 + resource], resource
-        // 0 supplies, 1 iron, 2 veilstone, 3 veilsteel, and part:
+        // cannot change what is paid. Layout: [part * ResCount + resource],
+        // resource 0 supplies, 1 iron, 2 veilstone, and part:
         //   0 empty slot   1 extractor (hut / Mine / Veilstone Mine)
         //   2 Guild survey 3 territory claim   4 Fortress level
         public const int SplitParts = 5;
         public const int PartEmpty = 0, PartExtractor = 1, PartSurvey = 2, PartClaim = 3, PartFortress = 4;
-        private readonly float[] _ledgerSplit = new float[SplitParts * 4];
+        /// <summary>Resources per split part (supplies, iron, veilstone).</summary>
+        public const int ResCount = 3;
+        private readonly float[] _ledgerSplit = new float[SplitParts * ResCount];
 
         private static readonly IncomeSource[] ExtractorSourceByResource =
-            { IncomeSource.GatherersHut, IncomeSource.Mine, IncomeSource.VeilstoneMine, IncomeSource.Other };
+            { IncomeSource.GatherersHut, IncomeSource.Mine, IncomeSource.VeilstoneMine };
 
         /// <summary>
         /// Book one territory's paid yield by source. The tick has just booked
@@ -286,14 +284,14 @@ namespace TheWaningBorder.Systems.World
         private static void BookSplit(Faction owner, TerritoryYield y, float[] split, float minutes)
         {
             EconomyLedger.Credit(owner, IncomeSource.Other,
-                -y.Supplies * minutes, -y.Iron * minutes, -y.Veilstone * minutes, -y.Veilsteel * minutes);
-            for (int r = 0; r < 4; r++)
+                -y.Supplies * minutes, -y.Iron * minutes, -y.Veilstone * minutes);
+            for (int r = 0; r < ResCount; r++)
             {
-                LedgerCredit(owner, IncomeSource.EmptySlot,      r, split[PartEmpty * 4 + r] * minutes);
-                LedgerCredit(owner, ExtractorSourceByResource[r], r, split[PartExtractor * 4 + r] * minutes);
-                LedgerCredit(owner, IncomeSource.GuildSurvey,    r, split[PartSurvey * 4 + r] * minutes);
-                LedgerCredit(owner, IncomeSource.TerritoryClaim, r, split[PartClaim * 4 + r] * minutes);
-                LedgerCredit(owner, IncomeSource.FortressLevel,  r, split[PartFortress * 4 + r] * minutes);
+                LedgerCredit(owner, IncomeSource.EmptySlot,      r, split[PartEmpty * ResCount + r] * minutes);
+                LedgerCredit(owner, ExtractorSourceByResource[r], r, split[PartExtractor * ResCount + r] * minutes);
+                LedgerCredit(owner, IncomeSource.GuildSurvey,    r, split[PartSurvey * ResCount + r] * minutes);
+                LedgerCredit(owner, IncomeSource.TerritoryClaim, r, split[PartClaim * ResCount + r] * minutes);
+                LedgerCredit(owner, IncomeSource.FortressLevel,  r, split[PartFortress * ResCount + r] * minutes);
             }
         }
 
@@ -302,7 +300,7 @@ namespace TheWaningBorder.Systems.World
             if (amount == 0f) return;
             EconomyLedger.Credit(owner, src,
                 resource == 0 ? amount : 0f, resource == 1 ? amount : 0f,
-                resource == 2 ? amount : 0f, resource == 3 ? amount : 0f);
+                resource == 2 ? amount : 0f);
         }
 
         /// <summary>Add this tick's fractional amount to the carry and hand back
@@ -394,14 +392,7 @@ namespace TheWaningBorder.Systems.World
 
             // Paid straight to the faction, wherever it stands.
             if (em.HasComponent<TradingOutpostTag>(building))
-            {
-                if (!OutpostRates(em, building, out var spend, out var earn)) return y;
-                y.Supplies = earn.Supplies - spend.Supplies;
-                y.Iron = earn.Iron - spend.Iron;
-                y.Veilstone = earn.Veilstone - spend.Veilstone;
-                y.Veilsteel = earn.Veilsteel - spend.Veilsteel;
-                return y;
-            }
+                return TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, building);
             // Territory-paid: only while its faction holds the ground.
             int territory = RegionMap.RegionAt(p.x, p.z);
             if (territory < 0 || TerritoryOwnership.OwnerOf(territory) != (int)owner) return y;
@@ -431,7 +422,8 @@ namespace TheWaningBorder.Systems.World
             }
             else if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<RaiderCampTag>(building))
             {
-                if (NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2, out Entity supplyNode))
+                if (!em.HasComponent<ExtractorStopped>(building)
+                    && NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2, out Entity supplyNode))
                 {
                     // full rate until the node is empty (§ 11.3, 2026-10-18)
                     float scale = SpentNode(em, supplyNode) ? 0f : 1f;
@@ -442,8 +434,12 @@ namespace TheWaningBorder.Systems.World
                 if (culture == Cultures.Alanthor)
                 {
                     var s = GuildSurveyPerGuild(owner, level);
-                    y.Iron += s.Iron; y.Veilstone += s.Veilstone; y.Veilsteel += s.Veilsteel;
+                    y.Iron += s.Iron; y.Veilstone += s.Veilstone;
                 }
+            }
+            else if (em.HasComponent<ExtractorStopped>(building))
+            {
+                // Stopped (§3.5): a Mine or Veilstone Mine pays nothing.
             }
             else if (em.HasComponent<MineTag>(building))
             {
@@ -549,9 +545,7 @@ namespace TheWaningBorder.Systems.World
             { ComponentType.ReadOnly<IronIncome>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.Exclude<UnderConstruction>() };
         static readonly ComponentType[] QT_PassiveVeilstone =
             { ComponentType.ReadOnly<VeilstoneIncome>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.Exclude<UnderConstruction>() };
-        static readonly ComponentType[] QT_PassiveVeilsteel =
-            { ComponentType.ReadOnly<VeilsteelIncome>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.Exclude<UnderConstruction>() };
-        static CachedEntityQuery QC_PassiveSupplies, QC_PassiveIron, QC_PassiveVeilstone, QC_PassiveVeilsteel;
+        static CachedEntityQuery QC_PassiveSupplies, QC_PassiveIron, QC_PassiveVeilstone;
 
         /// <summary>
         /// A faction's steady income per minute, by where it comes from.
@@ -568,14 +562,12 @@ namespace TheWaningBorder.Systems.World
             /// <summary>Flat building income (the Fortress's own supplies,
             /// lodges...) — what ResourceTickSystem pays.</summary>
             public TerritoryYield Buildings;
-            /// <summary>What the Trading Outposts make (veilstone, veilsteel).</summary>
+            /// <summary>What the Trading Outposts trickle (2026-11-09: they buy nothing).</summary>
             public TerritoryYield Bought;
-            /// <summary>What the Trading Outposts spend to make it.</summary>
-            public TerritoryYield Sold;
 
             /// <summary>
             /// The Territory line itemised (2026-10-11, the resource tooltip):
-            /// [part * 4 + resource], resource 0 supplies .. 3 veilsteel, part
+            /// [part * ResCount + resource], resource 0 supplies .. 2 veilstone, part
             /// <see cref="PartEmpty"/> (unworked nodes), <see cref="PartExtractor"/>
             /// (Gatherer's Huts / Guilds on supply nodes, Mines on iron,
             /// Veilstone Mines on outcrops), <see cref="PartSurvey"/> (Guild
@@ -594,21 +586,12 @@ namespace TheWaningBorder.Systems.World
                 Supplies  = Territory.Supplies  + Buildings.Supplies  + Bought.Supplies,
                 Iron      = Territory.Iron      + Buildings.Iron      + Bought.Iron,
                 Veilstone = Territory.Veilstone + Buildings.Veilstone + Bought.Veilstone,
-                Veilsteel = Territory.Veilsteel + Buildings.Veilsteel + Bought.Veilsteel,
             };
 
-            public TerritoryYield Net
-            {
-                get
-                {
-                    var p = Produced;
-                    return new TerritoryYield
-                    {
-                        Supplies = p.Supplies - Sold.Supplies, Iron = p.Iron - Sold.Iron,
-                        Veilstone = p.Veilstone - Sold.Veilstone, Veilsteel = p.Veilsteel - Sold.Veilsteel,
-                    };
-                }
-            }
+            /// <summary>The faction's steady income per minute. Nothing steady
+            /// spends any more (the Trading Outpost buys nothing since
+            /// 2026-11-09), so it is what it produces.</summary>
+            public TerritoryYield Net => Produced;
         }
 
         private const int IncomeCacheSlots = 16;
@@ -650,7 +633,7 @@ namespace TheWaningBorder.Systems.World
             if (cacheable && now - _incomeCacheAt[slot] <= DisplayCensusSeconds && now >= _incomeCacheAt[slot])
                 return _incomeCache[slot];
 
-            var inc = new FactionIncome { TerritorySplit = new float[SplitParts * 4] };
+            var inc = new FactionIncome { TerritorySplit = new float[SplitParts * ResCount] };
             if (RegionMap.Ready)
             {
                 for (int t = 0; t < RegionMap.Count; t++)
@@ -666,8 +649,6 @@ namespace TheWaningBorder.Systems.World
                 QC_PassiveIron.Get(em, QT_PassiveIron), faction, c => c.PerMinute);
             inc.Buildings.Veilstone = PassivePerMinute<VeilstoneIncome>(
                 QC_PassiveVeilstone.Get(em, QT_PassiveVeilstone), faction, c => c.PerMinute);
-            inc.Buildings.Veilsteel = PassivePerMinute<VeilsteelIncome>(
-                QC_PassiveVeilsteel.Get(em, QT_PassiveVeilsteel), faction, c => c.PerMinute);
 
             var q = QC_Outposts.Get(em, QT_Outposts);
             using (var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp))
@@ -676,9 +657,8 @@ namespace TheWaningBorder.Systems.World
                 for (int i = 0; i < ents.Length; i++)
                 {
                     if (facs[i].Value != faction) continue;
-                    if (!OutpostRates(em, ents[i], out var spend, out var earn)) continue;
+                    if (!OutpostRates(em, ents[i], out var earn)) continue;
                     Add(ref inc.Bought, earn);
-                    Add(ref inc.Sold, spend);
                 }
             }
 
@@ -698,9 +678,8 @@ namespace TheWaningBorder.Systems.World
         /// Presentation only.
         /// </summary>
         public static bool TerritoryTradeForDisplay(EntityManager em, int territory, Faction faction,
-            out TerritoryYield sold, out TerritoryYield bought)
+            out TerritoryYield bought)
         {
-            sold = default;
             bought = default;
             if (territory < 0 || !RegionMap.Ready) return false;
             bool any = false;
@@ -713,8 +692,7 @@ namespace TheWaningBorder.Systems.World
                 if (facs[i].Value != faction) continue;
                 var p = xfs[i].Position;
                 if (RegionOfStatic(ents[i], p.x, p.z) != territory) continue;
-                if (!OutpostRates(em, ents[i], out var spend, out var earn)) continue;
-                Add(ref sold, spend);
+                if (!OutpostRates(em, ents[i], out var earn)) continue;
                 Add(ref bought, earn);
                 any = true;
             }
@@ -722,25 +700,14 @@ namespace TheWaningBorder.Systems.World
         }
 
         /// <summary>
-        /// One Trading Outpost's per-minute spend and earn, exactly as
-        /// TradingOutpostSystem's cycle trades: nothing while it is
-        /// unfinished, on Hold, or its outcrop is dead.
+        /// One Trading Outpost's per-minute trickle, exactly as
+        /// TradingOutpostSystem's cycle pays it: nothing while it is
+        /// unfinished or its node is dead, cursed or not held.
         /// </summary>
-        private static bool OutpostRates(EntityManager em, Entity outpost,
-            out TerritoryYield spend, out TerritoryYield earn)
+        private static bool OutpostRates(EntityManager em, Entity outpost, out TerritoryYield earn)
         {
-            spend = default;
-            earn = default;
-            if (!em.Exists(outpost) || em.HasComponent<UnderConstruction>(outpost)) return false;
-            if (!em.HasComponent<LocalTransform>(outpost)) return false;
-            if (em.HasComponent<TradingOutpostMode>(outpost)
-                && TradeRoutes.CountsOf(em.GetComponentData<TradingOutpostMode>(outpost)) == 0u) return false;
-            var p = em.GetComponentData<LocalTransform>(outpost).Position;
-            if (!OutpostSites.HasLiveOutcrop(em, p.x, p.z)) return false;
-            // The post's own rate (recipe, research, its level) — the number
-            // TradingOutpostSystem's cycle pays.
-            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, outpost, out spend, out earn);
-            return true;
+            earn = TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, outpost);
+            return !earn.IsEmpty;
         }
 
         private static float PassiveSupplies(EntityManager em, Faction faction)
@@ -787,7 +754,7 @@ namespace TheWaningBorder.Systems.World
         private static void Add(ref TerritoryYield into, TerritoryYield y)
         {
             into.Supplies += y.Supplies; into.Iron += y.Iron;
-            into.Veilstone += y.Veilstone; into.Veilsteel += y.Veilsteel;
+            into.Veilstone += y.Veilstone;
         }
 
         private readonly Census _tickCensus = new Census();
@@ -809,6 +776,10 @@ namespace TheWaningBorder.Systems.World
             for (int i = 0; i < c.SupplyRegion.Count; i++)
                 if (c.SupplyRegion[i] == territory)
                 {
+                    // A node nobody works, with a finished Trading Outpost beside
+                    // it, pays no empty-node trickle: the post replaces it, so
+                    // the node stops wearing down (Veilstone_Economy.md §3.1).
+                    if (c.SupplyHutLevel[i] == 0 && c.SupplyHasPost[i]) continue;
                     float rate = hutLadder.At(c.SupplyHutLevel[i]) * c.SupplyPurity[i];
                     // Feraldis: a hut pays by its crew of slaves (Age_1_Feraldis.md §3.1).
                     if (c.SupplyHutLevel[i] > 0) rate *= c.SupplyCrew[i];
@@ -830,11 +801,10 @@ namespace TheWaningBorder.Systems.World
                     }
                     y.Supplies += rate;
                     if (split != null)
-                        split[(c.SupplyHutLevel[i] > 0 ? PartExtractor : PartEmpty) * 4 + 0] += rate;
+                        split[(c.SupplyHutLevel[i] > 0 ? PartExtractor : PartEmpty) * ResCount + 0] += rate;
                 }
 
-            // Ore slots. There is no veilsteel line — veilsteel is MADE (the
-            // Trading Outpost), never mined. The surveys no longer scale the
+            // Ore slots. The surveys no longer scale the
             // Mines (2026-10-08): they are the Guild's own income, below.
             y.Iron = OreSlotYield(em, c.Ore[0], territory, drainMinutes, LadderFor(MineId, culture),
                                   IronYieldMultiplier, false, MineTechMultiplier(owner), split, 1);
@@ -854,12 +824,11 @@ namespace TheWaningBorder.Systems.World
                 {
                     if (c.GuildRegion[i] != territory || c.GuildFaction[i] != owner) continue;
                     var s = GuildSurveyPerGuild(owner, c.GuildLevel[i]);
-                    y.Iron += s.Iron; y.Veilstone += s.Veilstone; y.Veilsteel += s.Veilsteel;
+                    y.Iron += s.Iron; y.Veilstone += s.Veilstone;
                     if (split != null)
                     {
-                        split[PartSurvey * 4 + 1] += s.Iron;
-                        split[PartSurvey * 4 + 2] += s.Veilstone;
-                        split[PartSurvey * 4 + 3] += s.Veilsteel;
+                        split[PartSurvey * ResCount + 1] += s.Iron;
+                        split[PartSurvey * ResCount + 2] += s.Veilstone;
                     }
                 }
 
@@ -883,7 +852,7 @@ namespace TheWaningBorder.Systems.World
                     if (c.GuildRegion[i] != territory || c.GuildFaction[i] != owner) continue;
                     float sup = supplyTiers * Cfg.supplySurveyPerTier * SurveyLevelScale(c.GuildLevel[i]);
                     y.Supplies += sup;
-                    if (split != null) split[PartSurvey * 4 + 0] += sup;
+                    if (split != null) split[PartSurvey * ResCount + 0] += sup;
                 }
 
             // ── Territory claims ─────────────────────────────────────────
@@ -903,9 +872,9 @@ namespace TheWaningBorder.Systems.World
                 y.Veilstone += cfg.claimVeilstonePerMinute;
                 if (split != null)
                 {
-                    split[PartClaim * 4 + 0] += claimSupplies;
-                    split[PartClaim * 4 + 1] += cfg.claimIronPerMinute;
-                    split[PartClaim * 4 + 2] += cfg.claimVeilstonePerMinute;
+                    split[PartClaim * ResCount + 0] += claimSupplies;
+                    split[PartClaim * ResCount + 1] += cfg.claimIronPerMinute;
+                    split[PartClaim * ResCount + 2] += cfg.claimVeilstonePerMinute;
                 }
             }
 
@@ -923,7 +892,7 @@ namespace TheWaningBorder.Systems.World
                 float bonus = c.HallSuppliesPerMinute[i] * (FortressLevelMultiplier(c.HallLevel[i]) - 1f);
                 if (bonus <= 0f) continue;
                 y.Supplies += bonus;
-                if (split != null) split[PartFortress * 4 + 0] += bonus;
+                if (split != null) split[PartFortress * ResCount + 0] += bonus;
             }
 
             return y;
@@ -937,6 +906,9 @@ namespace TheWaningBorder.Systems.World
         static readonly ComponentType[] QT_Veilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Mine = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_VeilstoneMine = { ComponentType.ReadOnly<VeilstoneMineTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        static readonly ComponentType[] QT_PostSites =
+            { ComponentType.ReadOnly<TradingOutpostTag>(), ComponentType.ReadOnly<TradingOutpostSite>(), ComponentType.Exclude<UnderConstruction>() };
+        static CachedEntityQuery QC_PostSites;
         static readonly ComponentType[] QT_MissingSupply = { ComponentType.ReadOnly<SupplyNodeTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
         static CachedEntityQuery QC_MissingSupply;
         static readonly ComponentType[] QT_MissingIron = { ComponentType.ReadOnly<IronMineTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
@@ -979,7 +951,9 @@ namespace TheWaningBorder.Systems.World
             public readonly List<int> ExtractorLevels = new List<int>();
             /// <summary>Feraldis crew share of the node's extractors, level-weighted (1 for everyone else).</summary>
             public readonly List<float> Crew = new List<float>();
-            public void Clear() { Node.Clear(); Region.Clear(); ExtractorLevels.Clear(); Crew.Clear(); }
+            /// <summary>A finished Trading Outpost stands beside the node.</summary>
+            public readonly List<bool> HasPost = new List<bool>();
+            public void Clear() { Node.Clear(); Region.Clear(); ExtractorLevels.Clear(); Crew.Clear(); HasPost.Clear(); }
         }
 
         /// <summary>Everything the yield reads, gathered once. Lists are in
@@ -994,6 +968,8 @@ namespace TheWaningBorder.Systems.World
             public readonly List<float> SupplyPurity = new List<float>();
             /// <summary>Each supply slot's node, for its reserve (§ 11.3).</summary>
             public readonly List<Entity> SupplyNode = new List<Entity>();
+            /// <summary>Each supply slot: a finished Trading Outpost stands beside it.</summary>
+            public readonly List<bool> SupplyHasPost = new List<bool>();
             public readonly List<int> HallRegion = new List<int>();
             public readonly List<int> HallLevel = new List<int>();
             /// <summary>Each Fortress's owner and its OWN supplies rate per
@@ -1010,6 +986,10 @@ namespace TheWaningBorder.Systems.World
             private readonly List<Entity> _builtEntity = new List<Entity>();
             /// <summary>Per built extractor: the Feraldis crew share of its income (docs/Design/Age_1_Feraldis.md §3.1).</summary>
             private readonly List<float> _builtCrew = new List<float>();
+            /// <summary>Per built extractor: it is told to STOP EXTRACTING (§3.5).</summary>
+            private readonly List<bool> _builtStopped = new List<bool>();
+            /// <summary>Node positions with a finished Trading Outpost beside them.</summary>
+            private readonly List<Vector2> _postNodes = new List<Vector2>();
             /// <summary>Each faction's completed culture, read ONCE per census
             /// (2026-10-15, perf): Yield and the Runai branch asked
             /// GetCompletedCulture — two Hall-array copies — per territory.
@@ -1026,6 +1006,8 @@ namespace TheWaningBorder.Systems.World
             {
                 CultureConfig.GetCompletedCultures(em, Culture);
                 SupplyRegion.Clear(); SupplyHutLevel.Clear(); SupplyPurity.Clear(); SupplyNode.Clear(); SupplyCrew.Clear();
+                SupplyHasPost.Clear();
+                GatherPosts(em);
                 HallRegion.Clear(); HallLevel.Clear(); HallFaction.Clear(); HallSuppliesPerMinute.Clear();
                 GuildRegion.Clear(); GuildFaction.Clear(); GuildLevel.Clear();
 
@@ -1053,13 +1035,16 @@ namespace TheWaningBorder.Systems.World
                         SupplyRegion.Add(RegionOfStatic(ents[i], np.x, np.z));
                         SupplyPurity.Add(TerritoryResources.PurityMultiplier(em, ents[i]));
                         SupplyNode.Add(ents[i]);
-                        // The best hut level on the slot (0 = empty).
+                        SupplyHasPost.Add(HasPostAt(np.x, np.z));
+                        // The best hut level on the slot (0 = empty). A stopped
+                        // hut works nothing (§3.5).
                         int best = 0;
                         float bestCrew = 1f;
                         for (int h = 0; h < _built.Count; h++)
                         {
                             float dx = _built[h].x - np.x, dz = _built[h].y - np.z;
                             if (dx * dx + dz * dz > r2) continue;
+                            if (_builtStopped[h]) continue;
                             int lvl = (int)_built[h].z;
                             if (lvl > best) { best = lvl; bestCrew = _builtCrew[h]; }
                         }
@@ -1105,12 +1090,14 @@ namespace TheWaningBorder.Systems.World
                     var np = em.GetComponentData<LocalTransform>(ents[i]).Position;
                     o.Node.Add(ents[i]);
                     o.Region.Add(RegionOfStatic(ents[i], np.x, np.z));
+                    o.HasPost.Add(HasPostAt(np.x, np.z));
                     int levels = 0;
                     float crewWeighted = 0f;
                     for (int h = 0; h < _built.Count; h++)
                     {
                         float dx = _built[h].x - np.x, dz = _built[h].y - np.z;
                         if (dx * dx + dz * dz > r2) continue;
+                        if (_builtStopped[h]) continue;   // stopped: works nothing (§3.5)
                         levels += (int)_built[h].z;
                         crewWeighted += _built[h].z * _builtCrew[h];
                     }
@@ -1119,12 +1106,35 @@ namespace TheWaningBorder.Systems.World
                 }
             }
 
+            /// <summary>Every finished Trading Outpost's node position.</summary>
+            private void GatherPosts(EntityManager em)
+            {
+                _postNodes.Clear();
+                var q = QC_PostSites.Get(em, QT_PostSites);
+                if (q.IsEmptyIgnoreFilter) return;
+                using var sites = q.ToComponentDataArray<TradingOutpostSite>(Unity.Collections.Allocator.Temp);
+                for (int i = 0; i < sites.Length; i++)
+                    if (sites[i].Side != OutpostSites.OnOutcrop)
+                        _postNodes.Add(new Vector2(sites[i].OutcropX, sites[i].OutcropZ));
+            }
+
+            private bool HasPostAt(float x, float z)
+            {
+                for (int i = 0; i < _postNodes.Count; i++)
+                {
+                    float dx = _postNodes[i].x - x, dz = _postNodes[i].y - z;
+                    if (dx * dx + dz * dz <= 1f) return true;
+                }
+                return false;
+            }
+
             /// <summary>Completed buildings of a query as (x, z, level).</summary>
             private void GatherBuilt(EntityManager em, EntityQuery q, bool excludeRaiderCamps)
             {
                 _built.Clear();
                 _builtEntity.Clear();
                 _builtCrew.Clear();
+                _builtStopped.Clear();
                 using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
                 for (int i = 0; i < ents.Length; i++)
                 {
@@ -1133,6 +1143,7 @@ namespace TheWaningBorder.Systems.World
                     var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
                     _built.Add(new Vector3(p.x, p.z, LevelOf(em, ents[i])));
                     _builtEntity.Add(ents[i]);
+                    _builtStopped.Add(em.HasComponent<ExtractorStopped>(ents[i]));
                     // Slave crews (Feraldis) and the Alanthor sects (Embargo,
                     // Overtime, the Treasury) scale what an extractor earns.
                     // A building on cursed ground works slower (Territory_Claims.md §6.9.9).
@@ -1160,8 +1171,6 @@ namespace TheWaningBorder.Systems.World
             { "IronSurveying1", "IronSurveying2", "IronSurveying3" };
         private static readonly string[] VeilstoneSurveyLadder =
             { "VeilstoneSurvey1", "VeilstoneSurvey2" };
-        private static readonly string[] VeilsteelSurveyLadder =
-            { "VeilsteelSurvey" };
         // The Supply Surveys (2026-10-20): one ladder per culture that has
         // one — a tech carries a single culture gate.
         private static readonly string[] SupplySurveyLadder =
@@ -1191,7 +1200,7 @@ namespace TheWaningBorder.Systems.World
         /// <summary>
         /// What ONE Guild of <paramref name="faction"/> at
         /// <paramref name="level"/> pays per minute from the surveys (iron,
-        /// veilstone, veilsteel; supplies stay 0). The caller checks the
+        /// veilstone; supplies stay 0). The caller checks the
         /// culture — only an Alanthor hut is a Guild.
         /// </summary>
         private static TerritoryYield GuildSurveyPerGuild(Faction faction, int level)
@@ -1204,7 +1213,6 @@ namespace TheWaningBorder.Systems.World
                 scale = ladder[Mathf.Clamp(level, 1, ladder.Length) - 1];
             y.Iron      = SurveyTiers(faction, IronSurveyLadder)      * cfg.guildSurveyIronPerTier      * scale;
             y.Veilstone = SurveyTiers(faction, VeilstoneSurveyLadder) * cfg.guildSurveyVeilstonePerTier * scale;
-            y.Veilsteel = SurveyTiers(faction, VeilsteelSurveyLadder) * cfg.guildSurveyVeilsteelPerTier * scale;
             return y;
         }
 
@@ -1265,6 +1273,8 @@ namespace TheWaningBorder.Systems.World
                 if (veilstone && TheWaningBorder.Systems.Economy.VeilstoneNodeStateSystem.KindOf(em, node)
                                  != VeilstoneNodeKind.Inactive) continue;
 
+                // unworked + a post beside it: the post replaces the trickle (§3.1)
+                if (o.ExtractorLevels[i] == 0 && o.HasPost[i]) continue;
                 float rate = ladder.At(o.ExtractorLevels[i]) * multiplier
                              * TerritoryResources.PurityMultiplier(em, node);
                 // A slot with its extractor on it earns that extractor's
@@ -1286,7 +1296,7 @@ namespace TheWaningBorder.Systems.World
                 total += rate;
                 // Ledger only: which half of the slot line this rate is.
                 if (split != null)
-                    split[(o.ExtractorLevels[i] > 0 ? PartExtractor : PartEmpty) * 4 + resource] += rate;
+                    split[(o.ExtractorLevels[i] > 0 ? PartExtractor : PartEmpty) * ResCount + resource] += rate;
             }
             return total;
         }

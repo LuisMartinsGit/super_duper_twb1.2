@@ -179,6 +179,9 @@ namespace TheWaningBorder.Abilities
                 // The Royal Stable's charge — same passive, cavalry roster.
                 if (rs.HasResearched(faction, "CavalryCharge"))
                     SetEnabled(em, e, ChargeFromTech("CavalryCharge"));
+                // Galloping (docs/Design/Age_1_Alanthor.md § Galloping).
+                if (rs.HasResearched(faction, AlanthorGallop.TechId))
+                    AlanthorGallop.Grant(em, e);
             }
             // Not an Alanthor passive: Field Hospital is the Sect of Renewal's
             // research, so any culture that adopts Renewal arms its Litharchs.

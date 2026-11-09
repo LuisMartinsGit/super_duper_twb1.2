@@ -274,7 +274,7 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_EconVault;
 
-        private static readonly string[] VaultResourceNames = { "none", "supplies", "iron", "veilstone", "veilsteel" };
+        private static readonly string[] VaultResourceNames = { "none", "supplies", "iron", "veilstone" };
 
         /// <summary>
         /// Every AI uses its Vault (Game_AI.md § 5h). Withdraw on the timer,
@@ -346,20 +346,19 @@ namespace TheWaningBorder.AI
             if (profile.VaultHoldSeconds > 0f && now - at >= profile.VaultHoldSeconds) return "hold time";
 
             if (!profile.VaultWithdrawOnNeed) return null;
-            int res = store.ResourceType - 1;   // VaultStorage 1..4 -> AIBudget 0..3
-            if (res >= AIBudget.ResSupplies && res <= AIBudget.ResVeilsteel && AIBudget.IsMilitaryShort(faction, res))
+            int res = store.ResourceType - 1;   // VaultStorage 1..3 -> AIBudget 0..2
+            if (res >= AIBudget.ResSupplies && res <= AIBudget.ResVeilstone && AIBudget.IsMilitaryShort(faction, res))
                 return "the army is short of it";
             var shortSet = AIPivotalReserve.ShortResources(em, faction);
             bool goalShort = res == AIBudget.ResSupplies ? shortSet.Supplies
                            : res == AIBudget.ResIron ? shortSet.Iron
-                           : res == AIBudget.ResVeilstone ? shortSet.Veilstone
-                           : res == AIBudget.ResVeilsteel && shortSet.Veilsteel;
+                           : res == AIBudget.ResVeilstone && shortSet.Veilstone;
             return goalShort ? "a savings goal needs it" : null;
         }
 
         /// <summary>The deposit: the resource with the largest idle surplus
         /// the design lets the Vault hold (Age_0.md § Vault — supplies
-        /// always, iron / veilstone / veilsteel after their unlock tech),
+        /// always, iron / veilstone after their unlock tech),
         /// above the keep floor and every pending savings goal, never what
         /// the army is waiting on.</summary>
         private static bool PickVaultDeposit(EntityManager em, Faction faction,
@@ -371,23 +370,21 @@ namespace TheWaningBorder.AI
             var research = FactionResearchState.Instance;
 
             int bestType = 0, bestSurplus = 0;
-            for (int t = 1; t <= 4; t++)
+            for (int t = 1; t <= 3; t++)
             {
                 if (t == 2 && !Researched(research, faction, VaultIronTech)) continue;
                 if (t == 3 && !Researched(research, faction, VaultVeilstoneTech)) continue;
-                if (t == 4 && !Researched(research, faction, VaultVeilsteelTech)) continue;
                 if (AIBudget.IsMilitaryShort(faction, t - 1)) continue;
-                int have = t == 1 ? bank.Supplies : t == 2 ? bank.Iron : t == 3 ? bank.Veilstone : bank.Veilsteel;
+                int have = t == 1 ? bank.Supplies : t == 2 ? bank.Iron : bank.Veilstone;
                 int keep = t == 1 ? Cfg.vaultKeepSupplies + goals.Supplies
                          : t == 2 ? Cfg.vaultKeepIron + goals.Iron
-                         : t == 3 ? Cfg.vaultKeepVeilstone + goals.Veilstone
-                         : Cfg.vaultKeepVeilsteel + goals.Veilsteel;
+                         : Cfg.vaultKeepVeilstone + goals.Veilstone;
                 int surplus = have - keep;
                 if (surplus <= bestSurplus) continue;
                 // IDLE means idle (Game_AI.md 5f): money an army below its
                 // target could spend right now is not surplus.
                 var asCost = t == 1 ? Cost.Of(supplies: surplus) : t == 2 ? Cost.Of(iron: surplus)
-                           : t == 3 ? Cost.Of(veilstone: surplus) : Cost.Of(veilsteel: surplus);
+                           : Cost.Of(veilstone: surplus);
                 if (AIBudget.ArmyFirstYield(em, faction, asCost) != null) continue;
                 // UNITS BEFORE ECONOMY (Game_AI.md 5h): on a tier that says
                 // so, money an idle trainer could still turn into units is
@@ -411,7 +408,6 @@ namespace TheWaningBorder.AI
         /// Ids of the tech SOs, a roster table — not tuning.</summary>
         private const string VaultIronTech = "IronSubsidies";
         private const string VaultVeilstoneTech = "VeilstoneMonetization";
-        private const string VaultVeilsteelTech = "VeilsteelBonds";
 
         private static bool Researched(FactionResearchState research, Faction faction, string tech)
             => research != null && research.HasResearched(faction, tech);

@@ -22,8 +22,9 @@ namespace TheWaningBorder.Rendering
         public float ironTrailWidth;
         /// <summary>Veilstone-tipped arrows (Lana dark magic).</summary>
         public TipLook veilstone;
-        /// <summary>Veilsteel (Shard) -tipped arrows (Lana electric).</summary>
-        public TipLook veilsteel;
+        /// <summary>Shard-tipped arrows (Lana electric).</summary>
+        [UnityEngine.Serialization.FormerlySerializedAs("veilsteel")]
+        public TipLook shard;
 
         /// <summary>An arrow whose head is a projectile effect.</summary>
         [System.Serializable]
@@ -43,7 +44,7 @@ namespace TheWaningBorder.Rendering
         }
 
         public TipLook LookFor(ArrowTrailTier tier)
-            => tier == ArrowTrailTier.Veilsteel ? veilsteel
+            => tier == ArrowTrailTier.Shard ? shard
              : tier == ArrowTrailTier.Veilstone ? veilstone
              : null;
     }

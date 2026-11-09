@@ -32,7 +32,7 @@ namespace TheWaningBorder.Feraldis
         public float overseerRadius;
         /// <summary>Work multiplier for slaves near an Overseer (1.25 = +25 %).</summary>
         public float overseerWorkMultiplier;
-        /// <summary>Work multiplier per Chains tier (Iron, Veilstone, Veilsteel), multiplied together.</summary>
+        /// <summary>Work multiplier per Chains tier (Iron, Veilstone, Shard), multiplied together.</summary>
         public float[] chainsWorkMultipliers;
         /// <summary>Metres from a building's edge at which a walking errand is done.</summary>
         public float errandReach;
@@ -59,8 +59,6 @@ namespace TheWaningBorder.Feraldis
         public int curseKillVeilstoneGodsplinter;
         /// <summary>Veilstone a destroyed curse node pays a Feraldis destroyer.</summary>
         public int curseNodeVeilstone;
-        /// <summary>Veilsteel a destroyed curse node pays a Feraldis destroyer.</summary>
-        public int curseNodeVeilsteel;
 
         // ── Melt Down (§4.3) ─────────────────────────────────────────────
         /// <summary>Share of a soldier's training cost refunded at full HP (scaled by HP fraction).</summary>

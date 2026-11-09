@@ -39,7 +39,7 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// The effectsList stat each tier's TechDefSO carries its build speed
         /// in, as a percent (StoneTools.asset: BuildSpeed Pct 15 — Iron 30,
-        /// Veilstone 50, Veilsteel 75). The HIGHEST tier researched wins —
+        /// Veilstone 50, Shard 75). The HIGHEST tier researched wins —
         /// these are the same workers holding better tools, not four sets at
         /// once, so they replace rather than compound. Compounding would have
         /// put the full ladder at x2.3 and made late construction instant.

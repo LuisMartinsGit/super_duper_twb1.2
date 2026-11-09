@@ -292,13 +292,12 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
                     // A start region gets the full opening set; elsewhere it is
                     // whichever node the roll gives.
-                    int roll = start ? i % 4 : Random.Range(0, 4);
+                    int roll = start ? i % 3 : Random.Range(0, 3);
                     switch (roll)
                     {
                         case 0: MapGenKit.Marker<SupplyNodeMarker>(parent, "Supply", pos); break;
                         case 1: MapGenKit.Marker<IronPatchMarker>(parent, "Iron", pos); break;
-                        case 2: MapGenKit.Marker<VeilstoneOutcroppingMarker>(parent, "Veilstone", pos); break;
-                        default: MapGenKit.Marker<VeilsteelDepositMarker>(parent, "Veilsteel", pos); break;
+                        default: MapGenKit.Marker<VeilstoneOutcroppingMarker>(parent, "Veilstone", pos); break;
                     }
                     placed++;
                 }

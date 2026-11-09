@@ -619,7 +619,6 @@ namespace TheWaningBorder.UI.Ingame
             if (c.Supplies > 0) parts.Add(c.Supplies + " S");
             if (c.Iron > 0) parts.Add(c.Iron + " I");
             if (c.Veilstone > 0) parts.Add(c.Veilstone + " V");
-            if (c.Veilsteel > 0) parts.Add(c.Veilsteel + " Vs");
             return parts.Count == 0 ? "—" : string.Join(" · ", parts);
         }
 

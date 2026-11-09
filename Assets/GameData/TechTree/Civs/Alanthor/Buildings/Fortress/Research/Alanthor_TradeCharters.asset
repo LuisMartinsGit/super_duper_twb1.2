@@ -10,24 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
-  m_Name: Alanthor_TradeAgreements2
+  m_Name: Alanthor_TradeCharters
   m_EditorClassIdentifier: 
-  id: Alanthor_TradeAgreements2
-  displayName: Trade Agreements II
+  id: Alanthor_TradeCharters
+  displayName: Trade Charters
   role: Economy
   effect: 
-  desc: "Trading Outposts spend 45% less on every trade."
-  researchAt: Alanthor_TradingOutpost
-  minBuildingLevel: 0
-  researchTime: 45
-  prerequisites: 
-  - Alanthor_TradeAgreements1
+  desc: "Alanthor. Unlocks the Trading Outpost: up to four beside any supply, iron or veilstone node, each trickling that node's resource without ever drawing on it, for as long as the node lives."
+  researchAt: Fortress
+  minBuildingLevel: 3
+  researchTime: 90
+  prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 300
+    Supplies: 500
     Iron: 200
-    Veilstone: 60
-    Veilsteel: 0
+    Veilstone: 250
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

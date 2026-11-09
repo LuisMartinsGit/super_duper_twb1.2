@@ -19,7 +19,6 @@ price is converted to points with one resource ladder, which lives on
 | Supplies | 1 |
 | Iron | 3 |
 | Veilstone | 5 |
-| Veilsteel | 10 |
 
 `Score = Units + Buildings + Stockpile`, where
 

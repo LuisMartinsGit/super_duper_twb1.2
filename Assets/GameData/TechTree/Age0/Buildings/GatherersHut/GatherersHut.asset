@@ -57,7 +57,6 @@ MonoBehaviour:
   - IronSurveying3
   - VeilstoneSurvey1
   - VeilstoneSurvey2
-  - VeilsteelSurvey
   - IronReinforcements
   - VeilstoneWalls
   - VeilsteelPylons
@@ -66,7 +65,6 @@ MonoBehaviour:
     Supplies: 120
     Iron: 10
     Veilstone: 0
-    Veilsteel: 0
   tags:
   - Building
   attack:

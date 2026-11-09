@@ -119,7 +119,7 @@ def cost_of(block):
     # re-saved since the rename still stores it under the old key.
     veil = block.get("Veilstone", block.get("Crystal"))
     return {"s": int(block.get("Supplies") or 0), "i": int(block.get("Iron") or 0),
-            "v": int(veil or 0), "vs": int(block.get("Veilsteel") or 0)}
+            "v": int(veil or 0)}
 
 
 def slug(text):

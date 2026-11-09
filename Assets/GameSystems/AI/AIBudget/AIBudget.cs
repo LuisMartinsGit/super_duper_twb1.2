@@ -48,7 +48,7 @@ namespace TheWaningBorder.AI
         #endregion
 
         private const int Categories = 3;
-        private const int Resources = 4; // Supplies, Iron, Veilstone, Veilsteel
+        private const int Resources = 3; // Supplies, Iron, Veilstone (veilsteel folded in, 2026-11-09)
 
         private sealed class BrainBudget
         {
@@ -105,7 +105,7 @@ namespace TheWaningBorder.AI
 
         /// <summary>Resource indices for <see cref="IsMilitaryShort"/> — the
         /// wallet column order.</summary>
-        public const int ResSupplies = 0, ResIron = 1, ResVeilstone = 2, ResVeilsteel = 3;
+        public const int ResSupplies = 0, ResIron = 1, ResVeilstone = 2;
 
         private static readonly Dictionary<Faction, BrainBudget> _brains = new();
 
@@ -167,7 +167,7 @@ namespace TheWaningBorder.AI
             var res = em.GetComponentData<FactionResources>(bankEntity);
             var b = GetBrain(faction);
 
-            var bank = new int[Resources] { res.Supplies, res.Iron, res.Veilstone, res.Veilsteel };
+            var bank = new int[Resources] { res.Supplies, res.Iron, res.Veilstone};
             if (!b.Seeded)
             {
                 // First sight of the bank: seed the sample, split the
@@ -337,7 +337,7 @@ namespace TheWaningBorder.AI
 
             int c = (int)cat;
             var want = new float[Resources]
-                { cost.Supplies, cost.Iron, cost.Veilstone, cost.Veilsteel };
+                { cost.Supplies, cost.Iron, cost.Veilstone};
 
             // Lenders, in the order they are drained.
             //
@@ -348,7 +348,7 @@ namespace TheWaningBorder.AI
             // Barracks, because Military could only reach 134 of its own faction's
             // money. Every faction in the match finished with ZERO military
             // buildings for the same reason, while Advancement also sat on 1,114
-            // veilstone and 310 veilsteel it had no remaining use for — the age-up
+            // veilstone it had no remaining use for — the age-up
             // is bought once, and the weight keeps feeding the wallet afterwards.
             //
             // Protecting a lump sum is what Reserve/ReservedAmount is FOR, and
@@ -439,7 +439,6 @@ namespace TheWaningBorder.AI
             b.Reserved[0] = cost.Supplies;
             b.Reserved[1] = cost.Iron;
             b.Reserved[2] = cost.Veilstone;
-            b.Reserved[3] = cost.Veilsteel;
             b.ReserveExpiry = now + holdSeconds;
         }
 
@@ -472,8 +471,7 @@ namespace TheWaningBorder.AI
             if (!FactionEconomy.TryGetResources(em, faction, out var res)) return true;
             return res.Supplies  - ReservedAmount(b, 0, now) >= cost.Supplies
                 && res.Iron      - ReservedAmount(b, 1, now) >= cost.Iron
-                && res.Veilstone - ReservedAmount(b, 2, now) >= cost.Veilstone
-                && res.Veilsteel - ReservedAmount(b, 3, now) >= cost.Veilsteel;
+                && res.Veilstone - ReservedAmount(b, 2, now) >= cost.Veilstone;
         }
 
         /// <summary>True while a reservation is being held for this faction.</summary>
@@ -544,8 +542,7 @@ namespace TheWaningBorder.AI
             int c = (int)cat;
             return b.Wallets[c, 0] >= cost.Supplies
                 && b.Wallets[c, 1] >= cost.Iron
-                && b.Wallets[c, 2] >= cost.Veilstone
-                && b.Wallets[c, 3] >= cost.Veilsteel;
+                && b.Wallets[c, 2] >= cost.Veilstone;
         }
 
         public static void RecordSpend(Faction faction, AIBudgetCategory cat, Cost cost)
@@ -555,11 +552,9 @@ namespace TheWaningBorder.AI
             b.Wallets[c, 0] -= cost.Supplies;
             b.Wallets[c, 1] -= cost.Iron;
             b.Wallets[c, 2] -= cost.Veilstone;
-            b.Wallets[c, 3] -= cost.Veilsteel;
             b.WindowSpends[0] += cost.Supplies;
             b.WindowSpends[1] += cost.Iron;
             b.WindowSpends[2] += cost.Veilstone;
-            b.WindowSpends[3] += cost.Veilsteel;
             for (int r = 0; r < Resources; r++)
                 if (b.Wallets[c, r] < 0f) b.Wallets[c, r] = 0f;
             // A military purchase spends the army's own earmark first.
@@ -656,7 +651,6 @@ namespace TheWaningBorder.AI
             if (res.Supplies  < cost.Supplies)  b.MilitaryShortUntil[ResSupplies]  = until;
             if (res.Iron      < cost.Iron)      b.MilitaryShortUntil[ResIron]      = until;
             if (res.Veilstone < cost.Veilstone) b.MilitaryShortUntil[ResVeilstone] = until;
-            if (res.Veilsteel < cost.Veilsteel) b.MilitaryShortUntil[ResVeilsteel] = until;
         }
 
         /// <summary>True while the army's last refused purchases were short
@@ -695,9 +689,8 @@ namespace TheWaningBorder.AI
 
         /// <summary>
         /// Supplies are piling up AND the army is short of something a
-        /// Trading Outpost makes — iron, veilstone or veilsteel (Game_AI.md
-        /// 5a, 2026-10-12). Every resource but supplies comes out of the
-        /// Buy -> Forge -> Sell chain, so supplies alone are enough: unlike
+        /// Trading Outpost makes — iron or veilstone (Game_AI.md 5a,
+        /// 2026-10-12). Supplies alone are enough: unlike
         /// BankOverflowing, iron need not be piling up too. The 0.0.40
         /// Mirror Marches batch had Alanthor banks of 30-57k supplies with
         /// 0-30 iron for an hour — "wallet short" on every purchase, and no
@@ -709,8 +702,7 @@ namespace TheWaningBorder.AI
             if (!FactionEconomy.TryGetResources(em, faction, out var res)) return false;
             if (res.Supplies < Cfg.surplusSupplies) return false;
             return IsMilitaryShort(faction, ResIron)
-                || IsMilitaryShort(faction, ResVeilstone)
-                || IsMilitaryShort(faction, ResVeilsteel);
+                || IsMilitaryShort(faction, ResVeilstone);
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -793,13 +785,12 @@ namespace TheWaningBorder.AI
             bool shortS = IsMilitaryShort(faction, ResSupplies);
             bool shortI = IsMilitaryShort(faction, ResIron);
             bool shortV = IsMilitaryShort(faction, ResVeilstone);
-            bool shortVs = IsMilitaryShort(faction, ResVeilsteel);
-            if (!(shortS || shortI || shortV || shortVs))
+            if (!(shortS || shortI || shortV))
                 return AILogger.Enabled
                     ? $"army {b.ArmyAlive}/{b.ArmyDesired} and its units affordable" : "army can buy";
 
             if ((spend.Supplies > 0 && shortS) || (spend.Iron > 0 && shortI)
-                || (spend.Veilstone > 0 && shortV) || (spend.Veilsteel > 0 && shortVs))
+                || (spend.Veilstone > 0 && shortV))
                 return AILogger.Enabled
                     ? $"army {b.ArmyAlive}/{b.ArmyDesired} short of what this costs" : "army short";
 
@@ -810,8 +801,7 @@ namespace TheWaningBorder.AI
             var u = b.ArmyUnitCost;
             if ((spend.Supplies  > 0 && res.Supplies  - spend.Supplies  < u.Supplies  * n)
              || (spend.Iron      > 0 && res.Iron      - spend.Iron      < u.Iron      * n)
-             || (spend.Veilstone > 0 && res.Veilstone - spend.Veilstone < u.Veilstone * n)
-             || (spend.Veilsteel > 0 && res.Veilsteel - spend.Veilsteel < u.Veilsteel * n))
+             || (spend.Veilstone > 0 && res.Veilstone - spend.Veilstone < u.Veilstone * n))
                 return AILogger.Enabled
                     ? $"army {b.ArmyAlive}/{b.ArmyDesired}: keeps {n} units' worth banked" : "army reserve";
             return null;
@@ -889,10 +879,9 @@ namespace TheWaningBorder.AI
             bool shortS = IsMilitaryShort(faction, ResSupplies);
             bool shortI = IsMilitaryShort(faction, ResIron);
             bool shortV = IsMilitaryShort(faction, ResVeilstone);
-            bool shortVs = IsMilitaryShort(faction, ResVeilsteel);
-            if ((shortS || shortI || shortV || shortVs)
+            if ((shortS || shortI || shortV)
                 && !((spend.Supplies > 0 && shortS) || (spend.Iron > 0 && shortI)
-                     || (spend.Veilstone > 0 && shortV) || (spend.Veilsteel > 0 && shortVs)))
+                     || (spend.Veilstone > 0 && shortV)))
                 return null;
 
             return AILogger.Enabled

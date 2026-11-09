@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelChains
   m_EditorClassIdentifier: 
   id: Feraldis_VeilsteelChains
-  displayName: Veilsteel Chains
+  displayName: Shard Chains
   role: Economy
   effect: 
   desc: "Slave work tier 3: crews earn more and stoke the Forge harder."
@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 150
     Iron: 500
-    Veilstone: 120
-    Veilsteel: 20
+    Veilstone: 160
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

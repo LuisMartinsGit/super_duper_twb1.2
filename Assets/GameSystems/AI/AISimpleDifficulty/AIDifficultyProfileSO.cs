@@ -265,6 +265,13 @@ namespace TheWaningBorder.AI
         /// <summary>Most Gatherer's Huts and Mines together; 0 = no limit. (2026-11-04, Game_AI.md § 2)</summary>
         public int extractorLimit;
 
+        /// <summary>STOP EXTRACTING (2026-11-09, Veilstone_Economy.md §3.5): an Alanthor AI
+        /// stops an extractor once its node has fewer than this many minutes of extraction
+        /// left, so the node survives for its Trading Outposts. 0 = never (the node runs dry
+        /// and collapses with its posts). The tier's play quality: Easy never, Normal too
+        /// early, Expert close to the edge.</summary>
+        public float extractorStopMinutes;
+
         /// <summary>No building level-ups before this match time. (2026-11-04, Game_AI.md § 2)</summary>
         public float levelUpsFromSeconds;
 

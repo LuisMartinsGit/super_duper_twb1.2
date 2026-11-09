@@ -171,7 +171,7 @@ namespace TheWaningBorder.Core
         /// <summary>A faction gained <paramref name="amount"/> at <paramref name="position"/>.</summary>
         public static void Gain(float3 position, Faction faction, Cost amount)
         {
-            if (amount.Supplies <= 0 && amount.Iron <= 0 && amount.Veilstone <= 0 && amount.Veilsteel <= 0) return;
+            if (amount.Supplies <= 0 && amount.Iron <= 0 && amount.Veilstone <= 0) return;
             if (_gains.Count >= MaxQueued) _gains.Dequeue();
             _gains.Enqueue(new SimGain(position, faction, amount));
         }

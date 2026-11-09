@@ -274,7 +274,7 @@ namespace TheWaningBorder.AI
             if (CountFactionWith<GreatForgeTag>(em, faction) < 1)
             {
                 var fc = TechCatalog.Building("Feraldis_GreatForge").cost;
-                var forgeCost = Cost.Of(fc.Supplies, fc.Iron, fc.Veilstone, fc.Veilsteel);
+                var forgeCost = Cost.Of(fc.Supplies, fc.Iron, fc.Veilstone);
                 if (!FactionEconomy.CanAfford(em, faction, forgeCost))
                     AIBudget.Reserve(faction, forgeCost, SimClock.Now, 60f, 1);
                 else

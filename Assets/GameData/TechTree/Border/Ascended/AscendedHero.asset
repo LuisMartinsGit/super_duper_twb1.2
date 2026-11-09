@@ -18,6 +18,5 @@ MonoBehaviour:
   damageCapPerSecondOfMax: 0.04
   bountySupplies: 4000
   bountyIron: 300
-  bountyVeilstone: 600
-  bountyVeilsteel: 400
+  bountyVeilstone: 1400
   furyMinEnemies: 4

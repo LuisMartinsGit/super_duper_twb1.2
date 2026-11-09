@@ -80,5 +80,5 @@ public enum FeraldisOp : byte
     RigLoad = 9,         // actor: infantry unit, target: War Rig
     RigUnload = 10,      // actor: War Rig
     Overcharge = 11,     // actor: War Rig (with the Overcharge tech)
-    SanctuaryTrade = 12, // actor: Runai Sanctuary — RP for veilsteel (Age_1_Runai.md §5.1)
+    SanctuaryTrade = 12, // actor: Runai Sanctuary — RP for veilstone (Age_1_Runai.md §5.1)
 }

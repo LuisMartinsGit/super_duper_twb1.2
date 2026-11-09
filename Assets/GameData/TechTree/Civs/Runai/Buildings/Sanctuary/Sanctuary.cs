@@ -1,8 +1,7 @@
 // Sanctuary.cs
 // The Runai Sanctuary (docs/Design/Age_1_Runai.md §5): built atop a veilstone
-// outcrop, Inactive or Cursed. It never drains the outcrop; it produces
-// veilstone (Inactive) or veilsteel (Cursed) into its depot stock, pays a slow
-// religion trickle, sleeps the curse node under it, and hosts the curse
+// outcrop, Inactive or Cursed. It never drains the outcrop; it pays a slow
+// religion trickle (traded there for veilstone), sleeps the curse node under it, and hosts the curse
 // ladder research. Its production and the ladder's effects are
 // RunaiSanctuarySystem; levels Sanctuary_Lvl1..3.
 
@@ -18,7 +17,7 @@ namespace TheWaningBorder.Entities
     public static class Sanctuary
     {
         public const string BuildingId = "Runai_Sanctuary";
-        public const int PresentationID = 592;   // Sanctuary.asset (borrows the Veilsteel Foundry's model)
+        public const int PresentationID = 592;   // Sanctuary.asset
 
         public static Entity Create(EntityManager em, float3 p, Faction f) => EntityBuild.Done(Make(new EmCreator(em), p, f));
         public static Entity Create(EntityCommandBuffer ecb, float3 p, Faction f) => EntityBuild.Done(Make(new EcbCreator(ecb), p, f));

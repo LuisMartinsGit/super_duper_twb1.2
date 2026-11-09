@@ -817,7 +817,6 @@ namespace TheWaningBorder.AI
             // and the armies are how it learns.
             CollectNodePositions<IronMineTag>(em, faction, nodeXfs);
             CollectNodePositions<VeilstoneOutcroppingTag>(em, faction, nodeXfs);
-            CollectNodePositions<VeilsteelDepositTag>(em, faction, nodeXfs);
             CollectNodePositions<SupplyNodeTag>(em, faction, nodeXfs);
             _claimSupplyNodes.Clear();
             CollectNodePositions<SupplyNodeTag>(em, faction, _claimSupplyNodes);

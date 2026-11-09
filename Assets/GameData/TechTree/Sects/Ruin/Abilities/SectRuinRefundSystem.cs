@@ -74,8 +74,7 @@ namespace TheWaningBorder.Systems.Sect
                 var refund = Cost.Of(
                     supplies:  (int)(cost.Supplies  * frac),
                     iron:      (int)(cost.Iron      * frac),
-                    veilstone:   (int)(cost.Veilstone   * frac),
-                    veilsteel: (int)(cost.Veilsteel * frac)
+                    veilstone:   (int)(cost.Veilstone   * frac)
                 );
 
                 FactionEconomy.Add(em, killerFaction, refund, TheWaningBorder.Economy.IncomeSource.Other);

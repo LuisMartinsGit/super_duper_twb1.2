@@ -1,4 +1,4 @@
-// Feraldis Foundry — veilsteel production.
+// Feraldis Foundry (the Fiend Foundry) — forging and weapons.
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -38,7 +38,6 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(em, entity, default(WarbrandFoundryTag));
-            EntityBuild.Add(em, entity, new ForgeStorage { Iron = 0, Veilstone = 0, MaxIron = 100, MaxVeilstone = 50, ConversionTimer = 0f });
             EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             EntityBuild.Add(em, entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             return EntityBuild.Done(entity);
@@ -62,7 +61,6 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(ecb, entity, default(WarbrandFoundryTag));
-            EntityBuild.Add(ecb, entity, new ForgeStorage { Iron = 0, Veilstone = 0, MaxIron = 100, MaxVeilstone = 50, ConversionTimer = 0f });
             EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             EntityBuild.Add(ecb, entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             return EntityBuild.Done(entity);

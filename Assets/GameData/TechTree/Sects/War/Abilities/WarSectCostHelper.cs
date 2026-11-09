@@ -108,7 +108,6 @@ namespace TheWaningBorder.Economy
                 Supplies  = (int)(c.Supplies  * mult),
                 Iron      = (int)(c.Iron      * mult),
                 Veilstone   = (int)(c.Veilstone   * mult),
-                Veilsteel = (int)(c.Veilsteel * mult),
             };
         }
     }

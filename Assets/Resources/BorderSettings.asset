@@ -154,7 +154,6 @@ MonoBehaviour:
   shardrootGuaranteeSeconds: 0
   shardrootRevealRadius: 6
   shardrootCurseBonus: 0.5
-  feraldisNodeVeilsteel: 40
   minutesPerTier: 8
   decisionInterval: 5
   replenishInterval: 4

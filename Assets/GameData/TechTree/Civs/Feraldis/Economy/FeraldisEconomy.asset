@@ -35,8 +35,7 @@ MonoBehaviour:
   curseKillVeilstoneCrystalling: 4
   curseKillVeilstoneVeilstinger: 10
   curseKillVeilstoneGodsplinter: 25
-  curseNodeVeilstone: 120
-  curseNodeVeilsteel: 40
+  curseNodeVeilstone: 200
   meltRefundShare: 0.12
   sacrificePtsPerCost: 0.1
   altarSacrificeMultiplier: 3

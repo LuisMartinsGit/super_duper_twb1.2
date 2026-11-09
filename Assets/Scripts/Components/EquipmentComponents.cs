@@ -1,13 +1,13 @@
 // EquipmentComponents.cs
 // Per-faction equipment tier system. Faction researches equipment tiers
-// (Base → Iron → Veilstone → Veilsteel — there is no tier above Veilsteel)
+// (Base → Iron → Veilstone → Shard — there is no tier above Shard)
 // and the upgrade
 // applies to every unit of the relevant class. Stacks multiplicatively
 // with UnitRank (the per-unit veterancy system) — a Lv3 unit with Veilstone
 // equipment gets BOTH multipliers.
 //
 // Spec §4.1: tier progression. Per-tier magical effects (shield bar at
-// Veilstone, duplicate squad at Veilsteel) are wired by
+// Veilstone, duplicate squad at Shard) are wired by
 // separate ability systems and tag-checked off the tier value.
 //
 // Place in: Assets/Scripts/Core/Components/
@@ -25,7 +25,7 @@ public enum EquipmentTier : byte
     Base = 0,
     Iron = 1,
     Veilstone = 2,
-    Veilsteel = 3,
+    Shard = 3,
 }
 
 /// <summary>
@@ -93,7 +93,7 @@ public struct UnitTierOverride : IComponentData
 /// universally across unit classes for MVP (the spec illustrates only
 /// spearman example).
 ///
-/// Cap scales with tier: Veilstone < Veilsteel < Glow.
+/// Cap scales with tier: Veilstone < Shard < Glow.
 /// </summary>
 public struct ShieldBar : IComponentData
 {

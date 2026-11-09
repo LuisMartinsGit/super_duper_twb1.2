@@ -145,7 +145,7 @@ def ring(key, color=None):
 
 # The icon of every heading on every card, keyed by the English heading. No icon stops the build.
 HEAD = {
-    "Supplies": "Item_Bread_01", "Iron": "Item_Ingot_Iron_01", "Veilstone": "Item_Crystal_01", "Veilsteel": "Item_Gem_04",
+    "Supplies": "Item_Bread_01", "Iron": "Item_Ingot_Iron_01", "Veilstone": "Item_Crystal_01",
     "Hold ground": "Map_Flag_01", "Find nodes": "Item_Magnifying_Glass_01", "Build an extractor": "Item_Pickaxe_01", "Node runs dry": "Status_Time_01",
     "Plan": "Item_Parchment_01", "Site": "Item_Hammer_01", "Building": "Map_Home_01",
     "Shift": "Status_Up_01", "Cancel": "Menu_Delete_01", "Your ground only": "Map_Flag_01", "Population": "Chr_Attach_Soldier_01",
@@ -176,7 +176,7 @@ def head_icon(h, color=None):
 
 # ── Building blocks ──────────────────────────────────────────────────────
 E = html.escape
-RES = dict(s=("#8fc46a", "Supplies"), i=("#b4bcc8", "Iron"), v=("#55d5e0", "Veilstone"), vs=("#e8edf5", "Veilsteel"))
+RES = dict(s=("#8fc46a", "Supplies"), i=("#b4bcc8", "Iron"), v=("#55d5e0", "Veilstone"))
 
 def points(items, cols=1):
     rows = "".join('<div class="pt pn">%s<div><b>%s</b><span>%s</span></div></div>' % (head_icon(h, "var(--accent)"), tr(h), tr(b)) for h, b in items)
@@ -242,7 +242,7 @@ def bar(width, height, percent, color, cls=""):
 def meter_svg():
     rows = [("Status_Up_01", BLUE, "Your soldiers alone: rises, by the population standing there"),
             ("Icon_Swords_01", RED, "Two armies: the stronger side pushes, by the difference"),
-            ("Status_Time_01", "#a9b1bd", "Nobody and no building: it decays")]
+            ("Status_Time_01", "#a9b1bd", "Nobody there: it stays yours, unless the curse holds two of its nodes")]
     return ('<div class="meter"><div class="mtitle">%s</div>%s<div class="mends"><span>%s</span><span>%s</span></div>%s</div>') % (
         tr("OWNERSHIP METER"), bar("100%", 110, 65, BLUE), tr("0: changes hands"), tr("100: yours"),
         "".join('<div class="mrow">%s<span>%s</span></div>' % (icon(k, c), tr(t)) for k, c, t in rows))
@@ -274,14 +274,14 @@ card("02", 1, "Giving Orders", "Your units keep working from a list of orders.",
      '<div class="two">' + keys([("Shift + right-click", "Queue orders. The route is drawn on the ground"), ("A, then click", "Attack-move: fight anything on the way"), ("Right-drag", "Face the formation; length sets its width"), ("X", "Cycle Box, Line, Wedge, Staggered")]) +
      keys([("G", "Aggressive: chases what it sees"), ("D", "Defensive: stays close to its post"), ("H", "Hold: does not chase at all"), ("Delete", "Cancel a plan with a full refund, or demolish")]) + "</div>" +
      note("A queued move is obeyed over the stance. If you want a fight on the way, use attack-move."))
-card("03", 2, "The Four Resources", "Each is rarer than the last, and each comes from somewhere different.",
+card("03", 2, "The Three Resources", "Each is rarer than the last, and each comes from somewhere different.",
      tiles([("Supplies", "From every territory you hold, and Gatherer's Huts on supply nodes. Pays for almost everything.", GREEN),
             ("Iron", "From Mines on iron nodes. Arms and armour.", "#b4bcc8"),
-            ("Veilstone", "Crystal of the curse. Alanthor buys it at Trading Outposts instead of mining it after age-up.", CYAN),
-            ("Veilsteel", "Never mined: it is made. Alanthor forges it from veilstone at a Trading Outpost.", "#e8edf5")], 4))
+            ("Veilstone", "Crystal of the curse, from Veilstone Mines on outcrops. Elite troops, siege and the top research.", CYAN)], 3) +
+     note("Late in the game, Alanthor's <b>Trading Outposts</b> trickle any of the three from beside a node, without ever spending it."))
 card("04", 2, "Nobody Gathers: Ground Pays", "There are no carrying workers and no drop-off points. Your bank fills by itself.",
      flow([("Hold ground", "Every territory you hold pays a trickle"), ("Find nodes", "Each node type is set by the territory"), ("Build an extractor", "Gatherer's Hut or Mine: pays far more, and locks the ground"), ("Node runs dry", "Each has a finite reserve. Most extractors collapse with it")]) +
-     note("Each node shows what it has left. Plan your next territory before this one runs out."))
+     note("Each node shows what it has left. <b>Stop Extracting</b> on its building saves it: Alanthor's Trading Outposts pay beside a saved node for good."))
 card("05", 2, "Workers and Building Plans", "Workers only build and repair. A build order costs you now and rises later.",
      flow([("Plan", "White preview only you can see. Already paid for"), ("Site", "A worker breaks ground. Now everyone can see it, and attack it"), ("Building", "Finished, and working")]) +
      points([("Shift", "Hold while placing to keep placing"), ("Cancel", "Delete a plan or a site for a full refund"), ("Your ground only", "You can build only in territory you own"), ("Population", "Huts and the Fortress raise your cap, more as they level")], 2))
@@ -307,15 +307,15 @@ card("10", 5, "Walls and Gates", "Alanthor's signature. Draw them, then only sie
      points([("Hubs and segments", "Hubs snap to the grid; drawn walls link them together."), ("Your gates only", "Your units walk through; enemies have to break them."), ("Garrison", "Soldiers on the wall-walk fight from above it."), ("Fall in sections", "A wall breaks piece by piece.")], 2), CYAN)
 card("11", 5, "Ground Belongs to Whoever Stands on It", "From age-up, soldiers claim territory just by standing there.",
      '<div class="two aligned"><div>' + meter_svg() + "</div><div>" +
-     points([("Who claims", "Soldiers, cavalry, siege and heroes. Workers and scouts do not."), ("Where", "Only ground that borders your Fortress-connected territory."), ("Cut off?", "Ground cut off from your Fortress slowly wears down."), ("No limit", "You hold exactly what you can defend.")]) + "</div></div>", BLUE)
-card("12", 5, "Hold It, Lock It, or Lose It", "A territory's buildings decide how hard it is to take.",
-     tiles([("Empty", "No soldiers, no buildings: it decays back to nobody.", "#5c6778"),
-            ("Held", "Any finished building stops the decay, but an enemy army still drains it.", BLUE),
+     points([("Who claims", "Soldiers, cavalry, siege and heroes. Workers and scouts do not."), ("Where", "Only ground that borders your Fortress-connected territory."), ("Cut off?", "Ground cut off from your Fortress stays yours, but nothing new can be claimed from it."), ("No limit", "You hold exactly what you can defend.")]) + "</div></div>", BLUE)
+card("12", 5, "Hold It, Lock It, or Lose It", "Claimed ground is only lost to conquest, or to the curse.",
+     tiles([("Empty", "Your soldiers left: it stays yours, unless the curse holds two of its nodes.", "#5c6778"),
+            ("Held", "An enemy army standing there drains it. Nothing else can.", BLUE),
             ("Locked", "An extractor on a node, or a Fortress: the meter can't be drained at all until every lock is razed.", GOLD)], 3) +
      note("<b>Lose a territory and every building you had in it collapses.</b>"), BLUE)
 card("13", 5, "Not All Ground Is Equal", "Territory types decide what nodes it holds, and so what it's worth.",
      tiles([("Start", "Your home: supply, iron and a veilstone outcrop.", GOLD), ("Normal", "Supply, sometimes iron or veilstone.", GREEN), ("Iron rich", "More iron than anywhere else.", "#b4bcc8"),
-            ("Veilstone rich", "Starts cursed. The richest ground and the hardest to take.", CURSE), ("Empty", "Nothing but room to pass through.", "#5c6778"), ("Sanctum", "Pays Religion Points and veilsteel, and shortens sect cooldowns.", CYAN)], 3) +
+            ("Veilstone rich", "Starts cursed. The richest ground and the hardest to take.", CURSE), ("Empty", "Nothing but room to pass through.", "#5c6778"), ("Sanctum", "Pays Religion Points and veilstone, and shortens sect cooldowns.", CYAN)], 3) +
      note("Node purity varies too: pure pays more, poor pays less."), BLUE)
 card("14", 4, "Your Age-Up Is a Building", "There are only two ages. Age 0 is short: the same units and buildings for everyone.",
      flow([("Build the landmark", "Vault of Almi&eacute;rra for Alanthor. Workers speed it up"), ("Defend the site", "If it falls before it finishes, everything is lost"), ("Your culture opens", "The Shelter becomes a Fortress, new buildings and units unlock, and claiming opens")]) +
@@ -406,7 +406,7 @@ card("T3", "T", "Tech Tree: Alanthor Military Research", "Level the building, th
      tree([research_col("Garrison", RED, "Barracks"), research_col("Archery Range", CYAN, "ArcheryRange"), research_col("Royal Stable", GREEN, "Alanthor_RoyalStable"), research_col("Siege Yard", BLUE, "Alanthor_SiegeYard")]))
 card("T4", "T", "Tech Tree: Alanthor Economy and Defence", "Territories pay. These decide how much, and how long you can keep them.",
      tree([research_col("Fortress", GOLD, "Fortress"), research_col("Guild (Gatherer's Hut)", GREEN, "GatherersHut"), research_col("Mine", "#b4bcc8", "Mine"),
-           research_col("Trading Outpost", CYAN, "Alanthor_TradingOutpost"), research_col("Vault", GOLD, "VaultOfAlmierra"), research_col("Wall Hub", BLUE, "Alanthor_Wall")]))
+           research_col("Vault", GOLD, "VaultOfAlmierra"), research_col("Wall Hub", BLUE, "Alanthor_Wall")]))
 card("T5", "T", "Tech Tree: The Sect Branch", "Temple, then chapel, then the sect's own building. Each building trains a unit and a hero and sells one research.",
      tree([("Temple of Ridan", CYAN, [("Trains", roster("TempleOfRidan", lambda i: True)), ("Research", [x["name"] for x in techs_at("TempleOfRidan")])])] +
           [(b["name"], c, [("Trains", unit_names(b["trains"])), ("Research", [x["name"] for x in TECHS if x["at"] == i])])

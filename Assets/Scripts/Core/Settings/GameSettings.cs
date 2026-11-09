@@ -98,7 +98,7 @@ public enum ScenarioType
     // Guild defense test: a fully-upgraded Alanthor "Guild" (Gatherer's Hut at
     // L3 with the full Survey + reinforcement research) pre-damaged below full
     // HP, swarmed by a Red group. Exercises the Guild's low-HP Stop cast
-    // (Veilsteel Pylons), auto-repair, and the Slow/Stop cast VFX.
+    // (Shard Pylons), auto-repair, and the Slow/Stop cast VFX.
     GuildDefenseTest = 24,
 
     // Spell VFX showcase: a flat, textureless plane on which every authored
@@ -157,6 +157,12 @@ public enum ScenarioType
     // L1 | L2 | L3, same 8 x 8 m footprint, under the green build grid --
     // the two ladders' scale and facing compared cell for cell.
     GarrisonRangeLadder = 32,
+
+    // Gallop test (2026-11-07): two lanes, each a cavalry squad riding back
+    // and forth through a Red sword block. Blue has researched Full Gallop and
+    // gallops; Green has not and is the control. GallopTestDriver orders the
+    // passes and logs both lanes. docs/Design/Age_1_Alanthor.md § Galloping.
+    GallopTest = 33,
 }
 
 /// <summary>
@@ -223,7 +229,7 @@ public enum NetworkRole
 /// <summary>
 /// Lobby starting-resources level, index-parallel with
 /// LobbyOptions.ResourceNames. The amounts per level (supplies, iron,
-/// veilstone, veilsteel, religion points) are EconomyBootstrap.asset.
+/// veilstone, religion points) are EconomyBootstrap.asset.
 /// </summary>
 public enum StartingResourcesLevel : byte
 {
@@ -401,7 +407,7 @@ public static class GameSettings
     ///   Age2  — Alanthor L2: Fortress L2, Temple, the landmark.
     ///           +500 supplies +150 iron +50 veilstone.
     ///   Age3  — L3: Fortress L3, Temple, the landmark.
-    ///           +1000 supplies +300 iron +100 veilstone +30 veilsteel.
+    ///           +1000 supplies +300 iron +160 veilstone.
     ///   Age4  — Era 5 (the Fortress stays at L3, the ladder's top), with
     ///           a larger stock for late-game tests.
     ///

@@ -67,7 +67,7 @@ namespace TheWaningBorder.Core.Settings
             {
                 var c = def.upgradeCost;
                 cost = c == null ? default : new Cost
-                    { Supplies = c.Supplies, Iron = c.Iron, Veilstone = c.Veilstone, Veilsteel = c.Veilsteel };
+                    { Supplies = c.Supplies, Iron = c.Iron, Veilstone = c.Veilstone};
                 return true;
             }
             return TryGetCost(buildingId, targetLevel, out cost);
@@ -201,7 +201,7 @@ namespace TheWaningBorder.Core.Settings
         /// <summary>
         /// UPGRADES ARE BUILDINGS, so they are priced in supplies and iron —
         /// docs/Design/Regions.md, resource domains. The ladders used to be a
-        /// veilstone/veilsteel sink; soldiers are that sink now, and a far
+        /// veilstone sink; soldiers are that sink now, and a far
         /// larger one, because an army is lost continuously and a building is
         /// bought once.
         /// </summary>
@@ -270,7 +270,7 @@ namespace TheWaningBorder.Core.Settings
                     // upgrade button never appeared and the only way to raise
                     // yield was to take more ground.
                     //
-                    // Priced in veilstone and veilsteel on purpose. Those are
+                    // Priced in veilstone on purpose. That is
                     // what a territory-holding faction accumulates and what it
                     // could not spend (one logged AI banked 15,242 veilstone),
                     // and now that nodes DEPLETE, upgrading is the standing

@@ -543,6 +543,20 @@ namespace TheWaningBorder.Core.Commands.Types
                 _nodeSets[buildingId] = set = new NodeSet();
             if (set.Loaded) return set;
 
+            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
+            {
+                // The Trading Outpost stands beside a node of ANY kind
+                // (Veilstone_Economy.md §3.1, 2026-11-09): every supply, iron
+                // and veilstone node, in that fixed order.
+                var all = TheWaningBorder.Entities.TradingOutpost.AllNodes(em);
+                if (set.Nodes.Length < all.Count) set.Nodes = new LocalTransform[all.Count + 8];
+                int n = 0;
+                for (int i = 0; i < all.Count; i++)
+                    if (TheWaningBorder.Entities.TradingOutpost.IsLiveNode(em, all[i].Entity, all[i].Kind))
+                        set.Nodes[n++] = LocalTransform.FromPosition(all[i].Position);
+                set.NodeCount = n;
+            }
+            else
             using (var nodes = TerritoryOwnership.TagWithTransform(em, required.Value)
                        .ToComponentDataArray<LocalTransform>(Allocator.Temp))
                 set.NodeCount = CopyInto(ref set.Nodes, nodes, 0);

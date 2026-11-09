@@ -134,3 +134,16 @@ PT = {
  "Tech Tree: The Sect Branch": "Árvore Tecnológica: O Ramo das Seitas", "Temple, then chapel, then the sect's own building. Each building trains a unit and a hero and sells one research.": "Templo, depois capela, depois o edifício da seita. Cada edifício treina uma unidade e um herói e vende uma pesquisa.",
  "Tech Tree: Feraldis": "Árvore Tecnológica: Feraldis", "Edition B and up. Armies by building, read from the game's data.": "Edição B e acima. Exércitos por edifício, lidos dos dados do jogo.", "Tech Tree: Runai": "Árvore Tecnológica: Runai", "Edition C. Armies by building, read from the game's data.": "Edição C. Exércitos por edifício, lidos dos dados do jogo.",
 }
+# Decision 42 (2026-11-09): one crystal, stop extracting, ground that holds.
+PT.update({
+ "The Three Resources": "Os Três Recursos",
+ "Crystal of the curse, from Veilstone Mines on outcrops. Elite troops, siege and the top research.": "O cristal da maldição, das Minas de Veilstone nos afloramentos. Tropas de elite, cerco e a investigação de topo.",
+ "Late in the game, Alanthor's <b>Trading Outposts</b> trickle any of the three from beside a node, without ever spending it.": "Mais tarde, os <b>Entrepostos Comerciais</b> Alanthor rendem qualquer um dos três junto a um nó, sem nunca o gastar.",
+ "Each node shows what it has left. <b>Stop Extracting</b> on its building saves it: Alanthor's Trading Outposts pay beside a saved node for good.": "Cada nó mostra o que lhe resta. <b>Parar a Extração</b> no seu edifício poupa-o: os Entrepostos Comerciais Alanthor rendem para sempre junto a um nó poupado.",
+ "Nobody there: it stays yours, unless the curse holds two of its nodes": "Ninguém lá: continua teu, a menos que a maldição tenha dois dos seus nós",
+ "Ground cut off from your Fortress stays yours, but nothing new can be claimed from it.": "O terreno isolado da tua Fortaleza continua teu, mas não se pode reivindicar nada novo a partir dele.",
+ "Claimed ground is only lost to conquest, or to the curse.": "O terreno reivindicado só se perde por conquista, ou para a maldição.",
+ "Your soldiers left: it stays yours, unless the curse holds two of its nodes.": "Os teus soldados saíram: continua teu, a menos que a maldição tenha dois dos seus nós.",
+ "An enemy army standing there drains it. Nothing else can.": "Um exército inimigo lá dentro drena-o. Mais nada o pode fazer.",
+ "Pays Religion Points and veilstone, and shortens sect cooldowns.": "Paga Pontos de Religião e veilstone, e encurta as recargas das seitas.",
+})

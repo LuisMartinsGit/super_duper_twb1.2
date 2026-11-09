@@ -28,7 +28,7 @@ namespace TheWaningBorder.UI.Ingame
         private static readonly string[] AlwaysHidden =
         {
             "GameUI_TopChoiceBar", "GameUI_SpecialBuildingMenu", "GameUI_CultureSelectionButton",
-            "GameUI_ReligionPanel", "GameUI_ScoreBoard", "GameUI_TradeMenu", "GameUI_ObjectivesPanel",
+            "GameUI_ReligionPanel", "GameUI_ScoreBoard", "GameUI_ObjectivesPanel",
             "GameUI_SpellsPanel",
         };
 
@@ -44,7 +44,7 @@ namespace TheWaningBorder.UI.Ingame
         private const string ActionsPanel = "GameUI_ActionsPanel";
 
         /// <summary>Rows of the resource panel the Basic mission never uses.</summary>
-        private static readonly string[] HiddenResourceRows = { "Veilsteel", "Religion" };
+        private static readonly string[] HiddenResourceRows = { "Religion" };
 
         private sealed class Row
         {

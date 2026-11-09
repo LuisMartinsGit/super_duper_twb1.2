@@ -6,40 +6,37 @@ namespace TheWaningBorder.Core
     /// <summary>
     /// Represents a resource cost for units, buildings, and technologies.
     /// Used for affordability checks and spending operations.
+    /// Three resources since 2026-11-09 (decision 42): veilsteel was folded
+    /// into veilstone.
     /// </summary>
     public struct Cost
     {
         public int Supplies;
         public int Iron;
         public int Veilstone;
-        public int Veilsteel;
 
         /// <summary>
         /// Create a Cost with specified values. Unspecified values default to 0.
         /// </summary>
-        public static Cost Of(int supplies = 0, int iron = 0, int veilstone = 0,
-                              int veilsteel = 0)
+        public static Cost Of(int supplies = 0, int iron = 0, int veilstone = 0)
         {
             return new Cost
             {
                 Supplies = supplies,
                 Iron = iron,
                 Veilstone = veilstone,
-                Veilsteel = veilsteel
             };
         }
 
         /// <summary>
         /// Returns true if all resource costs are zero.
         /// </summary>
-        public bool IsZero => Supplies == 0 && Iron == 0 && Veilstone == 0 &&
-                              Veilsteel == 0;
+        public bool IsZero => Supplies == 0 && Iron == 0 && Veilstone == 0;
 
         /// <summary>
         /// Get total "value" of resources (simple weighted sum for AI evaluation).
         /// </summary>
-        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3) +
-                                 (Veilsteel * 5);
+        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3);
 
         /// <summary>
         /// Add two costs together.
@@ -51,7 +48,6 @@ namespace TheWaningBorder.Core
                 Supplies = a.Supplies + b.Supplies,
                 Iron = a.Iron + b.Iron,
                 Veilstone = a.Veilstone + b.Veilstone,
-                Veilsteel = a.Veilsteel + b.Veilsteel
             };
         }
 
@@ -65,7 +61,6 @@ namespace TheWaningBorder.Core
                 Supplies = c.Supplies * multiplier,
                 Iron = c.Iron * multiplier,
                 Veilstone = c.Veilstone * multiplier,
-                Veilsteel = c.Veilsteel * multiplier
             };
         }
 
@@ -78,7 +73,6 @@ namespace TheWaningBorder.Core
             if (Supplies > 0) parts.Add($"{Supplies} Supplies");
             if (Iron > 0) parts.Add($"{Iron} Iron");
             if (Veilstone > 0) parts.Add($"{Veilstone} Veilstone");
-            if (Veilsteel > 0) parts.Add($"{Veilsteel} Veilsteel");
             return parts.Count > 0 ? string.Join(", ", parts) : "Free";
         }
     }

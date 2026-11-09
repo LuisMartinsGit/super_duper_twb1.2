@@ -237,9 +237,7 @@ namespace TheWaningBorder.AI
         // the most valuable upgrade in the game for Alanthor and it was
         // simply not on the list:
         //   * the guild-level ladder adds +5 / +10 / +20 supplies per tick,
-        //   * the Survey techs' iron / veilstone / VEILSTEEL drips all scale
-        //     with it — and the veilsteel drip requires a FULLY upgraded hut,
-        //     so an un-upgraded economy can never produce veilsteel at all,
+        //   * the Survey techs' iron / veilstone drips all scale with it,
         //   * levelling gives the hut the HP to survive a raid long enough
         //     for reinforcements to arrive.
         // Researching the Survey ladder while leaving huts at L1 buys the
@@ -528,7 +526,7 @@ namespace TheWaningBorder.AI
             if (soldier <= 0f) return true;
             string ladder = UpgradeBuildingCommandHelper.ResolveBuildingId(em, host);
             int owned = TheWaningBorder.Systems.Buildings.FactionBuildingLevels.CountOwned(em, faction, ladder);
-            float inSoldiers = (price.Supplies + price.Iron + price.Veilstone + price.Veilsteel) / soldier;
+            float inSoldiers = (price.Supplies + price.Iron + price.Veilstone) / soldier;
             float worth = owned * soldiersPerBuilding;
             if (worth >= inSoldiers) return true;
             if (AILogger.Enabled)
@@ -545,7 +543,7 @@ namespace TheWaningBorder.AI
             if (string.IsNullOrEmpty(id) || !TechCatalog.TryGetUnit(id, out var def) || def?.cost == null)
                 return 0f;
             var c = def.cost;
-            return c.Supplies + c.Iron + c.Veilstone + c.Veilsteel;
+            return c.Supplies + c.Iron + c.Veilstone;
         }
 
         // ──────────────────────────────────────────────────────────────────

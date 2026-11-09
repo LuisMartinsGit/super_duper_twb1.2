@@ -1,4 +1,4 @@
-﻿// SiegeProbe.cs
+// SiegeProbe.cs
 // Editor-only diagnostics, driven by the agent bridge via `menu` and readable
 // from the Console. Three tools:
 //
@@ -461,7 +461,7 @@ namespace TheWaningBorder.EditorTools
             _ffa.WriteLine("=== 4-AI free-for-all watch — one row per faction every "
                            + (int)FfaLogInterval + "s ===");
             _ffa.WriteLine("time  faction  units  bldgs halls terr  huts hutLv hallLv mines vmines smelt  "
-                           + "supplies iron veilstone veilsteel  army(form/fight)");
+                           + "supplies iron veilstone  army(form/fight)");
             _ffa.Flush();
             _ffaSeenElim.Clear();
             _ffaNext = 0f;
@@ -567,24 +567,23 @@ namespace TheWaningBorder.EditorTools
                     if (em.HasComponent<HallTag>(e)) hallLevel = math.max(hallLevel, LevelOf(em, e));
                     if (em.HasComponent<MineTag>(e)) mines++;
                     if (em.HasComponent<VeilstoneMineTag>(e)) vmines++;
-                    if (em.HasComponent<SmelterTag>(e)) smelt++;
                 }
             }
 
             int terr = TheWaningBorder.World.Regions.TerritoryOwnership.Ready
                 ? TheWaningBorder.World.Regions.TerritoryOwnership.TerritoriesOf(faction).Count : 0;
 
-            int sup = 0, iron = 0, veil = 0, vsteel = 0;
+            int sup = 0, iron = 0, veil = 0;
             if (TheWaningBorder.Economy.FactionEconomy.TryGetResources(em, faction, out var res))
             {
-                sup = res.Supplies; iron = res.Iron; veil = res.Veilstone; vsteel = res.Veilsteel;
+                sup = res.Supplies; iron = res.Iron; veil = res.Veilstone;
             }
 
             return string.Format(CultureInfo.InvariantCulture,
                 "{0}  {1,-7} {2,5} {3,5} {4,5} {5,4}  {6,4} {7,5} {8,6} {9,5} {10,6} {11,5}  "
-                + "{12,8} {13,6} {14,9} {15,9}  {16,3}/{17,-3}",
+                + "{12,8} {13,6} {14,9}  {15,3}/{16,-3}",
                 Clock(t), faction, units, bldgs, halls, terr,
-                huts, hutLevels, hallLevel, mines, vmines, smelt, sup, iron, veil, vsteel, form, fight);
+                huts, hutLevels, hallLevel, mines, vmines, smelt, sup, iron, veil, form, fight);
         }
 
         private static void StopFfaWatch()

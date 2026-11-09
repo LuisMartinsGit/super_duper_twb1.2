@@ -60,16 +60,10 @@ namespace TheWaningBorder.Data
         /// <summary>Scales the building's interestPerMinute at this level (the
         /// Vault of Almierra). Read only for the Vault; 0 elsewhere.</summary>
         public float interestMultiplier;
-        /// <summary>Scales the Trading Outpost's trade at this level — what it
-        /// spends AND what it earns per minute, over the
-        /// TradingOutpostSystem.asset rates. Read only for the Outpost; 0
-        /// elsewhere (0 reads as 1).</summary>
+        /// <summary>Scales the Trading Outpost's trickle at this level, over
+        /// the TradingOutpostSystem.asset rates (2026-11-09: it trickles, it no
+        /// longer trades). Read only for the Outpost; 0 elsewhere (0 reads as 1).</summary>
         public float tradeRateMultiplier;
-
-        /// <summary>Trade routes an Outpost of this level runs at once
-        /// (2026-11-04): L1 one, L2 two, L3 four. Read only for the Outpost;
-        /// 0 reads as 1.</summary>
-        public int tradeRoutes;
 
         /// <summary>An attack AUTHORED for this level, replacing the scaled one
         /// (the Watch Tower ladder; the Garrison's level-3 arrows).

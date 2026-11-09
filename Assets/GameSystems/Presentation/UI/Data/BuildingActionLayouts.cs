@@ -1,4 +1,4 @@
-﻿// BuildingActionLayouts.cs
+// BuildingActionLayouts.cs
 // Fixed 3x5 ACTIONS-panel layouts for buildings that want an authored grid
 // (Fortress, Hut/House, Gatherer's Hut/Guild — Alanthor). Each building
 // gets 15 slots (3 rows x 5 cols, row-major), matching the authored
@@ -25,7 +25,7 @@
 // There used to be a SECOND gate here, a per-slot faction AGE 0-3 read as
 // FactionEra - 1. Nothing ever raises a faction past Age 1, so every slot
 // pinned to Age 2/3 (the upper tool tiers, the surveys, Veilstone Walls,
-// Veilsteel Pylons) was invisible to players while the AI — which reads
+// Shard Pylons) was invisible to players while the AI — which reads
 // researchAt and minBuildingLevel — researched them freely. It is gone.
 //
 // CHAINS pin a tech ladder to ONE slot and show the current un-consumed tier.
@@ -131,7 +131,7 @@ namespace TheWaningBorder.UI.Data
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
                 ActionSlot.ChainOf("IronSurveying1", "IronSurveying2", "IronSurveying3"),
                 ActionSlot.ChainOf("VeilstoneSurvey1", "VeilstoneSurvey2"),
-                ActionSlot.Tech("VeilsteelSurvey"),
+                ActionSlot.ChainOf("SupplySurvey1", "SupplySurvey2", "SupplySurvey3"),
                 ActionSlot.ChainOf("IronReinforcements", "VeilstoneWalls", "VeilsteelPylons"),
                 ActionSlot.Empty,
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
@@ -255,7 +255,7 @@ namespace TheWaningBorder.UI.Data
                     cost = new Cost
                     {
                         Supplies = unit.cost.Supplies, Iron = unit.cost.Iron,
-                        Veilstone = unit.cost.Veilstone, Veilsteel = unit.cost.Veilsteel,
+                        Veilstone = unit.cost.Veilstone,
                     };
             }
 
@@ -285,7 +285,7 @@ namespace TheWaningBorder.UI.Data
             Cost cost = tech != null && tech.cost != null ? new Cost
             {
                 Supplies = tech.cost.Supplies, Iron = tech.cost.Iron,
-                Veilstone = tech.cost.Veilstone, Veilsteel = tech.cost.Veilsteel,
+                Veilstone = tech.cost.Veilstone,
             } : default;
 
             // The SO's gates, in the order a player can act on them.

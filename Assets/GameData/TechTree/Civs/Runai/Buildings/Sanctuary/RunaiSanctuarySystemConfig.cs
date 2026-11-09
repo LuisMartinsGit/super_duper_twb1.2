@@ -16,9 +16,9 @@ namespace TheWaningBorder.Runai
         /// <summary>Religion points per minute from a Sanctuary on an Inactive / a Cursed outcrop.</summary>
         public float rpPerMinute;
         public float cursedRpPerMinute;
-        /// <summary>Trade RP for veilsteel (§5.1): one trade spends rpPerTrade religion points for veilsteelPerTrade veilsteel.</summary>
+        /// <summary>Trade RP for veilstone (§5.1): one trade spends rpPerTrade religion points for veilstonePerTrade veilstone.</summary>
         public int rpPerTrade;
-        public int veilsteelPerTrade;
+        public int veilstonePerTrade;
         /// <summary>How far from a Sanctuary the outcrop under it is looked for.</summary>
         public float outcropSearchRadius;
 

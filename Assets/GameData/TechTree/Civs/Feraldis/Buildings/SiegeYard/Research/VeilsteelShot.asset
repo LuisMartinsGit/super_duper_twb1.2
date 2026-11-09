@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelShot
   m_EditorClassIdentifier: 
   id: Feraldis_VeilsteelShot
-  displayName: Veilsteel Shot
+  displayName: Shard Shot
   role: Military
   effect: 
   desc: "Munition tier 3: siege deals +15% damage."
@@ -27,8 +27,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 200
-    Veilstone: 260
-    Veilsteel: 60
+    Veilstone: 380
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

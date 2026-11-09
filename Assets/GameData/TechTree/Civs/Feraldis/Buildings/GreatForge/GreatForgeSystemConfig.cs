@@ -38,13 +38,12 @@ namespace TheWaningBorder.Feraldis
         public float soulforgeSlavesPerMinute;
         public int soulforgeVeilstonePerSlave;
 
-        /// <summary>Veilsteel recipe per minute: inputs, output.</summary>
-        public float veilsteelInVeilstone;
-        public float veilsteelInIron;
-        public float veilsteelOut;
+        /// <summary>Smelt per minute (2026-11-09): iron in, veilstone out.</summary>
+        public float smeltInIron;
+        public float smeltOutVeilstone;
 
-        /// <summary>Arms Export per minute: veilsteel in, iron out.</summary>
-        public float exportInVeilsteel;
+        /// <summary>Arms Export per minute: veilstone in, iron out.</summary>
+        public float exportInVeilstone;
         public float exportOutIron;
 
         /// <summary>Extra speed from a FULL stoking crew (0.5 = +50 %), scaled by fill and work multiplier.</summary>

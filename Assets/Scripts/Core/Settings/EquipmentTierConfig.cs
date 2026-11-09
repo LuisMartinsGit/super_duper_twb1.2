@@ -4,7 +4,7 @@
 // veterancy config). Spec §4.1-§4.4.
 //
 // Multipliers apply to Damage and Defense on each unit. Tier-specific
-// magical effects (shield bar at Veilstone, duplicate squad at Veilsteel,
+// magical effects (shield bar at Veilstone, duplicate squad at Shard,
 // ) are gated by reading EquipmentTier elsewhere — they're
 // not stat multipliers.
 
@@ -26,7 +26,7 @@ namespace TheWaningBorder.Core.Settings
             EquipmentTier.Base      => 1.00f,
             EquipmentTier.Iron      => 1.15f,
             EquipmentTier.Veilstone   => 1.30f,
-            EquipmentTier.Veilsteel => 1.50f,
+            EquipmentTier.Shard => 1.50f,
             _ => 1.00f,
         };
 
@@ -37,13 +37,13 @@ namespace TheWaningBorder.Core.Settings
         /// </summary>
         public static Cost UpgradeCost(EquipmentTier from, EquipmentTier to)
         {
-            // Only adjacent upgrades are valid (Base→Iron→Veilstone→Veilsteel).
+            // Only adjacent upgrades are valid (Base→Iron→Veilstone→Shard).
             // The router rejects non-adjacent calls; this helper assumes valid input.
             return to switch
             {
                 EquipmentTier.Iron      => new Cost { Iron = 200, Supplies = 150 },
                 EquipmentTier.Veilstone   => new Cost { Veilstone = 150, Iron = 200 },
-                EquipmentTier.Veilsteel => new Cost { Veilsteel = 80, Veilstone = 200 },
+                EquipmentTier.Shard => new Cost { Veilstone = 360 },   // 200 + 2 x the 80 veilsteel it cost before 2026-11-09
                 _ => default,
             };
         }
@@ -58,7 +58,7 @@ namespace TheWaningBorder.Core.Settings
         public static int ShieldBarMax(EquipmentTier tier) => tier switch
         {
             EquipmentTier.Veilstone   => 50,
-            EquipmentTier.Veilsteel => 80,
+            EquipmentTier.Shard => 80,
             _ => 0,
         };
 
@@ -77,8 +77,8 @@ namespace TheWaningBorder.Core.Settings
         /// <summary>Bonus shield HP granted by Siege Veilstone aura to each ally in range.</summary>
         public const int SiegeShieldAuraVeilstoneBonus = 30;
 
-        /// <summary>Bonus at Veilsteel (stacking up from Veilstone).</summary>
-        public const int SiegeShieldAuraVeilsteelBonus = 50;
+        /// <summary>Bonus at Shard (stacking up from Veilstone).</summary>
+        public const int SiegeShieldAuraShardBonus = 50;
 
 
         // ==================== Hero phase shield (spec §4.4 Veilstone+) ====================
@@ -88,6 +88,6 @@ namespace TheWaningBorder.Core.Settings
 
         /// <summary>Fraction of damage absorbed by a charged phase shield (per tier).</summary>
         public const float HeroPhaseShieldReductionVeilstone = 0.50f;
-        public const float HeroPhaseShieldReductionVeilsteel = 0.65f;
+        public const float HeroPhaseShieldReductionShard = 0.65f;
     }
 }

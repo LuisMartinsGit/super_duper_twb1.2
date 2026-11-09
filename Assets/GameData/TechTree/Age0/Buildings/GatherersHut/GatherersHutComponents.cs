@@ -31,7 +31,7 @@ public struct DepletedHutTag : IComponentData { }
 /// Cooldown state for the Guild's low-HP defensive casts. TWO independent
 /// wards, each a one-shot burst on its own 90-second cooldown, NOT a
 /// continuous aura: Veilstone Walls fires the SLOW burst at 75% HP or
-/// lower; Veilsteel Pylons fires the STOP burst at 50% HP or lower. Each
+/// lower; Shard Pylons fires the STOP burst at 50% HP or lower. Each
 /// field is the earliest <c>SystemAPI.Time.ElapsedTime</c> at which that
 /// ward may cast again. Added lazily by
 /// <c>GathererHutReinforcementSystem</c> the first time a hut casts.

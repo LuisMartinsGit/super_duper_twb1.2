@@ -15,7 +15,6 @@ namespace TheWaningBorder.World.MapMarkers
         private static readonly List<PlayerStartMarker>  _players  = new();
         private static readonly List<IronPatchMarker>    _iron     = new();
         private static readonly List<VeilstoneOutcroppingMarker> _crystal  = new();
-        private static readonly List<VeilsteelDepositMarker> _veilsteel = new();
         private static readonly List<BorderNodeMarker>    _border    = new();
         private static readonly List<BlightPocketMarker>  _blight    = new();
         private static readonly List<NatureRegionMarker>  _nature    = new();
@@ -25,7 +24,6 @@ namespace TheWaningBorder.World.MapMarkers
         public static IReadOnlyList<PlayerStartMarker>  PlayerStarts   => _players;
         public static IReadOnlyList<IronPatchMarker>    IronPatches    => _iron;
         public static IReadOnlyList<VeilstoneOutcroppingMarker> VeilstoneOutcroppings => _crystal;
-        public static IReadOnlyList<VeilsteelDepositMarker> VeilsteelDeposits => _veilsteel;
         public static IReadOnlyList<BorderNodeMarker>    BorderNodes     => _border;
         public static IReadOnlyList<BlightPocketMarker>  BlightPockets   => _blight;
         public static IReadOnlyList<NatureRegionMarker>  NatureRegions   => _nature;
@@ -35,7 +33,6 @@ namespace TheWaningBorder.World.MapMarkers
         public static bool HasPlayerMarkers  => _players.Count  > 0;
         public static bool HasIronMarkers    => _iron.Count     > 0;
         public static bool HasVeilstoneMarkers => _crystal.Count  > 0;
-        public static bool HasVeilsteelMarkers => _veilsteel.Count > 0;
         public static bool HasBorderMarkers   => _border.Count    > 0;
         public static bool HasBlightMarkers   => _blight.Count    > 0;
         public static bool HasNatureRegions   => _nature.Count    > 0;
@@ -52,7 +49,6 @@ namespace TheWaningBorder.World.MapMarkers
             _players.Clear();
             _iron.Clear();
             _crystal.Clear();
-            _veilsteel.Clear();
             _border.Clear();
             _blight.Clear();
             _nature.Clear();
@@ -62,7 +58,6 @@ namespace TheWaningBorder.World.MapMarkers
             _players.AddRange(Object.FindObjectsByType<PlayerStartMarker>(FindObjectsSortMode.None));
             _iron.AddRange(Object.FindObjectsByType<IronPatchMarker>(FindObjectsSortMode.None));
             _crystal.AddRange(Object.FindObjectsByType<VeilstoneOutcroppingMarker>(FindObjectsSortMode.None));
-            _veilsteel.AddRange(Object.FindObjectsByType<VeilsteelDepositMarker>(FindObjectsSortMode.None));
             _border.AddRange(Object.FindObjectsByType<BorderNodeMarker>(FindObjectsSortMode.None));
             _blight.AddRange(Object.FindObjectsByType<BlightPocketMarker>(FindObjectsSortMode.None));
             _nature.AddRange(Object.FindObjectsByType<NatureRegionMarker>(FindObjectsSortMode.None));
@@ -85,7 +80,6 @@ namespace TheWaningBorder.World.MapMarkers
             // instant-desync of the first two-editor test day).
             _iron.Sort(CompareMarkers);
             _crystal.Sort(CompareMarkers);
-            _veilsteel.Sort(CompareMarkers);
             _border.Sort(CompareMarkers);
             _blight.Sort(CompareMarkers);
             // Region seeds especially: the region INDEX is their list position,
@@ -95,7 +89,7 @@ namespace TheWaningBorder.World.MapMarkers
             _supply.Sort(CompareMarkers);
 
             TWBLog.Log($"[MapMarkerRegistry] Refresh — players={_players.Count} " +
-                      $"iron={_iron.Count} veilstone={_crystal.Count} veilsteel={_veilsteel.Count} " +
+                      $"iron={_iron.Count} veilstone={_crystal.Count} " +
                       $"border={_border.Count} blight={_blight.Count} " +
                       $"nature={_nature.Count} regions={_regions.Count} supply={_supply.Count}");
         }
@@ -107,7 +101,6 @@ namespace TheWaningBorder.World.MapMarkers
             _players.Clear();
             _iron.Clear();
             _crystal.Clear();
-            _veilsteel.Clear();
             _border.Clear();
             _blight.Clear();
             _nature.Clear();

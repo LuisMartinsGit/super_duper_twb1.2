@@ -1,4 +1,4 @@
-﻿// LockstepManager.cs
+// LockstepManager.cs
 // Lockstep multiplayer manager for deterministic simulation
 
 using System;
@@ -1735,10 +1735,10 @@ namespace TheWaningBorder.Multiplayer
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed DeleteEntity from player {cmd.PlayerIndex}");
                     break;
 
-                case LockstepCommandType.SetOutpostMode:
-                    // EntityNetworkId: the Trading Outpost. TargetEntityId: the TradeRecipe.
-                    CommandRouter.SetOutpostModeDirect(em, entity, cmd.TargetEntityId);   // recipe / toggle / mask
-                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetOutpostMode({cmd.TargetEntityId}) from player {cmd.PlayerIndex}");
+                case LockstepCommandType.SetExtractorStopped:
+                    // EntityNetworkId: the extractor. TargetEntityId: 1 stop, 0 resume.
+                    CommandRouter.SetExtractorStoppedDirect(em, entity, cmd.TargetEntityId);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetExtractorStopped({cmd.TargetEntityId}) from player {cmd.PlayerIndex}");
                     break;
 
                 case LockstepCommandType.GarrisonWall:
@@ -2641,7 +2641,7 @@ namespace TheWaningBorder.Multiplayer
                     if (!TheWaningBorder.Economy.FactionEconomy.TryGetResources(
                             em, (Faction)f, out var bank)) continue;
                     sb.AppendLine($"bank {(Faction)f,-7} supplies={bank.Supplies} iron={bank.Iron} " +
-                                  $"veilstone={bank.Veilstone} veilsteel={bank.Veilsteel}");
+                                  $"veilstone={bank.Veilstone}");
                 }
 
                 string fileName = $"Desync_tick{tick}_p{_localPlayerIndex}.log";

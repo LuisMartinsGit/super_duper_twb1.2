@@ -63,12 +63,12 @@ namespace TheWaningBorder.Runai
                 var loot = new Cost
                 {
                     Supplies = (int)math.floor(c.Supplies), Iron = (int)math.floor(c.Iron),
-                    Veilstone = (int)math.floor(c.Veilstone), Veilsteel = (int)math.floor(c.Veilsteel),
+                    Veilstone = (int)math.floor(c.Veilstone),
                 };
                 // Paid once: the cargo leaves the wagon with the loot.
-                c.Supplies = c.Iron = c.Veilstone = c.Veilsteel = 0f;
+                c.Supplies = c.Iron = c.Veilstone = 0f;
                 em.SetComponentData(e, c);
-                if (loot.Supplies + loot.Iron + loot.Veilstone + loot.Veilsteel <= 0) continue;
+                if (loot.Supplies + loot.Iron + loot.Veilstone <= 0) continue;
                 FactionEconomy.Add(em, killer, loot, IncomeSource.Loot);
                 SimSignals.Gain(em.GetComponentData<LocalTransform>(e).Position, killer, loot);
             }

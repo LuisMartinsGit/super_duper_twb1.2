@@ -58,6 +58,7 @@ namespace TheWaningBorder.Systems.Navigation
         private ComponentLookup<FormationMemberState> _memberLookup;
         private ComponentLookup<FormationSlotMemory> _slotMemoryLookup;
         private ComponentLookup<Target> _targetLookup;
+        private ComponentLookup<TheWaningBorder.Abilities.GallopState> _gallopLookup;
 
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
         public void OnCreate(ref SystemState state)
@@ -84,6 +85,7 @@ namespace TheWaningBorder.Systems.Navigation
             _memberLookup = state.GetComponentLookup<FormationMemberState>(isReadOnly: true);
             _slotMemoryLookup = state.GetComponentLookup<FormationSlotMemory>(isReadOnly: true);
             _targetLookup = state.GetComponentLookup<Target>(isReadOnly: true);
+            _gallopLookup = state.GetComponentLookup<TheWaningBorder.Abilities.GallopState>(isReadOnly: true);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -113,6 +115,7 @@ namespace TheWaningBorder.Systems.Navigation
             _memberLookup.Update(ref state);
             _slotMemoryLookup.Update(ref state);
             _targetLookup.Update(ref state);
+            _gallopLookup.Update(ref state);
 
             var job = new AccumulateSteeringForcesJob
             {
@@ -129,6 +132,7 @@ namespace TheWaningBorder.Systems.Navigation
                 MemberLookup = _memberLookup,
                 SlotMemoryLookup = _slotMemoryLookup,
                 TargetLookup = _targetLookup,
+                GallopLookup = _gallopLookup,
                 Flags = cost.Flags,
             };
             state.Dependency = job.ScheduleParallel(_hasComponentQuery, state.Dependency);
@@ -240,6 +244,7 @@ namespace TheWaningBorder.Systems.Navigation
         [ReadOnly] public ComponentLookup<FormationMemberState> MemberLookup;
         [ReadOnly] public ComponentLookup<FormationSlotMemory> SlotMemoryLookup;
         [ReadOnly] public ComponentLookup<Target> TargetLookup;
+        [ReadOnly] public ComponentLookup<TheWaningBorder.Abilities.GallopState> GallopLookup;
         [ReadOnly] public NativeArray<byte> Flags;
 
         // Within this radius of the goal, BOTH the flow contribution
@@ -321,6 +326,8 @@ namespace TheWaningBorder.Systems.Navigation
             // OWN slot, not converging on a shared point, so it keeps the
             // formation's exemption from the arrival fade.
             bool formationTravel = inFormation || myKey != 0;
+
+            bool selfGalloping = TheWaningBorder.Abilities.AlanthorGallop.IsGalloping(in GallopLookup, self);
 
             float arrivalScale = 1f;
             bool atGoal = false;
@@ -443,6 +450,16 @@ namespace TheWaningBorder.Systems.Navigation
                                 && MemberLookup.IsComponentEnabled(other)
                                 && MemberLookup[other].Group == myGroup)
                             || (myKey != 0 && FormationKinKey(other) == myKey);
+
+                        // A GALLOPING rider rides THROUGH enemy units
+                        // (Age_1_Alanthor.md § Galloping): neither pushes the
+                        // other aside, so the rider holds its line and tramples.
+                        // Allies still separate as usual.
+                        bool rideThrough = (selfGalloping
+                                || TheWaningBorder.Abilities.AlanthorGallop.IsGalloping(in GallopLookup, other))
+                            && FactionLookup.HasComponent(other) && selfFactionIdx != 0xFF
+                            && Alliances.AreHostileBurst((Faction)selfFactionIdx, FactionLookup[other].Value);
+                        if (rideThrough) continue;
 
                         // 1. Separation -- triggers within SeparationRadius
                         if (!sameFormation && dist < SeparationRadius)

@@ -6,15 +6,15 @@
 // reserve reaches zero it is removed from the map, and every building working
 // it collapses with it:
 //
-//   * a supply node      -> NOTHING collapses (2026-10-19): the Gatherer's
-//                           Hut on it (Guild / Work Camp / Trading Post)
-//                           stays standing, marked DepletedHutTag — it works
-//                           no node any more, but the Guild surveys it pays
-//                           are drawn from no node and keep paying
+//   * a supply node      -> the Gatherer's Hut on it (Guild / Work Camp /
+//                           Trading Post) stays standing (2026-10-19), marked
+//                           DepletedHutTag — it works no node any more, but
+//                           the surveys it pays are drawn from no node
 //   * an iron node       -> the Mine on it
-//   * a veilstone outcrop-> the Veilstone Mine or Runai Sanctuary on it, and
-//                           every Alanthor Trading Outpost on its side slots
-//                           (matched by the outcrop position the post keeps)
+//   * a veilstone outcrop-> the Veilstone Mine or Runai Sanctuary on it
+//   * EVERY kind         -> every Alanthor Trading Outpost on its side slots
+//                           (matched by the node position the post keeps;
+//                           any node kind since 2026-11-09, decision 42)
 //
 // "On it" is the income rule's own: within TerritoryIncomeSystem's
 // MineToNodeRange, and this node is the building's NEAREST node of that kind.
@@ -90,6 +90,7 @@ namespace TheWaningBorder.Systems.World
                     int collapsed = kind == KindSupply
                         ? DepleteHuts(em, p, xfs, res)
                         : CollapseWorkers(em, kind, p, xfs);
+                    collapsed += CollapsePosts(em, p);
                     UnityEngine.Debug.Log($"[NodeCollapse] {(kind == KindSupply ? "supply" : kind == KindIron ? "iron" : "veilstone")} " +
                                           $"node at ({p.x:0},{p.z:0}) ran dry — {_killed - before} building(s) collapsed, " +
                                           $"{_depleted - beforeDepleted} hut(s) depleted");
@@ -111,18 +112,25 @@ namespace TheWaningBorder.Systems.World
             {
                 mine += CollapseNear(em, QC_VeilMines.Get(em, QT_VeilMines), p, nodeXfs);
                 mine += CollapseNear(em, QC_Sanctuaries.Get(em, QT_Sanctuaries), p, nodeXfs);
-                var q = QC_Outposts.Get(em, QT_Outposts);
-                if (!q.IsEmptyIgnoreFilter)
-                {
-                    using var ents = q.ToEntityArray(Allocator.Temp);
-                    using var sites = q.ToComponentDataArray<TradingOutpostSite>(Allocator.Temp);
-                    for (int i = 0; i < ents.Length; i++)
-                    {
-                        float dx = sites[i].OutcropX - p.x, dz = sites[i].OutcropZ - p.z;
-                        if (dx * dx + dz * dz > OutpostMatch * OutpostMatch) continue;
-                        mine += Kill(em, ents[i]);
-                    }
-                }
+            }
+            return mine;
+        }
+
+        /// <summary>Every Trading Outpost on the spent node's side slots falls
+        /// with it (Veilstone_Economy.md §3.1): matched by the node position the
+        /// post keeps. Returns the local player's count.</summary>
+        private static int CollapsePosts(EntityManager em, float3 p)
+        {
+            var q = QC_Outposts.Get(em, QT_Outposts);
+            if (q.IsEmptyIgnoreFilter) return 0;
+            int mine = 0;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var sites = q.ToComponentDataArray<TradingOutpostSite>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                float dx = sites[i].OutcropX - p.x, dz = sites[i].OutcropZ - p.z;
+                if (dx * dx + dz * dz > OutpostMatch * OutpostMatch) continue;
+                mine += Kill(em, ents[i]);
             }
             return mine;
         }

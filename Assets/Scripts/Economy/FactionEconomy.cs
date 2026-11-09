@@ -114,8 +114,7 @@ namespace TheWaningBorder.Economy
             var r = em.GetComponentData<FactionResources>(bank);
             return r.Supplies >= c.Supplies
                 && r.Iron >= c.Iron
-                && r.Veilstone >= c.Veilstone
-                && r.Veilsteel >= c.Veilsteel;
+                && r.Veilstone >= c.Veilstone;
         }
 
         /// <summary>
@@ -142,15 +141,13 @@ namespace TheWaningBorder.Economy
             var r = em.GetComponentData<FactionResources>(bank);
             
             // Check affordability first
-            if (r.Supplies < c.Supplies || r.Iron < c.Iron || r.Veilstone < c.Veilstone ||
-                r.Veilsteel < c.Veilsteel)
+            if (r.Supplies < c.Supplies || r.Iron < c.Iron || r.Veilstone < c.Veilstone)
                 return false;
 
             // Deduct resources
             r.Supplies -= c.Supplies;
             r.Iron -= c.Iron;
             r.Veilstone -= c.Veilstone;
-            r.Veilsteel -= c.Veilsteel;
 
             em.SetComponentData(bank, r);
             EconomyLedger.Debit(fac, category, c);
@@ -185,7 +182,6 @@ namespace TheWaningBorder.Economy
             r.Supplies += c.Supplies;
             r.Iron += c.Iron;
             r.Veilstone += c.Veilstone;
-            r.Veilsteel += c.Veilsteel;
             var unclamped = r;
             r.Clamp();
 
@@ -200,7 +196,7 @@ namespace TheWaningBorder.Economy
             {
                 EconomyLedger.Debit(fac, SpendCategory.Overflow,
                     unclamped.Supplies - r.Supplies, unclamped.Iron - r.Iron,
-                    unclamped.Veilstone - r.Veilstone, unclamped.Veilsteel - r.Veilsteel);
+                    unclamped.Veilstone - r.Veilstone);
             }
             return true;
         }

@@ -1,4 +1,4 @@
-﻿// Loc.Pt.Menus.cs
+// Loc.Pt.Menus.cs
 // Portuguese (Portugal) table — MENU SCREENS AND OVERLAYS domain:
 // main menu (authored MainMenu.unity labels), skirmish / multiplayer /
 // scenarios panels, colour picker, map preview, loading screen, pause menu,

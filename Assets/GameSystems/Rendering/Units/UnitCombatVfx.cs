@@ -3,7 +3,7 @@
 //   * hits — melee: Hovl Holy hit, or Hovl Stones hit when the attacker was
 //     charging; ballista bolts and special projectiles: Holy hit; ARROWS by
 //     the shooter's arrow-tip tier — none below Veilstone, Lana Hit_dark_magic
-//     on Veilstone, Lana Hit_electric on Veilsteel; drained from CombatVfxSignals,
+//     on Veilstone, Lana Hit_electric on Shard; drained from CombatVfxSignals,
 //     at most one per unit per hitCooldownSeconds and maxHitsPerFrame overall;
 //   * buff states, looping while they last —
 //       speed up   SpellBuff.SpeedMultiplier above 1   (Lana Fog_speedFast)
@@ -70,7 +70,7 @@ namespace TheWaningBorder.Rendering
                 if (hit.Source == HitSource.Arrow)
                 {
                     var tier = ArrowTrailTiers.Of(hit.AttackerFaction);
-                    prefab = tier == ArrowTrailTier.Veilsteel ? cfg.arrowVeilsteelHitPrefab
+                    prefab = tier == ArrowTrailTier.Shard ? cfg.arrowShardHitPrefab
                            : tier == ArrowTrailTier.Veilstone ? cfg.arrowVeilstoneHitPrefab
                            : null;
                     arrowTier = true;

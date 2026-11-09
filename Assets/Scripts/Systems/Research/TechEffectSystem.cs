@@ -109,6 +109,9 @@ namespace TheWaningBorder.Systems.Research
                     break;
                 case "FullGallop":
                     GrantCavalryAbility(em, faction, "Full Gallop");
+                    // Galloping (Age_1_Alanthor.md § Galloping).
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Cavalry,
+                        (e) => TheWaningBorder.Abilities.AlanthorGallop.Grant(em, e));
                     break;
                 case "Charge":
                     GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.GarrisonInfantry,

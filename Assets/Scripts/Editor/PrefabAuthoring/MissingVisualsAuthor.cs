@@ -111,7 +111,6 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             RunaiSiegeWorkshop();
             RunaiTradingPost();
             RunaiVault();
-            RunaiVeilsteelFoundry();
             AlanthorTradingOutpost();
 
             // ───────────── SECT BUILDINGS with no SO yet (art only) ─────────────
@@ -593,27 +592,6 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
                 WireSo(f + "Vault.asset", prefab, 365, null, "Runai_Vault");
             }
             catch (Exception e) { Fail("Runai_Vault", e.ToString()); }
-        }
-
-        static void RunaiVeilsteelFoundry()
-        {
-            string f = TT + "Civs/Runai/Buildings/VeilsteelFoundry/";
-            try
-            {
-                var root = new GameObject("VeilsteelFoundry");
-                Add(root, "Buildings/Presets/SM_Bld_Preset_Blacksmith_01_Optimized.prefab", Vector3.zero, 0, 1f);
-                Add(root, "Props/SM_Prop_Forge_01.prefab", new Vector3(5.5f, 0, 1.0f), -90, 1.1f);
-                Add(root, "Props/SM_Prop_Anvil_02.prefab", new Vector3(4.0f, 0, -1.0f), 0, 1f);
-                Add(root, "Items/SM_Item_Crystal_03.prefab", new Vector3(-5.0f, 0, 2.5f), 0, 1.6f);
-                Add(root, "Items/SM_Item_Crystal_05.prefab", new Vector3(-6.0f, 0, 1.0f), 60, 1.3f);
-                Add(root, "Props/SM_Prop_Ore_Gem_01.prefab", new Vector3(-4.5f, 0, -2.5f), 0, 1f);
-                Add(root, "Buildings/House/SM_Bld_House_Chimney_Stone_01.prefab", new Vector3(0, 3.0f, -4.5f), 0, 1.4f);
-                Add(root, "FX/FX_Smoke_Chimney_01.prefab", new Vector3(0, 6.5f, -4.5f), 0, 1f);
-                Banner(root, new Vector3(6.5f, 0, 4.5f), 0);
-                var prefab = Save(root, f + "VeilsteelFoundry.prefab");
-                WireSo(f + "VeilsteelFoundry.asset", prefab, 366, null, "Runai_VeilsteelFoundry");
-            }
-            catch (Exception e) { Fail("Runai_VeilsteelFoundry", e.ToString()); }
         }
 
         static void AlanthorTradingOutpost()

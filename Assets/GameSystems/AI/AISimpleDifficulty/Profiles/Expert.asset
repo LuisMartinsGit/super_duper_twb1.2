@@ -33,6 +33,7 @@ MonoBehaviour:
   fightsToDeath: 0
   shardrootReactSeconds: 0
   extractorLimit: 0
+  extractorStopMinutes: 1
   spareCapitals: 0
   holdBackAheadRatio: 0
   armyCapFixed: 0

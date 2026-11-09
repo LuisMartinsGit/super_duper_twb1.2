@@ -570,8 +570,7 @@ namespace TheWaningBorder.Input
             if (!_em.Exists(e)) return false;
 
             // Resource deposits are always selectable
-            if (_em.HasComponent<IronMineTag>(e) || _em.HasComponent<VeilstoneOutcroppingTag>(e)
-                || _em.HasComponent<VeilsteelDepositTag>(e))
+            if (_em.HasComponent<IronMineTag>(e) || _em.HasComponent<VeilstoneOutcroppingTag>(e))
                 return true;
 
             // The Shardroot on the ground: selectable for its info panel. It

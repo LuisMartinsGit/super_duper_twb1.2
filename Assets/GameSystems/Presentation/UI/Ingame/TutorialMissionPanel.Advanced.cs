@@ -25,9 +25,9 @@ namespace TheWaningBorder.UI.Ingame
                     Count(TutorialMissionState.SurveyDone), 1),
                 () => TutorialMissionState.SurveyDone);
             AddRow(root, () => Open(AdvancedStage.Economy),
-                () => string.Format(Loc.T("2b - Build a Trading Outpost ({0}/{1})"),
-                    Mathf.Min(TutorialMissionState.Outposts, 1), 1),
-                () => TutorialMissionState.Outposts >= 1);
+                () => string.Format(Loc.T("2b - Stop extracting at a Mine ({0}/{1})"),
+                    Mathf.Min(TutorialMissionState.Stopped, 1), 1),
+                () => TutorialMissionState.Stopped >= 1);
             AddRow(root, () => Open(AdvancedStage.Military),
                 () => string.Format(Loc.T("3 - Build an Archery Range ({0}/{1})"),
                     Mathf.Min(TutorialMissionState.Ranges, 1), 1),
@@ -83,9 +83,9 @@ namespace TheWaningBorder.UI.Ingame
                 case AdvancedStage.Economy:
                     title = Loc.T("The Alanthor economy");
                     body = Loc.T("Your Gatherer's Huts are now <b>Guilds</b>: select one and research a Survey for extra "
-                        + "income. Your iron Mines keep working, but Alanthor do not mine veilstone. With the "
-                        + "<b>Mine</b> button, click a crystal outcrop to raise a <b>Trading Outpost</b>, which "
-                        + "buys veilstone or forges it into veilsteel. The Litharch is now <b>King Lexor</b>, your hero.");
+                        + "income. Every node runs dry in the end, and a spent node collapses. Select a Mine and press "
+                        + "<b>Stop Extracting</b> to save its node: later, <b>Trade Charters</b> at the Fortress lets "
+                        + "<b>Trading Outposts</b> beside saved nodes pay you forever. The Litharch is now <b>King Lexor</b>, your hero.");
                     break;
                 case AdvancedStage.Military:
                     title = Loc.T("The Alanthor army");

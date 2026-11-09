@@ -120,7 +120,6 @@ namespace TheWaningBorder.UI.Data
             // they fell all the way through GetUnitName's ladder — no
             // PresentationId match, no CanBuild, no WorkerTag, no UnitTag — and
             // the selection header labelled every one of them a bare "Unit".
-            if (em.HasComponent<VeilsteelDepositTag>(entity)) return VeilsteelNodeName;
             if (em.HasComponent<IronMineTag>(entity)) return "Iron Deposit";
             if (em.HasComponent<VeilstoneOutcroppingTag>(entity)) return "Veilstone Node";
             // The Shardroot on the ground: built outside the factories too.
@@ -129,11 +128,6 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<BuildingTag>(entity)) return GetBuildingName(entity, em);
             return GetUnitName(entity, em);
         }
-
-        /// <summary>Player-facing name of the veilsteel map node. Internally
-        /// still VeilsteelDeposit* / "Sharp Crystals" in older comments;
-        /// renamed for the player 2026-08-15 (docs/Design/Overview.md).</summary>
-        internal const string VeilsteelNodeName = "Veilsteel Mine";
 
         /// <summary>
         /// Name for an Age 0 carryover building that its owner's culture

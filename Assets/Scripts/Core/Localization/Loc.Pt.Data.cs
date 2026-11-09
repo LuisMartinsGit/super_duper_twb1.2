@@ -33,20 +33,16 @@ namespace TheWaningBorder.Core.Localization
             t["Iron Survey III"] = "Prospeção de Ferro III";
             t["Veilstone Survey I"] = "Prospeção de Veilstone I";
             t["Veilstone Survey II"] = "Prospeção de Veilstone II";
-            t["Veilsteel Survey"] = "Prospeção de Veilsteel";
             t["Raiding I"] = "Pilhagem I";
             t["Raiding II"] = "Pilhagem II";
             t["Raiding III"] = "Pilhagem III";
             t["Iron Plunder"] = "Saque de Ferro";
             t["Veilstone Plunder"] = "Saque de Veilstone";
-            t["Veilsteel Plunder"] = "Saque de Veilsteel";
             t["Iron reinforcements"] = "Reforços de ferro";
             t["Veilstone walls"] = "Muralhas de Veilstone";
-            t["Veilsteel Pylons"] = "Pilares de Veilsteel";
             t["Stone Tools"] = "Ferramentas de Pedra";
             t["Iron Tools"] = "Ferramentas de Ferro";
             t["Veilstone Tools"] = "Ferramentas de Veilstone";
-            t["Veilsteel Tools"] = "Ferramentas de Veilsteel";
             t["Mason Guild"] = "Guilda dos Pedreiros";
             t["Scouting Celestarii"] = "Exploração Celestarii";
             t["Armed Scouts"] = "Batedores Armados";
@@ -58,10 +54,8 @@ namespace TheWaningBorder.Core.Localization
             t["Merchant Charters"] = "Cartas Mercantis";
             t["Sovereign Bonds"] = "Obrigações Soberanas";
             t["Swift Caravans"] = "Caravanas Céleres";
-            t["Trading Outposts trade 50% faster: every trade spends and earns half as much again each minute."] = "Os Entrepostos Comerciais negociam 50% mais depressa: cada troca gasta e rende metade mais por minuto.";
             t["Iron Subsidies"] = "Subsídios de Ferro";
             t["Veilstone Monetization"] = "Monetização de Veilstone";
-            t["Veilsteel Bonds"] = "Obrigações de Veilsteel";
             t["Heightened Masses"] = "Missas Elevadas";
             t["Warrior Priests"] = "Sacerdotes Guerreiros";
             t["Pious Masses"] = "Missas Piedosas";
@@ -78,7 +72,6 @@ namespace TheWaningBorder.Core.Localization
             t["Runai Outpost"] = "Posto Avançado Runai";
             t["Runai Trade Hub"] = "Entreposto Comercial Runai";
             t["Runai Vault"] = "Cofre Runai";
-            t["Runai Veilsteel Foundry"] = "Fundição de Veilsteel Runai";
             t["Runai Siege Workshop"] = "Oficina de Cerco Runai";
             t["Catapult"] = "Catapulta";
             t["Fiendstone Keep"] = "Fortaleza de Fiendstone";
@@ -171,12 +164,10 @@ namespace TheWaningBorder.Core.Localization
             t["Trade route node / vision"] = "Nó de rota comercial / visão";
             t["Trade bonus / Caravan spawn"] = "Bónus de comércio / criação de Caravanas";
             t["Banking (tariff synergy)"] = "Banca (sinergia com tarifas)";
-            t["Produce Veilsteel"] = "Produz Veilsteel";
             t["Train siege engines"] = "Treina máquinas de cerco";
             t["Fast training, garrison, tower add-ons"] = "Treino rápido, guarnição, torres adicionais";
             t["Upgraded hut; bonus near wildlife"] = "Cabana melhorada; bónus perto de fauna";
             t["Upgraded hut; bonus near trees"] = "Cabana melhorada; bónus perto de árvores";
-            t["Veilsteel forging & weapons"] = "Forja de Veilsteel e armas";
             t["Defensive tower (arrow fire, detects bloody ground to empower)"] = "Torre defensiva (dispara flechas; deteta chão ensanguentado para se fortalecer)";
             t["Batch-trains melee (5 or 10) with small discount"] = "Treina corpo a corpo em lotes (5 ou 10) com pequeno desconto";
             t["Generates Supplies, global building techs"] = "Gera Mantimentos, tecnologias globais de edifícios";
@@ -184,7 +175,6 @@ namespace TheWaningBorder.Core.Localization
             t["Wall instance upgraded to ranged tower"] = "Troço de muralha melhorado para torre de tiro";
             t["Wall instance upgraded to gate - auto-opens for friendlies"] = "Troço de muralha melhorado para portão - abre automaticamente para aliados";
             t["Defensive tower with long range"] = "Torre defensiva de longo alcance";
-            t["Passively generates Veilsteel (limit 1)"] = "Gera Veilsteel passivamente (limite 1)";
             t["Heavy-cavalry trainer (Cataphract)."] = "Treina cavalaria pesada (Catafracto).";
 
             // ============================================================
@@ -195,13 +185,11 @@ namespace TheWaningBorder.Core.Localization
             t["Alanthor Guild. Raises Gatherer's Hut Iron output to +42/min."] = "Guilda Alanthor. Aumenta a produção de Ferro da Cabana do Recoletor para +42/min.";
             t["Alanthor Guild. Faction-wide: Gatherer's Huts also generate Veilstone (+6/min)."] = "Guilda Alanthor. Para toda a fação: as Cabanas do Recoletor geram também Veilstone (+6/min).";
             t["Alanthor Guild. Raises Gatherer's Hut Veilstone output to +18/min."] = "Guilda Alanthor. Aumenta a produção de Veilstone da Cabana do Recoletor para +18/min.";
-            t["Alanthor Guild. Faction-wide: Gatherer's Huts also generate a slow trickle of Veilsteel (+6/min)."] = "Guilda Alanthor. Para toda a fação: as Cabanas do Recoletor geram também um fluxo lento de Veilsteel (+6/min).";
             t["Feraldis Raider Camp. Plunderers carry off 60% more from the players they raid."] = "Acampamento de Salteadores Feraldis. Os Saqueadores levam mais 60% dos jogadores que pilham.";
             t["Feraldis Raider Camp. Raises the Plunderer take to 2.4x."] = "Acampamento de Salteadores Feraldis. Aumenta o saque do Saqueador para 2,4x.";
             t["Feraldis Raider Camp. Raises the Plunderer take to 3.4x."] = "Acampamento de Salteadores Feraldis. Aumenta o saque do Saqueador para 3,4x.";
             t["Feraldis Raider Camp. Plunderers also strip Iron from the players they raid."] = "Acampamento de Salteadores Feraldis. Os Saqueadores roubam também Ferro aos jogadores que pilham.";
             t["Feraldis Raider Camp. Plunderers also strip Veilstone from the players they raid."] = "Acampamento de Salteadores Feraldis. Os Saqueadores roubam também Veilstone aos jogadores que pilham.";
-            t["Feraldis Raider Camp. Plunderers strip a slow trickle of Veilsteel from the players they raid."] = "Acampamento de Salteadores Feraldis. Os Saqueadores roubam um fluxo lento de Veilsteel aos jogadores que pilham.";
             t["Alanthor Guild. Gatherer's Huts auto-repair after 10s without taking damage (5 HP/s out of combat). (behaviour-by-id)"] = "Guilda Alanthor. As Cabanas do Recoletor reparam-se automaticamente após 10 s sem sofrer dano (5 HP/s fora de combate). (behaviour-by-id)";
             t["Alanthor Guild. Below 50% HP a Gatherer's Hut casts a Slow burst on nearby enemies (-50% speed for 7.5s, 90s cooldown); also speeds up auto-repair (10 HP/s). (behaviour-by-id)"] = "Guilda Alanthor. Abaixo de 50% de HP, a Cabana do Recoletor lança uma onda de Lentidão sobre os inimigos próximos (-50% de velocidade durante 7,5 s, recarga de 90 s); também acelera a autorreparação (10 HP/s). (behaviour-by-id)";
             t["Alanthor Guild. Upgrades the low-HP defensive cast from Slow to Stop (-100% speed for 10s, 90s cooldown); further speeds up auto-repair (20 HP/s). (behaviour-by-id)"] = "Guilda Alanthor. Melhora o lançamento defensivo com HP baixo de Lentidão para Paragem (-100% de velocidade durante 10 s, recarga de 90 s); acelera ainda mais a autorreparação (20 HP/s). (behaviour-by-id)";
@@ -222,7 +210,6 @@ namespace TheWaningBorder.Core.Localization
             t["High-stakes investment: the Vault's interest rises to banking grade 3."] = "Investimento de alto risco: os juros do Cofre sobem para o grau bancário 3.";
             t["Unlocks Iron banking: Iron can be deposited in the Vault."] = "Desbloqueia a banca de Ferro: o Ferro pode ser depositado no Cofre.";
             t["Unlocks Veilstone banking: Veilstone can be deposited in the Vault."] = "Desbloqueia a banca de Veilstone: o Veilstone pode ser depositado no Cofre.";
-            t["Unlocks Veilsteel banking: Veilsteel can be deposited in the Vault."] = "Desbloqueia a banca de Veilsteel: o Veilsteel pode ser depositado no Cofre.";
             t["Temple healing aura rises from 1 to 3 percent of Max HP per second."] = "A aura de cura do Templo sobe de 1 para 3 por cento do HP máximo por segundo.";
             t["Litharchs take up arms: gain a melee attack (6 damage every 1.5 seconds)."] = "Os Litharchs pegam em armas: ganham um ataque corpo a corpo (6 de dano a cada 1,5 segundos).";
             t["Temple healing aura rises from 3 to 6 percent of Max HP per second."] = "A aura de cura do Templo sobe de 3 para 6 por cento do HP máximo por segundo.";
@@ -237,7 +224,6 @@ namespace TheWaningBorder.Core.Localization
             t["Sect of Reclamation. Veilstone yields +25%, and every cursed node is harvestable regardless of tier."] = "Seita da Recuperação. O rendimento de Veilstone sobe +25% e todos os nós amaldiçoados podem ser explorados independentemente do nível.";
             t["Weapon tier 2: melee units deal +15% damage."] = "Armas de nível 2: as unidades corpo a corpo causam +15% de dano.";
             t["Weapon tier 3: melee units deal a further +30% damage."] = "Armas de nível 3: as unidades corpo a corpo causam mais +30% de dano.";
-            t["Weapon tier 4: melee units deal a further +75% damage. Needs Veilsteel."] = "Armas de nível 4: as unidades corpo a corpo causam mais +75% de dano. Requer Veilsteel.";
             t["+30 HP, +5% speed, +1 damage, +1 defense to all Garrison line infantry."] = "+30 de HP, +5% de velocidade, +1 de dano, +1 de defesa para toda a infantaria de linha da Guarnição.";
             t["+30 HP, +10% speed, +1 damage, +1 defense to all Garrison line infantry."] = "+30 de HP, +10% de velocidade, +1 de dano, +1 de defesa para toda a infantaria de linha da Guarnição.";
             t["+30 HP, +15% speed, +2 damage, +2 defense to all Garrison line infantry."] = "+30 de HP, +15% de velocidade, +2 de dano, +2 de defesa para toda a infantaria de linha da Guarnição.";
@@ -245,7 +231,6 @@ namespace TheWaningBorder.Core.Localization
             t["Unlocks the Shield Wall passive for Garrison line infantry: +30% defense against the first incoming attack while stationary; recharges after 3 s."] = "Desbloqueia o passivo Muralha de Escudos para a infantaria de linha da Guarnição: +30% de defesa contra o primeiro ataque recebido enquanto parada; recarrega após 3 s.";
             t["Arrow tier 2: ranged units deal +15% damage."] = "Flechas de nível 2: as unidades de ataque à distância causam +15% de dano.";
             t["Arrow tier 3: ranged units deal a further +30% damage."] = "Flechas de nível 3: as unidades de ataque à distância causam mais +30% de dano.";
-            t["Arrow tier 4: ranged units deal a further +75% damage. Needs Veilsteel."] = "Flechas de nível 4: as unidades de ataque à distância causam mais +75% de dano. Requer Veilsteel.";
             t["+20 HP, +3 line of sight, +2 attack range to all Archery Range archers."] = "+20 de HP, +3 de linha de visão, +2 de alcance de ataque para todos os arqueiros do Campo de Tiro com Arco.";
             t["+20 HP, +1 damage, +3 line of sight, +2 attack range to all Archery Range archers."] = "+20 de HP, +1 de dano, +3 de linha de visão, +2 de alcance de ataque para todos os arqueiros do Campo de Tiro com Arco.";
             t["+50 HP, +2 damage, +5 line of sight, +3 attack range to all Archery Range archers."] = "+50 de HP, +2 de dano, +5 de linha de visão, +3 de alcance de ataque para todos os arqueiros do Campo de Tiro com Arco.";
@@ -256,7 +241,7 @@ namespace TheWaningBorder.Core.Localization
             t["+30 HP, +10% speed, +1 damage, +1 defense to Outriders and Cataphracts."] = "+30 de HP, +10% de velocidade, +1 de dano, +1 de defesa para Ginetes e Catafractos.";
             t["+30 HP, +15% speed, +2 damage, +2 defense to Outriders and Cataphracts."] = "+30 de HP, +15% de velocidade, +2 de dano, +2 de defesa para Ginetes e Catafractos.";
             t["Unlocks the War Horn active for Alanthor cavalry: allied cavalry within 15 m gain +50% damage on their next charge. 20 s window, 60 s cooldown."] = "Desbloqueia o ativo Corno de Guerra para a cavalaria Alanthor: a cavalaria aliada num raio de 15 m ganha +50% de dano na próxima carga. Janela de 20 s, recarga de 60 s.";
-            t["Unlocks the Full Gallop active for Alanthor cavalry: allied cavalry within 15 m gain +40% move speed for 8 s but cannot attack during the burst. 60 s cooldown."] = "Desbloqueia o ativo A Todo o Galope para a cavalaria Alanthor: a cavalaria aliada num raio de 15 m ganha +40% de velocidade de movimento durante 8 s, mas não pode atacar durante o efeito. Recarga de 60 s.";
+            t["Alanthor cavalry that keep moving for 4 s gallop: they take 30% less damage, deal 20% more, ride through enemy units trampling them, and strike in passing without stopping. Also unlocks the Full Gallop active: allied cavalry within 15 m gain +40% move speed for 8 s but cannot attack during the burst. 60 s cooldown."] = "A cavalaria Alanthor que se mantém em movimento durante 4 s entra a galope: sofre menos 30% de dano, causa mais 20%, atravessa as unidades inimigas espezinhando-as e ataca de passagem sem parar. Desbloqueia também o ativo A Todo o Galope: a cavalaria aliada num raio de 15 m ganha +40% de velocidade de movimento durante 8 s, mas não pode atacar durante o efeito. Recarga de 60 s.";
             t["Ballista bolts punch harder: +10 damage."] = "Os virotes da balista atingem com mais força: +10 de dano.";
             t["The ram is iron-shod: +100 HP so it survives the approach."] = "O aríete é ferrado: +100 de HP para sobreviver à aproximação.";
             t["Retuned counterweights: Trebuchet range 38 to 44."] = "Contrapesos afinados: alcance do Trabuco de 38 para 44.";
@@ -288,7 +273,6 @@ namespace TheWaningBorder.Core.Localization
             t["Trade Hubs spawn 2 uncontrollable escorts with each Caravan. Each active Caravan grants +2 population housing."] = "Os Entrepostos Comerciais criam 2 escoltas incontroláveis com cada Caravana. Cada Caravana ativa concede +2 de alojamento de população.";
             t["Veilstone-Border waves aggro Runai units less often (-20% per tier, stacks to -60% at L3). Runai walks the border lands without provoking them."] = "As vagas da Fronteira de Veilstone atacam unidades Runai com menos frequência (-20% por nível, acumulando até -60% no N3). Os Runai percorrem as terras da fronteira sem as provocar.";
             t["Killing non-military units grants +15 Supplies and +1 Iron per kill to the attacker's owner."] = "Matar unidades não militares concede +15 de Mantimentos e +1 de Ferro por morte ao dono do atacante.";
-            t["Military units carry Veilsteel shavings from kills (max 5); each grants +2% attack (stacks to +10%)."] = "As unidades militares transportam limalhas de Veilsteel das mortes (máx. 5); cada uma concede +2% de ataque (acumula até +10%).";
             t["Each closed wall compartment yields +8 Supplies per 10u² area per minute."] = "Cada compartimento de muralha fechado rende +8 de Mantimentos por 10u² de área por minuto.";
             t["+15% building HP, +20% repair rate."] = "+15% de HP dos edifícios, +20% de velocidade de reparação.";
             t["Grants 1 Sect Point and provides a single chapel slot."] = "Concede 1 Ponto de Seita e fornece uma única vaga de capela.";
@@ -310,7 +294,6 @@ namespace TheWaningBorder.Core.Localization
             t["Feraldis territory — plant on a blood pool; drinks blood into Fervor and claims ground"] = "Território Feraldis — planta-se numa poça de sangue; bebe o sangue convertendo-o em Fervor e reclama terreno";
             t["Workerless ore extraction - build next to an iron or veilstone patch"] = "Extração de minério sem trabalhadores - constrói junto a um filão de ferro ou veilstone";
             t["Feraldis cavalry - Raider at L1, War Chariot at L2"] = "Cavalaria Feraldis - Salteador no N1, Carro de Guerra no N2";
-            t["Passive veilsteel generation; hosts the armour research ladders"] = "Geração passiva de veilsteel; acolhe as linhas de investigação de armaduras";
 
             // ============================================================
             // Building SO assets — descriptions

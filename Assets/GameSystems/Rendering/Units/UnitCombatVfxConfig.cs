@@ -19,8 +19,9 @@ namespace TheWaningBorder.Rendering
         /// <summary>An arrow hit from a faction on Veilstone-tipped arrows
         /// (Lana Hit_dark_magic). Lower tiers' arrows show no hit.</summary>
         public GameObject arrowVeilstoneHitPrefab;
-        /// <summary>An arrow hit on Veilsteel (Shard) -tipped arrows (Lana Hit_electric).</summary>
-        public GameObject arrowVeilsteelHitPrefab;
+        /// <summary>An arrow hit by Shard-tipped arrows (Lana Hit_electric).</summary>
+        [UnityEngine.Serialization.FormerlySerializedAs("arrowVeilsteelHitPrefab")]
+        public GameObject arrowShardHitPrefab;
         /// <summary>Looping while a unit moves faster than normal (Lana Fog_speedFast).</summary>
         public GameObject speedUpPrefab;
         /// <summary>Looping while a unit is slowed (Lana Fog_speedSlow).</summary>

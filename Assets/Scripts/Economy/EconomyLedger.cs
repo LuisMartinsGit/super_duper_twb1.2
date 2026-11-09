@@ -48,7 +48,7 @@ namespace TheWaningBorder.Economy
         /// <summary>The capital's own SuppliesIncome (ResourceTickSystem).</summary>
         Capital,
         /// <summary>Any other building's flat SuppliesIncome / IronIncome /
-        /// VeilstoneIncome / VeilsteelIncome.</summary>
+        /// VeilstoneIncome.</summary>
         BuildingPassive,
         /// <summary>Trading Outpost output, Runai trader deliveries.</summary>
         Trade,
@@ -64,7 +64,7 @@ namespace TheWaningBorder.Economy
         /// <summary>Scripted grants (start-age bonus, tutorial).</summary>
         Grant,
         /// <summary>The Alanthor Guild surveys: every Guild's flat iron /
-        /// veilstone / veilsteel per completed survey tier, not drawn from
+        /// veilstone per completed survey tier, not drawn from
         /// any node (Veilstone_Economy.md § 5.1, 2026-10-08).</summary>
         GuildSurvey,
         /// <summary>The flat income every held territory pays once its
@@ -102,7 +102,7 @@ namespace TheWaningBorder.Economy
     public static class EconomyLedger
     {
         public const int Factions = 8;
-        public const int Resources = 4;   // supplies, iron, veilstone, veilsteel
+        public const int Resources = 3;   // supplies, iron, veilstone (veilsteel folded in, 2026-11-09)
 
         // [faction, source, resource] — floats, because the territory tick
         // pays fractional per-tick amounts that the bank carries.
@@ -123,7 +123,7 @@ namespace TheWaningBorder.Economy
             => TheWaningBorder.Core.Diagnostics.MatchMetrics.Enabled;
 
         public static void Credit(Faction faction, IncomeSource source,
-            float supplies, float iron, float veilstone, float veilsteel)
+            float supplies, float iron, float veilstone)
         {
             int f = (int)faction;
             if (f < 0 || f >= Factions || source >= IncomeSource.Count) return;
@@ -131,19 +131,17 @@ namespace TheWaningBorder.Economy
             _lifetimeIncome[f, s, 0] += supplies;
             _lifetimeIncome[f, s, 1] += iron;
             _lifetimeIncome[f, s, 2] += veilstone;
-            _lifetimeIncome[f, s, 3] += veilsteel;
             if (!Recording) return;
             _income[f, s, 0] += supplies;
             _income[f, s, 1] += iron;
             _income[f, s, 2] += veilstone;
-            _income[f, s, 3] += veilsteel;
         }
 
         public static void Credit(Faction faction, IncomeSource source, in Cost c)
-            => Credit(faction, source, c.Supplies, c.Iron, c.Veilstone, c.Veilsteel);
+            => Credit(faction, source, c.Supplies, c.Iron, c.Veilstone);
 
         public static void Debit(Faction faction, SpendCategory category,
-            float supplies, float iron, float veilstone, float veilsteel)
+            float supplies, float iron, float veilstone)
         {
             if (!Recording) return;
             int f = (int)faction;
@@ -152,11 +150,10 @@ namespace TheWaningBorder.Economy
             _spend[f, k, 0] += supplies;
             _spend[f, k, 1] += iron;
             _spend[f, k, 2] += veilstone;
-            _spend[f, k, 3] += veilsteel;
         }
 
         public static void Debit(Faction faction, SpendCategory category, in Cost c)
-            => Debit(faction, category, c.Supplies, c.Iron, c.Veilstone, c.Veilsteel);
+            => Debit(faction, category, c.Supplies, c.Iron, c.Veilstone);
 
         /// <summary>Accumulated income since the last <see cref="Reset"/>.</summary>
         public static float IncomeOf(int faction, IncomeSource source, int resource)

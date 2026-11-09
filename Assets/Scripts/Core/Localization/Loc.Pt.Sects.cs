@@ -251,8 +251,6 @@ namespace TheWaningBorder.Core.Localization
                 "Visa um nó de recursos: 50 Mantimentos a cada 5s durante 30s (300 no total).";
             t["Target a resource node: 75 Supplies + 20 Iron every 5s for 30s."] =
                 "Visa um nó de recursos: 75 Mantimentos + 20 Ferro a cada 5s durante 30s.";
-            t["Target a resource node: 150 Supplies + 60 Iron + 35 Veilstone + 5 Veilsteel every 5s for 30s."] =
-                "Visa um nó de recursos: 150 Mantimentos + 60 Ferro + 35 Veilstone + 5 Veilsteel a cada 5s durante 30s.";
             t["Pump heavy player influence into a small area for 20s."] =
                 "Injeta influência pesada do jogador numa área pequena durante 20s.";
             t["Pump heavy player influence into a medium area for 40s."] =

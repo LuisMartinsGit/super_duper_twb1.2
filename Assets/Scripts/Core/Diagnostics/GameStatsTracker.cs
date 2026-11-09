@@ -28,7 +28,6 @@ namespace TheWaningBorder.Core.Diagnostics
         public int Supplies;
         public int Iron;
         public int Veilstone;
-        public int Veilsteel;
         public int Glow;
         public int Population;
         public int PopulationMax;
@@ -191,7 +190,6 @@ namespace TheWaningBorder.Core.Diagnostics
                     Supplies = res.Supplies,
                     Iron = res.Iron,
                     Veilstone = res.Veilstone,
-                    Veilsteel = res.Veilsteel,
                     Population = pop.current,
                     PopulationMax = pop.max
                 });
@@ -261,7 +259,7 @@ namespace TheWaningBorder.Core.Diagnostics
             try
             {
                 var sb = new System.Text.StringBuilder(4096);
-                sb.AppendLine("TimeSeconds,Faction,Supplies,Iron,Veilstone,Veilsteel,Glow,Population,PopulationMax");
+                sb.AppendLine("TimeSeconds,Faction,Supplies,Iron,Veilstone,Glow,Population,PopulationMax");
 
                 foreach (var pair in FactionTimelines)
                 {
@@ -275,7 +273,6 @@ namespace TheWaningBorder.Core.Diagnostics
                           .Append(',').Append(s.Supplies)
                           .Append(',').Append(s.Iron)
                           .Append(',').Append(s.Veilstone)
-                          .Append(',').Append(s.Veilsteel)
                           .Append(',').Append(s.Glow)
                           .Append(',').Append(s.Population)
                           .Append(',').Append(s.PopulationMax)

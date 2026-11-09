@@ -28,10 +28,10 @@ public static class BuildGrid
     public const float HalfCell = CellSize * 0.5f;
 
     // ── Resource nodes (docs/Design/Build_Grid.md §3, 2026-09-29) ──────────
-    // EVERY resource node — iron, veilstone, veilsteel, supply — is 2 x 2
+    // EVERY resource node — iron, veilstone, supply — is 2 x 2
     // cells (4 x 4 m), snapped with EVEN parity (to a cell boundary), and so
     // is every resource building standing on one (Gatherer's Hut, Iron Mine,
-    // Veilstone Mine, Veilsteel extractor): the extractor lands exactly on
+    // Veilstone Mine): the extractor lands exactly on
     // its node.
 
     /// <summary>A resource node's footprint, in build cells across.</summary>

@@ -78,7 +78,7 @@ public struct WorkerState : IComponentData
     public Entity AssignedDeposit;   // Which deposit to mine
     public float GatherTimer;        // Time accumulator for gathering
     public WorkerActivity State;     // Current work state
-    public byte GatheringResource;   // 0=Iron, 1=Veilstone, 2=Veilsteel
+    public byte GatheringResource;   // 0=Iron, 1=Veilstone
 
     // Last known position of a depleted node — used to auto-find a same-type
     // replacement within AutoFindRadius after the original entity is destroyed.

@@ -1,6 +1,6 @@
 // MiningReach.cs
 // Where a worker stands to mine, and how close it has to be. ONE definition,
-// shared by GatheringSystem (the click path), MiningSystem (iron / veilsteel)
+// shared by GatheringSystem (the click path), MiningSystem (iron)
 // and VeilstoneMiningSystem.
 //
 // Two bugs this exists to kill:

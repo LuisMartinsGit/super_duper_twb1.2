@@ -74,7 +74,7 @@ namespace TheWaningBorder.Data.Border
         // When `livingCurse` is on: wells pump from tick 0, every curse
         // territory keeps a garrison, intruders are chased, and the curse
         // expands on a timer by MERGING units into a neighbour's veilstone
-        // or veilsteel node. Off = the previous provocation-driven model.
+        // node. Off = the previous provocation-driven model.
 
         /// <summary>Master switch for §2.11. Off restores §2.8/§2.10 exactly.</summary>
         public bool livingCurse = true;
@@ -342,11 +342,6 @@ namespace TheWaningBorder.Data.Border
         /// interval / 1.5.</summary>
         [Min(0f)] public float shardrootCurseBonus = 0.5f;
 
-        /// <summary>Veilsteel a FERALDIS faction is paid for landing the last
-        /// hit on a curse node (docs/Design/Veilstone_Economy.md §3.2).
-        /// Veilsteel is never mined; this is how Feraldis get theirs.</summary>
-        [Min(0)] public int feraldisNodeVeilsteel = 40;
-
         /// <summary>Which army tier the garrisons and merge parties draw from
         /// at a given match minute: tier index = minute / this. Clamped to
         /// the ladder. Replaces wrath as the composition dial.</summary>
@@ -590,7 +585,6 @@ namespace TheWaningBorder.Data.Border
             sacrificeIntervalSeconds = 6f;
             shardrootGuaranteeSeconds = 720f;
             shardrootCurseBonus = 0.5f;
-            feraldisNodeVeilsteel = 40;
             minutesPerTier = 8f;
             tiers = BuildDefaultTiers();
             waves = BuildDefaultWaves();

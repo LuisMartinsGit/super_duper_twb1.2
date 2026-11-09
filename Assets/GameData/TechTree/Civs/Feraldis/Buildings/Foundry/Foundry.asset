@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: 'Feraldis_Foundry'
   displayName: 'Fiend Foundry'
-  role: 'Veilsteel forging & weapons'
+  role: 'Forging & weapons'
   hp: 60
   armorType: 'structure_human'
   defense:
@@ -38,7 +38,6 @@ MonoBehaviour:
     Supplies: 220
     Iron: 80
     Crystal: 0
-    Veilsteel: 0
   tags:
   - 'Building'
   presentationId: 367

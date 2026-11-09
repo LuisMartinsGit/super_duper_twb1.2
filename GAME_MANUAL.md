@@ -72,7 +72,6 @@ Every faction begins identically, regardless of mode:
 - **Supplies:** 400
 - **Iron:** 150
 - **Veilstone:** 0
-- **Veilsteel:** 0
 - **Glow:** 0
 - **Age:** 0 (pre-culture / neutral aesthetic)
 - **Religion Points:** 0
@@ -240,7 +239,7 @@ the camera.
 
 | Panel | Location | Contents |
 |---|---|---|
-| **Resource HUD** | Top / Bottom-right | Supplies, Iron, Veilstone, Veilsteel, Glow — live values. |
+| **Resource HUD** | Top / Bottom-right | Supplies, Iron, Veilstone, Religion Points — live values. |
 | **Match Clock** | Top-center | Match time (sim time). While a **timed victory** runs — **Sanctum dominion** (one side holds every Sanctum) or **Shardroot ascension** (a Temple enshrines the Shardroot) — its countdown sits beside the clock for every player and spectator: "Your dominion: 07:32" in green when your side is winning, "Blue — Shardroot ascension 07:32" in red when you stand to lose. Two countdowns sit either side of the clock. A warning notice comes at the start, every 2.5 minutes of time left, at 1:00 and 0:30, and when the countdown is broken. |
 | **Game Stats** | Bottom-center | Population, unit count, building count, focus count. |
 | **Entity Info Panel** | Left | Portrait, HP, stats; or multi-selection grid for big groups. |

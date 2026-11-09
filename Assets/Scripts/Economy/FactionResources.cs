@@ -32,7 +32,6 @@ namespace TheWaningBorder.Economy
         public int Veilstone;
 
         /// <summary>Rare resource - used for elite units and advanced technologies</summary>
-        public int Veilsteel;
 
         /// <summary>Energy resource - used for special abilities and ultimate powers</summary>
 
@@ -53,50 +52,43 @@ namespace TheWaningBorder.Economy
             if (Supplies  > ResourceCap) Supplies  = ResourceCap;
             if (Iron      > ResourceCap) Iron      = ResourceCap;
             if (Veilstone   > ResourceCap) Veilstone   = ResourceCap;
-            if (Veilsteel > ResourceCap) Veilsteel = ResourceCap;
 
             if (Supplies  < 0) Supplies  = 0;
             if (Iron      < 0) Iron      = 0;
             if (Veilstone   < 0) Veilstone   = 0;
-            if (Veilsteel < 0) Veilsteel = 0;
         }
 
         /// <summary>
         /// Create resources with specified values.
         /// </summary>
-        public static FactionResources Of(int supplies = 0, int iron = 0, int veilstone = 0,
-                                          int veilsteel = 0)
+        public static FactionResources Of(int supplies = 0, int iron = 0, int veilstone = 0)
         {
             return new FactionResources
             {
                 Supplies = supplies,
                 Iron = iron,
                 Veilstone = veilstone,
-                Veilsteel = veilsteel
             };
         }
 
         /// <summary>
         /// Check if faction has at least the specified resources.
         /// </summary>
-        public bool HasAtLeast(int supplies = 0, int iron = 0, int veilstone = 0,
-                               int veilsteel = 0)
+        public bool HasAtLeast(int supplies = 0, int iron = 0, int veilstone = 0)
         {
             return Supplies >= supplies &&
                    Iron >= iron &&
-                   Veilstone >= veilstone &&
-                   Veilsteel >= veilsteel;
+                   Veilstone >= veilstone;
         }
 
         /// <summary>
         /// Get total resource value (simple weighted sum).
         /// </summary>
-        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3) +
-                                 (Veilsteel * 5);
+        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3);
 
         public override string ToString()
         {
-            return $"S:{Supplies} Fe:{Iron} Cr:{Veilstone} Vs:{Veilsteel}";
+            return $"S:{Supplies} Fe:{Iron} Cr:{Veilstone}";
         }
     }
 
@@ -160,7 +152,7 @@ namespace TheWaningBorder.Economy
         public float PerMinute => Interval > 0 ? (PerTick / Interval * 60f) : 0f;
     }
 
-    // Fix #217: Iron/Veilstone/Veilsteel/Glow income used to expose
+    // Fix #217: Iron/Veilstone income used to expose
     // `int PerSecond => PerMinute / 60;` which truncated to zero for any
     // PerMinute below 60. A building producing 30 iron/min reported 0/sec
     // and never actually delivered anything. The fractional accumulator
@@ -187,19 +179,6 @@ namespace TheWaningBorder.Economy
     public struct VeilstoneIncome : IComponentData
     {
         /// <summary>Veilstone generated per minute</summary>
-        public int PerMinute;
-
-        /// <summary>Fractional accumulator (see Fix #217).</summary>
-        public float FractionalAccumulator;
-    }
-
-    /// <summary>
-    /// Attach to any building that provides passive Veilsteel income.
-    /// Example: a building that processes veilsteel.
-    /// </summary>
-    public struct VeilsteelIncome : IComponentData
-    {
-        /// <summary>Veilsteel generated per minute</summary>
         public int PerMinute;
 
         /// <summary>Fractional accumulator (see Fix #217).</summary>

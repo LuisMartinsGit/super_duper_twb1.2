@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Alanthor_TradingOutpost
   displayName: Trading Outpost
-  role: Trade post beside a veilstone outcrop - buys veilstone with supplies and
-    iron, or forges veilstone into veilsteel
-  description: Raise it beside an uncursed or depleted veilstone outcrop - it snaps
-    to a free side (north, east, south or west), up to four posts per outcrop, each
-    further post there costing more to build and to level. Trade mode buys veilstone
-    with supplies and iron; Forge mode turns veilstone into veilsteel.
+  role: Trade post beside a resource node - trickles that node's resource without
+    ever drawing on it
+  description: Raise it beside any supply, iron or uncursed veilstone node (after
+    Trade Charters) - it snaps to a free side (north, east, south or west), up to
+    four posts per node, each further post there costing more to build. Pays while
+    its node lives; stop the node's extractor before it runs dry.
   hp: 650
   armorType: structure_human
   defense:
@@ -56,7 +56,6 @@ MonoBehaviour:
     Supplies: 160
     Iron: 80
     Veilstone: 0
-    Veilsteel: 0
   tags:
   - Building
   attack:

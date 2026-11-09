@@ -7,7 +7,7 @@
 //   IronTippedArrows       blue trail
 //   VeilstoneTippedArrows  no trail — the arrowhead is replaced by the Lana
 //                          dark-magic projectile effect, scaled small
-//   ShardTippedArrows      same, with the Lana electric projectile (Veilsteel)
+//   ShardTippedArrows      same, with the Lana electric projectile (Shard)
 //
 // Their hits follow the same ladder (UnitCombatVfx): nothing below Veilstone.
 // Ballista bolts are not arrows and keep the original trail ladder (Apply):
@@ -17,10 +17,6 @@
 // looked exactly like a starting one — the ladder was invisible on the field,
 // which is the one place it matters. Making the base arrow leave NOTHING is
 // what gives the first upgrade something to be.
-//
-// The last tech is `ShardTippedArrows` and not "VeilsteelTippedArrows": that
-// is its id everywhere (its SO reads "Arrow tier 4 … Needs Veilsteel"), and
-// Veilsteel is what it costs. Same tier, older name.
 //
 // Costs per arrow: one dictionary hit at spawn, and only when the faction's
 // tier is not already cached. Materials are SHARED — assigning through
@@ -40,7 +36,8 @@ namespace TheWaningBorder.Rendering
         Stone = 1,
         Iron = 2,
         Veilstone = 3,
-        Veilsteel = 4,
+        /// <summary>Tier 4, Shard-Tipped Arrows (named Veilsteel until 2026-11-09).</summary>
+        Shard = 4,
     }
 
     public static class ArrowTrailTiers
@@ -48,7 +45,7 @@ namespace TheWaningBorder.Rendering
         /// <summary>Highest first — the first one researched wins.</summary>
         private static readonly (string Tech, ArrowTrailTier Tier)[] Ladder =
         {
-            ("ShardTippedArrows",     ArrowTrailTier.Veilsteel),
+            ("ShardTippedArrows",     ArrowTrailTier.Shard),
             ("VeilstoneTippedArrows", ArrowTrailTier.Veilstone),
             ("IronTippedArrows",      ArrowTrailTier.Iron),
             ("StoneTippedArrows",     ArrowTrailTier.Stone),
@@ -148,7 +145,7 @@ namespace TheWaningBorder.Rendering
 
         /// <summary>
         /// Dress one ARROW for a tier: its trail (white / blue at Stone /
-        /// Iron) or, at Veilstone and Veilsteel, no trail and the projectile
+        /// Iron) or, at Veilstone and Shard, no trail and the projectile
         /// effect in place of the arrowhead. Pooled arrows are re-dressed on
         /// every spawn, so a lower tier puts the plain head back.
         /// </summary>
@@ -268,7 +265,7 @@ namespace TheWaningBorder.Rendering
         {
             if (arrow == null) return 0f;
 
-            // The tier tip (Veilstone / Veilsteel projectile effect) IS the
+            // The tier tip (Veilstone / Shard projectile effect) IS the
             // arrowhead, so it goes with the arrow: cleared and switched off
             // now, never left to fade. Its looping particles (and their world-
             // space sub-trails) otherwise kept glowing at the landing point for

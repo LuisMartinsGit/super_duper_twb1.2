@@ -23,7 +23,6 @@ namespace TheWaningBorder.Bootstrap
             public int supplies;
             public int iron;
             public int veilstone;
-            public int veilsteel;
             /// <summary>Religion points in the bank at the first tick.</summary>
             public int religionPoints;
         }

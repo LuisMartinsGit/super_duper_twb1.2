@@ -352,14 +352,14 @@ namespace TheWaningBorder.UI.Ingame
                 Title = "Hold it, or lose it",
                 Cards = new[] { "12", "13" },
                 NoteSeconds = 14f,
-                Body = "Ground you leave <b>empty and unbuilt</b> decays back to nobody.\n"
-                     + "<b>Any building holds</b> a territory against decay — but an enemy "
-                     + "army standing there still drains it.\n"
+                Body = "Ground you claim <b>stays yours</b> when your soldiers leave: only an "
+                     + "enemy army standing on it can take it.\n"
+                     + "The one exception is the curse: while it holds <b>two or more nodes</b> in a "
+                     + "territory, that ground decays back to nobody.\n"
                      + "An <b>extractor on a node</b>, or a <b>Fortress</b>, <b>locks</b> it: "
                      + "the meter cannot be drained at all while one stands. To take locked "
                      + "ground, raze every lock first.\n"
-                     + "Lose a territory and <b>every building you had in it collapses</b>. "
-                     + "Ground cut off from your Fortress slowly wears down.",
+                     + "Lose a territory and <b>every building you had in it collapses</b>.",
             },
             new Step
             {

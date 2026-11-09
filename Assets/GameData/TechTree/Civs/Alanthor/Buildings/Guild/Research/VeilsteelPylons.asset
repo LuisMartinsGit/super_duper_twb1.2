@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelPylons
   m_EditorClassIdentifier: 
   id: VeilsteelPylons
-  displayName: Veilsteel Pylons
+  displayName: Shard Pylons
   role: Defense
   effect: 
   desc: "Alanthor Guild. Upgrades the low-HP defensive cast from Slow to Stop (-100% speed for 10s, 90s cooldown); further speeds up auto-repair (20 HP/s). (behaviour-by-id)"
@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 0
-    Veilstone: 315
-    Veilsteel: 170
+    Veilstone: 655
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

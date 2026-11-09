@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_GreatForge
   displayName: Great Forge
   role: "The Feraldis industrial heart \u2014 bays turn slaves, veilstone and iron
-    into veilsteel and iron."
+    into veilstone and iron."
   description: 
   hp: 1800
   armorType: structure_human
@@ -53,7 +53,6 @@ MonoBehaviour:
     Supplies: 150
     Iron: 400
     Veilstone: 100
-    Veilsteel: 0
   tags:
   - Building
   attack:

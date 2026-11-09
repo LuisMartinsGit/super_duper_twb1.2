@@ -41,7 +41,7 @@
 // (AttackDamage type picker / Speed / LineofSight / AttackRange) and
 // "BuildingsSection" (Attack_Ranged / AttackRange / LineofSight hearts +
 // a "ResourceGeneration" pane of four sliders — SuppliesSlider /
-// IronSlider / VeilstoneSlider / VeilsteelSlider — one per passive
+// IronSlider / VeilstoneSlider — one per passive
 // *Income component, normalized against IncomeFull, hidden for buildings
 // that generate nothing). Row names repeat across the two sections, so
 // heart rows bind SCOPED to their section root. The shared "Housing"
@@ -111,7 +111,7 @@ namespace TheWaningBorder.UI.Ingame
         private GameObject _unitsSection, _buildingsSection;
         private HeartRow _bAtkRanged, _bAtkRange, _bSight;
         private GameObject _resourceGenRow;
-        private Slider _suppliesGen, _ironGen, _veilstoneGen, _veilsteelGen;
+        private Slider _suppliesGen, _ironGen, _veilstoneGen;
         private GameObject _housingRow;
         private TMP_Text _housingAmount;
 
@@ -184,12 +184,13 @@ namespace TheWaningBorder.UI.Ingame
                     if (NameIs(slider, "SuppliesSlider")) _suppliesGen = slider;
                     else if (NameIs(slider, "IronSlider")) _ironGen = slider;
                     else if (NameIs(slider, "VeilstoneSlider")) _veilstoneGen = slider;
-                    else if (NameIs(slider, "VeilsteelSlider")) _veilsteelGen = slider;
+                    // The prefab's fourth income slider (veilsteel) has nothing
+                    // to show since 2026-11-09 (folded into veilstone): hidden.
+                    else if (NameIs(slider, "VeilsteelSlider")) slider.gameObject.SetActive(false);
                 }
                 Setup(_suppliesGen);
                 Setup(_ironGen);
                 Setup(_veilstoneGen);
-                Setup(_veilsteelGen);
                 _buildingsSection.SetActive(false);
             }
 

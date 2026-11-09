@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelPlating
   m_EditorClassIdentifier: 
   id: Runai_VeilsteelPlating
-  displayName: Veilsteel Plating
+  displayName: Shard Plating
   role: Military
   effect: 
   desc: "Siege armour tier 3."
@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 220
-    Veilstone: 220
-    Veilsteel: 40
+    Veilstone: 300
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

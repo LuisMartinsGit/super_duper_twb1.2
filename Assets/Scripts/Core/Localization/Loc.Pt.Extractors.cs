@@ -1,4 +1,4 @@
-﻿// Loc.Pt.Extractors.cs
+// Loc.Pt.Extractors.cs
 // Portuguese for the entity extractors: display names resolved by the
 // EntityExtractors name ladder (translated at the render sites — the
 // resolvers themselves stay English because the strings double as
@@ -111,9 +111,6 @@ namespace TheWaningBorder.Core.Localization
             t["Vault of Almiérra"] = "Cofre de Almiérra";
             t["Fiendstone Keep"] = "Fortaleza de Fiendstone";
             t["Forge"] = "Forja";
-            t["Buy Veilstone"] = "Comprar Veilstone";
-            t["Forge Veilsteel"] = "Forjar Veilsteel";
-            t["Sell Veilsteel"] = "Vender Veilsteel";
             t["Hold Trade"] = "Suspender Comércio";
             t["The Reliquary"] = "O Relicário";
             t["Reliquary"] = "Relicário";
@@ -148,7 +145,6 @@ namespace TheWaningBorder.Core.Localization
             t["Trading Outpost"] = "Entreposto Comercial";
             t["Thrower Camp"] = "Acampamento de Lançadores";
             t["Raider Camp"] = "Acampamento de Salteadores";
-            t["Veilsteel Mine"] = "Mina de Veilsteel";
             t["Iron Deposit"] = "Depósito de Ferro";
             t["Veilstone Node"] = "Nó de Veilstone";
 

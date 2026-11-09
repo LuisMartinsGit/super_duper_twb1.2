@@ -20,7 +20,6 @@ MonoBehaviour:
     Supplies: 1000
     Iron: 500
     Veilstone: 0
-    Veilsteel: 0
   upgradeSeconds: 65
   hpMultiplier: 1.15
   trainTimeMultiplier: 0.8

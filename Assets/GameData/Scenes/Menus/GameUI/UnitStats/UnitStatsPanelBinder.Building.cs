@@ -127,8 +127,6 @@ namespace TheWaningBorder.UI.Ingame
                 ? em.GetComponentData<TheWaningBorder.Economy.IronIncome>(building).PerMinute : 0f;
             float veilstone = em.HasComponent<TheWaningBorder.Economy.VeilstoneIncome>(building)
                 ? em.GetComponentData<TheWaningBorder.Economy.VeilstoneIncome>(building).PerMinute : 0f;
-            float veilsteel = em.HasComponent<TheWaningBorder.Economy.VeilsteelIncome>(building)
-                ? em.GetComponentData<TheWaningBorder.Economy.VeilsteelIncome>(building).PerMinute : 0f;
 
             // A HALL REPORTS ITS TERRITORY (docs/Design/Regions.md §4). It has
             // no income components of its own — territory income is paid by
@@ -152,18 +150,16 @@ namespace TheWaningBorder.UI.Ingame
                     supplies  += ty.Supplies;
                     iron      += ty.Iron;
                     veilstone += ty.Veilstone;
-                    veilsteel += ty.Veilsteel;
                 }
             }
 
-            bool generates = supplies > 0f || iron > 0f || veilstone > 0f || veilsteel > 0f;
+            bool generates = supplies > 0f || iron > 0f || veilstone > 0f;
             if (_resourceGenRow.activeSelf != generates) _resourceGenRow.SetActive(generates);
             if (!generates) return;
 
             if (_suppliesGen != null)  _suppliesGen.value  = Mathf.Clamp01(supplies / IncomeFull);
             if (_ironGen != null)      _ironGen.value      = Mathf.Clamp01(iron / IncomeFull);
             if (_veilstoneGen != null) _veilstoneGen.value = Mathf.Clamp01(veilstone / IncomeFull);
-            if (_veilsteelGen != null) _veilsteelGen.value = Mathf.Clamp01(veilsteel / IncomeFull);
         }
     }
 }

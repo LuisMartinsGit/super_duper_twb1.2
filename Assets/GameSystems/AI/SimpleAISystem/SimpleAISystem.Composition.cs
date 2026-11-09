@@ -207,7 +207,7 @@ namespace TheWaningBorder.AI
         {
             if (string.IsNullOrEmpty(unitId)) return 1f;
             if (!TechCatalog.TryGetUnit(unitId, out var def) || def?.cost == null) return 1f;
-            float total = def.cost.Supplies + def.cost.Iron + def.cost.Veilstone + def.cost.Veilsteel;
+            float total = def.cost.Supplies + def.cost.Iron + def.cost.Veilstone;
             if (total <= 0f) return 1f;
             return math.max(0.1f, 1f + tilt * (1f - 2f * def.cost.Supplies / total));
         }
@@ -475,9 +475,8 @@ namespace TheWaningBorder.AI
             // basics clamp and the locks below still apply.
             float tilt = math.max(0f, Cfg.glutCompositionTilt);
             p.GlutTilt = tilt > 0f && AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)
-                && (OutpostBuyOff(faction)
-                    || (FactionEconomy.TryGetResources(em, faction, out var glutBank)
-                        && glutBank.Iron >= Cfg.glutIronAbove));
+                && FactionEconomy.TryGetResources(em, faction, out var glutBank)
+                && glutBank.Iron >= Cfg.glutIronAbove;
 
             // 1-4: raw shares.
             for (int r = 0; r < p.N; r++)
@@ -580,18 +579,17 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>Veilstone a minute this faction's Trading Outposts
-        /// deliver at the Buy rate (the trade the AI runs while the army is
-        /// short), speed research included.</summary>
+        /// trickle right now (the posts beside living veilstone outcrops).</summary>
         private static float OutpostVeilstoneIncome(EntityManager em, Faction faction)
         {
             var q = QC_Outposts.Get(em, QT_Outposts);
+            using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            int mine = 0;
-            for (int i = 0; i < facs.Length; i++) if (facs[i].Value == faction) mine++;
-            if (mine == 0) return 0f;
-            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
-                faction, TradeRecipe.BuyVeilstone, out _, out var earn);
-            return mine * earn.Veilstone;
+            float total = 0f;
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction)
+                    total += TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, ents[i]).Veilstone;
+            return total;
         }
 
         /// <summary>An order went out this think: count it, so the next pick

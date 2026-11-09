@@ -32,7 +32,7 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
     public enum RecordSeries : byte
     {
         Score, UnitsScore, BuildingsScore, StockpileScore, KillDeath, Kills, Deaths,
-        Supplies, Iron, Veilstone, Veilsteel,
+        Supplies, Iron, Veilstone,
         Population, PopulationMax, Army, Workers, Buildings,
         Territories, Fortresses, Techs,
         Count,

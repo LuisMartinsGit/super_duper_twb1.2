@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Full Gallop
   role: Military
   effect: 
-  desc: "Unlocks the Full Gallop active for Alanthor cavalry: allied cavalry within 15 m gain +40% move speed for 8 s but cannot attack during the burst. 60 s cooldown."
+  desc: "Alanthor cavalry that keep moving for 4 s gallop: they take 30% less damage, deal 20% more, ride through enemy units trampling them, and strike in passing without stopping. Also unlocks the Full Gallop active: allied cavalry within 15 m gain +40% move speed for 8 s but cannot attack during the burst. 60 s cooldown."
   researchAt: Alanthor_RoyalStable
   minBuildingLevel: 3
   researchTime: 45
@@ -27,7 +27,6 @@ MonoBehaviour:
     Supplies: 0
     Iron: 100
     Veilstone: 410
-    Veilsteel: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -35,4 +34,32 @@ MonoBehaviour:
     meleeDamageAdd: 0
     rangedDamageAdd: 0
     archerRangeMult: 0
-  effectsList: []
+  effectsList:
+  - Target: "passive"
+    Stat: GallopAfterSeconds
+    Op: Set
+    Value: 4
+  - Target: "passive"
+    Stat: GallopMinSpeedPct
+    Op: Set
+    Value: 60
+  - Target: "passive"
+    Stat: GallopGraceSeconds
+    Op: Set
+    Value: 0.5
+  - Target: "passive"
+    Stat: GallopDamageTakenPct
+    Op: Set
+    Value: 30
+  - Target: "passive"
+    Stat: GallopDamageDealtPct
+    Op: Set
+    Value: 20
+  - Target: "passive"
+    Stat: TrampleDamagePct
+    Op: Set
+    Value: 50
+  - Target: "passive"
+    Stat: TrampleReach
+    Op: Set
+    Value: 0.5

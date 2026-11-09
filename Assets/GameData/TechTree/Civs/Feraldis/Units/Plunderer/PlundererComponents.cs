@@ -20,7 +20,6 @@ public struct PlunderPurse : IComponentData
     public float Supplies;
     public float Iron;
     public float Veilstone;
-    public float Veilsteel;
     public float TickTimer;
 }
 

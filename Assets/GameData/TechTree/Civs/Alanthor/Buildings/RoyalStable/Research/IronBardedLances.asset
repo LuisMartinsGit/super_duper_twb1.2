@@ -27,7 +27,6 @@ MonoBehaviour:
     Supplies: 0
     Iron: 200
     Veilstone: 225
-    Veilsteel: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

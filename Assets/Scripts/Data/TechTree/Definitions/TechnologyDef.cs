@@ -193,35 +193,30 @@ namespace TheWaningBorder.Data
         public int Iron;
         [UnityEngine.Serialization.FormerlySerializedAs("Crystal")]
         public int Veilstone;
-        public int Veilsteel;
         // Glow removed from build costs: it is an item/pickup, not a spendable cost resource.
 
         /// <summary>
         /// Returns true if all costs are zero.
         /// </summary>
-        public bool IsZero => Supplies == 0 && Iron == 0 && Veilstone == 0 &&
-                              Veilsteel == 0;
+        public bool IsZero => Supplies == 0 && Iron == 0 && Veilstone == 0;
 
         /// <summary>
         /// Create a CostBlock with specified values.
         /// </summary>
-        public static CostBlock Of(int supplies = 0, int iron = 0, int veilstone = 0,
-                                   int veilsteel = 0)
+        public static CostBlock Of(int supplies = 0, int iron = 0, int veilstone = 0)
         {
             return new CostBlock
             {
                 Supplies = supplies,
                 Iron = iron,
                 Veilstone = veilstone,
-                Veilsteel = veilsteel,
             };
         }
 
         /// <summary>
         /// Get total "value" of resources (simple sum for AI evaluation).
         /// </summary>
-        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3) +
-                                 (Veilsteel * 5);
+        public int TotalValue => Supplies + (Iron * 2) + (Veilstone * 3);
 
         /// <summary>
         /// Returns a human-readable string of non-zero costs.
@@ -232,7 +227,6 @@ namespace TheWaningBorder.Data
             if (Supplies > 0) parts.Add($"S:{Supplies}");
             if (Iron > 0) parts.Add($"Fe:{Iron}");
             if (Veilstone > 0) parts.Add($"Cr:{Veilstone}");
-            if (Veilsteel > 0) parts.Add($"Vs:{Veilsteel}");
             return parts.Count > 0 ? string.Join(" ", parts) : "Free";
         }
     }

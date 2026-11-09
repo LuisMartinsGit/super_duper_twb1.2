@@ -1,4 +1,4 @@
-﻿// EntityExtractors.Research.cs
+// EntityExtractors.Research.cs
 // Research actions and state: per-building tech buttons (prerequisite and
 // affordability checks), research progress/queue info, and the chapel
 // research stub.
@@ -58,7 +58,6 @@ namespace TheWaningBorder.UI.Data
             Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.SupportSupplies, Loc.T("Supplies"), cfg.supportSupplies);
             Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.SupportIron, Loc.T("Iron"), cfg.supportIron);
             Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.SupportVeilstone, Loc.T("Veilstone"), cfg.supportVeilstone);
-            Support(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.SupportVeilsteel, Loc.T("Veilsteel"), cfg.supportVeilsteel);
             Army(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.ArmySmall);
             Army(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.ArmyMedium);
             Army(TheWaningBorder.Systems.Sect.ReligionPurchaseKind.ArmyLarge);
@@ -153,7 +152,6 @@ namespace TheWaningBorder.UI.Data
                     Supplies = tech.cost.Supplies,
                     Iron = tech.cost.Iron,
                     Veilstone = tech.cost.Veilstone,
-                    Veilsteel = tech.cost.Veilsteel,
                 } : default;
 
                 bool canAfford = FactionEconomy.CanAfford(em, faction, cost);
@@ -331,7 +329,6 @@ namespace TheWaningBorder.UI.Data
                     Supplies = tech.cost.Supplies,
                     Iron = tech.cost.Iron,
                     Veilstone = tech.cost.Veilstone,
-                    Veilsteel = tech.cost.Veilsteel,
                 };
             }
             return default;

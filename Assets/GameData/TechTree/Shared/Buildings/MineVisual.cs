@@ -1,11 +1,9 @@
 // MineVisual.cs
 // THE ORE EXTRACTORS, ONE FAMILY: the iron Mine and the Veilstone Mine share
-// one procedural pithead, and the ORE tells them apart (the veilsteel look is
-// kept for any future veilsteel extractor; veilsteel is made, never mined):
+// one procedural pithead, and the ORE tells them apart:
 //
 //   Iron       rust-brown ore, dull iron fittings
 //   Veilstone  cyan crystal that glows
-//   Veilsteel  dark blue-steel crystal, a cold sheen
 //
 // REDONE 2026-09-29 for the 2 x 2-cell (4 x 4 m) footprint every resource
 // building now takes (docs/Design/Build_Grid.md §3) — it stands exactly on
@@ -26,7 +24,7 @@ using UnityEngine;
 
 namespace TheWaningBorder.Rendering
 {
-    public enum MineKind : byte { Iron = 0, Veilstone = 1, Veilsteel = 2 }
+    public enum MineKind : byte { Iron = 0, Veilstone = 1 }
 
     public static class MineVisual
     {
@@ -61,8 +59,6 @@ namespace TheWaningBorder.Rendering
             {
                 case MineKind.Veilstone:
                     ore = new Color(0.30f, 0.85f, 0.95f); oreMetal = 0.1f; oreSmooth = 0.8f; oreGlow = true; break;
-                case MineKind.Veilsteel:
-                    ore = new Color(0.22f, 0.30f, 0.42f); oreMetal = 0.85f; oreSmooth = 0.7f; oreGlow = false; break;
                 default:
                     ore = new Color(0.47f, 0.27f, 0.17f); oreMetal = 0.35f; oreSmooth = 0.2f; oreGlow = false; break;
             }

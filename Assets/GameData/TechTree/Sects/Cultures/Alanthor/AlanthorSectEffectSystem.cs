@@ -225,7 +225,7 @@ namespace TheWaningBorder.Systems.Sect
         private static void PayHarvest(EntityManager em, Faction faction, byte level)
         {
             SectLeverEffects.HarvestYield(level, out int supplies, out int iron,
-                                          out int veilstone, out int veilsteel);
+                                          out int veilstone);
 
             // Through FactionEconomy (2026-10-08): this was a direct bank
             // write, so the income ledger saw it only as "untracked". Same
@@ -233,7 +233,7 @@ namespace TheWaningBorder.Systems.Sect
             // still skipped (Add returns false).
             FactionEconomy.Add(em, faction, new TheWaningBorder.Core.Cost
             {
-                Supplies = supplies, Iron = iron, Veilstone = veilstone, Veilsteel = veilsteel,
+                Supplies = supplies, Iron = iron, Veilstone = veilstone,
             }, IncomeSource.Other);
         }
 

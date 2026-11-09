@@ -83,7 +83,7 @@ namespace TheWaningBorder.Feraldis
                 else if (em.HasComponent<UnitTag>(e))
                 {
                     var c = FeraldisSacrifice.UnitCost(em, e);
-                    int total = c.Supplies + c.Iron + c.Veilstone + c.Veilsteel;
+                    int total = c.Supplies + c.Iron + c.Veilstone;
                     int s = Mathf.FloorToInt(total * cfg.pillageShare);
                     if (s > 0)
                     {
@@ -130,7 +130,6 @@ namespace TheWaningBorder.Feraldis
         public static Cost Scale(Cost c, float share) => Cost.Of(
             supplies: Mathf.FloorToInt(c.Supplies * share),
             iron: Mathf.FloorToInt(c.Iron * share),
-            veilstone: Mathf.FloorToInt(c.Veilstone * share),
-            veilsteel: Mathf.FloorToInt(c.Veilsteel * share));
+            veilstone: Mathf.FloorToInt(c.Veilstone * share));
     }
 }

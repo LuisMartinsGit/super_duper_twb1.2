@@ -148,11 +148,6 @@ namespace TheWaningBorder.Bootstrap
             LoadingScreen.SetProgress(0.82f);
             yield return null;
             VeilstoneOutcroppingBootstrap.SpawnVeilstoneOutcroppings();
-            // NO VEILSTEEL DEPOSITS (docs/Design/Veilstone_Economy.md,
-            // 2026-10-01): veilsteel is made — at an Alanthor Trading Outpost,
-            // a Runai Sanctuary — never mined. Authored VeilsteelDepositMarkers
-            // still in five map scenes are inert; strip them on the next
-            // re-bake.
 
             // Veilstone coverage (Regions.md §3, 2026-08-31): every starter
             // territory carries veilstone, and half of ALL territories do —
@@ -163,7 +158,7 @@ namespace TheWaningBorder.Bootstrap
 
             // Node-quota guarantee (Regions.md §4): every territory gets at
             // least one ore node. AFTER all three ore bootstraps, so authored
-            // markers, fallbacks and the veilsteel coverage are on the ground
+            // markers and fallbacks are on the ground
             // and only a genuine shortfall is filled.
             ResourceNodeCoverage.GuaranteeTerritoryOre();
 

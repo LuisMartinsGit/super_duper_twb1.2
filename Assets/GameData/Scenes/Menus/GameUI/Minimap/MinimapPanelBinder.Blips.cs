@@ -119,8 +119,7 @@ namespace TheWaningBorder.UI.Ingame
                 for (int i = 0; i < ents.Length; i++)
                 {
                     if (em.HasComponent<IronMineTag>(ents[i])
-                        || em.HasComponent<VeilstoneOutcroppingTag>(ents[i])
-                        || em.HasComponent<VeilsteelDepositTag>(ents[i])) continue;
+                        || em.HasComponent<VeilstoneOutcroppingTag>(ents[i])) continue;
                     if (!unfogged
                         && !FogOfWarSystem.IsRevealedToFaction(faction, xfs[i].Position)) continue;
                     DrawDisc(WorldToOverlayPixel(xfs[i].Position), 2, RockBlip);
@@ -130,7 +129,6 @@ namespace TheWaningBorder.UI.Ingame
             Faction? gate = unfogged ? (Faction?)null : faction;
             DrawSimpleBlips(_ironQ.Get(em, IronQueryTypes), 2, IronBlip, gate);
             DrawSimpleBlips(_veilstoneQ.Get(em, VeilstoneQueryTypes), 2, VeilstoneBlip, gate);
-            DrawSimpleBlips(_veilsteelQ.Get(em, VeilsteelQueryTypes), 2, VeilsteelBlip, gate);
 
             // Ritual markers — visible to all players regardless of fog (the
             // spec is explicit that rituals are universally locatable); the

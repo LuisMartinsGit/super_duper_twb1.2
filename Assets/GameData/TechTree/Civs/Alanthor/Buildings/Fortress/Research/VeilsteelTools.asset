@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelTools
   m_EditorClassIdentifier: 
   id: VeilsteelTools
-  displayName: Veilsteel Tools
+  displayName: Shard Tools
   role: Economy
   effect: 
   desc: "Tool tier 4 \u2014 Alanthor. Workers raise structures 75 percent faster."
@@ -26,7 +26,6 @@ MonoBehaviour:
     Supplies: 387
     Iron: 0
     Veilstone: 0
-    Veilsteel: 0
   effects:
     gatherSpeedMult: 1.2
     meleeAttackSpeedMult: 0

@@ -20,7 +20,6 @@ MonoBehaviour:
     Supplies: 720
     Iron: 180
     Veilstone: 0
-    Veilsteel: 0
   upgradeSeconds: 35
   hpMultiplier: 1.2
   trainTimeMultiplier: 0.714
@@ -30,7 +29,6 @@ MonoBehaviour:
   slotIncomePerMinute: 0
   interestMultiplier: 0
   tradeRateMultiplier: 0
-  tradeRoutes: 0
   attack:
     enabled: 1
     damage: 14

@@ -34,7 +34,7 @@ namespace TheWaningBorder.Tutorial
         /// <summary>Paid at the start, on top of the bank's starting resources.</summary>
         public int grantSupplies, grantIron, grantVeilstone;
 
-        public string outpostId, archeryRangeId, towerId, templeId;
+        public string archeryRangeId, towerId, templeId;
         /// <summary>Any one of these counts as the Guild survey objective.</summary>
         public string[] surveyTechs;
         public int religionPointsNeeded;

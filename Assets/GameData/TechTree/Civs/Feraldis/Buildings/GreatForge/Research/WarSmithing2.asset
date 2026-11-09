@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: War Smithing II
   role: Military
   effect: 
-  desc: Unlocks the veilsteel weapon tier at every Feraldis trainer.
+  desc: Unlocks the shard weapon tier at every Feraldis trainer.
   researchAt: Feraldis_GreatForge
   minBuildingLevel: 3
   researchTime: 60
@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 200
-    Veilstone: 250
-    Veilsteel: 40
+    Veilstone: 330
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

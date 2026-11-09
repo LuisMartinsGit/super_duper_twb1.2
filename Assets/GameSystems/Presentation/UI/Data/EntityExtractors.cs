@@ -76,7 +76,6 @@ namespace TheWaningBorder.UI.Data
                 SuppliesPerMinute = 0,
                 IronPerMinute = 0,
                 VeilstonePerMinute = 0,
-                VeilsteelPerMinute = 0,
                 ShardrootPerMinute = 0,
                 EntityKind = "unit",
                 YieldPerMinute = null,
@@ -290,7 +289,6 @@ namespace TheWaningBorder.UI.Data
                     info.SuppliesPerMinute  = ty.Supplies;
                     info.IronPerMinute      = UnityEngine.Mathf.RoundToInt(ty.Iron);
                     info.VeilstonePerMinute = UnityEngine.Mathf.RoundToInt(ty.Veilstone);
-                    info.VeilsteelPerMinute = UnityEngine.Mathf.RoundToInt(ty.Veilsteel);
                     info.YieldPerMinute     = ty.Supplies;
                     info.TerritoryName      =
                         TheWaningBorder.World.Regions.RegionMap.NameOf(territory);
@@ -316,11 +314,6 @@ namespace TheWaningBorder.UI.Data
             {
                 info.HasResourceGeneration = true;
                 info.VeilstonePerMinute = em.GetComponentData<VeilstoneIncome>(entity).PerMinute;
-            }
-            if (em.HasComponent<VeilsteelIncome>(entity))
-            {
-                info.HasResourceGeneration = true;
-                info.VeilsteelPerMinute = em.GetComponentData<VeilsteelIncome>(entity).PerMinute;
             }
 
             // Type and name
@@ -373,23 +366,6 @@ namespace TheWaningBorder.UI.Data
                         : depState.RemainingIron;
                     info.ResourceTypeName = "Iron";
                     info.Description = depState.Depleted == 1 ? "Depleted" : "Active iron deposit";
-                }
-            }
-            else if (em.HasComponent<VeilsteelDepositTag>(entity))
-            {
-                info.Type = "Resource";
-                info.Name = VeilsteelNodeName;
-                info.HasResourceInfo = true;
-                // Veilsteel nodes share IronDepositState (identical mining model).
-                if (em.HasComponent<IronDepositState>(entity))
-                {
-                    var depState = em.GetComponentData<IronDepositState>(entity);
-                    info.ResourceRemaining = depState.RemainingIron;
-                    info.ResourceMax = depState.InitialIron > 0
-                        ? depState.InitialIron
-                        : depState.RemainingIron;
-                    info.ResourceTypeName = "Veilsteel";
-                    info.Description = depState.Depleted == 1 ? "Depleted" : "Harvestable veilsteel";
                 }
             }
             else if (em.HasComponent<VeilstoneOutcroppingTag>(entity))
@@ -453,24 +429,25 @@ namespace TheWaningBorder.UI.Data
                         + $"Religion Points: {rp}";
             }
 
-            // Trading Outpost: the trade it runs, per minute
-            // (docs/Design/Veilstone_Economy.md §3.1).
+            // Trading Outpost: what it trickles, per minute
+            // (docs/Design/Veilstone_Economy.md §3.1, 2026-11-09).
             if (em.HasComponent<TradingOutpostTag>(entity) && em.HasComponent<FactionTag>(entity))
             {
-                // This post's own rate: recipe, research AND its level.
-                TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, entity, out var spend, out var earn);
-                string line = EntityActionExtractor.PerMinuteLine(spend, "-") + "  ->  "
-                              + EntityActionExtractor.PerMinuteLine(earn, "+") + " /min";
-                // Its place in the outcrop's cost ramp (level-ups are priced on it).
+                var earn = TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, entity);
+                string line = earn.IsEmpty
+                    ? Loc.T("Idle — its node is spent, cursed, or not in your ground.")
+                    : EntityActionExtractor.PerMinuteLine(earn, "+") + " " + Loc.T("per minute, never drawn from its node");
                 int rampIndex = TheWaningBorder.Entities.TradingOutpost.RampIndexOf(em, entity);
-                float rampMult = TheWaningBorder.Entities.TradingOutpost.RampMultiplier(rampIndex);
-                line += "\n" + string.Format(Loc.T("Post {0} of {1} beside its outcrop — level-ups cost x{2}"),
-                    rampIndex + 1, TheWaningBorder.Entities.TradingOutpost.SideCount, rampMult.ToString("0.##"));
-                var op = em.GetComponentData<Unity.Transforms.LocalTransform>(entity).Position;
-                if (!TheWaningBorder.Entities.TradingOutpost.HasLiveOutcrop(em, op.x, op.z))
-                    line += "\n" + Loc.T("Idle — its outcrop is cursed. Destroy the curse node to trade again.");
+                line += "\n" + string.Format(Loc.T("Post {0} of {1} beside its node"),
+                    rampIndex + 1, TheWaningBorder.Entities.TradingOutpost.SideCount);
+                line += "\n" + Loc.T("Falls with its node when the node runs dry — stop its extractor in time.");
                 info.Description += (info.Description.Length > 0 ? "\n" : "") + line;
             }
+
+            // Stop extracting (Veilstone_Economy.md §3.5, 2026-11-09).
+            if (TheWaningBorder.Core.Commands.CommandRouter.IsExtractorStopped(em, entity))
+                info.Description += (info.Description.Length > 0 ? "\n" : "")
+                    + Loc.T("Stopped — draws nothing from its node, so the node is saved. Its surveys still pay.");
 
             // A depleted Gatherer's Hut / Guild (Territory_Claims.md § 11.3,
             // 2026-10-19): its node is gone, so say what it still does.
@@ -504,11 +481,6 @@ namespace TheWaningBorder.UI.Data
                     info.WorkerResourceType = "Veilstone";
                     info.WorkerExtractionRate = "1 veilstone / 1.5s";
                 }
-                else if (worker.GatheringResource == 2)
-                {
-                    info.WorkerResourceType = "Veilsteel";
-                    info.WorkerExtractionRate = "1 veilsteel / 2s";
-                }
                 else
                 {
                     info.WorkerResourceType = "Iron";
@@ -530,8 +502,7 @@ namespace TheWaningBorder.UI.Data
             {
                 info.EntityKind = "building";
             }
-            else if (em.HasComponent<IronMineTag>(entity) || em.HasComponent<VeilstoneOutcroppingTag>(entity)
-                     || em.HasComponent<VeilsteelDepositTag>(entity))
+            else if (em.HasComponent<IronMineTag>(entity) || em.HasComponent<VeilstoneOutcroppingTag>(entity))
             {
                 info.EntityKind = "resource";
             }
@@ -593,7 +564,6 @@ namespace TheWaningBorder.UI.Data
                 arr[i].RefundSupplies = cost.Supplies;
                 arr[i].RefundIron = cost.Iron;
                 arr[i].RefundVeilstone = cost.Veilstone;
-                arr[i].RefundVeilsteel = cost.Veilsteel;
                 arr[i].IsInProduction = (i == 0 && ts.Busy != 0);
                 if (arr[i].IsInProduction && slot0Total > 0f)
                 {
@@ -783,33 +753,6 @@ namespace TheWaningBorder.UI.Data
                 return info;
             }
 
-            // A TRADING OUTPOST: its three trades in the top row, its research
-            // (the two trade unlocks and the discount ladder) in the rows below.
-            // docs/Design/Veilstone_Economy.md §3.1.
-            if (em.HasComponent<TradingOutpostTag>(entity)
-                && !em.HasComponent<UnderConstruction>(entity)
-                && em.HasComponent<FactionTag>(entity)
-                && em.GetComponentData<FactionTag>(entity).Value == GameSettings.LocalPlayerFaction)
-            {
-                var me = GameSettings.LocalPlayerFaction;
-                // The five routes as TOGGLES (2026-11-04): a post runs up to its
-                // level's routes at once; Hold (all off) lives in the Trade menu.
-                uint active = TheWaningBorder.Input.OutpostOrders.RoutesOf(em, entity);
-                info.Type = ActionType.UnitTrainingAndResearch;
-                info.ProductionState = em.HasComponent<ProductionState>(entity)
-                    ? GetProductionInfo(entity, em) : null;
-                var tcfg = TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg;
-                info.Actions = new List<ActionButton>
-                {
-                    OutpostRecipeButton(em, entity, me, TradeRecipe.BuyVeilstone, active, Loc.T("Buy Veilstone"), null),
-                    OutpostRecipeButton(em, entity, me, TradeRecipe.ForgeVeilsteel, active, Loc.T("Forge Veilsteel"), tcfg?.forgeTech),
-                    OutpostRecipeButton(em, entity, me, TradeRecipe.SellVeilsteel, active, Loc.T("Sell Veilsteel"), tcfg?.sellTech),
-                    OutpostRecipeButton(em, entity, me, TradeRecipe.BuyIron, active, Loc.T("Buy Iron"), tcfg?.ironBuyTech),
-                    OutpostRecipeButton(em, entity, me, TradeRecipe.SellSupplies, active, Loc.T("Sell Veilsteel for Supplies"), tcfg?.steelSellTech),
-                };
-                return info;
-            }
-
             // A REINFORCED curtain module with men inside it: let them out
             // (docs/Design/Age_1_Alanthor.md § Garrison slots).
             if (em.HasBuffer<WallGarrisonSlot>(entity)
@@ -986,73 +929,45 @@ namespace TheWaningBorder.UI.Data
             }
 
             // Check if this is a research-only building
+            var toggle = ExtractorToggle(entity, em);
             if (em.HasComponent<BuildingTag>(entity) && em.HasComponent<ProductionState>(entity))
             {
                 info.Type = ActionType.UnitTrainingAndResearch;
                 info.Actions = new List<ActionButton>();
+                if (toggle.HasValue) info.Actions.Add(toggle.Value);
                 info.ProductionState = GetProductionInfo(entity, em);
                 return info;
+            }
+            if (toggle.HasValue)
+            {
+                info.Type = ActionType.UnitTrainingAndResearch;
+                info.Actions = new List<ActionButton> { toggle.Value };
             }
 
             return info;
         }
 
-        /// <summary>One Trading Outpost trade as a top-row button: its per-minute
-        /// exchange in the tooltip, greyed while its research is missing, and
-        /// marked (not clickable) while it is the trade being run.</summary>
-        private static ActionButton OutpostRecipeButton(EntityManager em, Entity outpost, Faction me,
-            TradeRecipe recipe, uint active, string label, string requiredTech)
+        /// <summary>
+        /// STOP / RESUME EXTRACTING (Veilstone_Economy.md §3.5, 2026-11-09):
+        /// the toggle every extractor of the local player carries — the
+        /// Gatherer's Hut line, the Mine, the Veilstone Mine. Null for anything
+        /// else, or while it is unfinished.
+        /// </summary>
+        private static ActionButton? ExtractorToggle(Entity entity, EntityManager em)
         {
-            int cap = TheWaningBorder.Systems.Economy.TradingOutpostSystem.RouteCapacity(em, outpost);
-            int used = TradeRoutes.Total(active);
-            int mineOf = TradeRoutes.CountIn(active, recipe);
-            TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinute(
-                me, recipe, out var spend, out var earn);
-            // This post's level scales its trade, both sides.
-            float lvl = TheWaningBorder.Systems.Economy.TradingOutpostSystem.LevelMultiplier(em, outpost);
-            if (lvl != 1f)
-            {
-                spend.Supplies *= lvl; spend.Iron *= lvl; spend.Veilstone *= lvl; spend.Veilsteel *= lvl;
-                earn.Supplies *= lvl; earn.Iron *= lvl; earn.Veilstone *= lvl; earn.Veilsteel *= lvl;
-            }
-            bool unlocked = TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(me, recipe);
-            // With several outposts selected the button sets them all, so it
-            // only reads as "running" once every selected post runs it.
-            int others = 0, othersRunning = 0;
-            var sel = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
-            if (sel != null)
-                for (int i = 0; i < sel.Count; i++)
-                {
-                    var e = sel[i];
-                    if (e == outpost || !em.Exists(e) || !em.HasComponent<TradingOutpostTag>(e)) continue;
-                    if (em.HasComponent<UnderConstruction>(e) || !em.HasComponent<FactionTag>(e)
-                        || em.GetComponentData<FactionTag>(e).Value != me) continue;
-                    others++;
-                    if (TradeRoutes.Has(TheWaningBorder.Input.OutpostOrders.RoutesOf(em, e), recipe)) othersRunning++;
-                }
-            bool isActive = TradeRoutes.Has(active, recipe) && othersRunning == others;
-            bool full = !TradeRoutes.Has(active, recipe) && used >= cap;
-            string tip = label + "\n" + PerMinuteLine(spend, "-") + "  ->  " + PerMinuteLine(earn, "+")
-                         + " " + Loc.T("per minute")
-                         + "\n" + string.Format(Loc.T("Routes: {0} of {1} in use (L2 runs two, L3 four)."), used, cap);
-            if (full) tip += "\n" + Loc.T("Every route slot is taken: remove one, or level the Outpost.");
-            if (!unlocked && !string.IsNullOrEmpty(requiredTech))
-            {
-                string techName = TechCatalog.TryGetTechnology(requiredTech, out var t) && t != null
-                    ? (t.name ?? requiredTech) : requiredTech;
-                tip += "\n" + string.Format(Loc.T("Requires research: {0}"), techName);
-            }
-            else if (isActive) tip += "\n" + (others > 0
-                ? Loc.T("Every selected Outpost runs this route. Click for another copy; on a full post a click stops it.")
-                : Loc.T("This Outpost runs this route. Click for another copy; on a full post a click stops it."));
-            else if (others > 0)
-                tip += "\n" + string.Format(Loc.T("Adds the route on all {0} selected Outposts."), others + 1);
+            if (!TheWaningBorder.Core.Commands.CommandRouter.IsStoppableExtractor(em, entity)) return null;
+            if (em.HasComponent<UnderConstruction>(entity) || em.HasComponent<DepletedHutTag>(entity)) return null;
+            if (!em.HasComponent<FactionTag>(entity)
+                || em.GetComponentData<FactionTag>(entity).Value != GameSettings.LocalPlayerFaction) return null;
+            bool stopped = TheWaningBorder.Core.Commands.CommandRouter.IsExtractorStopped(em, entity);
             return new ActionButton
             {
-                Id = "OutpostMode_" + (int)recipe,
-                Label = (isActive ? "> " : "") + label + (mineOf > 1 ? " x" + mineOf : ""),
-                Tooltip = tip,
-                Enabled = unlocked && (mineOf > 0 || !full),
+                Id = stopped ? "ExtractorResume" : "ExtractorStop",
+                Label = stopped ? Loc.T("Resume Extracting") : Loc.T("Stop Extracting"),
+                Tooltip = stopped
+                    ? Loc.T("Draw on the node again. When it runs dry it collapses, and every Trading Outpost beside it falls with it.")
+                    : Loc.T("Stop drawing on the node. The building stays and keeps its surveys; the node is saved for the Trading Outposts beside it."),
+                Enabled = true,
                 CanAfford = true,
             };
         }
@@ -1071,7 +986,6 @@ namespace TheWaningBorder.UI.Data
             Add(y.Supplies, Loc.T("supplies"));
             Add(y.Iron, Loc.T("iron"));
             Add(y.Veilstone, Loc.T("veilstone"));
-            Add(y.Veilsteel, Loc.T("veilsteel"));
             return sb.ToString();
         }
 
@@ -1114,7 +1028,7 @@ namespace TheWaningBorder.UI.Data
                 ? new Cost
                 {
                     Supplies = tech.cost.Supplies, Iron = tech.cost.Iron,
-                    Veilstone = tech.cost.Veilstone, Veilsteel = tech.cost.Veilsteel,
+                    Veilstone = tech.cost.Veilstone,
                 }
                 : default;
 
@@ -1227,7 +1141,6 @@ namespace TheWaningBorder.UI.Data
                 Supplies = res.Supplies,
                 Iron = res.Iron,
                 Veilstone = res.Veilstone,
-                Veilsteel = res.Veilsteel
             };
         }
 

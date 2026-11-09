@@ -61,8 +61,7 @@ namespace TheWaningBorder.Feraldis
             var refund = Cost.Of(
                 supplies: Mathf.FloorToInt(c.Supplies * share),
                 iron: Mathf.FloorToInt(c.Iron * share),
-                veilstone: Mathf.FloorToInt(c.Veilstone * share),
-                veilsteel: Mathf.FloorToInt(c.Veilsteel * share));
+                veilstone: Mathf.FloorToInt(c.Veilstone * share));
             if (!refund.IsZero) FactionEconomy.Add(em, faction, refund, IncomeSource.Refund);
             KillOwn(em, unit);
         }
@@ -76,7 +75,7 @@ namespace TheWaningBorder.Feraldis
         {
             var cfg = FeraldisEconomy.Cfg;
             var c = UnitCost(em, unit);
-            int total = c.Supplies + c.Iron + c.Veilstone + c.Veilsteel;
+            int total = c.Supplies + c.Iron + c.Veilstone;
             int pts = Mathf.Max(1, Mathf.RoundToInt(total * cfg.sacrificePtsPerCost));
             if (atAltar) pts = Mathf.Max(pts, Mathf.RoundToInt(pts * cfg.altarSacrificeMultiplier));
             return pts;

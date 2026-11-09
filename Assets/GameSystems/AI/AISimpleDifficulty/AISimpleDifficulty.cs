@@ -44,6 +44,8 @@ namespace TheWaningBorder.AI
         public float HoldBackAheadRatio;
         public int SpareCapitals;
         public int ExtractorLimit;
+        /// <summary>See AIDifficultyProfileSO.extractorStopMinutes.</summary>
+        public float ExtractorStopMinutes;
         public float LevelUpsFromSeconds;
         /// <summary>Pacing (Game_AI.md § 2a) — see the SO fields.</summary>
         public float ExtractorGapSeconds;
@@ -171,6 +173,7 @@ namespace TheWaningBorder.AI
                 HoldBackAheadRatio = so.holdBackAheadRatio,
                 SpareCapitals = so.spareCapitals,
                 ExtractorLimit = so.extractorLimit,
+                ExtractorStopMinutes = so.extractorStopMinutes,
                 LevelUpsFromSeconds = so.levelUpsFromSeconds,
                 ExtractorGapSeconds = so.extractorGapSeconds,
                 WasteBuildSeconds = so.wasteBuildSeconds,

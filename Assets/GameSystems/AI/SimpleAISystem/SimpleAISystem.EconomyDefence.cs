@@ -153,7 +153,6 @@ namespace TheWaningBorder.AI
             _curseNodeSeen.Clear();
             _nextCurseIntelLog.Clear();
             _religionHuntRoster.Clear();
-            _outpostBuyOff.Clear();
         }
 
         private List<EconResponse> EconResponsesOf(int key)

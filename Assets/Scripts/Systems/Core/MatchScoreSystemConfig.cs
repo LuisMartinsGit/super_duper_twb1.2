@@ -25,6 +25,5 @@ namespace TheWaningBorder.Systems.Core
         public float weightSupplies;
         public float weightIron;
         public float weightVeilstone;
-        public float weightVeilsteel;
     }
 }

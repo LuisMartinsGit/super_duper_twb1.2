@@ -38,8 +38,15 @@ namespace TheWaningBorder.World.Regions
         /// 1 = linear, 0.5 = square root (flattens deathballs).</summary>
         public float claimExponent;
 
-        /// <summary>Meter points lost per second by an empty, unbuilt territory.</summary>
+        /// <summary>Meter points lost per second by a territory nobody stands in
+        /// while the curse holds at least <see cref="curseNodesToDecay"/> of its
+        /// nodes (Territory_Claims.md § 2.2, 2026-11-09). Ground no longer decays
+        /// just for being empty.</summary>
         public float decayRate;
+
+        /// <summary>Curse nodes standing inside a held territory at which it
+        /// starts to decay (2026-11-09, decision 42: two).</summary>
+        public int curseNodesToDecay;
 
         /// <summary>The curse's claim weight multiplier (§6.1).</summary>
         public float curseClaimMultiplier;

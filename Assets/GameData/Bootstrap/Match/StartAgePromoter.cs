@@ -185,7 +185,6 @@ namespace TheWaningBorder.Bootstrap
                 .TransformGathererHutsForCulture(em, faction, culture);
             TheWaningBorder.Systems.Work.AgeUpSystem
                 .TransformHutsForCulture(em, faction, culture);
-            TheWaningBorder.Entities.TradingOutpost.ConvertMinesForCulture(em, faction, culture);
             TheWaningBorder.Entities.Sanctuary.ConvertMinesForCulture(em, faction, culture);
             // The Shelter is the Age 0 form of the capital; a faction that
             // starts in Age 1 has already passed the moment it becomes the
@@ -248,20 +247,20 @@ namespace TheWaningBorder.Bootstrap
         /// Resource bonus stocked per age. Hand-tuned so the player has a
         /// sensible economy to support the building level they spawned at —
         /// Age 1 covers a few Huts, Age 2 covers Barracks + Temple
-        /// upgrades, Age 3 stocks veilsteel so culture-unique units are
+        /// upgrades, Age 3 stocks extra veilstone so culture-unique units are
         /// immediately trainable.
         /// </summary>
         private static Cost ResourceBonusForAge(int age) => age switch
         {
             1 => Cost.Of(supplies: 200, iron: 50),
             2 => Cost.Of(supplies: 500, iron: 150, veilstone: 50),
-            3 => Cost.Of(supplies: 1000, iron: 300, veilstone: 100, veilsteel: 30),
+            3 => Cost.Of(supplies: 1000, iron: 300, veilstone: 160),
             // Age 4 opens the ritualists, and both cost 300 supplies + 150
             // iron on top of everything else an Era-5 army wants. Stocked
             // generously on purpose: this option exists to test the LATE game,
             // and starting it broke would just move the grind rather than
             // remove it.
-            4 => Cost.Of(supplies: 2500, iron: 800, veilstone: 400, veilsteel: 120),
+            4 => Cost.Of(supplies: 2500, iron: 800, veilstone: 640),
             _ => default,
         };
     }

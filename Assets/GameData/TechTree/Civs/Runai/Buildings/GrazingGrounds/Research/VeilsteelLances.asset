@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelLances
   m_EditorClassIdentifier: 
   id: Runai_VeilsteelLances
-  displayName: Veilsteel Lances
+  displayName: Shard Lances
   role: Military
   effect: 
   desc: "Mounted weapon tier 3: +20% damage."
@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 200
-    Veilstone: 200
-    Veilsteel: 40
+    Veilstone: 280
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

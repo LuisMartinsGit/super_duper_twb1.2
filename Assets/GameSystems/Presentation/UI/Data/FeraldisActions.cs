@@ -115,7 +115,7 @@ namespace TheWaningBorder.UI.Data
 
         private const string SanctuaryTradeId = "SanctuaryTrade";
 
-        /// <summary>The Runai Sanctuary's RP-for-veilsteel trade (Age_1_Runai.md §5.1),
+        /// <summary>The Runai Sanctuary's RP-for-veilstone trade (Age_1_Runai.md §5.1),
         /// or null when <paramref name="e"/> is not an owned, finished Sanctuary.
         /// It rides the same order channel as the Feraldis buttons.</summary>
         public static List<ActionButton> SanctuaryButtons(EntityManager em, Entity e)
@@ -128,9 +128,9 @@ namespace TheWaningBorder.UI.Data
                 new ActionButton
                 {
                     Id = SanctuaryTradeId,
-                    Label = Loc.T("Trade for Veilsteel"),
-                    Tooltip = string.Format(Loc.T("Spend {0} religion points for {1} veilsteel. You have {2}."),
-                                            cfg.rpPerTrade, cfg.veilsteelPerTrade, have),
+                    Label = Loc.T("Trade for Veilstone"),
+                    Tooltip = string.Format(Loc.T("Spend {0} religion points for {1} veilstone. You have {2}."),
+                                            cfg.rpPerTrade, cfg.veilstonePerTrade, have),
                     Enabled = true,
                     CanAfford = TheWaningBorder.Runai.RunaiSanctuarySystem.CanTrade(em, e),
                 },
@@ -195,7 +195,6 @@ namespace TheWaningBorder.UI.Data
             if (c.Supplies > 0) parts.Add(sign + c.Supplies + " " + Loc.T("supplies"));
             if (c.Iron > 0) parts.Add(sign + c.Iron + " " + Loc.T("iron"));
             if (c.Veilstone > 0) parts.Add(sign + c.Veilstone + " " + Loc.T("veilstone"));
-            if (c.Veilsteel > 0) parts.Add(sign + c.Veilsteel + " " + Loc.T("veilsteel"));
             return parts.Count == 0 ? Loc.T("nothing") : string.Join(", ", parts);
         }
     }

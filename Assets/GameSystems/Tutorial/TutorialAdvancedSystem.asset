@@ -33,7 +33,6 @@ MonoBehaviour:
   grantSupplies: 1500
   grantIron: 800
   grantVeilstone: 300
-  outpostId: Alanthor_TradingOutpost
   archeryRangeId: ArcheryRange
   towerId: Alanthor_Tower
   templeId: TempleOfRidan

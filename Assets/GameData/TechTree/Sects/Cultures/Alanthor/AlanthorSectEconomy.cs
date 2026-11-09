@@ -78,20 +78,19 @@ namespace TheWaningBorder.Systems.Sect
 
         // ── The territory rate, recorded by TerritoryIncomeSystem ─────────
 
-        private static readonly float[] _rate = new float[4 * 32];
+        private static readonly float[] _rate = new float[4 * 32];   // stride 4: slot 3 unused since veilsteel was folded in (2026-11-09)
         private static readonly float[] _next = new float[4 * 32];
 
         /// <summary>TerritoryIncomeSystem, start of a paying tick.</summary>
         public static void BeginRate() => System.Array.Clear(_next, 0, _next.Length);
 
         /// <summary>TerritoryIncomeSystem, per territory paid (per minute).</summary>
-        public static void AddRate(int faction, float supplies, float iron, float veilstone, float veilsteel)
+        public static void AddRate(int faction, float supplies, float iron, float veilstone)
         {
             if (faction < 0 || faction >= 32) return;
             _next[faction * 4 + 0] += supplies;
             _next[faction * 4 + 1] += iron;
             _next[faction * 4 + 2] += veilstone;
-            _next[faction * 4 + 3] += veilsteel;
         }
 
         /// <summary>TerritoryIncomeSystem, end of a paying tick.</summary>
@@ -107,8 +106,7 @@ namespace TheWaningBorder.Systems.Sect
             return Cost.Of(
                 supplies: UnityEngine.Mathf.FloorToInt(UnityEngine.Mathf.Max(0f, _rate[f * 4 + 0]) * k),
                 iron: UnityEngine.Mathf.FloorToInt(UnityEngine.Mathf.Max(0f, _rate[f * 4 + 1]) * k),
-                veilstone: UnityEngine.Mathf.FloorToInt(UnityEngine.Mathf.Max(0f, _rate[f * 4 + 2]) * k),
-                veilsteel: UnityEngine.Mathf.FloorToInt(UnityEngine.Mathf.Max(0f, _rate[f * 4 + 3]) * k));
+                veilstone: UnityEngine.Mathf.FloorToInt(UnityEngine.Mathf.Max(0f, _rate[f * 4 + 2]) * k));
         }
     }
 }

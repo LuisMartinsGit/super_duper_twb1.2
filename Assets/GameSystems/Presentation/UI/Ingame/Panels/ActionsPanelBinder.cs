@@ -625,15 +625,11 @@ namespace TheWaningBorder.UI.Ingame
                     _timer = RefreshInterval;
                     return;
                 }
-                case "OutpostMode_0":
-                case "OutpostMode_1":
-                case "OutpostMode_2":
-                case "OutpostMode_3":
-                case "OutpostMode_4":
-                case "OutpostMode_5":
-                    // A route button adds a copy of that route on every selected post (2026-11-04).
-                    TheWaningBorder.Input.OutpostOrders.CycleRouteForSelection(
-                        em, entity, (TradeRecipe)(b.Id[b.Id.Length - 1] - '0'));
+                case "ExtractorStop":
+                case "ExtractorResume":
+                    // Stop / resume extracting (Veilstone_Economy.md §3.5): every
+                    // selected extractor of ours takes the order.
+                    TheWaningBorder.Input.ExtractorOrders.SetForSelection(em, entity, b.Id == "ExtractorStop");
                     _timer = RefreshInterval;
                     return;
                 case "GateClose":
@@ -790,7 +786,7 @@ namespace TheWaningBorder.UI.Ingame
         // ── Vault section ──────────────────────────────────────────────────
 
         private static readonly string[] VaultResourceNames =
-            { "None", "Supplies", "Iron", "Veilstone", "Veilsteel", "Glow" };
+            { "None", "Supplies", "Iron", "Veilstone" };
         private static int _vaultSelectedResource = 1;
 
         private void RenderVault(EntityManager em)
@@ -827,10 +823,9 @@ namespace TheWaningBorder.UI.Ingame
                     // resource its Vault research has opened. (Glow was offered
                     // here too, and no Glow could ever move.)
                     var research = FactionResearchState.Instance;
-                    do _vaultSelectedResource = _vaultSelectedResource >= 4 ? 1 : _vaultSelectedResource + 1;
+                    do _vaultSelectedResource = _vaultSelectedResource >= 3 ? 1 : _vaultSelectedResource + 1;
                     while (_vaultSelectedResource != 1 && !(research != null && research.HasResearched(faction,
-                        _vaultSelectedResource == 2 ? "IronSubsidies"
-                        : _vaultSelectedResource == 3 ? "VeilstoneMonetization" : "VeilsteelBonds")));
+                        _vaultSelectedResource == 2 ? "IronSubsidies" : "VeilstoneMonetization")));
                     _timer = RefreshInterval; // repaint next frame
                 });
 
@@ -857,7 +852,7 @@ namespace TheWaningBorder.UI.Ingame
             1 => Cost.Of(supplies: amount),
             2 => Cost.Of(iron: amount),
             3 => Cost.Of(veilstone: amount),
-            4 => Cost.Of(veilsteel: amount),
+            4 => Cost.Of(),
             _ => default,
         };
 

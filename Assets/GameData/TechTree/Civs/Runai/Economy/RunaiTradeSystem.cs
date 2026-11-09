@@ -386,7 +386,7 @@ namespace TheWaningBorder.Runai
         /// is lost.
         /// </summary>
         public static bool Deposit(EntityManager em, int territory, Faction owner,
-                                   float supplies, float iron, float veilstone, float veilsteel)
+                                   float supplies, float iron, float veilstone)
         {
             SnapshotDepots(em);
             _here.Clear();
@@ -400,8 +400,8 @@ namespace TheWaningBorder.Runai
             float cap = Capacity(owner) * math.max(1f, Cfg.stockCapLoads);
             Spread(em, _here, 1, cap, supplies, 0);
             Spread(em, _here, 2, cap, iron, 1);
-            // No veilstone or veilsteel rides a caravan: the Runai get veilstone
-            // from the Waystation tax and veilsteel from the Sanctuary trade
+            // No veilstone rides a caravan: the Runai get it from the
+            // Waystation tax and the Sanctuary trade
             // (§3.2, §5.1), so a territory's crystal income is not theirs.
             return true;
         }
@@ -432,8 +432,7 @@ namespace TheWaningBorder.Runai
             {
                 case 0: d.Supplies += v; break;
                 case 1: d.Iron += v; break;
-                case 2: d.Veilstone += v; break;
-                default: d.Veilsteel += v; break;
+                default: d.Veilstone += v; break;
             }
         }
 
@@ -946,9 +945,9 @@ namespace TheWaningBorder.Runai
                         float take = math.min(room, d.Total);
                         float k = take / d.Total;
                         c.Supplies += d.Supplies * k; c.Iron += d.Iron * k;
-                        c.Veilstone += d.Veilstone * k; c.Veilsteel += d.Veilsteel * k;
+                        c.Veilstone += d.Veilstone * k;
                         d.Supplies -= d.Supplies * k; d.Iron -= d.Iron * k;
-                        d.Veilstone -= d.Veilstone * k; d.Veilsteel -= d.Veilsteel * k;
+                        d.Veilstone -= d.Veilstone * k;
                         _lkDepot[c.Depot] = d;
                     }
                     bool full = c.Cargo >= CapacityAt(f, pos) - 0.01f;
@@ -1146,14 +1145,13 @@ namespace TheWaningBorder.Runai
                 Supplies  = Draw(fi, 0, c.Supplies * mult),
                 Iron      = Draw(fi, 1, c.Iron * mult),
                 Veilstone = Draw(fi, 2, c.Veilstone * mult),
-                Veilsteel = Draw(fi, 3, c.Veilsteel * mult),
             };
-            if (pay.Supplies > 0 || pay.Iron > 0 || pay.Veilstone > 0 || pay.Veilsteel > 0)
+            if (pay.Supplies > 0 || pay.Iron > 0 || pay.Veilstone > 0)
             {
                 FactionEconomy.Add(em, f, pay, IncomeSource.Trade);
                 SimSignals.Gain(mp, f, pay);   // over the market
             }
-            c.Supplies = c.Iron = c.Veilstone = c.Veilsteel = 0f;
+            c.Supplies = c.Iron = c.Veilstone = 0f;
         }
 
         private static int Draw(int f, int r, float amount)

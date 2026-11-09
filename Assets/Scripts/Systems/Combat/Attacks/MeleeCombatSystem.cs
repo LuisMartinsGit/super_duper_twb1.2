@@ -153,9 +153,11 @@ namespace TheWaningBorder.Systems.Combat
         /// One melee hit, unchanged from the old loop body: the damage
         /// pipeline and its riders, then the cooldown reset. Managed (sect,
         /// ability and Feraldis hooks); called by OnUpdate between apply runs,
-        /// in query order, after this unit's stop-and-face.
+        /// in query order, after this unit's stop-and-face. Also a galloping
+        /// rider's strike in passing (AlanthorGallopSystem), which neither stops
+        /// nor takes the struck unit as its target.
         /// </summary>
-        private static void Swing(EntityManager em, EntityCommandBuffer ecb, in CombatLookups lk,
+        internal static void Swing(EntityManager em, EntityCommandBuffer ecb, in CombatLookups lk,
             Entity entity, Entity target, double elapsed, float flankMult, float frontArcCos)
         {
             var tgt = new Target { Value = target };

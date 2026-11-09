@@ -100,7 +100,7 @@ namespace TheWaningBorder.Data
 
         private static CostBlock CloneCost(CostBlock c)
             => c == null ? new CostBlock()
-                         : CostBlock.Of(c.Supplies, c.Iron, c.Veilstone, c.Veilsteel);
+                         : CostBlock.Of(c.Supplies, c.Iron, c.Veilstone);
 
         private static TechEffects CloneEffects(TechEffects e) => new TechEffects
         {

@@ -118,9 +118,8 @@ namespace TheWaningBorder.Systems.Work
                 //    the huts simply persist across age-up — no auto-destruction.
                 TransformGathererHutsForCulture(em, faction, culture);
                 TransformHutsForCulture(em, faction, culture);
-                // Alanthor do not mine veilstone: every Veilstone Mine becomes a Trading Outpost
-                // (docs/Design/Veilstone_Economy.md §3.1).
-                OutpostSites.ConvertMinesForCulture(em, faction, culture);
+                // Alanthor KEEP their Veilstone Mines (2026-11-09, decision 42):
+                // the Trading Outpost is a late research, not an age-up form.
                 // The Runai do not mine it either: their Veilstone Mines become
                 // Sanctuaries in place (docs/Design/Age_1_Runai.md §5.1).
                 TheWaningBorder.Entities.Sanctuary.ConvertMinesForCulture(em, faction, culture);

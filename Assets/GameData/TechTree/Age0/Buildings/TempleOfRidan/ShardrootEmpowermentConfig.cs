@@ -33,7 +33,6 @@ namespace TheWaningBorder.Entities
         public int enshrineSupplies;
         public int enshrineIron;
         public int enshrineVeilstone;
-        public int enshrineVeilsteel;
 
         /// <summary>The ascension countdown: sim seconds an enshrining Temple
         /// must stand for its faction to win the match. 0 = no ascension.</summary>
@@ -47,6 +46,6 @@ namespace TheWaningBorder.Entities
         public float[] countdownFinalWarnings;
 
         public TheWaningBorder.Core.Cost EnshrinePrice =>
-            TheWaningBorder.Core.Cost.Of(enshrineSupplies, enshrineIron, enshrineVeilstone, enshrineVeilsteel);
+            TheWaningBorder.Core.Cost.Of(enshrineSupplies, enshrineIron, enshrineVeilstone);
     }
 }

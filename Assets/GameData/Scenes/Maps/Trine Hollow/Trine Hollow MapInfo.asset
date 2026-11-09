@@ -27,7 +27,6 @@ MonoBehaviour:
   PlayerStartTeams: 
   IronDeposits: []
   VeilstoneNodes: []
-  VeilsteelNodes: []
   CurseNodes: []
   SupplyNodes: []
   RegionStamp: 367673167702EB4C

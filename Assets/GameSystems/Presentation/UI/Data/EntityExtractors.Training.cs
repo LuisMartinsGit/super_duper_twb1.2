@@ -90,7 +90,6 @@ namespace TheWaningBorder.UI.Data
                     Supplies = unit.cost.Supplies,
                     Iron = unit.cost.Iron,
                     Veilstone = unit.cost.Veilstone,
-                    Veilsteel = unit.cost.Veilsteel,
                 } : default;
 
                 // The time this building will ACTUALLY take, not the SO's base
@@ -132,7 +131,6 @@ namespace TheWaningBorder.UI.Data
                         Supplies  = UnityEngine.Mathf.RoundToInt(cost.Supplies  * mult),
                         Iron      = UnityEngine.Mathf.RoundToInt(cost.Iron      * mult),
                         Veilstone = UnityEngine.Mathf.RoundToInt(cost.Veilstone * mult),
-                        Veilsteel = UnityEngine.Mathf.RoundToInt(cost.Veilsteel * mult),
                     };
                     tooltip = string.Format(Loc.T("Returns at level {0}, with everything it had earned."), fellAt) + "\n" + tooltip;
                 }

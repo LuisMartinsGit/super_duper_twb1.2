@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelAxeheads
   m_EditorClassIdentifier: 
   id: Feraldis_VeilsteelAxeheads
-  displayName: Veilsteel Axeheads
+  displayName: Shard Axeheads
   role: Military
   effect: 
   desc: "Thrown weapon tier 3: ranged units deal +15% damage."
@@ -27,8 +27,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 180
-    Veilstone: 220
-    Veilsteel: 50
+    Veilstone: 320
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

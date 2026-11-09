@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: SanctumSystem
   m_EditorClassIdentifier: 
   secondsPerPoint: 60
-  veilsteelPerMinute: 3
+  veilstonePerMinute: 6
   cooldownCutPerSanctum: 0.1
   maxCooldownCut: 0.5
   dominionSeconds: 600

@@ -1,4 +1,4 @@
-﻿// ScenarioSetup.cs
+// ScenarioSetup.cs
 // Bootstrap for predefined combat scenarios
 
 using UnityEngine;
@@ -115,7 +115,13 @@ namespace TheWaningBorder.Bootstrap
             // showcase does) would leave units on an unbaked outer ring.
             if (GameSettings.ActiveScenario == ScenarioType.ShardrootTrial)
                 EnsureShowcaseTerrain(ShardrootTrialFieldSize);
+            // The gallop lanes are 160 m long; same reason as above.
+            if (GameSettings.ActiveScenario == ScenarioType.GallopTest)
+                EnsureShowcaseTerrain(GallopTestFieldSize);
         }
+
+        /// <summary>Side of the gallop test's square field, metres.</summary>
+        private const float GallopTestFieldSize = 240f;
 
         /// <summary>Side of the Shardroot trial's square field, metres.</summary>
         private const float ShardrootTrialFieldSize = 360f;
@@ -226,6 +232,9 @@ namespace TheWaningBorder.Bootstrap
                 case ScenarioType.ShardrootTrial:
                     SpawnShardrootTrial(em);
                     break;
+                case ScenarioType.GallopTest:
+                    SpawnGallopTest(em);
+                    break;
             }
 
             // Re-center the entire scenario onto player 1's designed start.
@@ -327,7 +336,7 @@ namespace TheWaningBorder.Bootstrap
         /// at L3 with the whole Survey + reinforcement research line) at the
         /// centre, pre-damaged, swarmed by a Red group ordered to attack-move
         /// onto it. Once the swarm chews the Guild below 50% HP it fires its
-        /// Veilsteel-Pylons Stop burst (the fully-upgraded tier) on everyone
+        /// Shard-Pylons Stop burst (the fully-upgraded tier) on everyone
         /// inside its gather radius, then goes on a 90 s cooldown while
         /// auto-repair (Iron reinforcements) ticks between hits. Lets the
         /// Slow/Stop cast trigger + VFX be reviewed live.
@@ -339,7 +348,7 @@ namespace TheWaningBorder.Bootstrap
         /// (numbered Lv0 rise), then every 5 s the driver plays the next
         /// step of the full Guild evolution — level dissolves AND each tech
         /// visual (Iron Reinforcements, survey tiers, Veilstone Walls,
-        /// Veilsteel Surveying) — while the camera orbits the building at
+        /// Shard Pylons) — while the camera orbits the building at
         /// half the RTS distance. See HutEvolutionDriver for the step list.
         /// The faction culture is deliberately left None so the finished hut
         /// stays on Lv0 until the driver plays each transition (and so no
@@ -394,7 +403,7 @@ namespace TheWaningBorder.Bootstrap
                 string[] guildTechs =
                 {
                     "IronSurveying1", "IronSurveying2", "IronSurveying3",
-                    "VeilstoneSurvey1", "VeilstoneSurvey2", "VeilsteelSurvey",
+                    "VeilstoneSurvey1", "VeilstoneSurvey2",
                     "IronReinforcements", "VeilstoneWalls",
                 };
                 foreach (var tech in guildTechs)
@@ -1049,7 +1058,7 @@ namespace TheWaningBorder.Bootstrap
                 (Faction.Green, -22f, new[] {
                     "Fortress", "Hut", "GatherersHut", "Barracks",
                     "ThessarasBazaar", "Runai_Outpost", "Runai_TradeHub",
-                    "Runai_Vault", "Runai_VeilsteelFoundry", "Runai_SiegeWorkshop" }),
+                    "Runai_Vault", "Runai_SiegeWorkshop" }),
                 (Faction.Yellow, 56f, new[] {
                     "Fortress", "Hut", "GatherersHut", "Barracks",
                     "FiendstoneKeep", "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
@@ -1974,6 +1983,9 @@ namespace TheWaningBorder.Bootstrap
             foreach (var trial in UnityEngine.Object.FindObjectsByType<ShardrootTrialDriver>(
                          FindObjectsSortMode.None))
                 trial.Shift(ox, oz);
+            foreach (var gallop in UnityEngine.Object.FindObjectsByType<GallopTestDriver>(
+                         FindObjectsSortMode.None))
+                gallop.Shift(ox, oz);
         }
 
         /// <summary>
@@ -2063,6 +2075,49 @@ namespace TheWaningBorder.Bootstrap
             _scenarioFocus = artifactPos;
         }
 
+        /// <summary>
+        /// Gallop test (docs/Design/Age_1_Alanthor.md § Galloping). Two lanes
+        /// side by side, the same in every way but one: Blue's riders have
+        /// Full Gallop researched, Green's do not. Each lane is a squad of
+        /// Cataphracts and Outriders at its west end and a Red sword block
+        /// standing (Defensive) across the middle, so every pass rides through
+        /// it. Blue and Green share a team; Red is the other team.
+        /// GallopTestDriver orders the passes, re-forms a Red block when one
+        /// is worn down, and logs both lanes.
+        /// </summary>
+        private static void SpawnGallopTest(EntityManager em)
+        {
+            const float LaneZ = 22f;
+            const float SquadX = -GallopTestDriver.LaneHalfLength;
+
+            EconomyBootstrap.EnsureFactionBanks(3);
+            foreach (var f in new[] { Faction.Blue, Faction.Green, Faction.Red })
+                FactionColors.SetFactionCulture(f, Cultures.Alanthor);
+            Alliances.SetTeam(Faction.Blue, 1);
+            Alliances.SetTeam(Faction.Green, 1);
+            Alliances.SetTeam(Faction.Red, 2);
+
+            var lanes = new[] { (Faction.Blue, LaneZ), (Faction.Green, -LaneZ) };
+            foreach (var (rider, z) in lanes)
+            {
+                GallopTestDriver.SpawnSquad(em, rider, new float3(SquadX, 0f, z));
+                GallopTestDriver.SpawnBlock(em, new float3(0f, 0f, z));
+            }
+
+            // Blue only: the research IS the difference between the lanes.
+            // Granted after the riders exist, so the research event stamps them
+            // exactly as a finished research does in a match.
+            var research = FactionResearchState.Instance;
+            if (research == null)
+                Debug.LogError("[GallopTest] no FactionResearchState — Blue will not gallop.");
+            research?.CompleteResearch(Faction.Blue, "WarHorn");
+            research?.CompleteResearch(Faction.Blue, "FullGallop");
+
+            var driverGo = new GameObject("GallopTestDriver");
+            driverGo.AddComponent<GallopTestDriver>().Configure(LaneZ);
+            _scenarioFocus = float3.zero;
+        }
+
         private static void SpawnArrowTrails(EntityManager em)
         {
             // Authored around origin; RecenterScenario moves the whole thing
@@ -2089,7 +2144,7 @@ namespace TheWaningBorder.Bootstrap
                 (Faction.Green,  "VeilstoneTippedArrows",
                  "Veilstone-tipped", "dark-magic tip + hit", new Color(0.45f, 0.72f, 1.00f)),
                 (Faction.Yellow, "ShardTippedArrows",
-                 "Shard-tipped (Veilsteel)", "electric tip + hit", new Color(1.00f, 0.85f, 0.40f)),
+                 "Shard-tipped", "electric tip + hit", new Color(1.00f, 0.85f, 0.40f)),
             };
 
             // Shooters together, dummies opposite. Alliances.AreHostile is the
@@ -2160,8 +2215,8 @@ namespace TheWaningBorder.Bootstrap
                     lane.Title, lane.Detail, lane.Tint);
             }
 
-            Debug.Log("[ArrowTrails] 4 lanes: Stone / Iron / Veilstone / Shard(Veilsteel), shooters at " +
-                      "1x / 2x / 3x the shot. Hits show on the Veilstone and Veilsteel lanes only — " +
+            Debug.Log("[ArrowTrails] 4 lanes: Stone / Iron / Veilstone / Shard, shooters at " +
+                      "1x / 2x / 3x the shot. Hits show on the Veilstone and Shard lanes only — " +
                       "Stone and Iron arrows have no hit effect by design.");
         }
 

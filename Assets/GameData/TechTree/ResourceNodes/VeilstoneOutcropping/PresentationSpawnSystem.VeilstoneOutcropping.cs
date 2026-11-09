@@ -1,7 +1,7 @@
 // PresentationSpawnSystem.VeilstoneOutcropping.cs
 // Veilstone outcropping (mineable crystal crop) visual: gem-cluster wrapper
 // prefab cache + loot-pile spawn + selection/animator tail. The prefab cache
-// is also read by the Large-node well and veilsteel-deposit visuals.
+// is also read by the Large-node well visual.
 // Co-located with the resource per the TechTree convention.
 
 using System.Collections.Generic;

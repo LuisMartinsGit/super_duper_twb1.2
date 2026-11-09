@@ -67,7 +67,7 @@ namespace TheWaningBorder.Abilities
                 if (f == me || !Alliances.AreHostile(me, f)) continue;
                 if (!FactionEconomy.TryGetResources(em, f, out var bank)) continue;
                 var take = Cost.Of((int)(bank.Supplies * share), (int)(bank.Iron * share),
-                    (int)(bank.Veilstone * share), (int)(bank.Veilsteel * share));
+                    (int)(bank.Veilstone * share));
                 if (take.IsZero || !FactionEconomy.Spend(em, f, take)) continue;
                 FactionEconomy.Add(em, me, take, IncomeSource.Loot);
             }

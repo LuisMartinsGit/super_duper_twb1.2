@@ -978,12 +978,10 @@ namespace TheWaningBorder.Core.Commands.Issuing
             if (_em.HasComponent<ShardrootPickupTag>(target))
                 return TargetType.Pickup;
 
-            // Check if it's a resource node (iron mine, veilstone node, or veilsteel node)
+            // Check if it's a resource node (iron mine or veilstone node)
             if (_em.HasComponent<IronMineTag>(target))
                 return TargetType.Resource;
             if (_em.HasComponent<VeilstoneOutcroppingTag>(target))
-                return TargetType.Resource;
-            if (_em.HasComponent<VeilsteelDepositTag>(target))
                 return TargetType.Resource;
 
             // Check faction

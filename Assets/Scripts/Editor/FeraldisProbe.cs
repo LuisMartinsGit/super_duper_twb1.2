@@ -109,7 +109,7 @@ namespace TheWaningBorder.EditorTools
                 var fac = (Faction)f;
                 var sb = Line(fac);
                 if (FactionEconomy.TryGetResources(em, fac, out var r))
-                    sb.Append($"S{r.Supplies} I{r.Iron} V{r.Veilstone} St{r.Veilsteel} RP{FactionReligionPointsHelper.GetBalance(em, fac)} ");
+                    sb.Append($"S{r.Supplies} I{r.Iron} V{r.Veilstone} RP{FactionReligionPointsHelper.GetBalance(em, fac)} ");
                 sb.Append($"slaves {FeraldisEconomy.SlaveCount(em, fac)}/{FeraldisEconomy.SlaveCap(em, fac)} ");
             }
 

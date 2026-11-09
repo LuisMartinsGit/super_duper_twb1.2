@@ -5,7 +5,7 @@
 //
 //   * one Religion Point every `secondsPerPoint` (straight to the balance,
 //     not through the points ladder)
-//   * a veilsteel trickle, `veilsteelPerMinute` (a source nobody forges)
+//   * a veilstone trickle, `veilstonePerMinute`
 //   * sect powers recharge faster: CooldownScale, read by
 //     SectActivePowerSystem.EffectiveCooldown — the cast and the tooltip
 //
@@ -55,9 +55,9 @@ namespace TheWaningBorder.Systems.Economy
         private SimCadence.Periodic _tick;
         private const float TickSeconds = 1f;
 
-        /// <summary>Fractional veilsteel carry per faction; match state, reset
+        /// <summary>Fractional veilstone carry per faction; match state, reset
         /// per match (see TerritoryIncomeSystem's carry for why).</summary>
-        private readonly float[] _carryVeilsteel = new float[9];
+        private readonly float[] _carryVeilstone = new float[9];
         private int _epoch = -1;
 
         private static readonly ComponentType[] QT_Dominion = { ComponentType.ReadWrite<SanctumDominion>() };
@@ -69,14 +69,14 @@ namespace TheWaningBorder.Systems.Economy
             if (_epoch != SimCadence.Epoch)
             {
                 _epoch = SimCadence.Epoch;
-                System.Array.Clear(_carryVeilsteel, 0, _carryVeilsteel.Length);
+                System.Array.Clear(_carryVeilstone, 0, _carryVeilstone.Length);
             }
 
             var em = EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
             if (_tick.Due(dt, TickSeconds))
             {
-                PayVeilsteel(em, TickSeconds);
+                PayVeilstone(em, TickSeconds);
                 TickDominion(em, TickSeconds);
             }
             if (_points.Due(dt, Cfg.secondsPerPoint)) PayPoints(em);
@@ -120,19 +120,21 @@ namespace TheWaningBorder.Systems.Economy
             }
         }
 
-        private void PayVeilsteel(EntityManager em, float seconds)
+        /// <summary>A held Sanctum's crystal trickle (veilstone since 2026-11-09,
+        /// decision 42 — it paid veilsteel).</summary>
+        private void PayVeilstone(EntityManager em, float seconds)
         {
-            float rate = Cfg.veilsteelPerMinute;
+            float rate = Cfg.veilstonePerMinute;
             if (rate <= 0f) return;
             for (int f = 0; f < 8; f++)
             {
                 int n = HeldBy((Faction)f);
                 if (n <= 0) continue;
-                _carryVeilsteel[f] += n * rate * seconds / 60f;
-                int whole = Mathf.FloorToInt(_carryVeilsteel[f]);
+                _carryVeilstone[f] += n * rate * seconds / 60f;
+                int whole = Mathf.FloorToInt(_carryVeilstone[f]);
                 if (whole <= 0) continue;
-                _carryVeilsteel[f] -= whole;
-                FactionEconomy.Add(em, (Faction)f, new Cost { Veilsteel = whole }, IncomeSource.Other);
+                _carryVeilstone[f] -= whole;
+                FactionEconomy.Add(em, (Faction)f, new Cost { Veilstone = whole }, IncomeSource.Other);
             }
         }
 

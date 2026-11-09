@@ -351,7 +351,7 @@ namespace TheWaningBorder.AI
                     // extracting from it, so the extraction buildings are not a
                     // late-game optimisation any more.
                     EnsureExtractors(em, brain.Owner, now);
-                    ManageTradingOutposts(em, brain.Owner, now);
+                    ManageExtractorStops(em, brain.Owner, now);
                     break;
                 }
                 case 5:

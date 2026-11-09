@@ -248,11 +248,10 @@ namespace TheWaningBorder.AI
             }
 
             // THE OUTPOSTS WORK FOR THE PRICE (2026-11-02, Game_AI.md § 6l.2).
-            // Red (YielLymwerra, 2026-11-02) sat at 208 veilsteel for 18
-            // minutes under this save: the Trading Outposts stop forging past
-            // outpostVeilsteelTarget, and nothing told them the bind wanted
-            // 800. The price's shortfalls are a military shortage, so the
-            // outpost planner forges veilsteel and buys veilstone toward it.
+            // Red (YielLymwerra, 2026-11-02) sat short of the price for 18
+            // minutes under this save: nothing told the economy the bind
+            // wanted 800. The price's shortfalls are a military shortage, so
+            // the outpost planner works toward it.
             AIBudget.NoteMilitaryShort(em, faction, price);
 
             // REACHABLE OR NOT. The strict hold (every purchase waits) is
@@ -262,7 +261,7 @@ namespace TheWaningBorder.AI
             // is a SOFT save — the budget's duty cycle still banks toward it,
             // but the army, research and buildings go on. Red's bank reached
             // 25k supplies with a 30-man army because nothing was allowed to
-            // spend, on a price its zero veilsteel income could never reach.
+            // spend, on a price its income could never reach.
             var cfg = AIShardroot.Cfg;
             float eta = ShardrootPriceEta(em, faction, price, out string slowest);
             bool strict = cfg.saveStrictEtaSeconds > 0f && eta <= cfg.saveStrictEtaSeconds
@@ -283,14 +282,14 @@ namespace TheWaningBorder.AI
                     ? $"the {road} price is within reach ({EtaText(eta)}) — a strict save on research and buildings " +
                       "(the army never waits): the bearer waits at home"
                     : $"the {road} price is out of reach ({slowest}) — a soft save: research and buildings " +
-                      "go on, the outposts forge for it");
+                      "go on");
             }
             if (!_shardrootSaveLog.TryGetValue(key, out float next) || now >= next)
             {
                 _shardrootSaveLog[key] = now + 60f;
                 AILogger.Log(faction, "SHARDROOT",
                     $"saving for the {road} price " +
-                    $"({price.Supplies}s/{price.Iron}i/{price.Veilstone}v/{price.Veilsteel}vs) — " +
+                    $"({price.Supplies}s/{price.Iron}i/{price.Veilstone}v) — " +
                     (strict ? $"strict, {EtaText(eta)}; the bearer waits at home"
                             : $"soft ({slowest}); the bearer waits at home"));
             }
@@ -312,7 +311,6 @@ namespace TheWaningBorder.AI
             Slowest(price.Supplies - bank.Supplies, AIBudget.ResSupplies, "supplies", faction, ref eta, ref slowest);
             Slowest(price.Iron - bank.Iron, AIBudget.ResIron, "iron", faction, ref eta, ref slowest);
             Slowest(price.Veilstone - bank.Veilstone, AIBudget.ResVeilstone, "veilstone", faction, ref eta, ref slowest);
-            Slowest(price.Veilsteel - bank.Veilsteel, AIBudget.ResVeilsteel, "veilsteel", faction, ref eta, ref slowest);
             return eta;
         }
 

@@ -58,8 +58,7 @@ namespace TheWaningBorder.Economy
             return Cost.Of(
                 supplies:  (int)(baseCost.Supplies  * CostMultiplier),
                 iron:      (int)(baseCost.Iron      * CostMultiplier),
-                veilstone: (int)(baseCost.Veilstone * CostMultiplier),
-                veilsteel: (int)(baseCost.Veilsteel * CostMultiplier));
+                veilstone: (int)(baseCost.Veilstone * CostMultiplier));
         }
     }
 }

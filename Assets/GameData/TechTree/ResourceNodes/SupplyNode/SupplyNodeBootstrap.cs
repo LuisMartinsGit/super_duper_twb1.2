@@ -7,7 +7,7 @@
 // (docs/Design/Regions.md §4) — so the count is a balance guarantee, not a
 // cosmetic one: EVERY territory carries 2 supply nodes, and a HOME territory
 // (one holding a player start) carries 4. Authored markers are honoured
-// first and only the shortfall is seeded, the same contract the veilsteel
+// first and only the shortfall is seeded, the same contract the ore
 // coverage pass established, so a hand-built map keeps its composition and
 // an unauthored map is still playable.
 
@@ -187,7 +187,7 @@ namespace TheWaningBorder.Bootstrap
                 if (RegionMap.RegionAt(px, pz) != region) continue;
                 if (grid != null)
                 {
-                    // Same passability idiom the veilsteel top-up uses, so the
+                    // Same passability idiom the ore top-up uses, so the
                     // two passes agree about what counts as standable ground.
                     var cell = grid.WorldToCell(new float3(px, 0f, pz));
                     if (cell.x < 0 || cell.x >= grid.Width

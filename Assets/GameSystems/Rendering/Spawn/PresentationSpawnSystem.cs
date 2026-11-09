@@ -1,4 +1,4 @@
-﻿// PresentationSpawnSystem.cs
+// PresentationSpawnSystem.cs
 // Spawns and syncs visual GameObjects for ECS entities
 // Per-entity builders live as partials in their entity folders (the
 // Vault of Almierra, Border LargeNode, Alanthor Wall set, and the three
@@ -57,7 +57,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
         // Resources (procedurally generated)
         { 402, "Procedural/IronDeposit" },                 // IronDeposit (generated at runtime)
-        { 403, "Procedural/VeilsteelDeposit" },            // Veilsteel "Sharp Crystals" node (generated at runtime)
 
         // Alanthor Walls (procedurally generated)
         { 550, "Procedural/WallHub" },                      // Alanthor Wall Hub (generated at runtime)
@@ -581,11 +580,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         if (presentationId == TheWaningBorder.Entities.SupplyNode.PresentationID)
         {
             var go = CreateProceduralSupplyNode(pos, entity);
-            return go;
-        }
-        if (presentationId == TheWaningBorder.Bootstrap.VeilsteelDepositBootstrap.VeilsteelDepositPresentationId)
-        {
-            var go = CreateProceduralVeilsteelDeposit(pos, entity);
             return go;
         }
         if (presentationId == TheWaningBorder.Entities.SanctumCrystal.PresentationID)

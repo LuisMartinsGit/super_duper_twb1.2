@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: VeilsteelShot
   m_EditorClassIdentifier: 
   id: Runai_VeilsteelShot
-  displayName: Veilsteel Shot
+  displayName: Shard Shot
   role: Military
   effect: 
   desc: "Munition tier 3: +20% damage."
@@ -26,8 +26,7 @@ MonoBehaviour:
   cost:
     Supplies: 0
     Iron: 220
-    Veilstone: 220
-    Veilsteel: 40
+    Veilstone: 300
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

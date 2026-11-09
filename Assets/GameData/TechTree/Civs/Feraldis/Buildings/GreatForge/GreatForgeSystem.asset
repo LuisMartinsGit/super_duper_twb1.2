@@ -37,10 +37,9 @@ MonoBehaviour:
   - 2
   soulforgeSlavesPerMinute: 1
   soulforgeVeilstonePerSlave: 90
-  veilsteelInVeilstone: 50
-  veilsteelInIron: 25
-  veilsteelOut: 10
-  exportInVeilsteel: 50
+  smeltInIron: 60
+  smeltOutVeilstone: 30
+  exportInVeilstone: 100
   exportOutIron: 300
   crewSpeedAtFull: 0.5
   bellowsTechs:

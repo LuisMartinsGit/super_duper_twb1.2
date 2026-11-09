@@ -134,7 +134,7 @@ namespace TheWaningBorder.Data
                // The Runai redesign (docs/Design/Age_1_Runai.md §4.7, 2026-10-13).
                || buildingId == "Runai_Outpost" || buildingId == "Runai_TradeHub"
                || buildingId == "Runai_TradingPost" || buildingId == "ThessarasBazaar"
-               || buildingId == "Runai_Vault" || buildingId == "Runai_VeilsteelFoundry";
+               || buildingId == "Runai_Vault";
 
         /// <summary>
         /// True when a faction of <paramref name="factionCulture"/> may place

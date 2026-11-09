@@ -36,7 +36,6 @@ MonoBehaviour:
   supportSupplies: 250
   supportIron: 120
   supportVeilstone: 60
-  supportVeilsteel: 25
   armySmallRp: 5
   armyMediumRp: 10
   armyLargeRp: 20

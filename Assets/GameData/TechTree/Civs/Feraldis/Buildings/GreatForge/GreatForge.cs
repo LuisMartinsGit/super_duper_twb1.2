@@ -145,7 +145,7 @@ namespace TheWaningBorder.Entities
         public static string RecipeName(ForgeRecipe r) => r switch
         {
             ForgeRecipe.Soulforge => "Soulforge",
-            ForgeRecipe.Veilsteel => "Veilsteel",
+            ForgeRecipe.Smelt => "Smelt",
             ForgeRecipe.ArmsExport => "Arms Export",
             _ => "Hold",
         };

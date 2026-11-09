@@ -1415,7 +1415,6 @@ namespace TheWaningBorder.AI
             if (res.Supplies  < cost.Supplies)  s += $", supplies {res.Supplies}/{cost.Supplies}";
             if (res.Iron      < cost.Iron)      s += $", iron {res.Iron}/{cost.Iron}";
             if (res.Veilstone < cost.Veilstone) s += $", veilstone {res.Veilstone}/{cost.Veilstone}";
-            if (res.Veilsteel < cost.Veilsteel) s += $", veilsteel {res.Veilsteel}/{cost.Veilsteel}";
             return s != null ? "short of " + s.Substring(2) : "reserved savings";
         }
 

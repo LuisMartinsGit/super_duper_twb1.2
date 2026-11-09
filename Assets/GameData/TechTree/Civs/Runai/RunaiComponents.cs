@@ -33,13 +33,13 @@ public struct SanctuaryState : IComponentData
 /// </summary>
 public struct RunaiDepot : IComponentData
 {
-    public float Supplies, Iron, Veilstone, Veilsteel;
+    public float Supplies, Iron, Veilstone;
     /// <summary>Counts down to the next caravan replacement.</summary>
     public float CaravanTimer;
     /// <summary>Counts down to the next escort replacement.</summary>
     public float WarriorTimer;
 
-    public float Total => Supplies + Iron + Veilstone + Veilsteel;
+    public float Total => Supplies + Iron + Veilstone;
 }
 
 // ── Units ───────────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ public struct RunaiCaravan : IComponentData
 {
     public Entity Depot;
     public Entity Market;
-    public float Supplies, Iron, Veilstone, Veilsteel;
+    public float Supplies, Iron, Veilstone;
     public CaravanLeg Leg;
     /// <summary>Seconds spent at the depot on the current load.</summary>
     public float Waited;
@@ -79,7 +79,7 @@ public struct RunaiCaravan : IComponentData
     public byte OffRoad;
     public byte LegSeen;
 
-    public float Cargo => Supplies + Iron + Veilstone + Veilsteel;
+    public float Cargo => Supplies + Iron + Veilstone;
 }
 
 public enum EscortKind : byte { Guard = 0, Archer = 1, Rider = 2 }

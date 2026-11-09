@@ -107,7 +107,6 @@ namespace TheWaningBorder.Entities
                 ["ThessarasBazaar"]    = new BuildingRecipe(ThessarasBazaar.Create, ThessarasBazaar.Create, 352),
                 ["Runai_SiegeWorkshop"] = new BuildingRecipe(RunaiSiegeWorkshop.Create, RunaiSiegeWorkshop.Create, 353),
                 ["Runai_Vault"]        = new BuildingRecipe(RunaiVault.Create, RunaiVault.Create, 365),
-                ["Runai_VeilsteelFoundry"] = new BuildingRecipe(VeilsteelFoundry.Create, VeilsteelFoundry.Create, 366),
                 // The 2026-10-13 redesign (docs/Design/Age_1_Runai.md): the
                 // landmark, the mounted trainer and the Sanctuary.
                 ["ThessarasCrossing"]    = new BuildingRecipe(ThessarasCrossing.Create, ThessarasCrossing.Create, ThessarasCrossing.PresentationID),

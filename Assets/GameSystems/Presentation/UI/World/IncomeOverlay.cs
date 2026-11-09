@@ -131,8 +131,8 @@ namespace TheWaningBorder.UI.World
                     ? Loc("Sanctum") + ":  <color=#C9A8FF>+1</color> " + Loc("Religion Point") + " <size=75%>/min</size>"
                     : null;
                 _extraLines = 0;
-                if (TerritoryIncomeSystem.TerritoryTradeForDisplay(em, t, me, out var sold, out var bought))
-                    _extraLine = TradeLines(_extraLine, sold, bought, out _extraLines);
+                if (TerritoryIncomeSystem.TerritoryTradeForDisplay(em, t, me, out var bought))
+                    _extraLine = TradeLines(_extraLine, bought, out _extraLines);
                 else if (_extraLine != null) _extraLines = 1;
                 Show(_territory, RegionMap.NameOf(t), y, centre, Loc("Nothing — build on it"));
                 _extraLine = null;
@@ -166,7 +166,6 @@ namespace TheWaningBorder.UI.World
             lines += Line(ResourceIcons.Supplies, "S", y.Supplies);
             lines += Line(ResourceIcons.Iron, "Fe", y.Iron);
             lines += Line(ResourceIcons.Veilstone, "Vs", y.Veilstone);
-            lines += Line(ResourceIcons.Veilsteel, "St", y.Veilsteel);
             if (_extraLine != null)
             {
                 if (_sb.Length > 0) _sb.Append('\n');
@@ -207,10 +206,11 @@ namespace TheWaningBorder.UI.World
 
         /// <summary>
         /// The territory's Trading Outposts: a "Trading Outposts" header, then
-        /// what they sell out of the bank (red) and what that buys (green).
-        /// Appended after <paramref name="head"/> (the Sanctum line, or null).
+        /// what they trickle (green) — never drawn from the nodes
+        /// (Veilstone_Economy.md §3.1, 2026-11-09). Appended after
+        /// <paramref name="head"/> (the Sanctum line, or null).
         /// </summary>
-        private string TradeLines(string head, TerritoryYield sold, TerritoryYield bought, out int count)
+        private string TradeLines(string head, TerritoryYield bought, out int count)
         {
             var saved = _sb.ToString();
             _sb.Clear();
@@ -219,14 +219,9 @@ namespace TheWaningBorder.UI.World
             if (_sb.Length > 0) _sb.Append('\n');
             _sb.Append("<color=#E8C77A>").Append(Loc("Trading Outposts")).Append("</color>");
             count++;
-            count += Line(ResourceIcons.Supplies, "S", -sold.Supplies, Loc("selling"));
-            count += Line(ResourceIcons.Iron, "Fe", -sold.Iron, Loc("selling"));
-            count += Line(ResourceIcons.Veilstone, "Vs", -sold.Veilstone, Loc("selling"));
-            count += Line(ResourceIcons.Veilsteel, "St", -sold.Veilsteel, Loc("selling"));
-            count += Line(ResourceIcons.Supplies, "S", bought.Supplies, Loc("bought"));
-            count += Line(ResourceIcons.Iron, "Fe", bought.Iron, Loc("bought"));
-            count += Line(ResourceIcons.Veilstone, "Vs", bought.Veilstone, Loc("bought"));
-            count += Line(ResourceIcons.Veilsteel, "St", bought.Veilsteel, Loc("bought"));
+            count += Line(ResourceIcons.Supplies, "S", bought.Supplies);
+            count += Line(ResourceIcons.Iron, "Fe", bought.Iron);
+            count += Line(ResourceIcons.Veilstone, "Vs", bought.Veilstone);
             string s = _sb.ToString();
             _sb.Clear().Append(saved);
             return s;

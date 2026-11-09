@@ -321,7 +321,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 return TheWaningBorder.World.Regions.PlacementRefusal.Overlap;
 
             // AN EXTRACTOR STANDS ON ITS NODE (docs/Design/Regions.md §4) —
-            // and the iron / veilstone / veilsteel nodes are ObstacleTag
+            // and the iron / veilstone nodes are ObstacleTag
             // entities that also block their footprint cells, so the obstacle
             // and passability checks below refused the ONE placement the
             // design requires. Diagnosed from a headless batch: six 30-minute

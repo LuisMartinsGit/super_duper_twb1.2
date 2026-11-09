@@ -16,7 +16,7 @@
 //   Stockpile  the bank
 //
 // Every price is converted with the one resource ladder on the asset
-// (supplies / iron / veilstone / veilsteel). A defeated faction scores 0.
+// (supplies / iron / veilstone). A defeated faction scores 0.
 // Kills, deaths, razed buildings and the tech count are still counted for
 // the readers but feed no part of the Score.
 
@@ -167,7 +167,7 @@ namespace TheWaningBorder.Systems.Core
                 {
                     var r = em.GetComponentData<FactionResources>(bank);
                     stock = r.Supplies * cfg.weightSupplies + r.Iron * cfg.weightIron
-                          + r.Veilstone * cfg.weightVeilstone + r.Veilsteel * cfg.weightVeilsteel;
+                          + r.Veilstone * cfg.weightVeilstone;
                 }
 
                 // ── Shown, not scored ──
@@ -233,10 +233,10 @@ namespace TheWaningBorder.Systems.Core
         private static float Points(MatchScoreSystemConfig cfg, CostBlock c)
             => c == null ? 0f
              : c.Supplies * cfg.weightSupplies + c.Iron * cfg.weightIron
-             + c.Veilstone * cfg.weightVeilstone + c.Veilsteel * cfg.weightVeilsteel;
+             + c.Veilstone * cfg.weightVeilstone;
 
         private static float Points(MatchScoreSystemConfig cfg, Cost c)
             => c.Supplies * cfg.weightSupplies + c.Iron * cfg.weightIron
-             + c.Veilstone * cfg.weightVeilstone + c.Veilsteel * cfg.weightVeilsteel;
+             + c.Veilstone * cfg.weightVeilstone;
     }
 }

@@ -1,4 +1,4 @@
-﻿// LockstepStateHash.cs
+// LockstepStateHash.cs
 // The simulation checksum, broken out by SUBSYSTEM and by FACTION.
 //
 // WHY A BREAKDOWN AND NOT ONE NUMBER
@@ -306,7 +306,6 @@ namespace TheWaningBorder.Multiplayer
                     Mix(ref bh, (uint)bank.Supplies);
                     Mix(ref bh, (uint)bank.Iron);
                     Mix(ref bh, (uint)bank.Veilstone);
-                    Mix(ref bh, (uint)bank.Veilsteel);
                     total += bh;
                     Mix(ref hBank, bh);
 

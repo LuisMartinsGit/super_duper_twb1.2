@@ -78,8 +78,6 @@ namespace TheWaningBorder.Systems.World
         /// <summary>Per Guild, per completed Veilstone Survey tier, veilstone a minute.</summary>
         public float guildSurveyVeilstonePerTier;
 
-        /// <summary>Per Guild, with Veilsteel Survey done, veilsteel a minute.</summary>
-        public float guildSurveyVeilsteelPerTier;
 
         /// <summary>Per hut (Alanthor Guild / Runai Trading Post), per
         /// completed Supply Survey tier, supplies a minute — scaled by

@@ -11,8 +11,8 @@ public enum ForgeRecipe : byte
 {
     Hold = 0,
     Soulforge = 1,   // slaves → veilstone
-    Veilsteel = 2,   // veilstone + iron → veilsteel
-    ArmsExport = 3,  // veilsteel → iron
+    Smelt = 2,       // iron → veilstone (the Veilsteel bay until 2026-11-09, decision 42)
+    ArmsExport = 3,  // veilstone → iron
 }
 
 /// <summary>

@@ -555,6 +555,13 @@ namespace TheWaningBorder.UI.Data
                     if (building.id == "TempleOfRidan" && templeCount >= TempleCap)
                         lockReason = Loc.T("Already built - one Temple per faction.");
 
+                    // The Trading Outpost is a late research (Veilstone_Economy.md
+                    // §3.1, 2026-11-09): shown, greyed, until Trade Charters.
+                    if (building.id == TheWaningBorder.Entities.TradingOutpost.BuildingId
+                        && !em.Equals(default(EntityManager))
+                        && !TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction))
+                        lockReason = Loc.T("Research Trade Charters at the Fortress (level 3) first.");
+
                     // Sect buildings (Religion.md §3.2): shown for every sect of
                     // this culture's cluster that the edition offers (and for
                     // any other sect once adopted); adopt the sect to unlock it,
@@ -650,7 +657,7 @@ namespace TheWaningBorder.UI.Data
                             + (requirement != null ? "\n" + requirement : "");
                     }
 
-                    // A Trading Outpost's price climbs per outcrop
+                    // A Trading Outpost's price climbs per node
                     // (docs/Design/Veilstone_Economy.md §3.1): the button
                     // shows the first post's price and names the ramp; the
                     // exact price is charged at the side it snaps to.
@@ -708,9 +715,9 @@ namespace TheWaningBorder.UI.Data
             return actions;
         }
 
-        /// <summary>"Up to 4 per outcrop, one per side. Each further post
-        /// beside the same outcrop costs x1.5 / x2.25 / x3.5 (build and
-        /// level-ups)" — read from TradingOutpostSystem.asset.</summary>
+        /// <summary>"Up to 4 per node, one per side. Each further post beside
+        /// the same node costs x1.5 / x2.25 / x3.5 to build" — read from
+        /// TradingOutpostSystem.asset.</summary>
         internal static string OutpostRampLine()
         {
             var m = TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.outcropRampMultipliers;
@@ -718,10 +725,10 @@ namespace TheWaningBorder.UI.Data
             if (m != null)
                 for (int i = 1; i < m.Length && i < TheWaningBorder.Entities.TradingOutpost.SideCount; i++)
                     sb.Append(i > 1 ? " / " : "").Append("x").Append(m[i].ToString("0.##"));
-            string line = string.Format(Loc.T("Stands on a free side of a veilstone outcrop, up to {0} per outcrop."),
+            string line = string.Format(Loc.T("Stands on a free side of a supply, iron or veilstone node, up to {0} per node. Trickles that node's resource without drawing on it, for as long as the node lives."),
                 TheWaningBorder.Entities.TradingOutpost.SideCount);
             if (sb.Length > 0)
-                line += " " + string.Format(Loc.T("Each further post beside the same outcrop costs {0} (build and level-ups); a new outcrop starts at base price."),
+                line += " " + string.Format(Loc.T("Each further post beside the same node costs {0} to build; a new node starts at base price."),
                     sb.ToString());
             return line;
         }

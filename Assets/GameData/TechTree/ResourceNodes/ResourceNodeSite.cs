@@ -2,7 +2,7 @@
 // Where a resource node may stand, and what may stand on one.
 // docs/Design/Build_Grid.md §3 (2026-09-29).
 //
-// Two rules, one footprint. Every node — supply, iron, veilstone, veilsteel —
+// Two rules, one footprint. Every node — supply, iron, veilstone —
 // is a 2 x 2-cell (4 x 4 m) square on the build grid:
 //
 //   1. A NODE SITE is legal only when that whole square is buildable ground
@@ -48,9 +48,7 @@ namespace TheWaningBorder.Entities
             { ComponentType.ReadOnly<IronMineTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Veilstone =
             { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>() };
-        static readonly ComponentType[] QT_Veilsteel =
-            { ComponentType.ReadOnly<VeilsteelDepositTag>(), ComponentType.ReadOnly<LocalTransform>() };
-        static CachedEntityQuery QC_Supply, QC_Iron, QC_Veilstone, QC_Veilsteel;
+        static CachedEntityQuery QC_Supply, QC_Iron, QC_Veilstone;
 
         /// <summary>Grid offsets (in cells) nearest-first, ties broken by z
         /// then x — the one search order every peer walks.</summary>
@@ -69,8 +67,7 @@ namespace TheWaningBorder.Entities
         {
             return OverlapsKind(em, ref QC_Supply,    QT_Supply,    min, max, exempt)
                 || OverlapsKind(em, ref QC_Iron,      QT_Iron,      min, max, exempt)
-                || OverlapsKind(em, ref QC_Veilstone, QT_Veilstone, min, max, exempt)
-                || OverlapsKind(em, ref QC_Veilsteel, QT_Veilsteel, min, max, exempt);
+                || OverlapsKind(em, ref QC_Veilstone, QT_Veilstone, min, max, exempt);
         }
 
         static bool OverlapsKind(EntityManager em, ref CachedEntityQuery qc, ComponentType[] qt,
@@ -110,7 +107,6 @@ namespace TheWaningBorder.Entities
             Collect(em, ref QC_Supply,    QT_Supply,    nodes);
             Collect(em, ref QC_Iron,      QT_Iron,      nodes);
             Collect(em, ref QC_Veilstone, QT_Veilstone, nodes);
-            Collect(em, ref QC_Veilsteel, QT_Veilsteel, nodes);
 
             var oq = BuildCommandHelper.ObstacleQuery(em);
             var obsPos = oq.ToComponentDataArray<LocalTransform>(Allocator.Temp);

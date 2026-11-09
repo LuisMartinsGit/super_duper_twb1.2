@@ -108,7 +108,6 @@ namespace TheWaningBorder.Core.Maps
         }
         public Vector2[] IronDeposits = new Vector2[0];
         public Vector2[] VeilstoneNodes = new Vector2[0];
-        public Vector2[] VeilsteelNodes = new Vector2[0];
         public Vector2[] CurseNodes = new Vector2[0];
 
         /// <summary>Supply nodes — the ground a Gatherer's Hut must be

@@ -406,7 +406,6 @@ namespace TheWaningBorder.AI
                 Supplies  = block.Supplies,
                 Iron      = block.Iron,
                 Veilstone = block.Veilstone,
-                Veilsteel = block.Veilsteel,
             };
         }
 

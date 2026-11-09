@@ -23,7 +23,7 @@
 // - FoW dimming + entity blips, drawn into one RawImage overlay at 10 Hz:
 //   faction-colored units (enemies only while visible), buildings (visible
 //   solid / revealed ghost), rocks, iron deposits, veilstone outcroppings,
-//   the veilsteel node, ritual markers and glow pickups (both fog-ignorant
+//   ritual markers and glow pickups (both fog-ignorant
 //   by spec).
 // - The main camera's ground footprint as a white 4-line rectangle,
 //   updated every frame.
@@ -101,7 +101,6 @@ namespace TheWaningBorder.UI.Ingame
         private static readonly Color32 RockBlip     = new Color32(97, 92, 84, 255);
         private static readonly Color32 IronBlip     = new Color32(140, 82, 38, 255);
         private static readonly Color32 VeilstoneBlip = new Color32(140, 64, 217, 255);
-        private static readonly Color32 VeilsteelBlip = new Color32(199, 184, 235, 255);
         private static readonly Color32 ShardrootBlip     = new Color32(255, 217, 77, 255);
         private static readonly Color32 RitualConversionBlip = new Color32(115, 255, 140, 255);
         private static readonly Color32 RitualExtractionBlip = new Color32(255, 115, 51, 255);
@@ -139,11 +138,6 @@ namespace TheWaningBorder.UI.Ingame
             ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
         };
-        private static readonly ComponentType[] VeilsteelQueryTypes =
-        {
-            ComponentType.ReadOnly<VeilsteelDepositTag>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-        };
         private static readonly ComponentType[] RitualQueryTypes =
         {
             ComponentType.ReadOnly<ActiveRitualOnNode>(),
@@ -167,7 +161,7 @@ namespace TheWaningBorder.UI.Ingame
         };
 
         private CachedEntityQuery _unitsQ, _buildingsQ, _obstaclesQ,
-                                  _ironQ, _veilstoneQ, _veilsteelQ,
+                                  _ironQ, _veilstoneQ,
                                   _ritualsQ, _shardrootQ, _shardrootEmbeddedQ;
 
         private Image _mapImage;

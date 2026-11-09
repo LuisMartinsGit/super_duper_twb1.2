@@ -26,7 +26,7 @@ namespace TheWaningBorder.Tutorial
     {
         public static AdvancedStage AdvancedStage;
         public static bool ConquestOpen, SurveyDone, SectAdopted, NodeDead, MonumentHeld, MonumentExplored;
-        public static int Outposts, Ranges, Towers, Temples, Claimed, ReligionPoints;
+        public static int Stopped, Ranges, Towers, Temples, Claimed, ReligionPoints;
         /// <summary>The Alanthor mission's enshrinement and Sanctum dominion countdown.</summary>
         public static float WinCountdownSeconds;
 
@@ -59,7 +59,7 @@ namespace TheWaningBorder.Tutorial
             LitharchMoved = ChainedOrders = false;
             AdvancedStage = AdvancedStage.Vault;
             ConquestOpen = SurveyDone = SectAdopted = NodeDead = MonumentHeld = MonumentExplored = false;
-            Outposts = Ranges = Towers = Temples = Claimed = ReligionPoints = 0;
+            Stopped = Ranges = Towers = Temples = Claimed = ReligionPoints = 0;
             WinCountdownSeconds = 0f;
             _deniedBuildings.Clear();
             _deniedUnits.Clear();

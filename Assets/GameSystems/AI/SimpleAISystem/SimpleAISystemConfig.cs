@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using TheWaningBorder.Core.Settings;
 
 namespace TheWaningBorder.AI
@@ -86,40 +86,6 @@ namespace TheWaningBorder.AI
         /// node, so anything beyond this is candidates that cannot pass.</summary>
         public float extractorSearchRadius;
 
-        // ── Trading Outposts (docs/Design/Veilstone_Economy.md §3.1) ──────
-
-        /// <summary>Veilstone banked at or above which half the faction's
-        /// Trading Outposts switch to Forge (while veilsteel is short).</summary>
-        public int outpostForgeAboveVeilstone;
-        /// <summary>Veilstone below which every Outpost goes back to Trade.</summary>
-        public int outpostTradeBelowVeilstone;
-        /// <summary>Veilsteel banked at or above which no Outpost forges.</summary>
-        public int outpostVeilsteelTarget;
-        /// <summary>Veilsteel banked at or above which one Outpost sells it
-        /// for iron (once Veilsteel Export is researched), and the chains sell
-        /// from the bank rather than forge more.</summary>
-        public int outpostSellAboveVeilsteel;
-        /// <summary>Iron banked below which the Outposts run an iron chain
-        /// (Buy -> Forge -> Sell) even before the army is refused for iron
-        /// (Game_AI.md § 5a, 2026-10-12).</summary>
-        public int outpostIronFloor;
-        /// <summary>IRON DROUGHT (2026-11-04, Game_AI.md § 6y): with the bank
-        /// under outpostIronFloor and supplies at least this many times the
-        /// iron, selling veilsteel is the iron income — the sell weight goes
-        /// to its maximum and buying veilstone (which spends iron) is capped.</summary>
-        public float outpostIronDroughtSuppliesRatio;
-        /// <summary>Surplus veilsteel sells through one post per this many
-        /// sell-loads in the bank (not one post in all).</summary>
-        public float outpostSellStockPerPost;
-        /// <summary>Below this many supplies, with surplus veilsteel, a post
-        /// sells veilsteel for supplies (2026-11-04).</summary>
-        public int outpostSuppliesFloor;
-        /// <summary>Guilds added to the Gatherer's Hut cap per Guild-income's
-        /// worth of supplies the Trading Outposts spend a minute: 1 = enough
-        /// Guilds (at their first level's slot income) to pay for the trade.
-        /// 0 = off. Supplies are the one thing the posts cannot make.</summary>
-        public float tradeGuildCompensation;
-
         // ── Veilstone as the army's bottleneck (2026-10-03) ──────────────
 
         /// <summary>Seconds (simulated) a combat unit the bank could not pay
@@ -129,7 +95,7 @@ namespace TheWaningBorder.AI
         public float unaffordableUnitCooldownSeconds;
         /// <summary>Extra claim score per uncursed veilstone outcrop in a
         /// candidate territory, for an Alanthor faction whose army is short
-        /// of veilstone — each one is a Trading Outpost site. Added on top
+        /// of veilstone — a Veilstone Mine site, then a Trading Outpost's. Added on top
         /// of claimNodeBonus, which the outcrop already earns as a node.</summary>
         public float claimVeilstoneNodeBonus;
 
@@ -1005,7 +971,7 @@ namespace TheWaningBorder.AI
         public float surplusLogInterval;
 
         /// <summary>THE ECONOMY'S SAY. Veilstone income (the faction's
-        /// Trading Outposts' Buy rate, per minute) at which the veilstone
+        /// Trading Outposts' trickle, per minute) at which the veilstone
         /// roles get their full share; below it they are scaled down toward
         /// ladderScaleWhenStarved and the basics take up the slack. A bank of
         /// veilstoneBankForFullLadder counts as full income on its own.</summary>
@@ -1213,7 +1179,6 @@ namespace TheWaningBorder.AI
         public int vaultKeepSupplies;
         public int vaultKeepIron;
         public int vaultKeepVeilstone;
-        public int vaultKeepVeilsteel;
 
         /// <summary>Smallest deposit worth locking the Vault for.</summary>
         public int vaultMinDeposit;
@@ -1302,7 +1267,7 @@ namespace TheWaningBorder.AI
 
         /// <summary>The expected income may rise at most this fraction per
         /// second toward a higher measurement, so a one-off windfall (a Vault
-        /// withdrawal, a veilsteel sale) does not read as the norm.</summary>
+        /// withdrawal, a Sanctuary trade) does not read as the norm.</summary>
         public float economyExpectedRisePerSecond;
 
         /// <summary>No collapse is read while the expected supply income is
@@ -1362,20 +1327,7 @@ namespace TheWaningBorder.AI
         /// religionHuntPowerMargin).</summary>
         public float religionHuntCallOffMargin;
 
-        // ── The Outposts' veilstone glut (Game_AI.md § 5a) ──
-
-        /// <summary>Minutes of the army plan's veilstone spend the bank should
-        /// hold; above that (and outpostVeilstoneNeedFloor) the Outposts stop
-        /// buying.</summary>
-        public float outpostVeilstoneNeedMinutes;
-
-        /// <summary>Veilstone the bank always keeps before the Outposts stop
-        /// buying, whatever the plan's spend.</summary>
-        public int outpostVeilstoneNeedFloor;
-
-        /// <summary>Buying resumes when veilstone falls below this fraction of
-        /// the need (hysteresis).</summary>
-        public float outpostBuyResumeFraction;
+        // ── The glut tilt (Game_AI.md § 5a) ──
 
         /// <summary>Iron banked at or above which iron counts as piling up
         /// for the composition's resource tilt.</summary>
@@ -1412,9 +1364,6 @@ namespace TheWaningBorder.AI
         /// a claim candidate: free land first, then ground to take back.</summary>
         public float claimHostileTargetPenalty;
 
-        /// <summary>Ceiling on the veilstone the Outposts buy toward (the
-        /// four-minute plan need, § 5a); 0 = no ceiling.</summary>
-        public int outpostVeilstoneNeedMax;
 
         /// <summary>Seconds the collapse reading must hold before the
         /// savings pause flips on or off (§ 5i).</summary>

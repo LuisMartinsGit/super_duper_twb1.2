@@ -403,7 +403,7 @@ namespace TheWaningBorder.AI
         /// GATHERER'S HUT SURVEY TECHS LEAD (2026-08-04, user: "there's a
         /// research at the hut to generate free resources — priority after
         /// age 1"): the Survey chain turns the hut spread into passive
-        /// Iron/Veilstone/Veilsteel income — the mid-game iron starvation
+        /// Iron/Veilstone income — the mid-game iron starvation
         /// fix. (DeepGathering removed outright 2026-08-04 — the Surveys are
         /// the only hut drips.) The walk attempts every unresearched entry
         /// until ONE succeeds — the old walk stopped at the first
@@ -418,11 +418,6 @@ namespace TheWaningBorder.AI
             "IronSurveying1",                    // Gatherer's Hut — iron drip
             "DeepShafts",                        // Mine — +50% iron from worked slots
             "VeilstoneSurvey1",                  // Gatherer's Hut — veilstone drip
-            // Trading Outpost (Alanthor only — the techs are culture-gated
-            // and no other culture has the host): cheaper trades, then faster
-            // ones. Veilstone is the Alanthor army's bottleneck (Game_AI.md §5a).
-            "Alanthor_TradeAgreements1",         // Trading Outpost — cheaper inputs
-            "Alanthor_SwiftCaravans",            // Trading Outpost — every trade faster
             "ArmedScouts",                       // Fortress — arms scouts (attack gate)
             // Fortress (Alanthor) — the Celestar passive: idle scouts reveal
             // random patches (2026-10-19). Early, cheap intel; the scout
@@ -434,8 +429,11 @@ namespace TheWaningBorder.AI
             "SupplySurvey2",                     // Gatherer's Hut — supply drip II (Guild L2)
             "IronSurveying2",                    // Gatherer's Hut — iron drip II
             "RichSeams",                         // Mine — +100% iron from worked slots
+            // Trade Charters (2026-11-09, Alanthor, Fortress L3): unlocks the
+            // Trading Outpost — income beside every node the AI stops working
+            // in time (ManageExtractorStops). Culture-gated, so a no-op elsewhere.
+            "Alanthor_TradeCharters",
             "VeilstoneSurvey2",                  // Gatherer's Hut — veilstone drip II
-            "VeilsteelSurvey",                   // Gatherer's Hut — veilsteel (maxed huts only)
             "SupplySurvey3",                     // Gatherer's Hut — supply drip III (Guild L3)
             "IronSurveying3",                    // Gatherer's Hut — iron drip III
             "VeilstoneTools",                    // Fortress (Alanthor) — T3 eco
@@ -470,7 +468,7 @@ namespace TheWaningBorder.AI
             "Feraldis_VeilstoneWeapons",         // War Hall — weapon T3
             "Feraldis_FireOnTheMove",            // Engine Works
             "Feraldis_VeilsteelChains",          // Fortress — crews earn more III
-            "Feraldis_WarSmithing2",             // Great Forge — unlock veilsteel tier
+            "Feraldis_WarSmithing2",             // Great Forge — unlock Shard tier
             "Feraldis_AlteredSelfPerception",    // War Hall
             "Feraldis_Overcharge",               // Engine Works
             "Feraldis_Bellows3",
@@ -543,10 +541,6 @@ namespace TheWaningBorder.AI
                 {
                 float growth = 1f + math.min(now / Cfg.hutCapDoublingSeconds, 1f);
                 hutCap = (int)math.round(personality.gathererHutTarget * growth);
-                // THE TRADE IS PAID IN SUPPLIES (2026-10-12, Game_AI.md §
-                // 5a): the Outposts make every other resource, so the
-                // Guilds that pay for them are on top of the cap.
-                hutCap += TradeGuildCompensation(em, faction);
             }
 
                 // AGE-UP PUSH: once it is time to advance, STOP FOUNDING HUTS
@@ -636,7 +630,6 @@ namespace TheWaningBorder.AI
                         Supplies = c.Supplies * missingHuts,
                         Iron = c.Iron * missingHuts,
                         Veilstone = c.Veilstone * missingHuts,
-                        Veilsteel = c.Veilsteel * missingHuts,
                     });
                 }
                 else
