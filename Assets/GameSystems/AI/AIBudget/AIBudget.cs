@@ -274,7 +274,7 @@ namespace TheWaningBorder.AI
         }
 
         private static string W(BrainBudget b, int c)
-            => $"{(int)b.Wallets[c, 0]}s,{(int)b.Wallets[c, 1]}i,{(int)b.Wallets[c, 2]}v,{(int)b.Wallets[c, 3]}vs";
+            => $"{(int)b.Wallets[c, 0]}s,{(int)b.Wallets[c, 1]}i,{(int)b.Wallets[c, 2]}v";
 
         // ─────────────────────────────────────────────────────────────
         // SPEND GATE

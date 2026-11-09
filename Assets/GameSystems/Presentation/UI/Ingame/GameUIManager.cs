@@ -848,7 +848,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             var t = new float[LumpySources.Length * 4];
             for (int s = 0; s < LumpySources.Length; s++)
-                for (int r = 0; r < 4; r++)
+                for (int r = 0; r < TheWaningBorder.Economy.EconomyLedger.Resources; r++)
                     t[s * 4 + r] = TheWaningBorder.Economy.EconomyLedger.LifetimeIncomeOf(f, LumpySources[s], r);
             return t;
         }
@@ -947,7 +947,7 @@ namespace TheWaningBorder.UI.Ingame
                     world.EntityManager, GameSettings.ViewFaction.Value)
                 : Cultures.None;
             var split = _income.TerritorySplit;
-            float Part(int part) => split != null ? split[part * 4 + r] : 0f;
+            float Part(int part) => split != null ? split[part * TheWaningBorder.Systems.World.TerritoryIncomeSystem.ResCount + r] : 0f;
             const int PE = TheWaningBorder.Systems.World.TerritoryIncomeSystem.PartEmpty;
             const int PX = TheWaningBorder.Systems.World.TerritoryIncomeSystem.PartExtractor;
             const int PS = TheWaningBorder.Systems.World.TerritoryIncomeSystem.PartSurvey;
