@@ -104,12 +104,10 @@ namespace TheWaningBorder.UI.Data
                 ActionSlot.Tech("ArmedScouts"),
                 ActionSlot.Tech("ScoutingCelestarii"),
                 ActionSlot.Tech("MasonGuild"),
-                // NO wall tech here (2026-09-24). Battlements and Shielded
-                // Ramparts are researched AT THE WALL HUB: masonry is not the
-                // wall's progression, and a building's own ladder belongs on
-                // that building (docs/Design/Age_1_Alanthor.md § The four
-                // wall levels).
-                ActionSlot.Empty,
+                // Trade Charters (2026-11-09): unlocks the Trading Outpost.
+                // (No wall tech here: Battlements and Shielded Ramparts are
+                // researched AT THE WALL HUB.)
+                ActionSlot.Tech("Alanthor_TradeCharters"),
 
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
             },
@@ -131,7 +129,7 @@ namespace TheWaningBorder.UI.Data
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
                 ActionSlot.ChainOf("IronSurveying1", "IronSurveying2", "IronSurveying3"),
                 ActionSlot.ChainOf("VeilstoneSurvey1", "VeilstoneSurvey2"),
-                ActionSlot.ChainOf("SupplySurvey1", "SupplySurvey2", "SupplySurvey3"),
+                ActionSlot.Empty,
                 ActionSlot.ChainOf("IronReinforcements", "VeilstoneWalls", "VeilsteelPylons"),
                 ActionSlot.Empty,
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,

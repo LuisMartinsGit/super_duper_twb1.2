@@ -9,6 +9,15 @@ build always name the same number.
 
 ---
 
+## [0.0.77] — 2026-11-09
+
+### Economy
+- **Nodes run dry much sooner.** Every supply, iron and veilstone node holds far less, so a worked node is spent within the match: stop its extractor in time to keep its Trading Outposts.
+- **Supply Surveys removed** from the Guild.
+
+### Fixed
+- **Trade Charters now has its button at the Fortress** (level 3), so the Trading Outpost can actually be unlocked.
+
 ## [0.0.76] — 2026-11-09
 
 0.0.75 was never published; everything in its section below ships with this version too.

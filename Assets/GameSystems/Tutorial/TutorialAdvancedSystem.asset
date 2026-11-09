@@ -37,7 +37,6 @@ MonoBehaviour:
   towerId: Alanthor_Tower
   templeId: TempleOfRidan
   surveyTechs:
-  - SupplySurvey1
   - IronSurveying1
   - VeilstoneSurvey1
   religionPointsNeeded: 3

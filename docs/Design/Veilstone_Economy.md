@@ -253,7 +253,10 @@ the Royal Stable, Plating (siege) at the Siege Yard — each gated by its host's
 level. Their prices are on the tech SOs, and they are **not** uniform across
 the ladders (decision 23: the upper tiers were raised).
 
-### 5.2 Supply Surveys — the supply floor (2026-10-20)
+### 5.2 ~~Supply Surveys — the supply floor (2026-10-20)~~ — REMOVED 2026-11-09 (developer)
+
+The Supply Survey I-III techs (Alanthor Guild, Runai Trading Post) are cut. Node reserves were cut at the same time (`supplyNodeReserve` / `ironNodeReserve` / `veilstoneNodeReserve` on `TerritoryIncomeSystem.asset`) so nodes deplete within the match; the late-game income that outlives them is the Trading Outpost (§3.1). The text below is history.
+
 
 Developer: "Supplies need to have a stable income value, otherwise AI players
 stall hard and get defeated by the curse. Fix: Supply Surveys technology

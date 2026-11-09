@@ -1,4 +1,4 @@
-﻿// TerritoryIncomeSystem.cs
+// TerritoryIncomeSystem.cs
 // Territory is the economy.
 //
 // docs/Design/Regions.md §4: income comes from the ground you hold, not from
@@ -832,29 +832,6 @@ namespace TheWaningBorder.Systems.World
                     }
                 }
 
-            // ── The Supply Surveys (Veilstone_Economy.md § 5.2, 2026-10-20) ─
-            //
-            // Supplies otherwise come almost entirely from finite nodes, and
-            // an AI whose huts ran their nodes dry stalled and fell to the
-            // curse. Each completed Supply Survey tier makes every hut of an
-            // Alanthor (Guild) or Runai (Trading Post) faction in this held
-            // territory pay a flat supply trickle, scaled by its level, drawn
-            // from NO node — a depleted hut keeps paying it. Feraldis has no
-            // survey: its late supplies are raiding (Age_1_Feraldis.md §3.5).
-            // Runai yield outside the home territory goes to the depot like
-            // the rest of its supplies (the caller routes y.Supplies).
-            var supplyLadder = culture == Cultures.Alanthor ? SupplySurveyLadder
-                             : culture == Cultures.Runai ? RunaiSupplySurveyLadder : null;
-            int supplyTiers = supplyLadder != null ? SurveyTiers(owner, supplyLadder) : 0;
-            if (supplyTiers > 0)
-                for (int i = 0; i < c.GuildRegion.Count; i++)
-                {
-                    if (c.GuildRegion[i] != territory || c.GuildFaction[i] != owner) continue;
-                    float sup = supplyTiers * Cfg.supplySurveyPerTier * SurveyLevelScale(c.GuildLevel[i]);
-                    y.Supplies += sup;
-                    if (split != null) split[PartSurvey * ResCount + 0] += sup;
-                }
-
             // ── Territory claims ─────────────────────────────────────────
             //
             // Held ground pays its holder a flat rate, nodes or not, once the
@@ -1171,12 +1148,6 @@ namespace TheWaningBorder.Systems.World
             { "IronSurveying1", "IronSurveying2", "IronSurveying3" };
         private static readonly string[] VeilstoneSurveyLadder =
             { "VeilstoneSurvey1", "VeilstoneSurvey2" };
-        // The Supply Surveys (2026-10-20): one ladder per culture that has
-        // one — a tech carries a single culture gate.
-        private static readonly string[] SupplySurveyLadder =
-            { "SupplySurvey1", "SupplySurvey2", "SupplySurvey3" };
-        private static readonly string[] RunaiSupplySurveyLadder =
-            { "Runai_SupplySurvey1", "Runai_SupplySurvey2", "Runai_SupplySurvey3" };
 
         /// <summary>A hut's survey output scale by its level (guildSurveyLevelScale).</summary>
         private static float SurveyLevelScale(int level)
