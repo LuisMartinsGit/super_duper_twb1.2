@@ -36,9 +36,6 @@ MonoBehaviour:
   archeryRangeId: ArcheryRange
   towerId: Alanthor_Tower
   templeId: TempleOfRidan
-  surveyTechs:
-  - IronSurveying1
-  - VeilstoneSurvey1
   religionPointsNeeded: 3
   rivalNoteSeconds: 20
   nodeRevealRadius: 16

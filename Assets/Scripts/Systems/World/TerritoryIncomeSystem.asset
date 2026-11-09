@@ -27,12 +27,6 @@ MonoBehaviour:
   - 1
   - 1.25
   - 1.5
-  guildSurveyIronPerTier: 9.2
-  guildSurveyVeilstonePerTier: 6
-  guildSurveyLevelScale:
-  - 1
-  - 1.25
-  - 1.5
   claimSuppliesPerMinute: 40
   claimIronPerMinute: 10
   claimVeilstonePerMinute: 20

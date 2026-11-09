@@ -35,6 +35,11 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(em, entity, default(VeilstoneMineTag));
+            // LEVELS L1-L3 like the iron Mine (2026-11-09): VeilstoneMine_Lvl1..3
+            // per culture, faction-wide; the production clock runs the level-up.
+            EntityBuild.Add(em, entity, default(BuildingUpgradeable));
+            EntityBuild.AddBuffer<ProductionQueueItem>(em, entity);
+            EntityBuild.Add(em, entity, new ProductionState { Busy = 0, Remaining = 0 });
             EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             EntityBuild.Add(em, entity, defense);
             return EntityBuild.Done(entity);
@@ -56,6 +61,11 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(ecb, entity, default(VeilstoneMineTag));
+            // LEVELS L1-L3 like the iron Mine (2026-11-09): VeilstoneMine_Lvl1..3
+            // per culture, faction-wide; the production clock runs the level-up.
+            EntityBuild.Add(ecb, entity, default(BuildingUpgradeable));
+            EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);
+            EntityBuild.Add(ecb, entity, new ProductionState { Busy = 0, Remaining = 0 });
             EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             EntityBuild.Add(ecb, entity, defense);
             return EntityBuild.Done(entity);

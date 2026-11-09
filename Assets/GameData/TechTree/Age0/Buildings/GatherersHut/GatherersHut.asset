@@ -52,11 +52,6 @@ MonoBehaviour:
   segmentLineOfSight: 0
   trains: []
   research:
-  - IronSurveying1
-  - IronSurveying2
-  - IronSurveying3
-  - VeilstoneSurvey1
-  - VeilstoneSurvey2
   - IronReinforcements
   - VeilstoneWalls
   - VeilsteelPylons

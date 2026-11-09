@@ -9,6 +9,20 @@ build always name the same number.
 
 ---
 
+## [0.0.78] — 2026-11-09
+
+### Economy
+- **The Guild surveys are gone** (Iron Surveying, Veilstone Survey): every resource now comes from a node, a territory claim, the capital or a Trading Outpost.
+- **Territories pay less at the top end.** Pure nodes pay +25% instead of +50%, and a Trading Outpost trickles 8 supplies, 5 iron or 4 veilstone a minute.
+- **The Veilstone Mine improves like the iron Mine:** it levels up to 3, and Deep Shafts / Rich Seams raise it too.
+- **Every resource node has room for its four Trading Outposts.**
+
+### Interface
+- **The floating income panels over the map are gone.** Open the **Economy per territory** panel on the left to see what each of your territories pays a minute, and how much of it comes from Trading Outposts.
+
+### Tutorial
+- The Alanthor mission's step 2a is now "Level up your Guilds".
+
 ## [0.0.77] — 2026-11-09
 
 ### Economy

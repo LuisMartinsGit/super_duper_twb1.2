@@ -175,10 +175,10 @@ namespace TheWaningBorder.Tutorial
             TutorialMissionState.Towers = math.max(TutorialMissionState.Towers, towers);
             TutorialMissionState.Temples = math.max(TutorialMissionState.Temples, temples);
 
-            var research = FactionResearchState.Instance;
-            if (research != null && !TutorialMissionState.SurveyDone)
-                foreach (var tech in cfg.surveyTechs)
-                    if (research.HasResearched(Player, tech)) TutorialMissionState.SurveyDone = true;
+            // 2a (2026-11-09, the surveys are cut): the Guilds reach level 2.
+            if (!TutorialMissionState.SurveyDone
+                && TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, Player, "GatherersHut") >= 2)
+                TutorialMissionState.SurveyDone = true;
 
             TutorialMissionState.Claimed = math.max(TutorialMissionState.Claimed, TerritoryOwnership.CountOf(Player) - 1);
             TutorialMissionState.ReligionPoints = FactionReligionPointsHelper.GetBalance(em, Player);

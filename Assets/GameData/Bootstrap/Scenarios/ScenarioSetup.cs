@@ -402,8 +402,6 @@ namespace TheWaningBorder.Bootstrap
                 // AuraSlowdown). Add "VeilsteelPylons" back to test the Stop ward.
                 string[] guildTechs =
                 {
-                    "IronSurveying1", "IronSurveying2", "IronSurveying3",
-                    "VeilstoneSurvey1", "VeilstoneSurvey2",
                     "IronReinforcements", "VeilstoneWalls",
                 };
                 foreach (var tech in guildTechs)

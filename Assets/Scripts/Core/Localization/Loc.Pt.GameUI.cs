@@ -319,6 +319,13 @@ namespace TheWaningBorder.Core.Localization
             t["Another building of this type is already upgrading"] =
                 "Outro edifício deste tipo já está a ser melhorado";
             // Decision 42 (2026-11-09): one crystal, Trading Outposts beside any node, stop extracting.
+            t["Economy per territory"] = "Economia por território";
+            t["Per minute"] = "Por minuto";
+            t["No territory yet."] = "Ainda sem território.";
+            t["of which Trading Outposts"] = "dos quais Entrepostos Comerciais";
+            t["+{0} more"] = "+{0} mais";
+            t["Every iron and veilstone slot your Mines and Veilstone Mines work pays +20%."] = "Cada nó de ferro e veilstone trabalhado pelas tuas Minas e Minas de Veilstone rende +20%.";
+            t["Every iron and veilstone slot your Mines and Veilstone Mines work pays +40% (replaces Deep Shafts)."] = "Cada nó de ferro e veilstone trabalhado pelas tuas Minas e Minas de Veilstone rende +40% (substitui Poços Profundos).";
             t["Trade Charters"] = "Cartas de Comércio";
             t["Shard Tools"] = "Ferramentas de Estilhaço";
             t["Shard Pylons"] = "Pilares de Estilhaço";

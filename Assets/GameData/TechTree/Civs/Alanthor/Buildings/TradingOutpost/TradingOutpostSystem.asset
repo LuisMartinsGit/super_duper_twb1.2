@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: TradingOutpostSystem
   m_EditorClassIdentifier:
   cycleSeconds: 1
-  trickleSuppliesPerMinute: 20
-  trickleIronPerMinute: 12
-  trickleVeilstonePerMinute: 10
+  trickleSuppliesPerMinute: 8
+  trickleIronPerMinute: 5
+  trickleVeilstonePerMinute: 4
   unlockTech: Alanthor_TradeCharters
   nodeReach: 12
   outcropRampMultipliers:

@@ -36,7 +36,6 @@ namespace TheWaningBorder.Tutorial
 
         public string archeryRangeId, towerId, templeId;
         /// <summary>Any one of these counts as the Guild survey objective.</summary>
-        public string[] surveyTechs;
         public int religionPointsNeeded;
         public float rivalNoteSeconds;
         public float nodeRevealRadius;

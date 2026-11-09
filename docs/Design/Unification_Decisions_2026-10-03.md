@@ -9,6 +9,22 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+43. **Economy pass (2026-11-09, developer, after playing 0.0.77).** (a) **The Guild surveys
+    (Iron Surveying I-III, Veilstone Survey I-II) and the Supply Surveys are removed** — no
+    income that comes from no node; the late-game income is the Trading Outpost. (b) **Node
+    reserves cut** (supply / iron / veilstone on `TerritoryIncomeSystem.asset`) so worked nodes
+    run dry within the match. (c) **One territory paid ~1600 supplies a minute**: the Pure
+    purity bonus and the Trading Outpost trickle are lowered (`TerritoryResources.asset`,
+    `TradingOutpostSystem.asset`). (d) **Extractors drain 1:1 and at a constant rate**: every
+    unit a slot pays is a unit taken from its node, at the full rate until the node is empty
+    (already the code; restated as a rule). (e) **Every resource node is laid where all four
+    Trading Outpost side slots are buildable** (supply and iron as well as veilstone), and
+    those footprints are reserved. (f) **The Veilstone Mine gets the iron Mine's
+    improvements**: Deep Shafts / Rich Seams raise it too, and it levels L1-L3
+    (`Civs/Alanthor/Buildings/VeilstoneMine/VeilstoneMine_Lvl1..3`). (g) **No floating income
+    panels over the world**: a collapsible Economy panel on screen lists what each held
+    territory pays (`UI/Ingame/Panels/EconomyPanel.cs`). Tutorial mission 2 step 2a is now
+    "Level up your Guilds".
 42. **One crystal, nodes worth saving, ground that holds (2026-11-09, developer).** A player
     reported veilstone and veilsteel as confusing and indistinguishable. Decided:
     (a) **Veilsteel is removed.** Veilstone is the only crystal resource. Every veilsteel

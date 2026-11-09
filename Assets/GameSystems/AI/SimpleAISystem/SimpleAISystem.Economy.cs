@@ -414,9 +414,7 @@ namespace TheWaningBorder.AI
             "StoneTools",                        // Fortress — gather speed (cheap opener)
             // Supply Survey (2026-10-20): the supply floor that outlives the
             // nodes — an AI whose huts ran dry stalled and fell to the curse.
-            "IronSurveying1",                    // Gatherer's Hut — iron drip
             "DeepShafts",                        // Mine — +50% iron from worked slots
-            "VeilstoneSurvey1",                  // Gatherer's Hut — veilstone drip
             "ArmedScouts",                       // Fortress — arms scouts (attack gate)
             // Fortress (Alanthor) — the Celestar passive: idle scouts reveal
             // random patches (2026-10-19). Early, cheap intel; the scout
@@ -425,14 +423,11 @@ namespace TheWaningBorder.AI
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
             "Fletching", "StoneTippedArrows",    // Archery Range (Age 1) — range / T1
             "IronTools", "MasonGuild",           // Fortress (Alanthor) — T2 eco + building HP
-            "IronSurveying2",                    // Gatherer's Hut — iron drip II
             "RichSeams",                         // Mine — +100% iron from worked slots
             // Trade Charters (2026-11-09, Alanthor, Fortress L3): unlocks the
             // Trading Outpost — income beside every node the AI stops working
             // in time (ManageExtractorStops). Culture-gated, so a no-op elsewhere.
             "Alanthor_TradeCharters",
-            "VeilstoneSurvey2",                  // Gatherer's Hut — veilstone drip II
-            "IronSurveying3",                    // Gatherer's Hut — iron drip III
             "VeilstoneTools",                    // Fortress (Alanthor) — T3 eco
         };
 

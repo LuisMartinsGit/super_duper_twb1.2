@@ -103,7 +103,8 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>
         /// The MINE's own research ladder (2026-10-02): Deep Shafts raises
-        /// every iron slot a Mine works, Rich Seams raises it further (they do
+        /// every iron slot a Mine works — and, since 2026-11-09, every
+        /// veilstone slot a Veilstone Mine works — Rich Seams raises it further (they do
         /// not stack — Rich Seams replaces Deep Shafts). Mine-worked slots
         /// only: an empty slot is not mined. Both multipliers are on the asset
         /// (toned down 2026-10-08: "reduce the upgrade power").
@@ -430,12 +431,6 @@ namespace TheWaningBorder.Systems.World
                     y.Supplies += LadderFor(HutId, culture).At(level) * scale
                                   * TerritoryResources.PurityMultiplier(em, supplyNode);
                 }
-                // The Guild surveys: flat, not drawn from the node.
-                if (culture == Cultures.Alanthor)
-                {
-                    var s = GuildSurveyPerGuild(owner, level);
-                    y.Iron += s.Iron; y.Veilstone += s.Veilstone;
-                }
             }
             else if (em.HasComponent<ExtractorStopped>(building))
             {
@@ -462,6 +457,7 @@ namespace TheWaningBorder.Systems.World
                     if (em.HasComponent<NodeReserve>(o.Node[i])
                         && em.GetComponentData<NodeReserve>(o.Node[i]).Remaining <= 0f) continue;
                     y.Veilstone += LadderFor(VeilstoneMineId, culture).At(level) * mult
+                                   * MineTechMultiplier(owner)
                                    * TerritoryResources.PurityMultiplier(em, o.Node[i]);
                 }
             }
@@ -809,28 +805,10 @@ namespace TheWaningBorder.Systems.World
             y.Iron = OreSlotYield(em, c.Ore[0], territory, drainMinutes, LadderFor(MineId, culture),
                                   IronYieldMultiplier, false, MineTechMultiplier(owner), split, 1);
             float veilMult = culture == Cultures.Feraldis ? FeraldisVeilstoneMultiplier : 1f;
+            // The Mine research (Deep Shafts / Rich Seams) raises Veilstone Mines
+            // exactly as it raises iron Mines (2026-11-09).
             y.Veilstone = OreSlotYield(em, c.Ore[1], territory, drainMinutes, LadderFor(VeilstoneMineId, culture),
-                                       veilMult, true, 1f, split, 2);
-
-            // ── The Guild surveys (Veilstone_Economy.md § 5.1) ───────────
-            //
-            // Every built Guild (the Alanthor Gatherer's Hut, any level) in
-            // this held territory pays a flat amount per completed survey
-            // tier, scaled by its level. NOT drawn from any node, so it
-            // outlives the node the Guild stands on — the late-game income a
-            // developed hut ring earns.
-            if (culture == Cultures.Alanthor)
-                for (int i = 0; i < c.GuildRegion.Count; i++)
-                {
-                    if (c.GuildRegion[i] != territory || c.GuildFaction[i] != owner) continue;
-                    var s = GuildSurveyPerGuild(owner, c.GuildLevel[i]);
-                    y.Iron += s.Iron; y.Veilstone += s.Veilstone;
-                    if (split != null)
-                    {
-                        split[PartSurvey * ResCount + 1] += s.Iron;
-                        split[PartSurvey * ResCount + 2] += s.Veilstone;
-                    }
-                }
+                                       veilMult, true, MineTechMultiplier(owner), split, 2);
 
             // ── Territory claims ─────────────────────────────────────────
             //
@@ -1136,56 +1114,6 @@ namespace TheWaningBorder.Systems.World
             => em.HasComponent<BuildingUpgradeState>(e)
                 ? Mathf.Max(1, em.GetComponentData<BuildingUpgradeState>(e).Level)
                 : 1;
-
-        // ── Guild surveys (Veilstone_Economy.md § 5.1) ──────────────────
-        // The Alanthor Guild's survey research (researched at the Guild, the
-        // cultured Gatherer's Hut). Since 2026-10-08 a survey no longer
-        // multiplies the Mines: each completed tier makes EVERY Guild pay a
-        // flat amount of its resource, scaled by that Guild's level, from no
-        // node — so it keeps paying after the nodes are spent. Read LIVE (no
-        // stamped state to get stale).
-        private static readonly string[] IronSurveyLadder =
-            { "IronSurveying1", "IronSurveying2", "IronSurveying3" };
-        private static readonly string[] VeilstoneSurveyLadder =
-            { "VeilstoneSurvey1", "VeilstoneSurvey2" };
-
-        /// <summary>A hut's survey output scale by its level (guildSurveyLevelScale).</summary>
-        private static float SurveyLevelScale(int level)
-        {
-            var ladder = Cfg.guildSurveyLevelScale;
-            if (ladder == null || ladder.Length == 0) return 1f;
-            return ladder[Mathf.Clamp(level, 1, ladder.Length) - 1];
-        }
-
-        /// <summary>How many tiers of a survey ladder this faction has finished.</summary>
-        private static int SurveyTiers(Faction faction, string[] ladder)
-        {
-            var research = FactionResearchState.Instance;
-            if (research == null) return 0;
-            int n = 0;
-            for (int i = 0; i < ladder.Length; i++)
-                if (research.HasResearched(faction, ladder[i])) n++;
-            return n;
-        }
-
-        /// <summary>
-        /// What ONE Guild of <paramref name="faction"/> at
-        /// <paramref name="level"/> pays per minute from the surveys (iron,
-        /// veilstone; supplies stay 0). The caller checks the
-        /// culture — only an Alanthor hut is a Guild.
-        /// </summary>
-        private static TerritoryYield GuildSurveyPerGuild(Faction faction, int level)
-        {
-            var y = new TerritoryYield();
-            var cfg = Cfg;
-            float scale = 1f;
-            var ladder = cfg.guildSurveyLevelScale;
-            if (ladder != null && ladder.Length > 0)
-                scale = ladder[Mathf.Clamp(level, 1, ladder.Length) - 1];
-            y.Iron      = SurveyTiers(faction, IronSurveyLadder)      * cfg.guildSurveyIronPerTier      * scale;
-            y.Veilstone = SurveyTiers(faction, VeilstoneSurveyLadder) * cfg.guildSurveyVeilstonePerTier * scale;
-            return y;
-        }
 
         /// <summary>
         /// One extractor's per-minute slot rates for one culture, levels 1-3,

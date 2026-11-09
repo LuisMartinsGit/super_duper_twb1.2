@@ -70,20 +70,6 @@ namespace TheWaningBorder.Systems.World
         /// </summary>
         public float[] fortressLevelIncomeMultipliers;
 
-        // ── Guild surveys (Veilstone_Economy.md § 5.1) ───────────────────
-
-        /// <summary>Per Guild, per completed Iron Surveying tier, iron a minute.</summary>
-        public float guildSurveyIronPerTier;
-
-        /// <summary>Per Guild, per completed Veilstone Survey tier, veilstone a minute.</summary>
-        public float guildSurveyVeilstonePerTier;
-
-
-
-        /// <summary>Survey output scale by the Guild's level: entry 0 = L1,
-        /// 1 = L2, 2 = L3.</summary>
-        public float[] guildSurveyLevelScale;
-
         // ── territory claims ─────────────────────────────────────────────
 
         /// <summary>

@@ -127,8 +127,8 @@ namespace TheWaningBorder.UI.Data
             ["GatherersHut"] = new[]
             {
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
-                ActionSlot.ChainOf("IronSurveying1", "IronSurveying2", "IronSurveying3"),
-                ActionSlot.ChainOf("VeilstoneSurvey1", "VeilstoneSurvey2"),
+                ActionSlot.Empty,
+                ActionSlot.Empty,
                 ActionSlot.Empty,
                 ActionSlot.ChainOf("IronReinforcements", "VeilstoneWalls", "VeilsteelPylons"),
                 ActionSlot.Empty,

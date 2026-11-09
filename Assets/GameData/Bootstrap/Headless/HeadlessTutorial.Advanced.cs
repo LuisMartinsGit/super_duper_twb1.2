@@ -103,9 +103,11 @@ namespace TheWaningBorder.Bootstrap
                     var guild = FirstFinished<GathererHutTag>(em);
                     if (guild != Entity.Null && !_researched)
                     {
-                        CommandRouter.IssueResearch(em, guild, ACfg.surveyTechs[0]);
+                        // 2a (2026-11-09): level the Guilds up (the surveys are cut).
+                        TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.Execute(
+                            em, guild, CommandSource.LocalPlayer);
                         _researched = true;
-                        Log("research " + ACfg.surveyTechs[0]);
+                        Log("level up the Guilds");
                     }
                     StopAMine(em);
                     break;

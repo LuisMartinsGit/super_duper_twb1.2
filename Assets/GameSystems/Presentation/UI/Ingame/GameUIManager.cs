@@ -347,9 +347,9 @@ namespace TheWaningBorder.UI.Ingame
             // stands in are marked (Territory_Claims.md § 7.4).
             gameObject.AddComponent<TheWaningBorder.UI.World.EndgameMarkers>();
 
-            // Where the income comes from: hover a territory or a building
-            // for its resources per minute (docs/Design/Veilstone_Economy.md).
-            gameObject.AddComponent<TheWaningBorder.UI.World.IncomeOverlay>().Init(catalog.chrome);
+            // Where the income comes from: a collapsible per-territory economy
+            // panel (2026-11-09; replaces the floating IncomeOverlay panels).
+            gameObject.AddComponent<EconomyPanel>().Init(catalog.chrome);
             // What is left in every visible resource node (Territory_Claims.md § 11.3).
             gameObject.AddComponent<TheWaningBorder.UI.World.NodeReserveBars>();
             // How many men are inside each garrisoned tower (n/max) — a

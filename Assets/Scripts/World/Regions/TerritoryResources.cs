@@ -229,37 +229,16 @@ namespace TheWaningBorder.World.Regions
                 // A start territory, seated or not, is all Pure.
                 _dealPure = home || TypeOf(t) == ResourceType.Start;
 
+                // EVERY node keeps room for its four Trading Outposts
+                // (2026-11-09: posts stand beside supply and iron nodes too,
+                // Veilstone_Economy.md §3.1). Scarcest first: veilstone, iron,
+                // supply — each kind's posts are reserved before the next.
                 for (int i = 0; i < veil; i++)
-                {
-                    // Room for all four posts first; only a territory with no
-                    // such ground anywhere gets an outcrop without it (logged).
-                    System.Array.Clear(_why, 0, _why.Length);
-                    _needPostRoom = true;
-                    bool ok = PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 2, ref rng);
-                    _needPostRoom = false;
-                    if (!ok)
-                    {
-                        // Still room for the posts, but the wall band shrunk
-                        // to the plain edge inset: a tight territory gives up
-                        // some of the AI wall's strip before a post side.
-                        _needPostRoom = true;
-                        _relaxBand = true;
-                        ok = PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 2, ref rng)
-                          || ScanForPostRoom(em, t, home, centre, boxMin[t], boxMax[t], mine);
-                        _needPostRoom = false;
-                        _relaxBand = false;
-                    }
-                    if (!ok)
-                    {
-                        ok = PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 2, ref rng);
-                        if (ok) _noPostRoomAt.Add($"{RegionMap.NameOf(t)} [bounds {_why[0]}, territory {_why[1]}, terrain {_why[2]}, obstacle {_why[3]}, building {_why[4]}, node {_why[5]}, reserved {_why[6]}]");
-                    }
-                    short_ += ok ? 0 : 1;
-                }
+                    short_ += PlaceWithPostRoom(em, t, home, centre, boxMin[t], boxMax[t], mine, 2, ref rng) ? 0 : 1;
                 for (int i = 0; i < iron; i++)
-                    short_ += PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 1, ref rng) ? 0 : 1;
+                    short_ += PlaceWithPostRoom(em, t, home, centre, boxMin[t], boxMax[t], mine, 1, ref rng) ? 0 : 1;
                 for (int i = 0; i < supply; i++)
-                    short_ += PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 0, ref rng) ? 0 : 1;
+                    short_ += PlaceWithPostRoom(em, t, home, centre, boxMin[t], boxMax[t], mine, 0, ref rng) ? 0 : 1;
                 placed += mine.Count;
 
                 if (partners != null)
@@ -293,16 +272,49 @@ namespace TheWaningBorder.World.Regions
             Debug.Log($"[TerritoryResources] {placed} node(s) laid from territory types" +
                       (short_ > 0 ? $"; {short_} could not find legal ground." : "."));
             if (_noPostRoomAt.Count > 0)
-                Debug.LogWarning($"[TerritoryResources] {_noPostRoomAt.Count} veilstone outcrop(s) found no site with room " +
+                Debug.LogWarning($"[TerritoryResources] {_noPostRoomAt.Count} node(s) found no site with room " +
                                  $"for all four Trading Outposts and were laid without it ({string.Join(", ", _noPostRoomAt)}) " +
                                  "— widen that ground on the map.");
             else
-                Debug.Log("[TerritoryResources] every veilstone outcrop has room for its four Trading Outposts.");
+                Debug.Log("[TerritoryResources] every resource node has room for its four Trading Outposts.");
             // The Sanctum landmark (Art_Direction.md §6.3): after the nodes, so
             // it keeps clear of them; same peers, same order, same sites.
             SanctumCrystal.LayAll(em, centres);
             _reserved.Clear();
         }
+
+        /// <summary>
+        /// Lay one node of <paramref name="kind"/> where all four of its side
+        /// slots are buildable for Trading Outposts. Room for all four posts
+        /// first; then the same with the wall band relaxed (and a full grid
+        /// scan); only a territory with no such ground anywhere gets a node
+        /// without it (logged).
+        /// </summary>
+        private static bool PlaceWithPostRoom(EntityManager em, int t, bool home, float3 centre,
+            float2 min, float2 max, List<float3> mine, int kind, ref Unity.Mathematics.Random rng)
+        {
+            System.Array.Clear(_why, 0, _why.Length);
+            _needPostRoom = true;
+            bool ok = PlaceRandom(em, t, home, centre, min, max, mine, kind, ref rng);
+            _needPostRoom = false;
+            if (!ok)
+            {
+                _needPostRoom = true;
+                _relaxBand = true;
+                ok = PlaceRandom(em, t, home, centre, min, max, mine, kind, ref rng)
+                  || ScanForPostRoom(em, t, home, centre, min, max, mine, kind);
+                _needPostRoom = false;
+                _relaxBand = false;
+            }
+            if (!ok)
+            {
+                ok = PlaceRandom(em, t, home, centre, min, max, mine, kind, ref rng);
+                if (ok) _noPostRoomAt.Add($"{RegionMap.NameOf(t)} {KindName(kind)} [bounds {_why[0]}, territory {_why[1]}, terrain {_why[2]}, obstacle {_why[3]}, building {_why[4]}, node {_why[5]}, reserved {_why[6]}]");
+            }
+            return ok;
+        }
+
+        private static string KindName(int kind) => kind == 0 ? "supply" : kind == 1 ? "iron" : "veilstone";
 
         private static void Counts(ResourceType type, ref Unity.Mathematics.Random rng,
             out int supply, out int iron, out int veil)
@@ -662,7 +674,7 @@ namespace TheWaningBorder.World.Regions
             const float h = BuildGrid.ResourceNodeHalf;
             if (HitsReserved(new float2(site.x - h, site.z - h), new float2(site.x + h, site.z + h)))
                 return false;
-            if (kind != 2 || !_needPostRoom) return true;
+            if (!_needPostRoom) return true;
             return HasPostRoom(em, site, t);
         }
 
@@ -720,7 +732,7 @@ namespace TheWaningBorder.World.Regions
         /// resolver leaves where it is counts, so the post test still holds.
         /// </summary>
         private static bool ScanForPostRoom(EntityManager em, int t, bool home, float3 centre,
-            float2 min, float2 max, List<float3> mine)
+            float2 min, float2 max, List<float3> mine, int kind)
         {
             float step = BuildGrid.CellSize;
             for (float z = min.y; z <= max.y; z += step)
@@ -732,10 +744,10 @@ namespace TheWaningBorder.World.Regions
                     if (home && !OnHomeEdge(d, centre)) continue;
                     if (TooClose(d, mine)) continue;
                     d.y = TerrainUtility.GetHeight(d.x, d.z);
-                    if (!SiteKeepsPostRoom(em, d, t, 2)) continue;
+                    if (!SiteKeepsPostRoom(em, d, t, kind)) continue;
                     if (!ResourceNodeSite.TryResolve(em, d, out var site)) continue;
                     if (math.distancesq(site.xz, d.xz) > 0.01f) continue;
-                    Create(em, site, 2);
+                    Create(em, site, kind);
                     mine.Add(site);
                     return true;
                 }
@@ -756,7 +768,7 @@ namespace TheWaningBorder.World.Regions
         private static void Create(EntityManager em, float3 site, int kind, byte grade)
         {
             _record?.Add((site, kind, grade));
-            if (kind == 2) ReservePosts(site);
+            ReservePosts(site);   // every kind keeps its four post sides (2026-11-09)
             Entity e = kind switch
             {
                 0 => SupplyNode.Create(em, site),

@@ -53,15 +53,15 @@ namespace TheWaningBorder.Rendering
         {
             (1, null),                    //  2 upgrade to Lv1
             (0, "IronReinforcements"),    //  3
-            (0, "IronSurveying1"),        //  4
+            (0, null),                    //  4 (survey cut 2026-11-09)
             (2, null),                    //  5 upgrade to Lv2
             (0, "VeilstoneWalls"),        //  6 (dissolves wall_low out)
-            (0, "IronSurveying2"),        //  7 (dissolves tier I out)
-            (0, "VeilstoneSurvey1"),      //  8
+            (0, null),                    //  7 (survey cut 2026-11-09)
+            (0, null),                    //  8 (survey cut 2026-11-09)
             (3, null),                    //  9 upgrade to Lv3
             (0, "VeilsteelPylons"),       // 10 (no authored look yet)
-            (0, "IronSurveying3"),        // 11 (dissolves tier II out)
-            (0, "VeilstoneSurvey2"),      // 12 (dissolves tier I out)
+            (0, null),                    // 11 (survey cut 2026-11-09)
+            (0, null),                    // 12 (survey cut 2026-11-09)
             (0, null),                    // 13 (was Veilsteel Survey, cut 2026-11-09)
         };
 
