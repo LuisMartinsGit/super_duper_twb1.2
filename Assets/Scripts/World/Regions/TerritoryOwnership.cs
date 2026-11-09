@@ -722,8 +722,10 @@ namespace TheWaningBorder.World.Regions
         /// Veilstone Mine — are one "Mine" in the build menu, and the node
         /// under the cursor decides which is raised. Returns the concrete id
         /// whose free node is nearest <paramref name="pos"/> (within snap
-        /// reach), or false when none is. The Veilstone Mine is not offered to
-        /// Alanthor, who trade for veilstone (docs/Design/Veilstone_Economy.md §3.1).
+        /// reach), or false when none is. The Runai raise a Sanctuary on an
+        /// outcrop instead of a Veilstone Mine. The Trading Outpost is NOT on
+        /// this button (2026-11-09): it stands beside a node, not on it, and has
+        /// its own button (docs/Design/Veilstone_Economy.md §3.1).
         /// UI-side: the AI and the executor always deal in the concrete ids.
         /// </summary>
         public static bool ResolveExtractorAt(EntityManager em, Faction faction, float3 pos,
@@ -736,11 +738,7 @@ namespace TheWaningBorder.World.Regions
             {
                 string id = MineIds[i];
                 if (!MayBuildMine(em, faction, id)) continue;
-                // The one Mine button raises Alanthor's Trading Outpost beside
-                // a node, and only Alanthor's (after Trade Charters).
-                if (id == "Alanthor_TradingOutpost"
-                    && CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor) continue;
-                // ...and the Runai Sanctuary, only the Runai's.
+                // The Runai Sanctuary is the Runai's only.
                 if (id == "Runai_Sanctuary"
                     && CultureConfig.GetCompletedCulture(em, faction) != Cultures.Runai) continue;
                 if (!TrySnapToNode(em, id, pos, out var at)) continue;
@@ -751,7 +749,7 @@ namespace TheWaningBorder.World.Regions
         }
 
         /// <summary>The ids the one Mine button stands for.</summary>
-        public static readonly string[] MineIds = { "Mine", "VeilstoneMine", "Alanthor_TradingOutpost", "Runai_Sanctuary" };
+        public static readonly string[] MineIds = { "Mine", "VeilstoneMine", "Runai_Sanctuary" };
 
         /// <summary>
         /// False for a Veilstone Mine under a Runai faction (the crystal is
