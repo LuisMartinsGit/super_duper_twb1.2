@@ -175,6 +175,8 @@ namespace TheWaningBorder.Economy
         {
             if (original.IsZero) return true;
             var c = TheWaningBorder.AI.AICheat.ScaleIncome(fac, original, source);
+            // The Vault's full bars (decision 46): +bonus on resource income.
+            c = TheWaningBorder.Systems.Economy.VaultBars.ScaleIncome(fac, c, source);
             if (!TryGetBank(em, fac, out var bank)) return false;
 
             var r = em.GetComponentData<FactionResources>(bank);

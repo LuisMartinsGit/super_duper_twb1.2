@@ -282,8 +282,7 @@ namespace TheWaningBorder.AI
             var brainData = brain != Entity.Null ? em.GetComponentData<AIBrain>(brain) : default;
             var profile = AISimpleDifficulty.GetProfile(brainData.Difficulty);
             profile.SustainArmyCap = ProfileOf(faction).SustainArmyCap > 0 ? ProfileOf(faction).SustainArmyCap : profile.SustainArmyCap;   // § 6j raise
-            var personality = AISettings.Get().For(brainData.Personality,
-                AISimpleDifficulty.GetProfile(brainData.Difficulty).PersonalityWeight);
+            var personality = AISettings.Get().For(brainData.Personality);
 
             ReadEnemy(em, brain, profile.IntelFreshnessSeconds, p);
             ComputeShares(em, faction, p, profile, personality);

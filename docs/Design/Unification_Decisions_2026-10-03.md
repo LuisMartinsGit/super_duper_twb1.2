@@ -9,6 +9,54 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+47. **The Sect of Prosperity reworked (2026-11-10, developer).** Bounty becomes a buy-out:
+    every hostile unit it reaches dies at once and its owner is paid its cost (heroes immune).
+    A = Bounty in an area growing with the chapel level; B = Overtime in an area; ★ = Plenty
+    raises a capturable Counting House (monument capture rules) that trickles supplies + iron,
+    then + veilstone, then + religion points, with Fortify's climbing cooldown. Treasury bonus
+    25 % -> 15 %. The Collector is renamed the Bounty Hunter and auto-casts Bounty on one weaker
+    unit (Run Down retired). Guildmaster: L1 Bounty (area by hero level, replaces Called In),
+    L3 Stake +5 % until the building is damaged (90 s), L6 Liquidate unchanged, L10 Windfall
+    (40 s: every death near him pays 10 % of its cost; 300 s; replaces Buy Out).
+    ([Sects.md § Sect of Prosperity](Sects.md)).
+46. **The Vault's four bars (2026-11-10, developer).** The Vault of Almiérra no longer pays
+    interest. It holds four bars of `vaultBarCapacity` each, filled in order with any resource
+    one for one; each bar boosts one resource the player picks as it starts filling, and a FULL
+    bar adds `vaultBarBonus` to that resource's income (stacking). A withdrawal returns
+    everything as paid in and empties every bar. Research replaces the banking grades and
+    resource unlocks: Second / Third / Fourth Coffer open bars 2-4, Iron / Veilstone Accounts
+    let a bar boost iron / veilstone (expensive; prices on the tech SOs). The Vault's levels
+    give HP only; `interestPerMinute`, `interestPrincipalCap`, `interestMaxSeconds`, the three
+    grade rates and the level `interestMultiplier` are deleted, and so is the deposit lock.
+    Supersedes decision 41 ([Age_0.md § Vault](Age_0.md)).
+45. **Trade holds the last unit; the 0.0.79 AI behaviour pass (2026-11-10, developer, after
+    the 36-match tier x personality batch).** (a) **A node with a finished Trading Outpost beside
+    it is never spent**: extraction stops at one unit left, the extractor on it collapses, and the
+    node stays for its posts; a node with no post collapses at zero; a held node whose last post
+    falls collapses at once; posts may still be built beside a held node, and no extractor may
+    ([Territory_Claims.md § 11.3](Territory_Claims.md)). The Gatherer's Hut's Depleted
+    exception is withdrawn. (b) **Stop Extracting is removed** (the toggle, `ExtractorStopped`, the
+    `SetExtractorStopped` order; the lockstep slot is kept as a no-op for old replays); tutorial
+    mission 2 step 2b is now "Research Trade Charters at the Fortress". (c) **A personality is
+    played in full on every tier**: `personalityWeight` and the blending toward Balanced are
+    deleted. (d) **Turtle and Defensive wall on every tier but Beginner**, past the tier's
+    `wallsForbidden`; a chokepoint wall plan whose every slot is unbuildable (Moatwatch's fords)
+    is redrawn along the home border. (e) **Sect powers**: the tier's sect limit caps adoption
+    only, never the power unlocks and chapel levels; any unit locked on a hostile unit marks a
+    fight site, the curse counts at the capital, and fight sites last `fightSiteSeconds`.
+    (f) **Rebuild is a real loss**: the army must be below half its recent peak as well as half
+    its desired size. (g) **Composition**: `basicsMaxShare` lowered; a locked Ballista hands its
+    share to the Catapult, not the Sentinel; the Catapult's base share raised. (h) **A Trading
+    Outpost the share allows saves for itself** against unit purchases. (i) **The territory
+    development step respects the extractor share** (it filled every node, so every tier beat its
+    target). (j) Easy attacks in bigger, rarer waves; Normal's first attack is earlier.
+44. **AI tiers by extractor count; Trade Charters at Fortress L1 (2026-11-09, developer, after
+    the 0.0.78 batch).** (a) Expert works every node it can, as soon as it can; each tier
+    below works 25 % fewer of the nodes it holds (Hard, Normal, Easy, Beginner), so its
+    extraction income lands at that share of Expert's — a COUNT of extractors, never a cut to
+    what an extractor pays ([Game_AI.md § 2c](Game_AI.md)). (b) Every tier researches Trade
+    Charters and builds Trading Outposts under the same share. (c) **Trade Charters is a
+    Fortress L1 tech** (was L3) and cheaper (the SO).
 43. **Economy pass (2026-11-09, developer, after playing 0.0.77).** (a) **The Guild surveys
     (Iron Surveying I-III, Veilstone Survey I-II) and the Supply Surveys are removed** — no
     income that comes from no node; the late-game income is the Trading Outpost. (b) **Node

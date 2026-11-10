@@ -1735,10 +1735,9 @@ namespace TheWaningBorder.Multiplayer
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed DeleteEntity from player {cmd.PlayerIndex}");
                     break;
 
-                case LockstepCommandType.SetExtractorStopped:
-                    // EntityNetworkId: the extractor. TargetEntityId: 1 stop, 0 resume.
-                    CommandRouter.SetExtractorStoppedDirect(em, entity, cmd.TargetEntityId);
-                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetExtractorStopped({cmd.TargetEntityId}) from player {cmd.PlayerIndex}");
+                case LockstepCommandType.RetiredSetExtractorStopped:
+                    // Stop Extracting was removed (decision 45, 2026-11-10); an
+                    // older replay may still carry the order. It does nothing.
                     break;
 
                 case LockstepCommandType.GarrisonWall:
@@ -1855,11 +1854,12 @@ namespace TheWaningBorder.Multiplayer
                 case LockstepCommandType.VaultTransfer:
                     if (entity != Entity.Null)
                     {
-                        // TargetEntityId: resource type in the low byte,
-                        // deposit flag at bit 8. SecondaryTargetId: amount.
+                        // TargetEntityId: resource paid in the low byte,
+                        // deposit flag at bit 8, the bar boost at bits 9-10.
+                        // SecondaryTargetId: amount.
                         CommandRouter.VaultTransferDirect(em, entity,
                             cmd.TargetEntityId & 0xFF, cmd.SecondaryTargetId,
-                            (cmd.TargetEntityId & 0x100) != 0);
+                            (cmd.TargetEntityId & 0x100) != 0, (cmd.TargetEntityId >> 9) & 0x3);
                         if (LogCommands) TWBLog.Log($"[Lockstep] Executed VaultTransfer from player {cmd.PlayerIndex}");
                     }
                     break;

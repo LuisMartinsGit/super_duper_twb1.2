@@ -10,25 +10,25 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b3ecc1043fa62454ebb9521a55d0673d, type: 3}
-  m_Name: BuyOut
-  m_EditorClassIdentifier:
-  abilityName: "Buy Out"
+  m_Name: Windfall
+  m_EditorClassIdentifier: 
+  abilityName: "Windfall"
   activation: 0
   targeting: 2
   affects: 4
   castTime: 0
-  duration: 0
-  cooldown: 600
-  radius: 35
+  duration: 40
+  cooldown: 300
+  radius: 15
   range: 0
   effects:
-  - kind: 56
-    value: 50
+  - kind: 58
+    value: 10
   aftermath: []
   unlocksAtLevel: 10
   damage: 0
   damageType: 0
-  aimedAtPoint: 1
+  aimedAtPoint: 0
   targetKind: 0
   icon: {fileID: 0}
   vfxPrefab: {fileID: 0}

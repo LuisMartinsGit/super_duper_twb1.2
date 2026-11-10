@@ -99,5 +99,13 @@ namespace TheWaningBorder.AI
 
         // Train-queue cap per Stable / SiegeYard. Mirrors SimpleAISystem.
         public int maxTrainQueue;
+
+        /// <summary>Sect powers (decision 45): a unit locked on a hostile unit within
+        /// this many metres marks a fight site there.</summary>
+        public float combatSiteReach;
+
+        /// <summary>Cell size (m) wall losses are remembered by across plan
+        /// redraws, so the rebuild cap survives a redraw (Game_AI.md 2e).</summary>
+        public float wallLossCellMeters;
     }
 }

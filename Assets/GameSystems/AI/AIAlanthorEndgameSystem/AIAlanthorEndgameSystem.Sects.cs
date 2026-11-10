@@ -237,9 +237,59 @@ namespace TheWaningBorder.AI
             float r = AITactics.Cfg.baseThreatRadius;
             int enemies = CountPlayerEnemiesNear(em, faction, hallPos, r);
             baseThreat = enemies > 0;
-            if (!baseThreat) return;
-            var a = AIEngagement.Assess(em, faction, hallPos, r);
-            _powerSites.Add(new AIFightSite { Pos = hallPos, Mine = a.MyPower, Enemy = a.EnemyPower });
+            if (baseThreat)
+            {
+                var a = AIEngagement.Assess(em, faction, hallPos, r);
+                _powerSites.Add(new AIFightSite { Pos = hallPos, Mine = a.MyPower, Enemy = a.EnemyPower });
+            }
+            AddCombatSites(em, faction);
+        }
+
+        // ── Every fight is a fight (2026-11-10, decision 45) ─────────────
+        // Only an ATTACKING army reported fight sites, so a defence, a fight in
+        // the faction's own territory or a brush with the curse never counted:
+        // in the 0.0.79 batch Heal Circle was held 13,036 times and cast 116,
+        // almost always "no fight in progress". Any of the faction's units
+        // locked on a hostile unit (player or curse) now marks a site there.
+        static readonly ComponentType[] QT_Fighters =
+        {
+            ComponentType.ReadOnly<UnitTag>(), ComponentType.ReadOnly<FactionTag>(),
+            ComponentType.ReadOnly<Target>(), ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_Fighters;
+        private const int MaxPowerSites = 8;
+
+        private static void AddCombatSites(EntityManager em, Faction faction)
+        {
+            if (_powerSites.Count >= MaxPowerSites) return;
+            var q = QC_Fighters.Get(em, QT_Fighters);
+            if (q.IsEmptyIgnoreFilter) return;
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var tgts = q.ToComponentDataArray<Target>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            float r = AITactics.Cfg.powerRadius;
+            float merge2 = r * r;
+            float reach2 = Cfg.combatSiteReach * Cfg.combatSiteReach;
+            for (int i = 0; i < facs.Length && _powerSites.Count < MaxPowerSites; i++)
+            {
+                if (facs[i].Value != faction) continue;
+                Entity t = tgts[i].Value;
+                if (t == Entity.Null || !em.Exists(t) || !em.HasComponent<UnitTag>(t)
+                    || !em.HasComponent<FactionTag>(t) || !em.HasComponent<LocalTransform>(t)) continue;
+                if (!Alliances.AreHostile(faction, em.GetComponentData<FactionTag>(t).Value)) continue;
+                float3 me = xfs[i].Position;
+                float3 tp = em.GetComponentData<LocalTransform>(t).Position;
+                float dx = tp.x - me.x, dz = tp.z - me.z;
+                if (dx * dx + dz * dz > reach2) continue;   // chasing, not fighting
+                float3 mid = (me + tp) * 0.5f;
+                bool known = false;
+                for (int s = 0; s < _powerSites.Count && !known; s++)
+                    known = math.distancesq(_powerSites[s].Pos.xz, mid.xz) <= merge2;
+                if (known) continue;
+                var a = AIEngagement.Assess(em, faction, mid, r);
+                if (a.EnemyPower <= 0) continue;
+                _powerSites.Add(new AIFightSite { Pos = mid, Mine = a.MyPower, Enemy = a.EnemyPower });
+            }
         }
 
         private static int CountPlayerEnemiesNear(EntityManager em, Faction faction, float3 pos, float r)
@@ -249,7 +299,7 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < AIUnitSnapshot.Count; i++)
             {
                 var fac = AIUnitSnapshot.Fac[i];
-                if (fac == Faction.Border || !Alliances.AreHostile(faction, fac)) continue;
+                if (!Alliances.AreHostile(faction, fac)) continue;   // the curse counts (decision 45)
                 if (AIUnitSnapshot.Hp[i] <= 0) continue;
                 float3 p = AIUnitSnapshot.Pos[i];
                 float dx = p.x - pos.x, dz = p.z - pos.z;
@@ -372,12 +422,19 @@ namespace TheWaningBorder.AI
                 case SectActivePowerKind.NodeOverYield:
                     return TryPickResourceNode(em, faction, hallPos, out target);
 
-                // Economy (Prosperity): Overtime on the keep's queue, Plenty
-                // whenever it is ready — both are worth casting at any time.
+                // Economy (Prosperity, decision 47): Overtime over the keep and
+                // the production round it — worth casting at any time.
                 case SectActivePowerKind.Overtime:
-                case SectActivePowerKind.Plenty:
                     target = hallPos;
                     return true;
+
+                // Plenty raises a capturable Counting House: on free ground
+                // near the keep, where the home army keeps it.
+                case SectActivePowerKind.Plenty:
+                    if (!CountingHouse.CanRaise(em, faction)) { target = hallPos; why = "at the Counting House cap"; return false; }
+                    if (TryPickCountingHouseSite(em, faction, hallPos, out target)) return true;
+                    why = "no free ground near the keep";
+                    return false;
 
                 default:
                     target = default;
@@ -386,6 +443,29 @@ namespace TheWaningBorder.AI
         }
 
         private enum FriendlyNeed : byte { Heal, Buff, Pivotal }
+
+        /// <summary>A free 2x2 build spot on own ground near the keep for a
+        /// Counting House: rings of 16 bearings at 18, 26 and 34 m, first valid
+        /// (deterministic; the power snaps and validates again).</summary>
+        private static bool TryPickCountingHouseSite(EntityManager em, Faction faction, float3 hallPos, out float3 target)
+        {
+            var size = new int2(2, 2);
+            var snap = BuildSiteSnapshot.Current(em);
+            for (float r = 18f; r <= 34f; r += 8f)
+                for (int b = 0; b < 16; b++)
+                {
+                    float a = b * (math.PI * 2f / 16f);
+                    float3 p = hallPos + new float3(math.cos(a) * r, 0f, math.sin(a) * r);
+                    p = BuildGrid.Snap(p, size);
+                    p.y = TerrainUtility.GetHeight(p.x, p.z);
+                    if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerAt(p.x, p.z) != (int)faction) continue;
+                    if (!snap.IsValidBuildPosition(em, p, size, null)) continue;
+                    target = p;
+                    return true;
+                }
+            target = hallPos;
+            return false;
+        }
 
         /// <summary>
         /// Densest enemy PLAYER cluster standing at one of the fight sites.

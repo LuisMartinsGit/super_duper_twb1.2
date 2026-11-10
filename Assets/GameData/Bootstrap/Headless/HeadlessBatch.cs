@@ -631,8 +631,13 @@ namespace TheWaningBorder.Bootstrap
                 if (slot.Type != SlotType.AI) continue;
                 if (!first) sb.Append(", ");
                 first = false;
+                // Beginner and Cheating play the Easy / Expert profile but are their
+                // own lobby tiers, so the roster names the slot's tier, not the profile.
+                bool ownTier = slot.AIDifficulty == LobbyAIDifficulty.Beginner
+                               || slot.AIDifficulty == LobbyAIDifficulty.Cheating;
                 sb.Append(slot.Faction).Append(' ')
-                  .Append(AIBootstrap.GetFactionDifficulty(slot.Faction)).Append(' ')
+                  .Append(ownTier ? slot.AIDifficulty.ToString()
+                                  : AIBootstrap.GetFactionDifficulty(slot.Faction).ToString()).Append(' ')
                   .Append(AIBootstrap.ResolvePersonality(slot.Faction));
             }
             return sb.ToString();

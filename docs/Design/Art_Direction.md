@@ -898,6 +898,40 @@ exception. if something breaks, author a new SO, FBX and .blend."
   (one per SO, so the SO-only rule holds) but have no FBX / .blend of their
   own yet; their art passes come with editions B and C.
 
+### The Alanthor oriental kit and the Garrison (2026-11-10)
+
+Alanthor reads as a **Japanese / Roman blend**: Roman in plan and masonry
+(stone walls, a paved court with a statue, colonnades on stone bases), Japanese
+in everything that stands on it (tiled roofs with a concave slope and upturned
+corners, a heavy ridge with gilt ends, gables set back over a pent eave, red
+lacquer columns with gilt and black bands).
+
+The pieces for that are a kit of their own, re-shaped from Synty's castle kit
+and saved as new FBX files in `Civs/Alanthor/Buildings/Art/Oriental/`; Synty's
+files are untouched.
+
+- **Source:** `tools/blender/alanthor/build_oriental_kit.py` (the profile
+  numbers are its constants). It writes the FBX, the flat-colour palette the
+  lacquer faces sample, and a manifest of material slots.
+- **Binding:** `Waning Border > Art > Bind Oriental Kit` makes one prefab per
+  FBX with the materials on by slot name. The tile slot is `Castle_Roof_Player`,
+  so roofs take the player colour exactly as the castle kit's do.
+- **Pieces:** `SM_Bld_Kawara_*` are roofs - slopes for a 7.5 m span (`M`) and a
+  5 m span (`S`), each with a plain piece, a half piece, two `Tip` pieces whose
+  eave lifts toward one end, a bargeboard (`Hafu`), a gable wall and a hip
+  `Corner`; `Eave` pieces are the pent eave of a storey line or a gable wall,
+  with its corner; `Ridge` and `Ridge_End`. `SM_Bld_Lacquer_*` are the columns,
+  tie beams and the gate beam. `SM_Bld_Shoji_Wall_*` are timber-framed paper
+  walls with the castle kit's wall sizes and pivots (5 x 5 m, a 2.5 m and a
+  1.25 m width, a 2.5 m high one, and one with an open sliding doorway); their
+  panes are the `Paper` slot, `Al_Shoji_Paper`, which glows at the window rung
+  of the emissive ladder (§3.4). No piece is named *roof*: the faction-colour
+  rule paints every non-tile part of such a node slate.
+- **Buildings are composed by hand** from these prefabs, like the rest of the
+  Alanthor set. At yaw 0 a slope or eave runs +X from its pivot with the eave
+  toward +Z; a ridge end faces -X. The ridge line sits 3.25 m over the wall top
+  on the `M` slopes and 2.35 m on the `S` slopes.
+
 ## 12. Open questions
 
 1. **Which atlas does Age 0 sample?** The `*Variants.fbx` models reference

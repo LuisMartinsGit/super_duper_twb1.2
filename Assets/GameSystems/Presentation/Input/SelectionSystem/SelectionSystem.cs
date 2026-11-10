@@ -584,6 +584,10 @@ namespace TheWaningBorder.Input
             if (_em.HasComponent<MonumentTag>(e))
                 return true;
 
+            // A Counting House (Sect of Prosperity, Plenty): same as a monument.
+            if (_em.HasComponent<CountingHouseTag>(e))
+                return true;
+
             // Must have faction tag
             if (!_em.HasComponent<FactionTag>(e))
                 return false;

@@ -37,10 +37,3 @@ public struct TradingOutpostSite : IComponentData
     public byte RampIndex;
 }
 
-/// <summary>
-/// STOP EXTRACTING (docs/Design/Veilstone_Economy.md §3.5, 2026-11-09). On an
-/// extractor (the Gatherer's Hut line, the Mine, the Veilstone Mine): it draws
-/// nothing from its node and pays no slot income, but stands, holds, locks and
-/// keeps paying its surveys. Toggled by the SetExtractorStopped lockstep order.
-/// </summary>
-public struct ExtractorStopped : IComponentData { }

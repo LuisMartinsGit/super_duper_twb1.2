@@ -392,6 +392,10 @@ namespace TheWaningBorder.Systems.Sect
 
             var spec = SectLeverEffects.ActiveOf(sectId, tier, powerLevel);
             if (spec.Kind == SectActivePowerKind.None) return false;
+            // Plenty at the Counting House cap raises nothing: refused before
+            // the cooldown is charged (decision 47).
+            if (spec.Kind == SectActivePowerKind.Plenty
+                && !TheWaningBorder.Entities.CountingHouse.CanRaise(em, faction)) return false;
 
             var targetKind = spec.Target;
             if (targetKind != TheWaningBorder.Abilities.CastTargetKind.None)
@@ -723,13 +727,13 @@ namespace TheWaningBorder.Systems.Sect
                     ApplyWardCharge(em, faction, pos, radius, magnitude, duration, secondary);
                     break;
                 case SectActivePowerKind.Bounty:
-                    ApplyBounty(em, faction, pos, magnitude, duration, dmgType);
+                    ApplyBounty(em, faction, pos, radius);
                     break;
                 case SectActivePowerKind.Overtime:
-                    ApplyOvertime(em, faction, pos, magnitude, duration);
+                    ApplyOvertime(em, faction, pos, radius, magnitude, duration);
                     break;
                 case SectActivePowerKind.Plenty:
-                    ApplyPlenty(em, faction, duration);
+                    ApplyPlenty(em, faction, pos, (int)magnitude);
                     break;
 
                 // -- War canon kinds. Bodies in SectActivePowerSystem.War.cs --

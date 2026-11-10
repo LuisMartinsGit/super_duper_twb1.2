@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 366fa7bc00025ab49bdccd4c5dd811b6, type: 3}
+  m_Name: CountingHouse
+  m_EditorClassIdentifier: 
+  maxPerPlayer: 5
+  captureRadius: 4.5
+  captureSeconds: 10
+  footprintCells: 2
+  placementSearchRadius: 6
+  placementSearchStep: 2
+  suppliesPerMinute:
+  - 30
+  - 45
+  - 60
+  ironPerMinute:
+  - 10
+  - 15
+  - 20
+  veilstonePerMinute:
+  - 0
+  - 5
+  - 8
+  secondsPerReligionPoint:
+  - 0
+  - 0
+  - 120
+  selectionRadius: 2
+  modelPrefab: {fileID: 4230956828374949449, guid: 7a714cda5627c8c4b865c109182d68b5, type: 3}
+  modelScale: 0.5
+  lightHeight: 4
+  lightRange: 9
+  lightIntensity: 3
+  neutralColor: {r: 0.85, g: 0.8, b: 0.65, a: 1}
+  circleEdge: 0.1
+  circleResolution: 128

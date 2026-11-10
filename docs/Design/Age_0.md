@@ -385,53 +385,52 @@ attack and SAVES for its landmark:
 
 ### Vault of Almiérra — the Alanthor landmark
 
-A resource bank: deposited resources earn **simple interest** per minute on
-the stored **principal**, and only on the part of it **up to a cap**
-([Unification decision 41](Unification_Decisions_2026-10-03.md), 2026-10-05).
-The principal is what the Vault holds as of the last deposit; the interest it
-pays is added to the payout, never to the principal, so the yield grows in a
-straight line and never compounds. Anything stored above the cap earns
-nothing (it is still safe and still paid out on withdrawal). A withdrawal
-takes everything and zeroes the principal.
+**Four bars of income (2026-11-10, [Unification decision 46](Unification_Decisions_2026-10-03.md);
+replaces the capped simple interest of decision 41).** The Vault holds **four bars**.
+Resources paid in fill them **in order**, **any resource one for one** (supplies, iron or
+veilstone all count the same), up to the Vault SO's `vaultBarCapacity` for that bar. **Each bar
+is harder to fill than the last** (2026-11-10, developer).
+
+- **Each bar boosts one resource**, chosen by the player when the bar **starts** filling, and
+  fixed until a withdrawal empties it. Supplies may always be chosen; iron and veilstone open
+  with research (below).
+- **Every bar pays as it fills** (2026-11-10, developer): it is cut into `vaultSubBars`
+  sub-bars, and each filled sub-bar at once adds its share of the Vault SO's `vaultBarBonus` to
+  the **income** of the resource the bar boosts — a full bar gives the whole bonus. Bars stack:
+  four full bars on one resource give four times the bonus.
+- **Income** means resource income: territory, extractors, Trading Outposts, the capital and
+  every building trickle. Never refunds, grants, loot, curse bounties, a withdrawal or
+  religion points.
+- **Withdraw** takes everything back, at any time, exactly as it was paid in (by resource).
+  **Every bar empties: the bonus and the progress toward it are lost.** There is no partial
+  withdrawal and no lock timer.
+- **A lost Vault loses what was in it**, and its bonus ends at once.
 
 **One Vault per faction (2026-10-19).** A faction may own only one Vault of
 Almiérra at a time — standing, under construction or planned all count
 (`maxPerFaction` on the Vault SO, enforced in the build menu, the placement
 executor and the AI like every per-faction cap). A lost Vault may be rebuilt.
-Several Vaults multiplied the safe return the Vault exists to cap.
 
-**Interest applies from level 1 and grows with the Vault's level**
-(decision 12), and **the banking-grade techs raise the rate**: the base rate,
-the principal cap and the three grade rates are on
-`Age0/Buildings/VaultOfAlmierra/VaultOfAlmierra.asset`
-(`interestPerMinute`, `interestPrincipalCap`, `coffersRate`,
-`merchantChartersRate`, `sovereignBondsRate`), and each level's multiplier on
-`Civs/Alanthor/Buildings/VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`. HP, upgrade
-prices and times are on the same SOs. No trainable units.
+**Levels** (`Civs/Alanthor/Buildings/VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) raise its HP
+only; the bars are opened by research, not levels. The bar capacity and bonus are on
+`Age0/Buildings/VaultOfAlmierra/VaultOfAlmierra.asset`; every price is on the tech SOs.
 
-**A hard time cap (2026-10-07):** a deposit earns interest for at most the
-Vault SO's `interestMaxSeconds` (10 minutes); after that it earns nothing
-until it is withdrawn and deposited again. Each deposit restarts the clock.
-
-> Why simple and capped: under compounding the Vault was a money printer —
-> one test saw 2,645 iron become 7.5 million eleven minutes later. The point
-> of the Vault is a modest, safe return on idle resources, not an economy.
+> Why bars: the interest Vault paid a small, safe return on idle money and asked nothing.
+> A bar asks a real commitment (a large sum parked for good) and pays a lasting edge in the
+> resource the player chose, which the player gives up the moment the money is needed.
 
 #### Researchable techs
 
-The three banking-grade techs are **mutually exclusive tiers** — only one
-banking grade is active at a time; researching a higher grade replaces the
-active rate with that grade's rate from the Vault SO (the level multiplier
-still applies on top). The resource-unlock techs widen what may be deposited.
+**Expensive by design** (prices on the tech SOs). Bar 1 and supplies are open as soon as the
+Vault stands.
 
-| Tech | Gate (`minBuildingLevel`) | Effect (rule) |
+| Tech | Prerequisite | Effect (rule) |
 |------|------|---------------|
-| **Coffers** | none | banking grade 1 *(safe storage — "the Vault keeps coin")* |
-| **Merchant Charters** | none | banking grade 2 *(active credit — "the Vault lends to traders")* |
-| **Sovereign Bonds** | none | banking grade 3 *(high-stakes — "the Vault speculates")* |
-| **Iron Subsidies** | none | Iron can be deposited |
-| **Veilstone Monetization** | **Vault L2** | Veilstone can be deposited |
-| **Veilsteel Bonds** | **Vault L3** | Veilsteel can be deposited |
+| **Second Coffer** | none | opens bar 2 |
+| **Third Coffer** | Second Coffer | opens bar 3 |
+| **Fourth Coffer** | Third Coffer | opens bar 4 |
+| **Iron Accounts** | none | a bar may boost **iron** |
+| **Veilstone Accounts** | Iron Accounts | a bar may boost **veilstone** |
 
 ---
 
@@ -569,13 +568,11 @@ its name.
 2. **Warrior Priests** — the Litharch has no attack by default; Warrior
    Priests grants one (values on the tech SO).
 3. **Fiendstone Keep** — out of scope until the Feraldis pass (decision 38).
-4. **Vault interest model** — originally compound. **Superseded 2026-10-05
-   (decision 41):** **simple interest on the principal up to the SO cap**,
-   applying from level 1 and growing with level (decision 12); the banking
-   grades replace the rate. See § Vault of Almiérra above.
-5. **Banking tier names** — **Coffers**, **Merchant Charters**, **Sovereign
-   Bonds** (the three grades); Iron Subsidies / Veilstone Monetization /
-   Veilsteel Bonds are the resource unlocks.
+4. **Vault model** — originally compound, then simple capped interest
+   (decision 41). **Superseded 2026-11-10 (decision 46): four bars that raise
+   income when full.** See § Vault of Almiérra above.
+5. **Vault research names** — Second / Third / Fourth Coffer (the bars),
+   Iron / Veilstone Accounts (the boosts). The banking grades are gone.
 6. **Feraldis housing in early game** — Feraldis and Runai get the full
    population cap instantly at age-up; Feraldis Houses are raider spawners
    only ([Age_1_Feraldis.md](Age_1_Feraldis.md)). See

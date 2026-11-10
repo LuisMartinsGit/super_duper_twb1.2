@@ -27,7 +27,6 @@ MonoBehaviour:
   maxTargets: 0
   populationProvided: 10
   slotIncomePerMinute: 0
-  interestMultiplier: 0
   tradeRateMultiplier: 0
   attack:
     enabled: 0

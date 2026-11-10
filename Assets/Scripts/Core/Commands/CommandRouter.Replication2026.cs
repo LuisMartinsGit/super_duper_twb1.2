@@ -458,16 +458,20 @@ namespace TheWaningBorder.Core.Commands
 
 
         // ═══════════════════════════════════════════════════════════════
-        // VAULT DEPOSIT / WITHDRAW
+        // VAULT DEPOSIT / WITHDRAW (the four bars, decision 46)
         //
         // Moves resources between the faction bank (checksummed) and the
         // vault's VaultStorage — both sides of the move must land on every
-        // peer, and the simple-interest principal is re-based on every move.
+        // peer. A deposit pours into the open bars (VaultBars.Pour); a
+        // withdrawal pays back what was paid in and empties every bar.
         // docs/Multiplayer_Desync_Sweep_2026-08-16.md
         // ═══════════════════════════════════════════════════════════════
 
+        /// <param name="resourceType">The resource paid in (1..3).</param>
+        /// <param name="boost">The resource a bar that STARTS filling with
+        /// this deposit will boost (1..3); bars already started keep theirs.</param>
         public static void IssueVaultTransfer(EntityManager em, Entity vaultEntity,
-            int resourceType, int amount, bool deposit,
+            int resourceType, int amount, bool deposit, int boost = 1,
             CommandSource source = CommandSource.LocalPlayer)
         {
             if (ShouldDropCommand(source)) return;
@@ -486,13 +490,13 @@ namespace TheWaningBorder.Core.Commands
                 {
                     Type = LockstepCommandType.VaultTransfer,
                     EntityNetworkId = networkId,
-                    TargetEntityId = (resourceType & 0xFF) | (deposit ? 0x100 : 0),
+                    TargetEntityId = (resourceType & 0xFF) | (deposit ? 0x100 : 0) | ((boost & 0x3) << 9),
                     SecondaryTargetId = amount,
                 });
             }
             else
             {
-                VaultTransferDirect(em, vaultEntity, resourceType, amount, deposit);
+                VaultTransferDirect(em, vaultEntity, resourceType, amount, deposit, boost);
             }
         }
 
@@ -857,7 +861,7 @@ namespace TheWaningBorder.Core.Commands
         /// FactionTag; a short bank rejects the whole deposit identically
         /// everywhere.</summary>
         public static void VaultTransferDirect(EntityManager em, Entity vaultEntity,
-            int resourceType, int amount, bool deposit)
+            int resourceType, int amount, bool deposit, int boost = 1)
         {
             if (vaultEntity == Entity.Null || !em.Exists(vaultEntity)) return;
             if (!em.HasComponent<VaultStorage>(vaultEntity)) return;
@@ -869,31 +873,30 @@ namespace TheWaningBorder.Core.Commands
             if (deposit)
             {
                 if (amount <= 0) return;
-                // Supplies, iron, veilstone (1..3); veilsteel (4) is gone (2026-11-09).
+                // Paid in: supplies, iron or veilstone (1..3), one for one.
                 if (resourceType < 1 || resourceType > 3) return;
+                // The boost a starting bar takes must be open to this faction.
+                if (boost < 1 || boost > 3 || !TheWaningBorder.Systems.Economy.VaultBars.MayBoost(faction, boost)) boost = 1;
+                // Only what the open bars can hold is taken.
+                int take = System.Math.Min(amount,
+                    TheWaningBorder.Systems.Economy.VaultBars.Room(vault, faction, out _));
+                if (take <= 0) return;
                 if (!TheWaningBorder.Economy.FactionEconomy.Spend(
-                        em, faction, VaultTransferCost(resourceType, amount), TheWaningBorder.Economy.SpendCategory.Vault)) return;
-                vault.ResourceType = resourceType;
-                vault.StoredAmount += amount;
-                // Interest is SIMPLE and paid on the principal only (decision
-                // 41): a deposit re-bases the principal to everything stored,
-                // and VaultInterestSystem never adds its own payout to it.
-                vault.Principal = vault.StoredAmount;
-                // ...and restarts the interest clock (the 10-minute cap).
-                vault.EarningSeconds = 0f;
+                        em, faction, VaultTransferCost(resourceType, take), TheWaningBorder.Economy.SpendCategory.Vault)) return;
+                TheWaningBorder.Systems.Economy.VaultBars.Pour(ref vault, faction, take, boost);
+                if (resourceType == 1) vault.PaidSupplies += take;
+                else if (resourceType == 2) vault.PaidIron += take;
+                else vault.PaidVeilstone += take;
             }
             else
             {
-                int withdraw = (int)vault.StoredAmount;
-                if (withdraw <= 0) return;
-                TheWaningBorder.Economy.FactionEconomy.Add(
-                    em, faction, VaultTransferCost(vault.ResourceType, withdraw), TheWaningBorder.Economy.IncomeSource.Vault);
-                vault.StoredAmount = 0f;
-                vault.Principal = 0f;
-                vault.EarningSeconds = 0f;
-                vault.ResourceType = 0;
+                // Everything back, as paid; every bar empties, every bonus ends.
+                if (vault.Paid <= 0) return;
+                TheWaningBorder.Economy.FactionEconomy.Add(em, faction,
+                    Cost.Of(supplies: vault.PaidSupplies, iron: vault.PaidIron, veilstone: vault.PaidVeilstone),
+                    TheWaningBorder.Economy.IncomeSource.Vault);
+                vault = default;
             }
-            vault.LockTimer = vault.LockDuration;
             em.SetComponentData(vaultEntity, vault);
         }
 

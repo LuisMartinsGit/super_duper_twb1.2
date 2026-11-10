@@ -232,7 +232,19 @@ namespace TheWaningBorder.UI.Ingame
             if (world == null || !world.IsCreated) return null;
             var em = world.EntityManager;
             var e = TheWaningBorder.Input.ScreenPick.EntityUnderMouse(~0, em);
-            if (e == Unity.Entities.Entity.Null || !em.HasComponent<MonumentState>(e)) return null;
+            if (e == Unity.Entities.Entity.Null) return null;
+            // A Counting House (Sects.md § Plenty) reads like a monument.
+            if (em.HasComponent<CountingHouseState>(e))
+            {
+                string house = TheWaningBorder.Core.Localization.Loc.T("Counting House");
+                var hs = em.GetComponentData<CountingHouseState>(e);
+                var hat = em.GetComponentData<Unity.Transforms.LocalTransform>(e).Position;
+                if (!TheWaningBorder.Rendering.MonumentCircle.VisibleToViewer(hs.Holder, hat))
+                    return house;
+                return "<b>" + house + "</b>\n"
+                    + TheWaningBorder.UI.Data.EntityInfoExtractor.GetDisplayInfo(e, em).Description;
+            }
+            if (!em.HasComponent<MonumentState>(e)) return null;
 
             string title = TheWaningBorder.Core.Localization.Loc.T("Monument");
             var state = em.GetComponentData<MonumentState>(e);

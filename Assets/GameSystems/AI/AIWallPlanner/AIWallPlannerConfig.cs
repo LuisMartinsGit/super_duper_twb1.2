@@ -35,6 +35,11 @@ namespace TheWaningBorder.AI
         /// mountain passes are still worth sealing.</summary>
         public float maxSealableWidth;
 
+        /// <summary>Most territories a KEEP may span: the home plus held
+        /// territories next to it, assessed together for its ways in when the
+        /// home alone is not sealed (Game_AI.md walls, 2026-11-10).</summary>
+        public int maxKeepTerritories;
+
         /// <summary>On a partitioned map, a home that terrain shelters except
         /// for a few sealable corridors is walled at those chokepoints instead
         /// of along its border (2026-10-17).</summary>

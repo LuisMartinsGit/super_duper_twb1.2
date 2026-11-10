@@ -160,12 +160,11 @@ flowchart TB
 
     subgraph Vault0["Vault of Almiérra — choice"]
         direction TB
-        v_t1{{"Coffers"}}
-        v_t2{{"Merchant Charters"}}
-        v_t3{{"Sovereign Bonds"}}
-        v_t4{{"Iron Subsidies"}}
-        v_t5{{"Veilstone Monetization · L2"}}
-        v_t6{{"Veilsteel Bonds · L3"}}
+        v_t1{{"Second Coffer"}}
+        v_t2{{"Third Coffer"}}
+        v_t3{{"Fourth Coffer"}}
+        v_t4{{"Iron Accounts"}}
+        v_t5{{"Veilstone Accounts"}}
     end
 
     subgraph Temple0["Temple of Ridan — choice (one per faction, no levels)"]

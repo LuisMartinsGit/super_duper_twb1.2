@@ -193,38 +193,40 @@ namespace TheWaningBorder.Economy
         // SECT OF PROSPERITY — the Guild.
         // ═══════════════════════════════════════════════════════════════════
 
-        /// <summary>Bounty: how long after the strike a death still pays.</summary>
-        public const float BountyWindowSeconds = 10f;
-
         private static SectActivePowerSpec Prosperity(int slot, int level)
         {
+            // Reworked 2026-11-10 (Sects.md Sect of Prosperity, decision 47).
             switch (slot)
             {
-                // Bounty — one unit; a fixed reach hits harder each level.
+                // Bounty — a buy-out: every hostile unit in the area dies at
+                // once and its owner is paid its cost (ProsperityBounty).
                 case 1:
                 {
-                    float dmg = SpellLadder.Damage(SectRadius.Single, level);
-                    return Spec(SectActivePowerKind.Bounty, SectRadius.Single, "Bounty",
-                        $"One enemy unit takes {dmg:0} damage. If it dies within {BountyWindowSeconds:0}s you are paid its cost.",
-                        magnitude: dmg, duration: BountyWindowSeconds, cooldown: SpellLadder.SectDamageCooldown);
+                    var reach = Grow(level);
+                    return Spec(SectActivePowerKind.Bounty, reach, "Bounty",
+                        $"Every enemy unit in a {SectRadii.Label(reach)} area dies at once; its owner is paid back its cost. Heroes are immune.",
+                        cooldown: SpellLadder.SectDamageCooldown);
                 }
 
-                // Overtime — one of your buildings works faster.
+                // Overtime — every one of your buildings in the area works faster.
                 case 2:
                 {
+                    var reach = Grow(level);
                     float mult = level <= 1 ? 1.5f : level == 2 ? 1.75f : 2f;
-                    return Spec(SectActivePowerKind.Overtime, SectRadius.Single, "Overtime",
-                        $"One of your buildings trains, researches and produces {(mult - 1f) * 100f:0}% faster for 20s.",
+                    return Spec(SectActivePowerKind.Overtime, reach, "Overtime",
+                        $"Your buildings in a {SectRadii.Label(reach)} area train, research and produce {(mult - 1f) * 100f:0}% faster for 20s.",
                         magnitude: mult, duration: 20f, cooldown: SpellLadder.SectTacticalCooldown);
                 }
 
-                // Plenty — a lump of income; no target.
+                // Plenty — raise a capturable Counting House (CountingHouse);
+                // magnitude is its level. The cooldown climbs like Fortify's.
                 default:
                 {
-                    float seconds = level <= 1 ? 60f : level == 2 ? 90f : 120f;
+                    string pays = level <= 1 ? "supplies and iron" : level == 2 ? "supplies, iron and veilstone" : "supplies, iron, veilstone and religion points";
                     return Spec(SectActivePowerKind.Plenty, SectRadius.Single, "Plenty",
-                        $"Instantly gain {seconds:0}s of your current income.",
-                        duration: seconds, cooldown: SpellLadder.DeployableCooldown);
+                        $"Raise a Counting House that slowly pays its holder {pays}. Anyone can capture it, like a monument.",
+                        magnitude: level, duration: Permanent,
+                        cooldown: level <= 1 ? 120f : level == 2 ? 300f : 600f);
                 }
             }
         }

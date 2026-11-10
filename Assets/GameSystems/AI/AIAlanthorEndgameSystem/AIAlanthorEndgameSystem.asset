@@ -28,3 +28,5 @@ MonoBehaviour:
   wallSlotOccupiedRadius: 7
   thinkInterval: 5
   maxTrainQueue: 5
+  combatSiteReach: 30
+  wallLossCellMeters: 8

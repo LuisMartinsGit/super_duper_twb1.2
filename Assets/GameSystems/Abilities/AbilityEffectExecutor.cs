@@ -280,17 +280,19 @@ namespace TheWaningBorder.Abilities
                         TheWaningBorder.Systems.Sect.SectHeroAbilities.Challenge(em, caster, card, dur);
                         break;
                     case AbilityEffectKind.SectStake:
-                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Stake(em, caster, dur);
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Stake(em, caster, e.Value);
+                        break;
+                    case AbilityEffectKind.SectBounty:
+                        TheWaningBorder.Systems.Sect.SectHeroAbilities.Bounty(em, caster, card, e.Value);
                         break;
                     case AbilityEffectKind.SectLiquidate:
                         TheWaningBorder.Systems.Sect.SectHeroAbilities.Liquidate(em, caster, card, e.Value, target);
                         break;
-                    // Catalogued, Cauterize, Drillmaster and Called In are
-                    // auras — SectHeroAuraSystem and StoredStrikeChargeSystem.
+                    // Catalogued, Cauterize and Drillmaster are auras —
+                    // SectHeroAuraSystem and StoredStrikeChargeSystem.
                     case AbilityEffectKind.SectCatalogued:
                     case AbilityEffectKind.SectCauterize:
                     case AbilityEffectKind.SectDrillmaster:
-                    case AbilityEffectKind.SectCalledIn:
                         break;
 
                     // The level-10 game enders (docs/Design/Heroes.md §3).
@@ -309,8 +311,8 @@ namespace TheWaningBorder.Abilities
                     case AbilityEffectKind.HeroRealmHolds:
                         HeroUltimates.RealmHolds(em, caster, e.Value, dur);
                         break;
-                    case AbilityEffectKind.HeroBuyOut:
-                        HeroUltimates.BuyOut(em, caster, card, e.Value);
+                    case AbilityEffectKind.HeroWindfall:
+                        TheWaningBorder.Systems.Sect.GuildmasterWindfall.Begin(em, caster, card, e.Value, dur);
                         break;
 
                     case AbilityEffectKind.SummonPledgeArmy:

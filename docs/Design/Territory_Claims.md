@@ -1115,6 +1115,23 @@ normal and for every 10 poor."
 
 ### 11.3 Nodes run dry (2026-10-07)
 
+**Revised 2026-11-10 — trade holds the last unit (decision 45).** Developer: "if a node
+depletes with no trader posts next to it, it disappears. if it has trade posts near it, it
+stops at 1 resource left (this makes sure that there is never waste)."
+
+- **A node with a Trading Outpost beside it is never spent.** Extraction stops when one
+  unit is left. The node stays on the map and every post beside it keeps paying its trickle
+  (the trickle never draws from the node). The extractor that worked it **collapses** at
+  that moment, because it can never pay again.
+- **A node with no post beside it** collapses at zero, with the extractor on it, as below.
+- **A held node whose last post falls collapses at once.**
+- **Posts may still be built beside a held node.** That is what keeps it worth holding.
+- **The Gatherer's Hut exception below is withdrawn.** The Guild surveys it protected are
+  gone (decision 43), so a hut on a spent supply node pays nothing; it collapses like every
+  other extractor. `DepletedHutTag` is retired.
+- **There is no Stop Extracting toggle** (Veilstone_Economy.md § 3.5 is withdrawn): the
+  rule above saves the node for trade on its own.
+
 **Revised 2026-10-18 — finite nodes, no lifetime, collapse.** Developer:
 "remove the time constraint. Nodes collapse after fully extracted. Each has a
 finite amount of resources."

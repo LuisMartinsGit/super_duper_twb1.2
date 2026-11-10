@@ -59,8 +59,7 @@ namespace TheWaningBorder.AI
         {
             int k = (int)faction;
             bool ok = k >= 0 && k < ProfileSlots;
-            return AISettings.Get().For(ok ? _personalityOf[k] : AIPersonality.Balanced,
-                ok ? _profileOf[k].PersonalityWeight : 1f);
+            return AISettings.Get().For(ok ? _personalityOf[k] : AIPersonality.Balanced);
         }
 
         /// <summary>This faction's tier, for AI code outside this class.</summary>
@@ -89,7 +88,6 @@ namespace TheWaningBorder.AI
         private readonly Dictionary<int, float> _nextEconLog = new Dictionary<int, float>();
         private readonly Dictionary<long, float> _claimedAt = new Dictionary<long, float>();
         private readonly HashSet<Entity> _econReported = new HashSet<Entity>();
-        private readonly Dictionary<Entity, float> _vaultDepositAt = new Dictionary<Entity, float>();
         private readonly HashSet<int> _econOwnedScratch = new HashSet<int>();
         private readonly List<long> _econDropScratch = new List<long>();
 
@@ -101,7 +99,6 @@ namespace TheWaningBorder.AI
             _nextEconLog.Clear();
             _claimedAt.Clear();
             _econReported.Clear();
-            _vaultDepositAt.Clear();
         }
 
         /// <summary>
@@ -277,9 +274,14 @@ namespace TheWaningBorder.AI
         private static readonly string[] VaultResourceNames = { "none", "supplies", "iron", "veilstone" };
 
         /// <summary>
-        /// Every AI uses its Vault (Game_AI.md § 5h). Withdraw on the timer,
-        /// on need (tiers with vaultWithdrawOnNeed), on damage or under
-        /// Defend; deposit the largest idle surplus the design lets it hold.
+        /// Every AI uses its Vault (Game_AI.md § 5h; the four bars, decision
+        /// 46). It parks idle surplus (above the keep floor and every savings
+        /// goal, never what the army waits on) -- but NEVER AT THE ARMY'S
+        /// EXPENSE (2026-11-10, developer): not while the army stands below
+        /// while it defends or rebuilds, and a personality's vaultAppetite
+        /// scales how much (a Rush parks little). Each new bar boosts the
+        /// resource its army is shortest of (supplies when none). It WITHDRAWS
+        /// IN AN EMERGENCY, on every tier; a withdrawal loses every bar.
         /// One command per Vault per pass, through CommandRouter
         /// (CommandSource.AI) so both sides of the move land on every peer.
         /// </summary>
@@ -295,85 +297,96 @@ namespace TheWaningBorder.AI
                 var vault = ents[i];
                 if (em.HasComponent<UnderConstruction>(vault)) continue;
                 var store = em.GetComponentData<VaultStorage>(vault);
-                if (store.LockTimer > 0f) continue;
 
-                if (store.ResourceType > 0 && store.StoredAmount >= 1f)
+                if (store.Paid > 0)
                 {
-                    string why = VaultWithdrawReason(em, faction, vault, store, posture, profile, now);
-                    if (why == null) continue;
-                    int amount = (int)store.StoredAmount;
-                    TheWaningBorder.Core.Commands.CommandRouter.IssueVaultTransfer(
-                        em, vault, 0, 0, deposit: false, TheWaningBorder.Core.Commands.CommandSource.AI);
-                    _vaultDepositAt.Remove(vault);
-                    InvalidateThinkMemo();
-                    AILogger.Log(faction, "VAULT",
-                        $"withdraw {amount} {ResName(store.ResourceType)} ({why})");
-                    continue;
+                    string why = VaultWithdrawReason(em, faction, vault, posture, profile);
+                    if (why != null)
+                    {
+                        int amount = store.Paid;
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueVaultTransfer(
+                            em, vault, 0, 0, deposit: false, source: TheWaningBorder.Core.Commands.CommandSource.AI);
+                        InvalidateThinkMemo();
+                        AILogger.Log(faction, "VAULT", $"withdraw {amount}: every bar lost ({why})");
+                        continue;
+                    }
                 }
 
-                if (posture == AIPosture.Defend) continue;
+                // The army comes first: only a developing or pressing faction
+                // banks -- never while it defends or rebuilds a lost army. (The
+                // army TARGET is a ceiling the AI rarely reaches, so "at x % of
+                // target" never let anyone bank: 0 deposits in 50 min.)
+                if (posture != AIPosture.Develop && posture != AIPosture.Pressure) continue;
                 // An economy in distress banks nothing (Game_AI.md § 5i).
                 if (EconomyDistressed(faction)) continue;
-                if (profile.VaultDepositShare <= 0f) continue;
-                if (!PickVaultDeposit(em, faction, profile, out int type, out int amt)) continue;
+                var pers = PersonalityOf(faction);
+                float share = profile.VaultDepositShare * (pers != null ? UnityEngine.Mathf.Max(0f, pers.vaultAppetite) : 1f);
+                if (share <= 0f) continue;
+                int room = TheWaningBorder.Systems.Economy.VaultBars.Room(store, faction, out _);
+                if (room <= 0) continue;
+                if (!PickVaultDeposit(em, faction, share, out int type, out int amt)) continue;
+                amt = System.Math.Min(amt, room);
+                int boost = PickVaultBoost(faction);
                 TheWaningBorder.Core.Commands.CommandRouter.IssueVaultTransfer(
-                    em, vault, type, amt, deposit: true, TheWaningBorder.Core.Commands.CommandSource.AI);
-                _vaultDepositAt[vault] = now;
+                    em, vault, type, amt, deposit: true, boost, TheWaningBorder.Core.Commands.CommandSource.AI);
                 InvalidateThinkMemo();
-                AILogger.Log(faction, "VAULT", $"deposit {amt} {ResName(type)}");
+                AILogger.Log(faction, "VAULT", $"deposit {amt} {ResName(type)} (a new bar boosts {ResName(boost)})");
             }
         }
 
         private static string ResName(int type)
             => type >= 0 && type < VaultResourceNames.Length ? VaultResourceNames[type] : "?";
 
-        /// <summary>Why the stored amount should come out now, or null.</summary>
-        private string VaultWithdrawReason(EntityManager em, Faction faction, Entity vault,
-            in VaultStorage store, AIPosture posture, in AIDifficultyProfile profile, float now)
+        /// <summary>The resource a starting bar should boost: the one the army
+        /// is short of, among those the Vault's Accounts research opened;
+        /// supplies otherwise.</summary>
+        private static int PickVaultBoost(Faction faction)
         {
-            if (posture == AIPosture.Defend) return "home under threat";
-            // Stored supplies are what a collapsing economy rebuilds with
-            // (Game_AI.md § 5i).
-            if (store.ResourceType == 1 && EconomyDistressed(faction)) return "economy in distress";
+            for (int t = 3; t >= 2; t--)
+                if (TheWaningBorder.Systems.Economy.VaultBars.MayBoost(faction, t)
+                    && AIBudget.IsMilitaryShort(faction, t - 1)) return t;
+            return 1;
+        }
+
+        /// <summary>THE EMERGENCY (2026-11-10, developer: "withdraw it if it is
+        /// an emergency"), on every tier: why the paid-in money must come out
+        /// now, or null. Every reason costs every bar, so only an emergency
+        /// qualifies.</summary>
+        private string VaultWithdrawReason(EntityManager em, Faction faction, Entity vault,
+            AIPosture posture, in AIDifficultyProfile profile)
+        {
+            // The Vault is falling: what is in it would be lost with it.
             if (em.HasComponent<Health>(vault))
             {
                 var hp = em.GetComponentData<Health>(vault);
                 if (hp.Max > 0 && hp.Value < hp.Max * Cfg.vaultDamagedFraction) return "vault damaged";
             }
-            // A deposit this brain did not see (a previous match state, a
-            // human's earlier deposit) is timed from now.
-            if (!_vaultDepositAt.TryGetValue(vault, out float at)) { _vaultDepositAt[vault] = now; at = now; }
-            if (profile.VaultHoldSeconds > 0f && now - at >= profile.VaultHoldSeconds) return "hold time";
-
-            if (!profile.VaultWithdrawOnNeed) return null;
-            int res = store.ResourceType - 1;   // VaultStorage 1..3 -> AIBudget 0..2
-            if (res >= AIBudget.ResSupplies && res <= AIBudget.ResVeilstone && AIBudget.IsMilitaryShort(faction, res))
-                return "the army is short of it";
-            var shortSet = AIPivotalReserve.ShortResources(em, faction);
-            bool goalShort = res == AIBudget.ResSupplies ? shortSet.Supplies
-                           : res == AIBudget.ResIron ? shortSet.Iron
-                           : res == AIBudget.ResVeilstone && shortSet.Veilstone;
-            return goalShort ? "a savings goal needs it" : null;
+            // Paid-in money is what a collapsing economy rebuilds with
+            // (Game_AI.md § 5i).
+            if (EconomyDistressed(faction)) return "economy in distress";
+            bool short_ = AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)
+                       || AIBudget.IsMilitaryShort(faction, AIBudget.ResIron)
+                       || AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone);
+            // The home is under attack and the army cannot be paid for.
+            if (posture == AIPosture.Defend && short_) return "home under attack and the army is short";
+            // The army was lost and cannot be rebuilt from the bank.
+            if (posture == AIPosture.Rebuild && short_) return "army lost and the bank cannot rebuild it";
+            return null;
         }
 
-        /// <summary>The deposit: the resource with the largest idle surplus
-        /// the design lets the Vault hold (Age_0.md § Vault — supplies
-        /// always, iron / veilstone after their unlock tech),
+        /// <summary>The deposit: the resource with the largest idle surplus,
         /// above the keep floor and every pending savings goal, never what
-        /// the army is waiting on.</summary>
+        /// the army is waiting on. Any resource fills a bar one for one.</summary>
         private static bool PickVaultDeposit(EntityManager em, Faction faction,
-            in AIDifficultyProfile profile, out int type, out int amount)
+            float depositShare, out int type, out int amount)
         {
             type = 0; amount = 0;
             if (!FactionEconomy.TryGetResources(em, faction, out var bank)) return false;
             var goals = AIPivotalReserve.PendingTotal(faction);
-            var research = FactionResearchState.Instance;
 
             int bestType = 0, bestSurplus = 0;
             for (int t = 1; t <= 3; t++)
             {
-                if (t == 2 && !Researched(research, faction, VaultIronTech)) continue;
-                if (t == 3 && !Researched(research, faction, VaultVeilstoneTech)) continue;
                 if (AIBudget.IsMilitaryShort(faction, t - 1)) continue;
                 int have = t == 1 ? bank.Supplies : t == 2 ? bank.Iron : bank.Veilstone;
                 int keep = t == 1 ? Cfg.vaultKeepSupplies + goals.Supplies
@@ -398,19 +411,12 @@ namespace TheWaningBorder.AI
                 bestSurplus = surplus; bestType = t;
             }
             if (bestType == 0) return false;
-            int amt = (int)(bestSurplus * UnityEngine.Mathf.Clamp01(profile.VaultDepositShare));
+            int amt = (int)(bestSurplus * UnityEngine.Mathf.Clamp01(depositShare));
             if (amt < Cfg.vaultMinDeposit) return false;
             type = bestType; amount = amt;
             return true;
         }
 
-        /// <summary>The Vault's resource-unlock techs (Age_0.md § Vault).
-        /// Ids of the tech SOs, a roster table — not tuning.</summary>
-        private const string VaultIronTech = "IronSubsidies";
-        private const string VaultVeilstoneTech = "VeilstoneMonetization";
-
-        private static bool Researched(FactionResearchState research, Faction faction, string tech)
-            => research != null && research.HasResearched(faction, tech);
 
         // ── The curse hunt waits for the economy ───────────────────────────
 

@@ -90,7 +90,7 @@ The curse stage opens on the 8 Spearmen rule, so rows 4 and 5 can be open togeth
    large settlement.
 2. A monument is erected to honour the new king and usher the town into grandeur.
 3. Build the Vault and age up to Alanthor.
-4. Explain the new Alanthor advanced economy (Guild, Mine, Stop Extracting, and the late Trading Outpost — 2026-11-09).
+4. Explain the new Alanthor advanced economy (Guild, Mine, and the Trading Outpost that keeps a node at its last unit — 2026-11-10).
 5. Explain the new military buildings.
 6. Explain defenses as waves continue to come at the town, and how territories can be conquered
    and settled.
@@ -123,7 +123,7 @@ The tutorial ends when the player wins.
 
 ### 4.3 Objectives
 
-1. Build the Vault of Almiérra. 2. a. Research a Survey at a Guild · b. Stop extracting at a Mine (2026-11-09: the Trading Outpost is a Fortress L3 research now, too late for this step; the coach line names it as the payoff).
+1. Build the Vault of Almiérra. 2. a. Level up your Guilds · b. Research Trade Charters at the Fortress (2026-11-10, decision 45: Stop Extracting is removed; Trade Charters is a Fortress L1 tech, and a Trading Outpost keeps its node at the last unit).
 3. Build an Archery Range. 4. a. Build a Watch Tower · b. Claim a territory.
 5. Earn Religion Points. 6. a. Build the Temple · b. Adopt a sect.
 7. Destroy the curse node in the Sanctum. 8. a. Claim the monument · b. Explore its ruins.

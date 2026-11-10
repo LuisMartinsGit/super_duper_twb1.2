@@ -9,6 +9,42 @@ build always name the same number.
 
 ---
 
+## [0.0.81] — 2026-11-10
+
+### Economy
+- **The Vault of Almiérra has four bars instead of interest.** Pay any resource in to fill them: the first holds 1,500, then 3,500, 6,000 and 10,000. Each bar is cut into five steps, and every filled step raises the income of the resource you chose for that bar by 1% at once, so a full bar gives +5% and all four on one resource +20%. Withdrawing gives everything back but empties every bar. New Vault research opens bars 2-4 (Second, Third, Fourth Coffer) and lets a bar boost iron or veilstone (Iron and Veilstone Accounts); the old banking research is gone.
+- **A Trading Outpost keeps its node.** A node with a Trading Outpost beside it now stops at its last unit: the extractor on it collapses, and the node stays for its posts, which keep paying. A node with no post still disappears when it runs dry, and so does a kept node when its last post falls.
+- **Stop Extracting is gone.** The rule above saves the node by itself.
+- **A spent supply node now takes its Gatherer's Hut with it**, like every other extractor.
+- **Trade Charters is researched at a level 1 Fortress** (was level 3), and costs less.
+
+### AI
+- **The difficulty tiers now differ by how much ground they work.** Expert puts an extractor on every node it holds as soon as it can; Hard works three quarters as many, and Normal, Easy and Beginner each a quarter fewer again. An extractor pays every tier the same.
+- **Every AI tier uses the trade:** it researches Trade Charters early and builds Trading Outposts, saving up for them.
+- **Personalities play in full on every difficulty.** A Hard or Expert Turtle is now as much a Turtle as an Easy one.
+- **Turtle and Defensive AIs build walls on every difficulty but Beginner**, and fall back to a wall round their home when the ways in cannot be walled.
+- **The AI casts its sect powers in every fight** (defences and curse waves included), and every difficulty now buys new powers and chapel levels.
+- **The AI no longer sits in Rebuild for half the match**: it rebuilds only after it has really lost much of its army.
+- **Fewer Spearmen in big armies**, and more siege engines.
+- **Easy attacks with bigger, rarer waves.** The first attack now comes in tier order: Expert first, then Hard, Normal and Easy.
+- **Fixed: since 0.0.76 most of the AI's settings were not loading** (its army mix, how long an attack lasts, its sister armies, wall defence and more all read as zero). Attacks now press on instead of being called off at once.
+- **The AI uses the Vault without starving its army:** it banks only while its army is near full strength, aggressive personalities bank less, and every AI withdraws in an emergency.
+- **The AI builds a Siege Yard** once it has three other production buildings, so its armies can break walls.
+- **The AI walls the river crossings of a moated keep** (Moatwatch's fords) on dry land, instead of ringing its home and leaving the other territories open.
+- **After breaching a wall, the AI goes for its target** instead of knocking down every wall piece; inside the walls it only attacks towers and emplacements.
+- **The AI stops rebuilding the same lost wall over and over**: a stretch razed twice stays down, even after the AI redraws its wall plan.
+
+### Sect of Prosperity
+- **Bounty buys out a fight:** every enemy unit in the circle dies at once, and its owner is paid back what it cost. The circle grows with the chapel level. Heroes are immune.
+- **Overtime covers an area:** every one of your buildings in it works faster.
+- **Plenty raises a Counting House:** a building that slowly pays supplies and iron (level II adds veilstone, level III religion points). Anyone can capture it, like a monument. A player holds at most 5.
+- **The Treasury's extractor bonus is 15%** (was 25%).
+- **The Collector is now the Bounty Hunter:** every few seconds it casts Bounty on one nearby enemy unit weaker than itself.
+- **The Guildmaster's kit is new:** Bounty (level 1), Stake pays 5% more until the building is hit (level 3), Liquidate (level 6), and Windfall (level 10): for 40 s every death near him pays 10% of its cost.
+
+### Tutorial
+- The Alanthor mission's step 2b is now "Research Trade Charters at the Fortress".
+
 ## [0.0.78] — 2026-11-09
 
 ### Economy

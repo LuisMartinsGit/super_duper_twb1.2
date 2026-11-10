@@ -47,6 +47,7 @@ MonoBehaviour:
     ageUpPushSeconds: 90
     raidingEnabled: 1
     basicsAppetite: 1
+    vaultAppetite: 1.0
     boomAffinity: 0
     massAffinity: 20
     rushAffinity: 0
@@ -82,6 +83,7 @@ MonoBehaviour:
     ageUpPushSeconds: 110
     raidingEnabled: 1
     basicsAppetite: 1.15
+    vaultAppetite: 0.5
     boomAffinity: 0
     massAffinity: 26
     rushAffinity: 42
@@ -117,6 +119,7 @@ MonoBehaviour:
     ageUpPushSeconds: 90
     raidingEnabled: 0
     basicsAppetite: 1.05
+    vaultAppetite: 1.0
     boomAffinity: 0
     massAffinity: 0
     rushAffinity: 0
@@ -152,6 +155,7 @@ MonoBehaviour:
     ageUpPushSeconds: 75
     raidingEnabled: 0
     basicsAppetite: 0.9
+    vaultAppetite: 1.5
     boomAffinity: 46
     massAffinity: 0
     rushAffinity: 0
@@ -187,6 +191,7 @@ MonoBehaviour:
     ageUpPushSeconds: 120
     raidingEnabled: 1
     basicsAppetite: 1.3
+    vaultAppetite: 0.25
     boomAffinity: 0
     massAffinity: 18
     rushAffinity: 55
@@ -222,6 +227,7 @@ MonoBehaviour:
     ageUpPushSeconds: 60
     raidingEnabled: 0
     basicsAppetite: 0.75
+    vaultAppetite: 1.25
     boomAffinity: 14
     massAffinity: 0
     rushAffinity: 0
@@ -257,6 +263,7 @@ MonoBehaviour:
     ageUpPushSeconds: 105
     raidingEnabled: 0
     basicsAppetite: 0.95
+    vaultAppetite: 1.25
     boomAffinity: 0
     massAffinity: 12
     rushAffinity: 0

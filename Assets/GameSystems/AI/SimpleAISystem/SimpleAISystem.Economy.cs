@@ -1,4 +1,4 @@
-// SimpleAISystem.Economy.cs
+﻿// SimpleAISystem.Economy.cs
 // Always-on economy layer: worker floor, hut pipeline, research ladders, budget wrappers.
 // Partial of SimpleAISystem.cs -- split 2026-08-12 for readability.
 
@@ -101,7 +101,7 @@ namespace TheWaningBorder.AI
             // the army toward the mix instead of stamping one unit type.
             aiState.LastMilitaryUnit = new FixedString64Bytes(
                 PickCompositionUnit(em, brainEntity, faction, now,
-                    RoleBudget.For(personality.personality, personality.weight), profile.IntelFreshnessSeconds));
+                    RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds));
 
             // The army's veilstone claim follows the plan the pick just read
             // (on while a ladder line is behind or King Lexor is owed), and
@@ -275,7 +275,7 @@ namespace TheWaningBorder.AI
                 for (int t = 0; t < burst && aiState.DesiredMilitary < armyCap; t++)
                 {
                     string unit = PickCompositionUnit(em, brainEntity, faction, now,
-                        RoleBudget.For(personality.personality, personality.weight), profile.IntelFreshnessSeconds);
+                        RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds);
                     if (!belowGate && TechCatalog.TryGetUnit(unit, out var unitDef) && unitDef != null
                         && MilitaryHold(em, faction, unit, AICommon.ToCost(unitDef.cost)))
                         break;
@@ -318,7 +318,7 @@ namespace TheWaningBorder.AI
                     "emergency defence: tower started (rich and under attack)");
 
             string unit = PickCompositionUnit(em, brainEntity, faction, now,
-                RoleBudget.For(personalityKind, profile.PersonalityWeight), profile.IntelFreshnessSeconds);
+                RoleBudget.For(personalityKind), profile.IntelFreshnessSeconds);
             if (!string.IsNullOrEmpty(unit))
                 TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military);
         }
@@ -334,11 +334,23 @@ namespace TheWaningBorder.AI
 
             if (CountFactionBuildings<SiegeYardTag>(em, faction) == 0)
             {
-                // The yard obeys the production rule (Game_AI.md 5g): a
-                // province's step 4 raises it when the plan needs siege most,
-                // or a saturation extra does. While ProductionGate holds it
-                // there is nothing to save for.
-                if (TryBuildBuildingWithReason(em, faction, "Alanthor_SiegeYard", out string yardWhy))
+                // THE FIRST YARD IS A FLOOR (2026-11-10, Game_AI.md § 2e). It
+                // used to obey the production rule alone (5g): a province's
+                // step 4 or a saturation extra raised it only when the plan
+                // needed siege MORE than any other line, which a 5 % siege
+                // share never did — the 0.0.80 batch built no yard in most
+                // matches, and walls (siege-only) stalled every war. Once the
+                // faction stands siegeYardAfterTrainers other trainers, the
+                // siege program raises its first yard past the gate. Further
+                // yards still come from the production rule.
+                int otherTrainers = CountLine(em, faction, 0) + CountLine(em, faction, 1) + CountLine(em, faction, 2);
+                bool floor = Cfg.siegeYardAfterTrainers > 0 && otherTrainers >= Cfg.siegeYardAfterTrainers;
+                bool yardOk;
+                string yardWhy;
+                _siegeYardFloor = floor;
+                try { yardOk = TryBuildBuildingWithReason(em, faction, "Alanthor_SiegeYard", out yardWhy); }
+                finally { _siegeYardFloor = false; }
+                if (yardOk)
                 {
                     AIPivotalReserve.Clear(faction, "SiegeYard");
                     AILogger.Log(faction, "MILITARY", "siege program: Siege Yard started");
@@ -399,22 +411,24 @@ namespace TheWaningBorder.AI
             return n;
         }
 
+        /// <summary>Ladder techs that raise income, paid from the Economy wallet.</summary>
+        private static readonly string[] EconomyWalletTechs =
+            { "DeepShafts", "RichSeams", "Alanthor_TradeCharters" };
+
         /// <summary>Research priority ladder for the always-on economy layer.
-        /// GATHERER'S HUT SURVEY TECHS LEAD (2026-08-04, user: "there's a
-        /// research at the hut to generate free resources — priority after
-        /// age 1"): the Survey chain turns the hut spread into passive
-        /// Iron/Veilstone income — the mid-game iron starvation
-        /// fix. (DeepGathering removed outright 2026-08-04 — the Surveys are
-        /// the only hut drips.) The walk attempts every unresearched entry
-        /// until ONE succeeds — the old walk stopped at the first
-        /// unresearched tech even when the attempt FAILED (unaffordable), so
-        /// one pricey early tech blocked everything behind it indefinitely.</summary>
+        /// The walk attempts every unresearched entry until ONE succeeds — the
+        /// old walk stopped at the first unresearched tech even when the attempt
+        /// FAILED (unaffordable), so one pricey early tech blocked everything
+        /// behind it indefinitely.</summary>
         private static readonly string[] EconomyResearchLadder =
         {
             "StoneTools",                        // Fortress — gather speed (cheap opener)
-            // Supply Survey (2026-10-20): the supply floor that outlives the
-            // nodes — an AI whose huts ran dry stalled and fell to the curse.
-            "DeepShafts",                        // Mine — +50% iron from worked slots
+            "DeepShafts",                        // Mine — raises worked iron and veilstone slots
+            // Trade Charters (2026-11-09, Alanthor, Fortress L1): unlocks the
+            // Trading Outpost: income beside every node, and a post holds its
+            // node at its last unit (decision 45). Culture-gated, so a
+            // no-op elsewhere; Economy wallet, early, so every tier trades.
+            "Alanthor_TradeCharters",
             "ArmedScouts",                       // Fortress — arms scouts (attack gate)
             // Fortress (Alanthor) — the Celestar passive: idle scouts reveal
             // random patches (2026-10-19). Early, cheap intel; the scout
@@ -423,11 +437,7 @@ namespace TheWaningBorder.AI
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
             "Fletching", "StoneTippedArrows",    // Archery Range (Age 1) — range / T1
             "IronTools", "MasonGuild",           // Fortress (Alanthor) — T2 eco + building HP
-            "RichSeams",                         // Mine — +100% iron from worked slots
-            // Trade Charters (2026-11-09, Alanthor, Fortress L3): unlocks the
-            // Trading Outpost — income beside every node the AI stops working
-            // in time (ManageExtractorStops). Culture-gated, so a no-op elsewhere.
-            "Alanthor_TradeCharters",
+            "RichSeams",                         // Mine — replaces Deep Shafts
             "VeilstoneTools",                    // Fortress (Alanthor) — T3 eco
         };
 
@@ -556,6 +566,9 @@ namespace TheWaningBorder.AI
                 int openingHuts = math.min(Cfg.hutPipelineFreeCount, hutCap);
 
                 if (ghTotal >= hutCap) { /* at the difficulty's target */ }
+                // THE TIER'S SHARE (Game_AI.md § 2c): a tier below Expert puts a hut
+                // on only its share of the supply nodes it holds.
+                else if (!ExtractorShareAllows(em, faction, "GatherersHut", -1, out _)) { }
                 // THE HALL OUTRANKS THE NEXT HUT (2026-08-31, equal-win-rate
                 // directive). The pipeline is exempt from the pivotal hold by
                 // design — but the ECONOMY identity's own pipeline ate its
@@ -691,23 +704,16 @@ namespace TheWaningBorder.AI
                     continue;
                 if (IsResearchInFlight(em, faction, techId))
                     continue;
-                // The surveys are post-culture only (Age_0.md: in Age 0 the hut
-                // hosts no research). Every survey SO carries its culture gate
-                // (Alanthor's Guild line, Runai's Supply Survey), checked just
-                // below; a culture-less faction never buys one.
-                if (techId.Contains("Survey")
-                    && CultureConfig.GetCompletedCulture(em, faction) == Cultures.None)
-                    continue;
                 // Another culture's tech is never ours to buy: skip it, so the
                 // log's "blocked at" names a step this faction could take.
                 if (TechCatalog.TryGetTechnology(techId, out var tdef) && tdef != null
                     && !string.IsNullOrEmpty(tdef.culture)
                     && tdef.culture != CultureConfig.GetName(CultureConfig.GetCompletedCulture(em, faction)))
                     continue;
-                // Hut/camp resource techs are economy spends; the rest advance.
-                var cat = techId.Contains("Survey")
-                       || techId.Contains("Raiding")
-                       || techId.Contains("Plunder")
+                // Income techs are economy spends; the rest advance. Trade Charters
+                // sat 197 times behind "Advancement wallet short" in the 0.0.78
+                // batch, so the trade never came (2026-11-09).
+                var cat = System.Array.IndexOf(EconomyWalletTechs, techId) >= 0
                     ? AIBudgetCategory.EconomyExpansion
                     : AIBudgetCategory.Advancement;
                 if (TryResearchTechBudgetedWithReason(em, faction, techId, cat, out string reason))

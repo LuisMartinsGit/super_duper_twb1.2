@@ -109,8 +109,8 @@ namespace TheWaningBorder.Abilities
         SectDrillmaster = 39,      // aura: Sallyguards in Radius charge twice as fast (Warden L1)
         SectSallyForth = 40,       // allies in Radius gain speed; Sallyguards fully charged (Warden L3)
         SectChallenge = 41,        // enemies in Radius must attack the caster (Warden L6)
-        SectCalledIn = 42,         // aura: wounded enemies in Radius are slowed Value% (Guildmaster L1)
-        SectStake = 43,            // channel: the extractor under the caster pays double (Guildmaster L3)
+        // 42 was SectCalledIn (Guildmaster L1 slow aura), replaced by SectBounty (2026-11-10).
+        SectStake = 43,            // the own extractor under the caster pays +Value% until it takes damage (Guildmaster L3)
         SectLiquidate = 44,        // demolish the aimed own building for Value% of its worth (Guildmaster L6)
         // The curse (Territory_Claims.md §6.9.5, 2026-10-16) — VeilOffering.
         CurseVeilOffering = 45,    // the creature dies; ground within Radius x its claim size turns cursed
@@ -127,8 +127,11 @@ namespace TheWaningBorder.Abilities
         HeroStopTheHours = 53,     // every hostile unit is frozen for Value seconds
         HeroGreatRewind = 54,      // army healed; up to Value units fallen within the duration return
         HeroRealmHolds = 55,       // hostiles on your ground lose Value% max HP; your buildings safe for the duration
-        HeroBuyOut = 56,           // hostile buildings in the aimed Radius fall and pay Value% of their worth
+        // 56 was HeroBuyOut (Guildmaster L10), replaced by HeroWindfall (2026-11-10).
         CleansePulse = 50,         // one burst: the aimed Radius circle is cleared and a CleanseFalloff band thinned; no ward is left (2026-11-06)
+        // The Guildmaster's 2026-11-10 kit (docs/Design/Sects.md § Sect of Prosperity, decision 47).
+        SectBounty = 57,           // every hostile non-hero unit in the aimed circle dies, its owner refunded; circle = Radius + Value m per hero level above 1 (Guildmaster L1)
+        HeroWindfall = 58,         // for the duration, every death within Radius of the caster pays his player Value% of its cost (Guildmaster L10)
     }
 
     /// <summary>

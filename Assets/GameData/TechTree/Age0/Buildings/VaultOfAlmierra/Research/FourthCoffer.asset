@@ -10,22 +10,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
-  m_Name: IronSubsidies
+  m_Name: FourthCoffer
   m_EditorClassIdentifier: 
-  id: IronSubsidies
-  displayName: Iron Subsidies
+  id: FourthCoffer
+  displayName: Fourth Coffer
   role: Banking
   effect: 
-  desc: "Unlocks Iron banking: Iron can be deposited in the Vault."
+  desc: "Opens the Vault's fourth bar."
   researchAt: VaultOfAlmierra
   minBuildingLevel: 0
-  researchTime: 35
-  prerequisites: []
+  researchTime: 150
+  prerequisites:
+  - ThirdCoffer
   culture: 
   cost:
-    Supplies: 180
-    Iron: 80
-    Veilstone: 0
+    Supplies: 4000
+    Iron: 1400
+    Veilstone: 500
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

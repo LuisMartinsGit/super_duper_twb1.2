@@ -25,7 +25,9 @@ namespace TheWaningBorder.Core.Localization
             t["Stop the Hours"] = "Parar as Horas";
             t["The Great Rewind"] = "O Grande Retrocesso";
             t["The Realm Holds"] = "O Reino Resiste";
-            t["Buy Out"] = "Compra Total";
+            t["Windfall"] = "Maré de Sorte";
+            t["Stake"] = "Participação";
+            t["Liquidate"] = "Liquidar";
             t["Invalid placement"] = "Colocação inválida";
             t["Maximum 10 Trading Posts"] = "Máximo de 10 Postos Comerciais";
             t["Only one Temple of Ridan per faction"] = "Apenas um Templo de Ridan por facção";

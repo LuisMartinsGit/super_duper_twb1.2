@@ -27,7 +27,6 @@ MonoBehaviour:
   footprintCells: {x: 2, y: 2}
   buildTime: 25
   slotIncomePerMinute: []
-  interestPerMinute: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0

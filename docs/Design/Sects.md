@@ -310,30 +310,56 @@ Warden.
 Alanthor's workshops and counting rooms. Vyrelin engines fed glow make time
 run faster inside a workshop.
 
-**[A] Bounty** — one enemy unit takes the single-target damage band; if it
-dies within 10 s you are paid its cost.
+> **Reworked 2026-11-10 (developer; [Unification decision 47](Unification_Decisions_2026-10-03.md)).**
+> Bounty is a buy-out, not a strike; Overtime is an area; Plenty raises a
+> capturable Counting House; the Collector is the Bounty Hunter; the Treasury
+> pays less; the Guildmaster's kit is new. The text below is the rule.
 
-**[B] Overtime** — one of your buildings trains, researches and produces
-**50 % / 75 % / 100 %** faster for 20 s.
+**Bounty (the sect's signature).** Every hostile **unit** it reaches dies at
+once, and its **owner is paid back what it cost**: the victim loses time and
+presence on the field, never resources. Heroes are immune; a ward or an
+invulnerability that would stop the damage stops it; curse units die and
+nobody is paid (`ProsperityBounty`).
 
-**[★] Plenty** — instantly gain **60 / 90 / 120 s** of your current income.
-Cooldown **300 s**.
+**[A] Bounty** — Bounty in an area: Small / Medium / Large by chapel level.
+The damage-power cooldown.
 
-**[BUILDING] Treasury** — while it stands, your extractors earn more.
+**[B] Overtime** — every one of your buildings in an area (Small / Medium /
+Large by chapel level) trains, researches and produces **50 % / 75 % / 100 %**
+faster for 20 s; an extractor's income rises by the same share.
+
+**[★] Plenty** — raises a **Counting House** at the aimed point, snapped to
+the build grid on ground a building could stand on. It trickles income to
+whoever holds it, slowly: **I** supplies and iron; **II** supplies, iron and
+veilstone, more of each; **III** all three, more again, and religion points.
+It is **captured like a monument** (any unit in its ring for the capture time
+takes it; hostile sides in the ring at once freeze it) and cannot be attacked.
+The cooldown climbs like Fortify's: long, longer at each level. **A player holds
+at most 5** (captured ones count; Plenty raises none past the cap and costs no
+cooldown). Cap, rates, ring and capture time on `CountingHouse.asset`.
+
+**[BUILDING] Treasury** — while it stands, your extractors earn more
+(`AlanthorSectEconomy.TreasuryIncomeBonus`, 15 % since 2026-11-10).
 
 **[RESEARCH] Charter of Works** — extractors cost less to build and to level.
 
-**[UNIT] Collector** — fast melee finisher, the fastest Alanthor infantry.
-**Run Down:** bonus damage against slowed enemies and enemies under half HP.
-Weak to heavy infantry. Pairs with the Artificer and the Guildmaster.
+**[UNIT] Bounty Hunter** (id `Sect_Collector`, renamed from the Collector) —
+fast melee, the fastest Alanthor infantry. **Bounty:** every few seconds it
+casts Bounty on one hostile unit near it **with less HP than the hunter has**
+(`BountyHunterTrait`). Weak to heavy infantry. Pairs with the Artificer and
+the Guildmaster.
 
 **[HERO] Guildmaster**
-- **L1 Called In** — aura (M): enemies under half HP are slowed 20 %.
-- **L3 Stake** — channel on a node: its extractor pays double while the
-  Guildmaster stays; any damage breaks it. Up to 30 s.
+- **L1 Bounty** — Bounty in a small area round an aimed point; the area grows
+  with the hero's level.
+- **L3 Stake** — on the extractor under him: it pays **5 % more until the
+  building takes damage** (he need not stay). 90 s cooldown.
 - **L6 Liquidate** — demolish one of your buildings at once for 50 % of
   everything invested in it, levels included; the enemy gets no raze bounty
   or kill credit.
+- **L10 Windfall** — for 40 s, everything that dies near the Guildmaster —
+  his own side's units and buildings included — pays his player 10 % of its
+  cost. 300 s cooldown.
 
 ---
 

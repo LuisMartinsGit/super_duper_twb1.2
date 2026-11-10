@@ -1,7 +1,8 @@
 // Guildmaster.cs -- Sect of Prosperity hero: the Guildmaster (docs/Design/Sects.md 4, Religion.md 4).
 // Unique; recruited at the sect building for RP + resources. Body from the SO
 // through SectUnitSpine, hero kit (levels 1-10, abilities at L1 / L3 / L6)
-// through SectUnitSpine.AddHeroKit. The abilities are the SO's list.
+// through SectUnitSpine.AddHeroKit. The abilities are the SO's list:
+// L1 Bounty, L3 Stake, L6 Liquidate, L10 Windfall (Sects.md § Sect of Prosperity).
 
 using Unity.Entities;
 using Unity.Mathematics;
@@ -25,7 +26,6 @@ namespace TheWaningBorder.Entities
         {
             var e = SectUnitSpine.Create(creator, UnitId, PresentationID, position, faction);
             SectUnitSpine.AddHeroKit(creator, e, UnitId, TheWaningBorder.Abilities.UniqueUnitKind.Guildmaster, SectConfig.Prosperity);
-            creator.AddComponent(e, default(StakeChannel));     // Stake (L3)
             return e;
         }
     }

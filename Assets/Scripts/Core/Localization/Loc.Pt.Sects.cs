@@ -88,8 +88,10 @@ namespace TheWaningBorder.Core.Localization
                 "Círculo de Cura — restaura {0} HP a todas as unidades aliadas num raio de {1}m.";
             t["Bulwark — allied units in {0}m gain +{1} armor for {2}s."] =
                 "Baluarte — as unidades aliadas num raio de {0}m ganham +{1} de armadura durante {2}s.";
-            t["Reclaim Vigour — heals allied units in a {0}m radius for {1} HP."] =
-                "Reaver o Vigor — cura as unidades aliadas num raio de {0}m em {1} HP.";
+            t["Bounty — every enemy unit in a {0}m circle dies at once; its owner is paid back its cost."] =
+                "Recompensa — todas as unidades inimigas num círculo de {0}m morrem de imediato; o dono recebe de volta o seu custo.";
+            t["Bounty Hunter — fast melee. Every few seconds it casts Bounty on one nearby enemy unit weaker than itself: the target dies and its owner is paid back its cost. Weak to heavy infantry."] =
+                "Caçador de Recompensas — corpo a corpo rápido. De poucos em poucos segundos lança Recompensa sobre uma unidade inimiga próxima mais fraca do que ele: o alvo morre e o dono recebe de volta o seu custo. Fraco contra infantaria pesada.";
             t["Whisper-Wind — allied units in {0}m gain x{1} move-speed for {2}s."] =
                 "Vento-Sussurro — as unidades aliadas num raio de {0}m ganham x{1} de velocidade durante {2}s.";
             t["Eye of the Law — reveals fog of war in a {0}m circle for {1}s."] =
@@ -147,9 +149,12 @@ namespace TheWaningBorder.Core.Localization
             t["Bulwark"]                  = "Baluarte";
             t["Stoneveil"]                = "Véu de Pedra";
             t["Unbroken Oath"]            = "Juramento Inquebrado";
-            t["Reclaim Vigour"]           = "Reaver o Vigor";
-            t["Harvest the Veil"]         = "Ceifar o Véu";
-            t["Greater Harvest"]          = "Ceifa Maior";
+            t["Bounty"]                   = "Recompensa";
+            t["Wider Bounty"]             = "Recompensa Alargada";
+            t["Great Bounty"]             = "Grande Recompensa";
+            t["Bounty Hunter"]            = "Caçador de Recompensas";
+            t["Overtime"]                 = "Horas Extra";
+            t["Plenty"]                   = "Fartura";
             t["Whisper-Wind"]             = "Vento-Sussurro";
             t["Hush"]                     = "Emudecer";
             t["Entomb"]                   = "Sepultar";
@@ -361,8 +366,8 @@ namespace TheWaningBorder.Core.Localization
                 "Comunhão mais profunda — as muralhas cicatrizam mais depressa, os homens regressam da morte.";
             t["Heavier hymns — stone grows thicker, melee endure longer."] =
                 "Hinos mais pesados — a pedra torna-se mais espessa, o corpo a corpo resiste mais tempo.";
-            t["Wider claim — your workers and tools shrug off Border-rot."] =
-                "Domínio mais vasto — os teus trabalhadores e ferramentas resistem à podridão da Fronteira.";
+            t["Deeper ledgers — every fight is bought out, every crossing pays."] =
+                "Livros mais fundos — cada combate é comprado, cada travessia rende.";
             t["Longer vigil — archers strike harder while still."] =
                 "Vigília mais longa — os arqueiros atacam com mais força enquanto imóveis.";
             t["Harsher verdict — sentence falls heavier, faster."] =

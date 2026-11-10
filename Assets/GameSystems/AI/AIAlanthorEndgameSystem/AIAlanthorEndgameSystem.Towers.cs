@@ -124,8 +124,7 @@ namespace TheWaningBorder.AI
             if (em.HasComponent<AIBrain>(brainEntity))
             {
                 var tb = em.GetComponentData<AIBrain>(brainEntity);
-                towerScale = math.max(0f, TheWaningBorder.Data.AI.AISettings.Get().For(tb.Personality,
-                    AISimpleDifficulty.GetProfile(tb.Difficulty).PersonalityWeight).towerCoverageScale);
+                towerScale = math.max(0f, TheWaningBorder.Data.AI.AISettings.Get().For(tb.Personality).towerCoverageScale);
             }
             if (existing >= (int)math.round(TowerBudget(difficulty) * towerScale)) return;
 

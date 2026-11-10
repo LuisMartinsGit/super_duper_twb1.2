@@ -57,9 +57,6 @@ namespace TheWaningBorder.Data
         /// culture (Alanthor's Guild 70/100/200, its Mines 140/200/400). Read
         /// only for the extractors; 0 on every other ladder.</summary>
         public float slotIncomePerMinute;
-        /// <summary>Scales the building's interestPerMinute at this level (the
-        /// Vault of Almierra). Read only for the Vault; 0 elsewhere.</summary>
-        public float interestMultiplier;
         /// <summary>Scales the Trading Outpost's trickle at this level, over
         /// the TradingOutpostSystem.asset rates (2026-11-09: it trickles, it no
         /// longer trades). Read only for the Outpost; 0 elsewhere (0 reads as 1).</summary>

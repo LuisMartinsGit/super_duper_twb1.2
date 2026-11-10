@@ -210,7 +210,7 @@ namespace TheWaningBorder.AI
                 var settings = AISettings.Get();
                 // Dampened by tier (Game_AI.md § 3): Easy plays its flavour in
                 // full, Expert a fraction of it.
-                var personality = settings.For(brain.Personality, profile.PersonalityWeight);
+                var personality = settings.For(brain.Personality);
                 // MATCH-relative clock. World ElapsedTime starts at APP
                 // launch (the bootstrap world predates the menu), so on the
                 // first match of a session every "now > Ns" gate — the 30s
@@ -294,7 +294,7 @@ namespace TheWaningBorder.AI
                     // queued them. Runs before the next step so replacements take
                     // priority on the train queue and resources.
                     ReplaceLostUnits(em, brainEntity, brain.Owner, ref aiState,
-                        RoleBudget.For(personality.personality, personality.weight), profile.IntelFreshnessSeconds, now);
+                        RoleBudget.For(personality.personality), profile.IntelFreshnessSeconds, now);
 
                     // Scout movement is owned by ScoutDirectorSystem (AI plan M3):
                     // zone-based exploration + recon requests replace the old
@@ -351,7 +351,6 @@ namespace TheWaningBorder.AI
                     // extracting from it, so the extraction buildings are not a
                     // late-game optimisation any more.
                     EnsureExtractors(em, brain.Owner, now);
-                    ManageExtractorStops(em, brain.Owner, now);
                     break;
                 }
                 case 5:

@@ -34,12 +34,6 @@ MonoBehaviour:
   suppliesPerTick: 0
   suppliesInterval: 0
   slotIncomePerMinute: []
-  interestPerMinute: 0
-  interestPrincipalCap: 0
-  interestMaxSeconds: 0
-  coffersRate: 0
-  merchantChartersRate: 0
-  sovereignBondsRate: 0
   maxPerFaction: 0
   minWallLevel: 0
   garrisonSlots: 0

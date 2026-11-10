@@ -269,6 +269,13 @@ namespace TheWaningBorder.AI
                     if (id == "Runai_Sanctuary" && !runaiCulture) continue;
                     if (id != "GatherersHut" && AIPivotalReserve.Has(faction, HutBootstrapReserveKey)) continue;
                     if (!TechCatalog.TryGetBuilding(id, out var def) || def == null) continue;
+                    // THE TIER'S SHARE HOLDS HERE TOO (2026-11-10, decision 45).
+                    // This step put an extractor on every free node of the
+                    // territory it developed, past the share the extractor walk
+                    // and the hut pipeline respect, so in the 0.0.79 batch every
+                    // tier below Expert out-earned its target and Beginner built
+                    // as many extractors as Easy.
+                    if (ExtractorShareRoom(em, faction, id, -1, out _) <= 0) continue;
 
                     _devNodes.Clear();
                     CollectFreeNodes(em, faction, id, _devOwned, _devNodes);
@@ -452,6 +459,10 @@ namespace TheWaningBorder.AI
         /// <summary>True only while the home floor places — ProductionGate
         /// lets it through.</summary>
         private bool _homeProductionFloor;
+
+        /// <summary>True only while the siege program places the FIRST Siege
+        /// Yard (Game_AI.md § 2e) — ProductionGate lets it through.</summary>
+        private bool _siegeYardFloor;
 
         /// <summary>Per faction, per LostTrainerLines entry: sim time until
         /// which that line's home-floor placement counts as blocked by
@@ -953,7 +964,7 @@ namespace TheWaningBorder.AI
             extra = false;
             detail = null;
             if (!BuildSiteSnapshot.IsProductionId(buildingId)) return null;
-            if (_provinceProductionStep || _homeProductionFloor || _rebuildingLostTrainer) return null;
+            if (_provinceProductionStep || _homeProductionFloor || _rebuildingLostTrainer || _siegeYardFloor) return null;
 
             int total = 0;
             for (int l = 0; l < LostTrainerLines.Length; l++) total += CountLine(em, faction, l);

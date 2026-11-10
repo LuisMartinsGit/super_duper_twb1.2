@@ -2,6 +2,8 @@
 // The AI and the monuments (docs/Design/Monuments_And_Petriarchy.md §7): one
 // squad at a time runs into the ring of the nearest monument and stays until it
 // is taken, and whatever the faction holds it explores once it can pay.
+// Counting Houses (Sects.md § Plenty) are captured by the same rules, so the
+// same squad goes for enemy ones and retakes its own the same way.
 
 using System.Collections.Generic;
 using Unity.Collections;
@@ -48,7 +50,8 @@ namespace TheWaningBorder.AI
             _monumentNextThink[key] = now + math.max(1f, Cfg.monumentThinkInterval);
 
             using var monuments = Monument.All(em, Allocator.Temp);
-            if (monuments.Length == 0) return;
+            using var houses = CountingHouse.All(em, Allocator.Temp);
+            if (monuments.Length == 0 && houses.Length == 0) return;
 
             for (int i = 0; i < monuments.Length; i++)
             {
@@ -68,7 +71,18 @@ namespace TheWaningBorder.AI
             if (now < Cfg.monumentEarliestSeconds) return;
             if (FinishingVictim(faction, out _)) return;
             if (!VictoryAllowsMonumentSquad(faction)) return;
-            RaiseMonumentSquad(em, faction, ref aiState, monuments, now);
+            using var targets = new NativeList<Entity>(monuments.Length + houses.Length, Allocator.Temp);
+            targets.AddRange(monuments);
+            targets.AddRange(houses);
+            RaiseMonumentSquad(em, faction, ref aiState, targets.AsArray(), now);
+        }
+
+        /// <summary>Who holds a capture target: a monument or a Counting House.</summary>
+        private static Faction CaptureHolderOf(EntityManager em, Entity e)
+        {
+            if (em.HasComponent<MonumentState>(e)) return em.GetComponentData<MonumentState>(e).Holder;
+            if (em.HasComponent<CountingHouseState>(e)) return em.GetComponentData<CountingHouseState>(e).Holder;
+            return Faction.Border;
         }
 
         /// <summary>False when the squad's work is over: dead, or the meter is full.</summary>
@@ -92,10 +106,9 @@ namespace TheWaningBorder.AI
                 return false;
             }
 
-            var s = em.GetComponentData<MonumentState>(squad.Monument);
-            if (s.Holder == faction)
+            if (CaptureHolderOf(em, squad.Monument) == faction)
             {
-                AILogger.Log(faction, "MONUMENT", $"territory {s.Territory}'s monument is ours, the squad goes home");
+                AILogger.Log(faction, "MONUMENT", $"the {(em.HasComponent<CountingHouseTag>(squad.Monument) ? "Counting House" : "monument")} at ({squad.Position.x:0},{squad.Position.z:0}) is ours, the squad goes home");
                 return false;
             }
 
@@ -124,9 +137,9 @@ namespace TheWaningBorder.AI
             float bestDist = float.MaxValue;
             for (int i = 0; i < monuments.Length; i++)
             {
-                var s = em.GetComponentData<MonumentState>(monuments[i]);
-                if (s.Holder == faction) continue;
-                if ((int)s.Holder < 8 && !Alliances.AreHostile(faction, s.Holder)) continue;
+                var holder = CaptureHolderOf(em, monuments[i]);
+                if (holder == faction) continue;
+                if ((int)holder < 8 && !Alliances.AreHostile(faction, holder)) continue;
                 if (_monumentBlocked.TryGetValue((key, monuments[i].Index), out float until) && now < until) continue;
                 var p = em.GetComponentData<LocalTransform>(monuments[i]).Position;
                 float d = math.distance(home.xz, p.xz);
@@ -156,7 +169,7 @@ namespace TheWaningBorder.AI
             squad.NextOrder = now + Cfg.monumentReorderSeconds;
             _monumentSquads[key] = squad;
             AILogger.Log(faction, "MONUMENT",
-                $"{squad.Members.Count} soldiers march on the monument at ({bestPos.x:0},{bestPos.z:0}), " +
+                $"{squad.Members.Count} soldiers march on the {(em.HasComponent<CountingHouseTag>(best) ? "Counting House" : "monument")} at ({bestPos.x:0},{bestPos.z:0}), " +
                 $"power {power} vs known {threat}");
         }
     }

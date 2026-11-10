@@ -5,10 +5,9 @@
 //   Catalogued   (Archivist L1)    slowed enemies near it take +20% damage
 //   Recall trail (Archivist L6)    where it stood, sampled every 0.5 s
 //   Cauterize    (Surgeon L1)      allies near it are immune to damage over time
-//   Called In    (Guildmaster L1)  enemies under half HP near it are slowed 20%
 //   Lancet       (Surgeon L6)      the bleed, and no healing while it lasts
 //   Challenge    (Warden L6)       taunted units keep attacking the Warden
-//   Stake        (Guildmaster L3)  the extractor pays double while it holds
+//   Stake        (Guildmaster L3)  the staked extractor loses its stake when it takes damage
 //
 // Auras refresh short transients every pulse; leaving the radius lets them
 // lapse. Sim time and replicated state only.
@@ -28,12 +27,17 @@ namespace TheWaningBorder.Systems.Sect
     {
         public const float AuraRadius = 15f;          // SectRadius.Medium
         public const float CataloguedBonus = 0.20f;
-        public const float CalledInSlow = 0.20f;
         private const float PulseSeconds = 0.5f;
         private const float Hold = 0.75f;
 
         private float _pulse;
         private float _bleedAccum;
+        private EntityQuery _anyStake;
+
+        protected override void OnCreate()
+        {
+            _anyStake = GetEntityQuery(ComponentType.ReadOnly<StakedExtractor>());
+        }
 
         protected override void OnUpdate()
         {
@@ -55,7 +59,6 @@ namespace TheWaningBorder.Systems.Sect
 
             int antiquity = SectConfig.IndexOf(SectConfig.Antiquity);
             int renewal = SectConfig.IndexOf(SectConfig.Renewal);
-            int prosperity = SectConfig.IndexOf(SectConfig.Prosperity);
 
             // Heroes on the field: copy out first, the auras write other entities.
             var heroes = new NativeList<Entity>(4, Allocator.Temp);
@@ -90,20 +93,6 @@ namespace TheWaningBorder.Systems.Sect
                     using var allies = SectHeroAbilities.UnitsNear(em, pos, AuraRadius, fac, hostile: false);
                     for (int i = 0; i < allies.Length; i++)
                         TransientState.Set(em, allies[i], new Cauterized { TimeRemaining = Hold });
-                }
-                else if (sect == prosperity)
-                {
-                    using var enemies = SectHeroAbilities.UnitsNear(em, pos, AuraRadius, fac, hostile: true);
-                    for (int i = 0; i < enemies.Length; i++)
-                    {
-                        var hp = em.GetComponentData<Health>(enemies[i]);
-                        if (hp.Max <= 0 || hp.Value * 2 >= hp.Max) continue;
-                        var d = TransientState.Active<SpellDebuff>(em, enemies[i])
-                            ? em.GetComponentData<SpellDebuff>(enemies[i]) : default;
-                        d.SpeedReduction = math.max(d.SpeedReduction, CalledInSlow);
-                        d.TimeRemaining = math.max(d.TimeRemaining, Hold);
-                        TransientState.Set(em, enemies[i], d);
-                    }
                 }
                 // The Warden's Drillmaster is read by StoredStrikeChargeSystem.
             }
@@ -182,21 +171,17 @@ namespace TheWaningBorder.Systems.Sect
             }
         }
 
+        /// <summary>Stake: an extractor keeps its stake until it takes damage.
+        /// Any drop below the HP it had at the last tick ends it; repair or a
+        /// level-up only raises the mark.</summary>
         private void TickStakes(EntityManager em, EntityCommandBuffer ecb, float dt)
         {
-            foreach (var (stake, hp, tr) in SystemAPI.Query<RefRW<StakeChannel>, RefRO<Health>, RefRO<LocalTransform>>())
+            if (_anyStake.IsEmpty) return;
+            foreach (var (stake, hp, e) in SystemAPI.Query<RefRW<StakedExtractor>, RefRO<Health>>().WithEntityAccess())
             {
-                if (stake.ValueRO.TimeRemaining <= 0f) continue;
-                stake.ValueRW.TimeRemaining -= dt;
-                var node = stake.ValueRO.Node;
-                bool broken = hp.ValueRO.Value < stake.ValueRO.HealthAtStart
-                              || node == Entity.Null || !em.Exists(node)
-                              || math.distancesq(em.GetComponentData<LocalTransform>(node).Position.xz,
-                                                 tr.ValueRO.Position.xz)
-                                 > SectHeroAbilities.StakeRange * SectHeroAbilities.StakeRange * 4f;
-                if (broken) { stake.ValueRW.TimeRemaining = 0f; continue; }
-                // Double pay through the same per-building multiplier Overtime uses.
-                TransientState.Set(em, node, new OvertimeBoost { Multiplier = 2f, TimeRemaining = Hold });
+                int now = hp.ValueRO.Value;
+                if (now < stake.ValueRO.LastHp || now <= 0) { ecb.RemoveComponent<StakedExtractor>(e); continue; }
+                stake.ValueRW.LastHp = now;
             }
         }
     }

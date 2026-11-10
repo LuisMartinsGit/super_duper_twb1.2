@@ -152,7 +152,7 @@ namespace TheWaningBorder.Tutorial
         private void ReadProgress(EntityManager em)
         {
             var cfg = Cfg;
-            int fortresses = 0, stopped = 0, ranges = 0, towers = 0, temples = 0;
+            int fortresses = 0, ranges = 0, towers = 0, temples = 0;
             var q = QC_Buildings.Get(em, QT_Buildings);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var factions = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
@@ -161,8 +161,6 @@ namespace TheWaningBorder.Tutorial
                 var e = ents[i];
                 if (factions[i].Value != Player || em.HasComponent<UnderConstruction>(e)) continue;
                 if (em.HasComponent<FortressTag>(e)) { fortresses++; continue; }
-                // 2b: an extractor told to stop (Veilstone_Economy.md §3.5).
-                if (em.HasComponent<ExtractorStopped>(e)) { stopped++; continue; }
                 string id = UpgradeBuildingCommandHelper.ResolveBuildingId(em, e);
                 if (id == cfg.archeryRangeId) ranges++;
                 else if (id == cfg.towerId) towers++;
@@ -170,7 +168,8 @@ namespace TheWaningBorder.Tutorial
             }
 
             TutorialMissionState.Shelters = fortresses;
-            TutorialMissionState.Stopped = math.max(TutorialMissionState.Stopped, stopped);
+            // 2b (2026-11-10): Trade Charters researched (Stop Extracting is gone, decision 45).
+            if (TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(Player)) TutorialMissionState.Charters = 1;
             TutorialMissionState.Ranges = math.max(TutorialMissionState.Ranges, ranges);
             TutorialMissionState.Towers = math.max(TutorialMissionState.Towers, towers);
             TutorialMissionState.Temples = math.max(TutorialMissionState.Temples, temples);
@@ -217,7 +216,7 @@ namespace TheWaningBorder.Tutorial
                     break;
 
                 case AdvancedStage.Economy:
-                    if (TutorialMissionState.SurveyDone && TutorialMissionState.Stopped >= 1)
+                    if (TutorialMissionState.SurveyDone && TutorialMissionState.Charters >= 1)
                         TutorialMissionState.AdvancedStage = AdvancedStage.Military;
                     break;
 

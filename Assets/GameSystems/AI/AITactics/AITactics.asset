@@ -72,6 +72,6 @@ MonoBehaviour:
   legacyAbilityRadius: 6
   condemnMinHpFraction: 0.5
   abilityHeldLogSeconds: 20
-  fightSiteSeconds: 8
+  fightSiteSeconds: 20
   baseThreatRadius: 60
   logIntervalSeconds: 6

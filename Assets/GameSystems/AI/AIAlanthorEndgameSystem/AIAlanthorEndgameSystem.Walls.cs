@@ -101,6 +101,53 @@ namespace TheWaningBorder.AI
         /// slot's hole (that hole is deliberate — usually a mountain).</summary>
         private static float WallLinkRadius => AIWallPlanner.HubSpacing + 3f;
 
+        // Factions whose chokepoint plan failed this match, with the sim time
+        // it was noted (a later match starts the clock again and clears it).
+        private static readonly System.Collections.Generic.Dictionary<int, float> _chokeFailedAt =
+            new System.Collections.Generic.Dictionary<int, float>();
+
+        private static bool ChokepointsFailed(Faction faction)
+            => _chokeFailedAt.TryGetValue((int)faction, out float at)
+               && at <= TheWaningBorder.Core.SimClock.Now;
+
+        private static void MarkChokepointsFailed(Faction faction)
+            => _chokeFailedAt[(int)faction] = TheWaningBorder.Core.SimClock.Now;
+
+        // WALL LOSSES OUTLIVE THE PLAN (2026-11-10, Game_AI.md § 2e). The
+        // rebuild cap (maxWallSlotRebuilds) lived on the plan's slots, and a
+        // border plan is redrawn whenever the walled territories change —
+        // about a dozen times a match in the 0.0.80 batch — so every redraw
+        // forgot the losses and the same contested stretch was rebuilt and
+        // razed for the whole match (Hard lost ~210 wall pieces a match).
+        // Rebuild orders are now remembered per faction by place
+        // (wallLossCellMeters cells); a new plan starts its slots with those
+        // counts, and a place lost to the cap is dead from the start.
+        private struct WallLoss { public int Hub, Link; public float At; }
+        private static readonly System.Collections.Generic.Dictionary<(int, int, int), WallLoss> _wallLosses =
+            new System.Collections.Generic.Dictionary<(int, int, int), WallLoss>();
+
+        private static (int, int, int) WallLossKey(Faction faction, float3 p)
+        {
+            float cell = math.max(1f, Cfg.wallLossCellMeters);
+            return ((int)faction, (int)math.floor(p.x / cell), (int)math.floor(p.z / cell));
+        }
+
+        private static WallLoss RememberedWallLoss(Faction faction, float3 p)
+        {
+            // An entry stamped later than now is an earlier match's.
+            if (_wallLosses.TryGetValue(WallLossKey(faction, p), out var l)
+                && l.At <= TheWaningBorder.Core.SimClock.Now) return l;
+            return default;
+        }
+
+        private static void RememberWallLoss(Faction faction, float3 p, bool hub)
+        {
+            var l = RememberedWallLoss(faction, p);
+            if (hub) l.Hub++; else l.Link++;
+            l.At = TheWaningBorder.Core.SimClock.Now;
+            _wallLosses[WallLossKey(faction, p)] = l;
+        }
+
         private static void TryBuildWallDefenses(Faction faction, EntityManager em,
             Entity brainEntity, float3 hallPos)
         {
@@ -132,8 +179,7 @@ namespace TheWaningBorder.AI
             if (em.HasComponent<AIBrain>(brainEntity))
             {
                 var wb = em.GetComponentData<AIBrain>(brainEntity);
-                wallPriority = AISettings.Get().For(wb.Personality,
-                    AISimpleDifficulty.GetProfile(wb.Difficulty).PersonalityWeight).wallPriorityScale;
+                wallPriority = AISettings.Get().For(wb.Personality).wallPriorityScale;
             }
             if (!_drawnRingSpend && wallPriority < 1f && AIBudget.TryGetArmyStatus(faction, out int armyAlive, out int armyDesired)
                 && armyDesired > 0 && armyAlive < armyDesired * (1f - wallPriority))
@@ -161,7 +207,9 @@ namespace TheWaningBorder.AI
             if (em.HasComponent<AIWallPlan>(brainEntity))
             {
                 var held = em.GetComponentData<AIWallPlan>(brainEntity);
-                if (held.Mode == AIWallPlanner.ModeBorder && held.Territories != signature)
+                bool keepChanged = held.Mode == AIWallPlanner.ModeChokepoints
+                    && held.Territories != AIWallPlanner.KeepSignature(faction, hallPos);
+                if ((held.Mode == AIWallPlanner.ModeBorder && held.Territories != signature) || keepChanged)
                 {
                     em.RemoveComponent<AIWallPlan>(brainEntity);
                     if (em.HasBuffer<AIWallPlanSlot>(brainEntity))
@@ -173,16 +221,31 @@ namespace TheWaningBorder.AI
             {
                 var planned = new NativeList<AIWallPlanSlot>(Allocator.Temp);
                 byte mode = AIWallPlanner.BuildPlan(em, faction, hallPos, planned,
-                    out string why);
+                    out string why, allowChokepoints: !ChokepointsFailed(faction));
                 int gates = 0, towers = 0;
                 for (int i = 0; i < planned.Length; i++)
                 {
                     if ((planned[i].Flags & AIWallPlanner.FlagGateAfter) != 0) gates++;
                     if ((planned[i].Flags & AIWallPlanner.FlagTower) != 0) towers++;
                 }
-                em.AddComponentData(brainEntity, new AIWallPlan { Mode = mode, Territories = signature });
+                em.AddComponentData(brainEntity, new AIWallPlan
+                {
+                    Mode = mode,
+                    // A chokepoint plan follows its keep (home + held neighbours).
+                    Territories = mode == AIWallPlanner.ModeChokepoints
+                        ? AIWallPlanner.KeepSignature(faction, hallPos) : signature,
+                });
                 var buf = em.AddBuffer<AIWallPlanSlot>(brainEntity);
-                for (int i = 0; i < planned.Length; i++) buf.Add(planned[i]);
+                for (int i = 0; i < planned.Length; i++)
+                {
+                    var s = planned[i];
+                    var lost = RememberedWallLoss(faction, s.Position);
+                    s.HubRebuilds = (byte)math.min(255, lost.Hub);
+                    s.LinkRebuilds = (byte)math.min(255, lost.Link);
+                    if (lost.Hub >= Cfg.maxWallSlotRebuilds) s.Flags |= AIWallPlanner.FlagDead;
+                    if (lost.Link >= Cfg.maxWallSlotRebuilds) s.LinkTries = AIWallPlanner.MaxWallTries;
+                    buf.Add(s);
+                }
                 int slotCount = planned.Length;
                 planned.Dispose();
 
@@ -207,6 +270,30 @@ namespace TheWaningBorder.AI
             // would invalidate a live buffer handle.
             var slots = em.GetBuffer<AIWallPlanSlot>(brainEntity)
                 .ToNativeArray(Allocator.Temp);
+
+            // A CHOKEPOINT PLAN THAT CANNOT STAND FALLS BACK TO THE BORDER
+            // (2026-11-10, decision 45). On Moatwatch every home's ways in are
+            // the moat fords: water, unbuildable, so every slot died and no
+            // Turtle or Defensive AI ever raised a wall (0.0.79 batch). When
+            // every slot of a chokepoint plan is dead, the plan is redrawn
+            // along the home border instead, once per match.
+            if (plan.Mode == AIWallPlanner.ModeChokepoints && slots.Length > 0)
+            {
+                bool allDead = true;
+                for (int i = 0; i < slots.Length && allDead; i++)
+                    allDead = (slots[i].Flags & AIWallPlanner.FlagDead) != 0;
+                if (allDead)
+                {
+                    slots.Dispose();
+                    MarkChokepointsFailed(faction);
+                    em.RemoveComponent<AIWallPlan>(brainEntity);
+                    if (em.HasBuffer<AIWallPlanSlot>(brainEntity))
+                        em.RemoveComponent<AIWallPlanSlot>(brainEntity);
+                    AILogger.Log(faction, "BUILDING",
+                        "Alanthor walls: every chokepoint slot is unbuildable — redrawing along the home border");
+                    return;
+                }
+            }
 
             // Own hubs, snapshotted once (occupancy checks, link targets).
             var hubEntities = new NativeList<Entity>(Allocator.Temp);
@@ -581,6 +668,7 @@ namespace TheWaningBorder.AI
 
                     // A rebuild is counted once, when ordered; the slot reads
                     // as BUILT again once the new hub is seen standing.
+                    if (rebuild) RememberWallLoss(faction, slot.Position, hub: true);
                     if (rebuild)
                         UpdateSlot(em, brainEntity, slots, i, s =>
                         {
@@ -749,6 +837,7 @@ namespace TheWaningBorder.AI
                         "blocked straight and round both sides");
                     continue;
                 }
+                if (relink) RememberWallLoss(faction, slots[i].Position, hub: false);
                 UpdateSlot(em, brainEntity, slots, i, s =>
                 {
                     s.LinkTries++;

@@ -84,22 +84,6 @@ namespace TheWaningBorder.AI
         /// horses early; a turtle wants a shooting line behind walls and the
         /// engines to break a siege.
         /// </summary>
-        /// <summary>The mix dampened by tier (Game_AI.md § 3): blended from
-        /// Balanced toward <paramref name="p"/>'s by <paramref name="weight"/>.</summary>
-        public static RoleBudget For(AIPersonality p, float weight)
-        {
-            var t = For(p);
-            if (weight >= 0.999f) return t;
-            var b = For(AIPersonality.Balanced);
-            weight = math.saturate(weight);
-            return new RoleBudget
-            {
-                RangedFrac = b.RangedFrac + (t.RangedFrac - b.RangedFrac) * weight,
-                CavalryFrac = b.CavalryFrac + (t.CavalryFrac - b.CavalryFrac) * weight,
-                SiegeFrac = b.SiegeFrac + (t.SiegeFrac - b.SiegeFrac) * weight,
-            };
-        }
-
         public static RoleBudget For(AIPersonality p) => p switch
         {
             AIPersonality.Rush       => new RoleBudget { RangedFrac = 0.30f, CavalryFrac = 0.25f, SiegeFrac = 0.05f },

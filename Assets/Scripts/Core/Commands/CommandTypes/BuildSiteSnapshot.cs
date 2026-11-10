@@ -557,7 +557,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 set.NodeCount = n;
             }
             else
-            using (var nodes = TerritoryOwnership.TagWithTransform(em, required.Value)
+            using (var nodes = TerritoryOwnership.WorkableNodesWithTransform(em, required.Value)
                        .ToComponentDataArray<LocalTransform>(Allocator.Temp))
                 set.NodeCount = CopyInto(ref set.Nodes, nodes, 0);
 

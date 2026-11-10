@@ -99,7 +99,7 @@ namespace TheWaningBorder.Economy
                 SectConfig.Antiquity   => string.Format(Loc.T("Recall the Codex — enemy attack & ability cooldowns in a {0}m circle stop recovering for {1}s (Lv III also inflates their current cooldowns +50%)."), radius, magnitude),
                 SectConfig.Renewal     => string.Format(Loc.T("Heal Circle — restores {0} HP to all allied units within {1}m."), magnitude, radius),
                 SectConfig.Fortitude   => string.Format(Loc.T("Bulwark — allied units in {0}m gain +{1} armor for {2}s."), radius, magnitude, duration),
-                SectConfig.Prosperity => string.Format(Loc.T("Reclaim Vigour — heals allied units in a {0}m radius for {1} HP."), radius, magnitude),
+                SectConfig.Prosperity => string.Format(Loc.T("Bounty — every enemy unit in a {0}m circle dies at once; its owner is paid back its cost."), radius),
                 SectConfig.Silence     => string.Format(Loc.T("Whisper-Wind — allied units in {0}m gain x{1} move-speed for {2}s."), radius, magX, duration),
                 SectConfig.Justice     => string.Format(Loc.T("Eye of the Law — reveals fog of war in a {0}m circle for {1}s."), radius, duration),
                 SectConfig.Veneration  => string.Format(Loc.T("Litany — allied units in {0}m gain x{1} damage for {2}s."), radius, magX, duration),
@@ -173,9 +173,9 @@ namespace TheWaningBorder.Economy
             (SectConfig.Fortitude, 1)   => "Bulwark",
             (SectConfig.Fortitude, 2)   => "Stoneveil",
             (SectConfig.Fortitude, 3)   => "Unbroken Oath",
-            (SectConfig.Prosperity, 1) => "Reclaim Vigour",
-            (SectConfig.Prosperity, 2) => "Harvest the Veil",
-            (SectConfig.Prosperity, 3) => "Greater Harvest",
+            (SectConfig.Prosperity, 1) => "Bounty",
+            (SectConfig.Prosperity, 2) => "Wider Bounty",
+            (SectConfig.Prosperity, 3) => "Great Bounty",
             (SectConfig.Silence, 1)     => "Whisper-Wind",
             (SectConfig.Silence, 2)     => "Hush",
             (SectConfig.Silence, 3)     => "Entomb",
@@ -268,7 +268,7 @@ namespace TheWaningBorder.Economy
                            "faction. Trains the Sallyguard, recruits the Warden, researches Deep Foundations.");
                 case SectConfig.Prosperity:
                     return Loc.T("Treasury — while it stands your extractors earn more. One per " +
-                           "faction. Trains the Collector, recruits the Guildmaster, researches " +
+                           "faction. Trains the Bounty Hunter, recruits the Guildmaster, researches " +
                            "Charter of Works.");
                 case SectConfig.War:
                     return Loc.T("Muster Yard — a stockade of training posts and armourers' " +
@@ -352,7 +352,7 @@ namespace TheWaningBorder.Economy
                 SectConfig.Antiquity   => "More names in the tally — stronger relics, sharper memory.",
                 SectConfig.Renewal     => "Deeper communion — walls knit faster, men return from death.",
                 SectConfig.Fortitude   => "Heavier hymns — stone grows thicker, melee endure longer.",
-                SectConfig.Prosperity => "Wider claim — your workers and tools shrug off Border-rot.",
+                SectConfig.Prosperity => "Deeper ledgers — every fight is bought out, every crossing pays.",
                 SectConfig.Silence     => "Longer vigil — archers strike harder while still.",
                 SectConfig.Justice     => "Harsher verdict — sentence falls heavier, faster.",
                 SectConfig.Veneration  => "Higher fervor — kills bless your army with deeper rage.",
@@ -375,7 +375,7 @@ namespace TheWaningBorder.Economy
             SectConfig.Antiquity  => Loc.T("Artificer — long-range anti-armour glow-lance. Stasis Bolt: its target is slowed (move and attack) for a few seconds. Weak to cavalry and fast melee."),
             SectConfig.Renewal    => Loc.T("Scar Guard — heavy melee shock. Borrowed Breath: more damage the lower its HP. Weak to ranged focus fire."),
             SectConfig.Fortitude  => Loc.T("Sallyguard — anti-siege striker. Stored Strike: charges out of combat; the first blow after deals double. Bonus vs siege. Weak to archers."),
-            SectConfig.Prosperity => Loc.T("Collector — fast melee finisher. Run Down: bonus damage against slowed enemies and enemies under half HP. Weak to heavy infantry."),
+            SectConfig.Prosperity => Loc.T("Bounty Hunter — fast melee. Every few seconds it casts Bounty on one nearby enemy unit weaker than itself: the target dies and its owner is paid back its cost. Weak to heavy infantry."),
             _ => null,
         };
 
@@ -384,7 +384,7 @@ namespace TheWaningBorder.Economy
             SectConfig.Antiquity  => Loc.T("Archivist of Hours — L1 Catalogued: slowed enemies near it take +20% damage. L3 Stamp of Record: one enemy's abilities go on cooldown. L6 Recall: it and nearby allies jump back to where they stood 5s ago."),
             SectConfig.Renewal    => Loc.T("Surgeon — L1 Cauterize: allies nearby are immune to damage over time. L3 Bloodletting: allies drop to 35% HP and attack 25% faster for 10s. L6 Lancet: one enemy bleeds and cannot be healed for 10s."),
             SectConfig.Fortitude  => Loc.T("Warden — L1 Drillmaster: Sallyguards nearby charge twice as fast. L3 Sally Forth: allies gain speed and Sallyguards are fully charged. L6 Challenge: enemies nearby, siege included, must attack the Warden for 6s."),
-            SectConfig.Prosperity => Loc.T("Guildmaster — L1 Called In: wounded enemies nearby are slowed 20%. L3 Stake: the extractor under it pays double while it stays. L6 Liquidate: demolish one of your buildings for half of everything put into it."),
+            SectConfig.Prosperity => Loc.T("Guildmaster — L1 Bounty: enemy units in a small aimed circle die and their owners are refunded; the circle grows with his level. L3 Stake: the extractor under him pays 5% more until it takes damage. L6 Liquidate: demolish one of your buildings for half of everything put into it. L10 Windfall: for 40s everything that dies near him, his own side included, pays you 10% of its cost."),
             _ => null,
         };
 

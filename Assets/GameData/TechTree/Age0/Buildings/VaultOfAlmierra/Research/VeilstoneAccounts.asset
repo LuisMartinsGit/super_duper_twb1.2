@@ -10,22 +10,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
-  m_Name: Coffers
+  m_Name: VeilstoneAccounts
   m_EditorClassIdentifier: 
-  id: Coffers
-  displayName: Coffers
+  id: VeilstoneAccounts
+  displayName: Veilstone Accounts
   role: Banking
   effect: 
-  desc: "Safe storage: the Vault's interest rises to banking grade 1."
+  desc: "A Vault bar may boost veilstone income."
   researchAt: VaultOfAlmierra
   minBuildingLevel: 0
-  researchTime: 30
-  prerequisites: []
+  researchTime: 120
+  prerequisites:
+  - IronAccounts
   culture: 
   cost:
-    Supplies: 150
-    Iron: 40
-    Veilstone: 0
+    Supplies: 3000
+    Iron: 1000
+    Veilstone: 400
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

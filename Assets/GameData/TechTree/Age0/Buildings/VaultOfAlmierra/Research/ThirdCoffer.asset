@@ -10,22 +10,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
-  m_Name: VeilstoneMonetization
+  m_Name: ThirdCoffer
   m_EditorClassIdentifier: 
-  id: VeilstoneMonetization
-  displayName: Veilstone Monetization
+  id: ThirdCoffer
+  displayName: Third Coffer
   role: Banking
   effect: 
-  desc: "Unlocks Veilstone banking: Veilstone can be deposited in the Vault."
+  desc: "Opens the Vault's third bar."
   researchAt: VaultOfAlmierra
-  minBuildingLevel: 2
-  researchTime: 40
-  prerequisites: []
+  minBuildingLevel: 0
+  researchTime: 120
+  prerequisites:
+  - SecondCoffer
   culture: 
   cost:
-    Supplies: 263
-    Iron: 100
-    Veilstone: 0
+    Supplies: 2500
+    Iron: 900
+    Veilstone: 300
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

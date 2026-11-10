@@ -263,7 +263,7 @@ namespace TheWaningBorder.Economy
                 case SectActivePowerKind.WardCharge:     return TheWaningBorder.Abilities.CastTargetKind.OwnBuilding;
                 case SectActivePowerKind.UnmakeBuilding: return TheWaningBorder.Abilities.CastTargetKind.EnemyBuilding;
                 case SectActivePowerKind.RaiseTower:
-                case SectActivePowerKind.Plenty:         return TheWaningBorder.Abilities.CastTargetKind.None;
+                case SectActivePowerKind.Plenty:         return TheWaningBorder.Abilities.CastTargetKind.None;   // a ground point
             }
             if (reach != SectRadius.Single) return TheWaningBorder.Abilities.CastTargetKind.None;
             switch (kind)

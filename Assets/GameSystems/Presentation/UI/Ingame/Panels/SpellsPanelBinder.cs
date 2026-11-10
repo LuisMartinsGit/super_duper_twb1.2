@@ -261,7 +261,9 @@ namespace TheWaningBorder.UI.Ingame
             AbilityEffectKind.HeroStopTheHours => string.Format(Loc.T("every hostile unit on the map is frozen for {0:0}s; enemy heroes' abilities go on cooldown"), e.Value),
             AbilityEffectKind.HeroGreatRewind  => string.Format(Loc.T("your whole army is healed; up to {0:0} fallen units return"), e.Value),
             AbilityEffectKind.HeroRealmHolds   => string.Format(Loc.T("hostile units on your ground lose {0:0}% of max HP; your buildings cannot be hurt"), e.Value),
-            AbilityEffectKind.HeroBuyOut       => string.Format(Loc.T("enemy buildings in the circle fall and pay you {0:0}% of their worth; capitals lose that share of HP"), e.Value),
+            AbilityEffectKind.HeroWindfall     => string.Format(Loc.T("everything that dies near the hero, his own side included, pays you {0:0}% of its cost"), e.Value),
+            AbilityEffectKind.SectBounty       => string.Format(Loc.T("every enemy unit in the circle dies and its owner is refunded its cost; heroes are immune; the circle grows {0:0.#} m a hero level"), e.Value),
+            AbilityEffectKind.SectStake        => string.Format(Loc.T("the extractor under the hero pays +{0:0.#}% until it takes damage"), e.Value),
             AbilityEffectKind.CleansePulse     => Loc.T("one strong pulse clears the cursed ground in the circle; leaves no building behind"),
             _ => null,
         };

@@ -50,7 +50,7 @@ namespace TheWaningBorder.Bootstrap
 
         private static string AStatus() =>
             $"t={Time.time:F0} stage={TutorialMissionState.AdvancedStage} survey={TutorialMissionState.SurveyDone} "
-            + $"stopped={TutorialMissionState.Stopped} ranges={TutorialMissionState.Ranges} towers={TutorialMissionState.Towers} "
+            + $"charters={TutorialMissionState.Charters} ranges={TutorialMissionState.Ranges} towers={TutorialMissionState.Towers} "
             + $"claimed={TutorialMissionState.Claimed} rp={TutorialMissionState.ReligionPoints} temples={TutorialMissionState.Temples} "
             + $"sect={TutorialMissionState.SectAdopted} node={TutorialMissionState.NodeDead} monument={TutorialMissionState.MonumentHeld}/{TutorialMissionState.MonumentExplored} "
             + $"waves={TutorialMissionState.WavesSent}";
@@ -109,7 +109,7 @@ namespace TheWaningBorder.Bootstrap
                         _researched = true;
                         Log("level up the Guilds");
                     }
-                    StopAMine(em);
+                    ResearchCharters(em);
                     break;
                 case AdvancedStage.Military:
                     PlaceOnce(em, ACfg.archeryRangeId);
@@ -169,14 +169,16 @@ namespace TheWaningBorder.Bootstrap
                 CommandRouter.IssueBuild(em, w, site, id, pos, CommandSource.LocalPlayer, append: false);
         }
 
-        /// <summary>Step 2b (2026-11-09): stop extracting at the first finished Mine.</summary>
-        private void StopAMine(EntityManager em)
+        /// <summary>Step 2b (2026-11-10): research Trade Charters at the Fortress.</summary>
+        private bool _chartersIssued;
+        private void ResearchCharters(EntityManager em)
         {
-            if (TutorialMissionState.Stopped >= 1) return;
-            var mine = FirstFinished<MineTag>(em);
-            if (mine == Entity.Null) return;
-            CommandRouter.IssueSetExtractorStopped(em, mine, true, CommandSource.LocalPlayer);
-            Log("stopped extracting at a Mine");
+            if (TutorialMissionState.Charters >= 1 || _chartersIssued) return;
+            var hall = FirstFinished<FortressTag>(em);
+            if (hall == Entity.Null) return;
+            CommandRouter.IssueResearch(em, hall, "Alanthor_TradeCharters");
+            _chartersIssued = true;
+            Log("research Alanthor_TradeCharters");
         }
 
         private void TrainSoldiers(EntityManager em)

@@ -49,29 +49,16 @@ namespace TheWaningBorder.Data
         /// override a rung (BuildingLevelDefSO.slotIncomePerMinute).
         /// TerritoryIncomeSystem reads it.</summary>
         public float[] slotIncomePerMinute;
-        /// <summary>SIMPLE interest the stored PRINCIPAL earns per minute
-        /// (0.05 = 5 %), paid on at most <see cref="interestPrincipalCap"/> of
-        /// it. The Vault of Almierra only; its levels scale the rate
-        /// (BuildingLevelDefSO.interestMultiplier) and the banking techs
-        /// replace it (<see cref="coffersRate"/> and siblings).
-        /// VaultInterestSystem reads them. Simple, capped interest since
-        /// 2026-10-05 (decision 41) — compounding was a money printer.</summary>
-        public float interestPerMinute;
-        /// <summary>The most stored principal that earns interest. Anything
-        /// stored above it earns nothing.</summary>
-        public float interestPrincipalCap;
-
-        /// <summary>THE VAULT'S HARD CAP (2026-10-07): a deposit earns interest
-        /// for at most this many seconds; after that it only waits to be
-        /// withdrawn. 0 = no cap.</summary>
-        public float interestMaxSeconds;
-        /// <summary>Interest per minute once Coffers is researched (replaces
-        /// <see cref="interestPerMinute"/>).</summary>
-        public float coffersRate;
-        /// <summary>Interest per minute once Merchant Charters is researched.</summary>
-        public float merchantChartersRate;
-        /// <summary>Interest per minute once Sovereign Bonds is researched.</summary>
-        public float sovereignBondsRate;
+        /// <summary>THE VAULT'S BARS (decision 46, 2026-11-10): resources each
+        /// bar holds when full, bar 1 first -- every bar harder to fill than the
+        /// last. The Vault of Almierra only; VaultBars reads it.</summary>
+        public int[] vaultBarCapacity;
+        /// <summary>The income a full bar adds to the resource it boosts
+        /// (0.05 = +5 %). The Vault of Almierra only.</summary>
+        public float vaultBarBonus;
+        /// <summary>Sub-bars per bar: each filled sub-bar pays its share of
+        /// vaultBarBonus at once, so a bar pays early (2026-11-10).</summary>
+        public int vaultSubBars;
         /// <summary>The stone-wall level (WallTiers) a wall must stand at for
         /// this building to be mounted on it. The emplacements only.</summary>
         public int minWallLevel;

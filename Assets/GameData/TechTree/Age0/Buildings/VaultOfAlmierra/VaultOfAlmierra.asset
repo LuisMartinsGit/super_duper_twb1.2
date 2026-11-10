@@ -14,11 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: VaultOfAlmierra
   displayName: "Vault of Almi\xE9rra"
-  role: Banking (deposit/interest)
-  description: Resource bank and one of the three Age 0 choice buildings that unlock
-    the advance to Era II. Deposited resources earn simple interest each minute on
-    the stored principal up to a cap; banking-grade techs raise the rate and the
-    Vault's levels multiply it.
+  role: Banking (four bars of income bonus)
+  description: "The Alanthor landmark. Four bars of paid-in resources: a full bar
+    raises the income of the resource it boosts. Withdrawing returns everything and
+    empties every bar."
   hp: 600
   armorType: structure_human
   defense:
@@ -34,12 +33,13 @@ MonoBehaviour:
   suppliesPerTick: 0
   suppliesInterval: 0
   slotIncomePerMinute: []
-  interestPerMinute: 0.05
-  interestPrincipalCap: 3000
-  interestMaxSeconds: 600
-  coffersRate: 0.055
-  merchantChartersRate: 0.06
-  sovereignBondsRate: 0.08
+  vaultBarCapacity:
+  - 1500
+  - 3500
+  - 6000
+  - 10000
+  vaultBarBonus: 0.05
+  vaultSubBars: 5
   maxPerFaction: 1
   minWallLevel: 0
   garrisonSlots: 0
@@ -50,11 +50,11 @@ MonoBehaviour:
   segmentLineOfSight: 0
   trains: []
   research:
-  - Coffers
-  - MerchantCharters
-  - SovereignBonds
-  - IronSubsidies
-  - VeilstoneMonetization
+  - SecondCoffer
+  - ThirdCoffer
+  - FourthCoffer
+  - IronAccounts
+  - VeilstoneAccounts
   minEra: 0
   cost:
     Supplies: 600

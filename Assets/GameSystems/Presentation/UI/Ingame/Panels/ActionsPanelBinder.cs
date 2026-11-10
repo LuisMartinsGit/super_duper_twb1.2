@@ -625,13 +625,6 @@ namespace TheWaningBorder.UI.Ingame
                     _timer = RefreshInterval;
                     return;
                 }
-                case "ExtractorStop":
-                case "ExtractorResume":
-                    // Stop / resume extracting (Veilstone_Economy.md §3.5): every
-                    // selected extractor of ours takes the order.
-                    TheWaningBorder.Input.ExtractorOrders.SetForSelection(em, entity, b.Id == "ExtractorStop");
-                    _timer = RefreshInterval;
-                    return;
                 case "GateClose":
                     TheWaningBorder.Core.Commands.CommandRouter.IssueSetGateLock(em, entity, true);
                     return;
@@ -783,68 +776,94 @@ namespace TheWaningBorder.UI.Ingame
                 });
         }
 
-        // ── Vault section ──────────────────────────────────────────────────
+        // ── Vault section (the four bars, decision 46) ─────────────────────
 
         private static readonly string[] VaultResourceNames =
             { "None", "Supplies", "Iron", "Veilstone" };
-        private static int _vaultSelectedResource = 1;
+        /// <summary>The resource the Deposit button pays with (1..3).</summary>
+        private static int _vaultPay = 1;
+        /// <summary>The resource a bar that starts filling will boost (1..3).</summary>
+        private static int _vaultBoost = 1;
+        /// <summary>The most one click of Deposit pays in. A UI step, not balance.</summary>
+        private const int VaultDepositStep = 2500;
 
         private void RenderVault(EntityManager em)
         {
             if (!em.HasComponent<VaultStorage>(_entity)) return;
             var vault = em.GetComponentData<VaultStorage>(_entity);
             var faction = OwnFaction(em);
+            int open = TheWaningBorder.Systems.Economy.VaultBars.OpenBars(faction);
 
-            string stored = vault.ResourceType > 0 && vault.ResourceType < VaultResourceNames.Length
-                ? $"{(int)vault.StoredAmount} {Loc.T(VaultResourceNames[vault.ResourceType])}"
-                : Loc.T("Empty");
-            _statusA.text = string.Format(
-                Loc.T("Interest: {0:F0}%/min (simple, on the deposit)   Stored: {1}"),
-                TheWaningBorder.Systems.Economy.VaultInterestSystem.EffectiveRate(
-                    em, _entity, faction, vault.InterestRate) * 100f, stored);
+            // Line A: the bonus the full bars give right now.
+            var sb = new System.Text.StringBuilder();
+            for (int r = 1; r <= 3; r++)
+            {
+                float b = TheWaningBorder.Systems.Economy.VaultBars.BonusOf(faction, r);
+                if (b <= 0f) continue;
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append(string.Format(Loc.T("{0} +{1:F0}%"), Loc.T(VaultResourceNames[r]), b * 100f));
+            }
+            _statusA.text = sb.Length > 0
+                ? string.Format(Loc.T("Income bonus: {0}"), sb)
+                : Loc.T("Income bonus: none yet — each filled step of a bar pays");
 
-            bool locked = vault.LockTimer > 0f;
-            if (locked)
-                _statusB.text = string.Format(Loc.T("LOCKED — {0}:{1:D2} remaining"),
-                    (int)(vault.LockTimer / 60f), (int)(vault.LockTimer % 60f));
+            // Line B: every bar.
+            var bars = new System.Text.StringBuilder();
+            for (int i = 0; i < VaultStorage.Bars; i++)
+            {
+                if (i > 0) bars.Append("   ");
+                if (i >= open) { bars.Append(string.Format(Loc.T("{0}: locked"), i + 1)); continue; }
+                int fill = vault.Fill(i);
+                byte boost = vault.Boost(i);
+                bars.Append(boost == 0
+                    ? string.Format(Loc.T("{0}: empty"), i + 1)
+                    : string.Format(Loc.T("{0}: {1} {2}/{3} ({4}/{5})"), i + 1, Loc.T(VaultResourceNames[boost]), fill,
+                        TheWaningBorder.Systems.Economy.VaultBars.CapacityOf(i),
+                        TheWaningBorder.Systems.Economy.VaultBars.FilledSubBars(vault, i),
+                        TheWaningBorder.Systems.Economy.VaultBars.SubBars));
+            }
+            _statusB.text = bars.ToString();
 
-            if (vault.ResourceType > 0) _vaultSelectedResource = vault.ResourceType;
-            int sel = _vaultSelectedResource;
             Entity entity = _entity;
+            if (!TheWaningBorder.Systems.Economy.VaultBars.MayBoost(faction, _vaultBoost)) _vaultBoost = 1;
 
             AddWideButton(
-                string.Format(Loc.T("Resource: {0}  (click to cycle)"),
-                    Loc.T(VaultResourceNames[sel])),
-                enabled: vault.ResourceType == 0,
-                tooltip: Loc.T("Pick which resource this vault stores. Locked to the stored type once a deposit is made."),
+                string.Format(Loc.T("Pay with: {0}  (click to cycle)"), Loc.T(VaultResourceNames[_vaultPay])),
+                enabled: true,
+                tooltip: Loc.T("Any resource fills a bar, one for one. A withdrawal gives back exactly what you paid in."),
+                onClick: () => { _vaultPay = _vaultPay >= 3 ? 1 : _vaultPay + 1; _timer = RefreshInterval; });
+
+            AddWideButton(
+                string.Format(Loc.T("Next bar boosts: {0}  (click to cycle)"), Loc.T(VaultResourceNames[_vaultBoost])),
+                enabled: true,
+                tooltip: Loc.T("The resource a bar raises when full, chosen as it starts filling. Iron and veilstone open with the Vault's Accounts research."),
                 onClick: () =>
                 {
-                    // Only what this faction may deposit: supplies, plus each
-                    // resource its Vault research has opened. (Glow was offered
-                    // here too, and no Glow could ever move.)
-                    var research = FactionResearchState.Instance;
-                    do _vaultSelectedResource = _vaultSelectedResource >= 3 ? 1 : _vaultSelectedResource + 1;
-                    while (_vaultSelectedResource != 1 && !(research != null && research.HasResearched(faction,
-                        _vaultSelectedResource == 2 ? "IronSubsidies" : "VeilstoneMonetization")));
-                    _timer = RefreshInterval; // repaint next frame
+                    do _vaultBoost = _vaultBoost >= 3 ? 1 : _vaultBoost + 1;
+                    while (_vaultBoost != 1 && !TheWaningBorder.Systems.Economy.VaultBars.MayBoost(faction, _vaultBoost));
+                    _timer = RefreshInterval;
                 });
 
-            foreach (int amount in new[] { 100, 500 })
-            {
-                int amt = amount;
-                bool canDeposit = !locked
-                    && (vault.ResourceType == 0 || vault.ResourceType == sel)
-                    && FactionEconomy.CanAfford(em, faction, VaultCost(sel, amt));
-                AddWideButton(string.Format(Loc.T("Deposit {0}"), amt), canDeposit,
-                    Loc.T("Deposits lock the vault for a while; the deposit earns simple interest per minute, up to the Vault's cap."),
-                    () => VaultAction(entity, sel, amt, deposit: true));
-            }
-
-            bool canWithdraw = !locked && vault.ResourceType > 0 && vault.StoredAmount > 0f;
+            int room = TheWaningBorder.Systems.Economy.VaultBars.Room(vault, faction, out _);
+            int have = 0;
+            if (FactionEconomy.TryGetResources(em, faction, out var bank))
+                have = _vaultPay == 1 ? bank.Supplies : _vaultPay == 2 ? bank.Iron : bank.Veilstone;
+            int amt = System.Math.Min(VaultDepositStep, System.Math.Min(room, have));
+            int pay = _vaultPay, boostSel = _vaultBoost;
             AddWideButton(
-                string.Format(Loc.T("Withdraw All ({0})"), (int)vault.StoredAmount), canWithdraw,
-                Loc.T("Returns the stored amount (plus accrued interest) to the bank."),
-                () => VaultAction(entity, 0, 0, deposit: false));
+                room <= 0 ? Loc.T("Every open bar is full") : string.Format(Loc.T("Deposit {0} {1}"), amt, Loc.T(VaultResourceNames[pay])),
+                amt > 0,
+                string.Format(Loc.T("Fills the open bars in order ({0} / {1} / {2} / {3}), each in {4} steps. Every filled step adds {5:0.#}% to the income of the resource its bar boosts."),
+                    TheWaningBorder.Systems.Economy.VaultBars.CapacityOf(0), TheWaningBorder.Systems.Economy.VaultBars.CapacityOf(1),
+                    TheWaningBorder.Systems.Economy.VaultBars.CapacityOf(2), TheWaningBorder.Systems.Economy.VaultBars.CapacityOf(3),
+                    TheWaningBorder.Systems.Economy.VaultBars.SubBars,
+                    TheWaningBorder.Systems.Economy.VaultBars.BonusPerSubBar * 100f),
+                () => VaultAction(entity, pay, amt, deposit: true, boostSel));
+
+            AddWideButton(
+                string.Format(Loc.T("Withdraw All ({0})"), vault.Paid), vault.Paid > 0,
+                Loc.T("Gives back everything paid in. Every bar empties: the bonus and the progress are lost."),
+                () => VaultAction(entity, 0, 0, deposit: false, 1));
         }
 
         private static Cost VaultCost(int type, int amount) => type switch
@@ -856,7 +875,7 @@ namespace TheWaningBorder.UI.Ingame
             _ => default,
         };
 
-        private void VaultAction(Entity entity, int resourceType, int amount, bool deposit)
+        private void VaultAction(Entity entity, int resourceType, int amount, bool deposit, int boost)
         {
             var em = EM(out bool ok);
             if (!ok || !em.Exists(entity) || !em.HasComponent<VaultStorage>(entity)) return;
@@ -871,7 +890,7 @@ namespace TheWaningBorder.UI.Ingame
                 return;
 
             TheWaningBorder.Core.Commands.CommandRouter.IssueVaultTransfer(
-                em, entity, resourceType, amount, deposit);
+                em, entity, resourceType, amount, deposit, boost);
         }
 
         private void AddWideButton(string label, bool enabled, string tooltip, System.Action onClick)

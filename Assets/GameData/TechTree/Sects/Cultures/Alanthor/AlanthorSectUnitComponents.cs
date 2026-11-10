@@ -40,12 +40,8 @@ public struct StoredStrike : IComponentData
     public float IdleTimer;
 }
 
-/// <summary>Collector — Run Down: bonus damage against slowed enemies and
-/// enemies under half HP.</summary>
-public struct RunDownTrait : IComponentData
-{
-    public float Bonus;     // 0.5 = +50%
-}
+// Collector — Run Down retired 2026-11-10 (decision 47): the Bounty Hunter
+// casts Bounty instead (BountyHunterTrait, Prosperity/Units/Collector/).
 
 /// <summary>Marks a sect HERO (Religion.md §4): which sect it serves.
 /// Unique per faction; carries HeroLevel / HeroExperience like King Lexor.</summary>
@@ -66,12 +62,16 @@ public struct ArchivistTrail : IComponentData
     public float Sample;
 }
 
-/// <summary>Guildmaster — Stake (L3): a channel on the node under the hero.</summary>
-public struct StakeChannel : IComponentData   // active while TimeRemaining > 0
+/// <summary>Guildmaster — Stake (L3), on the EXTRACTOR: it pays Bonus more
+/// (0.05 = +5 %) until it takes damage (docs/Design/Sects.md § Sect of
+/// Prosperity). No time limit and the hero need not stay. Added by
+/// SectHeroAbilities.Stake, removed by SectHeroAuraSystem the tick its Health
+/// drops below LastHp; read by TerritoryIncomeSystem through
+/// SectHeroAbilities.StakeMultiplier.</summary>
+public struct StakedExtractor : IComponentData
 {
-    public Entity Node;
-    public float TimeRemaining;
-    public int HealthAtStart;
+    public float Bonus;
+    public int LastHp;
 }
 
 // ── Timed effects on others (unit pre-add set) ───────────────────────────

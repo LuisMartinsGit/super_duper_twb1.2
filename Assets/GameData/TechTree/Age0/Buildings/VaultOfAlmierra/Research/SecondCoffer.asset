@@ -10,22 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
-  m_Name: MerchantCharters
+  m_Name: SecondCoffer
   m_EditorClassIdentifier: 
-  id: MerchantCharters
-  displayName: Merchant Charters
+  id: SecondCoffer
+  displayName: Second Coffer
   role: Banking
   effect: 
-  desc: "Active credit: the Vault's interest rises to banking grade 2."
+  desc: "Opens the Vault's second bar."
   researchAt: VaultOfAlmierra
   minBuildingLevel: 0
-  researchTime: 35
+  researchTime: 90
   prerequisites: []
   culture: 
   cost:
-    Supplies: 200
-    Iron: 80
-    Veilstone: 0
+    Supplies: 1500
+    Iron: 500
+    Veilstone: 150
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

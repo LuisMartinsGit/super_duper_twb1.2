@@ -202,6 +202,59 @@ namespace TheWaningBorder.AI
                 == PassabilityGrid.TerrainBlocked;
         }
 
+        /// <summary>Walkable water nothing can be built on: a waded ford in a
+        /// land territory (the same test as BuildCommandHelper.TerrainPointOk).
+        /// A wall cannot stand there, so the opening scan treats it as the
+        /// outside and seals the dry bank behind it (2026-11-10).</summary>
+        public static bool UnbuildableWaterAt(float x, float z)
+        {
+            var water = TheWaningBorder.World.Terrain.WaterPlane.Instance;
+            if (water == null) return false;
+            float h = TerrainUtility.GetHeight(x, z);
+            if (!water.IsUnderwater(new UnityEngine.Vector3(x, h, z))) return false;
+            return h <= water.WalkLine
+                || !TheWaningBorder.World.Regions.RegionMap.BuildableShallows(
+                       TheWaningBorder.World.Regions.RegionMap.RegionAt(x, z));
+        }
+
+        /// <summary>The territories held by <paramref name="faction"/> next to
+        /// any of <paramref name="keep"/>, ascending id (deterministic).</summary>
+        private static System.Collections.Generic.List<int> HeldNeighbours(Faction faction,
+            System.Collections.Generic.List<int> keep)
+        {
+            var list = new System.Collections.Generic.List<int>(4);
+            int count = TheWaningBorder.World.Regions.RegionMap.Count;
+            for (int o = 0; o < count; o++)
+            {
+                if (keep.Contains(o)) continue;
+                if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(o) != (int)faction) continue;
+                for (int k = 0; k < keep.Count; k++)
+                    if (TheWaningBorder.World.Regions.RegionMap.AreAdjacent(keep[k], o)) { list.Add(o); break; }
+            }
+            return list;
+        }
+
+        /// <summary>THE KEEP'S SIGNATURE: home plus every held territory next
+        /// to it (and next to those, up to maxKeepTerritories). A chokepoint
+        /// plan is redrawn when it changes, so a keep that grows (Moatwatch's
+        /// garths claimed after the home) gets its seal at the new ways in.</summary>
+        public static uint KeepSignature(Faction faction, float3 hallPos)
+        {
+            int home = HomeRegion(hallPos);
+            if (home < 0) return 0u;
+            var keep = new System.Collections.Generic.List<int> { home };
+            while (keep.Count < math.max(1, Cfg.maxKeepTerritories))
+            {
+                var add = HeldNeighbours(faction, keep);
+                if (add.Count == 0) break;
+                for (int i = 0; i < add.Count && keep.Count < Cfg.maxKeepTerritories; i++) keep.Add(add[i]);
+            }
+            uint h = 2166136261u;
+            keep.Sort();
+            for (int i = 0; i < keep.Count; i++) { h ^= (uint)keep[i]; h *= 16777619u; }
+            return h;
+        }
+
         /// <summary>
         /// Scan <see cref="Bearings"/> rays out of the Hall and decide
         /// whether terrain shelters the base. Returns true when the base
@@ -421,7 +474,7 @@ namespace TheWaningBorder.AI
         /// the AI log.
         /// </summary>
         public static byte BuildPlan(EntityManager em, Faction faction, float3 hallPos,
-            NativeList<AIWallPlanSlot> slots, out string why)
+            NativeList<AIWallPlanSlot> slots, out string why, bool allowChokepoints = true)
         {
             // Territories exist: the wall follows the border (a wall may only
             // stand on its owner's ground — CommandRouter.WallLineOnOwnGround).
@@ -456,19 +509,43 @@ namespace TheWaningBorder.AI
                 // border. Same shelter test as the unpartitioned fallback,
                 // with every wall line held inside the home territory.
                 string chokeVerdict = null;
-                if (Cfg.chokepointsOnPartitionedMaps && home >= 0)
+                if (Cfg.chokepointsOnPartitionedMaps && allowChokepoints && home >= 0)
                 {
-                    var homeCorridors = new Corridor[MaxCorridors];
-                    if (TryAssessOpenings(hallPos, home, homeCorridors, out int hc, out string verdict))
+                    // THE KEEP (2026-11-10, developer: "Moatwatch has 3 territories
+                    // accessible only by 2 fords ... players should fortify the river
+                    // crossings and not build a wall around the starting territory").
+                    // The home alone first; while that is not sealed by sealable
+                    // openings only, the held territories next to it join the keep
+                    // (up to maxKeepTerritories) and the keep's ways in are assessed
+                    // instead. The smallest fully sealable keep wins; otherwise the
+                    // home's own (partial) seal stands.
+                    var keep = new System.Collections.Generic.List<int> { home };
+                    Corridor[] bestC = null; int bestN = 0; string bestVerdict = null; bool bestFull = false;
+                    int bestKeep = 1;
+                    while (true)
                     {
-                        if (hc == 0) { why = "home sheltered by terrain on every side: " + verdict; return ModeNone; }
-                        for (int c = 0; c < hc; c++)
-                            if (homeCorridors[c].Sealable) EmitChokeLine(em, homeCorridors[c], (byte)c, slots);
-                            else EmitChokeTowers(em, homeCorridors[c], (byte)(MaxCorridors + c * 2), slots);
-                        why = $"home sheltered by terrain — sealing {hc} chokepoint(s): {verdict}";
+                        var cs = new Corridor[MaxCorridors];
+                        bool ok = TryAssessOpenings(hallPos, keep.ToArray(), cs, out int n, out string v);
+                        bool full = ok;
+                        for (int c = 0; c < n && full; c++) full = cs[c].Sealable;
+                        if (ok && (bestC == null || (full && !bestFull)))
+                        { bestC = cs; bestN = n; bestVerdict = v; bestFull = full; bestKeep = keep.Count; }
+                        if (bestC == null && chokeVerdict == null) chokeVerdict = v;
+                        if (full || keep.Count >= math.max(1, Cfg.maxKeepTerritories)) break;
+                        var add = HeldNeighbours(faction, keep);
+                        if (add.Count == 0) break;
+                        for (int i = 0; i < add.Count && keep.Count < Cfg.maxKeepTerritories; i++) keep.Add(add[i]);
+                    }
+                    if (bestC != null)
+                    {
+                        string who = bestKeep > 1 ? $"the keep ({bestKeep} territories)" : "home";
+                        if (bestN == 0) { why = who + " sheltered by terrain on every side: " + bestVerdict; return ModeNone; }
+                        for (int c = 0; c < bestN; c++)
+                            if (bestC[c].Sealable) EmitChokeLine(em, bestC[c], (byte)c, slots);
+                            else EmitChokeTowers(em, bestC[c], (byte)(MaxCorridors + c * 2), slots);
+                        why = $"{who} sheltered by terrain — sealing {bestN} chokepoint(s): {bestVerdict}";
                         return ModeChokepoints;
                     }
-                    chokeVerdict = verdict;
                 }
                 var sb = new System.Text.StringBuilder(96);
                 for (int i = 0; i < regions.Count && i < 255; i++)
@@ -526,12 +603,23 @@ namespace TheWaningBorder.AI
         /// </summary>
         public static bool TryAssessOpenings(float3 hallPos, int home, Corridor[] corridors,
             out int corridorCount, out string verdict)
+            => TryAssessOpenings(hallPos, new[] { home }, corridors, out corridorCount, out verdict);
+
+        /// <summary>The ways into a KEEP: <paramref name="keep"/>[0] is the home,
+        /// the rest held territories joined to it. A cell of ford water nothing
+        /// can be built on counts as the outside (UnbuildableWaterAt), so an
+        /// opening lands on the dry bank where the ford comes ashore and its
+        /// wall can stand (2026-11-10: Moatwatch's seals all sat on the fords
+        /// and died).</summary>
+        public static bool TryAssessOpenings(float3 hallPos, int[] keep, Corridor[] corridors,
+            out int corridorCount, out string verdict)
         {
             corridorCount = 0;
             verdict = "no passability grid";
             if (PassabilityGrid.Instance == null) return false;
+            int home = keep[0];
             const float cell = 2f;
-            const int half = 140;                       // a 280 m window
+            int half = keep.Length > 1 ? 220 : 140;     // a 280 m window, 440 m for a keep
             int n = half * 2 + 1;
             float ox = math.floor(hallPos.x / cell) * cell - half * cell;
             float oz = math.floor(hallPos.z / cell) * cell - half * cell;
@@ -551,7 +639,9 @@ namespace TheWaningBorder.AI
                     if (ni < 0 || nj < 0 || ni >= n || nj >= n) { verdict = "home larger than the scan window"; return false; }
                     int nk = nj * n + ni;
                     if (inHome[nk]) continue;
-                    if (TheWaningBorder.World.Regions.RegionMap.RegionAt(ox + (ni + 0.5f) * cell, oz + (nj + 0.5f) * cell) != home) continue;
+                    float wx = ox + (ni + 0.5f) * cell, wz = oz + (nj + 0.5f) * cell;
+                    if (System.Array.IndexOf(keep, TheWaningBorder.World.Regions.RegionMap.RegionAt(wx, wz)) < 0) continue;
+                    if (UnbuildableWaterAt(wx, wz)) continue;
                     inHome[nk] = true; queue.Enqueue(nk);
                 }
             }
@@ -662,7 +752,7 @@ namespace TheWaningBorder.AI
                         ChokeWidth = width, ArcFraction = 0f, Sealable = sealable,
                     };
             }
-            verdict = $"{total} way(s) into the home" + (total > 0 ? ": " + sb : "");
+            verdict = $"{total} way(s) into the {(keep.Length > 1 ? "keep" : "home")}" + (total > 0 ? ": " + sb : "");
             if (total > MaxCorridors) { verdict += " - too many"; return false; }
             if (!ok)
             {

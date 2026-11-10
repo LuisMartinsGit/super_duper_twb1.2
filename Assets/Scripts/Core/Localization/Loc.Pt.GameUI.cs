@@ -74,18 +74,25 @@ namespace TheWaningBorder.Core.Localization
             t["Vault withdrawals, caravans and loot are not counted."] =
                 "Levantamentos do Cofre, caravanas e saque não são contados.";
             t["Empty"] = "Vazio";
-            t["Interest: {0:F0}%/min (simple, on the deposit)   Stored: {1}"] =
-                "Juros: {0:F0}%/min (simples, sobre o depósito)   Armazenado: {1}";
-            t["LOCKED — {0}:{1:D2} remaining"] = "BLOQUEADO — {0}:{1:D2} restantes";
-            t["Resource: {0}  (click to cycle)"] = "Recurso: {0}  (clique para alternar)";
-            t["Pick which resource this vault stores. Locked to the stored type once a deposit is made."] =
-                "Escolha o recurso que este cofre armazena. Fica fixo ao tipo armazenado assim que for feito um depósito.";
-            t["Deposit {0}"] = "Depositar {0}";
-            t["Deposits lock the vault for a while; the deposit earns simple interest per minute, up to the Vault's cap."] =
-                "Os depósitos bloqueiam o cofre durante algum tempo; o depósito rende juros simples a cada minuto, até ao limite do Cofre.";
+            t["{0} +{1:F0}%"] = "{0} +{1:F0}%";
+            t["Income bonus: {0}"] = "Bónus de rendimento: {0}";
+            t["Income bonus: none yet — each filled step of a bar pays"] = "Bónus de rendimento: nenhum ainda — cada passo cheio de uma barra rende";
+            t["{0}: locked"] = "{0}: bloqueada";
+            t["{0}: empty"] = "{0}: vazia";
+            t["{0}: {1} {2}/{3} ({4}/{5})"] = "{0}: {1} {2}/{3} ({4}/{5})";
+            t["Pay with: {0}  (click to cycle)"] = "Pagar com: {0}  (clique para alternar)";
+            t["Any resource fills a bar, one for one. A withdrawal gives back exactly what you paid in."] =
+                "Qualquer recurso enche uma barra, um por um. Um levantamento devolve exatamente o que pagou.";
+            t["Next bar boosts: {0}  (click to cycle)"] = "A próxima barra aumenta: {0}  (clique para alternar)";
+            t["The resource a bar raises when full, chosen as it starts filling. Iron and veilstone open with the Vault's Accounts research."] =
+                "O recurso que uma barra aumenta quando cheia, escolhido quando começa a encher. O ferro e o veilstone abrem com a investigação de Contas do Cofre.";
+            t["Every open bar is full"] = "Todas as barras abertas estão cheias";
+            t["Deposit {0} {1}"] = "Depositar {0} {1}";
+            t["Fills the open bars in order ({0} / {1} / {2} / {3}), each in {4} steps. Every filled step adds {5:0.#}% to the income of the resource its bar boosts."] =
+                "Enche as barras abertas por ordem ({0} / {1} / {2} / {3}), cada uma em {4} passos. Cada passo cheio acrescenta {5:0.#}% ao rendimento do recurso que a sua barra aumenta.";
             t["Withdraw All ({0})"] = "Levantar Tudo ({0})";
-            t["Returns the stored amount (plus accrued interest) to the bank."] =
-                "Devolve o valor armazenado (mais os juros acumulados) ao banco.";
+            t["Gives back everything paid in. Every bar empties: the bonus and the progress are lost."] =
+                "Devolve tudo o que foi pago. Todas as barras se esvaziam: o bónus e o progresso perdem-se.";
 
             // ── ActionsPanelPrefabBinder ───────────────────────────────────
             // "Choreographed Volleys" is kept English deliberately — the
@@ -182,6 +189,17 @@ namespace TheWaningBorder.Core.Localization
                 "convoca um exército temporário que cresce com o nível do herói";
             t["hurls every enemy in the radius into the air; enemy buildings take heavy damage"] =
                 "projeta pelo ar todos os inimigos no raio; os edifícios inimigos sofrem dano pesado";
+            // The Guildmaster's 2026-11-10 kit (Sects.md § Sect of Prosperity).
+            t["every enemy unit in the circle dies and its owner is refunded its cost; heroes are immune; the circle grows {0:0.#} m a hero level"] =
+                "todas as unidades inimigas no círculo morrem e o dono é reembolsado do seu custo; os heróis são imunes; o círculo cresce {0:0.#} m por nível do herói";
+            t["the extractor under the hero pays +{0:0.#}% until it takes damage"] =
+                "o extrator sob o herói rende +{0:0.#}% até sofrer dano";
+            t["everything that dies near the hero, his own side included, pays you {0:0}% of its cost"] =
+                "tudo o que morre perto do herói, incluindo o seu próprio lado, paga-te {0:0}% do seu custo";
+            t["{0} calls a WINDFALL — every death near the Guildmaster pays!"] =
+                "{0} invoca uma MARÉ DE SORTE — cada morte perto do Mestre da Guilda paga!";
+            t["Guildmaster — L1 Bounty: enemy units in a small aimed circle die and their owners are refunded; the circle grows with his level. L3 Stake: the extractor under him pays 5% more until it takes damage. L6 Liquidate: demolish one of your buildings for half of everything put into it. L10 Windfall: for 40s everything that dies near him, his own side included, pays you 10% of its cost."] =
+                "Mestre da Guilda — N1 Recompensa: as unidades inimigas num pequeno círculo apontado morrem e os donos são reembolsados; o círculo cresce com o nível dele. N3 Participação: o extrator sob ele rende mais 5% até sofrer dano. N6 Liquidar: demole um dos teus edifícios por metade de tudo o que lá investiste. N10 Maré de Sorte: durante 40s, tudo o que morre perto dele, incluindo o seu próprio lado, paga-te 10% do seu custo.";
             t["casting {0:0.0}s"] = "a lançar {0:0.0}s";
             t["melee"] = "corpo a corpo";
             t["ranged"] = "à distância";
@@ -340,13 +358,10 @@ namespace TheWaningBorder.Core.Localization
             t["Smelt"] = "Fundir";
             t["Trade for Veilstone"] = "Trocar por Veilstone";
             t["Spend {0} religion points for {1} veilstone. You have {2}."] = "Gasta {0} pontos de religião por {1} veilstone. Tens {2}.";
-            t["Stop Extracting"] = "Parar a Extração";
-            t["Resume Extracting"] = "Retomar a Extração";
-            t["Stop drawing on the node. The building stays and keeps its surveys; the node is saved for the Trading Outposts beside it."] = "Deixa de extrair do nó. O edifício fica e mantém as suas prospeções; o nó é poupado para os Entrepostos Comerciais ao lado.";
-            t["Draw on the node again. When it runs dry it collapses, and every Trading Outpost beside it falls with it."] = "Volta a extrair do nó. Quando se esgotar, colapsa, e todos os Entrepostos Comerciais ao lado caem com ele.";
-            t["Stopped — draws nothing from its node, so the node is saved. Its surveys still pay."] = "Parado — não extrai nada do nó, por isso o nó é poupado. As prospeções continuam a render.";
             t["Idle — its node is spent, cursed, or not in your ground."] = "Inativo — o seu nó está esgotado, amaldiçoado ou fora do teu território.";
             t["per minute, never drawn from its node"] = "por minuto, sem nunca gastar o nó";
+            t["Holds its node: the node stops at its last unit and this post keeps paying."] = "Segura o seu nó: o nó pára na última unidade e este posto continua a render.";
+            t["{0} in {1} is worked out — its Trading Outposts keep it, the extractor collapsed"] = "{0} em {1} está esgotado — os Entrepostos Comerciais mantêm-no, o extrator colapsou";
             t["Post {0} of {1} beside its node"] = "Posto {0} de {1} junto ao seu nó";
             t["Falls with its node when the node runs dry — stop its extractor in time."] = "Cai com o seu nó quando este se esgota — para o extrator a tempo.";
             t["Research Trade Charters at the Fortress (level 3) first."] = "Investiga primeiro as Cartas de Comércio na Fortaleza (nível 3).";

@@ -1137,7 +1137,7 @@ namespace TheWaningBorder.UI.Ingame
             if (world == null || !world.IsCreated || selection == null || selection.Count == 0) return null;
             var em = world.EntityManager;
             var first = selection[0];
-            if (!em.Exists(first) || !em.HasComponent<MonumentState>(first)) return null;
+            if (!em.Exists(first) || (!em.HasComponent<MonumentState>(first) && !em.HasComponent<CountingHouseState>(first))) return null;
             return EntityInfoExtractor.GetDisplayInfo(first, em).Description;
         }
 

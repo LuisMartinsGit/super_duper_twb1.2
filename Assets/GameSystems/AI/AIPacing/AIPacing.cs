@@ -63,7 +63,7 @@ namespace TheWaningBorder.AI
             int key = (int)brain.Difficulty * 16 + (int)brain.Personality;
             if (_paces.TryGetValue(key, out var pace)) return pace;
             var tier = AISimpleDifficulty.GetProfile(brain.Difficulty);
-            var p = AISettings.Get().For(brain.Personality, tier.PersonalityWeight);
+            var p = AISettings.Get().For(brain.Personality);
             pace = new Pace
             {
                 Tier = tier,
@@ -82,7 +82,7 @@ namespace TheWaningBorder.AI
         /// <summary>The personality's attack pace on the tier's attack timing.</summary>
         public static void ApplyAttackPace(ref AIDifficultyProfile profile, AIPersonality personality)
         {
-            float scale = AISettings.Get().For(personality, profile.PersonalityWeight).attackPaceScale;
+            float scale = AISettings.Get().For(personality).attackPaceScale;
             profile.FirstAttackEarliestSeconds *= scale;
             profile.AttackWaveIntervalSeconds *= scale;
         }

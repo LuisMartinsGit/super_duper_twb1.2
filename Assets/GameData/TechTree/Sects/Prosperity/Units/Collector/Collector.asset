@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Collector
   m_EditorClassIdentifier: 
   id: Sect_Collector
-  displayName: Collector
+  displayName: Bounty Hunter
   unitClass: melee
   hp: 240
   speed: 6.4

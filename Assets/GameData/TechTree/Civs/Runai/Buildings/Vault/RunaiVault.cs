@@ -38,14 +38,7 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(em, entity, default(VaultTag));
-            EntityBuild.Add(em, entity, new VaultStorage
-            {
-                StoredAmount = 0f,
-                InterestRate = 0.25f,
-                ResourceType = 0,
-                LockTimer = 0f,
-                LockDuration = 180f
-            });
+            EntityBuild.Add(em, entity, default(VaultStorage));
             EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             EntityBuild.Add(em, entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             return EntityBuild.Done(entity);
@@ -69,14 +62,7 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(ecb, entity, default(VaultTag));
-            EntityBuild.Add(ecb, entity, new VaultStorage
-            {
-                StoredAmount = 0f,
-                InterestRate = 0.25f,
-                ResourceType = 0,
-                LockTimer = 0f,
-                LockDuration = 180f
-            });
+            EntityBuild.Add(ecb, entity, default(VaultStorage));
             EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             EntityBuild.Add(ecb, entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
             return EntityBuild.Done(entity);

@@ -25,9 +25,9 @@ namespace TheWaningBorder.UI.Ingame
                     Count(TutorialMissionState.SurveyDone), 1),
                 () => TutorialMissionState.SurveyDone);
             AddRow(root, () => Open(AdvancedStage.Economy),
-                () => string.Format(Loc.T("2b - Stop extracting at a Mine ({0}/{1})"),
-                    Mathf.Min(TutorialMissionState.Stopped, 1), 1),
-                () => TutorialMissionState.Stopped >= 1);
+                () => string.Format(Loc.T("2b - Research Trade Charters at the Fortress ({0}/{1})"),
+                    Mathf.Min(TutorialMissionState.Charters, 1), 1),
+                () => TutorialMissionState.Charters >= 1);
             AddRow(root, () => Open(AdvancedStage.Military),
                 () => string.Format(Loc.T("3 - Build an Archery Range ({0}/{1})"),
                     Mathf.Min(TutorialMissionState.Ranges, 1), 1),
@@ -83,9 +83,9 @@ namespace TheWaningBorder.UI.Ingame
                 case AdvancedStage.Economy:
                     title = Loc.T("The Alanthor economy");
                     body = Loc.T("Your Gatherer's Huts are now <b>Guilds</b>: select one and level it up — every Guild "
-                        + "levels with it and pays more. Every node runs dry in the end, and a spent node collapses. Select a Mine and press "
-                        + "<b>Stop Extracting</b> to save its node: later, <b>Trade Charters</b> at the Fortress lets "
-                        + "<b>Trading Outposts</b> beside saved nodes pay you forever. The Litharch is now <b>King Lexor</b>, your hero.");
+                        + "levels with it and pays more. Every node runs dry in the end. Research <b>Trade Charters</b> at the Fortress: "
+                        + "a <b>Trading Outpost</b> beside a node keeps it at its last unit, and pays you forever. "
+                        + "The Litharch is now <b>King Lexor</b>, your hero.");
                     break;
                 case AdvancedStage.Military:
                     title = Loc.T("The Alanthor army");

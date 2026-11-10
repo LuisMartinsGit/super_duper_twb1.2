@@ -237,13 +237,17 @@ namespace TheWaningBorder.AI
             Entity temple = FindFactionBuilding<TempleOfRidanTag>(em, faction);
             if (temple == Entity.Null) return;
 
-            // The tier's sect limit (Game_AI.md § 2a).
+            // The tier's sect limit (Game_AI.md § 2a) caps ADOPTION only
+            // (2026-11-10, decision 45). It used to return here, which also
+            // skipped the power unlocks and chapel levels below: every tier
+            // with a limit (Beginner to Hard) banked its RP and never unlocked
+            // a single power in the 0.0.79 batch.
             int adopted = 0;
             for (int i = 0; i < priority.Length; i++)
                 if (SectQuery.IsAdopted(em, faction, priority[i])) adopted++;
-            if (!AIPacing.MayAdoptSect(em, faction, adopted)) return;
+            bool mayAdopt = AIPacing.MayAdoptSect(em, faction, adopted);
 
-            for (int i = 0; i < priority.Length; i++)
+            for (int i = 0; i < priority.Length && mayAdopt; i++)
             {
                 string sectId = priority[i];
                 if (SectQuery.IsAdopted(em, faction, sectId)) continue;

@@ -419,6 +419,42 @@ namespace TheWaningBorder.UI.Data
                 }
             }
 
+            // A Counting House (Sects.md § Plenty): no health, nothing to fight.
+            if (em.HasComponent<CountingHouseState>(entity))
+            {
+                var ch = em.GetComponentData<CountingHouseState>(entity);
+                bool unheld = (int)ch.Holder >= 8;
+                info.Type = "Counting House";
+                info.Name = Loc.T("Counting House");
+                info.Faction = unheld ? Loc.T("Derelict") : ch.Holder.ToString();
+                info.CurrentHealth = null;
+                info.MaxHealth = null;
+                var rate = TheWaningBorder.Entities.CountingHouse.PerMinute(ch.Level);
+                info.SuppliesPerMinute = rate.Supplies;
+                info.IronPerMinute = rate.Iron;
+                info.VeilstonePerMinute = rate.Veilstone;
+                info.HasResourceGeneration = true;
+                var pays = new System.Text.StringBuilder();
+                void Part(int v, string what)
+                {
+                    if (v <= 0) return;
+                    if (pays.Length > 0) pays.Append(", ");
+                    pays.Append('+').Append(v).Append(' ').Append(Loc.T(what));
+                }
+                Part(rate.Supplies, "Supplies");
+                Part(rate.Iron, "Iron");
+                Part(rate.Veilstone, "Veilstone");
+                info.Description = string.Format(Loc.T("Holder: {0}"), info.Faction)
+                    + "\n" + string.Format(Loc.T("Level {0}"), ch.Level)
+                    + "\n" + string.Format(Loc.T("Pays its holder {0} per minute."), pays.ToString());
+                float every = TheWaningBorder.Entities.CountingHouse.SecondsPerReligionPoint(ch.Level);
+                if (every > 0f)
+                    info.Description += "\n" + string.Format(Loc.T("And 1 Religion Point every {0} seconds."), (int)every);
+                info.Description += "\n" + string.Format(
+                    Loc.T("Keep any unit inside the circle for {0} seconds to take it. It cannot be attacked."),
+                    TheWaningBorder.Entities.CountingHouseConfig.I.captureSeconds);
+            }
+
             // Temple: the faction's Religion Points (the Temple has no levels)
             if (em.HasComponent<TempleOfRidanTag>(entity) && em.HasComponent<FactionTag>(entity))
             {
@@ -440,14 +476,9 @@ namespace TheWaningBorder.UI.Data
                 int rampIndex = TheWaningBorder.Entities.TradingOutpost.RampIndexOf(em, entity);
                 line += "\n" + string.Format(Loc.T("Post {0} of {1} beside its node"),
                     rampIndex + 1, TheWaningBorder.Entities.TradingOutpost.SideCount);
-                line += "\n" + Loc.T("Falls with its node when the node runs dry — stop its extractor in time.");
+                line += "\n" + Loc.T("Holds its node: the node stops at its last unit and this post keeps paying.");
                 info.Description += (info.Description.Length > 0 ? "\n" : "") + line;
             }
-
-            // Stop extracting (Veilstone_Economy.md §3.5, 2026-11-09).
-            if (TheWaningBorder.Core.Commands.CommandRouter.IsExtractorStopped(em, entity))
-                info.Description += (info.Description.Length > 0 ? "\n" : "")
-                    + Loc.T("Stopped — draws nothing from its node, so the node is saved. Its surveys still pay.");
 
             // A depleted Gatherer's Hut / Guild (Territory_Claims.md § 11.3,
             // 2026-10-19): its node is gone, so say what it still does.
@@ -929,47 +960,15 @@ namespace TheWaningBorder.UI.Data
             }
 
             // Check if this is a research-only building
-            var toggle = ExtractorToggle(entity, em);
             if (em.HasComponent<BuildingTag>(entity) && em.HasComponent<ProductionState>(entity))
             {
                 info.Type = ActionType.UnitTrainingAndResearch;
                 info.Actions = new List<ActionButton>();
-                if (toggle.HasValue) info.Actions.Add(toggle.Value);
                 info.ProductionState = GetProductionInfo(entity, em);
                 return info;
             }
-            if (toggle.HasValue)
-            {
-                info.Type = ActionType.UnitTrainingAndResearch;
-                info.Actions = new List<ActionButton> { toggle.Value };
-            }
 
             return info;
-        }
-
-        /// <summary>
-        /// STOP / RESUME EXTRACTING (Veilstone_Economy.md §3.5, 2026-11-09):
-        /// the toggle every extractor of the local player carries — the
-        /// Gatherer's Hut line, the Mine, the Veilstone Mine. Null for anything
-        /// else, or while it is unfinished.
-        /// </summary>
-        private static ActionButton? ExtractorToggle(Entity entity, EntityManager em)
-        {
-            if (!TheWaningBorder.Core.Commands.CommandRouter.IsStoppableExtractor(em, entity)) return null;
-            if (em.HasComponent<UnderConstruction>(entity) || em.HasComponent<DepletedHutTag>(entity)) return null;
-            if (!em.HasComponent<FactionTag>(entity)
-                || em.GetComponentData<FactionTag>(entity).Value != GameSettings.LocalPlayerFaction) return null;
-            bool stopped = TheWaningBorder.Core.Commands.CommandRouter.IsExtractorStopped(em, entity);
-            return new ActionButton
-            {
-                Id = stopped ? "ExtractorResume" : "ExtractorStop",
-                Label = stopped ? Loc.T("Resume Extracting") : Loc.T("Stop Extracting"),
-                Tooltip = stopped
-                    ? Loc.T("Draw on the node again. When it runs dry it collapses, and every Trading Outpost beside it falls with it.")
-                    : Loc.T("Stop drawing on the node. The building stays and keeps its surveys; the node is saved for the Trading Outposts beside it."),
-                Enabled = true,
-                CanAfford = true,
-            };
         }
 
         /// <summary>"-50 supplies, -50 iron" — one side of a per-minute exchange.</summary>

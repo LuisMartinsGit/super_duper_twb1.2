@@ -174,8 +174,6 @@ namespace TheWaningBorder.AI
         public static float Affinity(AIPersonality p, AIPlan plan)
             => TheWaningBorder.Data.AI.AISettings.Get().For(p).AffinityFor(plan);
 
-        /// <summary>The affinity dampened by tier (Game_AI.md § 3).</summary>
-        public static float Affinity(AIPersonality p, AIPlan plan, float weight)
-            => TheWaningBorder.Data.AI.AISettings.Get().For(p, weight).AffinityFor(plan);
+
     }
 }

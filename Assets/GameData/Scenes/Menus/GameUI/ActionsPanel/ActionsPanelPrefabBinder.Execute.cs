@@ -172,14 +172,6 @@ namespace TheWaningBorder.UI.Ingame
                     return;
             }
 
-            // Stop / resume extracting (docs/Design/Veilstone_Economy.md §3.5):
-            // every selected extractor of ours takes the order.
-            if (b.Id == "ExtractorStop" || b.Id == "ExtractorResume")
-            {
-                TheWaningBorder.Input.ExtractorOrders.SetForSelection(em, entity, b.Id == "ExtractorStop");
-                return;
-            }
-
             if (b.Id.StartsWith("KeepWing_", System.StringComparison.Ordinal))
             {
                 ExecuteKeepWing(em, entity, b);

@@ -423,18 +423,13 @@ namespace TheWaningBorder.Systems.World
             }
             else if (em.HasComponent<GathererHutTag>(building) && !em.HasComponent<RaiderCampTag>(building))
             {
-                if (!em.HasComponent<ExtractorStopped>(building)
-                    && NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2, out Entity supplyNode))
+                if (NearAny(em, QC_Supply.Get(em, QT_Supply), p, r2, out Entity supplyNode))
                 {
                     // full rate until the node is empty (§ 11.3, 2026-10-18)
                     float scale = SpentNode(em, supplyNode) ? 0f : 1f;
                     y.Supplies += LadderFor(HutId, culture).At(level) * scale
                                   * TerritoryResources.PurityMultiplier(em, supplyNode);
                 }
-            }
-            else if (em.HasComponent<ExtractorStopped>(building))
-            {
-                // Stopped (§3.5): a Mine or Veilstone Mine pays nothing.
             }
             else if (em.HasComponent<MineTag>(building))
             {
@@ -466,7 +461,8 @@ namespace TheWaningBorder.Systems.World
             if (!em.HasComponent<FortressTag>(building))
             {
                 float crew = TheWaningBorder.Feraldis.FeraldisEconomy.IncomeMultiplier(em, building)
-                             * TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ExtractorMultiplier(em, building);
+                             * TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ExtractorMultiplier(em, building)
+                             * TheWaningBorder.Systems.Sect.SectHeroAbilities.StakeMultiplier(em, building);
                 y.Supplies *= crew; y.Iron *= crew; y.Veilstone *= crew;
             }
             return y;
@@ -786,10 +782,12 @@ namespace TheWaningBorder.Systems.World
                     if (em.HasComponent<NodeReserve>(sNode))
                     {
                         var res = em.GetComponentData<NodeReserve>(sNode);
-                        if (res.Remaining <= 0f) continue;
+                        // A Trading Outpost beside it holds the last unit (decision 45).
+                        float floor = c.SupplyHasPost[i] ? NodeCollapse.HeldReserve : 0f;
+                        if (res.Remaining <= floor) continue;
                         if (drainMinutes > 0f)
                         {
-                            float take = Mathf.Min(res.Remaining, rate * drainMinutes);
+                            float take = Mathf.Min(res.Remaining - floor, rate * drainMinutes);
                             res.Remaining -= take;
                             em.SetComponentData(sNode, res);
                             rate = take / drainMinutes;
@@ -942,7 +940,6 @@ namespace TheWaningBorder.Systems.World
             /// <summary>Per built extractor: the Feraldis crew share of its income (docs/Design/Age_1_Feraldis.md §3.1).</summary>
             private readonly List<float> _builtCrew = new List<float>();
             /// <summary>Per built extractor: it is told to STOP EXTRACTING (§3.5).</summary>
-            private readonly List<bool> _builtStopped = new List<bool>();
             /// <summary>Node positions with a finished Trading Outpost beside them.</summary>
             private readonly List<Vector2> _postNodes = new List<Vector2>();
             /// <summary>Each faction's completed culture, read ONCE per census
@@ -999,7 +996,6 @@ namespace TheWaningBorder.Systems.World
                         {
                             float dx = _built[h].x - np.x, dz = _built[h].y - np.z;
                             if (dx * dx + dz * dz > r2) continue;
-                            if (_builtStopped[h]) continue;
                             int lvl = (int)_built[h].z;
                             if (lvl > best) { best = lvl; bestCrew = _builtCrew[h]; }
                         }
@@ -1052,7 +1048,6 @@ namespace TheWaningBorder.Systems.World
                     {
                         float dx = _built[h].x - np.x, dz = _built[h].y - np.z;
                         if (dx * dx + dz * dz > r2) continue;
-                        if (_builtStopped[h]) continue;   // stopped: works nothing (§3.5)
                         levels += (int)_built[h].z;
                         crewWeighted += _built[h].z * _builtCrew[h];
                     }
@@ -1089,7 +1084,6 @@ namespace TheWaningBorder.Systems.World
                 _built.Clear();
                 _builtEntity.Clear();
                 _builtCrew.Clear();
-                _builtStopped.Clear();
                 using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
                 for (int i = 0; i < ents.Length; i++)
                 {
@@ -1098,12 +1092,13 @@ namespace TheWaningBorder.Systems.World
                     var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
                     _built.Add(new Vector3(p.x, p.z, LevelOf(em, ents[i])));
                     _builtEntity.Add(ents[i]);
-                    _builtStopped.Add(em.HasComponent<ExtractorStopped>(ents[i]));
-                    // Slave crews (Feraldis) and the Alanthor sects (Embargo,
-                    // Overtime, the Treasury) scale what an extractor earns.
+                    // Slave crews (Feraldis), the Alanthor sects (Embargo,
+                    // Overtime, the Treasury) and the Guildmaster's Stake
+                    // scale what an extractor earns.
                     // A building on cursed ground works slower (Territory_Claims.md §6.9.9).
                     _builtCrew.Add(TheWaningBorder.Feraldis.FeraldisEconomy.IncomeMultiplier(em, ents[i])
                                    * TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ExtractorMultiplier(em, ents[i])
+                                   * TheWaningBorder.Systems.Sect.SectHeroAbilities.StakeMultiplier(em, ents[i])
                                    * TheWaningBorder.Systems.Border.CursedGroundDecay.WorkSpeed(em, ents[i]));
                 }
             }
@@ -1183,10 +1178,12 @@ namespace TheWaningBorder.Systems.World
                 {
                     // full rate until empty, every unit drawn (§ 11.3, 2026-10-18)
                     var res = em.GetComponentData<NodeReserve>(node);
-                    if (res.Remaining <= 0f) continue;
+                    // A Trading Outpost beside it holds the last unit (decision 45).
+                    float floor = o.HasPost[i] ? NodeCollapse.HeldReserve : 0f;
+                    if (res.Remaining <= floor) continue;
                     if (drainMinutes > 0f)
                     {
-                        float take = Mathf.Min(res.Remaining, rate * drainMinutes);
+                        float take = Mathf.Min(res.Remaining - floor, rate * drainMinutes);
                         res.Remaining -= take;
                         em.SetComponentData(node, res);
                         rate = take / drainMinutes;

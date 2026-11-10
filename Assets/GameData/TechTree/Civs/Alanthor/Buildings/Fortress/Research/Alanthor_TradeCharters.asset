@@ -18,14 +18,14 @@ MonoBehaviour:
   effect: 
   desc: "Alanthor. Unlocks the Trading Outpost: up to four beside any supply, iron or veilstone node, each trickling that node's resource without ever drawing on it, for as long as the node lives."
   researchAt: Fortress
-  minBuildingLevel: 3
-  researchTime: 90
+  minBuildingLevel: 1
+  researchTime: 60
   prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 500
-    Iron: 200
-    Veilstone: 250
+    Supplies: 250
+    Iron: 100
+    Veilstone: 50
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

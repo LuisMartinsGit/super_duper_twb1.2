@@ -1,4 +1,4 @@
-// SimpleAISystem.Extractors.cs
+﻿// SimpleAISystem.Extractors.cs
 // Building the extraction buildings on the resource nodes the faction holds.
 // Partial of SimpleAISystem.cs.
 //
@@ -53,31 +53,106 @@ namespace TheWaningBorder.AI
             ("GatherersHut",     default),
         };
 
+        // ── THE EXTRACTOR SHARE (2026-11-09, Game_AI.md § 2c) ──────────────
+        //
+        // The tier's economic handle. Expert puts an extractor on every node it
+        // can work, as soon as it can; each tier below works 25 % fewer nodes of
+        // each kind than the one above, so its extraction income lands at that
+        // share of Expert's. What an extractor PAYS is never cut: the tier simply
+        // owns fewer of them. Counted per kind — Gatherer's Huts against supply
+        // nodes, Mines against iron, Veilstone Mines against outcrops, Trading
+        // Outposts against free node sides — over the faction's own territory.
+
+        static readonly ComponentType[] QT_ShareHuts = { ComponentType.ReadOnly<GathererHutTag>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.Exclude<RaiderCampTag>(), ComponentType.Exclude<DepletedHutTag>() };
+        static readonly ComponentType[] QT_ShareMines = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<FactionTag>() };
+        static readonly ComponentType[] QT_ShareVeilMines = { ComponentType.ReadOnly<VeilstoneMineTag>(), ComponentType.ReadOnly<FactionTag>() };
+        static readonly ComponentType[] QT_SharePosts = { ComponentType.ReadOnly<TradingOutpostTag>(), ComponentType.ReadOnly<FactionTag>() };
+        static CachedEntityQuery QC_ShareHuts, QC_ShareMines, QC_ShareVeilMines, QC_SharePosts;
+
+        private readonly List<float3> _shareFree = new List<float3>();
+        private readonly HashSet<int> _shareOwned = new HashSet<int>();
+
+        /// <summary>The share of the workable nodes this faction's tier puts an
+        /// extractor on: 1 for Expert, the profile's share below it, and the
+        /// Beginner slot's own share (it plays the Easy profile).</summary>
+        private static float ExtractorShareOf(Faction faction)
+        {
+            var slots = TheWaningBorder.Core.Config.LobbyConfig.Slots;
+            int i = (int)faction;
+            if (slots != null && i >= 0 && i < slots.Length && slots[i] != null
+                && slots[i].Type == TheWaningBorder.Core.Config.SlotType.AI
+                && slots[i].AIDifficulty == TheWaningBorder.Core.Config.LobbyAIDifficulty.Beginner)
+                return AISimpleDifficultyConfig.I.beginnerExtractorShare;
+            return ProfileOf(faction).ExtractorShare;
+        }
+
+        /// <summary>Working extractors of this kind the faction owns (sites included).</summary>
+        private static int CountShareExtractors(EntityManager em, Faction faction, string buildingId)
+        {
+            EntityQuery q;
+            if (buildingId == "GatherersHut") q = QC_ShareHuts.Get(em, QT_ShareHuts);
+            else if (buildingId == "Mine") q = QC_ShareMines.Get(em, QT_ShareMines);
+            else if (buildingId == "VeilstoneMine") q = QC_ShareVeilMines.Get(em, QT_ShareVeilMines);
+            else if (buildingId == OutpostSites.BuildingId) q = QC_SharePosts.Get(em, QT_SharePosts);
+            else return 0;
+            int n = 0;
+            using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
+                for (int i = 0; i < facs.Length; i++) if (facs[i].Value == faction) n++;
+            // Plans waiting for a worker count too, or a tier queues past its share.
+            var pq = QC_PlansXf.Get(em, QT_PlansXf);
+            if (!pq.IsEmptyIgnoreFilter)
+            {
+                var id = new FixedString64Bytes(buildingId);
+                using var plans = pq.ToComponentDataArray<PlannedBuilding>(Allocator.Temp);
+                using var pf = pq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+                for (int i = 0; i < plans.Length; i++)
+                    if (pf[i].Value == faction && plans[i].BuildingId == id) n++;
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// May this faction add one more extractor of this kind? Yes while it
+        /// works fewer than its tier's share of the nodes it could work (those it
+        /// works plus the free ones in its territory). <paramref name="freeNodes"/>
+        /// is the free count when the caller already has it, or -1 to count here.
+        /// </summary>
+        private bool ExtractorShareAllows(EntityManager em, Faction faction, string buildingId,
+            int freeNodes, out string why)
+            => ExtractorShareRoom(em, faction, buildingId, freeNodes, out why) > 0;
+
+        /// <summary>How many more extractors of this kind the tier's share allows
+        /// (int.MaxValue for Expert, or a kind the share does not count).</summary>
+        private int ExtractorShareRoom(EntityManager em, Faction faction, string buildingId,
+            int freeNodes, out string why)
+        {
+            why = null;
+            float share = ExtractorShareOf(faction);
+            if (share >= 1f) return int.MaxValue;            // Expert: everything
+            if (buildingId != "GatherersHut" && buildingId != "Mine" && buildingId != "VeilstoneMine"
+                && buildingId != OutpostSites.BuildingId) return int.MaxValue;
+            if (freeNodes < 0)
+            {
+                _shareOwned.Clear();
+                if (TerritoryOwnership.Ready) _shareOwned.UnionWith(TerritoryOwnership.TerritoriesOf(faction));
+                _shareFree.Clear();
+                CollectFreeNodes(em, faction, buildingId, _shareOwned, _shareFree);
+                freeNodes = _shareFree.Count;
+            }
+            int worked = CountShareExtractors(em, faction, buildingId);
+            int allowed = (int)math.ceil(share * (worked + freeNodes) - 0.001f);
+            if (worked >= allowed)
+                why = $"tier share {share:P0}: {worked} of {worked + freeNodes} worked";
+            return math.max(0, allowed - worked);
+        }
+
         /// <summary>
         /// Raise ONE extractor on a free node inside our own territory.
         /// One per attempt: each is a real purchase, and building four at once
         /// is how the economy wallet empties and unit production stops.
         /// </summary>
-        private static readonly ComponentType[] QT_TierHuts = { ComponentType.ReadOnly<GathererHutTag>(), ComponentType.ReadOnly<FactionTag>() };
-        private static readonly ComponentType[] QT_TierMines = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<FactionTag>() };
-        private static TheWaningBorder.Core.CachedEntityQuery QC_TierHuts, QC_TierMines;
-
-        /// <summary>Has this faction reached its tier's extractor limit (Game_AI.md § 2)?</summary>
-        private static bool AtExtractorLimit(EntityManager em, Faction faction)
-        {
-            int limit = ProfileOf(faction).ExtractorLimit;
-            if (limit <= 0) return false;
-            int n = 0;
-            using (var f = QC_TierHuts.Get(em, QT_TierHuts).ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp))
-                for (int i = 0; i < f.Length; i++) if (f[i].Value == faction) n++;
-            using (var f = QC_TierMines.Get(em, QT_TierMines).ToComponentDataArray<FactionTag>(Unity.Collections.Allocator.Temp))
-                for (int i = 0; i < f.Length; i++) if (f[i].Value == faction) n++;
-            return n >= limit;
-        }
-
         private void EnsureExtractors(EntityManager em, Faction faction, float now)
         {
-            if (AtExtractorLimit(em, faction)) return;
             if (!RegionMap.Ready || !TerritoryOwnership.Ready) return;
 
             int key = (int)faction;
@@ -172,9 +247,21 @@ namespace TheWaningBorder.AI
                 }
                 if (!FactionEconomy.CanAfford(em, faction, planCost))
                 {
+                    // A POST SAVES FOR ITSELF (2026-11-10, decision 45). "Bank
+                    // short" was the commonest outpost refusal in the 0.0.79
+                    // batch: the army spent every coin first, so Expert had
+                    // half Easy's posts at 20 minutes. A post the share allows
+                    // now holds its price against unit purchases (a breathing
+                    // reserve, never strict), and the hold drops when it is
+                    // placed or no longer wanted.
+                    if (isOutpost && _freeNodes.Count > 0
+                        && ExtractorShareRoom(em, faction, buildingId, _freeNodes.Count, out _) > 0)
+                        AIPivotalReserve.Set(faction, OutpostReserveKey, planCost);
+                    else if (isOutpost) AIPivotalReserve.Clear(faction, OutpostReserveKey);
                     if (AILogger.Enabled) blocked += $" | {buildingId}: bank short";
                     continue;
                 }
+                if (isOutpost) AIPivotalReserve.Clear(faction, OutpostReserveKey);
 
                 // EVERY free node is a candidate, not just the first found.
                 // One node can be legitimately unplaceable (a foundation
@@ -188,6 +275,13 @@ namespace TheWaningBorder.AI
                     if (AILogger.Enabled) blocked += $" | {buildingId}: no free owned node";
                     continue;
                 }
+                // The tier's share of the workable nodes (Game_AI.md § 2c).
+                int shareRoom = ExtractorShareRoom(em, faction, buildingId, _freeNodes.Count, out string shareWhy);
+                if (shareRoom <= 0)
+                {
+                    if (AILogger.Enabled) blocked += $" | {buildingId}: {shareWhy}";
+                    continue;
+                }
                 string reason = null;
 
                 // SURPLUS (Game_AI.md 5e): the bank is piling up — a post
@@ -198,7 +292,7 @@ namespace TheWaningBorder.AI
                 if (isOutpost && IsTradeSurplus(em, faction))
                 {
                     int placed = 0;
-                    for (int n = 0; n < _freeNodes.Count; n++)
+                    for (int n = 0; n < _freeNodes.Count && placed < shareRoom; n++)
                     {
                         if (AICommon.CountIdleWorkers(em, faction) == 0) break;
                         // Ramp-priced per slot; the list runs cheapest first,
@@ -246,90 +340,6 @@ namespace TheWaningBorder.AI
                     blocked += $" | {_nodesSiteBlocked} site(s) skipped: lost there before (curse node in reach, or lost too often)";
                 LogExtractBlocked(faction, now, blocked.Substring(3));
             }
-        }
-
-        // ── STOP EXTRACTING (2026-11-09, Veilstone_Economy.md §3.5) ─────────
-        //
-        // A spent node collapses with every Trading Outpost beside it, and the
-        // Outpost's trickle is never drawn from the node — so an Alanthor AI
-        // stops each extractor while its node still has a little left, and the
-        // posts beside it (Trade Charters) keep paying forever. HOW CLOSE it
-        // cuts it is the tier's play quality (Game_AI.md § 2a):
-        // AIDifficultyProfileSO.extractorStopMinutes — 0 on Easy, which never
-        // stops and loses its nodes; Normal stops early and leaves ore in the
-        // ground; Expert stops a minute before the end.
-
-        private readonly Dictionary<int, float> _nextStopCheck = new Dictionary<int, float>();
-
-        static readonly ComponentType[] QT_StopHuts = { ComponentType.ReadOnly<GathererHutTag>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<UnderConstruction>(), ComponentType.Exclude<RaiderCampTag>(), ComponentType.Exclude<DepletedHutTag>(), ComponentType.Exclude<ExtractorStopped>() };
-        static readonly ComponentType[] QT_StopMines = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<UnderConstruction>(), ComponentType.Exclude<ExtractorStopped>() };
-        static readonly ComponentType[] QT_StopVeilMines = { ComponentType.ReadOnly<VeilstoneMineTag>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<UnderConstruction>(), ComponentType.Exclude<ExtractorStopped>() };
-        static CachedEntityQuery QC_StopHuts, QC_StopMines, QC_StopVeilMines;
-
-        /// <summary>The extractor's "built on it" range (TerritoryIncomeSystem MineToNodeRange).</summary>
-        private const float StopNodeRange = 12f;
-
-        /// <summary>
-        /// Every extractor think: stop each of this faction's extractors whose
-        /// node has fewer than the tier's <c>ExtractorStopMinutes</c> of
-        /// extraction left. Alanthor only — the only culture whose Trading
-        /// Outposts make a saved node worth anything.
-        /// </summary>
-        private void ManageExtractorStops(EntityManager em, Faction faction, float now)
-        {
-            float minutes = ProfileOf(faction).ExtractorStopMinutes;
-            if (minutes <= 0f) return;                       // this tier never stops
-            if (CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor) return;
-            int key = (int)faction;
-            if (_nextStopCheck.TryGetValue(key, out float next) && now < next) return;
-            _nextStopCheck[key] = now + Cfg.extractorAttemptInterval * 0.5f;
-
-            StopNear(em, faction, QC_StopHuts.Get(em, QT_StopHuts), minutes);
-            StopNear(em, faction, QC_StopMines.Get(em, QT_StopMines), minutes);
-            StopNear(em, faction, QC_StopVeilMines.Get(em, QT_StopVeilMines), minutes);
-        }
-
-        private static void StopNear(EntityManager em, Faction faction, EntityQuery q, float minutes)
-        {
-            if (q.IsEmptyIgnoreFilter) return;
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (facs[i].Value != faction) continue;
-                if (!TryNodeReserveNear(em, xfs[i].Position, out float remaining)) continue;
-                // What the extractor draws a minute: the income readout's own
-                // arithmetic (level, purity, crews), so the AI and the tick agree.
-                var y = TheWaningBorder.Systems.World.TerritoryIncomeSystem.BuildingYieldForDisplay(em, ents[i]);
-                float draw = y.Supplies + y.Iron + y.Veilstone;
-                if (draw <= 0f || remaining > draw * minutes) continue;
-                TheWaningBorder.Core.Commands.CommandRouter.IssueSetExtractorStopped(
-                    em, ents[i], true, TheWaningBorder.Core.Commands.CommandSource.AI);
-                AILogger.Log(faction, "EXTRACT",
-                    $"stop extracting at ({xfs[i].Position.x:F0},{xfs[i].Position.z:F0}): " +
-                    $"{remaining:F0} left, {draw:F0}/min — saved for Trading Outposts");
-            }
-        }
-
-        /// <summary>The reserve left on the nearest resource node within the
-        /// extractor range of <paramref name="p"/>.</summary>
-        private static bool TryNodeReserveNear(EntityManager em, float3 p, out float remaining)
-        {
-            remaining = 0f;
-            var all = OutpostSites.AllNodes(em);
-            float best = StopNodeRange * StopNodeRange;
-            bool found = false;
-            for (int i = 0; i < all.Count; i++)
-            {
-                float dx = all[i].Position.x - p.x, dz = all[i].Position.z - p.z;
-                float d2 = dx * dx + dz * dz;
-                if (d2 > best || !em.HasComponent<NodeReserve>(all[i].Entity)) continue;
-                best = d2;
-                remaining = em.GetComponentData<NodeReserve>(all[i].Entity).Remaining;
-                found = true;
-            }
-            return found;
         }
 
         static readonly ComponentType[] QT_Outposts =
@@ -388,6 +398,7 @@ namespace TheWaningBorder.AI
         /// <summary>AIPivotalReserve key the hut pipeline arms while its
         /// opening huts are still unbuilt (SimpleAISystem.Economy.cs).</summary>
         private const string HutBootstrapReserveKey = "OpeningHuts";
+        private const string OutpostReserveKey = "TradingOutpost";
 
         /// <summary>True while the hut pipeline is saving for its opening
         /// huts (the OpeningHuts reserve is armed).</summary>
@@ -588,7 +599,7 @@ namespace TheWaningBorder.AI
 
                 int ramp = OutpostSites.RampIndexForNewPost(em, faction, best);
                 if (ramp >= OutpostSites.SideCount) continue;
-                int safe = ExtractorDrawingOn(em, np) ? 1 : 0;
+                int safe = 0;   // a post no longer falls with its node (decision 45): every node is safe
                 int kind = node.Kind == OutpostSites.NodeKind.Veilstone ? 0
                          : node.Kind == OutpostSites.NodeKind.Iron ? 1 : 2;
                 _outpostSlots.Add((best, ramp, safe, kind, bestD2));
@@ -611,31 +622,5 @@ namespace TheWaningBorder.AI
         }
 
         private readonly List<OutpostSites.NodeRef> _postNodeScratch = new List<OutpostSites.NodeRef>();
-
-        static readonly ComponentType[] QT_Drawing =
-        {
-            ComponentType.ReadOnly<BuildingTag>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-            ComponentType.Exclude<ExtractorStopped>(),
-            ComponentType.Exclude<DepletedHutTag>(),
-        };
-        static CachedEntityQuery QC_Drawing;
-
-        /// <summary>Is an extractor (any owner) still drawing on the node at
-        /// <paramref name="np"/>?</summary>
-        private static bool ExtractorDrawingOn(EntityManager em, float3 np)
-        {
-            var q = QC_Drawing.Get(em, QT_Drawing);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            float r2 = StopNodeRange * StopNodeRange;
-            for (int i = 0; i < ents.Length; i++)
-            {
-                float dx = xfs[i].Position.x - np.x, dz = xfs[i].Position.z - np.z;
-                if (dx * dx + dz * dz > r2) continue;
-                if (TheWaningBorder.Core.Commands.CommandRouter.IsStoppableExtractor(em, ents[i])) return true;
-            }
-            return false;
-        }
     }
 }

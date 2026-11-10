@@ -134,21 +134,18 @@ namespace TheWaningBorder.Systems.Sect
 
         /// <summary>Strike the hostile unit nearest the cast point and mark it:
         /// if it dies inside <paramref name="window"/>, its cost is paid.</summary>
-        private static void ApplyBounty(EntityManager em, Faction faction, float3 center,
-            float damage, float window, DamageType type)
-        {
-            Entity target = NearestUnit(em, center, SectRadii.Small, faction, hostile: true);
-            if (target == Entity.Null) return;
-            TransientState.Set(em, target, new BountyMarked { ByFaction = faction, TimeRemaining = window });
-            SpellDamage.Apply(em, target, (int)math.round(damage), type, faction);
-        }
+        /// <summary>Bounty (decision 47): every hostile unit in the circle dies
+        /// at once and its owner is paid its cost.</summary>
+        private static void ApplyBounty(EntityManager em, Faction faction, float3 center, float radius)
+            => ProsperityBounty.KillInRadius(em, faction, center, math.max(radius, SectRadii.Small));
 
-        /// <summary>Boost the caster's building nearest the cast point.</summary>
+        /// <summary>Overtime (decision 47): every one of the caster's buildings in
+        /// the circle works faster.</summary>
         private static void ApplyOvertime(EntityManager em, Faction faction, float3 center,
-            float multiplier, float seconds)
+            float radius, float multiplier, float seconds)
         {
-            Entity best = Entity.Null;
-            float bestD = SectRadii.Small * SectRadii.Small;
+            float r = math.max(radius, SectRadii.Small);
+            float r2 = r * r;
             var q = QC_BuildingTagHealthLocalTransformFactionTag.Get(em, QT_BuildingTagHealthLocalTransformFactionTag);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var trs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -156,21 +153,15 @@ namespace TheWaningBorder.Systems.Sect
             for (int i = 0; i < ents.Length; i++)
             {
                 if (facs[i].Value != faction) continue;
-                float d = math.distancesq(trs[i].Position.xz, center.xz);
-                if (d < bestD) { bestD = d; best = ents[i]; }
+                if (math.distancesq(trs[i].Position.xz, center.xz) > r2) continue;
+                TransientState.Set(em, ents[i], new OvertimeBoost { Multiplier = multiplier, TimeRemaining = seconds });
             }
-            if (best == Entity.Null) return;
-            TransientState.Set(em, best, new OvertimeBoost { Multiplier = multiplier, TimeRemaining = seconds });
         }
 
-        /// <summary>Pay <paramref name="seconds"/> of the faction's current
-        /// territory income at once.</summary>
-        private static void ApplyPlenty(EntityManager em, Faction faction, float seconds)
-        {
-            var gain = AlanthorSectEconomy.IncomeOver(faction, seconds);
-            if (gain.IsZero) return;
-            FactionEconomy.Add(em, faction, gain, IncomeSource.Other);
-        }
+        /// <summary>Plenty (decision 47): raise a Counting House of the cast's
+        /// level at the aimed point (CountingHouse snaps and validates it).</summary>
+        private static void ApplyPlenty(EntityManager em, Faction faction, float3 center, int level)
+            => TheWaningBorder.Entities.CountingHouse.Spawn(em, faction, center, math.clamp(level, 1, 3));
 
         /// <summary>The live unit nearest <paramref name="center"/> within
         /// <paramref name="radius"/>, hostile to (or owned by) the caster.</summary>
@@ -195,7 +186,8 @@ namespace TheWaningBorder.Systems.Sect
             return best;
         }
 
-        /// <summary>Powers that take no target point (cast at once).</summary>
-        public static bool IsUntargeted(SectActivePowerKind kind) => kind == SectActivePowerKind.Plenty;
+        /// <summary>Powers that take no target point (cast at once). None since
+        /// Plenty raises a Counting House at an aimed point (decision 47).</summary>
+        public static bool IsUntargeted(SectActivePowerKind kind) => false;
     }
 }

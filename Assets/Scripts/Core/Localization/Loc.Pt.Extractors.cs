@@ -300,6 +300,18 @@ namespace TheWaningBorder.Core.Localization
             t["Trains sect units (Litharchs for now); grants +1 Religion Point when built."] =
                 "Treina unidades de seita (Litharchs, por agora); concede +1 Ponto de Religião "
                 + "quando construída.";
+
+            // ── The Counting House (Sects.md § Prosperity, Plenty) ──
+            t["Counting House"] = "Casa de Contas";
+            t["Counting House - Lvl {0} - {1}"] = "Casa de Contas - Nív {0} - {1}";
+            t["Derelict"] = "Abandonado";
+            t["Holder: {0}"] = "Detentor: {0}";
+            t["Pays its holder {0} per minute."] = "Paga ao seu detentor {0} por minuto.";
+            t["And 1 Religion Point every {0} seconds."] = "E 1 Ponto de Religião a cada {0} segundos.";
+            t["Keep any unit inside the circle for {0} seconds to take it. It cannot be attacked."] =
+                "Mantém qualquer unidade dentro do círculo durante {0} segundos para a tomar. Não pode ser atacada.";
+            t["You took a Counting House. It pays you now."] = "Tomaste uma Casa de Contas. Agora paga-te a ti.";
+            t["You lost a Counting House."] = "Perdeste uma Casa de Contas.";
         }
     }
 }

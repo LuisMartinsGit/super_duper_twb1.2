@@ -154,7 +154,14 @@ namespace TheWaningBorder.AI
             // (Per-mission retreat lives in UpdateMissions — the old global
             // CheckRetreat pulled EVERY army home when one was outmatched.)
 
-            if (aiState.DesiredMilitary > 0 && aliveMil < aiState.DesiredMilitary / 2)
+            // REBUILD IS A REAL LOSS (2026-11-10, decision 45). It used to mean
+            // "below half the desired army", and the desired army is an
+            // aspiration (Expert aims for 300), so every tier spent about half
+            // the match in Rebuild without having lost anything. Now the army
+            // must ALSO be below half of its own recent peak.
+            int peak = TrackArmyPeak(faction, aliveMil);
+            if (aiState.DesiredMilitary > 0 && aliveMil < aiState.DesiredMilitary / 2
+                && aliveMil * 2 < peak)
             {
                 aiState.Posture = AIPosture.Rebuild;
                 if (prevPosture != AIPosture.Rebuild)
@@ -169,6 +176,25 @@ namespace TheWaningBorder.AI
             if (aiState.Posture != prevPosture)
                 AILogger.Log(faction, "POSTURE",
                     $"{prevPosture} -> {aiState.Posture} (army {aliveMil}, desired {aiState.DesiredMilitary})");
+        }
+
+        // The army's recent peak, decaying toward the live count by
+        // rebuildPeakDecayPerMinute of the gap each minute (decision 45).
+        private readonly System.Collections.Generic.Dictionary<int, (float peak, float at)> _armyPeak =
+            new System.Collections.Generic.Dictionary<int, (float, float)>();
+
+        private int TrackArmyPeak(Faction faction, int alive)
+        {
+            float now = TheWaningBorder.Core.SimClock.Now;
+            int k = (int)faction;
+            if (!_armyPeak.TryGetValue(k, out var s) || now < s.at) s = (alive, now);
+            float minutes = (now - s.at) / 60f;
+            float peak = s.peak;
+            if (peak > alive)
+                peak = alive + (peak - alive) * math.pow(math.saturate(1f - Cfg.rebuildPeakDecayPerMinute), minutes);
+            peak = math.max(peak, alive);
+            _armyPeak[k] = (peak, now);
+            return (int)math.round(peak);
         }
 
         /// <summary>Find a damaged own building whose attacker still exists

@@ -95,7 +95,6 @@ namespace TheWaningBorder.Systems.Sect
         /// </summary>
         public static bool NeedsSight(SectActivePowerKind kind) => kind switch
         {
-            SectActivePowerKind.Plenty         => false,
             SectActivePowerKind.RevealedStrike => false,
             SectActivePowerKind.RevealCircle   => false,
             SectActivePowerKind.None           => false,

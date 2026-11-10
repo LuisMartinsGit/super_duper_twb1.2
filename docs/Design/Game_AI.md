@@ -59,6 +59,111 @@ shown. The bonuses are on `AISimpleDifficulty.asset`; `AICheat` is the only read
 that only returns or moves money (refunds, the Vault, grants) earns no bonus. **Expert
 stays free of every limit**, so anything a tier may not do has no business on it.
 
+### 2c. The extractor share: how much of the ground a tier works (2026-11-09)
+
+Developer: Expert produces as much as possible, as fast as possible; Hard extracts 25 % less,
+then Normal, Easy and Beginner, each 25 % less than the tier above, and that gap is the handle
+that holds a tier's growth back. **It is a count, not a cut**: an extractor pays every tier the
+same, and a tier simply works fewer of the nodes it holds.
+
+| Tier | Share of the workable nodes it puts an extractor on |
+|---|---|
+| Expert | all (1) |
+| Hard | 0.75 |
+| Normal | 0.5625 |
+| Easy | 0.42 |
+| Beginner | 0.32 |
+
+- Counted **per kind** over the faction's own territory: Gatherer's Huts against supply nodes,
+  Mines against iron, Veilstone Mines against outcrops, Trading Outposts against free node
+  sides. A tier may add one while it works fewer than `ceil(share × (worked + free))`; plans
+  and sites count as worked. A node held by trade is not workable. The territory development
+  step obeys the share too (§ 2d).
+- **Every tier uses the trade.** Trade Charters is on the economy ladder right after Deep
+  Shafts and paid from the Economy wallet (it starved behind the Advancement wallet in the
+  0.0.78 batch). The posts follow the same share, and a post keeps its node at the last unit
+  (§ 2d; `extractorStopMinutes` is gone with Stop Extracting).
+- **Nothing else holds the economy back.** `extractorGapSeconds` is 0 and the old flat
+  `extractorLimit` is gone (the share replaced it); tech, level, military and sect pacing
+  (§ 2a) are unchanged.
+- Values: `extractorShare` on the four profiles in `AISimpleDifficulty/Profiles/`, Beginner's
+  on `AISimpleDifficulty.asset` (`beginnerExtractorShare`). Code:
+  `SimpleAISystem.Extractors.cs` (`ExtractorShareRoom`), read by the extractor walk and the hut
+  pipeline.
+
+### 2e. The 0.0.80 stall pass (2026-11-10)
+
+The 36-match batch on 0.0.80 showed the tier ladder in order, but only 13 of the 36 matches
+ended in a win (31 on 0.0.79): 23 ran to the 90-minute limit. Walls now go up on every tier
+but Beginner, walls take damage only from siege (Combat_Pacing.md), and almost no AI built a
+Siege Yard, so armies of 30+ timed out at walls 216 times (13 on 0.0.79), while the defenders
+rebuilt the same razed stretches all match. Changed:
+
+- **The AI's config was broken from 0.0.76 to 0.0.80.** The 0.0.76 field removal left two blank
+  lines in `SimpleAISystem.asset`, and Unity stops reading a YAML asset at a blank line: about
+  270 of its settings (the whole `compositionRoles` table, `waveMaxLifetime`, the sister armies,
+  wall defence and guard, the vault limits, the province trainers...) loaded as 0. That is why
+  every wave was retired within a second of launch ("lifetime 0 s"), sisters marched with no
+  army, and the composition changes of § 2d had no effect. The blank lines are gone; the
+  0.0.78-0.0.80 batch numbers describe that broken AI.
+- **The first Siege Yard is a floor.** It used to come only from the production rule (5g): a
+  province step or a saturation extra raised it only when the plan needed siege MORE than any
+  other line, and a ~5 % siege share never won. Once a faction stands `siegeYardAfterTrainers`
+  Barracks / Archery Ranges / Royal Stables, the siege program raises its first yard past the
+  production gate (`TickSiegeProgram`, `_siegeYardFloor`). Further yards obey 5g.
+- **Wall losses outlive the plan.** The rebuild cap (`maxWallSlotRebuilds`) lived on the plan's
+  slots, and a border plan is redrawn whenever the walled territories change, so every redraw
+  forgot the losses. Rebuild orders are now remembered per faction by place
+  (`wallLossCellMeters` cells); a new plan starts its slots with those counts, and a place lost
+  to the cap is dead from the start.
+- **Through the breach, not along the wall** (developer). When the wall piece a breach was aimed at
+  falls, the army goes back to the objective the wall kept it from, its siege engines ordered onto it
+  by name (left on attack-move they auto-acquire the next wall piece). The raze chain never picks a
+  plain wall piece; inside the walls only pieces that fight back -- a tower or an emplacement -- are
+  targets (`IsPlainWallPiece`, `AimSiegeAt`).
+- **The keep and its crossings** (developer: "Moatwatch has 3 territories accessible only by 2 fords
+  ... fortify the river crossings and not build a wall around the starting territory"). Ford water
+  nothing can be built on counts as the outside in the opening scan, so a seal lands on the dry bank
+  where the ford comes ashore (every 0.0.80 seal sat on the fords and died, and the AI fell back to a
+  ring round the home). When the home alone is not sealed by sealable openings, held territories next
+  to it join the keep (up to `maxKeepTerritories`) and the keep's ways in are sealed instead; a
+  chokepoint plan is redrawn when the keep changes (`AIWallPlanner.KeepSignature`).
+- **The first-attack ladder runs by tier**: Expert 8, Hard 10, Normal 12, Easy 14 minutes at the
+  earliest (`firstAttackEarliestSeconds`; it ran Expert, Easy, Normal, Hard).
+- **A wave retired by its lifetime logs its clock** (now, start, lifetime): nearly every wave in
+  both batches was retired within seconds of launch, which the lifetime should never do.
+
+### 2d. The 0.0.79 behaviour pass (2026-11-10, decision 45)
+
+The 36-match tier x personality batch on 0.0.79 found the tiers well ordered but the
+personalities nearly identical, the sect powers almost unused, and every tier in Rebuild for
+half the match. Changed:
+
+- **Personality is played in full on every tier.** `personalityWeight` is deleted with the
+  blend toward Balanced (it was 0.35 on Expert, so an Expert Turtle played a third of a Turtle).
+  The tier is play quality, the personality is style (§ 3).
+- **Walls are the Turtle's and the Defensive's signature**: they wall on every tier but the
+  passive Beginner, past `wallsForbidden` (`AIPersonalityLookup.WallsEnabled`). A chokepoint plan
+  whose every slot is unbuildable is redrawn along the home border, once per match.
+- **Sect powers.** `maxSects` caps adoption only; power unlocks and chapel levels are bought
+  past it (`AIEndgameCommon.TryAdoptNextSect`). A power may land on any fight: besides the
+  attacking armies' reports, every unit of the faction locked on a hostile unit within
+  `combatSiteReach` marks a site, and hostile units at the capital count the curse.
+  `fightSiteSeconds` is longer. Damage powers still ignore curse units (they respawn).
+- **Rebuild needs a real loss**: below half the desired army AND below half of the army's own
+  recent peak, which decays toward the live count by `rebuildPeakDecayPerMinute`
+  (`SimpleAISystem.Posture.cs`).
+- **Composition**: `basicsMaxShare` is lower; the siege chain keeps its share in siege
+  (Ram -> Ballista -> Catapult -> Longbowman); the Catapult's `baseShare` is higher.
+- **Trading Outposts save for themselves**: a post the share allows, refused for "bank short",
+  sets a breathing `AIPivotalReserve` so units stop eating its price.
+- **The share holds in territory development too** (`SimpleAISystem.Territories.cs` step 1),
+  which used to raise an extractor on every free node of a developed territory.
+- **Waves**: Easy sends up to 20 every 5 minutes (was 10 every 3.5); Normal's first attack
+  comes at 11 minutes (was 15), so the first-attack ladder runs in order.
+- **Nodes**: the AI no longer stops extractors; a Trading Outpost keeps its node at the last
+  unit by rule (Territory_Claims.md § 11.3), so posts beside worked nodes are always safe.
+
 ### 2a. Pacing: a tier is how well it plays, not how long it waits (2026-11-05)
 
 Developer: an Easy AI should be one that barely plays the game correctly and suffers
@@ -72,7 +177,7 @@ that spends goes through it, surplus spending included: a full bank never buys s
 
 | Area | Handle (on `AIDifficultyProfileSO`) | What it does |
 |---|---|---|
-| Economy | `extractorGapSeconds` | least time between new extractors, rebuilds included; only the opening huts are exempt |
+| Economy | `extractorGapSeconds` | least time between new extractors, rebuilds included; only the opening huts are exempt. **0 on every tier since 2026-11-09** — the extractor share (§ 2c) is the economic handle |
 | Economy | `wasteBuildSeconds`, `wasteBuildMax` | how often it buys a building it does not need, and how many |
 | Tech | `researchMaxConcurrent` | research processes in progress or queued at once; 0 = no limit |
 | Tech | `researchGapSeconds` | least time between starting two researches |
@@ -133,7 +238,6 @@ labeled with their multiplier (AoE4's hidden-Hardest-cheat backlash).
 | Fortress after a territory qualifies (`fortressDelaySeconds`, §5c) | late | later than Hard | soon | at once |
 | Retakes rival ground (`reconquestMargin`, §5b) | never | at a wide margin | yes | at a narrow margin |
 | Late strength-gated wave needs (`strengthWaveRatioScale`, §6a) | the biggest edge | a bigger edge | baseline | a smaller edge |
-| How much of its personality it plays (`personalityWeight`, §3) | all of it | most | some | a little |
 | Armies per wave (`concurrentArmies`, §6f) | one | one | two | three |
 | Waves aim at the enemy's income (`incomeTargeting`, §6f) | no | no | yes | yes |
 
@@ -233,7 +337,8 @@ The shipped assets had drifted far from the old table anyway (55 / 100 / 125 /
 personalities level sooner) and `attackPaceScale` (the first attack and the time between
 waves: Rush sooner, Turtle later). Below 1 is faster. Values are on `AISettings.asset`.
 
-**Dampened by tier (2026-10-05, approved).** A personality pulled every tier
+**~~Dampened by tier (2026-10-05, approved).~~ Withdrawn 2026-11-10 (decision 45): every tier
+plays its personality in full; the text below is history.** A personality pulled every tier
 by the same amount, and in mixed matches the pull outweighed the tier: an
 Expert that drew Defensive or Economic played a slow-army plan and finished
 third behind a Hard Rush. Each tier now plays its personality at the
@@ -1511,19 +1616,20 @@ fought curse nodes at even power and lost.
 AIs should be able to use the market"). The Vault pass runs
 (every `econPassInterval`, per Vault, while unlocked):
 
-- **Deposit** when the Vault is empty and the posture is not Defend: the
-  resource with the largest idle surplus — the bank above
-  `vaultKeep<Resource>` and above every pending savings goal — that the
-  design lets it deposit (supplies always; iron after Iron Subsidies,
-  veilstone after Veilstone Monetization, veilsteel after Veilsteel Bonds,
-  [Age_0.md § Vault](Age_0.md)), never veilstone the army is waiting on.
-  It deposits `vaultDepositShare` of that surplus, at least
-  `vaultMinDeposit`.
-- **Withdraw** everything when the hold time `vaultHoldSeconds` has run;
-  earlier, on a tier with `vaultWithdrawOnNeed`, when a purchase is waiting
-  on the stored resource (the army is short of it, or a savings goal is);
-  and always when the Vault is damaged below `vaultDamagedFraction` of its
-  health or the posture turns Defend (stored resources die with the Vault).
+- **Deposit** (the four bars, decision 46, 2026-11-10) idle surplus, **never at the army's
+  expense** (developer): only under Develop or Pressure (never while defending or rebuilding;
+  "x % of the army target" was tried and never passed — the target is a ceiling), never what
+  the army is waiting on, and a personality's `vaultAppetite` (AISettings) scales the tier's
+  `vaultDepositShare` — a Rush parks a quarter of what a Balanced AI does, an Economic one half
+  again as much. Then: the resource with the largest idle surplus — the bank above
+  `vaultKeep<Resource>` and above every pending savings goal — never what the army is
+  waiting on; `vaultDepositShare` of that surplus, at least `vaultMinDeposit`, at most the
+  room left. A bar that starts filling boosts the resource the army is short of, among
+  those its Accounts research opened; supplies otherwise.
+- **Withdraw in an emergency, on every tier** (which empties every bar): the Vault is
+  damaged below `vaultDamagedFraction` of its health (it would be lost), the economy is in
+  distress, or the army is short of any resource while the home is under attack (Defend) or
+  the army has been lost (Rebuild). `vaultHoldSeconds` and `vaultWithdrawOnNeed` are gone.
 
 Difficulty scales how much is deposited and how cleverly it is withdrawn,
 never whether the Vault is used.

@@ -35,6 +35,10 @@ namespace TheWaningBorder.AI
         public float cheatPopulationMultiplier;
         public float cheatStatMultiplier;
 
+        /// <summary>Beginner's extractor share (Game_AI.md § 2c). Beginner plays the Easy
+        /// profile, so its share lives here rather than on a profile of its own.</summary>
+        public float beginnerExtractorShare;
+
         /// <summary>
         /// The profile for a tier, or null when the ladder has no asset for it.
         ///

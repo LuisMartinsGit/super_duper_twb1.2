@@ -113,6 +113,12 @@ namespace TheWaningBorder.AI
             public int Repaths;
             public float LastRepathAt;
             public bool Breaching;
+            /// <summary>THROUGH THE BREACH (2026-11-10): the objective the army
+            /// had before a wall stopped it. When the breached piece falls the
+            /// army resumes it instead of chaining onto the next wall piece.</summary>
+            public bool HasResume;
+            public Entity ResumeTarget;
+            public float3 ResumePos;
 
             // ── Tactical state (SimpleAISystem.Tactics.cs). ──
             /// <summary>What the whole army is killing right now, so the
@@ -1079,6 +1085,9 @@ namespace TheWaningBorder.AI
                 return;
             }
             mission.Breaching = true;
+            mission.HasResume = true;
+            mission.ResumeTarget = mission.Target;
+            mission.ResumePos = mission.TargetPos;
             mission.Target = best;
             mission.TargetPos = bestPos;
             aiState.WaveTarget = bestPos;
@@ -1126,6 +1135,11 @@ namespace TheWaningBorder.AI
                 // margin-checked paths (first-RP hunt, reclaim, curse clear,
                 // claim curse assault).
                 if (facs[i].Value == Faction.Border) continue;
+                // A plain wall piece is not an objective (2026-11-10): the
+                // chain runs only once the army is inside, and inside only the
+                // wall pieces that fight back -- a tower or an emplacement --
+                // are worth killing.
+                if (IsPlainWallPiece(em, ents[i])) continue;
                 float dx = xfs[i].Position.x - around.x;
                 float dz = xfs[i].Position.z - around.z;
                 float d2 = dx * dx + dz * dz;
@@ -1139,6 +1153,29 @@ namespace TheWaningBorder.AI
             return best;
         }
 
+
+        /// <summary>A wall hub, segment piece or gate that carries neither a
+        /// tower nor an emplacement: nothing on it shoots back.</summary>
+        private static bool IsPlainWallPiece(EntityManager em, Entity e)
+        {
+            bool wall = em.HasComponent<WallInstanceTag>(e) || em.HasComponent<WallHubTag>(e)
+                        || em.HasComponent<WallSegmentTag>(e);
+            return wall && !em.HasComponent<WallTowerTag>(e) && !em.HasComponent<EmplacementTag>(e);
+        }
+
+        /// <summary>The mission's siege engines ordered onto <paramref name="target"/>
+        /// by name. Left on attack-move, an engine auto-acquires the nearest
+        /// building -- after a breach, the next wall piece.</summary>
+        private static void AimSiegeAt(EntityManager em, Mission mission, Entity target)
+        {
+            if (target == Entity.Null || !em.Exists(target) || IsPlainWallPiece(em, target)) return;
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var e = mission.Members[i];
+                if (em.Exists(e) && em.HasComponent<SiegeTag>(e))
+                    CommandRouter.IssueAttack(em, e, target, CommandSource.AI);
+            }
+        }
 
         /// <summary>Host-only scratch set for the "who already serves in a
         /// mission" tests (wave draft, reinforcement sweep) — one HashSet per
@@ -2298,7 +2335,8 @@ namespace TheWaningBorder.AI
             {
                 aiState.WaveActive = 0;
                 AILogger.Log(faction, "WAVE",
-                    $"wave {aiState.WaveNumber} SPENT (lifetime) — army released for the next wave");
+                    $"wave {aiState.WaveNumber} SPENT (lifetime) — army released for the next wave " +
+                    $"(now {now:F0}s, started {aiState.WaveStartTime:F0}s, lifetime {lifetime:F0}s)");
                 return;
             }
 
@@ -2615,6 +2653,33 @@ namespace TheWaningBorder.AI
                 // a razing spree is never cut off mid-base.
                 if (objectiveDown && !timedOut && mission.Type == MissionType.Attack)
                     NoteWarProgress(faction);
+                // THROUGH THE BREACH (2026-11-10, developer: "after a wall is
+                // breached the AI gets stuck trying to kill every segment").
+                // The breached piece is down, so the inside is open: the army
+                // goes back to the objective the wall was keeping it from,
+                // its engines ordered onto that objective by name (an ordered
+                // target is never overridden by auto-acquire, which would
+                // otherwise grind the next wall piece).
+                if (objectiveDown && mission.Breaching && mission.HasResume && mission.Type == MissionType.Attack)
+                {
+                    mission.Breaching = false;
+                    mission.HasResume = false;
+                    bool alive = mission.ResumeTarget != Entity.Null && em.Exists(mission.ResumeTarget);
+                    float3 resumePos = mission.ResumePos;
+                    mission.Target = alive ? mission.ResumeTarget : Entity.Null;
+                    mission.TargetPos = resumePos;
+                    if (OwnsWaveTarget(missions, mission)) aiState.WaveTarget = resumePos;
+                    mission.StalledSince = now;
+                    mission.StartTime = now;
+                    mission.LegStartTime = now;
+                    mission.Deadline = DeadlineFor(now, mission.LastCentroid, resumePos);
+                    mission.Phase = MissionPhase.Striking;
+                    March(em, faction, mission, resumePos, true, mission.LastCentroid);
+                    if (alive) AimSiegeAt(em, mission, mission.Target);
+                    AILogger.Log(faction, "WAVE",
+                        $"wall breached — through to the objective at ({resumePos.x:0},{resumePos.z:0})");
+                    continue;
+                }
                 if (objectiveDown && !timedOut && mission.Type == MissionType.Attack)
                 {
                     // On the ground and in vision now, so the local query is
@@ -2724,6 +2789,7 @@ namespace TheWaningBorder.AI
                         mission.LegStartTime = now;
                         mission.Phase = MissionPhase.Striking;
                         March(em, faction, mission, nextPos, true, mission.LastCentroid);
+                        AimSiegeAt(em, mission, nextT);
                         AILogger.Log(faction, "WAVE",
                             $"objective down — pressing on to the next building at " +
                             $"({nextPos.x:0},{nextPos.z:0})");

@@ -30,6 +30,12 @@ namespace TheWaningBorder.UI.Data
                 string buff = ms.Explored != 0 ? TheWaningBorder.Entities.Monument.BuffOf(ms) : null;
                 return buff != null ? line + " - " + TechCatalog.GetTechnology(buff).name : line;
             }
+            if (em.HasComponent<CountingHouseState>(entity))
+            {
+                var ch = em.GetComponentData<CountingHouseState>(entity);
+                string holder = (int)ch.Holder >= 8 ? Loc.T("Derelict") : ch.Holder.ToString();
+                return string.Format(Loc.T("Counting House - Lvl {0} - {1}"), ch.Level, holder);
+            }
             string name = ResolveSelectionName(entity, em);
             if (!em.HasComponent<BuildingTag>(entity)) return WithPurity(entity, em, name);
             name = WithLevel(entity, em, name);

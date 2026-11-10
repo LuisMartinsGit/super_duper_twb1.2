@@ -43,9 +43,8 @@ namespace TheWaningBorder.AI
         public int ArmyCapFixed;
         public float HoldBackAheadRatio;
         public int SpareCapitals;
-        public int ExtractorLimit;
-        /// <summary>See AIDifficultyProfileSO.extractorStopMinutes.</summary>
-        public float ExtractorStopMinutes;
+        /// <summary>See AIDifficultyProfileSO.extractorShare.</summary>
+        public float ExtractorShare;
         public float LevelUpsFromSeconds;
         /// <summary>Pacing (Game_AI.md § 2a) — see the SO fields.</summary>
         public float ExtractorGapSeconds;
@@ -90,8 +89,6 @@ namespace TheWaningBorder.AI
         public bool ProtectAgeUpSavings;
         public int CurseHuntMinCapitalLevel;
         public float VaultDepositShare;
-        public float VaultHoldSeconds;
-        public bool VaultWithdrawOnNeed;
         public bool UnitsBeforeEconomy;
         public bool ArmyBeforeSaves;
         public float CapitalReserveMaxHoldSeconds;
@@ -116,7 +113,6 @@ namespace TheWaningBorder.AI
         public float FortressDelaySeconds;
         public float ReconquestMargin;
         public float StrengthWaveRatioScale;
-        public float PersonalityWeight;
 
         /// <summary>Many armies (Game_AI.md § 6f) — see the SO fields.</summary>
         public int ConcurrentArmies;
@@ -172,8 +168,7 @@ namespace TheWaningBorder.AI
                 ArmyCapFixed = so.armyCapFixed,
                 HoldBackAheadRatio = so.holdBackAheadRatio,
                 SpareCapitals = so.spareCapitals,
-                ExtractorLimit = so.extractorLimit,
-                ExtractorStopMinutes = so.extractorStopMinutes,
+                ExtractorShare = so.extractorShare,
                 LevelUpsFromSeconds = so.levelUpsFromSeconds,
                 ExtractorGapSeconds = so.extractorGapSeconds,
                 WasteBuildSeconds = so.wasteBuildSeconds,
@@ -203,8 +198,6 @@ namespace TheWaningBorder.AI
                 ProtectAgeUpSavings = so.protectAgeUpSavings,
                 CurseHuntMinCapitalLevel = so.curseHuntMinCapitalLevel,
                 VaultDepositShare = so.vaultDepositShare,
-                VaultHoldSeconds = so.vaultHoldSeconds,
-                VaultWithdrawOnNeed = so.vaultWithdrawOnNeed,
                 UnitsBeforeEconomy = so.unitsBeforeEconomy,
                 ArmyBeforeSaves = so.armyBeforeSaves,
                 CapitalReserveMaxHoldSeconds = so.capitalReserveMaxHoldSeconds,
@@ -221,7 +214,6 @@ namespace TheWaningBorder.AI
                 FortressDelaySeconds = so.fortressDelaySeconds,
                 ReconquestMargin = so.reconquestMargin,
                 StrengthWaveRatioScale = so.strengthWaveRatioScale,
-                PersonalityWeight = so.personalityWeight,
                 ConcurrentArmies = so.concurrentArmies,
                 IncomeTargeting = so.incomeTargeting,
                 Tier = so.tier,

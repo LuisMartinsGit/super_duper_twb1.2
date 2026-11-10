@@ -70,7 +70,7 @@ same system.
 | Archivist | Catalogued | Stamp of Record | L6 Recall | **Stop the Hours:** every hostile unit on the map is frozen; enemy heroes' abilities go on cooldown |
 | Surgeon | Cauterize | Bloodletting | L6 Lancet | **The Great Rewind:** your whole army healed and the recently fallen return |
 | Warden | Drillmaster | Sally Forth | L6 Challenge | **The Realm Holds:** hostile units on your ground lose most of their HP; your buildings cannot be hurt for a time |
-| Guildmaster | Called In | Stake | L6 Liquidate | **Buy Out:** enemy buildings in a large aimed circle fall (capitals lose a share) and you are paid part of their worth |
+| Guildmaster | Bounty (area grows with level) | Stake (+5 % until damaged) | L6 Liquidate | **Windfall:** for 40 s every death near him, his own included, pays 10 % of its cost (2026-11-10, decision 47) |
 | Harkon | Warcry | Leap | L5 Raze | **Blood Oath:** your whole army cannot die and frenzies for a time |
 | Wayfinder | Wayfinding | Mirage | L5 Caravan of Swords | **Exodus:** your whole army crosses the map to an aimed point |
 

@@ -97,13 +97,13 @@ node**.
 
 | | |
 |---|---|
-| **Unlock** | Research **Trade Charters** at the Fortress, gated to Fortress L3 (the tech SO's `minBuildingLevel`). Before it, the Outpost cannot be built. |
+| **Unlock** | Research **Trade Charters** at the Fortress, from Fortress L1 (the tech SO's `minBuildingLevel`; lowered from L3 on 2026-11-09, decision 44). Before it, the Outpost cannot be built. |
 | **Alanthor mine veilstone** | Alanthor build Veilstone Mines like every other culture, and keep them at age-up. The early and mid game is extraction; the Outpost is what comes after. |
 | **Placement** | On one of the four side slots (N, E, S, W) of **any resource node**: supply, iron or veilstone ([Build_Grid.md § The Trading Outpost's side slots](Build_Grid.md)). At most one post per side, four per node. Never beside a Cursed outcrop. A side the extractor or the ground blocks is skipped. The ghost snaps to the nearest free side of the nearest node. |
 | **What it pays** | That node's resource, at the trickle rate for that resource on `TradingOutpostSystem.asset` (`trickleSuppliesPerMinute` / `trickleIronPerMinute` / `trickleVeilstonePerMinute`), times the node's purity and the post's level (`tradeRateMultiplier` on `TradingOutpost_Lvl1..3`). It spends nothing. |
-| **Only while the node lives** | It pays only while its node exists, is not Cursed, and lies in ground its owner holds. **The trickle is never drawn from the node**, but whatever else works the node still is: when the node is spent it collapses (Territory_Claims.md § 11.3) and takes every post beside it. |
+| **Only while the node lives** | It pays only while its node exists, is not Cursed, and lies in ground its owner holds. **The trickle is never drawn from the node.** A node with a post beside it is never spent: extraction stops at one unit left, the extractor collapses, and the node stays for its posts. When the last post beside a held node falls, the node collapses (Territory_Claims.md § 11.3, 2026-11-10). |
 | **It replaces the empty-node trickle** | A node with a finished post of its holder beside it pays no empty-node trickle, so an unworked node stops wearing down once it has a post. |
-| **The decision** | Harvest the node to its last units with the extractor, or **stop extracting** (§3.5) in time and keep the posts paying forever. The node's reserve bar shows what is left. |
+| **No waste** | Nothing to decide (2026-11-10): build a post beside a node and the extractor works it down to its last unit, then the posts keep paying forever. The node's reserve bar shows what is left. |
 | Cost, build time | On the `Alanthor_TradingOutpost` SO: the price of the **first** post beside a node. |
 | **Per-node cost ramp** | Every further post beside the **same** node costs more (`outcropRampMultipliers` on `TradingOutpostSystem.asset`); the first post beside a new node is base price again. Counted as before (posts standing there plus the builder's own plans), fixed when ground is broken. |
 | **Levels 1-3** | `TradingOutpost_Lvl1..3`, faction-wide like every building level. A level raises the trickle (`tradeRateMultiplier`) and HP. |
@@ -111,7 +111,11 @@ node**.
 | **No trade** | No trade menu, no routes, no Hold, no Buy / Forge / Sell. Trade Agreements, Swift Caravans and Veilsteel Forging / Export are deleted. Resources are bought and sold at the Temple (Tithe, and its resource trade — Monuments_And_Petriarchy.md). |
 | Its node turns Cursed | Every post beside it idles until the node is pacified (or the territory is retaken). |
 
-### 3.5 Stop extracting (2026-11-09)
+### 3.5 ~~Stop extracting (2026-11-09)~~
+
+**Withdrawn 2026-11-10 (decision 45).** The toggle, the `ExtractorStopped` component and the
+`SetExtractorStopped` lockstep order are removed: a node with a Trading Outpost beside it now
+stops at one unit left on its own (Territory_Claims.md § 11.3). The text below is history.
 
 Every extractor — the Gatherer's Hut line (Gatherer's Hut, Guild, Work Camp, Trading Post),
 the Mine and the Veilstone Mine, every culture — carries a **Stop extracting** toggle (the

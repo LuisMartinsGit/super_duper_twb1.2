@@ -468,8 +468,18 @@ namespace TheWaningBorder.AI
         /// <summary>Does this faction build walls at all (the row's wallsEnabled,
         /// or the late-game exception below)?</summary>
         public static bool WallsEnabled(EntityManager em, Faction faction)
-            => SimpleAISystem.TierOf(faction).WallsForbidden == 0
+            => (SimpleAISystem.TierOf(faction).WallsForbidden == 0 || WallsAreItsSignature(em, faction))
                && (Row(em, faction).wallsEnabled || LateWalls(em, faction));
+
+        /// <summary>WALLS ARE THE TURTLE'S AND THE DEFENSIVE'S SIGNATURE (2026-11-10,
+        /// decision 45): they wall on every tier, past the tier's wallsForbidden,
+        /// except the passive Beginner.</summary>
+        private static bool WallsAreItsSignature(EntityManager em, Faction faction)
+        {
+            if (GameSettings.IsPassiveAI(faction)) return false;
+            TryGet(em, faction, out var p);
+            return p == AIPersonality.Turtle || p == AIPersonality.Defensive;
+        }
 
         /// <summary>LATE WALLS FOR EVERYONE (2026-11-03, Game_AI.md § 6x):
         /// developer: "Rush could wall in super late game, if it's got the

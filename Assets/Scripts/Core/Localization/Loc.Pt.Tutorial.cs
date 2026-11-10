@@ -304,9 +304,9 @@ namespace TheWaningBorder.Core.Localization
             t["Your capital has fallen."] = "A tua capital caiu.";
             t["1 - Build the Vault of Almiérra ({0}/{1})"] = "1 - Constrói o Cofre de Almiérra ({0}/{1})";
             t["2a - Level up your Guilds ({0}/{1})"] = "2a - Sobe as tuas Guildas de nível ({0}/{1})";
-            t["Your Gatherer's Huts are now <b>Guilds</b>: select one and level it up — every Guild levels with it and pays more. Every node runs dry in the end, and a spent node collapses. Select a Mine and press <b>Stop Extracting</b> to save its node: later, <b>Trade Charters</b> at the Fortress lets <b>Trading Outposts</b> beside saved nodes pay you forever. The Litharch is now <b>King Lexor</b>, your hero."] =
-                "As tuas Cabanas do Recoletor são agora <b>Guildas</b>: seleciona uma e sobe-a de nível — todas as Guildas sobem com ela e rendem mais. Todos os nós acabam por se esgotar, e um nó esgotado colapsa. Seleciona uma Mina e carrega em <b>Parar a Extração</b> para poupar o seu nó: mais tarde, as <b>Cartas de Comércio</b> na Fortaleza deixam os <b>Entrepostos Comerciais</b> junto a nós poupados render para sempre. O Litharch é agora o <b>Rei Lexor</b>, o teu herói.";
-            t["2b - Stop extracting at a Mine ({0}/{1})"] = "2b - Para a extração numa Mina ({0}/{1})";
+            t["Your Gatherer's Huts are now <b>Guilds</b>: select one and level it up — every Guild levels with it and pays more. Every node runs dry in the end. Research <b>Trade Charters</b> at the Fortress: a <b>Trading Outpost</b> beside a node keeps it at its last unit, and pays you forever. The Litharch is now <b>King Lexor</b>, your hero."] =
+                "As tuas Cabanas do Recoletor são agora <b>Guildas</b>: seleciona uma e sobe-a de nível — todas as Guildas sobem com ela e rendem mais. Todos os nós acabam por se esgotar. Investiga as <b>Cartas de Comércio</b> na Fortaleza: um <b>Entreposto Comercial</b> junto a um nó mantém-no na sua última unidade e rende-te para sempre. O Litharch é agora o <b>Rei Lexor</b>, o teu herói.";
+            t["2b - Research Trade Charters at the Fortress ({0}/{1})"] = "2b - Investiga as Cartas de Comércio na Fortaleza ({0}/{1})";
             t["3 - Build an Archery Range ({0}/{1})"] = "3 - Constrói uma Campo de Tiro com Arco ({0}/{1})";
             t["4a - Build a Watch Tower ({0}/{1})"] = "4a - Constrói uma Torre de Vigia ({0}/{1})";
             t["4b - Claim a territory ({0}/{1})"] = "4b - Conquista um território ({0}/{1})";

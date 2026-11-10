@@ -84,7 +84,7 @@ under the cultured name:
 
 Each level carries its **name, upgrade cost and time, HP / train-time /
 attack-cooldown multipliers over the base, targets per volley, population,
-slot income, interest multiplier, trade-rate multiplier (the Trading
+slot income, trade-rate multiplier (the Trading
 Outpost), an authored attack and sight, and its model**. `BuildingUpgradeConfig` reads them first; its code tables are kept
 only for Runai and Feraldis until their levels get the same treatment.
 
@@ -137,7 +137,7 @@ everyone; the Alanthor ones are Alanthor-gated and filed in
 | **Iron Tools** | Alanthor | Fortress L2 | build speed, tier 2 |
 | **Veilstone Tools** | Alanthor | Fortress L3 | build speed, tier 3 |
 | **Shard Tools** (id `VeilsteelTools`) | Alanthor | Fortress L3 | build speed, tier 4 |
-| **Trade Charters** | Alanthor | Fortress L3 | unlocks the Trading Outpost ([§ Trading Outpost](#trading-outpost--alanthor_tradingoutpost-l1-l3-decision-42-2026-11-09)) |
+| **Trade Charters** | Alanthor | Fortress L1 (2026-11-09, decision 44) | unlocks the Trading Outpost ([§ Trading Outpost](#trading-outpost--alanthor_tradingoutpost-l1-l3-decision-42-2026-11-09)) |
 | **Mason Guild** | Alanthor | Fortress L2 | faction-wide building HP |
 | **Scouting Celestarii** | Alanthor | — | the **Celestar passive** on every Scout ([§ Scouting Celestarii](#scouting-celestarii--the-celestar-passive-2026-10-19)) |
 
@@ -330,13 +330,11 @@ The AI levels Mines with its other economy buildings.
 ### Vault of Almiérra — the Alanthor landmark
 
 Built in Age 0 as the landmark that ages the faction up
-([Age_0.md § Vault](Age_0.md)). Interest is **simple, on the principal up to
-the Vault SO's cap** (decision 41, 2026-10-05) — never compounding. Its
-Alanthor levels (`VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) carry the
-interest multiplier: **interest applies from L1 and grows with level**
-(decision 12); the banking-grade techs raise the rate (the grade rates are on
-the Vault SO). Its research gates: Veilstone Monetization at **Vault L2**,
-Shard Bonds (id `VeilsteelBonds`) at **Vault L3**. **One Vault per faction** (2026-10-19,
+([Age_0.md § Vault](Age_0.md)). **Four bars of income** (decision 46, 2026-11-10):
+paid-in resources fill four bars, and a full bar raises the income of the resource it
+boosts; a withdrawal returns everything and empties every bar. Its Alanthor levels
+(`VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) raise HP only; the Coffers and Accounts
+research opens the bars and the boosts. **One Vault per faction** (2026-10-19,
 [Age_0.md § Vault](Age_0.md)).
 
 ---

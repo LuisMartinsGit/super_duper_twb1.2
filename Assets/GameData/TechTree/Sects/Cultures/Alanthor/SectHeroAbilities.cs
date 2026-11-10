@@ -1,13 +1,14 @@
 // SectHeroAbilities.cs
 // The Alanthor sect heroes' abilities (docs/Design/Sects.md §4, 2026-10-15).
-// Active ones are AbilityCard effects run by AbilityEffectExecutor; the four
-// L1 auras (Catalogued, Cauterize, Called In and — in StoredStrikeChargeSystem —
+// Active ones are AbilityCard effects run by AbilityEffectExecutor; the three
+// L1 auras (Catalogued, Cauterize and — in StoredStrikeChargeSystem —
 // Drillmaster) and the timed state of all of them run in SectHeroAuraSystem.
 //
 //   Archivist of Hours  L1 Catalogued   L3 Stamp of Record   L6 Recall
 //   Surgeon             L1 Cauterize    L3 Bloodletting      L6 Lancet
 //   Warden              L1 Drillmaster  L3 Sally Forth       L6 Challenge
-//   Guildmaster         L1 Called In    L3 Stake             L6 Liquidate
+//   Guildmaster         L1 Bounty       L3 Stake             L6 Liquidate
+//                       (L10 Windfall: GuildmasterWindfall, beside its card)
 //
 // Ability casts arrive through the lockstep command path, so every handler
 // here runs on every peer with the same inputs.
@@ -30,7 +31,7 @@ namespace TheWaningBorder.Systems.Sect
         public const float LancetTotalDamage = 120f;
         /// <summary>Sally Forth: allied move-speed multiplier.</summary>
         public const float SallySpeed = 1.25f;
-        /// <summary>Stake: how close to its extractor the Guildmaster must stay.</summary>
+        /// <summary>Stake: how close to the Guildmaster an extractor must be to take it.</summary>
         public const float StakeRange = 4f;
 
         static readonly ComponentType[] QT_Units =
@@ -287,20 +288,75 @@ namespace TheWaningBorder.Systems.Sect
 
         // ── Guildmaster ─────────────────────────────────────────────────────
 
-        /// <summary>L3: channel on the extractor under the Guildmaster; it pays
-        /// double while the hero stays and takes no damage.</summary>
-        public static void Stake(EntityManager em, Entity caster, float dur)
+        /// <summary>L1 Bounty: every hostile non-hero unit in a circle round
+        /// the aim point dies and its owner is refunded its cost
+        /// (ProsperityBounty). The circle is the card's Radius at level 1 and
+        /// grows <paramref name="perLevel"/> m with each hero level above it.</summary>
+        public static void Bounty(EntityManager em, Entity caster, AbilityCard card, float perLevel)
         {
-            if (!em.HasComponent<StakeChannel>(caster)) return;
-            var node = NearestOwnBuilding(em, PosOf(em, caster), StakeRange, FactionOf(em, caster), extractorsOnly: true);
-            if (node == Entity.Null) return;
-            em.SetComponentData(caster, new StakeChannel
-            {
-                Node = node,
-                TimeRemaining = dur,
-                HealthAtStart = em.GetComponentData<Health>(caster).Value,
-            });
+            float radius = BountyRadius(em, caster, card, perLevel);
+            if (radius <= 0f) return;
+            ProsperityBounty.KillInRadius(em, FactionOf(em, caster), AimOf(em, caster), radius);
         }
+
+        /// <summary>Bounty's circle for this caster's current hero level.</summary>
+        public static float BountyRadius(EntityManager em, Entity caster, AbilityCard card, float perLevel)
+        {
+            int level = em.HasComponent<HeroLevel>(caster) ? math.max(1, (int)em.GetComponentData<HeroLevel>(caster).Value) : 1;
+            return card.Radius + perLevel * (level - 1);
+        }
+
+        /// <summary>An extractor Stake can take: the Gatherer's Hut line, the
+        /// Mine, the Veilstone Mine and the Trading Outpost.</summary>
+        public static bool IsStakeable(EntityManager em, Entity b)
+            => em.HasComponent<GathererHutTag>(b) || em.HasComponent<MineTag>(b)
+               || em.HasComponent<VeilstoneMineTag>(b) || em.HasComponent<TradingOutpostTag>(b);
+
+        /// <summary>The own finished extractor nearest the Guildmaster within
+        /// <see cref="StakeRange"/>, or Null.</summary>
+        public static Entity StakeTarget(EntityManager em, Entity caster)
+        {
+            var faction = FactionOf(em, caster);
+            var at = PosOf(em, caster);
+            Entity best = Entity.Null;
+            float bestD = StakeRange * StakeRange;
+            var q = QC_Buildings.Get(em, QT_Buildings);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
+            using var trs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (facs[i].Value != faction || hps[i].Value <= 0) continue;
+                if (!IsStakeable(em, ents[i]) || em.HasComponent<UnderConstruction>(ents[i])) continue;
+                float d = math.distancesq(trs[i].Position.xz, at.xz);
+                if (d < bestD) { bestD = d; best = ents[i]; }
+            }
+            return best;
+        }
+
+        /// <summary>L3 Stake: the own extractor under the Guildmaster pays
+        /// <paramref name="pct"/>% more until it takes damage. No time limit;
+        /// the hero need not stay. A second Stake on it only refreshes it.</summary>
+        public static void Stake(EntityManager em, Entity caster, float pct)
+        {
+            var node = StakeTarget(em, caster);
+            if (node == Entity.Null) return;
+            var stake = new StakedExtractor
+            {
+                Bonus = math.max(0f, pct) / 100f,
+                LastHp = em.GetComponentData<Health>(node).Value,
+            };
+            if (em.HasComponent<StakedExtractor>(node)) em.SetComponentData(node, stake);
+            else em.AddComponentData(node, stake);
+        }
+
+        /// <summary>Stake's multiplier on what <paramref name="building"/> earns
+        /// (1 when it is not staked). TerritoryIncomeSystem multiplies it in
+        /// beside AlanthorSectEconomy.ExtractorMultiplier.</summary>
+        public static float StakeMultiplier(EntityManager em, Entity building)
+            => em.HasComponent<StakedExtractor>(building)
+                ? 1f + em.GetComponentData<StakedExtractor>(building).Bonus : 1f;
 
         /// <summary>L6: demolish the aimed own building at once for
         /// <paramref name="pct"/>% of everything put into it. The enemy gets no

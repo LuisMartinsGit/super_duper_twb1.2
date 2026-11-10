@@ -1,4 +1,5 @@
-﻿// Vault of Almierra — Age 0 choice building (interest on banked supplies).
+﻿// Vault of Almierra — the Alanthor landmark: four bars of paid-in resources
+// that raise income when full (VaultBars, decision 46).
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -17,7 +18,7 @@ namespace TheWaningBorder.Entities
     public static class VaultOfAlmierra
     {
         /// <summary>
-        /// Create Vault of Almiérra — simple, capped-interest resource storage.
+        /// Create Vault of Almiérra — four bars that raise income when full.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
@@ -48,21 +49,13 @@ namespace TheWaningBorder.Entities
 
             EntityBuild.Add(em, entity, default(VaultTag));
             EntityBuild.Add(em, entity, default(ChoiceBuildingTag));
-            EntityBuild.Add(em, entity, new VaultStorage
-            {
-                ResourceType = 0,
-                StoredAmount = 0f,
-                Principal = 0f,
-                InterestRate = def.interestPerMinute,   // the SO (VaultOfAlmierra.asset)
-                LockTimer = 0f,
-                LockDuration = 180f
-            });
+            EntityBuild.Add(em, entity, default(VaultStorage));   // four empty bars (VaultBars)
 
-            // Banking tech ladder (interest grades + resource unlocks) researches here.
+            // The Coffers and Accounts research (VaultBars) happens here.
             EntityBuild.Add(em, entity, new ProductionState { Busy = 0, Remaining = 0 });
             EntityBuild.AddBuffer<ProductionQueueItem>(em, entity);
 
-            // Simple upgrade ladder (interest yields + wall productivity).
+            // Its levels raise HP only (the bars are research, not levels).
             EntityBuild.Add(em, entity, default(BuildingUpgradeable));
 
             // Combat type tags
@@ -95,21 +88,13 @@ namespace TheWaningBorder.Entities
 
             EntityBuild.Add(ecb, entity, default(VaultTag));
             EntityBuild.Add(ecb, entity, default(ChoiceBuildingTag));
-            EntityBuild.Add(ecb, entity, new VaultStorage
-            {
-                ResourceType = 0,
-                StoredAmount = 0f,
-                Principal = 0f,
-                InterestRate = def.interestPerMinute,   // the SO (VaultOfAlmierra.asset)
-                LockTimer = 0f,
-                LockDuration = 180f
-            });
+            EntityBuild.Add(ecb, entity, default(VaultStorage));   // four empty bars (VaultBars)
 
-            // Banking tech ladder (interest grades + resource unlocks) researches here.
+            // The Coffers and Accounts research (VaultBars) happens here.
             EntityBuild.Add(ecb, entity, new ProductionState { Busy = 0, Remaining = 0 });
             EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);
 
-            // Simple upgrade ladder (interest yields + wall productivity).
+            // Its levels raise HP only (the bars are research, not levels).
             EntityBuild.Add(ecb, entity, default(BuildingUpgradeable));
 
             // Combat type tags

@@ -93,6 +93,10 @@ namespace TheWaningBorder.Data.AI
             /// (docs/Design/Game_AI.md § 5d). A rusher wants bodies now; a tech
             /// boomer invests its veilstone in the role units.</summary>
             public float basicsAppetite;
+            /// <summary>How much of its idle surplus this personality parks in
+            /// the Vault: multiplies the tier's vaultDepositShare (Game_AI.md
+            /// § 5h, 2026-11-10). Aggressive personalities park less.</summary>
+            public float vaultAppetite;
 
             // ── Plan affinity (AIPlans.Affinity) ──
             // Score bonus this personality adds to each strategic plan when
@@ -112,21 +116,13 @@ namespace TheWaningBorder.Data.AI
             /// <summary>Multiplier on how much ground this personality wants
             /// covered by watch towers. 1 = Balanced.</summary>
             public float towerCoverageScale;
-            /// <summary>The weight this block was blended at (For(p, weight));
-            /// 1 for an authored row read as is. Carried so the role mix can
-            /// be blended by the same amount.</summary>
-            [System.NonSerialized] public float weight = 1f;
             /// <summary>Multiplier on the priority of wall work against the
             /// rest of the build list. 1 = Balanced.</summary>
             public float wallPriorityScale;
 
             // ── Personality doctrines (2026-10-07, Game_AI.md § 3b) ──
-            // STRUCTURAL knobs — whether a thing happens at all, and the
-            // shape of the base — are taken from the personality's row at
-            // every tier (For(p, weight) copies them unblended): a Rush that
-            // walls a little, or a Turtle with a slightly wider ring, is not
-            // a weaker flavour, it is a different one. MAGNITUDE knobs blend
-            // toward Balanced like every other number on the row.
+            // Every value on the row is played as authored at every tier (2026-11-10,
+            // decision 45: the tier no longer blends a personality toward Balanced).
 
             /// <summary>STRUCTURAL. Off: the faction builds no walls at all
             /// (no plan, no ring corridor kept free). Every row but Rush.</summary>
@@ -194,67 +190,6 @@ namespace TheWaningBorder.Data.AI
         /// callers do not NRE, but the AI it drives will be visibly broken,
         /// which is the point.
         /// </summary>
-        /// <summary>
-        /// The personality DAMPENED BY TIER (docs/Design/Game_AI.md § 3,
-        /// 2026-10-05): every numeric value blended from Balanced toward
-        /// <paramref name="p"/>'s row by <paramref name="weight"/> (1 = the
-        /// row as authored, 0 = Balanced); a flag takes the personality's
-        /// value from a weight of one half. Mixed matches showed an Expert
-        /// that drew Defensive or Economic finishing behind a Hard Rush — a
-        /// flavour cost more than a tier. A new block each call.
-        /// </summary>
-        public PersonalityBlock For(AIPersonality p, float weight)
-        {
-            var target = For(p);
-            weight = Mathf.Clamp01(weight);
-            if (weight >= 0.999f || p == AIPersonality.Balanced) { target.weight = 1f; return target; }
-            var b = For(AIPersonality.Balanced);
-            float L(float x, float y) => x + (y - x) * weight;
-            int I(int x, int y) => Mathf.RoundToInt(x + (y - x) * weight);
-            return new PersonalityBlock
-            {
-                personality = p,
-                weight = weight,
-                researchPaceScale = L(b.researchPaceScale, target.researchPaceScale),
-                researchExtraConcurrent = I(b.researchExtraConcurrent, target.researchExtraConcurrent),
-                extractorPaceScale = L(b.extractorPaceScale, target.extractorPaceScale),
-                levelUpPaceScale = L(b.levelUpPaceScale, target.levelUpPaceScale),
-                attackPaceScale = L(b.attackPaceScale, target.attackPaceScale),
-                attackThreshold = I(b.attackThreshold, target.attackThreshold),
-                militaryFloor = I(b.militaryFloor, target.militaryFloor),
-                riskMultiplier = L(b.riskMultiplier, target.riskMultiplier),
-                gathererHutTarget = I(b.gathererHutTarget, target.gathererHutTarget),
-                productionBuildingTarget = I(b.productionBuildingTarget, target.productionBuildingTarget),
-                ageUpPushSeconds = L(b.ageUpPushSeconds, target.ageUpPushSeconds),
-                raidingEnabled = weight >= 0.5f ? target.raidingEnabled : b.raidingEnabled,
-                basicsAppetite = L(b.basicsAppetite, target.basicsAppetite),
-                boomAffinity = L(b.boomAffinity, target.boomAffinity),
-                massAffinity = L(b.massAffinity, target.massAffinity),
-                rushAffinity = L(b.rushAffinity, target.rushAffinity),
-                techAffinity = L(b.techAffinity, target.techAffinity),
-                fortressAffinity = L(b.fortressAffinity, target.fortressAffinity),
-                towerCoverageScale = L(b.towerCoverageScale, target.towerCoverageScale),
-                wallPriorityScale = L(b.wallPriorityScale, target.wallPriorityScale),
-                // Structural knobs: the personality's own value at every tier.
-                wallsEnabled = target.wallsEnabled,
-                homeRingScale = target.homeRingScale,
-                frontierWallTerritories = target.frontierWallTerritories,
-                raidIntervalSeconds = target.raidIntervalSeconds,
-                strengthGateFromSeconds = target.strengthGateFromSeconds,
-                noOverdueRelease = target.noOverdueRelease,
-                shardrootToKing = target.shardrootToKing,
-                allInCommitment = target.allInCommitment,
-                // The roads to victory vary by personality on every tier (§ 6aa).
-                victoryConquestWeight = target.victoryConquestWeight,
-                victorySanctumWeight = target.victorySanctumWeight,
-                victoryShardrootWeight = target.victoryShardrootWeight,
-                // Magnitudes blend.
-                wallGuardShare = L(b.wallGuardShare, target.wallGuardShare),
-                raidPartyScale = L(b.raidPartyScale, target.raidPartyScale),
-                fortressAppetite = L(b.fortressAppetite, target.fortressAppetite),
-            };
-        }
-
         public PersonalityBlock For(AIPersonality p)
         {
             if (personalities != null)

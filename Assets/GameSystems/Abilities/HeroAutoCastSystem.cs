@@ -33,6 +33,8 @@ namespace TheWaningBorder.Abilities
         private const int PledgeEnemies = 3;
         /// <summary>Challenge: at least this many enemies inside its radius.</summary>
         private const int ChallengeEnemies = 2;
+        /// <summary>Bounty: at least this many takeable enemy units inside its circle.</summary>
+        private const int BountyEnemies = 2;
         /// <summary>Leap: only at an enemy further than this; closer, it simply fights.</summary>
         private const float LeapMinMetres = 6f;
 
@@ -61,6 +63,7 @@ namespace TheWaningBorder.Abilities
         static CachedEntityQuery QC_Buildings;
 
         private readonly List<(Entity E, float3 P, int Hp)> _enemies = new List<(Entity, float3, int)>(32);
+        private readonly List<(Entity E, float3 P, int Hp)> _takeable = new List<(Entity, float3, int)>(32);
 
         protected override void OnUpdate()
         {
@@ -129,9 +132,16 @@ namespace TheWaningBorder.Abilities
             if (card.HasEffect(AbilityEffectKind.FeraldisRaze)) return PickBuilding(em, fac, pos, los, hostile: true, out target);
             if (card.HasEffect(AbilityEffectKind.ResourceYieldPct)) return PickEconomy(em, fac, pos, los, out target);
             if (card.HasEffect(AbilityEffectKind.SectLiquidate)) return PickFalling(em, fac, pos, los, out target);
+            // Stake: standing at an own extractor that holds no stake yet, out of a fight.
             if (card.HasEffect(AbilityEffectKind.SectStake))
-                return _enemies.Count == 0 && PickEconomy(em, fac, pos,
-                    TheWaningBorder.Systems.Sect.SectHeroAbilities.StakeRange, out _, anyState: true);
+            {
+                if (_enemies.Count > 0) return false;
+                var node = TheWaningBorder.Systems.Sect.SectHeroAbilities.StakeTarget(em, hero);
+                return node != Entity.Null && !em.HasComponent<StakedExtractor>(node);
+            }
+            // Bounty: at the densest clump of takeable enemy units in sight.
+            if (card.HasEffect(AbilityEffectKind.SectBounty))
+                return PickBountyClump(em, hero, card, fac, out aim);
             if (card.HasEffect(AbilityEffectKind.FeraldisLeap))
             {
                 float best = float.MaxValue;
@@ -151,6 +161,35 @@ namespace TheWaningBorder.Abilities
                 return frac <= HurtFraction && EnemiesWithin(pos, CloseMetres) > 0;
             // Everything else helps the fight in front of the hero.
             return _enemies.Count > 0;
+        }
+
+        /// <summary>Bounty's aim: the enemy whose circle (at the hero's current
+        /// Bounty radius) holds the most units Bounty can take, at least
+        /// <see cref="BountyEnemies"/>; ties to the lower entity index.</summary>
+        private bool PickBountyClump(EntityManager em, Entity hero, AbilityCard card, Faction fac, out float3? aim)
+        {
+            aim = null;
+            float radius = TheWaningBorder.Systems.Sect.SectHeroAbilities.BountyRadius(em, hero, card,
+                card.EffectValue(AbilityEffectKind.SectBounty));
+            if (radius <= 0f) return false;
+            _takeable.Clear();
+            for (int i = 0; i < _enemies.Count; i++)
+                if (TheWaningBorder.Systems.Sect.ProsperityBounty.CanTake(em, fac, _enemies[i].E))
+                    _takeable.Add(_enemies[i]);
+            if (_takeable.Count < BountyEnemies) return false;
+            float r2 = radius * radius;
+            int best = BountyEnemies - 1;
+            Entity bestE = Entity.Null;
+            for (int i = 0; i < _takeable.Count; i++)
+            {
+                var c = _takeable[i];
+                int n = 0;
+                for (int j = 0; j < _takeable.Count; j++)
+                    if (math.distancesq(_takeable[j].P.xz, c.P.xz) <= r2) n++;
+                if (n > best || (n == best && bestE != Entity.Null && c.E.Index < bestE.Index))
+                { best = n; bestE = c.E; aim = c.P; }
+            }
+            return aim.HasValue;
         }
 
         private int EnemiesWithin(float3 pos, float radius)
@@ -209,7 +248,7 @@ namespace TheWaningBorder.Abilities
         }
 
         /// <summary>The nearest own economy building in range that can take the
-        /// effect (Automate Facility's lockout), or any at all for Stake.</summary>
+        /// effect (Automate Facility's lockout), or any at all with anyState.</summary>
         private bool PickEconomy(EntityManager em, Faction fac, float3 pos, float range, out Entity target, bool anyState = false)
         {
             target = Entity.Null;

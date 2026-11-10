@@ -5,7 +5,7 @@
 //   Overtime (Prosperity B)     a boosted building works and earns faster
 //   Treasury (Prosperity bldg)  while one stands, the faction's extractors earn more
 //   Reliquary (Antiquity bldg)  while one stands, the faction's sect powers recharge faster
-//   Plenty (Prosperity ★)       reads the territory rate recorded here
+//   (Plenty no longer reads the territory rate: it raises a Counting House, decision 47)
 //
 // TerritoryIncomeSystem multiplies every extractor by ExtractorMultiplier and
 // records each faction's territory rate; ProductionQueueSystem scales its
@@ -21,7 +21,7 @@ namespace TheWaningBorder.Systems.Sect
     public static class AlanthorSectEconomy
     {
         /// <summary>Treasury: extractor income bonus while one stands.</summary>
-        public const float TreasuryIncomeBonus = 0.25f;
+        public const float TreasuryIncomeBonus = 0.15f;   // 25 % until 2026-11-10 (decision 47)
 
         /// <summary>Reliquary: sect power cooldown scale while one stands.</summary>
         public const float ReliquaryCooldownScale = 0.85f;

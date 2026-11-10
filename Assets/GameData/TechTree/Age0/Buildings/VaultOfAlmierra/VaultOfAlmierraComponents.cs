@@ -1,32 +1,46 @@
 // VaultOfAlmierraComponents.cs
-// Auto-organized by tools/split_components.py. All types are in the
-// global namespace (single assembly), so location is organizational only.
+// All types are in the global namespace (single assembly), so location is
+// organizational only.
 
 using Unity.Entities;
-using Unity.Collections;
-using Unity.Mathematics;
 
 /// <summary>Resource vault building.</summary>
 public struct VaultTag : IComponentData { }
 
 /// <summary>
-/// Resource storage with SIMPLE, capped interest for Vault of Almiérra
-/// (decision 41, 2026-10-05). Only one resource type at a time. Locked
-/// after deposit/withdraw.
+/// THE VAULT'S FOUR BARS (docs/Design/Age_0.md § Vault of Almiérra,
+/// Unification decision 46, 2026-11-10). Resources paid in fill the bars in
+/// order, any resource one for one, up to the Vault SO's vaultBarCapacity for
+/// that bar (each harder to fill than the last). Every filled SUB-BAR raises
+/// the income of the resource its bar boosts by its share of the SO's
+/// vaultBarBonus (vaultSubBars per bar), so a bar pays as it fills. A withdrawal returns exactly what was paid in and empties
+/// every bar. Replaces the capped simple interest of decision 41.
 /// </summary>
 public struct VaultStorage : IComponentData
 {
-    /// <summary>0=None, 1=Supplies, 2=Iron, 3=Veilstone</summary>
-    public int ResourceType;
-    /// <summary>Principal plus the interest it has earned; what a withdrawal pays out.</summary>
-    public float StoredAmount;
-    /// <summary>What interest is computed on: the stored amount as of the last
-    /// deposit (CommandRouter.VaultTransferDirect sets it; a withdrawal zeroes
-    /// it). Interest never joins it, so the yield is simple, and only the part
-    /// up to the Vault SO's interestPrincipalCap earns.</summary>
-    public float Principal;
-    public float InterestRate;   // Base per minute from the SO (0.05 = 5%)
-    public float LockTimer;      // Remaining lock seconds (0 = unlocked)
-    public float LockDuration;   // Seconds to lock after deposit/withdraw (180 = 3 min)
-    public float EarningSeconds; // Seconds of interest paid since the last deposit (capped by the SO's interestMaxSeconds)
+    public const int Bars = 4;
+
+    /// <summary>Paid into each bar.</summary>
+    public int Fill0, Fill1, Fill2, Fill3;
+    /// <summary>The resource each bar boosts (1 supplies, 2 iron, 3 veilstone;
+    /// 0 = the bar has not started). Chosen when the bar starts filling,
+    /// fixed until a withdrawal empties it.</summary>
+    public byte Boost0, Boost1, Boost2, Boost3;
+    /// <summary>What a withdrawal pays back, by the resource it was paid in.</summary>
+    public int PaidSupplies, PaidIron, PaidVeilstone;
+
+    public int Fill(int i) => i switch { 0 => Fill0, 1 => Fill1, 2 => Fill2, _ => Fill3 };
+    public byte Boost(int i) => i switch { 0 => Boost0, 1 => Boost1, 2 => Boost2, _ => Boost3 };
+
+    public void SetFill(int i, int v)
+    {
+        switch (i) { case 0: Fill0 = v; break; case 1: Fill1 = v; break; case 2: Fill2 = v; break; default: Fill3 = v; break; }
+    }
+
+    public void SetBoost(int i, byte v)
+    {
+        switch (i) { case 0: Boost0 = v; break; case 1: Boost1 = v; break; case 2: Boost2 = v; break; default: Boost3 = v; break; }
+    }
+
+    public int Paid => PaidSupplies + PaidIron + PaidVeilstone;
 }

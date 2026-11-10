@@ -284,6 +284,12 @@ namespace TheWaningBorder.AI
 
         public float siegeTrainRetrySeconds;
 
+        /// <summary>Other production buildings (Barracks, Archery Ranges,
+        /// Royal Stables) a faction must stand before the siege program raises
+        /// its first Siege Yard past the production gate (Game_AI.md § 2e).
+        /// 0 = the yard obeys the production rule alone.</summary>
+        public int siegeYardAfterTrainers;
+
         /// <summary>Always-on economy layer (2026-08-04 rev.2). Not a budget
         /// system — a PRIORITY ladder the build order cannot override:
         ///   1. WORKER FLOOR — a stalled opener must still grow its workers.
@@ -1180,8 +1186,9 @@ namespace TheWaningBorder.AI
         public int vaultKeepIron;
         public int vaultKeepVeilstone;
 
-        /// <summary>Smallest deposit worth locking the Vault for.</summary>
+        /// <summary>Smallest deposit worth making.</summary>
         public int vaultMinDeposit;
+
 
         /// <summary>Below this fraction of its health the Vault is emptied
         /// (stored resources die with it).</summary>
@@ -1229,6 +1236,11 @@ namespace TheWaningBorder.AI
         /// <summary>Seconds between extractor walks while a rebuild is owed
         /// (instead of extractorAttemptInterval).</summary>
         public float extractorRebuildAttemptInterval;
+
+        /// <summary>Rebuild posture (decision 45): the army's recent peak closes this
+        /// share of its gap to the live count each minute. Rebuild needs the army
+        /// below half that peak as well as below half its desired size.</summary>
+        public float rebuildPeakDecayPerMinute;
 
         /// <summary>Extractor walks in a row that may fail to place an owed
         /// rebuild on any free node before the debt is dropped.</summary>

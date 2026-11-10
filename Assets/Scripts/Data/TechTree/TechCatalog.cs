@@ -412,12 +412,13 @@ public static class TechCatalog
                 Warn($"extractor '{extractor}' has no slotIncomePerMinute — its slot pays nothing");
         if (_buildingSOsById.TryGetValue("VaultOfAlmierra", out var vault) && vault != null)
         {
-            if (vault.interestPerMinute <= 0f)
-                Warn("building 'VaultOfAlmierra' has interestPerMinute 0 — the Vault earns nothing");
-            if (vault.interestPrincipalCap <= 0f)
-                Warn("building 'VaultOfAlmierra' has interestPrincipalCap 0 — no principal earns, the Vault pays nothing");
-            if (vault.coffersRate <= 0f || vault.merchantChartersRate <= 0f || vault.sovereignBondsRate <= 0f)
-                Warn("building 'VaultOfAlmierra' has a banking-grade rate of 0 (coffersRate / merchantChartersRate / sovereignBondsRate) — researching that grade would stop the Vault paying");
+            if (vault.vaultBarCapacity == null || vault.vaultBarCapacity.Length < 4
+                || System.Array.Exists(vault.vaultBarCapacity, c => c <= 0))
+                Warn("building 'VaultOfAlmierra' needs four positive vaultBarCapacity entries — a bar without one can never fill");
+            if (vault.vaultSubBars <= 0)
+                Warn("building 'VaultOfAlmierra' has vaultSubBars 0 — a bar pays nothing until full");
+            if (vault.vaultBarBonus <= 0f)
+                Warn("building 'VaultOfAlmierra' has vaultBarBonus 0 — a full bar raises nothing");
         }
         foreach (var lvl in _buildingLevels.Values)
         {
@@ -426,8 +427,6 @@ public static class TechCatalog
                 Warn($"building level '{lvl.name}' has hpMultiplier {lvl.hpMultiplier}");
             if ((lvl.buildingId == "GatherersHut" || lvl.buildingId == "Mine") && lvl.slotIncomePerMinute <= 0f)
                 Warn($"building level '{lvl.name}' is an extractor rung with slotIncomePerMinute {lvl.slotIncomePerMinute}");
-            if (lvl.buildingId == "VaultOfAlmierra" && lvl.interestMultiplier <= 0f)
-                Warn($"building level '{lvl.name}' has interestMultiplier {lvl.interestMultiplier} — the Vault earns nothing at it");
         }
 
         if (issues == 0)

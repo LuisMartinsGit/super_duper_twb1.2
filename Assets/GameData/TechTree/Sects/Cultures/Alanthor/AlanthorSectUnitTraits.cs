@@ -5,7 +5,7 @@
 //   Scar Guard   Borrowed Breath  more damage the lower its own HP
 //   Sallyguard   Stored Strike    first blow after charging out of combat x2
 //                                 (+ bonus vs siege from its SO bonusVsTags)
-//   Collector    Run Down         bonus vs slowed enemies and enemies < 50% HP
+//   (Collector's Run Down retired 2026-11-10: the Bounty Hunter casts Bounty, BountyHunterSystem)
 //
 // plus the one incoming-damage mark a hero lays on enemies:
 //
@@ -53,15 +53,6 @@ namespace TheWaningBorder.Systems.Sect
                     ss.IdleTimer = 0f;
                     ecb.SetComponent(attacker, ss);
                 }
-            }
-
-            if (em.HasComponent<RunDownTrait>(attacker))
-            {
-                bool wounded = em.HasComponent<Health>(target)
-                    && em.GetComponentData<Health>(target).Max > 0
-                    && em.GetComponentData<Health>(target).Value * 2 < em.GetComponentData<Health>(target).Max;
-                if (wounded || IsSlowed(em, target))
-                    mult *= 1f + em.GetComponentData<RunDownTrait>(attacker).Bonus;
             }
 
             if (TransientState.Active<CatalogedMark>(em, target))

@@ -51,10 +51,10 @@ MonoBehaviour:
   - 'Hero'
   bonusVsTags: []
   abilities:
-  - Called In
+  - Bounty
   - Stake
   - Liquidate
-  - Buy Out
+  - Windfall
   prefab: {fileID: 122908383832175, guid: 07dc6767e48d386dd2d2cdde551e3f20, type: 3}
   presentationId: 453
   animatorController: {fileID: 0}

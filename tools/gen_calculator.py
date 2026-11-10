@@ -150,9 +150,9 @@ BUILDING_STATS = [
     ["Supplies per tick", "supplies"],
     ["Supplies interval", "seconds"],
     ["Slot income per min (L1/L2/L3)", "per minute"],
-    ["Interest per minute", "per minute"],
-    ["Interest principal cap", "resource"],
-    ["Interest per minute (Coffers / Charters / Bonds)", "per minute"],
+    ["Vault bar capacity", "resource"],
+    ["Vault bar bonus", "fraction of income"],
+    ["Vault sub-bars per bar", "count"],
     ["Max per faction", "count"],
     ["Min wall level", "level"],
     ["Garrison slots", "units"],
@@ -324,10 +324,9 @@ def building_stats(b, btype, trains_names, research_names):
              ["Supplies per tick", num(b.get("suppliesPerTick"))],
              ["Supplies interval", num(b.get("suppliesInterval"))],
              ["Slot income per min (L1/L2/L3)", " / ".join(num(x) for x in slots) if slots else "0"],
-             ["Interest per minute", num(b.get("interestPerMinute"))],
-             ["Interest principal cap", num(b.get("interestPrincipalCap"))],
-             ["Interest per minute (Coffers / Charters / Bonds)",
-              " / ".join(num(b.get(k)) for k in ("coffersRate", "merchantChartersRate", "sovereignBondsRate"))],
+             ["Vault bar capacity", " / ".join(num(x) for x in (b.get("vaultBarCapacity") or [])) or "0"],
+             ["Vault bar bonus", num(b.get("vaultBarBonus"))],
+             ["Vault sub-bars per bar", num(b.get("vaultSubBars"))],
              ["Max per faction", num(b.get("maxPerFaction"))],
              ["Min wall level", num(b.get("minWallLevel"))],
              ["Garrison slots", num(b.get("garrisonSlots"))],
@@ -362,8 +361,6 @@ def level_lines(lv):
         out.append("Population %s" % num(lv.get("populationProvided")))
     if float(lv.get("slotIncomePerMinute") or 0) > 0:
         out.append("Slot income %s / min" % num(lv.get("slotIncomePerMinute")))
-    if float(lv.get("interestMultiplier") or 0) > 0:
-        out.append("Interest x%s" % num(lv.get("interestMultiplier")))
     if float(lv.get("lineOfSight") or 0) > 0:
         out.append("Line of sight %s" % num(lv.get("lineOfSight")))
     atk = lv.get("attack") or {}

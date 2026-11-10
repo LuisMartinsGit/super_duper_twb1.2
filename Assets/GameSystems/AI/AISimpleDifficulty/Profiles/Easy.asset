@@ -15,9 +15,9 @@ MonoBehaviour:
   tier: 0
   thinkInterval: 5.0
   intelFreshnessSeconds: 150
-  firstAttackEarliestSeconds: 600
+  firstAttackEarliestSeconds: 840
   levelUpsFromSeconds: 900
-  extractorGapSeconds: 70
+  extractorGapSeconds: 0
   wasteBuildSeconds: 150
   wasteBuildMax: 12
   researchMaxConcurrent: 1
@@ -32,8 +32,7 @@ MonoBehaviour:
   armyStraggles: 1
   fightsToDeath: 1
   shardrootReactSeconds: 90
-  extractorLimit: 6
-  extractorStopMinutes: 0
+  extractorShare: 0.422
   spareCapitals: 1
   holdBackAheadRatio: 0
   armyCapFixed: 1
@@ -43,8 +42,8 @@ MonoBehaviour:
   victoryMultiFocus: 0
   targetStyle: 0
   reinforceMode: 2
-  maxWaveUnits: 10
-  attackWaveIntervalSeconds: 210
+  maxWaveUnits: 20
+  attackWaveIntervalSeconds: 300
   waveBaseUnits: 5
   standingArmyFloorFraction: 0
   waveMinArmyFraction: 0
@@ -52,7 +51,6 @@ MonoBehaviour:
   fortressDelaySeconds: 360
   reconquestMargin: 0
   strengthWaveRatioScale: 1.3
-  personalityWeight: 1
   sustainArmyCap: 50
   concurrentArmies: 1
   incomeTargeting: 1
@@ -66,8 +64,6 @@ MonoBehaviour:
   protectAgeUpSavings: 0
   curseHuntMinCapitalLevel: 0
   vaultDepositShare: 0.25
-  vaultHoldSeconds: 180
-  vaultWithdrawOnNeed: 0
   unitsBeforeEconomy: 0
   armyBeforeSaves: 0
   capitalReserveMaxHoldSeconds: 0

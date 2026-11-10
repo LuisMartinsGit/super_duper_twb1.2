@@ -8,9 +8,9 @@
 //   Stop the Hours       (Archivist)    every hostile unit frozen, heroes silenced
 //   The Great Rewind     (Surgeon)      army healed, the recently fallen return
 //   The Realm Holds      (Warden)       hostiles on your ground hurt, buildings safe
-//   Buy Out              (Guildmaster)  enemy buildings in the circle fall, you are paid
 //
-// Blood Oath (Harkon) and Exodus (Wayfinder) stay with their casters' code.
+// Blood Oath (Harkon), Exodus (Wayfinder) and Windfall (Guildmaster,
+// GuildmasterWindfall beside its card) stay with their casters' code.
 //
 // They share this file rather than one folder per owner because they are one
 // rule across eight owners, and every one of them is a dozen lines.
@@ -159,40 +159,6 @@ namespace TheWaningBorder.Abilities
                 if (bfacs[i].Value == me)
                     TransientState.Set(em, bents[i], new Invulnerable { TimeRemaining = duration });
             Announce(string.Format(Loc.T("{0}'s REALM HOLDS — the ground itself turns on the invader!"), me), caster, em);
-        }
-
-        /// <summary>Buy Out: every hostile building within the card's radius of
-        /// the aim falls and pays you value% of its worth. A capital loses value%
-        /// of its max HP instead.</summary>
-        public static void BuyOut(EntityManager em, Entity caster, AbilityCard card, float percent)
-        {
-            if (!em.HasComponent<AbilityAimPoint>(caster)) return;
-            var me = FactionOf(em, caster);
-            float3 aim = em.GetComponentData<AbilityAimPoint>(caster).Position;
-            float pct = math.saturate(percent / 100f);
-            float r2 = card.Radius * card.Radius;
-            var q = QC_Buildings.Get(em, QT_Buildings);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                var e = ents[i];
-                if (hps[i].Value <= 0 || !Alliances.AreHostile(me, facs[i].Value)) continue;
-                if (math.distancesq(xfs[i].Position.xz, aim.xz) > r2) continue;
-                if (em.HasComponent<HallTag>(e) || em.HasComponent<FortressTag>(e))
-                {
-                    SpellDamage.Apply(em, e, (int)(hps[i].Max * pct), DamageType.True, me);
-                    continue;
-                }
-                var worth = TheWaningBorder.Feraldis.FeraldisRaidIncomeSystem.BuildingWorth(em, e, facs[i].Value);
-                var pay = TheWaningBorder.Feraldis.FeraldisRaidIncomeSystem.Scale(worth, pct);
-                if (!pay.IsZero) FactionEconomy.Add(em, me, pay, IncomeSource.Loot);
-                SpellDamage.Apply(em, e, hps[i].Value, DamageType.True, me);
-            }
-            SimSignals.Ping(aim, SimPingKind.Combat, card.Radius, big: true);
-            SimSignals.Announce(string.Format(Loc.T("{0} BUYS OUT a district — its buildings fall!"), me));
         }
     }
 }

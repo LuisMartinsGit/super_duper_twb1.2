@@ -437,7 +437,7 @@ namespace TheWaningBorder.AI
                     if (g.Id == "@military")
                     {
                         string unit = PickCompositionUnit(em, brainEntity, brain.Owner, now,
-                            RoleBudget.For(brain.Personality, profile.PersonalityWeight), profile.IntelFreshnessSeconds);
+                            RoleBudget.For(brain.Personality), profile.IntelFreshnessSeconds);
                         if (string.IsNullOrEmpty(unit)) return false;
                         if (!TryTrainUnitBudgeted(em, brain.Owner, unit, g.Cat)) return false;
                         aiState.LastMilitaryUnit = new Unity.Collections.FixedString64Bytes(unit);

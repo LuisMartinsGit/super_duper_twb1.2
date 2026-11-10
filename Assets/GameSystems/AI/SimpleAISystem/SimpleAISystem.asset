@@ -64,6 +64,7 @@ MonoBehaviour:
   emergencyRetrySeconds: 25
   siegeTrainFloor: 3
   siegeTrainRetrySeconds: 20
+  siegeYardAfterTrainers: 3
   economyWorkerFloor: 3
   hutPipelineFreeCount: 4
   openingHutGraceSeconds: 45
@@ -136,8 +137,6 @@ MonoBehaviour:
   raidSurplus: 2
   reinforceInterval: 15
   reinforceMinGroup: 10
-
-
   spareCapitalRadius: 40
   spareCapitalMemorySeconds: 600
   reinforceCapMinGroup: 20
@@ -330,7 +329,7 @@ MonoBehaviour:
     perEnemyHighValue: 0
     perEnemyMassed: 0
   - unitId: Alanthor_Ballista
-    fallbackUnitId: Alanthor_Sentinel
+    fallbackUnitId: Alanthor_Catapult
     supersededByUnitId: 
     basic: 0
     baseShare: 0.02
@@ -347,7 +346,7 @@ MonoBehaviour:
     fallbackUnitId: Alanthor_Longbowman
     supersededByUnitId: 
     basic: 0
-    baseShare: 0.02
+    baseShare: 0.04
     perEnemyCavalry: 0
     perEnemyHeavyCavalry: 0
     perEnemyInfantry: 0
@@ -359,7 +358,7 @@ MonoBehaviour:
     perEnemyMassed: 0.2
   basicsFloor: 16
   basicsMinShare: 0.12
-  basicsMaxShare: 0.6
+  basicsMaxShare: 0.45
   surplusClaimOutcropScale: 2
   surplusClaimIntervalScale: 0.5
   surplusFortressOutcropScale: 2
@@ -425,6 +424,7 @@ MonoBehaviour:
   economyAttackLingerSeconds: 30
   extractorRebuildWindowSeconds: 600
   extractorRebuildAttemptInterval: 3
+  rebuildPeakDecayPerMinute: 0.1
   extractorRebuildMaxRefusals: 10
   extractorCurseKeepoutRadius: 45
   extractorSiteMaxLosses: 2
@@ -560,7 +560,6 @@ MonoBehaviour:
   sanctumHostilePenalty: 300
   sanctumHoldRadius: 18
   sanctumReorderSeconds: 15
-
   sanctumRegoalMeters: 40
   sanctumDisbandBelow: 8
   sanctumRetrySeconds: 180

@@ -43,6 +43,24 @@ namespace TheWaningBorder.World.Regions
 
         private static readonly Dictionary<TypeIndex, TypedQuery> _withTransform =
             new Dictionary<TypeIndex, TypedQuery>();
+        private static readonly Dictionary<TypeIndex, TypedQuery> _workable =
+            new Dictionary<TypeIndex, TypedQuery>();
+
+        /// <summary>Cached {tag, LocalTransform} query over the nodes an
+        /// extractor may still be placed on: a node held at its last unit by
+        /// its Trading Outposts (NodeTradeHeld, decision 45) is left out.</summary>
+        internal static EntityQuery WorkableNodesWithTransform(EntityManager em, ComponentType tag)
+        {
+            if (!_workable.TryGetValue(tag.TypeIndex, out var box))
+            {
+                box = new TypedQuery
+                {
+                    Types = new[] { tag, ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeTradeHeld>() },
+                };
+                _workable[tag.TypeIndex] = box;
+            }
+            return box.Q.Get(em, box.Types);
+        }
 
         /// <summary>Cached {tag, LocalTransform} query for a runtime tag.</summary>
         internal static EntityQuery TagWithTransform(EntityManager em, ComponentType tag)
@@ -834,7 +852,7 @@ namespace TheWaningBorder.World.Regions
             if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
                 return TheWaningBorder.Entities.TradingOutpost.TrySnapToSide(em, pos, out snapped);
 
-            var nodes = TagWithTransform(em, required.Value).ToComponentDataArray<LocalTransform>(
+            var nodes = WorkableNodesWithTransform(em, required.Value).ToComponentDataArray<LocalTransform>(
                 Unity.Collections.Allocator.Temp);
 
             // Occupancy is read ONCE, not re-queried per candidate node. The
