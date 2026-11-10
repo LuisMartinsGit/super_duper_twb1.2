@@ -9,6 +9,12 @@ build always name the same number.
 
 ---
 
+## [0.0.83] — 2026-11-10
+
+### Economy
+- **Hard and Expert AIs save up for their Trading Outposts' levels and research** instead of spending every bit of iron on units.
+- **Trading Outposts pay twice as much.** Fully levelled and researched, the posts on a node out-earn the mine that worked it, for as long as you hold the node: late-game income now comes from holding many nodes.
+
 ## [0.0.82] — 2026-11-10
 
 ### Economy

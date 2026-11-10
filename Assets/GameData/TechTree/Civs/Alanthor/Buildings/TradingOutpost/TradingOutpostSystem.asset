@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: TradingOutpostSystem
   m_EditorClassIdentifier:
   cycleSeconds: 1
-  trickleSuppliesPerMinute: 8
-  trickleIronPerMinute: 5
-  trickleVeilstonePerMinute: 4
+  trickleSuppliesPerMinute: 16
+  trickleIronPerMinute: 10
+  trickleVeilstonePerMinute: 8
   ledgersTech: Alanthor_TradeLedgers
   ledgersMultiplier: 1.4
   merchantHousesTech: Alanthor_MerchantHouses

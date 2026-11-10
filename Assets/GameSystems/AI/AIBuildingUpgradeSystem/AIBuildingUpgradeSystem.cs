@@ -398,6 +398,9 @@ namespace TheWaningBorder.AI
         private static readonly string[] EconomyLevelIds =
             { "GatherersHut", "Alanthor_TradingOutpost", "Mine", "VeilstoneMine" };
 
+        /// <summary>AIPivotalReserve key of the Trading Outposts' next level (decision 51).</summary>
+        private const string PostLevelReserveKey = "TradingOutpostLevel";
+
         /// <summary>AIPivotalReserve key of the capital's next level.</summary>
         private const string CapitalReserveKey = "CapitalLevel";
 
@@ -433,8 +436,10 @@ namespace TheWaningBorder.AI
                         : kind == 2
                             ? QC_MineUpgradeable.Get(em, QT_MineUpgradeable)
                             : QC_VeilstoneMineUpgradeable.Get(em, QT_VeilstoneMineUpgradeable));
-                if (best == Entity.Null) continue;
-                if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var cost, out byte next)) continue;
+                bool postLine = id == "Alanthor_TradingOutpost";
+                if (best == Entity.Null) { if (postLine) AIPivotalReserve.Clear(faction, PostLevelReserveKey); continue; }
+                if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var cost, out byte next))
+                { if (postLine) AIPivotalReserve.Clear(faction, PostLevelReserveKey); continue; }
                 if (next <= 1) continue;   // L1 is the free age-up level
                 // EARLY EXTRACTOR LEVELS (decision 49, Hard / Expert): a Mine or a
                 // Trading Outpost levels past the level clock and the value gate,
@@ -446,6 +451,16 @@ namespace TheWaningBorder.AI
                              && TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction);
                 if (!early && !AIPacing.LevelAllowed(em, faction, next)) continue;
                 if (!early && !ValueGate(em, faction, best, cost, Cfg.soldiersPerEconomyBuilding, surplus: false)) continue;
+                // THE POSTS' NEXT LEVEL IS SAVED FOR (2026-11-10, decision 51,
+                // Hard / Expert): the 0.0.83 test's Expert placed 79 posts and
+                // never levelled one -- every coin of iron went to units the
+                // moment it came in. With posts standing, an unaffordable level
+                // is a strict savings goal until it is paid.
+                if (early && postLine && !FactionEconomy.CanAfford(em, faction, cost))
+                {
+                    AIPivotalReserve.Set(faction, PostLevelReserveKey, cost, strict: true);
+                    continue;
+                }
                 // Outside the budget's lump-sum reservation (the Fortress pot,
                 // Game_AI.md 5c): a level paid from the bank directly used
                 // to spend it on every release of the pivotal hold.
@@ -475,6 +490,7 @@ namespace TheWaningBorder.AI
                 if (UpgradeBuildingCommandHelper.Execute(em, best,
                         TheWaningBorder.Core.Commands.CommandSource.AI) != UpgradeBuildingResult.Ok) continue;
                 AIPacing.NoteLevelUp(em, faction);
+                if (postLine) AIPivotalReserve.Clear(faction, PostLevelReserveKey);
                 AILogger.Log(faction, "ECON", $"upgrade {id} -> L{next} ({cost.Supplies}s {cost.Iron}i)");
                 return true;
             }

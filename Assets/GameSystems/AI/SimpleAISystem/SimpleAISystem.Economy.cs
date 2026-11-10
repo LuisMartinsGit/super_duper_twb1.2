@@ -414,6 +414,7 @@ namespace TheWaningBorder.AI
         /// <summary>Ladder techs that raise income, paid from the Economy wallet.</summary>
         private const string TradeChartersTech = "Alanthor_TradeCharters";
         private const string TradeChartersReserveKey = "TradeCharters";
+        private const string TradeResearchReserveKey = "TradeResearch";
         /// <summary>The trade research the AI buys from the bank when the wallet
         /// split refuses it (decision 50). A roster, not tuning.</summary>
         private static readonly string[] TradeTechs =
@@ -730,6 +731,7 @@ namespace TheWaningBorder.AI
                 {
                     AILogger.Log(faction, "RESEARCH", $"{techId} queued");
                     if (techId == TradeChartersTech) AIPivotalReserve.Clear(faction, TradeChartersReserveKey);
+                    else if (System.Array.IndexOf(TradeTechs, techId) >= 0) AIPivotalReserve.Clear(faction, TradeResearchReserveKey);
                     queuedAny = true;
                     break;
                 }
@@ -748,11 +750,18 @@ namespace TheWaningBorder.AI
                     {
                         AILogger.Log(faction, "RESEARCH", $"{techId} queued (from the bank: trade tech)");
                         if (techId == TradeChartersTech) AIPivotalReserve.Clear(faction, TradeChartersReserveKey);
+                        else AIPivotalReserve.Clear(faction, TradeResearchReserveKey);
                         queuedAny = true;
                         break;
                     }
+                    // Trade Charters is a strict goal on every tier; the post
+                    // research on the tiers that level early (Hard / Expert,
+                    // decision 51) -- Expert's iron never sat still long
+                    // enough to buy Trade Ledgers otherwise.
                     if (techId == TradeChartersTech)
                         AIPivotalReserve.Set(faction, TradeChartersReserveKey, tcost, strict: true);
+                    else if (ProfileOf(faction).EarlyExtractorLevels)
+                        AIPivotalReserve.Set(faction, TradeResearchReserveKey, tcost, strict: true);
                 }
                 if (firstBlocked == null) { firstBlocked = techId; firstReason = reason; }
             }

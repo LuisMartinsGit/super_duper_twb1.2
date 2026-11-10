@@ -91,6 +91,15 @@ same, and a tier simply works fewer of the nodes it holds.
   `SimpleAISystem.Extractors.cs` (`ExtractorShareRoom`), read by the extractor walk and the hut
   pipeline.
 
+### 2i. The posts are saved for (2026-11-10, decision 51)
+
+The 0.0.83 test: Hard's late iron rose to ~2,470/min (1,550 from posts), but Expert placed 79
+posts and never levelled one nor bought Trade Ledgers — its iron went to units as it came
+in. On the tiers that level early (`earlyExtractorLevels`: Hard, Expert), **the Trading
+Outposts' next level and the post research are strict savings goals** while they cannot be
+paid (`AIBuildingUpgradeSystem`, key TradingOutpostLevel; `SimpleAISystem.Economy`, key
+TradeResearch), cleared the moment they are bought or nothing is left to buy.
+
 ### 2h. The trade comes first (2026-11-10, decision 50)
 
 The first grace-window test: Expert never researched Trade Charters (its iron went to early

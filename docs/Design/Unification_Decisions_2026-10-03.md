@@ -9,6 +9,12 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+51. **Trading Outposts carry the endgame (2026-11-10, developer: "players in the endgame must earn
+    more than players in the early game, but must also venture out and fight for resources").**
+    The posts' base trickle is doubled (`TradingOutpostSystem.asset`): a node's four posts, levelled
+    and researched, out-earn the mine that worked it, for good. Up to four posts per node is the
+    ceiling, so late income grows only with the nodes a player holds — the endgame is won by
+    taking and keeping ground, not by sitting on it.
 50. **A spent node waits five minutes for a Trading Outpost; every post costs the same
     (2026-11-10, developer).** (a) A node that runs dry with no post beside it is no longer
     destroyed at once: its extractor collapses and the node stays alive for
