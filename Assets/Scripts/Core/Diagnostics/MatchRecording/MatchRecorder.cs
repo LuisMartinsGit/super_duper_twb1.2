@@ -25,6 +25,10 @@
 // MatchLifecycle.MatchDecided (or Finish()), so the record shows the match and
 // not the board the sim keeps running under the victory screen.
 //
+// SAVED GAMES. The record is part of a saved game (MatchRecorder.Save.cs), so
+// a match that was loaded shows its whole history in the review, not only the
+// part played since the load. docs/Design/Replays_And_Saves.md §3
+//
 // READ-ONLY on the world: it never writes simulation state, so it cannot
 // affect lockstep.
 
@@ -43,7 +47,7 @@ using EntityWorld = Unity.Entities.World;
 
 namespace TheWaningBorder.Core.Diagnostics.MatchRecording
 {
-    public sealed class MatchRecorder : MonoBehaviour
+    public sealed partial class MatchRecorder : MonoBehaviour
     {
         static MatchRecorderConfig _cfg;
         static MatchRecorderConfig Cfg
@@ -157,6 +161,9 @@ namespace TheWaningBorder.Core.Diagnostics.MatchRecording
                 _epoch = MatchLifecycle.MatchEpoch;
                 BeginRecord();
             }
+            // A saved game carries the record of the match so far
+            // (MatchRecorder.Save.cs): it replaces the fresh one.
+            if (_pendingRestore != null) AdoptSavedRecord();
             if (_rec == null || _rec.Ended) return;
             if (!MatchLifecycle.MapPopulated) return;
 

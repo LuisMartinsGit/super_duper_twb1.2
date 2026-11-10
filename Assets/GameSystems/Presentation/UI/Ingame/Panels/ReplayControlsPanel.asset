@@ -16,7 +16,5 @@ MonoBehaviour:
   - 0.5
   - 1
   - 2
-  - 4
-  - 8
-  - 16
+  - 5
   skipSeconds: 60

@@ -38,8 +38,11 @@ The map is the post-game view: it shows everything, with no fog of war.
 `MatchRecorder` (`Assets/Scripts/Core/Diagnostics/MatchRecording/`) records
 every match — player, multiplayer, replay and headless alike — **in memory**,
 on **sim time** (the lockstep tick clock, else `SimClock`), so a replay of a
-match produces the same record as the match itself. Nothing is written to
-disk, and it only reads the world, so it cannot affect lockstep.
+match produces the same record as the match itself. It only reads the world,
+so it cannot affect lockstep. The one place it reaches disk is **a saved
+game** (2026-11-10): the record so far is part of the save, so a match that
+was loaded is reviewed from its start, not from the load
+([Replays_And_Saves.md](Replays_And_Saves.md) §3).
 
 - **Series** — per faction, every series interval: banks, population,
   army / workers / buildings, territories, and the latest `MatchScore` row

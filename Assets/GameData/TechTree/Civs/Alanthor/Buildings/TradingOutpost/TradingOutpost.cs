@@ -20,7 +20,7 @@ namespace TheWaningBorder.Entities
     /// node — north, east, south, west — its footprint flush against the
     /// node's square, one post per side. The node itself stays an impassable
     /// cell nobody builds on (its extractor stands ON it). Each further post
-    /// around the same node costs more to build (<see cref="RampMultiplier"/>);
+    /// around the same node costs the same (the price ramp is gone, decision 50);
     /// the first post on a new node is base price again.
     ///
     /// Placement (<see cref="TrySnapToSide"/> / <see cref="SnapToSideAmong"/>,
@@ -205,7 +205,10 @@ namespace TheWaningBorder.Entities
         public static bool IsLiveNode(EntityManager em, Entity node, NodeKind kind)
         {
             if (node == Entity.Null || !em.Exists(node)) return false;
-            if (em.HasComponent<NodeReserve>(node) && em.GetComponentData<NodeReserve>(node).Remaining <= 0f)
+            // A node at 0 still takes posts while it is in its grace window or
+            // held by trade (decision 50).
+            if (em.HasComponent<NodeReserve>(node) && em.GetComponentData<NodeReserve>(node).Remaining <= 0f
+                && !em.HasComponent<NodeDepletedGrace>(node) && !em.HasComponent<NodeTradeHeld>(node))
                 return false;
             if (kind == NodeKind.Veilstone
                 && VeilstoneNodeStateSystem.KindOf(em, node) == VeilstoneNodeKind.Cursed) return false;
@@ -353,31 +356,6 @@ namespace TheWaningBorder.Entities
             return CountPostsAt(em, op) + CountOwnPlansAt(em, faction, op);
         }
 
-        /// <summary>The multiplier at a ramp index, from
-        /// TradingOutpostSystem.asset (`outcropRampMultipliers`); past its end
-        /// the last entry holds. 1 with no table.</summary>
-        public static float RampMultiplier(int index)
-        {
-            var m = TradingOutpostSystem.Cfg?.outcropRampMultipliers;
-            if (m == null || m.Length == 0) return 1f;
-            return math.max(0f, m[math.clamp(index, 0, m.Length - 1)]);
-        }
-
-        /// <summary>A price scaled by a ramp multiplier, rounded per resource
-        /// (BuildCosts' own rounding rule).</summary>
-        public static Cost Ramp(Cost c, float m)
-        {
-            if (m == 1f) return c;
-            return Cost.Of(
-                supplies:  (int)System.Math.Round(c.Supplies  * (double)m),
-                iron:      (int)System.Math.Round(c.Iron      * (double)m),
-                veilstone: (int)System.Math.Round(c.Veilstone * (double)m));
-        }
-
-        /// <summary>The build price of a new post at <paramref name="slot"/>.</summary>
-        public static Cost RampedBuildCost(EntityManager em, Faction faction, float3 slot, Cost baseCost)
-            => Ramp(baseCost, RampMultiplier(RampIndexForNewPost(em, faction, slot)));
-
         /// <summary>A post's own place in its outcrop's ramp — fixed when its
         /// ground was broken (<see cref="TradingOutpostSite.RampIndex"/>).</summary>
         public static int RampIndexOf(EntityManager em, Entity post)
@@ -389,14 +367,6 @@ namespace TheWaningBorder.Entities
             return TryGetOutcropOf(em, p.x, p.z, out _, out var op, out _)
                 ? CountPostsAt(em, op, post) : 0;
         }
-
-        /// <summary>A level-up price on this post: the level SO's price times
-        /// the post's ramp multiplier. NOT USED since 2026-10-19: building
-        /// levels are faction-wide per type, so a level's price cannot depend
-        /// on which post its clock runs on — the ramp prices building a post
-        /// only (UpgradeBuildingCommandHelper.TryGetLevelCost).</summary>
-        public static Cost RampedUpgradeCost(EntityManager em, Entity post, Cost baseCost)
-            => Ramp(baseCost, RampMultiplier(RampIndexOf(em, post)));
 
         /// <summary>The site record for a post standing at <paramref name="at"/>.</summary>
         public static TradingOutpostSite SiteFor(EntityManager em, Entity post, float3 at)

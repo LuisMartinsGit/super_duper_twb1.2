@@ -98,6 +98,20 @@ namespace TheWaningBorder.Systems.Economy
             return def != null && def.tradeRateMultiplier > 0f ? def.tradeRateMultiplier : 1f;
         }
 
+        /// <summary>The faction's Trading Outpost research (decision 49): Merchant
+        /// Houses replaces Trade Ledgers; 1 with neither.</summary>
+        public static float ResearchMultiplier(Faction faction)
+        {
+            var cfg = Cfg;
+            var r = TheWaningBorder.Economy.FactionResearchState.Instance;
+            if (cfg == null || r == null) return 1f;
+            if (!string.IsNullOrEmpty(cfg.merchantHousesTech) && r.HasResearched(faction, cfg.merchantHousesTech))
+                return cfg.merchantHousesMultiplier > 0f ? cfg.merchantHousesMultiplier : 1f;
+            if (!string.IsNullOrEmpty(cfg.ledgersTech) && r.HasResearched(faction, cfg.ledgersTech))
+                return cfg.ledgersMultiplier > 0f ? cfg.ledgersMultiplier : 1f;
+            return 1f;
+        }
+
         /// <summary>The base per-minute trickle beside a node of this kind.</summary>
         public static float BaseRate(OutpostSites.NodeKind kind)
         {
@@ -129,7 +143,8 @@ namespace TheWaningBorder.Systems.Economy
             if (!OutpostSites.TryGetLiveNode(em, p.x, p.z, faction, out var node, out var kind)) return y;
             float rate = BaseRate(kind)
                          * TerritoryResources.PurityMultiplier(em, node)
-                         * LevelMultiplier(em, outpost);
+                         * LevelMultiplier(em, outpost)
+                         * ResearchMultiplier(faction);
             switch (kind)
             {
                 case OutpostSites.NodeKind.Supply: y.Supplies = rate; break;

@@ -91,6 +91,35 @@ same, and a tier simply works fewer of the nodes it holds.
   `SimpleAISystem.Extractors.cs` (`ExtractorShareRoom`), read by the extractor walk and the hut
   pipeline.
 
+### 2h. The trade comes first (2026-11-10, decision 50)
+
+The first grace-window test: Expert never researched Trade Charters (its iron went to early
+Mine levels, and the research waited on the wallet split for 40 minutes), and Hard's rescue
+posts were refused by the open-site cap. Now: **Trade Charters, Trade Ledgers and Merchant
+Houses are bought from the bank** when the wallet split refuses them, and Trade Charters is a
+strict savings goal until researched; **early extractor levels wait for Trade Charters** (no
+Mine level before posts can hold its node); **a grace-rescue post passes the open-site cap**,
+like a lost trainer's rebuild.
+
+### 2g. Late iron (2026-11-10, decision 49)
+
+The 0.0.82 rerun moved the stall from veilstone to iron: Mines run dry at about minute 25 and
+iron fell from ~880/min to ~360/min. Trading Outposts now carry a node's income after its Mine
+(their trickle climbs with level and with the Trade Ledgers / Merchant Houses research, both on
+the economy research ladder and wallet), and **Hard and Expert level Mines and Trading Outposts
+early** (`earlyExtractorLevels`): `AIBuildingUpgradeSystem.TryEconomyUpgrade` skips the level
+clock and the value gate for the Mine, Veilstone Mine and Trading Outpost on those tiers.
+
+### 2f. Veilstone-starved armies (2026-11-10, decision 48)
+
+The 0.0.81 Moatwatch game (1 human, 3 Normal AIs) and its traced rerun: every AI sat on
+20-45k supplies with veilstone near 0 and an army frozen at 40-70, because the line units were
+priced in veilstone and the basics cap held the rest. The fix is in the economy (decision 48:
+line units cost no veilstone, Veilstone Mine levels are a real ladder); on the AI side the
+army plan's veilstone ladder scale (`EconScale`) now holds back only units whose SO price
+includes veilstone (`CostsVeilstone`), and `AIBuildingUpgradeSystem` levels the Veilstone Mine
+in its economy rotation (Guild, Trading Outpost, Mine, Veilstone Mine).
+
 ### 2e. The 0.0.80 stall pass (2026-11-10)
 
 The 36-match batch on 0.0.80 showed the tier ladder in order, but only 13 of the 36 matches

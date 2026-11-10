@@ -62,6 +62,25 @@ namespace TheWaningBorder.Systems.World
 
         static readonly ComponentType[] QT_FinishedPosts = { ComponentType.ReadOnly<TradingOutpostSite>(), ComponentType.ReadOnly<TradingOutpostTag>(), ComponentType.Exclude<UnderConstruction>() };
         static CachedEntityQuery QC_FinishedPosts;
+        static readonly ComponentType[] QT_AnyPosts = { ComponentType.ReadOnly<TradingOutpostSite>(), ComponentType.ReadOnly<TradingOutpostTag>() };
+        static CachedEntityQuery QC_AnyPosts;
+
+        /// <summary>Does any Trading Outpost — finished or still rising — stand
+        /// beside the node at p? A node whose grace ran out waits for a post
+        /// under construction (decision 50).</summary>
+        public static bool HasAnyPostBeside(EntityManager em, float3 p)
+        {
+            var q = QC_AnyPosts.Get(em, QT_AnyPosts);
+            if (q.IsEmptyIgnoreFilter) return false;
+            using var sites = q.ToComponentDataArray<TradingOutpostSite>(Allocator.Temp);
+            for (int i = 0; i < sites.Length; i++)
+            {
+                if (sites[i].Side == TheWaningBorder.Entities.TradingOutpost.OnOutcrop) continue;
+                float dx = sites[i].OutcropX - p.x, dz = sites[i].OutcropZ - p.z;
+                if (dx * dx + dz * dz <= OutpostMatch * OutpostMatch) return true;
+            }
+            return false;
+        }
 
         /// <summary>Does a finished Trading Outpost (any owner) stand beside the
         /// node at p? The income census's own test (finished posts only).</summary>
@@ -114,19 +133,51 @@ namespace TheWaningBorder.Systems.World
                 // extractor collapses, its posts keep paying. A node with no
                 // post collapses (at zero, or at once when the last post of a
                 // held node falls).
+                // THE GRACE WINDOW (2026-11-10, decision 50): a node that runs
+                // dry with no post beside it is not destroyed at once. Its
+                // extractor collapses and the node stays alive for
+                // depletedGraceSeconds, accepting Trading Outposts (and no
+                // extractor). A finished post in that time holds it like any
+                // other; at the end of the window it collapses — unless a post
+                // is still rising beside it, which it waits for.
                 var spent = new NativeList<int>(Allocator.Temp);
                 var held = new NativeList<int>(Allocator.Temp);
+                var graceStart = new NativeList<int>(Allocator.Temp);
+                float now = SimClock.Now;
                 for (int i = 0; i < ents.Length; i++)
                 {
                     if (res[i].Initial <= 0f || res[i].Remaining > HeldReserve + HeldEpsilon) continue;
-                    if (res[i].Remaining > 0f && HasPostBeside(em, xfs[i].Position)) held.Add(i);
-                    else spent.Add(i);
+                    var e = ents[i];
+                    bool wasHeld = em.HasComponent<NodeTradeHeld>(e);
+                    bool inGrace = em.HasComponent<NodeDepletedGrace>(e);
+                    bool post = HasPostBeside(em, xfs[i].Position);
+                    if (post && (res[i].Remaining > 0f || inGrace || wasHeld)) { held.Add(i); continue; }
+                    if (wasHeld) { spent.Add(i); continue; }   // its last post fell
+                    if (!inGrace) { graceStart.Add(i); continue; }
+                    if (now < em.GetComponentData<NodeDepletedGrace>(e).Until) continue;
+                    if (HasAnyPostBeside(em, xfs[i].Position)) continue;   // a post is rising: wait for it
+                    spent.Add(i);
                 }
+                float grace = TerritoryIncomeSystemConfig.I != null ? TerritoryIncomeSystemConfig.I.depletedGraceSeconds : 0f;
+                for (int s = 0; s < graceStart.Length; s++)
+                {
+                    int i = graceStart[s];
+                    float3 p = xfs[i].Position;
+                    if (grace <= 0f) { spent.Add(i); continue; }
+                    em.AddComponentData(ents[i], new NodeDepletedGrace { Until = now + grace });
+                    int before = _killed;
+                    int collapsed = CollapseWorkers(em, kind, p, xfs);
+                    UnityEngine.Debug.Log($"[NodeCollapse] {KindName(kind)} node at ({p.x:0},{p.z:0}) ran dry — " +
+                                          $"{_killed - before} extractor(s) collapsed, {grace:0}s to raise a Trading Outpost");
+                    NotifyGrace(kind, p, collapsed, grace);
+                }
+                graceStart.Dispose();
                 for (int s = 0; s < held.Length; s++)
                 {
                     int i = held[s];
                     float3 p = xfs[i].Position;
                     if (!em.HasComponent<NodeTradeHeld>(ents[i])) em.AddComponent<NodeTradeHeld>(ents[i]);
+                    if (em.HasComponent<NodeDepletedGrace>(ents[i])) em.RemoveComponent<NodeDepletedGrace>(ents[i]);
                     int before = _killed;
                     int collapsed = CollapseWorkers(em, kind, p, xfs);
                     if (_killed == before) continue;
@@ -228,6 +279,21 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>Tell the local player when a node in their ground runs dry.
         /// Presentation only.</summary>
+        private static void NotifyGrace(int kind, float3 p, int localCollapsed, float grace)
+        {
+            int t = RegionMap.Ready ? RegionMap.RegionAt(p.x, p.z) : -1;
+            bool ours = !GameSettings.IsSpectating && t >= 0
+                        && TerritoryOwnership.Ready
+                        && TerritoryOwnership.OwnerOf(t) == (int)GameSettings.LocalPlayerFaction;
+            if (!ours && localCollapsed == 0) return;
+            var L = (System.Func<string, string>)TheWaningBorder.Core.Localization.Loc.T;
+            string what = kind == KindSupply ? L("A supply node") : kind == KindIron ? L("An iron node") : L("A veilstone outcrop");
+            string where = t >= 0 ? RegionMap.NameOf(t) : L("the wilds");
+            SimSignals.Notify(string.Format(
+                L("{0} in {1} ran dry — raise a Trading Outpost beside it within {2} minutes or it is lost"),
+                what, where, (int)System.Math.Round(grace / 60f)));
+        }
+
         private static void Notify(int kind, float3 p, int localCollapsed, bool heldByTrade)
         {
             int t = RegionMap.Ready ? RegionMap.RegionAt(p.x, p.z) : -1;
@@ -246,6 +312,11 @@ namespace TheWaningBorder.Systems.World
         }
     }
 }
+
+/// <summary>A node that ran dry with no Trading Outpost beside it: alive
+/// until <see cref="Until"/> (sim seconds), accepting posts and no extractor
+/// (Territory_Claims.md § 11.3, decision 50).</summary>
+public struct NodeDepletedGrace : IComponentData { public float Until; }
 
 /// <summary>A node held at its last unit by the Trading Outposts beside it
 /// (Territory_Claims.md § 11.3, 2026-11-10). No extractor may be placed on it.</summary>

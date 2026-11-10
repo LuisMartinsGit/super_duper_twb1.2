@@ -55,7 +55,8 @@ namespace TheWaningBorder.World.Regions
             {
                 box = new TypedQuery
                 {
-                    Types = new[] { tag, ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeTradeHeld>() },
+                    Types = new[] { tag, ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeTradeHeld>(),
+                                    ComponentType.Exclude<NodeDepletedGrace>() },
                 };
                 _workable[tag.TypeIndex] = box;
             }

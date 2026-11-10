@@ -92,6 +92,10 @@ namespace TheWaningBorder.UI.Ingame
             // Feraldis Forge bays and totem rites (docs/Design/Age_1_Feraldis.md).
             if (TheWaningBorder.UI.Data.FeraldisActions.TryExecute(em, entity, b.Id)) return;
 
+            // Walls, gates, the hut's age-up choice, Replace Equipment
+            // (ActionsPanelPrefabBinder.Special.cs).
+            if (ExecuteSpecial(em, entity, b)) return;
+
             // Monuments_And_Petriarchy.md: explore, Petriarchy support, the army.
             if (b.Id == "Monument_Explore" && em.HasComponent<MonumentState>(entity))
             {

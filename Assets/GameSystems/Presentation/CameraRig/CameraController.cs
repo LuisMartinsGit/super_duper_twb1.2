@@ -128,7 +128,12 @@ namespace TheWaningBorder.CameraRig
         {
             Vector3 currentPos = transform.position;
             Vector3 targetPos = new Vector3(_targetPosition.x, currentPos.y, _targetPosition.z);
-            Vector3 newPos = Vector3.SmoothDamp(currentPos, targetPos, ref _velocity, Cfg.moveDamping);
+            // Real time throughout: the smoothing's default clock is the scaled
+            // Time.deltaTime, so a replay's speed (Time.timeScale) dragged or
+            // rushed every camera move.
+            float dt = Time.unscaledDeltaTime;
+            Vector3 newPos = Vector3.SmoothDamp(currentPos, targetPos, ref _velocity, Cfg.moveDamping,
+                                                Mathf.Infinity, dt);
 
             if (Cfg.followTerrain)
             {
@@ -142,7 +147,7 @@ namespace TheWaningBorder.CameraRig
                 if (!float.IsNaN(sampled) && !float.IsInfinity(sampled))
                     _targetHeight = sampled;
                 _currentHeight = Mathf.SmoothDamp(_currentHeight, _targetHeight,
-                                                  ref _heightVelocity, Cfg.heightDamping);
+                                                  ref _heightVelocity, Cfg.heightDamping, Mathf.Infinity, dt);
                 newPos.y = _currentHeight;
             }
             else
@@ -164,11 +169,11 @@ namespace TheWaningBorder.CameraRig
 
             // Yaw
             _currentRotation = Mathf.SmoothDampAngle(_currentRotation, _targetRotation,
-                                                     ref _rotationVelocity, Cfg.rotationDamping);
+                                                     ref _rotationVelocity, Cfg.rotationDamping, Mathf.Infinity, dt);
             transform.rotation = Quaternion.Euler(0f, _currentRotation, 0f);
 
             // Zoom
-            _currentZoom = Mathf.SmoothDamp(_currentZoom, _targetZoom, ref _zoomVelocity, Cfg.zoomDamping);
+            _currentZoom = Mathf.SmoothDamp(_currentZoom, _targetZoom, ref _zoomVelocity, Cfg.zoomDamping, Mathf.Infinity, dt);
 
             // TILT
             float zoom01 = Cfg.maxZoom > Cfg.minZoom
@@ -347,7 +352,9 @@ namespace TheWaningBorder.CameraRig
             Vector3 right = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
 
             _targetPosition += (forward * dir.z + right * dir.x).normalized
-                             * Cfg.edgeScrollSpeed * Time.deltaTime;
+                             // Unscaled, like the key pan: a replay's speed
+                             // (Time.timeScale) must never move the camera.
+                             * Cfg.edgeScrollSpeed * Time.unscaledDeltaTime;
             ClampPositionToBounds(ref _targetPosition);
         }
         /// <summary>

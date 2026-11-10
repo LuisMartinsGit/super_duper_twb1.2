@@ -8,10 +8,20 @@
 //                   (Alanthor purify / Runai pacify / Feraldis destroy)
 //   Step_Military — 3B: destroy all other players
 // Step states: pending = dim, active = white, done = dim + strikethrough.
+//
+// COLLAPSIBLE AND OUT OF THE WAY (2026-11-10, developer: it sat in front of
+// the income breakdown). Clicking the title bar folds the panel to a small
+// tab — the title alone — and back; the choice holds for the rest of the
+// session (a static, not a save). Collapsed or not, the panel lines itself
+// up to the RIGHT of the economy panel's header (EconomyPanel, the
+// per-territory income breakdown on the left edge), every frame, from that
+// header's on-screen rect: the two live on canvases that scale differently,
+// so an authored offset could not keep them apart at every HUD scale.
 
 using TMPro;
 using Unity.Entities;
 using UnityEngine;
+using UnityEngine.UI;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Entities;
@@ -28,6 +38,25 @@ namespace TheWaningBorder.UI.Ingame
         private TMP_Text _stepSpecial, _stepCulture, _stepTemple, _stepMilitary;
         private float _timer;
         private bool _visible = true;
+
+        // ── Collapse (session state) and placement ────────────────────────
+
+        /// <summary>Folded to its title tab. Static: holds for the session.</summary>
+        private static bool _collapsed;
+        /// <summary>Collapsed tab: the title band's height (panel units), and its width.</summary>
+        private const float CollapsedHeight = 68f;
+        private const float CollapsedWidth = 330f;
+        /// <summary>Gap to the economy header, as a share of that header's height.</summary>
+        private const float EconomyGapShare = 0.35f;
+
+        private static readonly string[] StepNodes =
+            { "Step_Special", "Step_Culture", "Step_Temple", "Step_Military" };
+
+        private RectTransform _rect;
+        private Vector2 _authoredSize;
+        private TMP_Text _arrow;
+        private GameObject[] _steps;
+        private Vector3 _placedAt = new Vector3(float.NaN, 0f, 0f);
 
         private static readonly Color Active = new Color(0.92f, 0.90f, 0.84f);
         private static readonly Color Done   = new Color(0.55f, 0.62f, 0.55f);
@@ -73,6 +102,72 @@ namespace TheWaningBorder.UI.Ingame
             _stepMilitary = FindLabel("Step_Military");
             if (_stepSpecial == null)
                 TWBLog.Log("[GameUI] ObjectivesPanel: step nodes not found — check prefab names.");
+
+            _rect = (RectTransform)transform;
+            _authoredSize = _rect.sizeDelta;
+            _steps = new GameObject[StepNodes.Length];
+            for (int i = 0; i < StepNodes.Length; i++)
+            {
+                var node = TheWaningBorder.UI.Ingame.GameUIKit.FindDeep(transform, StepNodes[i]);
+                _steps[i] = node != null ? node.gameObject : null;
+            }
+            BuildToggle();
+            ApplyCollapse();
+        }
+
+        /// <summary>The title bar becomes the fold toggle: a transparent hit
+        /// area over it and a ▾ / ▸ marker at its left end.</summary>
+        private void BuildToggle()
+        {
+            var title = TheWaningBorder.UI.Ingame.GameUIKit.FindDeep(transform, "Title") as RectTransform;
+            if (title == null)
+            {
+                TWBLog.Log("[GameUI] ObjectivesPanel: no \"Title\" node — the panel cannot fold.");
+                return;
+            }
+            var hit = TheWaningBorder.UI.Ingame.GameUIKit.Image(title, "FoldToggle",
+                new Color(0f, 0f, 0f, 0f), raycast: true);
+            TheWaningBorder.UI.Ingame.GameUIKit.Stretch(hit.rectTransform);
+            var relay = TheWaningBorder.UI.Ingame.UITooltip.Relay(hit.gameObject);
+            relay.OnLeftClick = () => { _collapsed = !_collapsed; ApplyCollapse(); };
+            TheWaningBorder.UI.Ingame.UITooltip.Bind(hit.gameObject,
+                () => _collapsed ? Loc.T("Show the objectives") : Loc.T("Hide the objectives"));
+
+            _arrow = TheWaningBorder.UI.Ingame.GameUIKit.Text(title, "FoldArrow", "", 30f,
+                new Color(1f, 0.86f, 0.55f), TextAlignmentOptions.Left, wrap: false);
+            var ar = _arrow.rectTransform;
+            ar.anchorMin = new Vector2(0f, 0f);
+            ar.anchorMax = new Vector2(0f, 1f);
+            ar.pivot = new Vector2(0f, 0.5f);
+            ar.anchoredPosition = new Vector2(10f, 0f);
+            ar.sizeDelta = new Vector2(40f, 0f);
+        }
+
+        /// <summary>Folded: the title tab only. Open: the authored panel.</summary>
+        private void ApplyCollapse()
+        {
+            bool open = !_collapsed && _visible;
+            if (_steps != null)
+                foreach (var s in _steps)
+                    if (s != null && s.activeSelf != open) s.SetActive(open);
+            if (_rect != null)
+                _rect.sizeDelta = _collapsed
+                    ? new Vector2(Mathf.Min(CollapsedWidth, _authoredSize.x), Mathf.Min(CollapsedHeight, _authoredSize.y))
+                    : _authoredSize;
+            if (_arrow != null) _arrow.text = _collapsed ? "▸" : "▾";
+        }
+
+        /// <summary>Beside the economy header, top edges level, every frame
+        /// (only moved when the spot changes).</summary>
+        private void LateUpdate()
+        {
+            if (_rect == null || !EconomyPanel.TryGetHeaderScreenRect(out var header)) return;
+            var at = new Vector3(header.xMax + header.height * EconomyGapShare, header.yMax, 0f);
+            if (at == _placedAt) return;
+            _placedAt = at;
+            // Overlay canvas: world space is screen pixels, and the panel's
+            // pivot is its top-left corner.
+            _rect.position = at;
         }
 
         private TMP_Text FindLabel(string node)
@@ -103,6 +198,7 @@ namespace TheWaningBorder.UI.Ingame
                 _visible = ok;
                 foreach (Transform child in transform)
                     if (child.gameObject.activeSelf != ok) child.gameObject.SetActive(ok);
+                ApplyCollapse();
             }
             if (!ok) return;
 

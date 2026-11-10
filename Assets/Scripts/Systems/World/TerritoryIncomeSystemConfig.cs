@@ -25,6 +25,9 @@ namespace TheWaningBorder.Systems.World
         // ── node reserves (§ 11.3) ───────────────────────────────────────
 
         /// <summary>Units a fresh supply node can pay out.</summary>
+        /// <summary>Seconds a node that ran dry with no Trading Outpost beside it
+        /// stays alive and accepts posts (Territory_Claims.md 11.3, decision 50).</summary>
+        public float depletedGraceSeconds;
         public float supplyNodeReserve;
 
         /// <summary>Units a fresh iron node can pay out.</summary>

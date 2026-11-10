@@ -38,7 +38,17 @@ namespace TheWaningBorder.Systems.Visibility
         /// tick's truth. 4 Hz cuts the cost by an order of magnitude with
         /// no visible change at the fog edge.</summary>
         private const float RevealInterval = 0.25f;
-        private float _nextReveal;
+        /// <summary>The cadence while a replay seeks (the sim runs flat out,
+        /// many ticks a frame): the explored trail is still laid, without a
+        /// fog pass every few ticks.</summary>
+        private const float RevealIntervalSeeking = 2f;
+        /// <summary>MATCH time (the world clock, which a saved game restores) —
+        /// never the application clock. It was Time.unscaledTime until
+        /// 2026-11-10: restored from a save made late in a long session, it
+        /// lay minutes in the future of a fresh launch and the reveal pass
+        /// did not run (no building sight, an explored map the overlay never
+        /// received). docs/Design/Replays_And_Saves.md § Clocks</summary>
+        private double _nextReveal;
 
         private EntityQuery _staticQuery;
         private EntityQuery _mobileQuery;
@@ -134,12 +144,18 @@ namespace TheWaningBorder.Systems.Visibility
             mgr.SetLiveSight(mobiles, mobiles.Length);
             int unitCount = mobiles.Length;
 
-            if (UnityEngine.Time.unscaledTime < _nextReveal)
+            double now = SystemAPI.Time.ElapsedTime;
+            float interval = TheWaningBorder.Core.Replay.ReplaySession.FastForwarding
+                ? RevealIntervalSeeking : RevealInterval;
+            // A match clock that restarted (a second match in this process)
+            // must not leave the throttle parked in the future.
+            if (_nextReveal - now > interval * 2) _nextReveal = now;
+            if (now < _nextReveal)
             {
                 mobiles.Dispose();
                 return;
             }
-            _nextReveal = UnityEngine.Time.unscaledTime + RevealInterval;
+            _nextReveal = now + interval;
 
             // Cartography: held territories are seen whole (before the
             // static-layer reuse test - a changed set forces its rebuild).

@@ -217,6 +217,15 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_MineUpgradeable;
 
+        // The Veilstone Mine levels (2026-11-10, decision 48: a real income ladder).
+        static readonly ComponentType[] QT_VeilstoneMineUpgradeable =
+        {
+            ComponentType.ReadOnly<VeilstoneMineTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_VeilstoneMineUpgradeable;
+
         #endregion
 
         #region Tuning
@@ -379,7 +388,7 @@ namespace TheWaningBorder.AI
                 // ECONOMY LEVELS FIRST (Game_AI.md 5h): a level is income,
                 // which is what the army is waiting on.
                 for (int e = 0; e < profile.EconomyUpgradesPerThink && AIPacing.LevelUpTurn(em, faction); e++)
-                    if (!TryEconomyUpgrade(em, faction, e, profile.ArmyBeforeSaves))
+                    if (!TryEconomyUpgrade(em, faction, e, profile.ArmyBeforeSaves, profile.EarlyExtractorLevels))
                         break;
             }
         }
@@ -387,7 +396,7 @@ namespace TheWaningBorder.AI
         /// <summary>The economy ladders TryEconomyUpgrade rotates through, in
         /// pass order (index = the query it picks a host from).</summary>
         private static readonly string[] EconomyLevelIds =
-            { "GatherersHut", "Alanthor_TradingOutpost", "Mine" };
+            { "GatherersHut", "Alanthor_TradingOutpost", "Mine", "VeilstoneMine" };
 
         /// <summary>AIPivotalReserve key of the capital's next level.</summary>
         private const string CapitalReserveKey = "CapitalLevel";
@@ -410,7 +419,7 @@ namespace TheWaningBorder.AI
         /// army's veilstone earmark.
         /// </summary>
         private static bool TryEconomyUpgrade(EntityManager em, Faction faction, int pass,
-            bool incomeOutranksPot)
+            bool incomeOutranksPot, bool earlyExtractorLevels = false)
         {
             for (int k = 0; k < EconomyLevelIds.Length; k++)
             {
@@ -421,12 +430,22 @@ namespace TheWaningBorder.AI
                     ? QC_GathererHutUpgradeableNotRaider.Get(em, QT_GathererHutUpgradeableNotRaider)
                     : kind == 1
                         ? QC_TradingOutpostUpgradeable.Get(em, QT_TradingOutpostUpgradeable)
-                        : QC_MineUpgradeable.Get(em, QT_MineUpgradeable));
+                        : kind == 2
+                            ? QC_MineUpgradeable.Get(em, QT_MineUpgradeable)
+                            : QC_VeilstoneMineUpgradeable.Get(em, QT_VeilstoneMineUpgradeable));
                 if (best == Entity.Null) continue;
                 if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var cost, out byte next)) continue;
                 if (next <= 1) continue;   // L1 is the free age-up level
-                if (!AIPacing.LevelAllowed(em, faction, next)) continue;
-                if (!ValueGate(em, faction, best, cost, Cfg.soldiersPerEconomyBuilding, surplus: false)) continue;
+                // EARLY EXTRACTOR LEVELS (decision 49, Hard / Expert): a Mine or a
+                // Trading Outpost levels past the level clock and the value gate,
+                // so the node pays at full level -- and its posts at full trickle --
+                // before it runs dry.
+                // ...but only once Trade Charters is in (decision 50): levelling a
+                // Mine before posts can hold its node just empties it sooner.
+                bool early = earlyExtractorLevels && (id == "Mine" || id == "Alanthor_TradingOutpost" || id == "VeilstoneMine")
+                             && TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction);
+                if (!early && !AIPacing.LevelAllowed(em, faction, next)) continue;
+                if (!early && !ValueGate(em, faction, best, cost, Cfg.soldiersPerEconomyBuilding, surplus: false)) continue;
                 // Outside the budget's lump-sum reservation (the Fortress pot,
                 // Game_AI.md 5c): a level paid from the bank directly used
                 // to spend it on every release of the pivotal hold.

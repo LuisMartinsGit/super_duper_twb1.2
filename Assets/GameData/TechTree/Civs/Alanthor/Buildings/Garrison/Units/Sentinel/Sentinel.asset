@@ -32,9 +32,9 @@ MonoBehaviour:
   lineOfSight: 18
   radius: 0.5
   cost:
-    Supplies: 120
-    Iron: 0
-    Crystal: 89
+    Supplies: 270
+    Iron: 50
+    Crystal: 30
   populationCost: 2
   minBuildingLevel: 3
   buildSpeed: 0

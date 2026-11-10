@@ -599,8 +599,9 @@ the code currently does, often pre-design-pass) lives in
   per the co-location rule above.
 
   **`UI/Ingame/Panels/` now holds only panels with NO authored prefab yet**
-  (TopChoiceBar, ActionsPanelBinder, SpellsPanelBinder, PauseMenuPanel,
-  VictoryPanel, WorkerPanelBinder). A panel graduates out of `UI/` the moment
+  (TopChoiceBar, SpellsPanelBinder, PauseMenuPanel, VictoryPanel). The code-built
+  ActionsPanelBinder and WorkerPanelBinder are gone (2026-11-10): every building, the Vault,
+  walls, gates and towers included, uses the authored ActionsPanelPrefabBinder. A panel graduates out of `UI/` the moment
   its prefab exists. `UI/Data`, `UI/Common` and `UI/World` are NOT panels and
   stay put.
 

@@ -39,12 +39,12 @@
 //   the live layers ported from the retired MinimapRenderer — FoW dimming,
 //   faction/resource/ritual blips, camera view rectangle, click-to-snap
 //   and right-click move orders (MinimapPanelBinder).
-// - ACTIONS PANEL: when GameUICatalog.actionsPanel is assigned, the AUTHORED
-//   3x5 grid (ActionsPanelPrefabBinder) serves the worker palette and the
-//   building train/research rows; the code-built ActionsPanelBinder then only
-//   covers the special selections (vault, walls, hut age-up, bazaar wagon,
-//   temple upgrade lever). Unassigned -> the code-built actions panel and
-//   worker palette (WorkerPanelBinder) render everything as before.
+// - ACTIONS PANEL: the AUTHORED 3x5 grid (GameUICatalog.actionsPanel,
+//   ActionsPanelPrefabBinder) is the one actions panel for every selection:
+//   the worker palette, unit formations and stances, and every building —
+//   walls, gates, the Vault and the hut age-up choice included (2026-11-10).
+//   The code-built ActionsPanelBinder / WorkerPanelBinder fallbacks are gone;
+//   an unassigned catalog entry is a loud data error.
 // - TOP CHOICE BAR: special-building choice buttons (Vault /
 //   Keep, until one is started), plus the authored CultureSelection
 //   prefabs — the "SELECT CULTURE" pill and the culture selection menu
@@ -358,26 +358,19 @@ namespace TheWaningBorder.UI.Ingame
 
             if (catalog.actionsPanel != null)
             {
-                // Authored 3x5 actions grid: worker palette + building
-                // train/research rows (ActionsPanelPrefabBinder). The code-
-                // built panel stays alive for the selections the authored
-                // grid doesn't cover (vault, wall conversions, hut age-up,
-                // bazaar wagon, temple upgrade lever) — it hides itself for
-                // the grids via ActionsPanelPrefabBinder.Active.
+                // The authored 3x5 actions grid (ActionsPanelPrefabBinder):
+                // the ONE actions panel — worker palette, unit formations and
+                // every building's actions, research and level-up, the special
+                // buildings (walls, gates, Vault, hut age-up) included.
                 // Parented into the bottom-left dock like the staging scene
                 // so it aligns flush with the resource/stats/roster row.
                 var actionsPanel = SpawnPanel(catalog.actionsPanel, "GameUI_ActionsPanel",
                     _bottomLeftDock);
                 actionsPanel.AddComponent<ActionsPanelPrefabBinder>().Init(_symbols);
-                SpawnCodeBuilt<ActionsPanelBinder>("GameUI_SpecialActionsPanel");
             }
             else
-            {
-                // Code-built fallbacks (GameUIKit theme) while no authored
-                // actions panel is assigned in the catalog.
-                SpawnCodeBuilt<ActionsPanelBinder>("GameUI_ActionsPanel");
-                SpawnCodeBuilt<WorkerPanelBinder>("GameUI_WorkerPanel");
-            }
+                Debug.LogError("[GameUI] GameUICatalog.actionsPanel is unassigned - no actions panel. " +
+                    "Assign Assets/GameData/Scenes/Menus/GameUI/ActionsPanel/ActionsPanel.prefab.");
             // Top-center choice flow: the controller is always code-spawned;
             // it drives the authored menus (special cluster, culture menu,
             // culture button pill). Menus spawn top-level under the host

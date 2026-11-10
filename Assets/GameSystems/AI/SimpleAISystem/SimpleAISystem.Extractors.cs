@@ -151,8 +151,91 @@ namespace TheWaningBorder.AI
         /// One per attempt: each is a real purchase, and building four at once
         /// is how the economy wallet empties and unit production stops.
         /// </summary>
+        // ── THE GRACE RESCUE (2026-11-10, decision 50) ───────────────────
+        // A node that ran dry with no Trading Outpost beside it lives for
+        // depletedGraceSeconds and takes posts. Holding it is the cheapest
+        // income left on the map, so this runs FIRST, every couple of
+        // seconds, past the extractor share, the surplus test and the walk's
+        // cadence: one post beside every own node in its window, saved for
+        // strictly when the bank is short.
+        static readonly ComponentType[] QT_GraceNodes =
+        {
+            ComponentType.ReadOnly<NodeDepletedGrace>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_GraceNodes;
+        private readonly Dictionary<int, float> _nextGraceRescue = new Dictionary<int, float>();
+        private const string GraceRescueReserveKey = "TradingOutpostRescue";
+        /// <summary>True only while the grace rescue places a post: the open-site
+        /// cap lets it through (SimpleAISystem.Building).</summary>
+        private bool _graceRescueBuild;
+        /// <summary>Seconds between rescue scans. Loop pacing, not tuning.</summary>
+        private const float GraceRescueInterval = 2f;
+
+        private bool TryRescueDepletedNodes(EntityManager em, Faction faction, float now)
+        {
+            if (CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor) return false;
+            if (!TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction)) return false;
+            int key = (int)faction;
+            if (_nextGraceRescue.TryGetValue(key, out float due) && now < due && due - now <= GraceRescueInterval) return false;
+            _nextGraceRescue[key] = now + GraceRescueInterval;
+
+            var q = QC_GraceNodes.Get(em, QT_GraceNodes);
+            if (q.IsEmptyIgnoreFilter) { AIPivotalReserve.Clear(faction, GraceRescueReserveKey); return false; }
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            const string id = OutpostSites.BuildingId;
+            var snap = TheWaningBorder.Core.Commands.Types.BuildSiteSnapshot.Current(em);
+            int2 size = BuildingSizeConfig.GetSize(id);
+            bool wanted = false;
+            for (int i = 0; i < xfs.Length; i++)
+            {
+                float3 np = xfs[i].Position;
+                if (TerritoryOwnership.OwnerAt(np.x, np.z) != (int)faction) continue;
+                if (TheWaningBorder.Systems.World.NodeCollapse.HasAnyPostBeside(em, np)) continue;
+                // A plan of ours already on one of its sides: a worker is on the way.
+                bool planned = false;
+                for (int s = 0; s < OutpostSites.SideCount && !planned; s++)
+                    planned = TheWaningBorder.Entities.PlannedBuildings.OverlapsOwnPlan(em, faction, OutpostSites.SideSlot(np, s), size);
+                if (planned) continue;
+
+                for (int s = 0; s < OutpostSites.SideCount; s++)
+                {
+                    var slot = OutpostSites.SideSlot(np, s);
+                    if (OutpostSites.SlotTaken(em, slot)) continue;
+                    if (TerritoryOwnership.OwnerAt(slot.x, slot.z) != (int)faction) continue;
+                    if (!snap.IsValidBuildPosition(em, slot, size, id)) continue;
+                    wanted = true;
+                    var cost = BuildCosts.For(em, faction, id, slot);
+                    if (!FactionEconomy.CanAfford(em, faction, cost))
+                    {
+                        AIPivotalReserve.Set(faction, GraceRescueReserveKey, cost, strict: true);
+                        AILogger.Log(faction, "EXTRACT", $"grace rescue: saving for a post beside the spent node at ({np.x:F0},{np.z:F0})");
+                        return false;
+                    }
+                    bool placed;
+                    string why;
+                    _graceRescueBuild = true;
+                    try { placed = TryBuildBuildingWithReason(em, faction, id, out why, slot); }
+                    finally { _graceRescueBuild = false; }
+                    if (placed)
+                    {
+                        AIPivotalReserve.Clear(faction, GraceRescueReserveKey);
+                        AILogger.Log(faction, "EXTRACT", $"grace rescue: Trading Outpost beside the spent node at ({np.x:F0},{np.z:F0})");
+                        return true;
+                    }
+                    if (AILogger.Enabled)
+                        AILogger.Log(faction, "EXTRACT", $"grace rescue: post refused at ({slot.x:F0},{slot.z:F0}): {why}");
+                }
+            }
+            if (!wanted) AIPivotalReserve.Clear(faction, GraceRescueReserveKey);
+            return false;
+        }
+
         private void EnsureExtractors(EntityManager em, Faction faction, float now)
         {
+            // Spent nodes in their grace window first (decision 50).
+            TryRescueDepletedNodes(em, faction, now);
+
             if (!RegionMap.Ready || !TerritoryOwnership.Ready) return;
 
             int key = (int)faction;
@@ -600,14 +683,20 @@ namespace TheWaningBorder.AI
                 int ramp = OutpostSites.RampIndexForNewPost(em, faction, best);
                 if (ramp >= OutpostSites.SideCount) continue;
                 int safe = 0;   // a post no longer falls with its node (decision 45): every node is safe
-                int kind = node.Kind == OutpostSites.NodeKind.Veilstone ? 0
-                         : node.Kind == OutpostSites.NodeKind.Iron ? 1 : 2;
+                // A node in its grace window first (decision 50), then iron,
+                // veilstone, supply: iron is the late game's scarce resource.
+                int kind = em.HasComponent<NodeDepletedGrace>(node.Entity) ? -1
+                         : node.Kind == OutpostSites.NodeKind.Iron ? 0
+                         : node.Kind == OutpostSites.NodeKind.Veilstone ? 1 : 2;
                 _outpostSlots.Add((best, ramp, safe, kind, bestD2));
             }
 
             _outpostSlots.Sort((a, b) =>
             {
-                int c = a.Ramp.CompareTo(b.Ramp);
+                // Rescue first (kind -1), then the fewest posts at the node.
+                int c = (a.Kind < 0 ? 0 : 1).CompareTo(b.Kind < 0 ? 0 : 1);
+                if (c != 0) return c;
+                c = a.Ramp.CompareTo(b.Ramp);
                 if (c != 0) return c;
                 c = a.Safe.CompareTo(b.Safe);
                 if (c != 0) return c;

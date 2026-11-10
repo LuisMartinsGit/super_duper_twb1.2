@@ -54,6 +54,7 @@ namespace TheWaningBorder.AI
         public float ResearchGapSeconds;
         public int ResearchMaxLevel;
         public float LevelThreeFromSeconds;
+        public bool EarlyExtractorLevels;
         public float LevelUpGapSeconds;
         public int LevelUpMaxConcurrent;
         public int MaxSects;
@@ -177,6 +178,7 @@ namespace TheWaningBorder.AI
                 ResearchGapSeconds = so.researchGapSeconds,
                 ResearchMaxLevel = so.researchMaxLevel,
                 LevelThreeFromSeconds = so.levelThreeFromSeconds,
+                EarlyExtractorLevels = so.earlyExtractorLevels,
                 LevelUpGapSeconds = so.levelUpGapSeconds,
                 LevelUpMaxConcurrent = so.levelUpMaxConcurrent,
                 MaxSects = so.maxSects,

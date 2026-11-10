@@ -700,7 +700,11 @@ namespace TheWaningBorder.Systems.World
             if (side != local || side < 0 || side >= CurseSide) return;
             // The Basic mission's first steps walk over unclaimed ground on purpose.
             if (GameSettings.TutorialBasicActive) return;
-            float now = UnityEngine.Time.unscaledTime;
+            // MATCH time, never the application clock: this field is in the
+            // saved game (docs/Design/Replays_And_Saves.md § Clocks).
+            float now = TheWaningBorder.Core.SimClock.Now;
+            // A match clock that restarted (a second match in this process).
+            if (_nextClaimNotice[side] - now > 20f) _nextClaimNotice[side] = now;
             if (now < _nextClaimNotice[side]) return;
             _nextClaimNotice[side] = now + 20f;
             var L = (System.Func<string, string>)TheWaningBorder.Core.Localization.Loc.T;

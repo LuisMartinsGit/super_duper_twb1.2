@@ -16,10 +16,9 @@ MonoBehaviour:
   trickleSuppliesPerMinute: 8
   trickleIronPerMinute: 5
   trickleVeilstonePerMinute: 4
+  ledgersTech: Alanthor_TradeLedgers
+  ledgersMultiplier: 1.4
+  merchantHousesTech: Alanthor_MerchantHouses
+  merchantHousesMultiplier: 2
   unlockTech: Alanthor_TradeCharters
   nodeReach: 12
-  outcropRampMultipliers:
-  - 1
-  - 1.5
-  - 2.25
-  - 3.5

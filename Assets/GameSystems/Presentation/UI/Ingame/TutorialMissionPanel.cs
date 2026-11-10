@@ -36,7 +36,7 @@ namespace TheWaningBorder.UI.Ingame
         /// resources while the Litharch is still searching.</summary>
         private static readonly string[] HiddenBeforeCamp =
         {
-            "GameUI_ResourcePanel", "GameUI_SpecialActionsPanel", "GameUI_IdleBuilders",
+            "GameUI_ResourcePanel", "GameUI_IdleBuilders",
         };
 
         /// <summary>Drives a CanvasGroup of its own every frame, so a group here

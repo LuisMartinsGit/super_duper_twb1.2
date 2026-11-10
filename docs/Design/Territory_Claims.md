@@ -1115,6 +1115,13 @@ normal and for every 10 poor."
 
 ### 11.3 Nodes run dry (2026-10-07)
 
+> **Revised again 2026-11-10 — the five-minute window (decision 50).** A node that runs dry
+> with **no** Trading Outpost beside it no longer collapses at once: its extractor collapses and
+> the node stays alive for `depletedGraceSeconds`, accepting posts (never an extractor). A post
+> finished in that window holds it like any node held by trade; when the window ends it
+> collapses, unless a post is still rising beside it, which it waits for. Every post costs
+> the same (the per-node price ramp is gone).
+
 **Revised 2026-11-10 — trade holds the last unit (decision 45).** Developer: "if a node
 depletes with no trader posts next to it, it disappears. if it has trade posts near it, it
 stops at 1 resource left (this makes sure that there is never waste)."

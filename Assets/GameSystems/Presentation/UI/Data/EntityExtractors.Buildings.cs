@@ -720,11 +720,7 @@ namespace TheWaningBorder.UI.Data
         /// TradingOutpostSystem.asset.</summary>
         internal static string OutpostRampLine()
         {
-            var m = TheWaningBorder.Systems.Economy.TradingOutpostSystem.Cfg?.outcropRampMultipliers;
-            var sb = new System.Text.StringBuilder();
-            if (m != null)
-                for (int i = 1; i < m.Length && i < TheWaningBorder.Entities.TradingOutpost.SideCount; i++)
-                    sb.Append(i > 1 ? " / " : "").Append("x").Append(m[i].ToString("0.##"));
+            var sb = new System.Text.StringBuilder();   // the price ramp is gone (decision 50)
             string line = string.Format(Loc.T("Stands on a free side of a supply, iron or veilstone node, up to {0} per node. Trickles that node's resource without drawing on it, for as long as the node lives."),
                 TheWaningBorder.Entities.TradingOutpost.SideCount);
             if (sb.Length > 0)

@@ -540,18 +540,22 @@ namespace TheWaningBorder.Systems.Production
             return true;
         }
 
-        /// <summary>Real time of the next population-hold notice.</summary>
+        /// <summary>MATCH time (SimClock) of the next population-hold notice —
+        /// never the application clock: this field is in the saved game.
+        /// docs/Design/Replays_And_Saves.md § Clocks</summary>
         private static float _nextPopNotice;
 
         /// <summary>
         /// A finished unit held at the door because the population cap is
         /// full used to wait in silence. Tell the LOCAL player, at most every
-        /// 15 real seconds. Presentation only — no sim state changes.
+        /// 15 match seconds. Presentation only — no sim state changes.
         /// </summary>
         private static void NoticePopulationHold(EntityManager em, Faction faction)
         {
             if (faction != GameSettings.LocalPlayerFaction || GameSettings.IsSpectating) return;
-            float now = UnityEngine.Time.unscaledTime;
+            float now = TheWaningBorder.Core.SimClock.Now;
+            // A match clock that restarted (a second match in this process).
+            if (_nextPopNotice - now > 15f) _nextPopNotice = now;
             if (now < _nextPopNotice) return;
             _nextPopNotice = now + 15f;
             string counts = "";

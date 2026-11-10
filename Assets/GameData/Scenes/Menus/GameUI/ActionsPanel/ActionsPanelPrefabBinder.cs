@@ -1,10 +1,12 @@
 // ActionsPanelPrefabBinder.cs
 // Binder for the ARTIST-AUTHORED ActionsPanel prefab (GameData/Scenes/Menus/
-// GameUI/SelectionUI/ActionsPanel.prefab): a fixed 3x5 grid of Synty action
+// GameUI/ActionsPanel/ActionsPanel.prefab): a fixed 3x5 grid of Synty action
 // buttons under the "Actions" node, bound in sibling order (row-major,
-// 5 columns). Spawned by GameUIManager when GameUICatalog.actionsPanel is
-// assigned; while it is active the code-built ActionsPanelBinder keeps only
-// the special selections (vault, walls, hut age-up, temple upgrade lever).
+// 5 columns). Spawned by GameUIManager from GameUICatalog.actionsPanel. It is
+// THE actions panel for every selection (2026-11-10): the code-built
+// ActionsPanelBinder that drew the vault, walls, gates, hut age-up and wagon
+// on a panel of their own is gone — those render here too
+// (ActionsPanelPrefabBinder.Special.cs, .Vault.cs).
 //
 // One panel, two selection modes (spec 2026-07-24):
 // - WORKER: the build palette. Only buildings unlockable at the CURRENT
@@ -17,7 +19,7 @@
 //   chain and advances to the next tier the moment the current tier STARTS
 //   researching (queued techs vanish from the extractor's list, so the
 //   successor takes the same slot; cancelling brings the tier back).
-//   Building level-up deliberately does NOT render here.
+//   The building level-up takes the last free cell (RenderUpgradeSlot).
 //
 // Button tint follows the category color scheme:
 //   green = economy, blue = defenses, brown = research,
@@ -68,9 +70,7 @@ namespace TheWaningBorder.UI.Ingame
         /// <summary>Synthetic action id for the building level-up cell.</summary>
         private const string UpgradeActionId = "BuildingUpgrade";
 
-        /// <summary>True while an authored ActionsPanel is bound — the
-        /// code-built ActionsPanelBinder checks this to avoid rendering the
-        /// grids this panel owns.</summary>
+        /// <summary>True while an authored ActionsPanel is bound.</summary>
         public static bool Active { get; private set; }
 
         private enum Category { Economy, Defense, Research, Military, Religion, Temple }
@@ -218,7 +218,7 @@ namespace TheWaningBorder.UI.Ingame
             if (grid == null)
             {
                 TWBLog.Log("[GameUI] ActionsPanel prefab: no \"Actions\" node found — panel disabled.");
-                Active = false;   // let the code-built panels take back over
+                Active = false;
                 enabled = false;
                 return;
             }
@@ -431,7 +431,8 @@ namespace TheWaningBorder.UI.Ingame
             var em = EM(out bool ok);
             if (!ok || GameSettings.IsSpectating) { SetShown(false); return; }
 
-            _entity = ActionsPanelBinder.FirstOwnedSelected(em);
+            _vaultWanted = false;
+            _entity = FirstOwnedSelected(em);
             if (_entity == Entity.Null) { SetShown(false); return; }
             if (em.HasComponent<UnderConstruction>(_entity)
                 && !em.HasComponent<GathererHutConverting>(_entity)) { SetShown(false); return; }
@@ -462,6 +463,9 @@ namespace TheWaningBorder.UI.Ingame
             _group.alpha = shown ? 1f : 0f;
             _group.interactable = shown;
             _group.blocksRaycasts = shown;
+            // The Vault's bars ride the same panel; they show only while a
+            // Vault is the selection this refresh rendered.
+            ShowVaultSection(shown && _vaultWanted);
             // No tooltip teardown needed: UITooltip polls the pointer, and a
             // panel with blocksRaycasts off simply stops being hit.
         }

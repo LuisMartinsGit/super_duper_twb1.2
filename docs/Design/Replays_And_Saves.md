@@ -44,7 +44,10 @@ simulation and seeded.
   vision, or the selected faction's vision — and no order can be given.
 - **Playback bar:** clock, a progress bar (click to jump), pause (Space),
   speeds and a skip-ahead button (both on `ReplayControlsPanel.asset`), and
-  restart. Jumping **forward** fast-forwards; jumping **back** restarts the map
+  restart. **The speeds are 0.5x, 1x, 2x and 5x, and nothing else**
+  (2026-11-10). Speed changes how fast the match plays, never how the camera
+  moves: every camera movement (edge scroll, key pan, zoom, rotation and their
+  smoothing) runs on real time. Jumping **forward** fast-forwards; jumping **back** restarts the map
   and fast-forwards to the moment, because the simulation only runs forward.
 - **Self-verifying:** playback compares its own state hash to the recorded
   one every second. The bar says *In sync* or *Out of sync from m:ss* — the
@@ -74,6 +77,12 @@ A `.twbsave` holds:
   ledgers, cultures, the clocks, every simulation system's timers, fractional
   carries and RNG streams (found by reflection, so a new system is covered
   without a code change), the explored-map fog, and the start positions.
+- **The match record** (2026-11-10): everything the Game Review screen shows
+  of the match so far (`MatchRecorder.Save.cs`, the `matchrecord` section) —
+  so the review of a loaded match runs from the start of the match, not from
+  the load. Tracks of units and buildings alive at the save carry on through
+  their network ids. A save made before this has none; its review starts at
+  the load.
 - **The commands already ordered** for ticks after the save (one tick of input
   delay).
 - **The replay so far**: the resumed match keeps writing it, so a loaded game
@@ -125,6 +134,29 @@ resource nodes, territory types), and starts the clock at the saved tick.
   way, and a replay whose embedded `snap` is of another format is refused
   before it plays.
 
+### Clocks (2026-11-10)
+
+**No saved value is ever measured against the application's clock.** The
+match has its own clocks, both starting at zero when the match begins (after
+the loading screen), both in the save, both carrying on from the saved value
+after a load: `SimClock` (seconds of simulated time) and the ECS world clock
+(`SystemAPI.Time.ElapsedTime`, restored from `save.txt`'s world clock). Any
+time a simulation system or a saved static keeps — a throttle, a cooldown, a
+"next notice at" — is one of those two.
+
+`Time.time`, `Time.unscaledTime` and `Time.realtimeSinceStartup` count from
+the launch of the program. A value taken from them and restored in another
+launch lies minutes in that launch's future (or past): the fog pass kept its
+throttle that way, and after a load in a fresh launch it did not run — no
+building sight, and an explored map the main view never received while the
+minimap showed it. They are allowed only in code the save never touches
+(MonoBehaviours of the presentation, perf timing).
+
+A system whose fields are only caches of something rebuilt at load is left out
+of the save whole (`SnapshotState.OptOut`): the navigation stack, and the fog
+pair `FogOfWarSystem` / `FogVisibilitySyncSystem` (static-layer hash, Unity
+change versions, per-entity show/hide).
+
 Multiplayer saves are out of scope (each peer records its own replay; a
 resumed match would need every peer to load the same snapshot and reconnect).
 
@@ -149,7 +181,7 @@ still load).
 | Format, header capture/apply | `Scripts/Core/Replay/ReplayFile.cs` |
 | Recorder (write-through, continuation after a load) | `Scripts/Core/Replay/ReplayRecorder.cs` + `ReplayRecorder.asset` |
 | World snapshot | `Scripts/Core/Save/WorldSnapshot.cs` |
-| Non-ECS state (statics, system fields) | `Scripts/Core/Save/SnapshotState.cs`, `SnapshotCodec.cs`; Bootstrap's own section in `Bootstrap/SnapshotSections.cs` |
+| Non-ECS state (statics, system fields) | `Scripts/Core/Save/SnapshotState.cs`, `SnapshotCodec.cs`; Bootstrap's own section in `Bootstrap/SnapshotSections.cs`; the match record's in `Core/Diagnostics/MatchRecording/MatchRecorder.Save.cs` |
 | Save file, Save Game | `Scripts/Core/Save/SaveGameFile.cs`, `SaveGameWriter.cs` |
 | Session carried across the scene load | `Scripts/Core/Replay/ReplaySession.cs` |
 | Folders, listing | `Scripts/Core/Replay/SavedGames.cs` |

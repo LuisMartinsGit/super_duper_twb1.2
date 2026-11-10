@@ -302,6 +302,12 @@ namespace TheWaningBorder.UI.Ingame
             var info = EntityActionExtractor.GetActionInfo(_entity, em);
             bool hasLayout = BuildingActionLayouts.TryResolve(_entity, em, out var layoutSlots);
 
+            // Walls, gates, manned towers, the hut's age-up choice, the
+            // Bazaar wagon and the Vault: the same grid, their own cells
+            // first (ActionsPanelPrefabBinder.Special.cs).
+            if (!hasLayout && IsSpecialType(info.Type))
+                return RenderSpecial(em, info);
+
             if (!hasLayout
                 && info.Type != ActionType.UnitTraining
                 && info.Type != ActionType.UnitTrainingAndResearch
@@ -320,7 +326,7 @@ namespace TheWaningBorder.UI.Ingame
                     RenderProgress(em, info);
                     return only;
                 }
-                return -1;   // vault / walls / hut choice / wagon → code-built panel
+                return -1;   // not a building this panel describes
             }
 
             int used = 0;
@@ -424,7 +430,7 @@ namespace TheWaningBorder.UI.Ingame
         /// list) owns one slot and shows its first not-yet-started tier;
         /// exhausted chains leave their slot blank so nothing shifts around.
         /// </summary>
-        private int RenderResearchRows(EntityManager em)
+        private int RenderResearchRows(EntityManager em, int firstSlot = TrainSlots)
         {
             var visible = EntityActionExtractor.GetResearchActions(_entity, em);
             var byId = new Dictionary<string, ActionButton>(visible.Count);
@@ -433,7 +439,10 @@ namespace TheWaningBorder.UI.Ingame
             // Ordered slot plan: one entry per chain (null = chain exhausted,
             // keep the slot blank), then any extra actions that are not part
             // of the catalog research list (Keep wings, chapel levers, ...).
+            // Each entry keeps its chain's ids, so the running tier's radial
+            // sweep lands on the slot its successor now occupies.
             var plan = new List<ActionButton?>();
+            var chains = new List<string[]>();
             var claimed = new HashSet<string>();
 
             string buildingId = EntityActionExtractor.GetBuildingIdPublic(_entity, em);
@@ -461,10 +470,12 @@ namespace TheWaningBorder.UI.Ingame
                     // tier still offered by the extractor (started/finished
                     // tiers are absent from its list).
                     ActionButton? display = null;
+                    var chain = new List<string>();
                     string cursor = rootId;
                     while (cursor != null)
                     {
                         claimed.Add(cursor);
+                        chain.Add(cursor);
                         if (display == null && byId.TryGetValue(cursor, out var b))
                             display = b;
                         string next = null;
@@ -473,26 +484,28 @@ namespace TheWaningBorder.UI.Ingame
                         cursor = next;
                     }
                     plan.Add(display);
+                    chains.Add(chain.ToArray());
                 }
             }
 
             foreach (var a in visible)
-                if (!claimed.Contains(a.Id)) plan.Add(a);
+                if (!claimed.Contains(a.Id)) { plan.Add(a); chains.Add(new[] { a.Id }); }
 
-            if (plan.Count > ResearchSlots)
+            int slots = Mathf.Max(0, SlotCount - firstSlot);
+            if (plan.Count > slots)
                 TWBLog.Log($"[GameUI] ActionsPanel: {plan.Count} research slots needed, " +
-                    $"only {ResearchSlots} available — overflow dropped.");
+                    $"only {slots} available — overflow dropped.");
 
             int used = 0;
-            for (int i = 0; i < ResearchSlots; i++)
+            for (int i = 0; i < slots; i++)
             {
-                int slotIndex = TrainSlots + i;
+                int slotIndex = firstSlot + i;
                 if (slotIndex >= _slots.Length) break;
                 if (i >= plan.Count || plan[i] == null) { ClearSlot(_slots[slotIndex]); continue; }
 
                 var b = plan[i].Value;
                 Entity entity = _entity;
-                FillSlot(_slots[slotIndex], b, Category.Research, null,
+                FillSlot(_slots[slotIndex], b, Category.Research, chains[i],
                     b.Enabled ? (System.Action)(() => Execute(entity, b, isTrain: false)) : null, em);
                 used++;
             }

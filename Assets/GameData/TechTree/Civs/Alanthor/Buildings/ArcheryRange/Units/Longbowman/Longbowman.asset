@@ -35,9 +35,9 @@ MonoBehaviour:
   trajectory: high
   projectileSpeed: 0
   cost:
-    Supplies: 120
-    Iron: 22
-    Crystal: 26
+    Supplies: 185
+    Iron: 45
+    Crystal: 0
   populationCost: 1
   minBuildingLevel: 3
   buildSpeed: 0

@@ -9,6 +9,21 @@ build always name the same number.
 
 ---
 
+## [0.0.82] — 2026-11-10
+
+### Economy
+- **Line units no longer cost veilstone.** The Swordsman, Crossbowman, Longbowman and Outrider are paid in supplies and iron; the Sentinel, Nobleman and Cataphract need a third of the veilstone they did; siege engines and heroes are unchanged. Spare supplies always become an army now, and veilstone decides how much elite and siege you field.
+- **Levelling a Veilstone Mine is worth it**: each level raises its income far more than before.
+- **Trading Outposts pay much more as they level**, so a node's posts carry its income after its mine runs dry.
+- **A worked-out node waits five minutes for a Trading Outpost:** its extractor collapses, but you have five minutes to raise a post beside it and keep it paying; otherwise it is lost.
+- **Every Trading Outpost costs the same**, however many already stand beside the node.
+- **New Trading Outpost research:** Trade Ledgers (+40% on every post) and Merchant Houses (twice the base).
+
+### AI
+- **AI armies no longer stall for lack of veilstone** with supplies piling up; the AI levels its Veilstone Mines.
+- **The AI raises a Trading Outpost beside every node that runs dry**, first thing, so it keeps the income.
+- **Hard and Expert AIs level their Mines and Trading Outposts early** and research the Trading Outpost upgrades.
+
 ## [0.0.81] — 2026-11-10
 
 ### Economy

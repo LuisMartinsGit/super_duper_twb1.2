@@ -55,6 +55,10 @@ namespace TheWaningBorder.Core.Localization
             t["Fourth Coffer"] = "Quarto Cofre";
             t["Swift Caravans"] = "Caravanas Céleres";
             t["Iron Accounts"] = "Contas de Ferro";
+            t["Trade Ledgers"] = "Livros de Comércio";
+            t["Merchant Houses"] = "Casas Mercantis";
+            t["Alanthor. Every Trading Outpost trickles 40% more."] = "Alanthor. Cada Entreposto Comercial rende mais 40%.";
+            t["Alanthor. Every Trading Outpost trickles twice as much as without the ledgers."] = "Alanthor. Cada Entreposto Comercial rende o dobro do que rendia sem os livros.";
             t["Veilstone Accounts"] = "Contas de Veilstone";
             t["Heightened Masses"] = "Missas Elevadas";
             t["Warrior Priests"] = "Sacerdotes Guerreiros";

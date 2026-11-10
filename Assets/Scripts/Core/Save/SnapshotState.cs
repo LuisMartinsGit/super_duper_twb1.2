@@ -63,6 +63,11 @@ namespace TheWaningBorder.Core.Save
             "GoalFlowFieldSystem", "PassabilityBuildingSync", "DeterminismReplaySystem",
             "PresentationViewTagSeedSystem", "SectUnitLeverSystem", "SectFortitudeHpSystem",
             "VeilFieldSystem",
+            // The fog pair hold only caches of the fog manager and of the view
+            // layer (a static-layer hash, Unity change versions, applied
+            // show/hide per entity index) — all rebuilt from the restored
+            // world. Restoring them told a fresh manager its work was done.
+            "FogOfWarSystem", "FogVisibilitySyncSystem",
         };
 
         static readonly string[] ExcludedNamespaces =

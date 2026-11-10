@@ -492,7 +492,12 @@ namespace TheWaningBorder.AI
                         if (t > bestTerm) { bestTerm = t; p.Reason[r] = k; p.ReasonFrac[r] = p.Enemy[k]; }
                     }
                 v = math.max(0f, v) * classFactor[p.Class[r]];
-                v *= row.basic ? p.DiffBasics * p.PersBasics : p.EconScale;
+                // The veilstone ladder scale (EconScale) holds back only units
+                // that COST veilstone: since the 2026-11-10 re-pricing (decision
+                // 48) the line units do not, and a veilstone-poor faction must
+                // still field them.
+                v *= row.basic ? p.DiffBasics * p.PersBasics
+                    : (CostsVeilstone(row.unitId) ? p.EconScale : 1f);
                 if (p.GlutTilt) v *= GlutTiltFactor(row.unitId, tilt);
                 p.Raw[r] = v;
             }
@@ -560,6 +565,11 @@ namespace TheWaningBorder.AI
         private static float[] _biggest = new float[0];
 
         private static float Ratio(float a, float b) => b > 0.0001f ? math.max(0f, a) / b : 1f;
+
+        /// <summary>Does this unit's SO price include veilstone?</summary>
+        private static bool CostsVeilstone(string unitId)
+            => !string.IsNullOrEmpty(unitId) && TechCatalog.TryGetUnit(unitId, out var def)
+               && def != null && def.cost != null && def.cost.Veilstone > 0;
 
         /// <summary>The row whose unit takes this row's share right now:
         /// its superseder once that can train, else itself, else down its

@@ -412,8 +412,16 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>Ladder techs that raise income, paid from the Economy wallet.</summary>
+        private const string TradeChartersTech = "Alanthor_TradeCharters";
+        private const string TradeChartersReserveKey = "TradeCharters";
+        /// <summary>The trade research the AI buys from the bank when the wallet
+        /// split refuses it (decision 50). A roster, not tuning.</summary>
+        private static readonly string[] TradeTechs =
+            { "Alanthor_TradeCharters", "Alanthor_TradeLedgers", "Alanthor_MerchantHouses" };
+
         private static readonly string[] EconomyWalletTechs =
-            { "DeepShafts", "RichSeams", "Alanthor_TradeCharters" };
+            { "DeepShafts", "RichSeams", "Alanthor_TradeCharters",
+              "Alanthor_TradeLedgers", "Alanthor_MerchantHouses" };
 
         /// <summary>Research priority ladder for the always-on economy layer.
         /// The walk attempts every unresearched entry until ONE succeeds — the
@@ -429,6 +437,8 @@ namespace TheWaningBorder.AI
             // node at its last unit (decision 45). Culture-gated, so a
             // no-op elsewhere; Economy wallet, early, so every tier trades.
             "Alanthor_TradeCharters",
+            "Alanthor_TradeLedgers",
+            "Alanthor_MerchantHouses",
             "ArmedScouts",                       // Fortress — arms scouts (attack gate)
             // Fortress (Alanthor) — the Celestar passive: idle scouts reveal
             // random patches (2026-10-19). Early, cheap intel; the scout
@@ -719,8 +729,30 @@ namespace TheWaningBorder.AI
                 if (TryResearchTechBudgetedWithReason(em, faction, techId, cat, out string reason))
                 {
                     AILogger.Log(faction, "RESEARCH", $"{techId} queued");
+                    if (techId == TradeChartersTech) AIPivotalReserve.Clear(faction, TradeChartersReserveKey);
                     queuedAny = true;
                     break;
+                }
+                // THE TRADE TECHS ARE PAID FROM THE BANK (2026-11-10, decision 50):
+                // the wallet split starved Trade Charters for 40 minutes on an
+                // Expert whose iron went to Mine levels ("EconomyExpansion wallet
+                // short" x133), and with no Charters there are no posts, so its
+                // iron fell to 70/min. When the bank can pay, they are bought
+                // outright; Trade Charters is a strict savings goal until then.
+                if (System.Array.IndexOf(TradeTechs, techId) >= 0 && reason != null && reason.Contains("wallet short"))
+                {
+                    var tcost = TechCatalog.TryGetTechnology(techId, out var tdef2) && tdef2 != null
+                        ? AICommon.ToCost(tdef2.cost) : default;
+                    if (FactionEconomy.CanAfford(em, faction, tcost)
+                        && TryResearchTechWithReason(em, faction, techId, out reason))
+                    {
+                        AILogger.Log(faction, "RESEARCH", $"{techId} queued (from the bank: trade tech)");
+                        if (techId == TradeChartersTech) AIPivotalReserve.Clear(faction, TradeChartersReserveKey);
+                        queuedAny = true;
+                        break;
+                    }
+                    if (techId == TradeChartersTech)
+                        AIPivotalReserve.Set(faction, TradeChartersReserveKey, tcost, strict: true);
                 }
                 if (firstBlocked == null) { firstBlocked = techId; firstReason = reason; }
             }

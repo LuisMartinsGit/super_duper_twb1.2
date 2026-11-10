@@ -27,6 +27,14 @@ namespace TheWaningBorder.Systems.Economy
         /// <summary>... beside an uncursed VEILSTONE outcrop.</summary>
         public float trickleVeilstonePerMinute;
 
+        /// <summary>The Trading Outpost's own research (2026-11-10, decision 49):
+        /// the two tech ids and what each multiplies every post's trickle by
+        /// (the later one replaces the earlier).</summary>
+        public string ledgersTech;
+        public float ledgersMultiplier;
+        public string merchantHousesTech;
+        public float merchantHousesMultiplier;
+
         /// <summary>The research that unlocks building the Outpost (Trade
         /// Charters, Fortress L3).</summary>
         public string unlockTech;
@@ -43,6 +51,6 @@ namespace TheWaningBorder.Systems.Economy
         /// already stand beside that node (plus the builder's own plans there).
         /// A new node starts again at entry 0. Past the end the last entry holds.
         /// </summary>
-        public float[] outcropRampMultipliers;
+
     }
 }

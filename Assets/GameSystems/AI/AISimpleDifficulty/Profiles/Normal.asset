@@ -24,6 +24,7 @@ MonoBehaviour:
   researchGapSeconds: 45
   researchMaxLevel: 0
   levelThreeFromSeconds: 1200
+  earlyExtractorLevels: 0
   levelUpGapSeconds: 120
   levelUpMaxConcurrent: 1
   maxSects: 2

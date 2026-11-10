@@ -93,6 +93,21 @@ namespace TheWaningBorder.Core.Localization
             t["Withdraw All ({0})"] = "Levantar Tudo ({0})";
             t["Gives back everything paid in. Every bar empties: the bonus and the progress are lost."] =
                 "Devolve tudo o que foi pago. Todas as barras se esvaziam: o bónus e o progresso perdem-se.";
+            // The Vault on the standard actions panel (ActionsPanelPrefabBinder.Vault.cs).
+            t["Pay with\n{0}"] = "Pagar com\n{0}";
+            t["Boosts\n{0}"] = "Aumenta\n{0}";
+            t["Deposit\n{0} {1}"] = "Depositar\n{0} {1}";
+            t["Withdraw all\n{0}"] = "Levantar tudo\n{0}";
+            t["Stored {0}"] = "Guardado {0}";
+            t["{0} +{1:0.#}%"] = "{0} +{1:0.#}%";
+            t["{0}  Locked"] = "{0}  Bloqueada";
+            t["{0}  Empty"] = "{0}  Vazia";
+            t["Bar {0} is locked. Research {1} at the Vault to open it."] =
+                "A barra {0} está bloqueada. Investigue {1} no Cofre para a abrir.";
+            t["Bar {0} is empty. It holds {1}; the next deposit that reaches it makes it boost {2}."] =
+                "A barra {0} está vazia. Leva {1}; o próximo depósito que a alcançar fá-la aumentar {2}.";
+            t["Bar {0} boosts {1}: {2} of {3} steps filled, +{4:0.#}% {1} income.\n{5} / {6} stored."] =
+                "A barra {0} aumenta {1}: {2} de {3} passos cheios, +{4:0.#}% de rendimento de {1}.\n{5} / {6} guardados.";
 
             // ── ActionsPanelPrefabBinder ───────────────────────────────────
             // "Choreographed Volleys" is kept English deliberately — the
@@ -247,6 +262,8 @@ namespace TheWaningBorder.Core.Localization
                 "Cultura de hostes ferozes.\nBónus: Bónus de caça, unidades agressivas.";
 
             // ── ObjectivesPanelBinder ──────────────────────────────────────
+            t["Show the objectives"] = "Mostrar os objetivos";
+            t["Hide the objectives"] = "Esconder os objetivos";
             t["<s>1. Build a special building</s>"] =
                 "<s>1. Construa um edifício especial</s>";
             t["1. Build a special building - under construction"] =
@@ -361,6 +378,7 @@ namespace TheWaningBorder.Core.Localization
             t["Idle — its node is spent, cursed, or not in your ground."] = "Inativo — o seu nó está esgotado, amaldiçoado ou fora do teu território.";
             t["per minute, never drawn from its node"] = "por minuto, sem nunca gastar o nó";
             t["Holds its node: the node stops at its last unit and this post keeps paying."] = "Segura o seu nó: o nó pára na última unidade e este posto continua a render.";
+            t["{0} in {1} ran dry — raise a Trading Outpost beside it within {2} minutes or it is lost"] = "{0} em {1} esgotou — ergue um Entreposto Comercial ao lado dentro de {2} minutos ou perde-se";
             t["{0} in {1} is worked out — its Trading Outposts keep it, the extractor collapsed"] = "{0} em {1} está esgotado — os Entrepostos Comerciais mantêm-no, o extrator colapsou";
             t["Post {0} of {1} beside its node"] = "Posto {0} de {1} junto ao seu nó";
             t["Falls with its node when the node runs dry — stop its extractor in time."] = "Cai com o seu nó quando este se esgota — para o extrator a tempo.";

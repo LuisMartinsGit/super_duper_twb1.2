@@ -44,8 +44,34 @@ namespace TheWaningBorder.UI.Ingame
         private readonly List<(string Name, TerritoryYield Y, TerritoryYield Posts)> _rows =
             new List<(string, TerritoryYield, TerritoryYield)>();
 
+        /// <summary>The live panel, for <see cref="TryGetHeaderScreenRect"/>.</summary>
+        private static EconomyPanel _instance;
+
+        /// <summary>
+        /// Where the header bar is on screen, in pixels (overlay canvas: world
+        /// space is screen space). The Objectives panel lines itself up to the
+        /// right of it so the two never overlap, whatever the HUD scale or the
+        /// aspect ratio (the two live on canvases that scale differently).
+        /// </summary>
+        public static bool TryGetHeaderScreenRect(out Rect rect)
+        {
+            rect = default;
+            var p = _instance;
+            if (p == null || p._root == null || !p._root.gameObject.activeInHierarchy) return false;
+            var corners = new Vector3[4];
+            p._root.GetWorldCorners(corners);
+            rect = Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
+            return true;
+        }
+
+        private void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+        }
+
         public void Init(GameUICatalog.ChromeSet chrome)
         {
+            _instance = this;
             var go = new GameObject("EconomyPanel-Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             go.transform.SetParent(transform, false);
             var canvas = go.GetComponent<Canvas>();

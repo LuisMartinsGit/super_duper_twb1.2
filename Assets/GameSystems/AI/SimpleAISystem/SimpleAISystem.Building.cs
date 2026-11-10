@@ -466,6 +466,10 @@ namespace TheWaningBorder.AI
             // job (AICommon.PullWorkersTo). Measured Headless28: "38 sites
             // open, crew 3" refused a Siege Yard rebuild outright.
             if (_rebuildingLostTrainer) return true;
+            // A post beside a spent node in its grace window passes too
+            // (decision 50): Hard's rescue was refused 516 times by "3 sites
+            // open, crew 3" while its nodes ran out their five minutes.
+            if (_graceRescueBuild) return true;
             int openSites = CountFactionBuildingsUnderConstruction(em, faction);
             int siteCap = math.max(2, crew);
             if (openSites >= siteCap)

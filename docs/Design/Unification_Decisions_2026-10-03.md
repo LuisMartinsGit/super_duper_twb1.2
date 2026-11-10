@@ -9,6 +9,39 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+50. **A spent node waits five minutes for a Trading Outpost; every post costs the same
+    (2026-11-10, developer).** (a) A node that runs dry with no post beside it is no longer
+    destroyed at once: its extractor collapses and the node stays alive for
+    `depletedGraceSeconds` (TerritoryIncomeSystem.asset), accepting Trading Outposts and no
+    extractor (`NodeDepletedGrace`). A finished post in that window holds it like any node held
+    by trade; at the end of the window it collapses, unless a post is still rising beside it,
+    which it waits for. (b) **The per-node price ramp is gone**: every Trading Outpost costs its
+    SO price. (c) The AI raises a post beside every own node in its window first, past the
+    extractor share and the surplus test, saving for it strictly when short; its regular post
+    order is window nodes, then iron, veilstone, supply.
+    ([Territory_Claims.md § 11.3](Territory_Claims.md)).
+49. **Late iron from the Trading Outposts (2026-11-10, developer, after the 0.0.82 rerun).** Iron
+    Mines run dry at about minute 25 and late iron fell to ~40 % of mid-game (claims and a 5/min
+    post trickle). (a) **A Trading Outpost's trickle climbs steeply with its level** (the level
+    SOs' `tradeRateMultiplier`), so a node's posts, levelled, carry its income after the Mine is
+    gone. (b) **Two researches at the Trading Outpost** raise every post's trickle: Trade Ledgers
+    (post level 2), then Merchant Houses (post level 3, replaces the ledgers' multiplier);
+    multipliers on `TradingOutpostSystem.asset`, prices on the tech SOs. (c) **Hard and Expert
+    AIs level their Mines and Trading Outposts early** (`earlyExtractorLevels` on the tier
+    profile: past the level clock and the value gate), so a node pays at full level and its posts
+    at full trickle before it runs dry; every AI researches the two techs from its economy ladder.
+48. **Veilstone is for elite and siege; Veilstone Mines level up (2026-11-10, developer, after
+    the 1-human-vs-3-Normal Moatwatch game in which every AI stalled).** Every faction earns
+    about five supplies per veilstone, at every tier (Expert earns only ~24 % more veilstone than
+    Normal, from holding more ground), while the line units were priced mostly in veilstone — so
+    supplies piled up and armies stopped growing for EVERYONE, a map fact rather than a player
+    choice. (a) **Line units cost no veilstone** (Swordsman, Crossbowman, Longbowman, Outrider);
+    **elite units keep about a third** of it (Sentinel, Nobleman, Cataphract); siege engines and
+    heroes keep theirs. Each moved unit of veilstone became supplies and iron of equal score
+    value. Prices on the unit SOs. (b) **Veilstone Mine levels are a real income ladder** (the
+    level SOs' `slotIncomePerMinute`), and the AI levels them like Mines and Guilds. Veilstone
+    scarcity is now a decision: an elite- or siege-heavy army needs outcrops held and mines
+    levelled. (c) The AI's veilstone-starved army plan holds back only units that cost veilstone.
 47. **The Sect of Prosperity reworked (2026-11-10, developer).** Bounty becomes a buy-out:
     every hostile unit it reaches dies at once and its owner is paid its cost (heroes immune).
     A = Bounty in an area growing with the chapel level; B = Overtime in an area; ★ = Plenty

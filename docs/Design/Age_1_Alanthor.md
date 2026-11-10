@@ -327,6 +327,19 @@ The AI levels Mines with its other economy buildings.
 
 ---
 
+### Veilstone is for elite and siege (2026-11-10, decision 48)
+
+Alanthor's **line units cost no veilstone** — the Swordsman, Crossbowman, Longbowman and
+Outrider are paid in supplies and iron. **Elite units carry a third** of the veilstone they
+used to (Sentinel, Nobleman, Cataphract), and **siege engines and heroes keep theirs**. The
+economy pays about five supplies per veilstone at every level of play, so a line army is
+always affordable; veilstone decides how much elite and siege a faction can field.
+
+**The Veilstone Mine levels up as a real investment**: its Alanthor level SOs
+(`VeilstoneMine_Lvl1..3`) carry a steep `slotIncomePerMinute` ladder, so holding outcrops
+and levelling their mines is how a player chooses a veilstone economy. Prices and rates on
+the SOs.
+
 ### Vault of Almiérra — the Alanthor landmark
 
 Built in Age 0 as the landmark that ages the faction up

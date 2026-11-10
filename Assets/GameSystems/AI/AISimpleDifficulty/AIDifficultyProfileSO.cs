@@ -206,6 +206,11 @@ namespace TheWaningBorder.AI
         public int researchMaxLevel;
         /// <summary>Match time when the level 3 phase opens (level 2 is levelUpsFromSeconds).</summary>
         public float levelThreeFromSeconds;
+        /// <summary>EARLY EXTRACTOR LEVELS (2026-11-10, decision 49): Mines and
+        /// Trading Outposts level as soon as the bank allows, past the level
+        /// clock and the value gate, so a worked node pays at full level (and its
+        /// posts at full trickle) before it runs dry. Hard and Expert.</summary>
+        public bool earlyExtractorLevels;
         /// <summary>Least seconds between starting two level-ups. 0 = no gap.</summary>
         public float levelUpGapSeconds;
         /// <summary>Level-ups in progress or queued at once. 0 = no limit.</summary>

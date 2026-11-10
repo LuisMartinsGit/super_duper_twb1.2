@@ -91,6 +91,11 @@ namespace TheWaningBorder.World.FogOfWar
         {
             if (data == null || !_revealed.IsCreated || data.Length != _revealed.Length) return;
             _revealed.CopyFrom(data);
+            // Readers on their own cadence (the minimap) and the overlay
+            // texture must both pick the restored map up at once.
+            DataVersion++;
+            _nextTextureTime = 0f;
+            PushHumanTexture();
         }
 
         // Map any enum to a safe slice [0..MaxFactions-1]
