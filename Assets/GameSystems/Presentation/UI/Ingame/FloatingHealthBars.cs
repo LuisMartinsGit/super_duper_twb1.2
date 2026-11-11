@@ -256,13 +256,16 @@ namespace TheWaningBorder.UI.Ingame
             var shieldHandle = _em.GetComponentTypeHandle<ShieldBar>(true);
             var buildingHandle = _em.GetComponentTypeHandle<BuildingTag>(true);
             var unitHandle = _em.GetComponentTypeHandle<UnitTag>(true);
+            // A Farm's low stone wall piece (Age_1_Alanthor.md § The level-3
+            // wall) is not a building but shows its bar as one: when damaged.
+            var farmWallHandle = _em.GetComponentTypeHandle<FarmWallPiece>(true);
 
             int budget = MaxUnpromptedBars;
             using var chunks = q.ToArchetypeChunkArray(Unity.Collections.Allocator.Temp);
             for (int c = 0; c < chunks.Length && budget > 0; c++)
             {
                 var chunk = chunks[c];
-                bool isBuilding = chunk.Has(ref buildingHandle);
+                bool isBuilding = chunk.Has(ref buildingHandle) || chunk.Has(ref farmWallHandle);
                 if (mode != HealthBarMode.Smart && isBuilding) continue;
                 if (!isBuilding && !chunk.Has(ref unitHandle)) continue;
 

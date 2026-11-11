@@ -99,6 +99,22 @@ namespace TheWaningBorder.Systems.Sect
                     }
                     s.Position = em.GetComponentData<LocalTransform>(s.Target).Position;
                 }
+                // A raised building's site is judged again as it lands — the
+                // wind-up is time for something else to take the ground. Taken:
+                // nothing is raised and the cooldown is given back.
+                else if (SectActivePowerHelper.RaisesBuilding((SectActivePowerKind)s.Kind))
+                {
+                    // Already snapped by Fire; the sandbox's FireUnchecked is not.
+                    s.Position = SectActivePowerHelper.RaisedSite((SectActivePowerKind)s.Kind, s.Magnitude, s.Position);
+                    string why = SectActivePowerHelper.RaisedSiteRefusal(em, s.Caster,
+                        (SectActivePowerKind)s.Kind, s.Magnitude, s.Position);
+                    if (why != null)
+                    {
+                        SectActivePowerHelper.RefundCooldown(em, s.Caster, s.SectIndex, s.Slot);
+                        if (s.Caster == GameSettings.LocalPlayerFaction) SimSignals.NotifyError(why);
+                        continue;
+                    }
+                }
 
                 SectActivePowerHelper.DispatchEffect(em, s.Caster,
                     (SectActivePowerKind)s.Kind, s.Position, s.Radius,
@@ -410,6 +426,20 @@ namespace TheWaningBorder.Systems.Sect
             else
             {
                 target = Entity.Null;
+                // A power that raises a building is placed like one (Build_Grid.md
+                // § Buildings raised by abilities): the aim snaps to the grid by
+                // the structure's footprint and the site must pass its placement
+                // rules — the ghost's own test, refused before anything is spent.
+                if (RaisesBuilding(spec.Kind))
+                {
+                    targetPos = RaisedSite(spec.Kind, spec.Magnitude, targetPos);
+                    string why = RaisedSiteRefusal(em, faction, spec.Kind, spec.Magnitude, targetPos);
+                    if (why != null)
+                    {
+                        if (faction == GameSettings.LocalPlayerFaction) SimSignals.NotifyError(why);
+                        return false;
+                    }
+                }
                 // Curse wells are not castable targets for offensive powers.
                 // Rejected BEFORE the cooldown is charged so a misclick costs
                 // nothing and the player can simply re-aim.

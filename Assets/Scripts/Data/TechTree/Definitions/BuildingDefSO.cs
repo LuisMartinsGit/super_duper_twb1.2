@@ -41,7 +41,7 @@ namespace TheWaningBorder.Data
         public float vaultBarBonus;
         public int vaultSubBars;
         public int maxPerFaction;
-        public int suppliesPerWorkerPerMinute;
+        public float cropRingMeters;
         public int suppliesPerIron;
         public int suppliesPerVeilstone;
         public int maxRatePerMinute;
@@ -141,7 +141,7 @@ namespace TheWaningBorder.Data
             def.garrisonSlots      = garrisonSlots;
             def.garrisonArrowsPerOccupant = garrisonArrowsPerOccupant;
             def.maxPerFaction      = maxPerFaction;
-            def.suppliesPerWorkerPerMinute = suppliesPerWorkerPerMinute;
+            def.cropRingMeters = cropRingMeters;
             def.suppliesPerIron      = suppliesPerIron;
             def.suppliesPerVeilstone = suppliesPerVeilstone;
             def.maxRatePerMinute     = maxRatePerMinute;
@@ -188,7 +188,7 @@ namespace TheWaningBorder.Data
             garrisonSlots      = def.garrisonSlots;
             garrisonArrowsPerOccupant = def.garrisonArrowsPerOccupant;
             maxPerFaction      = def.maxPerFaction;
-            suppliesPerWorkerPerMinute = def.suppliesPerWorkerPerMinute;
+            cropRingMeters = def.cropRingMeters;
             suppliesPerIron      = def.suppliesPerIron;
             suppliesPerVeilstone = def.suppliesPerVeilstone;
             maxRatePerMinute     = def.maxRatePerMinute;

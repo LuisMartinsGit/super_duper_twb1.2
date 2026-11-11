@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14ce2853dd2647969dba72400183c741, type: 3}
+  m_Name: FarmCropField
+  m_EditorClassIdentifier:
+  cropShader: {fileID: 4800000, guid: b6087962890946beab018297faafa84f, type: 3}
+  soilShader: {fileID: 4800000, guid: 90d14e1d5f0249d3ad4cf77da75ddbf4, type: 3}
+  tuftSpacing: 0.5
+  tuftJitter: 0.45
+  stalksPerTuft: 8
+  leavesPerTuft: 2
+  tuftRadius: 0.2
+  stalkHeightMin: 0.85
+  stalkHeightMax: 1.15
+  stalkWidthBase: 0.035
+  stalkWidthTop: 0.018
+  earLength: 0.2
+  earRadius: 0.035
+  leafLength: 0.42
+  leafWidth: 0.05
+  edgeFadeMeters: 1.2
+  growSeconds: 360
+  workerGrowthBonus: 1
+  sproutHeight: 0.12
+  earAppearAt: 0.45
+  ripenStart: 0.6
+  colorBase: {r: 0.17, g: 0.24, b: 0.1, a: 1}
+  colorYoung: {r: 0.36, g: 0.5, b: 0.2, a: 1}
+  colorStalkRipe: {r: 0.64, g: 0.58, b: 0.42, a: 1}
+  colorEarYoung: {r: 0.44, g: 0.54, b: 0.24, a: 1}
+  colorEarRipe: {r: 0.7, g: 0.58, b: 0.37, a: 1}
+  colorVariation: 0.12
+  translucency: 0.35
+  smoothness: 0.18
+  footOcclusion: 0.55
+  normalUpBias: 0.45
+  windStrength: 0.12
+  windSpeed: 1.3
+  windScale: 0.08
+  gustStrength: 0.1
+  windDirection: {x: 0.8, y: 0, z: 0.6}
+  roadCutLow: 0.25
+  roadCutHigh: 0.55
+  lodNearDistance: 60
+  lodFarDistance: 160
+  lodFarFraction: 0.35
+  castShadows: 1
+  rebuildInterval: 2
+  fencePieces:
+  - {fileID: 1942173867557608, guid: 8b5272035dfd90243984731c03b5b100, type: 3}
+  - {fileID: 1519848218656520, guid: 989fa0cd50fb71a438ab067423508172, type: 3}
+  - {fileID: 1422303658534588, guid: b04bc049128e4454684e2afee4e714eb, type: 3}
+  fencePieceLength: 2
+  fenceHeight: 1.15
+  fenceInset: 0.4
+  fenceCropProbe: 0.8
+  roadFenceCoverage: 0.2
+  roadBlockCoverage: 0.45
+  fenceGridMeters: 0.75
+  doorOpeningMeters: 3
+  soilEnabled: 1
+  soilColor: {r: 0.25, g: 0.19, b: 0.13, a: 1}
+  soilFurrowColor: {r: 0.16, g: 0.12, b: 0.08, a: 1}
+  soilFurrowSpacing: 0.9
+  soilOpacity: 0.85
+  soilGridMeters: 1
+  soilLift: 0.08

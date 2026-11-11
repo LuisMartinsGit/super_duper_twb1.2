@@ -282,6 +282,8 @@ namespace TheWaningBorder.Core.Commands.Types
             if (em.HasComponent<RoyalStableTag>(e))  return "Alanthor_RoyalStable";
             if (em.HasComponent<WatchTowerTag>(e))   return "Alanthor_Tower";
             if (em.HasComponent<SiegeYardTag>(e))    return "Alanthor_SiegeYard";
+            // The Farm levels L1-L3 (decision 57): Civs/Alanthor/Buildings/Farm/Farm_Lvl1..3.
+            if (em.HasComponent<FarmTag>(e))         return TheWaningBorder.Entities.Farm.BuildingId;
             // Feraldis ladders (2026-10-12, docs/Design/Age_1_Feraldis.md): the
             // Hall of Axes, Rig Yard, Engine Works and Great Forge level L1-L3;
             // their level SOs are Civs/Feraldis/Buildings/<Building>/<Building>_LvlN.

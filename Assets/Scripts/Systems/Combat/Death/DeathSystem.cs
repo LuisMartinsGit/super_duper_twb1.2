@@ -148,6 +148,17 @@ namespace TheWaningBorder.Systems.Combat
                 {
                     var dead = deadEntities[i];
 
+                    // A piece of a Farm's low stone wall (Age_1_Alanthor.md
+                    // § The level-3 wall) is neither a unit nor a building:
+                    // no kill, death, razing or loss is recorded, no blood is
+                    // spilled. It only collapses; FarmStoneWallSystem sees it
+                    // fall and rebuilds it in time.
+                    if (state.EntityManager.HasComponent<FarmWallPiece>(dead))
+                    {
+                        ecb.AddComponent(dead, new BuildingCollapseState { Timer = BuildingCollapseDuration });
+                        continue;
+                    }
+
                     // Units get a death animation delay; buildings are destroyed immediately
                     bool isBuilding = state.EntityManager.HasComponent<BuildingTag>(dead);
 

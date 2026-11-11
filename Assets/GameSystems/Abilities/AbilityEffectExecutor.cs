@@ -179,15 +179,26 @@ namespace TheWaningBorder.Abilities
 
                     case AbilityEffectKind.DeployFieldHospital:
                         {
-                            float3 hpPos = em.HasComponent<LocalTransform>(caster)
-                                ? em.GetComponentData<LocalTransform>(caster).Position : float3.zero;
+                            // Placed like a building (Build_Grid.md § Buildings
+                            // raised by abilities): at the aimed point (the
+                            // caster's own spot when none was stamped), snapped
+                            // to the grid, judged by the ghost's own test — the
+                            // ground, reach, and the team's cap and spacing
+                            // (docs/Design/Sects.md, FieldHospitalSystem.asset).
+                            // A refused cast costs nothing: the cooldown the
+                            // lifecycle just charged is given back. A cell of
+                            // slack on the reach, for the step the Litharch may
+                            // have taken during the channel.
+                            float3 hpAim = em.HasComponent<AbilityAimPoint>(caster)
+                                ? em.GetComponentData<AbilityAimPoint>(caster).Position
+                                : em.HasComponent<LocalTransform>(caster)
+                                    ? em.GetComponentData<LocalTransform>(caster).Position : float3.zero;
+                            float3 hpPos = TheWaningBorder.Entities.FieldHospital.SiteFor(hpAim);
                             Faction hpFac = em.HasComponent<FactionTag>(caster)
                                 ? em.GetComponentData<FactionTag>(caster).Value : default;
-                            // The team's cap and spacing (docs/Design/Sects.md,
-                            // FieldHospitalSystem.asset): a refused cast costs
-                            // nothing — the cooldown the lifecycle just charged
-                            // is given back.
-                            if (!TheWaningBorder.Entities.FieldHospital.CanDeploy(em, hpFac, hpPos, out string hpWhy))
+                            string hpWhy = TheWaningBorder.Entities.FieldHospital.SiteRefusal(
+                                em, caster, card, hpPos, BuildGrid.CellSize);
+                            if (hpWhy != null)
                             {
                                 AbilityCooldownUtil.Refund(em, caster, card);
                                 if (hpFac == GameSettings.LocalPlayerFaction)

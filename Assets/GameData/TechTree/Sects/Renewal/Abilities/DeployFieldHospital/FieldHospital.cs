@@ -3,11 +3,13 @@
 // tech is researched. It heals allied units around it and then tears itself
 // down after two minutes.
 //
-// Deliberately NOT a placeable building: it has no BuildCosts entry and no
-// worker-catalog row. It is spawned by the ability (see AbilityEffectExecutor
-// -> DeployFieldHospital) at the caster's position, already finished — no
-// UnderConstruction phase, because a field hospital that takes 30 s to raise
-// would be useless in the fight it was cast for.
+// Deliberately NOT in the worker's build palette: it has no BuildCosts entry
+// and no worker-catalog row. The Litharch PLACES it like a building, within the
+// card's reach (2026-11-11, Build_Grid.md § Buildings raised by abilities):
+// GroundPlacement shows the ghost on the grid, SiteRefusal judges the snapped
+// site, and AbilityEffectExecutor -> DeployFieldHospital raises it there,
+// already finished — no UnderConstruction phase, because a field hospital that
+// takes 30 s to raise would be useless in the fight it was cast for.
 
 using TheWaningBorder.Core.Multiplayer;
 using Unity.Entities;
@@ -19,6 +21,9 @@ namespace TheWaningBorder.Entities
     public static class FieldHospital
     {
         public const int PresentationID = 358;
+
+        /// <summary>Its BuildingDefSO id (footprintCells, the art).</summary>
+        public const string Id = "Renewal_FieldHospital";
 
         public const float LifetimeSeconds = 120f;
         /// <summary>Heal radius: the canon Medium (docs/Design/Spells.md 8.5),
@@ -80,6 +85,36 @@ namespace TheWaningBorder.Entities
             return true;
         }
 
+        /// <summary>The footprint in metres: the SO's footprintCells.</summary>
+        public static int2 SizeMeters => BuildingSizeConfig.GetSize(Id);
+
+        /// <summary>Where a hospital aimed at <paramref name="aim"/> stands: on
+        /// the build grid by its footprint, at the ground's height.</summary>
+        public static float3 SiteFor(float3 aim) => AbilityBuildingSite.Snap(aim, SizeMeters);
+
+        /// <summary>
+        /// The one test of a hospital's SNAPPED site, with its reason (null = it
+        /// may stand here): the ghost, the AI and the executor all ask it.
+        /// Within the card's reach of the caster (plus <paramref name="reachSlack"/>),
+        /// on ground a building could stand on (crust, geometry, the owner's
+        /// plans) — no territory gate, a field hospital is raised where the
+        /// fight is — and the team's cap and spacing.
+        /// </summary>
+        public static string SiteRefusal(EntityManager em, Entity caster, TheWaningBorder.Abilities.AbilityCard card,
+            float3 site, float reachSlack = 0f)
+        {
+            if (!em.HasComponent<LocalTransform>(caster) || !em.HasComponent<FactionTag>(caster))
+                return TheWaningBorder.Core.Localization.Loc.T("The caster is gone");
+            float3 here = em.GetComponentData<LocalTransform>(caster).Position;
+            if (card != null && card.Range > 0f && math.distance(here.xz, site.xz) > card.Range + reachSlack)
+                return TheWaningBorder.Core.Localization.Loc.T("Out of the Litharch's reach");
+            var faction = em.GetComponentData<FactionTag>(caster).Value;
+            string why = AbilityBuildingSite.Refusal(em, faction, site, SizeMeters, Id,
+                AbilityBuildingSite.Ground.Buildable);
+            if (why != null) return why;
+            return CanDeploy(em, faction, site, out why) ? null : why;
+        }
+
         public static Entity Create(EntityManager em, float3 position, Faction faction)
         {
             Entity e = em.CreateEntity();
@@ -92,6 +127,9 @@ namespace TheWaningBorder.Entities
             em.AddComponentData(e, new FieldHospitalState { TimeToLive = LifetimeSeconds });
             em.AddComponentData(e, new Health { Value = MaxHealth, Max = MaxHealth });
             em.AddComponentData(e, new Radius { Value = BuildingRadius });
+            // Its footprint, for the nav stamp and every later overlap test.
+            var size = SizeMeters;
+            em.AddComponentData(e, new BuildingSize { Width = size.x, Height = size.y });
             em.AddComponentData(e, new LineOfSight { Radius = Sight });
             em.AddComponentData(e, new ArmorTypeData { Value = ArmorType.StructureHuman });
             em.AddComponentData(e, new Defense { Melee = 0, Ranged = 1, Siege = 0, Magic = 2 });

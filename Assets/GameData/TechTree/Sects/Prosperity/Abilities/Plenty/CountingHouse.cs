@@ -1,7 +1,8 @@
 // CountingHouse.cs
 // The COUNTING HOUSE (docs/Design/Sects.md § Sect of Prosperity, decision 47):
 // the Sect of Prosperity's ★ power Plenty raises one at the aimed point, snapped
-// to the build grid on ground a building could stand on. It trickles income to
+// to the build grid on ground a building could stand on — placed like a
+// building, ghost and all (Build_Grid.md § Buildings raised by abilities). It trickles income to
 // whoever holds it, slowly (rates by power level on CountingHouse.asset), and it
 // is captured exactly like a monument (CountingHouseSystem).
 //
@@ -70,14 +71,6 @@ namespace TheWaningBorder.Entities
         /// <summary>Clamp a power level to the three rungs the asset prices.</summary>
         public static int LevelIndex(int level) => math.clamp(level, 1, 3) - 1;
 
-        /// <summary>
-        /// Raise a Counting House for <paramref name="faction"/> at
-        /// <paramref name="aim"/>, snapped to the build grid. When the aimed
-        /// footprint is not ground a building could stand on, the nearest valid
-        /// snapped spot within the search radius is taken; when there is none,
-        /// nothing is raised and the call returns false. Executor side: every
-        /// peer runs it at the same tick and reaches the same spot.
-        /// </summary>
         /// <summary>Counting Houses <paramref name="faction"/> holds right now.</summary>
         public static int HeldBy(EntityManager em, Faction faction)
         {
@@ -93,11 +86,22 @@ namespace TheWaningBorder.Entities
         public static bool CanRaise(EntityManager em, Faction faction)
             => Cfg.maxPerPlayer <= 0 || HeldBy(em, faction) < Cfg.maxPerPlayer;
 
+        /// <summary>
+        /// Raise a Counting House for <paramref name="faction"/> at
+        /// <paramref name="aim"/>, snapped to the build grid. When the snapped
+        /// site fails <see cref="SiteRefusal"/> nothing is raised and the call
+        /// returns false (the strike refunds the cooldown). Executor side: every
+        /// peer runs it at the same tick and reaches the same verdict.
+        /// </summary>
         public static bool Spawn(EntityManager em, Faction faction, float3 aim, int level)
         {
             if ((int)faction < 0 || (int)faction >= 8) return false;
             if (!CanRaise(em, faction)) return false;
-            if (!TryFindSpot(em, aim, out float3 at)) return false;
+            // Placed like a building (Build_Grid.md § Buildings raised by
+            // abilities): exactly on the snapped aim, the ghost's own spot, or
+            // not at all — never wandered to a nearby one.
+            float3 at = SiteFor(aim);
+            if (SiteRefusal(em, faction, at) != null) return false;
 
             var e = em.CreateEntity(
                 typeof(PresentationId),
@@ -120,37 +124,36 @@ namespace TheWaningBorder.Entities
             return true;
         }
 
-        /// <summary>The aimed spot, or the nearest valid snapped offset within
-        /// placementSearchRadius (ties broken by scan order, so deterministic).</summary>
-        private static bool TryFindSpot(EntityManager em, float3 aim, out float3 at)
-        {
-            at = default;
-            var size = SizeMeters;
-            float step = math.max(BuildGrid.CellSize, Cfg.placementSearchStep);
-            int n = (int)math.floor(math.max(0f, Cfg.placementSearchRadius) / step);
-            float r2 = Cfg.placementSearchRadius * Cfg.placementSearchRadius;
+        /// <summary>Where a house aimed at <paramref name="aim"/> stands: on the
+        /// build grid by its footprint, at the ground's height.</summary>
+        public static float3 SiteFor(float3 aim) => AbilityBuildingSite.Snap(aim, SizeMeters);
 
+        /// <summary>
+        /// The one test of a house's SNAPPED site (null = it may stand there):
+        /// ground a building could stand on (Sects.md, Plenty) — the crust and
+        /// geometry rules and the owner's plans, no territory gate — and never
+        /// on another Counting House. The ghost, the AI, Fire and the landing
+        /// strike all ask this.
+        /// </summary>
+        public static string SiteRefusal(EntityManager em, Faction faction, float3 site)
+        {
+            var size = SizeMeters;
+            string why = AbilityBuildingSite.Refusal(em, faction, site, size, null,
+                AbilityBuildingSite.Ground.Buildable);
+            if (why != null) return why;
             using var houses = All(em, Allocator.Temp);
-            float best = float.MaxValue;
-            bool found = false;
-            for (int dz = -n; dz <= n; dz++)
-            {
-                for (int dx = -n; dx <= n; dx++)
-                {
-                    float ox = dx * step, oz = dz * step;
-                    float d2 = ox * ox + oz * oz;
-                    if (d2 > r2 + 0.001f || d2 >= best) continue;
-                    var p = BuildGrid.Snap(new float3(aim.x + ox, 0f, aim.z + oz), size);
-                    p.y = TerrainUtility.GetHeight(p.x, p.z);
-                    if (!BuildCommandHelper.IsValidBuildPosition(em, p, size, null)) continue;
-                    if (OverlapsHouse(em, houses, p, size)) continue;
-                    best = d2;
-                    at = p;
-                    found = true;
-                }
-            }
-            return found;
+            return OverlapsHouse(em, houses, site, size)
+                ? TheWaningBorder.World.Regions.PlacementRefusalText.Of(
+                    TheWaningBorder.World.Regions.PlacementRefusal.Overlap)
+                : null;
         }
+
+        /// <summary>For the AI: the legal snapped site nearest <paramref name="aim"/>
+        /// within placementSearchRadius (deterministic). The cast is then aimed
+        /// there, and lands there.</summary>
+        public static bool TryNearestSite(EntityManager em, Faction faction, float3 aim, out float3 at)
+            => AbilityBuildingSite.TryNearest(aim, SizeMeters, Cfg.placementSearchRadius,
+                p => SiteRefusal(em, faction, p), out at);
 
         private static bool OverlapsHouse(EntityManager em, NativeArray<Entity> houses, float3 p, int2 size)
         {

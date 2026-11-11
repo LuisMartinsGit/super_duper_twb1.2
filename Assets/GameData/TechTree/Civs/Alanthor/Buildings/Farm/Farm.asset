@@ -17,8 +17,9 @@ MonoBehaviour:
   role: Supplies from the Workers inside it - up to five, nothing when empty
   description: Built on your own ground, never on a resource node, at most six per
     player. Right-click it with Workers selected to put them to work inside; each
-    Worker pays supplies every minute. Empty sends them back out, and a destroyed
-    Farm sets them down beside it alive.
+    Worker pays supplies every minute, scaled by how much of the crop ring around
+    the Farm is free of buildings, rough ground and other Farms' fields. Empty
+    sends them back out, and a destroyed Farm sets them down beside it alive.
   hp: 400
   armorType: structure_human
   defense:
@@ -28,14 +29,14 @@ MonoBehaviour:
     magic: 1
   radius: 1.5
   lineOfSight: 12
-  footprintCells: {x: 3, y: 3}
+  footprintCells: {x: 2, y: 2}
   buildTime: 30
   populationProvided: 0
   suppliesPerTick: 0
   suppliesInterval: 0
   slotIncomePerMinute: []
   maxPerFaction: 6
-  suppliesPerWorkerPerMinute: 50
+  cropRingMeters: 10
   suppliesPerIron: 0
   suppliesPerVeilstone: 0
   maxRatePerMinute: 0

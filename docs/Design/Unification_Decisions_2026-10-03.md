@@ -9,6 +9,35 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+57. **The Farm's crop ring, and Farm levels (2026-11-11, developer).** (a) **Every Farm has a crop
+    ring**: a circle reaching the Farm SO's `cropRingMeters` out from its footprint edge, less the
+    footprint. (b) **A Farm is paid by the ring's free share**: supplies a minute = Workers inside
+    × supplies per Worker × the share of the ring not covered by an obstacle, rounded down. The
+    obstacles are every building's footprint (any faction, finished or under construction — not
+    plans), impassable ground (cliffs, water, steep slopes, trees, rocks, the map edge), resource
+    and curse nodes, and ~~every other Farm's ring — an overlap counts against both Farms~~ **the nearer Farm's half of an overlap (amendment below)**. Roads
+    and units are not obstacles. **Amended same day (developer): where two rings overlap the land is
+    split straight down the middle** — each point belongs to the nearer Farm (exact tie: the lower
+    entity index) and is free land for it; nothing is lost by both. Fields of the same owner or of
+    allies merge with no boundary between; against a hostile Farm the fence / wall runs along the
+    split. The share is counted on a fixed 1 m lattice in whole per-mille,
+    recomputed on a cadence by the simulation and kept on the Farm, so every lockstep peer pays the
+    same. (c) **Farms level L1-L3** like every Alanthor building (`Farm_Lvl1..3`, faction-wide, L1
+    free at age-up, queued through the production queue). A level raises only the supplies per
+    Worker (on the level SOs, where the value moved from the Farm SO); the ring and the slots never
+    change. (d) **The player sees the field while placing**: placing a Farm shows **Yield NN%** at
+    the cursor with its ring drawn; placing any building over one of the player's Farm rings shows
+    each affected Farm's **now → after** percentage. Both read the same function the simulation
+    pays with. A Farm's badge and the Economy panel show its field. (e) The AI picks the best-field
+    site among several, refuses poor ones, keeps its other buildings off its Farm rings while it
+    can, and levels Farms as an economy ladder. (f) **Addendum, same day: the level-3 low stone
+    wall is real.** It is laid out by the simulation round the ring's rim (and, against a hostile
+    Farm, along the split down the middle), with a gap wherever a simulation road crosses it and one facing the Farm's
+    door, open to everyone. Each piece blocks movement, has HP and armour, takes damage from any
+    attacker (not covered by the Wall Rule), is never auto-acquired, and rebuilds itself after a
+    while once the Farm is out of combat (never on a unit or a building). Pieces are not buildings
+    and never count against any Farm's yield. The level-2 fence stays drawn only.
+    [Age_1_Alanthor.md § Farm](Age_1_Alanthor.md).
 56. **Nodes are finite again, twice as long; the Market has no ceiling; a full Farm out-earns a
     level 3 Guild (2026-11-11, developer, after the first decision-55 test).** Supersedes decision
     55 (a). (a) **Every node holds a finite reserve again** — supply, iron and veilstone — drained

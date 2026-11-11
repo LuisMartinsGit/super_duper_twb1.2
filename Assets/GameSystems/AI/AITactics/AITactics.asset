@@ -75,3 +75,4 @@ MonoBehaviour:
   fightSiteSeconds: 20
   baseThreatRadius: 60
   logIntervalSeconds: 6
+  raisedBuildingSearchRadius: 12

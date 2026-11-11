@@ -48,6 +48,11 @@ namespace TheWaningBorder.Systems.Navigation
         // Overpass bridges: deck walkable on layer 1, ground underneath
         // untouched, ramp ends as climb-access transition cells.
         private EntityQuery _overpassQuery;
+        // The Farm's level-3 low stone wall (Age_1_Alanthor.md § The level-3
+        // wall): oriented strips, impassable on the ground layer, carrying
+        // only the footprint flag -- never a wall flag, so the crop ring's
+        // yield test (NavGridQuery.AnyWallCellIn) never sees them.
+        private EntityQuery _farmWallQuery;
 
         // Perf change-gate: signature of the stampable entity set at the last
         // stamp. While it's unchanged the cost field is already correct, so we
@@ -132,6 +137,10 @@ namespace TheWaningBorder.Systems.Navigation
 
             _overpassQuery = SystemAPI.QueryBuilder()
                 .WithAll<OverpassBridge>()
+                .Build();
+
+            _farmWallQuery = SystemAPI.QueryBuilder()
+                .WithAll<FarmWallPiece, Health>()
                 .Build();
         }
 
@@ -305,6 +314,26 @@ namespace TheWaningBorder.Systems.Navigation
                 ? obstacleStamp.Schedule(_obstacleQuery, sizedHandle)
                 : obstacleStamp.ScheduleParallel(_obstacleQuery, sizedHandle);
 
+            // The Farm's low stone wall: standing pieces only (a piece at 0 HP
+            // waits one frame for DeathSystem and must not block meanwhile).
+            if (!_farmWallQuery.IsEmptyIgnoreFilter)
+            {
+                var farmWallStamp = new StampFarmWallJob
+                {
+                    Cost = field.Cost,
+                    Flags = field.Flags,
+                    Width = field.Width,
+                    Height = field.Height,
+                    CellSize = SystemAPI.HasSingleton<NavGridSingleton>()
+                        ? SystemAPI.GetSingleton<NavGridSingleton>().CellSize : 1f,
+                    Origin = SystemAPI.HasSingleton<NavGridSingleton>()
+                        ? SystemAPI.GetSingleton<NavGridSingleton>().Origin : float3.zero,
+                };
+                prevHandle = serialStamps
+                    ? farmWallStamp.Schedule(_farmWallQuery, prevHandle)
+                    : farmWallStamp.ScheduleParallel(_farmWallQuery, prevHandle);
+            }
+
             // task-112 M5: stamp walls into both layers. Order matters --
             // the climb-access pass overwrites any wall-instance stamp at
             // the hub cells so the ground stays walkable for approaching
@@ -445,6 +474,7 @@ namespace TheWaningBorder.Systems.Navigation
                 h = (h ^ (uint)_wallGateQuery.CalculateEntityCount()) * P;
                 h = (h ^ (uint)_wallClimbQuery.CalculateEntityCount()) * P;
                 h = (h ^ (uint)_overpassQuery.CalculateEntityCount()) * P;
+                h = (h ^ (uint)_farmWallQuery.CalculateEntityCount()) * P;
                 h = (h ^ terrainBaked) * P;
                 h = (h ^ (uint)_externalVersion) * P;
                 if (sized > 0)

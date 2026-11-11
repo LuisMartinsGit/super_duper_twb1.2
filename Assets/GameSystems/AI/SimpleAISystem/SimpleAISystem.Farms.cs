@@ -8,6 +8,13 @@
 //             farmShortSupplies (supply income is short), build on up to the
 //             Farm SO's cap. One Farm at a time: no new one while one is still
 //             a plan or a site.
+//   SITE    — (decision 57) the site search scores farmSiteCandidates legal
+//             sites by their crop ring's free share (FarmRing) and takes the
+//             best, refusing any below farmMinFreePermille; every other
+//             building keeps off the faction's Farm rings in its normal
+//             passes (farmRingKeepClear) — SimpleAISystem.Building.cs,
+//             TryFindBuildPosition. Farm LEVELS are AIBuildingUpgradeSystem's
+//             economy ladder.
 //   STAFF   — send idle Workers into Farms with a free slot (farmStaffPerThink
 //             a decision), never the last farmFreeWorkerReserve idle Workers,
 //             which stay free to build. A staffed Worker drops out of the

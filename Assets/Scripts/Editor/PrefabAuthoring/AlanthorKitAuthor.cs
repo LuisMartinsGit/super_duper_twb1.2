@@ -950,33 +950,10 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
                 PutAt(p, P_Candles, "Candles", new Vector3(1.3f, 0.14f, -1.3f), 0f, Vector3.one * 1.6f, _synAtlas);
                 AlFlag(p, "Flag", new Vector3(1.6f, 0.14f, 1.6f), 3.0f, 0.4f);
             }, mud: true);
-            SectForm(SECTS + "Renewal/Abilities/RaiseAnew/", "RenewalTower", "Renewal_Tower", 2f, (r, h) =>
-            {
-                var w = Group(r, "2_Walls"); var c = Group(r, "3_Cap"); var p = Group(r, "6_Props");
-                float hh = 1.2f, y = 0.28f, wallH = 2.6f;
-                for (int t = 0; t < 2; t++) { float wt = StuccoBox(w, 0f, 0.1f, hh, hh, wallH, y, t == 0, true, "T" + t); TileCap(c, 0f, 0.1f, hh, wt, "T" + t, 0.7f); y = wt + 0.45f * hh; hh *= 0.78f; wallH *= 0.8f; }
-                WallLamp(p, new Vector3(0.8f, 0.28f + 2.0f, 0.1f - 1.2f - 0.25f));
-            });
-            SectForm(SECTS + "Renewal/Abilities/RaiseAnew/", "RenewalFortification", "Renewal_Fortification", 3f, (r, h) =>
-            {
-                var w = Group(r, "2_Walls"); var p = Group(r, "6_Props");
-                float top = StuccoBox(w, 0f, 0f, 2.6f, 2.6f, 2.0f, 0.28f, false, false, "Bastion", columns: true);
-                foreach (var (side, yaw, alongX) in new[] { ("S", 0f, true), ("E", 90f, false), ("N", 180f, true), ("W", 270f, false) })
-                {
-                    Vector3 cc = side switch { "S" => new Vector3(0f, top, -2.6f), "E" => new Vector3(2.6f, top, 0f), "N" => new Vector3(0f, top, 2.6f), _ => new Vector3(-2.6f, top, 0f) };
-                    PutAt(w, C_Batt1, "Batt" + side, cc, yaw, new Vector3(5.2f / 5f, 0.7f, 0.8f), _alStucco, alongX);
-                }
-                PutAt(w, C_FloorStone1, "Deck", new Vector3(0f, top - 0.3f, 0f), 0f, new Vector3(1.0f, 0.6f, 1.0f), _alStone);
-                PutAt(p, B_Brazier, "Brazier", new Vector3(0f, top - 0.0f, 0f), 0f, Vector3.one * 1.2f, _synAtlas);
-                AlFlag(p, "Flag", new Vector3(2.0f, top, 2.0f), 3.0f, 0.4f);
-            });
-            SectForm(SECTS + "Renewal/Abilities/RaiseAnew/", "RenewalFortress", "Renewal_Fortress", 4f, (r, h) =>
-            {
-                var w = Group(r, "2_Walls"); var c = Group(r, "3_Cap"); var p = Group(r, "6_Props");
-                Pagoda(w, c, 0f, 0.6f, 2.0f, 0.28f, 2, "Keep");
-                Torii(p, 0f, -3.75f, 1.1f, 2.8f);
-                AlFlag(p, "FlagW", new Vector3(-3.4f, 0.28f, 3.4f), 4.5f); AlFlag(p, "FlagE", new Vector3(3.4f, 0.28f, 3.4f), 4.5f);
-            });
+            // The three Fortify structures (Renewal_Tower / _Fortification /
+            // _Fortress) are no longer built here: since 2026-11-11 they all
+            // stand on one 3 x 3-cell footprint and FortifyKitAuthor.cs is
+            // their only author. A SectForm here would overwrite that art.
         }
 
         static void SectForm(string dir, string stem, string id, float half, Action<Transform, float> build, bool mud = false)

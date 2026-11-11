@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e16bc5246534c27bc87caa50ca326b3, type: 3}
+  m_Name: FarmStoneWallSystem
+  m_EditorClassIdentifier:
+  maxHealth: 300
+  defenseMelee: 2
+  defenseRanged: 6
+  defenseSiege: 0
+  defenseMagic: 2
+  thicknessMeters: 0.6
+  rebuildSeconds: 30
+  outOfCombatSeconds: 20
+  pieceLength: 2.5
+  inset: 0.4
+  cropProbe: 0.8
+  roadOpeningHalfWidth: 2.5
+  doorOpeningMeters: 4
+  doorYawOffsetDegrees: 180
+  piecePrefabs:
+  - {fileID: 1421067982400138, guid: 56f5a6de40a6f8f4d9078f2e524efd73, type: 3}
+  - {fileID: 1068210145854016, guid: 86daca1bdd0349e45b86e593c9c6c4d3, type: 3}
+  - {fileID: 1920863958440386, guid: 203d7388ddc2d344384e25a642792f7d, type: 3}
+  pieceHeight: 0.75
+  viewPollSeconds: 0.25

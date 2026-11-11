@@ -447,4 +447,59 @@ namespace TheWaningBorder.Systems.Navigation
             }
         }
     }
+
+    /// <summary>
+    /// One piece of a Farm's level-3 low stone wall (Age_1_Alanthor.md § The
+    /// level-3 wall): every ground cell whose centre lies within the strip
+    /// A-B (half-thickness across, a quarter metre past each end so the
+    /// joints between pieces close) becomes impassable, flagged as a
+    /// footprint only. Standing pieces only; idempotent writes.
+    /// </summary>
+    [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
+    internal partial struct StampFarmWallJob : IJobEntity
+    {
+        [NativeDisableParallelForRestriction] public NativeArray<byte> Cost;
+        [NativeDisableParallelForRestriction] public NativeArray<byte> Flags;
+        public int Width;
+        public int Height;
+        public float CellSize;
+        public float3 Origin;
+
+        private const float EndPad = 0.25f;
+
+        public void Execute(in FarmWallPiece piece, in Health health)
+        {
+            if (health.Value <= 0) return;
+            float2 a = piece.A, b = piece.B;
+            float2 d = b - a;
+            float len = math.length(d);
+            if (len < 1e-4f) return;
+            float2 dir = d / len;
+            float2 m = (a + b) * 0.5f;
+            float halfAlong = len * 0.5f + EndPad;
+            float halfAcross = piece.HalfThickness;
+            float reach = math.sqrt(halfAlong * halfAlong + halfAcross * halfAcross);
+
+            int x0 = math.max(0, (int)math.floor((m.x - reach - Origin.x) / CellSize));
+            int z0 = math.max(0, (int)math.floor((m.y - reach - Origin.z) / CellSize));
+            int x1 = math.min(Width - 1, (int)math.floor((m.x + reach - Origin.x) / CellSize));
+            int z1 = math.min(Height - 1, (int)math.floor((m.y + reach - Origin.z) / CellSize));
+
+            for (int z = z0; z <= z1; z++)
+            {
+                float cz = Origin.z + (z + 0.5f) * CellSize - m.y;
+                int row = z * Width;
+                for (int x = x0; x <= x1; x++)
+                {
+                    float cx = Origin.x + (x + 0.5f) * CellSize - m.x;
+                    float along = cx * dir.x + cz * dir.y;
+                    float across = cx * dir.y - cz * dir.x;
+                    if (math.abs(along) > halfAlong || math.abs(across) > halfAcross) continue;
+                    int idx = row + x;
+                    Cost[idx] = NavCostField.CostImpassable;
+                    Flags[idx] = (byte)(Flags[idx] | NavCostField.FlagBuildingFootprint);
+                }
+            }
+        }
+    }
 }

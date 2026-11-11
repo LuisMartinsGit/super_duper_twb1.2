@@ -322,7 +322,7 @@ flowchart TB
         a_h_note["(provides population)"]
     end
 
-    subgraph Farm_A["Farm (decision 55; no levels, max 6)"]
+    subgraph Farm_A["Farm (decisions 55, 57; L1-L3, crop ring, max 6)"]
         direction TB
         a_farm_note["(holds up to 5 Workers;<br/>supplies per Worker inside)"]
     end

@@ -448,6 +448,11 @@ attackers whose damage type is **Siege**.
   wall piece outright — the Feraldis hero is "the tip of the spear"
   ([Age_1_Feraldis.md §8](Age_1_Feraldis.md)). It is an ability, not an
   attack, and opens one segment per (very long) cooldown.
+- **The Farm's low stone wall is not a wall (2026-11-11).** The level-3 wall
+  round an Alanthor Farm's field carries no `WallTag`: any damage type hurts
+  it. It is never auto-acquired (by units, towers or siege) and splash passes
+  over it — units attack it only on an explicit order
+  ([Age_1_Alanthor.md § The level-3 wall](Age_1_Alanthor.md)).
 - **The player is told.** Right-clicking an enemy wall piece with a
   selection that holds no siege shows *"Only siege can damage walls"* and
   issues no order — a doomed attack order used to be silently dropped by the
@@ -517,7 +522,11 @@ art.** Wall pieces have no level SO and use `wallFireHeight` on the same config.
 
 Every building that shoots (`BuildingRangedAttack` — watch / totem
 towers, Fiendstone Keep, Fortress, wall towers) auto-fires at the nearest
-enemies in range, up to its **MaxTargets** at once. The player may also
+enemies in range, up to its **MaxTargets** at once. **No arrow is wasted
+(2026-11-11):** with fewer enemies in range than arrows — a Fortress's
+multi-shot, a tower's per-garrison arrows — the spare arrows go round the
+same targets again (the directed target first), so one lone enemy takes the
+whole volley. The player may also
 **direct** that fire (2026-09-26):
 
 - Select one or more of your shooting buildings and **right-click an enemy**:

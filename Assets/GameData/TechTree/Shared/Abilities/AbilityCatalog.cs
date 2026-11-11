@@ -146,8 +146,10 @@ namespace TheWaningBorder.Abilities
             // itself down after two minutes.
             new AbilityCard {
                 Name = "Deploy Field Hospital", Activation = AbilityActivation.Active,
-                Targeting = AbilityTargeting.SelfCast, Affects = AbilityAffects.Self,
-                CastTime = 3f, Duration = 0f, Cooldown = 300f, Radius = 15f, Range = 0f,
+                // Placed like a building within the card's reach (2026-11-11,
+                // Build_Grid.md § Buildings raised by abilities).
+                Targeting = AbilityTargeting.Area, Affects = AbilityAffects.Self, AimedAtPoint = true,
+                CastTime = 3f, Duration = 0f, Cooldown = 300f, Radius = 15f, Range = 12f,
                 Effects = new[] {
                     new AbilityEffect(AbilityEffectKind.DeployFieldHospital, 1f),
                 },

@@ -383,6 +383,48 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
+            // DEPLOY FIELD HOSPITAL places a building too (Build_Grid.md §
+            // Buildings raised by abilities, 2026-11-11): Cleanse's placement,
+            // with the hospital's ghost, footprint and test.
+            if (card != null && card.HasEffect(AbilityEffectKind.DeployFieldHospital))
+            {
+                Entity caster = _primary;
+                var c = card;
+                TheWaningBorder.UI.World.GroundPlacement.Begin(
+                    TheWaningBorder.UI.World.AbilityBuildingGhost.ForBuilding(TheWaningBorder.Entities.FieldHospital.Id),
+                    TheWaningBorder.Entities.FieldHospital.SizeMeters,
+                    card.Radius, AimRingColor, card.Range,
+                    () =>
+                    {
+                        var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                        if (world == null || !world.IsCreated) return null;
+                        var em = world.EntityManager;
+                        if (!em.Exists(caster) || !em.HasComponent<Unity.Transforms.LocalTransform>(caster)) return null;
+                        return em.GetComponentData<Unity.Transforms.LocalTransform>(caster).Position;
+                    },
+                    (Unity.Mathematics.float3 cursor, out Unity.Mathematics.float3 site) =>
+                    {
+                        site = TheWaningBorder.Entities.FieldHospital.SiteFor(cursor);
+                        var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                        if (world == null || !world.IsCreated) return null;
+                        var em = world.EntityManager;
+                        if (!em.Exists(caster)) return Loc.T("The caster is gone");
+                        if (!AbilityTargetRules.AimInSight(em, c, caster, site))
+                            return Loc.T(CastTargetRules.Describe(CastTargetRefusal.NotInSight, CastTargetKind.None));
+                        return TheWaningBorder.Entities.FieldHospital.SiteRefusal(em, caster, c, site);
+                    },
+                    site =>
+                    {
+                        var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+                        if (world == null || !world.IsCreated) return;
+                        var em = world.EntityManager;
+                        if (!em.Exists(caster)) return;
+                        TheWaningBorder.Core.Commands.CommandRouter.IssueUnitAbilitySlot(
+                            em, caster, slot, default, site);
+                    });
+                return;
+            }
+
             bool aimed = card != null && card.IsAimed;
             if (aimed)
             {

@@ -274,6 +274,10 @@ namespace TheWaningBorder.UI.Ingame
                         BuildFootprintOutline.Show(
                             (float3)_placingInstance.transform.position,
                             buildSize, _placementValid);
+                        // The Farm's field: its yield, and what this building
+                        // takes from the player's Farms (decision 57).
+                        FarmYieldPreview.Show(_em, (float3)_placingInstance.transform.position,
+                            _currentBuildId, PlacementFaction(_currentBuildId));
                     }
                     else
                     {
@@ -564,6 +568,7 @@ namespace TheWaningBorder.UI.Ingame
             TheWaningBorder.Core.PresentationState.PlacingBuilding = false;
             BuildFootprintOutline.Hide();
             BuildGridOverlay.Hide();
+            FarmYieldPreview.Hide();
             if (_wallDraw != null) _wallDraw.Clear();
             _drawStartHub = Entity.Null;
             _drawStartCell = Entity.Null;
@@ -580,6 +585,7 @@ namespace TheWaningBorder.UI.Ingame
             TheWaningBorder.Core.PresentationState.PlacingBuilding = false;
             BuildFootprintOutline.Hide();
             BuildGridOverlay.Hide();
+            FarmYieldPreview.Hide();
             if (_wallDraw != null) _wallDraw.Clear();
             _drawStartHub = Entity.Null;
         }

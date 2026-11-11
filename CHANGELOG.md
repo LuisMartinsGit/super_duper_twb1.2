@@ -9,6 +9,24 @@ build always name the same number.
 
 ---
 
+## [0.0.85] — 2026-11-11
+
+### Farms
+- **Farms grow fields.** Each Farm (now 2 x 2) has a round crop field around it. It pays by how much of that field is free: buildings, cliffs, water, nodes and other Farms' fields all take a share away (where two fields meet, the land is split straight down the middle). Roads cost nothing. Pay = Workers x the level's rate x the free share.
+- **See it before you build.** Placing a Farm shows its field and "Yield NN%"; placing any building over one of your fields shows what that Farm drops to ("Farm 84% -> 71%"). A Farm's badge and the Economy panel show its field share.
+- **Farm levels.** Level 2 and 3 raise the pay per Worker (50 / 65 / 80 a minute), levelled like every other building.
+- **Cereal grows on the fields**, from tilled soil to a ripe gold over a few minutes, faster with Workers inside; roads stay clear through it. Level 2 Farms fence their fields; level 3 Farms raise a low stone wall that blocks movement, can be knocked down by anyone, and rebuilds itself once the fighting there stops (gaps where roads cross and at the Farm's door).
+
+### Sect powers
+- **Powers that raise a building place like a building.** Fortify, Plenty, Cleanse and Deploy Field Hospital show the building's outline on the build grid, red where it cannot stand, and refuse a bad spot without spending the power. Deploy Field Hospital is now aimed (12 m reach).
+- **Fortify always raises a 3 x 3 building** — a tower, a fortification or a small fortress, each redrawn to fit.
+
+### Combat
+- **No arrow is wasted.** A Fortress's multi-shot and a garrisoned tower's extra arrows go round the same targets again when there are fewer enemies than arrows.
+
+### AI
+- **The AI sites Farms on open ground** (the best of several spots, never a cramped one), keeps its other buildings off its fields, and levels its Farms.
+
 ## [0.0.84] — 2026-11-11
 
 ### Units and research

@@ -57,6 +57,10 @@ namespace TheWaningBorder.Data
         /// culture (Alanthor's Guild 70/100/200, its Mines 140/200/400). Read
         /// only for the extractors; 0 on every other ladder.</summary>
         public float slotIncomePerMinute;
+        /// <summary>Supplies a minute each Worker inside pays at this level,
+        /// before the crop ring's free share scales it — the Alanthor Farm
+        /// only (Farm_Lvl1..3, decision 57); 0 on every other ladder.</summary>
+        public int suppliesPerWorkerPerMinute;
 
         /// <summary>An attack AUTHORED for this level, replacing the scaled one
         /// (the Watch Tower ladder; the Garrison's level-3 arrows).

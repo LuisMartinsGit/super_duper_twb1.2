@@ -23,15 +23,23 @@ MonoBehaviour:
     ranged: 20
     siege: 4
     magic: 7
-  radius: 4
+  radius: 3
   lineOfSight: 32
-  footprintCells: {x: 4, y: 4}
+  footprintCells: {x: 3, y: 3}
   buildTime: 30
   populationProvided: 0
   suppliesPerTick: 0
   suppliesInterval: 0
   slotIncomePerMinute: []
+  vaultBarCapacity: 
+  vaultBarBonus: 0
+  vaultSubBars: 0
   maxPerFaction: 0
+  cropRingMeters: 0
+  suppliesPerIron: 0
+  suppliesPerVeilstone: 0
+  maxRatePerMinute: 0
+  rateStep: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
@@ -57,7 +65,8 @@ MonoBehaviour:
     maxTargets: 2
     siegeShotDamage: 0
   firePoints:
-  - {x: 0.095007285, y: 5.993891, z: -0.57043797}
+  - {x: 0.00000047683716, y: 6.115418, z: -1.8998677}
+  - {x: 0.00000047683716, y: 6.115418, z: 1.8998677}
   levels: []
   unitUpgrades: []
   prefab: {fileID: 1480419479126034026, guid: 51c3c62be8c9eb7429c93981f8d45c77, type: 3}

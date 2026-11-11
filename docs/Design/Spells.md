@@ -96,8 +96,8 @@ are unchanged. New:
   | War: Call to Arms I | own building that trains (has a production queue) |
   | Justice: Sentence (single) | enemy unit or building (no wall, no curse structure) |
   | Ruin: Unmake (every level) | enemy building (no wall, no curse structure) |
-  | Fortitude: Fortify | **None**: a ground point (where the structure rises) |
-  | Prosperity: Plenty | **None**: untargeted, cast at once |
+  | Fortitude: Fortify | **None**: a ground point (where the structure rises), placed like a building — [Build_Grid.md § Buildings raised by abilities](Build_Grid.md) |
+  | Prosperity: Plenty | **None**: a ground point (where the Counting House rises), placed like a building — [Build_Grid.md § Buildings raised by abilities](Build_Grid.md) |
 
   The higher levels of Emergency Repairs and Call to Arms are areas (Small /
   Medium) and keep the ring.
@@ -397,7 +397,8 @@ map-wide power once every two or three fights.
 a qualitatively bigger effect, not more of the same:
 
 - **Raise Anew** 120 / 150 / 180 s. Each level raises a different, permanent
-  and much larger building (Tower, then Fortification, then a Fortress).
+  and much stronger building (Tower, then Fortification, then a Fortress) —
+  all on the same 3 × 3-cell footprint since 2026-11-11 (Sects.md, Fortify).
 - **Immovable** 60 / 60 / 120 s. Levels I-II are an armor buff (tactical);
   III is invulnerability, a wildcard-class effect.
 

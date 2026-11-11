@@ -79,12 +79,13 @@ under the cultured name:
 | `Alanthor_RoyalStable` | Royal Stable | `RoyalStable/RoyalStable_Lvl1..3` |
 | `Alanthor_Tower` | Watch Tower | `Tower/WatchTower_Lvl1..3` |
 | `Alanthor_SiegeYard` | Siege Yard | `SiegeYard/SiegeYard_Lvl1..3` |
+| `Alanthor_Farm` (Age 1 only) | Farm | `Farm/Farm_Lvl1..3` (decision 57) |
 | `Alanthor_Wall` — Stone Wall | Stone / Battlemented / Shielded | `Wall/Wall_Lvl1..3` |
 
 Each level carries its **name, upgrade cost and time, HP / train-time /
 attack-cooldown multipliers over the base, targets per volley, population,
 slot income, trade-rate multiplier (the Trading
-Outpost), an authored attack and sight, and its model**. `BuildingUpgradeConfig` reads them first; its code tables are kept
+Outpost), supplies per Worker (the Farm), an authored attack and sight, and its model**. `BuildingUpgradeConfig` reads them first; its code tables are kept
 only for Runai and Feraldis until their levels get the same treatment.
 
 **A level belongs to the faction, per building type** (2026-10-19,
@@ -500,11 +501,13 @@ Watch Tower:
   always, an enemy's only while you can see the tower. Your own tower shows
   it when selected even when empty.
 
-### Farm — `Alanthor_Farm` (decision 55, 2026-11-11)
+### Farm — `Alanthor_Farm` (decisions 55 and 57, 2026-11-11)
 
-Supplies from **Workers**, not from ground. Every number — price, footprint,
-HP, supplies per Worker, the cap and the slots — is on
-`Civs/Alanthor/Buildings/Farm/Farm.asset`.
+Supplies from **Workers**, paid in proportion to the **free ground around the
+Farm**. Every number — price, footprint, HP, the crop ring's width, the cap and
+the slots — is on `Civs/Alanthor/Buildings/Farm/Farm.asset`; the supplies per
+Worker and the level prices are on its level SOs `Farm_Lvl1..3` in the same
+folder.
 
 - **Placement:** built by Workers from the build palette, on the player's own
   ground like every building, and **never on or over a resource node**.
@@ -520,17 +523,148 @@ HP, supplies per Worker, the cap and the slots — is on
   Workers selected sends them in. A damaged Farm is repaired first: the
   right-click repairs it, and only an undamaged Farm takes Workers.
   Workers inside still count against population.
-- **Pays:** supplies every minute in proportion to the Workers inside
-  (`suppliesPerWorkerPerMinute` each). An empty or unfinished Farm pays
+- **The crop ring (decision 57):** every Farm has a field around it — a
+  circle reaching the Farm SO's `cropRingMeters` out from the Farm's
+  footprint edge, less the Farm's own footprint. Its **free share** is the
+  part of that ring not covered by an obstacle:
+  - any **building's footprint** — any faction's, finished or under
+    construction (a plan is not a building and does not count; a wall counts
+    at the cells it really crosses);
+  - **impassable ground** — cliffs, water, slopes too steep to walk, the map
+    edge, trees, rocks and forest;
+  - a **resource node** (supply, iron or veilstone; a curse node stands on
+    one);
+  - **another Farm's land** — where two rings overlap, the land is **split
+    straight down the middle** (the perpendicular bisector of the two Farms'
+    centres): each point belongs to the **nearer** Farm and is free crop land
+    for it and not part of the other's field, whoever owns them (an exact tie
+    goes to the older Farm, the lower entity index). Nothing is lost by both
+    (2026-11-11, replaces "the overlap counts against both").
+
+  Roads and units are not obstacles. The share is counted on a fixed 1 m
+  lattice of points in the ring (free points over all points, a whole
+  per-mille), recomputed every couple of seconds by the simulation and kept
+  on the Farm — never per frame.
+- **Pays:** every minute, **Workers inside × supplies per Worker (the Farm's
+  level) × the free share**, rounded down. An empty or unfinished Farm pays
   nothing. It is its own income line (`IncomeSource.Farm`), shown as
-  **Farms** in the Economy panel, and the Vault's full supply bars raise it
-  like any income.
+  **Farms** in the Economy panel (with the Farms' mean field), and the Vault's
+  full supply bars raise it like any income.
+- **Levels (decision 57):** L1-L3, like every Alanthor level — one asset per
+  level (`Farm_Lvl1..3`), L1 free at age-up, the level **faction-wide** for
+  the type (one level-up raises every Farm; a new Farm is finished at it), queued
+  through the building's production queue. A level raises only the supplies
+  per Worker; the ring and the slots never change.
+- **Placement preview:** while placing a Farm, the cursor reads **Yield NN%**
+  (and what it would pay with every slot filled) and the ring is drawn on the
+  ground. While placing **any** building whose footprint — or, for a Farm,
+  whose ring — would cut into one of your Farms' rings, the cursor lists each
+  such Farm as **Farm 84% → 71%** and draws its ring. Both use the very
+  function the simulation pays with.
+- **Readout:** a Farm's badge reads `workers/slots  NN%` (your own and your
+  allies' Farms; your own whenever selected), and its supplies bar in the
+  selection panel is what it pays now.
+- **The AI** scores several legal sites by their free share and builds on the
+  best (refusing any below a floor in `SimpleAISystem.asset`), keeps its other
+  buildings off its own Farm rings while it has room elsewhere, and levels
+  Farms as an economy ladder.
 - **A destroyed Farm** puts its Workers out alive beside where it stood.
-- **No levels, no research.**
-- Code: `Farm.cs`, `FarmComponents.cs`, `FarmSystem.cs` in that folder; the
-  slots are the wall garrison's (`WallGarrison.MayEnter` is the one rule that
-  differs: a Farm takes Workers, every other garrison foot units). The model
-  is placeholder art (the Guild's level-1 prefab).
+- **No research.**
+- Code: `Farm.cs`, `FarmComponents.cs` (`FarmPay`, `FarmField`),
+  `FarmSystem.cs`, `FarmRing.cs` (the ring's geometry) and `FarmRing.Field.cs`
+  (the one free / blocked test the simulation, the preview and the crop
+  visuals share) in that folder; the preview is
+  `UI/World/FarmYieldPreview.cs`. The slots are the wall garrison's
+  (`WallGarrison.MayEnter` is the one rule that differs: a Farm takes Workers,
+  every other garrison foot units). The model is placeholder art (the Guild's
+  level-1 prefab, on all three levels).
+
+#### The field's look (2026-11-11)
+
+Presentation only — it never changes what a Farm pays.
+
+- **Crop only on free ground:** tall cereal (stalks about a metre high, with
+  ears) stands on the ring's free ground and nowhere else — the same blocked
+  test the pay uses (`FarmRing.Field`). Where two rings overlap each Farm's
+  crop runs right up to the split down the middle: no bare ground between
+  Farms.
+- **Roads cut through:** no stalk stands on a road (the road mask), and the
+  stalks shorten toward its rim, so a road through a field stays visible.
+  Roads still do not touch the yield.
+- **Grows over time:** a Farm's field starts as tilled soil with sprouts the
+  moment it is finished and grows to a ripe, muted gold over a few minutes,
+  faster with Workers inside (times on the config asset). A Farm first seen
+  already finished shows ripe; a hostile Farm out of vision keeps the field it
+  had when last seen.
+- **Boundary by level:** level 1 has none; level 2 a rough wooden fence, level
+  3 a low stone wall, along the ring's outer edge and beside every road
+  through the field. **Between two Farms the fields either merge or are split
+  straight down the middle:** Farms of the same owner or of allies merge
+  completely — no boundary on the shared line, the rims run on continuously;
+  against a **hostile** Farm the boundary runs straight along the split (each
+  Farm's on its own side of it). A boundary
+  never crosses a road (an opening where one crosses), leaves one opening on
+  the rim facing the Farm's door, and simply has a gap where a building or
+  impassable ground cuts its line. The layout is one pure function,
+  `FarmBoundaryLayout.cs` in the Farm's folder (segments with an opening
+  flag). The level-2 fence is drawn only and blocks nothing; the level-3 wall
+  is a simulation object (next section).
+- Code: `GameSystems/Rendering/FarmCropField/` (`FarmCropField.cs`,
+  `.Fences.cs`, the `FarmCrop` / `FarmSoil` shaders and every tunable on
+  `FarmCropField.asset`).
+
+#### The level-3 wall (2026-11-11)
+
+"Level 3 adds a low stone wall. The stone wall is an obstacle and can be
+destroyed. It rebuilds automatically after some time out of combat."
+(developer). Every number — HP, armour, the rebuild and out-of-combat times,
+the piece length, the opening widths and the art — is on
+`Civs/Alanthor/Buildings/Farm/FarmStoneWallSystem.asset`.
+
+- **Where it runs:** the same layout as the look (`FarmBoundaryLayout`), laid
+  out by the **simulation** the moment a finished Farm's faction holds Farm
+  level 3 — along the ring's rim and, against a hostile Farm, along the split
+  down the middle (a friendly neighbour's field merges, with no wall
+  between). It does **not** follow the roads through the field (no road-edge
+  pieces): the drawn road is a presentation trace the simulation does not
+  know, so the simulation's wall keeps to the rim. Laid out again only when
+  something that shapes it changes — a neighbouring Farm, a building in or
+  near the ring, a road of the simulation road graph near it — never per
+  frame. A piece whose line is unchanged keeps its HP through a re-layout.
+- **Openings, open to everyone:** a gap wherever a **road of the simulation
+  road graph** (Roads.md §0) crosses the line — each graph edge taken as the
+  straight line between its two nodes, with `roadOpeningHalfWidth` either
+  side — and one gap on the rim facing the Farm's door (`doorOpeningMeters`).
+  A building or impassable ground on the line leaves a plain gap, as for the
+  fence. Enemies walk through the gaps too.
+- **Pieces are real:** each piece is its own entity, owned by the Farm's
+  owner, with its own HP and armour; it **blocks movement** (stamped into the
+  nav cost field as a footprint), so units route through the openings. It is
+  **not a building**: it never counts for the building cap, the score,
+  territory, victory, the AI's building lists or the road network, it cannot
+  be selected, and it is **not an obstacle for the crop ring's yield** — not
+  for its own Farm, not for a neighbour.
+- **Anyone can damage it**, with any damage type — it is a low field wall, not
+  a rampart, and the Wall Rule does not cover it
+  ([Combat_Pacing.md](Combat_Pacing.md) § The Wall Rule). **Nobody attacks it
+  on their own**: no unit, tower or siege engine auto-acquires a piece, and
+  splash passes over it; units attack it only on an explicit attack order
+  (right-click), siege included. A damaged piece shows a health bar.
+- **Rebuilds itself:** a destroyed piece comes back at full HP after
+  `rebuildSeconds`, once the Farm is **out of combat** — nothing has damaged
+  the Farm or any of its pieces for `outOfCombatSeconds`. It never comes back
+  on top of a unit (it waits until the spot is clear) or a building.
+- **Goes with the Farm:** a destroyed Farm takes its pieces with it, and so
+  does losing level 3; an unfinished Farm has none.
+- **Last seen:** another player's pieces follow the ground rule for
+  structures that are not buildings (shown where the ground has been
+  explored), and are hidden whenever their Farm itself is not shown.
+- Code: `FarmStoneWall.cs` (the deterministic layout and the piece factory),
+  `FarmStoneWallSystem.cs` (layout, out-of-combat clock, rebuild),
+  `FarmComponents.cs` (`FarmWallPiece`, `FarmWallState`, `FarmWallSlot`) and
+  `PresentationSpawnSystem.FarmStoneWall.cs` (the piece's view) in the Farm's
+  folder; the nav stamp is a pass of `CostFieldStampSystem`; a dead piece is
+  removed by `DeathSystem` with no death record.
 
 ### Market — `Alanthor_Market` (decision 55, 2026-11-11)
 

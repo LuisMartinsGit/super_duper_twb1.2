@@ -547,6 +547,9 @@ MonoBehaviour:
   farmFreeWorkerReserve: 3
   farmStaffPerThink: 4
   farmTrainWorkerMinSupplies: 300
+  farmSiteCandidates: 6
+  farmMinFreePermille: 600
+  farmRingKeepClear: 1
   marketBuildMinSupplies: 900
   marketIronShort: 800
   marketVeilstoneShort: 300

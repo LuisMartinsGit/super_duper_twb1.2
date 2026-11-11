@@ -153,6 +153,11 @@ namespace TheWaningBorder.UI.Ingame
                 }
             }
 
+            // A FARM reports what its Workers pay now, field included
+            // (Farm.SuppliesPerMinute, the number FarmSystem pays; decision 57).
+            if (em.HasComponent<FarmTag>(building))
+                supplies += TheWaningBorder.Entities.Farm.SuppliesPerMinute(em, building);
+
             bool generates = supplies > 0f || iron > 0f || veilstone > 0f;
             if (_resourceGenRow.activeSelf != generates) _resourceGenRow.SetActive(generates);
             if (!generates) return;

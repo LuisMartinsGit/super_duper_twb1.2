@@ -584,6 +584,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         }
         if (presentationId == TheWaningBorder.Entities.SanctumCrystal.PresentationID)
             return CreateSanctumCrystal(pos, entity);
+        // A piece of a Farm's level-3 low stone wall (not a building).
+        if (presentationId == TheWaningBorder.Entities.FarmStoneWall.PresentationID
+            && _em.HasComponent<FarmWallPiece>(entity))
+            return CreateFarmWallPieceVisual(pos, entity);
 
         // === ALANTHOR WALLS: procedural hub, instances, towers, gates ===
         // Wall pieces carry the owner's colour on their ownership parts, and

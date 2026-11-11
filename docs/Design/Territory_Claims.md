@@ -686,7 +686,8 @@ work.
   the card's reach of the Litharch (shown as a second ring); it is not clamped
   to the reach any more, because a ward that lands somewhere other than its
   ghost is not placement. The simulation re-runs the same test, so a refused
-  cast costs no cooldown.
+  cast costs no cooldown. The rule for every building an ability raises:
+  [Build_Grid.md § Buildings raised by abilities](Build_Grid.md).
 
 - **The ward is a building** the player owns. It stands **until it is
   destroyed** — it has no lifetime. Its HP, armour, body and sight are on

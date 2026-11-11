@@ -169,6 +169,28 @@ namespace TheWaningBorder.AI
                         continue;
                     }
 
+                    // A power that raises a building is placed like one
+                    // (Build_Grid.md § Buildings raised by abilities): aim at
+                    // the legal grid site nearest the pick — Fire's own test,
+                    // so the structure lands exactly there — or hold.
+                    if (SectActivePowerHelper.RaisesBuilding(spec.Kind))
+                    {
+                        var rk = spec.Kind;
+                        float rm = spec.Magnitude;
+                        if (!AbilityBuildingSite.TryNearest(target,
+                                SectActivePowerHelper.RaisedFootprint(rk, rm), AITactics.Cfg.raisedBuildingSearchRadius,
+                                p => SectActivePowerHelper.RaisedSiteRefusal(em, faction, rk, rm, p) ?? 
+                                     (SectActivePowerHelper.AimInSight(em, faction, rk, p) ? null : "not in sight"),
+                                out float3 site))
+                        {
+                            if (AITactics.LogDue(em, faction, "sect:" + sectId + slot, AITactics.Cfg.abilityHeldLogSeconds))
+                                AILogger.Log(faction, "ABILITY",
+                                    $"{sectId.Substring(5)} slot {slot} ({spec.Kind}) held (no legal ground near the aim)");
+                            continue;
+                        }
+                        target = site;
+                    }
+
                     // A single-target power is cast ON an entity, never at a
                     // spot (docs/Design/Spells.md §6): cast it on the legal
                     // target standing nearest the chosen spot, or hold it.
@@ -444,22 +466,19 @@ namespace TheWaningBorder.AI
 
         private enum FriendlyNeed : byte { Heal, Buff, Pivotal }
 
-        /// <summary>A free 2x2 build spot on own ground near the keep for a
-        /// Counting House: rings of 16 bearings at 18, 26 and 34 m, first valid
-        /// (deterministic; the power snaps and validates again).</summary>
+        /// <summary>A free build spot on own ground near the keep for a
+        /// Counting House: rings of 16 bearings at 18, 26 and 34 m, first site
+        /// the power's own test passes (CountingHouse.SiteRefusal, on the
+        /// snapped site; deterministic), so the house lands exactly there.</summary>
         private static bool TryPickCountingHouseSite(EntityManager em, Faction faction, float3 hallPos, out float3 target)
         {
-            var size = new int2(2, 2);
-            var snap = BuildSiteSnapshot.Current(em);
             for (float r = 18f; r <= 34f; r += 8f)
                 for (int b = 0; b < 16; b++)
                 {
                     float a = b * (math.PI * 2f / 16f);
-                    float3 p = hallPos + new float3(math.cos(a) * r, 0f, math.sin(a) * r);
-                    p = BuildGrid.Snap(p, size);
-                    p.y = TerrainUtility.GetHeight(p.x, p.z);
+                    float3 p = CountingHouse.SiteFor(hallPos + new float3(math.cos(a) * r, 0f, math.sin(a) * r));
                     if (TheWaningBorder.World.Regions.TerritoryOwnership.OwnerAt(p.x, p.z) != (int)faction) continue;
-                    if (!snap.IsValidBuildPosition(em, p, size, null)) continue;
+                    if (CountingHouse.SiteRefusal(em, faction, p) != null) continue;
                     target = p;
                     return true;
                 }

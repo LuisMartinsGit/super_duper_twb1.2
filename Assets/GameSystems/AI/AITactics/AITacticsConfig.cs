@@ -277,5 +277,10 @@ namespace TheWaningBorder.AI
         /// <summary>Seconds between aggregated TACTICS / TARGET lines per
         /// faction (kite counts, focus changes).</summary>
         public float logIntervalSeconds;
+
+        /// <summary>How far (m) from a sect power's chosen aim the AI looks for
+        /// a legal grid site when the power raises a building (Fortify, Plenty;
+        /// Build_Grid.md § Buildings raised by abilities).</summary>
+        public float raisedBuildingSearchRadius;
     }
 }

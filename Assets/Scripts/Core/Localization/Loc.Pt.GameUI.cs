@@ -357,6 +357,10 @@ namespace TheWaningBorder.Core.Localization
             t["+{0} more"] = "+{0} mais";
             // Decision 55 (2026-11-11): the Farm and the Market.
             t["Farms ({0}, {1} Workers)"] = "Quintas ({0}, {1} Trabalhadores)";
+            t["Farms ({0}, {1} Workers, field {2}%)"] = "Quintas ({0}, {1} Trabalhadores, campo {2}%)";
+            // The Farm's crop ring while placing (decision 57, FarmYieldPreview).
+            t["Yield {0}% ({1} supplies/min with every Worker)"] = "Rendimento {0}% ({1} mantimentos/min com todos os Trabalhadores)";
+            t["Farm {0}% → {1}%"] = "Quinta {0}% → {1}%";
             t["Market"] = "Mercado";
             t["The Market spends {0} supplies a minute in all ({1} on {2})."] = "O Mercado gasta {0} mantimentos por minuto no total ({1} em {2}).";
             t["Fixed price: {0} supplies for 1 {1}. Nothing is bought while the bank cannot pay."] = "Preço fixo: {0} mantimentos por 1 de {1}. Nada é comprado enquanto o tesouro não puder pagar.";

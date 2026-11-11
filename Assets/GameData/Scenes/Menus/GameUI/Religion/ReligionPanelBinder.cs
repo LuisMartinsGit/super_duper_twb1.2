@@ -812,6 +812,10 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
+            // Fortify / Plenty raise a building: placed like one
+            // (ReligionPanelBinder.Placement.cs, Build_Grid.md).
+            if (TryBeginRaisedPlacement(sectId, slot, spec, faction)) return;
+
             float radius = spec.Radius > 0f ? spec.Radius : SectRadii.Small;
             var aimKind = spec.Kind;
             GroundTargeting.Begin(radius, new Color(0.96f, 0.77f, 0.32f, 0.85f), target =>

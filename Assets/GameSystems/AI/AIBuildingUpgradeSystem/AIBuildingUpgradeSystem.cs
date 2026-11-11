@@ -209,6 +209,15 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_MineUpgradeable;
 
+        // The Alanthor Farm levels L1-L3 (decision 57): an economy ladder.
+        static readonly ComponentType[] QT_FarmUpgradeable =
+        {
+            ComponentType.ReadOnly<FarmTag>(),
+            ComponentType.ReadOnly<BuildingUpgradeable>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_FarmUpgradeable;
+
         // The Veilstone Mine levels (2026-11-10, decision 48: a real income ladder).
         static readonly ComponentType[] QT_VeilstoneMineUpgradeable =
         {
@@ -260,7 +269,7 @@ namespace TheWaningBorder.AI
         // ladder ships — wall Tower/Gate CONVERSIONS stay with
         // WallUpgradeSystem and are NOT driven from here.
         private static readonly string[] PriorityOrder =
-            { "GatherersHut", "Mine", "Fortress", "Barracks", "Hut", "ArcheryRange",
+            { "GatherersHut", "Mine", "Alanthor_Farm", "Fortress", "Barracks", "Hut", "ArcheryRange",
               "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Tower",
               "VaultOfAlmierra", "Alanthor_Wall",
               "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop", "Runai_Sanctuary",
@@ -388,7 +397,7 @@ namespace TheWaningBorder.AI
         /// <summary>The economy ladders TryEconomyUpgrade rotates through, in
         /// pass order (index = the query it picks a host from).</summary>
         private static readonly string[] EconomyLevelIds =
-            { "GatherersHut", "Mine", "VeilstoneMine" };
+            { "GatherersHut", "Mine", "VeilstoneMine", "Alanthor_Farm" };
 
         /// <summary>AIPivotalReserve key of the capital's next level.</summary>
         private const string CapitalReserveKey = "CapitalLevel";
@@ -422,12 +431,14 @@ namespace TheWaningBorder.AI
                     ? QC_GathererHutUpgradeableNotRaider.Get(em, QT_GathererHutUpgradeableNotRaider)
                     : kind == 1
                         ? QC_MineUpgradeable.Get(em, QT_MineUpgradeable)
-                        : QC_VeilstoneMineUpgradeable.Get(em, QT_VeilstoneMineUpgradeable));
+                        : kind == 2
+                            ? QC_VeilstoneMineUpgradeable.Get(em, QT_VeilstoneMineUpgradeable)
+                            : QC_FarmUpgradeable.Get(em, QT_FarmUpgradeable));
                 if (best == Entity.Null) continue;
                 if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var cost, out byte next)) continue;
                 if (next <= 1) continue;   // L1 is the free age-up level
                 // A hoard pauses Mine levels too (developer 2026-11-11); the Mines keep working.
-                if (kind != 0 && FactionEconomy.TryGetResources(em, faction, out var hb)
+                if ((kind == 1 || kind == 2) && FactionEconomy.TryGetResources(em, faction, out var hb)
                     && (kind == 1 ? hb.Iron > TheWaningBorder.AI.SimpleAISystemConfig.I.ironNoNewMinesAbove
                                   : hb.Veilstone > TheWaningBorder.AI.SimpleAISystemConfig.I.veilstoneNoNewMinesAbove))
                     continue;
@@ -840,6 +851,9 @@ namespace TheWaningBorder.AI
                 case "Mine":
                     query = QC_MineUpgradeable.Get(em, QT_MineUpgradeable);
                     break;
+                case "Alanthor_Farm":
+                    query = QC_FarmUpgradeable.Get(em, QT_FarmUpgradeable);
+                    break;
                 case "ArcheryRange":
                     query = QC_ArcheryRangeTagBuildingUpgradeableFactionTag.Get(em, QT_ArcheryRangeTagBuildingUpgradeableFactionTag);
                     break;
@@ -914,7 +928,8 @@ namespace TheWaningBorder.AI
             if (buildingId != "Hut" && !feedsArmy)
             {
                 float perBuilding = feedsArmy ? Cfg.soldiersPerProductionBuilding
-                    : buildingId == "GatherersHut" || buildingId == "Mine" ? Cfg.soldiersPerEconomyBuilding
+                    : buildingId == "GatherersHut" || buildingId == "Mine" || buildingId == "Alanthor_Farm"
+                        ? Cfg.soldiersPerEconomyBuilding
                     : Cfg.soldiersPerOtherBuilding;
                 if (!ValueGate(em, faction, best, price, perBuilding, surplus)) return false;
             }

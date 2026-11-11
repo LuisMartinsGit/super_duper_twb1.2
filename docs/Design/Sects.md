@@ -255,7 +255,9 @@ stands, your buildings slowly repair themselves out of combat.
 once, and no two closer than `minSpacingMetres` (`FieldHospitalSystem.asset`,
 2026-10-22)**: a cast past the cap or too close is refused and costs no
 cooldown. The AI used to stack them into an instant-heal zone under an army
-that could not be killed.
+that could not be killed. **The hospital is placed like a building within the
+card's reach (2026-11-11)** — ghost, grid, legality: [Build_Grid.md § Buildings
+raised by abilities](Build_Grid.md).
 
 **[UNIT] Scar Guard** — heavy melee shock. **Borrowed Breath:** more damage
 the lower its HP. Weak to ranged focus fire. Pairs with the Surgeon and
@@ -285,7 +287,18 @@ by the same amount) for 15 s; at III they reflect 20 % of melee damage.
 
 **[★] Fortify** — raise a permanent, complete **Tower / Fortification /
 Fortress** at a point on legal build ground. Cooldown **120 / 300 / 600 s**
-(climbs with level to stop Fortress spam).
+(climbs with level to stop Fortress spam). Placed like a building — ghost,
+grid, legality: [Build_Grid.md § Buildings raised by abilities](Build_Grid.md). **Every level stands on the same
+3 × 3-cell footprint (2026-11-11, developer: "Fortify should always have a
+3x3 footprint")** — the level buys height, walls and firepower, never ground:
+a galleried round tower, then a battlemented bastion round such a tower, then a small
+four-turret keep, all inside one 6 m square (`footprintCells` on the three
+SOs, `Renewal_Tower` / `Renewal_Fortification` / `Renewal_Fortress` in
+`Sects/Renewal/Abilities/RaiseAnew/` — the folder predates the power's move
+to Fortitude). Their art is nested Synty castle-kit prefabs on a 15 m kit plinth (drawn at 0.4, the detail scale of the other Alanthor buildings)
+(`Art/Renewal_*_Age_0.prefab`), authored by
+`Editor/PrefabAuthoring/FortifyKitAuthor.cs` (`Waning Border > Art > Author
+Fortify Art (3x3)`); stats are on the SOs.
 
 **[BUILDING] Stonehold** — a windowless blockhouse that blocks paths; while it
 stands, garrisoned walls and towers gain range and damage (**Arrow Slits**).
@@ -337,6 +350,8 @@ takes it; hostile sides in the ring at once freeze it) and cannot be attacked.
 The cooldown climbs like Fortify's: long, longer at each level. **A player holds
 at most 5** (captured ones count; Plenty raises none past the cap and costs no
 cooldown). Cap, rates, ring and capture time on `CountingHouse.asset`.
+Placed like a building, exactly on its ghost — never moved to a nearby spot:
+[Build_Grid.md § Buildings raised by abilities](Build_Grid.md).
 
 **[BUILDING] Treasury** — while it stands, your extractors earn more
 (`AlanthorSectEconomy.TreasuryIncomeBonus`, 15 % since 2026-11-10).

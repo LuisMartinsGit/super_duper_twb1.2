@@ -389,6 +389,15 @@ namespace TheWaningBorder.Systems.Combat
                 // The forced target leads the list.
                 if (tw.Forced != Entity.Null) targets.Add(fd.ForcedCandidate);
                 for (int j = 0; j < tw.Found; j++) targets.Add(slots[tw.SlotOffset + j]);
+                // Spare arrows are never wasted (Combat_Pacing.md § Building
+                // multi-shot): with fewer targets in range than the volley's
+                // arrows - a Fortress's multi-shot, a garrisoned tower's
+                // per-occupant arrows - the spare ones go round the same
+                // targets again, the directed target first.
+                int wantedShots = (tw.Forced != Entity.Null ? 1 : 0) + math.max(0, tw.AutoSlots);
+                int distinctTargets = targets.Length;
+                for (int k = distinctTargets; k < wantedShots && distinctTargets > 0; k++)
+                    targets.Add(targets[k % distinctTargets]);
 
                 // Fire at each target
                 if (targets.Length > 0 || haveWall)

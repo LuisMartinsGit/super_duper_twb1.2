@@ -249,6 +249,43 @@ legacy `Radius` circle, so what the player sees is exactly the ground the
 building takes. The placement ghost shows the same rect, snapped, in
 valid/invalid colour.
 
+### Buildings raised by abilities (2026-11-11)
+
+**Every ability or power that produces a building is placed like a normal
+building.** Today that is the Litharch's **Cleanse** (Cleansing Ward,
+[Territory_Claims.md §6.9.7](Territory_Claims.md)), **Deploy Field Hospital**
+(Sect of Renewal research), **Fortify** (Fortitude ★: Tower / Fortification /
+Fortress) and **Plenty** (Prosperity ★: Counting House) —
+[Sects.md](Sects.md).
+
+- **Aiming is placement.** While the ability is aimed the player sees the
+  structure's ghost, the build grid and its footprint outline, **snapped by the
+  §1 snap rule** using the structure's own footprint (its SO's
+  `footprintCells`; the Counting House's on `CountingHouse.asset`, the ward's
+  on `CleanseWardSystem.asset`), white where it may stand and red where it may
+  not. A refused click names the rule and keeps placing; Esc / right click
+  cancels. A unit's ability also shows its reach as a second ring.
+- **The cast carries the snapped site and the structure stands exactly
+  there** — never moved to a nearby spot. The simulation snaps and re-runs the
+  same test on every peer (and again when a sect power's wind-up lands), so a
+  cast from the AI or a replay is on the grid too, and **a refused cast costs
+  no cooldown** and tells its owner why. The AI aims only at sites the test
+  passes.
+- **Which rules apply is the ability's**, and each is the normal placement test
+  minus what its design text exempts:
+
+| Ability | Ground it may stand on |
+|---|---|
+| Cleanse (ward) | geometry only (map edge, terrain, overlap, nodes, obstacles, own plans) — no territory gate and **cursed ground allowed**; within the card's reach; team cap and spacing |
+| Deploy Field Hospital | anywhere a building could stand (crust + geometry + own plans) — **no territory gate**, it goes where the fight is; within the card's reach; team cap and spacing |
+| Fortify | **legal build ground**: every rule a worker's building answers to, **own territory** included |
+| Plenty | ground a building could stand on (crust + geometry + own plans) — no territory gate — and never on another Counting House |
+
+Code: `Shared/Buildings/AbilityBuildingSite` (snap + the shared test + the AI's
+nearest-legal search), `UI/World/GroundPlacement` + `AbilityBuildingGhost`
+(the ghost), and per ability `CleanseWard.SiteRefusal`,
+`FieldHospital.SiteRefusal`, `SectActivePowerHelper.RaisedSiteRefusal`.
+
 ---
 
 ## 5. Walls

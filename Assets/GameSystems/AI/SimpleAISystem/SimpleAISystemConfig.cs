@@ -1766,6 +1766,16 @@ namespace TheWaningBorder.AI
         /// <summary>Extra Workers trained for empty Farm slots: only while the
         /// bank holds at least this many supplies.</summary>
         public int farmTrainWorkerMinSupplies;
+        /// <summary>Legal Farm sites scored (their crop ring's free share,
+        /// FarmRing) before the AI takes the best (decision 57).</summary>
+        public int farmSiteCandidates;
+        /// <summary>A Farm site whose crop ring is less free than this
+        /// (per-mille) is refused.</summary>
+        public int farmMinFreePermille;
+        /// <summary>1: every other building keeps off the faction's own Farm
+        /// rings in its normal placement passes (the last-resort pass may
+        /// still use them); 0: no such keep-out.</summary>
+        public int farmRingKeepClear;
         /// <summary>The Market is raised once the bank holds this many supplies.</summary>
         public int marketBuildMinSupplies;
         /// <summary>The bank amount of each resource the Market buys toward: the

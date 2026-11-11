@@ -11,6 +11,10 @@
 // already decided), and only when it is manned. Occupancy is read from the
 // slots, the same source WallGarrison.OccupantCount uses.
 //
+// A FARM's badge also carries its crop field (decision 57): "n/max  84%",
+// the free share it is paid with (FarmField, FarmRing) — own and allied Farms
+// only; and your own Farm shows it whenever it is selected, even empty.
+//
 // Presentation only: reads the world, writes nothing.
 
 using System.Collections.Generic;
@@ -31,6 +35,8 @@ namespace TheWaningBorder.UI.World
     {
         private const float CollectInterval = 0.2f;
         private const float BadgeWidth = 38f;
+        /// <summary>A Farm's badge, wide enough for its field percentage.</summary>
+        private const float FarmBadgeWidth = 74f;
         private const float BadgeHeight = 17f;
         /// <summary>Metres above the building's base the badge is anchored —
         /// the anchor the building health bar uses.</summary>
@@ -57,6 +63,7 @@ namespace TheWaningBorder.UI.World
             public TMP_Text Label;
             public int ShownCount = -1;
             public int ShownMax = -1;
+            public int ShownField = -2;
         }
 
         private struct Entry
@@ -64,6 +71,8 @@ namespace TheWaningBorder.UI.World
             public Vector3 Anchor;
             public int Count;
             public int Max;
+            /// <summary>A Farm's field per-mille; -1 for anything else.</summary>
+            public int Field;
         }
 
         private readonly List<Entry> _entries = new List<Entry>();
@@ -138,11 +147,14 @@ namespace TheWaningBorder.UI.World
                 }
 
                 var p = xfs[i].Position;
+                int field = friendly && em.HasComponent<FarmTag>(e)
+                    ? TheWaningBorder.Entities.FarmRing.CachedFreePermille(em, e) : -1;
                 _entries.Add(new Entry
                 {
                     Anchor = new Vector3(p.x, p.y + Lift, p.z),
                     Count = count,
                     Max = max,
+                    Field = field,
                 });
             }
         }
@@ -165,11 +177,15 @@ namespace TheWaningBorder.UI.World
                     used++;
                     if (!w.Root.gameObject.activeSelf) w.Root.gameObject.SetActive(true);
                     w.Root.anchoredPosition = new Vector2(sp.x, sp.y + PixelRaise);
-                    if (w.ShownCount != e.Count || w.ShownMax != e.Max)
+                    if (w.ShownCount != e.Count || w.ShownMax != e.Max || w.ShownField != e.Field)
                     {
                         w.ShownCount = e.Count;
                         w.ShownMax = e.Max;
-                        w.Label.text = e.Count + "/" + e.Max;
+                        w.ShownField = e.Field;
+                        w.Root.sizeDelta = new Vector2(e.Field >= 0 ? FarmBadgeWidth : BadgeWidth, BadgeHeight);
+                        w.Label.text = e.Field >= 0
+                            ? e.Count + "/" + e.Max + "  " + (e.Field / 10) + "%"
+                            : e.Count + "/" + e.Max;
                         // A full building reads in the accent gold.
                         w.Label.color = e.Count >= e.Max ? WorldOverlayPalette.Accent : WorldOverlayPalette.Inlay;
                     }

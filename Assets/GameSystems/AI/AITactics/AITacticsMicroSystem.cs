@@ -562,7 +562,26 @@ namespace TheWaningBorder.AI
                         LogHeld(fi, faction, card.Name, why);
                         continue;
                     }
-                    if (CommandRouter.IssueUnitAbilitySlot(em, e, slot, pick, null, CommandSource.AI))
+                    // A building the card raises is placed like one (Build_Grid.md §
+                    // Buildings raised by abilities): aim at the legal grid site
+                    // nearest the caster — the executor's own test, so the cast
+                    // lands there — or hold.
+                    float3? aim = null;
+                    if (kind == CardKind.Hospital)
+                    {
+                        Entity caster = e;
+                        var hc = card;
+                        if (!TheWaningBorder.Entities.AbilityBuildingSite.TryNearest(pos,
+                                TheWaningBorder.Entities.FieldHospital.SizeMeters, math.max(0f, card.Range),
+                                p => TheWaningBorder.Entities.FieldHospital.SiteRefusal(em, caster, hc, p),
+                                out float3 site))
+                        {
+                            LogHeld(fi, faction, card.Name, "no legal ground for the hospital in reach");
+                            continue;
+                        }
+                        aim = site;
+                    }
+                    if (CommandRouter.IssueUnitAbilitySlot(em, e, slot, pick, aim, CommandSource.AI))
                     {
                         MarkCast(e);
                         if (card.Targeting == AbilityTargeting.Area && card.Radius > 0f)
@@ -663,6 +682,10 @@ namespace TheWaningBorder.AI
                 return card.TargetKind == CastTargetKind.EnemyUnit
                        || card.TargetKind == CastTargetKind.EnemyUnitOrBuilding
                     ? CardKind.TargetEnemy : CardKind.Ignore;
+            // The Field Hospital is placed like a building (aimed, since
+            // 2026-11-11); its rule is the heal, so it is classed before the
+            // aimed cards this system leaves alone.
+            if (card.HasEffect(AbilityEffectKind.DeployFieldHospital)) return CardKind.Hospital;
             if (card.IsAimed
                 || card.HasEffect(AbilityEffectKind.RevealFog)
                 || card.HasEffect(AbilityEffectKind.ResourceYieldPct)

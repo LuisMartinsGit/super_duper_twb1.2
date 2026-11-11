@@ -73,9 +73,12 @@ namespace TheWaningBorder.Data
         public int maxPerFaction;
 
         // ==================== Farm and Market (decision 55) ====================
-        /// <summary>Supplies a minute each Worker inside pays (WallGarrisonSlot
-        /// occupants). The Alanthor Farm only; FarmSystem reads it.</summary>
-        public int suppliesPerWorkerPerMinute;
+        // (A Farm's supplies per Worker per minute is a LEVEL value since
+        // 2026-11-11, decision 57: BuildingLevelDefSO.suppliesPerWorkerPerMinute
+        // on Farm_Lvl1..3.)
+        /// <summary>The Farm's crop ring, metres out from its footprint edge. Its
+        /// free share scales the Farm's pay; FarmRing reads it.</summary>
+        public float cropRingMeters;
         /// <summary>The Market's FIXED price: supplies paid for one iron.</summary>
         public int suppliesPerIron;
         /// <summary>The Market's FIXED price: supplies paid for one veilstone.</summary>

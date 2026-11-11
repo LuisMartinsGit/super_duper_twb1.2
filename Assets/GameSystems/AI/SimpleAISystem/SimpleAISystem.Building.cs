@@ -789,6 +789,11 @@ namespace TheWaningBorder.AI
             var snap = BuildSiteSnapshot.Current(em);
 
             bool placingGHut = buildingId == "GatherersHut";
+            // A FARM IS SITED BY ITS FIELD (decision 57): the legal candidates
+            // are scored by their crop ring's free share and the best taken.
+            bool farmSite = buildingId == Farm.BuildingId;
+            _farmBestPermille = -1;
+            _farmScored = 0;
 
             // A RUNAI WAYSTATION (docs/Design/Age_1_Runai.md §4.3, §9) goes on
             // a trade route, not in the house quarter: halfway between a depot
@@ -800,7 +805,7 @@ namespace TheWaningBorder.AI
             // the territory's layout has a slot for takes its next free slot
             // (moved to the nearest legal spot if blocked as drawn). The ring
             // search below runs only when every slot of its kind is used up.
-            if (buildingId != "Fortress" && !waystation
+            if (buildingId != "Fortress" && !waystation && !farmSite
                 && !TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(buildingId)
                 && !TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(buildingId))
             {
@@ -861,6 +866,12 @@ namespace TheWaningBorder.AI
             bool isClaim = TheWaningBorder.World.Regions.TerritoryOwnership
                                .IsClaimStructure(buildingId);
             bool onTarget = isClaim || isExtractor;
+            // THE FARMS' FIELDS STAY CLEAR (decision 57): every other base
+            // building keeps off this faction's own Farm rings in its normal
+            // passes; the last-resort pass may still use them.
+            bool keepFarmRings = !farmSite && !onTarget && Cfg.farmRingKeepClear != 0
+                && CollectOwnFarmCentres(em, faction, _ownFarmCentres) > 0;
+            int nFarmRing = 0;
             // A Fortress is searched from its territory's seed / reserved
             // spot outward, not from a ring 16 m clear of it.
             // A COVERAGE TOWER (Game_AI.md 5g) is searched from its chosen
@@ -1026,6 +1037,7 @@ namespace TheWaningBorder.AI
                         // scanned its share stops here, and says so.
                         if (_siteCandidatesLeft <= 0)
                         {
+                            if (farmSite && TakeBestFarmSite(faction, out pos)) return true;
                             inconclusive = true;
                             _siteRefusalTally = "candidate budget spent";
                             pos = default;
@@ -1105,6 +1117,10 @@ namespace TheWaningBorder.AI
                             if (gap > 0f && snap.Overlaps(candidate, size, gap, ignoreWalls: true))
                             { nGap++; continue; }
 
+                            if (keepFarmRings && !lastResort
+                                && FootprintOnFarmRing(candidate, size, _ownFarmCentres))
+                            { nFarmRing++; continue; }
+
                             if (TooCloseToAny(candidate, veilNodeXfs, nodeClearSq)
                                 || TooCloseToAny(candidate, ironNodeXfs, nodeClearSq))
                             { nNodeClear++; continue; }
@@ -1164,6 +1180,7 @@ namespace TheWaningBorder.AI
                         // its own, smaller budget per think.
                         if (_siteValidationsLeft <= 0)
                         {
+                            if (farmSite && TakeBestFarmSite(faction, out pos)) return true;
                             inconclusive = true;
                             _siteRefusalTally = "validation budget spent";
                             pos = default;
@@ -1189,6 +1206,7 @@ namespace TheWaningBorder.AI
                         {
                             if (_sealChecksLeft <= 0)
                             {
+                                if (farmSite && TakeBestFarmSite(faction, out pos)) return true;
                                 inconclusive = true;
                                 _siteRefusalTally = "seal-check budget spent";
                                 pos = default;
@@ -1207,11 +1225,22 @@ namespace TheWaningBorder.AI
                         if (firstSeal != null)
                             AIBaseLayout.LogSeal(faction, buildingId, firstSealAt,
                                 firstSeal + $" — sited elsewhere after {nSeal} such candidate(s)", _thinkNow);
+                        if (farmSite)
+                        {
+                            // Score it and keep looking until enough are seen.
+                            int free = FarmRing.FreePermilleAt(em, candidate.xz, Entity.Null, FarmRing.Ghost.None);
+                            _farmScored++;
+                            if (free > _farmBestPermille) { _farmBestPermille = free; _farmBestPos = candidate; }
+                            if (_farmScored < math.max(1, Cfg.farmSiteCandidates)) continue;
+                            if (TakeBestFarmSite(faction, out pos)) return true;
+                            continue;   // none good enough yet: keep scoring
+                        }
                         pos = candidate;
                         return true;
                     }
                 }
             }
+            if (farmSite && TakeBestFarmSite(faction, out pos)) return true;
             // The relaxed passes ALWAYS run before this line is reached, so a
             // spacing count here describes the normal passes only -- say so,
             // or the next reader concludes spacing is still the blocker.
@@ -1222,7 +1251,8 @@ namespace TheWaningBorder.AI
                   $"nodeclear {nNodeClear}, wall {nWall}, corridor {nCorridor}, past-ring {nPastRing}, " +
                   $"curse {nCurse}, territory {nTerritory}, " +
                   $"nodegate {nNodeGate}, hallcap {nHallCap}, overlap {nOverlap}, " +
-                  $"invalid {nInvalid}, fortress-spot {nSpot}, seal {nSeal}"
+                  $"invalid {nInvalid}, fortress-spot {nSpot}, seal {nSeal}, farm-ring {nFarmRing}" +
+                  (farmSite ? $", farm best {_farmBestPermille}/1000 of {_farmScored} scored" : "")
                 : "";
             if (firstSeal != null)
                 AIBaseLayout.LogSeal(faction, buildingId, firstSealAt, firstSeal, _thinkNow);
@@ -1230,6 +1260,56 @@ namespace TheWaningBorder.AI
             if (nCorridor > 0 && BuildingFactory.IsChoiceBuilding(buildingId))
                 _landmarkCorridorRefused.Add((faction, buildingId));
             pos = default;
+            return false;
+        }
+
+        // ── Farm siting (decision 57) ────────────────────────────────────
+        // Scratch for TryFindBuildPosition (single-threaded think loop).
+        private int _farmBestPermille = -1;
+        private int _farmScored;
+        private float3 _farmBestPos;
+        private readonly List<float2> _ownFarmCentres = new List<float2>(8);
+
+        /// <summary>The best Farm site scored so far, when its crop ring is at
+        /// least farmMinFreePermille free.</summary>
+        private bool TakeBestFarmSite(Faction faction, out float3 pos)
+        {
+            pos = default;
+            if (_farmBestPermille < 0 || _farmBestPermille < Cfg.farmMinFreePermille) return false;
+            pos = _farmBestPos;
+            AILogger.Log(faction, "FARM",
+                $"Farm site ({pos.x:F0},{pos.z:F0}) field {_farmBestPermille / 10}% (best of {_farmScored})");
+            return true;
+        }
+
+        /// <summary>This faction's Farms, finished and sites (a plan carries
+        /// no FarmTag), as ring centres. Returns the count.</summary>
+        private static int CollectOwnFarmCentres(EntityManager em, Faction faction, List<float2> into)
+        {
+            into.Clear();
+            var fq = QC_Farms.Get(em, QT_Farms);
+            if (fq.IsEmptyIgnoreFilter) return 0;
+            using var facs = fq.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xfs = fq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < facs.Length; i++)
+                if (facs[i].Value == faction) into.Add(xfs[i].Position.xz);
+            return into.Count;
+        }
+
+        /// <summary>Does the footprint reach into any of these Farm rings?
+        /// (The ring's outer circle against the footprint box.)</summary>
+        private static bool FootprintOnFarmRing(float3 candidate, int2 size, List<float2> farms)
+        {
+            if (farms.Count == 0) return false;
+            float r = FarmRing.OuterRadius;
+            BuildCommandHelper.FootprintAabb(candidate, size, out float2 mn, out float2 mx);
+            for (int i = 0; i < farms.Count; i++)
+            {
+                var c = farms[i];
+                float dx = c.x - math.clamp(c.x, mn.x, mx.x);
+                float dz = c.y - math.clamp(c.y, mn.y, mx.y);
+                if (dx * dx + dz * dz < r * r) return true;
+            }
             return false;
         }
 
