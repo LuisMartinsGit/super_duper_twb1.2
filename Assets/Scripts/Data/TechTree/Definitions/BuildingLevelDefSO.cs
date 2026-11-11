@@ -57,10 +57,6 @@ namespace TheWaningBorder.Data
         /// culture (Alanthor's Guild 70/100/200, its Mines 140/200/400). Read
         /// only for the extractors; 0 on every other ladder.</summary>
         public float slotIncomePerMinute;
-        /// <summary>Scales the Trading Outpost's trickle at this level, over
-        /// the TradingOutpostSystem.asset rates (2026-11-09: it trickles, it no
-        /// longer trades). Read only for the Outpost; 0 elsewhere (0 reads as 1).</summary>
-        public float tradeRateMultiplier;
 
         /// <summary>An attack AUTHORED for this level, replacing the scaled one
         /// (the Watch Tower ladder; the Garrison's level-3 arrows).
@@ -71,6 +67,14 @@ namespace TheWaningBorder.Data
         public Vector3[] firePoints;
         /// <summary>Line of sight at this level; 0 = unchanged.</summary>
         public float lineOfSight;
+
+        // ── What the level carries (decision 53) ──
+        /// <summary>Tech ids this level GRANTS: researched for the faction the
+        /// moment it holds this level of this building type (levels are
+        /// faction-wide), through the same completion path a finished research
+        /// uses (FactionBuildingLevels.GrantLevelTechs). A granted tech is never offered as
+        /// research (TechCatalog.RebuildResearchLists skips it).</summary>
+        public string[] grantsTechs;
 
         // ── Look ──
         /// <summary>The model this level shows; null = keep the current one.</summary>

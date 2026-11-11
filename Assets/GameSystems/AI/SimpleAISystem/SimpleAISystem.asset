@@ -201,86 +201,44 @@ MonoBehaviour:
     perEnemyArmoured: -0.25
     perEnemySiege: 0
     perEnemyHighValue: 0
-    perEnemyMassed: 0
+    perEnemyMassed: 0.1
   - unitId: Alanthor_Swordsman
     fallbackUnitId: Spearman
     supersededByUnitId: 
     basic: 0
-    baseShare: 0.14
-    perEnemyCavalry: 0
-    perEnemyHeavyCavalry: 0
-    perEnemyInfantry: 0.05
-    perEnemyRanged: 0
-    perEnemyHeavy: 0
-    perEnemyArmoured: 0
-    perEnemySiege: 0.4
-    perEnemyHighValue: 0
-    perEnemyMassed: 0
-  - unitId: Alanthor_Nobleman
-    fallbackUnitId: Alanthor_Swordsman
-    supersededByUnitId: 
-    basic: 0
-    baseShare: 0.1
-    perEnemyCavalry: 0
-    perEnemyHeavyCavalry: 0
-    perEnemyInfantry: 0.05
-    perEnemyRanged: 0.25
-    perEnemyHeavy: 0
-    perEnemyArmoured: 0
-    perEnemySiege: 0
-    perEnemyHighValue: 0
-    perEnemyMassed: 0
-  - unitId: Alanthor_Sentinel
-    fallbackUnitId: Alanthor_Swordsman
-    supersededByUnitId: 
-    basic: 0
-    baseShare: 0.06
+    baseShare: 0.2
     perEnemyCavalry: 0
     perEnemyHeavyCavalry: 0.1
-    perEnemyInfantry: 0
+    perEnemyInfantry: 0.05
     perEnemyRanged: 0
     perEnemyHeavy: 0.1
-    perEnemyArmoured: 0.2
-    perEnemySiege: 0
+    perEnemyArmoured: 0.1
+    perEnemySiege: 0.4
     perEnemyHighValue: 0
     perEnemyMassed: 0
   - unitId: Alanthor_Crossbowman
     fallbackUnitId: Spearman
     supersededByUnitId: 
     basic: 0
-    baseShare: 0.06
+    baseShare: 0.12
     perEnemyCavalry: 0.25
     perEnemyHeavyCavalry: 0.25
     perEnemyInfantry: 0
     perEnemyRanged: 0
     perEnemyHeavy: 0
-    perEnemyArmoured: 0
+    perEnemyArmoured: 0.2
     perEnemySiege: 0
     perEnemyHighValue: 0
     perEnemyMassed: 0
-  - unitId: Alanthor_Longbowman
-    fallbackUnitId: Alanthor_Archer
-    supersededByUnitId: 
-    basic: 0
-    baseShare: 0.12
-    perEnemyCavalry: -0.15
-    perEnemyHeavyCavalry: 0
-    perEnemyInfantry: 0.15
-    perEnemyRanged: 0
-    perEnemyHeavy: 0
-    perEnemyArmoured: 0
-    perEnemySiege: 0
-    perEnemyHighValue: 0
-    perEnemyMassed: 0.1
   - unitId: Alanthor_Outrider
-    fallbackUnitId: Alanthor_Nobleman
+    fallbackUnitId: Alanthor_Swordsman
     supersededByUnitId: 
     basic: 0
-    baseShare: 0.07
+    baseShare: 0.1
     perEnemyCavalry: -0.1
     perEnemyHeavyCavalry: 0
     perEnemyInfantry: 0
-    perEnemyRanged: 0.2
+    perEnemyRanged: 0.3
     perEnemyHeavy: 0
     perEnemyArmoured: 0
     perEnemySiege: 0.15
@@ -301,10 +259,10 @@ MonoBehaviour:
     perEnemyHighValue: 0
     perEnemyMassed: 0
   - unitId: Alanthor_BatteringRam
-    fallbackUnitId: Alanthor_Ballista
+    fallbackUnitId: 
     supersededByUnitId: Alanthor_Trebuchet
     basic: 0
-    baseShare: 0.04
+    baseShare: 0.06
     perEnemyCavalry: 0
     perEnemyHeavyCavalry: 0
     perEnemyInfantry: 0
@@ -328,34 +286,6 @@ MonoBehaviour:
     perEnemySiege: 0
     perEnemyHighValue: 0
     perEnemyMassed: 0
-  - unitId: Alanthor_Ballista
-    fallbackUnitId: Alanthor_Catapult
-    supersededByUnitId: 
-    basic: 0
-    baseShare: 0.02
-    perEnemyCavalry: 0
-    perEnemyHeavyCavalry: 0
-    perEnemyInfantry: 0
-    perEnemyRanged: 0
-    perEnemyHeavy: 0
-    perEnemyArmoured: 0
-    perEnemySiege: 0
-    perEnemyHighValue: 0.2
-    perEnemyMassed: 0
-  - unitId: Alanthor_Catapult
-    fallbackUnitId: Alanthor_Longbowman
-    supersededByUnitId: 
-    basic: 0
-    baseShare: 0.04
-    perEnemyCavalry: 0
-    perEnemyHeavyCavalry: 0
-    perEnemyInfantry: 0
-    perEnemyRanged: 0
-    perEnemyHeavy: 0
-    perEnemyArmoured: 0
-    perEnemySiege: 0
-    perEnemyHighValue: 0
-    perEnemyMassed: 0.2
   basicsFloor: 16
   basicsMinShare: 0.12
   basicsMaxShare: 0.45
@@ -363,7 +293,6 @@ MonoBehaviour:
   surplusClaimIntervalScale: 0.5
   surplusFortressOutcropScale: 2
   surplusResearchSweepInterval: 8
-  surplusLogInterval: 60
   veilstoneIncomeForFullLadder: 300
   veilstoneBankForFullLadder: 600
   ladderScaleWhenStarved: 0.35
@@ -612,3 +541,18 @@ MonoBehaviour:
   victoryStrikeSuperiority: 1.5
   victoryBaseRadius: 60
   victoryFortifyTowerScale: 1.5
+  farmThinkInterval: 10
+  farmSteadyCount: 3
+  farmShortSupplies: 400
+  farmFreeWorkerReserve: 3
+  farmStaffPerThink: 4
+  farmTrainWorkerMinSupplies: 300
+  marketBuildMinSupplies: 900
+  marketIronShort: 800
+  marketVeilstoneShort: 300
+  marketSupplyFloor: 2000
+  marketSpendMinutes: 3
+  veilstoneHoardLine: 10000
+  ironNoNewMinesAbove: 30000
+  veilstoneNoNewMinesAbove: 30000
+  veilstoneGlutLadderScale: 2.5

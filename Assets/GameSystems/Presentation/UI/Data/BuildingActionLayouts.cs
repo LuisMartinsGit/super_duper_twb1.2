@@ -100,14 +100,16 @@ namespace TheWaningBorder.UI.Data
             {
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
 
-                ActionSlot.ChainOf("StoneTools", "IronTools", "VeilstoneTools", "VeilsteelTools"),
+                // Only Stone Tools is researched: the upper tool tiers are
+                // granted by the Fortress's levels (decision 53, grantsTechs).
+                ActionSlot.Tech("StoneTools"),
                 ActionSlot.Tech("ArmedScouts"),
                 ActionSlot.Tech("ScoutingCelestarii"),
                 ActionSlot.Tech("MasonGuild"),
-                // Trade Charters (2026-11-09): unlocks the Trading Outpost.
                 // (No wall tech here: Battlements and Shielded Ramparts are
-                // researched AT THE WALL HUB.)
-                ActionSlot.Tech("Alanthor_TradeCharters"),
+                // researched AT THE WALL HUB. Trade Charters is retired with
+                // the Trading Outpost, decision 55.)
+                ActionSlot.Empty,
 
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
             },

@@ -30,6 +30,12 @@ public static class TechCatalog
     private static readonly Dictionary<string, BuildingDefSO> _buildingSOsById = new();
     /// <summary>Cultured building levels, keyed "Culture|buildingId|level".</summary>
     private static readonly Dictionary<string, BuildingLevelDefSO> _buildingLevels = new();
+    /// <summary>Every tech some building level grants (BuildingLevelDefSO.grantsTechs,
+    /// decision 53) — never offered as research.</summary>
+    private static readonly HashSet<string> _grantedTechs = new();
+    /// <summary>The levels that grant anything, in catalog order (the grant pass
+    /// walks this, so its order is the same on every peer).</summary>
+    private static readonly List<BuildingLevelDefSO> _grantingLevels = new();
     private static readonly Dictionary<string, TechDefSO> _techSOsById = new();
     // presentationId -> prefab (for the prefab-based spawn path). null prefab = primitive fallback.
     private static readonly Dictionary<int, GameObject> _prefabByPid = new();
@@ -96,6 +102,7 @@ public static class TechCatalog
     {
         _unitsById.Clear(); _buildingsById.Clear(); _technologiesById.Clear();
         _unitSOsById.Clear(); _buildingSOsById.Clear(); _techSOsById.Clear(); _buildingLevels.Clear();
+        _grantedTechs.Clear(); _grantingLevels.Clear();
         _prefabByPid.Clear(); _controllerByPid.Clear();
         _eraOverrides.Clear(); _derivedResearch.Clear(); _derivedTrains.Clear();
 
@@ -222,6 +229,8 @@ public static class TechCatalog
         foreach (var tech in _technologiesById.Values)
         {
             if (tech == null || string.IsNullOrEmpty(tech.researchAt)) continue;
+            // A level grants it (decision 53): never offered as research.
+            if (_grantedTechs.Contains(tech.id)) continue;
             if (!byHost.TryGetValue(tech.researchAt, out var list))
                 byHost[tech.researchAt] = list = new List<string>();
             if (!list.Contains(tech.id)) list.Add(tech.id);
@@ -238,7 +247,7 @@ public static class TechCatalog
             var merged = derived != null ? new List<string>(derived) : new List<string>();
             if (def.research != null)
                 foreach (var id in def.research)
-                    if (!string.IsNullOrEmpty(id) && !merged.Contains(id)) merged.Add(id);
+                    if (!string.IsNullOrEmpty(id) && !merged.Contains(id) && !_grantedTechs.Contains(id)) merged.Add(id);
 
             def.research = merged.Count > 0 ? merged.ToArray() : System.Array.Empty<string>();
             _derivedResearch[kv.Key] = def.research;
@@ -427,6 +436,10 @@ public static class TechCatalog
                 Warn($"building level '{lvl.name}' has hpMultiplier {lvl.hpMultiplier}");
             if ((lvl.buildingId == "GatherersHut" || lvl.buildingId == "Mine") && lvl.slotIncomePerMinute <= 0f)
                 Warn($"building level '{lvl.name}' is an extractor rung with slotIncomePerMinute {lvl.slotIncomePerMinute}");
+            if (lvl.grantsTechs != null)
+                foreach (var t in lvl.grantsTechs)
+                    if (!string.IsNullOrEmpty(t) && !_technologiesById.ContainsKey(t))
+                        Warn($"building level '{lvl.name}' grants '{t}' which has no technology def");
         }
 
         if (issues == 0)
@@ -466,8 +479,29 @@ public static class TechCatalog
                 if (so == null || string.IsNullOrEmpty(so.buildingId) || string.IsNullOrEmpty(so.culture))
                     continue;
                 _buildingLevels[LevelKey(so.culture, so.buildingId, so.level)] = so;
+                if (so.grantsTechs != null && so.grantsTechs.Length > 0)
+                {
+                    _grantingLevels.Add(so);
+                    foreach (var t in so.grantsTechs)
+                        if (!string.IsNullOrEmpty(t)) _grantedTechs.Add(t);
+                }
             }
         }
+    }
+
+    /// <summary>True when a building level grants this tech (decision 53):
+    /// it is never researched, so no building offers it.</summary>
+    public static bool IsGrantedByLevel(string techId)
+    {
+        if (string.IsNullOrEmpty(techId)) return false;
+        EnsureLoaded();
+        return _grantedTechs.Contains(techId);
+    }
+
+    /// <summary>The building levels that grant techs, in catalog order.</summary>
+    public static IReadOnlyList<BuildingLevelDefSO> GrantingLevels
+    {
+        get { EnsureLoaded(); return _grantingLevels; }
     }
 
     private static string LevelKey(string culture, string buildingId, int level)
@@ -762,13 +796,6 @@ public static class TechCatalog
             range.minEra = 2;
         _eraOverrides["ArcheryRange"] = 2;
 
-        // Gap-closer for the Trading Outpost (Veilstone_Economy.md §3.1): a
-        // new BuildingDefSO is not in Resources/TechTreeCatalog until someone
-        // adds the reference, and until then Building() returns a 1-HP stub.
-        // The authored SO wins the moment it loads; this only closes the gap.
-        EnsureBuildingDefault("Alanthor_TradingOutpost", "Trading Outpost",
-            "Trade post beside a veilstone outcrop",
-            650, 14, 1.0f, 2, System.Array.Empty<string>(), System.Array.Empty<string>());
 
         // THE TEMPLE IS AN AGE 0 BUILDING (docs/Design/Religion.md §2,
         // 2026-09-29). It costs a Religion Point, and the first one comes from

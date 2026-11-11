@@ -58,8 +58,8 @@ namespace TheWaningBorder.Systems.Navigation
         /// Bumped by simulation code that MOVES a building (the change gate
         /// below hashes the building set and sizes, never positions). Only
         /// ever changed from lockstep-deterministic code, on the same tick on
-        /// every peer: the age-up move of a Veilstone Mine onto its outcrop's
-        /// side as a Trading Outpost (TradingOutpost.ConvertMinesForCulture).
+        /// every peer (it was bumped by the retired Trading Outpost's age-up
+        /// move; nothing bumps it today).
         /// </summary>
         private static int _externalVersion;
 

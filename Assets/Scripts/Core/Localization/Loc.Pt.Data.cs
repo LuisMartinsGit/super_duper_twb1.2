@@ -91,6 +91,13 @@ namespace TheWaningBorder.Core.Localization
             t["Watch Tower"] = "Torre de Vigia";
             t["Forge"] = "Forja";
             t["Royal Stable"] = "Estrebaria Real";
+            // Decision 55 (2026-11-11): the Farm and the Market (Farm.asset, Market.asset).
+            t["Farm"] = "Quinta";
+            t["Market"] = "Mercado";
+            t["Supplies from the Workers inside it - up to five, nothing when empty"] = "Mantimentos dos Trabalhadores lá dentro - até cinco, nada quando vazia";
+            t["Built on your own ground, never on a resource node, at most six per player. Right-click it with Workers selected to put them to work inside; each Worker pays supplies every minute. Empty sends them back out, and a destroyed Farm sets them down beside it alive."] = "Construída no teu próprio terreno, nunca num nó de recursos, no máximo seis por jogador. Clica com o botão direito com Trabalhadores selecionados para os pôr a trabalhar lá dentro; cada Trabalhador rende mantimentos a cada minuto. Esvaziar manda-os sair, e uma Quinta destruída deixa-os vivos ao seu lado.";
+            t["Buys iron and veilstone with supplies, at fixed prices"] = "Compra ferro e veilstone com mantimentos, a preços fixos";
+            t["One per player. Set how much iron and how much veilstone it buys a minute; it pays supplies for them at a fixed price that never changes with the nodes you hold. When the bank cannot pay, nothing is bought that moment."] = "Um por jogador. Define quanto ferro e quanta veilstone compra por minuto; paga-os em mantimentos a um preço fixo que nunca muda com os nós que tens. Quando o tesouro não pode pagar, nada é comprado nesse momento.";
             t["Stone Ledgers"] = "Registos de Pedra";
             t["Mason's Guild"] = "Guilda dos Pedreiros";
             t["Iron Weapons"] = "Armas de Ferro";
@@ -108,7 +115,6 @@ namespace TheWaningBorder.Core.Localization
             t["Veteran Archers"] = "Arqueiros Veteranos";
             t["Elite Archers"] = "Arqueiros de Elite";
             t["Arrow Volley"] = "Salva de Flechas";
-            t["Arrow Shower"] = "Chuva de Flechas";
             t["Deploy Stakes"] = "Colocar Estacas";
             t["Seasoned Cavalry"] = "Cavalaria Experiente";
             t["Veteran Cavalry"] = "Cavalaria Veterana";
@@ -122,7 +128,6 @@ namespace TheWaningBorder.Core.Localization
             t["places a Cleansing Ward that clears cursed ground in a growing circle until it is destroyed"] = "coloca uma Guarda Purificadora que limpa o solo amaldiçoado num círculo crescente até ser destruída";
             t["one strong pulse clears the cursed ground in the circle; leaves no building behind"] = "um pulso forte limpa o solo amaldiçoado no círculo; não deixa nenhum edifício";
             t["Full Gallop"] = "A Todo o Galope";
-            t["Reinforced Bolts"] = "Virotes Reforçados";
             t["Iron-Shod Ram"] = "Aríete Ferrado";
             t["Counterweight Tuning"] = "Afinação de Contrapesos";
             t["Seasoned Crews"] = "Equipas Experientes";

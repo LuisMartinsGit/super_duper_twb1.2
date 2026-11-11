@@ -25,9 +25,9 @@ namespace TheWaningBorder.UI.Ingame
                     Count(TutorialMissionState.SurveyDone), 1),
                 () => TutorialMissionState.SurveyDone);
             AddRow(root, () => Open(AdvancedStage.Economy),
-                () => string.Format(Loc.T("2b - Research Trade Charters at the Fortress ({0}/{1})"),
-                    Mathf.Min(TutorialMissionState.Charters, 1), 1),
-                () => TutorialMissionState.Charters >= 1);
+                () => string.Format(Loc.T("2b - Level up your Mines ({0}/{1})"),
+                    Count(TutorialMissionState.MineLevel >= 2), 1),
+                () => TutorialMissionState.MineLevel >= 2);
             AddRow(root, () => Open(AdvancedStage.Military),
                 () => string.Format(Loc.T("3 - Build an Archery Range ({0}/{1})"),
                     Mathf.Min(TutorialMissionState.Ranges, 1), 1),
@@ -83,8 +83,8 @@ namespace TheWaningBorder.UI.Ingame
                 case AdvancedStage.Economy:
                     title = Loc.T("The Alanthor economy");
                     body = Loc.T("Your Gatherer's Huts are now <b>Guilds</b>: select one and level it up — every Guild "
-                        + "levels with it and pays more. Every node runs dry in the end. Research <b>Trade Charters</b> at the Fortress: "
-                        + "a <b>Trading Outpost</b> beside a node keeps it at its last unit, and pays you forever. "
+                        + "levels with it and pays more. Then level up a <b>Mine</b> the same way. Every node runs dry "
+                        + "in the end: keep raising extractors on fresh nodes. "
                         + "The Litharch is now <b>King Lexor</b>, your hero.");
                     break;
                 case AdvancedStage.Military:

@@ -52,7 +52,7 @@ MonoBehaviour:
   fortressDelaySeconds: 180
   reconquestMargin: 1.6
   strengthWaveRatioScale: 1.15
-  sustainArmyCap: 120
+  sustainArmyCap: 300
   concurrentArmies: 1
   incomeTargeting: 1
   supportThinkScale: 1

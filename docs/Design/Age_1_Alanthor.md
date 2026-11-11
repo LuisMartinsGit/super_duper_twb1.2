@@ -29,7 +29,7 @@
 |--------|----------|
 | Focus | **Defense** (walls, towers, long-range archery, building HP) |
 | Style | Stone / Medieval |
-| Economy | Huts (the Guild) and Mines on territory slots, Veilstone Mines, the late **Trading Outpost** beside any node (Trade Charters — [Veilstone_Economy.md §3.1](Veilstone_Economy.md)), the **Vault** for interest, and the Guild **Surveys** as the deliberate exception that lets huts produce iron and veilstone |
+| Economy | Huts (the Guild) and Mines on territory slots, Veilstone Mines (nodes never run out — decision 55), the **Farm** and the **Market**, the **Vault** for interest, and the Guild **Surveys** as the deliberate exception that lets huts produce iron and veilstone |
 | Territory | Ground is owned by standing on it ([Territory_Claims.md](Territory_Claims.md)); the Fortress and extractors lock it. Alanthor builds only on owned ground, walls included |
 | Main upgrade hooks | the **Fortress** (capital, L1-L3) — the tool ladder and the **Mason Guild** building-HP passive; the **Wall Hub** — the wall levels |
 | Techs | **faction-wide.** A tech applies to every unit or building it names, standing and future; there is no per-battalion upgrade (decision 31) |
@@ -79,7 +79,6 @@ under the cultured name:
 | `Alanthor_RoyalStable` | Royal Stable | `RoyalStable/RoyalStable_Lvl1..3` |
 | `Alanthor_Tower` | Watch Tower | `Tower/WatchTower_Lvl1..3` |
 | `Alanthor_SiegeYard` | Siege Yard | `SiegeYard/SiegeYard_Lvl1..3` |
-| `Alanthor_TradingOutpost` (Age 1 only, after Trade Charters) | Trading Outpost | `TradingOutpost/TradingOutpost_Lvl1..3` |
 | `Alanthor_Wall` — Stone Wall | Stone / Battlemented / Shielded | `Wall/Wall_Lvl1..3` |
 
 Each level carries its **name, upgrade cost and time, HP / train-time /
@@ -94,6 +93,34 @@ one level-up raises every building of the type the faction owns, new
 buildings of the type are finished at that level, and only one level-up of a
 type runs at a time. The upgrade button and queue slot say it applies to
 every building of the type.
+
+**A level carries its unit tiers** (decision 53, 2026-11-11). The weapon /
+armour / experience tier techs of the Garrison, Archery Range, Royal Stable
+and Siege Yard, and the Fortress's tool tiers, are **not researched**: each
+level SO lists the techs it grants (`BuildingLevelDefSO.grantsTechs`), and the
+moment the faction holds that level of the type, those techs become
+researched for it — the same completion a finished research makes, so every
+effect applies exactly as if it had been bought, prerequisites ignored.
+
+- **L1** grants arrive once the faction has completed its age-up **and** owns
+  a finished building of the type (its first Siege Yard, say). **L2 / L3**
+  grants arrive with the level-up itself (a level-up needs a building).
+- A granted tech is **never offered as research** and the AI never asks for
+  it: the building's research list skips every tech some level grants.
+- Granted techs stay researched — losing every building of the type takes
+  nothing back.
+- The level-up prices absorb part of the folded techs' prices (on the level
+  SOs); L1 stays free. The upgrade tooltip lists what the next level grants.
+- Code: `FactionBuildingLevels.GrantLevelTechs` (run by
+  `BuildingCultureAutoLevelSystem`), `TechCatalog.IsGrantedByLevel`.
+
+| Building | L1 grants | L2 grants | L3 grants |
+|---|---|---|---|
+| Garrison | Seasoned Infantry | Iron Weapons, Iron Plate, Veilstone Weapons, Veilstone Plate, Veteran Infantry | Shard-infused Weapons, Shard Plate, Elite Infantry |
+| Archery Range | Stone-Tipped Arrows, Seasoned Archers | Iron-Tipped Arrows, Iron Brigandine, Veilstone-Tipped Arrows, Veilstone Brigandine, Veteran Archers | Shard-Tipped Arrows, Shard Brigandine, Elite Archers |
+| Royal Stable | Stone-Barded Lances, Seasoned Cavalry | Iron-Barded Lances, Iron Barding, Veilstone Lances, Veilstone Barding, Veteran Cavalry | Shard-infused Lances, Shard Barding, Elite Cavalry |
+| Siege Yard | Stone Shot, Seasoned Crews | Iron Shot, Iron Plating, Veilstone Shot, Veilstone Plating, Veteran Crews | Shard-infused Shot, Shard Plating, Elite Crews |
+| Fortress | — | Iron Tools | Veilstone Tools, Shard Tools |
 
 **The HUD names the level.** Level 0 is the bare Age 0 name; every levelled
 building reads `<name> - Lvl N`, using the level asset's name — the Hut
@@ -134,15 +161,15 @@ everyone; the Alanthor ones are Alanthor-gated and filed in
 |------|---------|------|---------------|
 | **Stone Tools** | Age 0, all | — | workers build faster (tool tier 1) |
 | **Armed Scouts** | Age 0, all | — | arms Scouts, standing and newly trained |
-| **Iron Tools** | Alanthor | Fortress L2 | build speed, tier 2 |
-| **Veilstone Tools** | Alanthor | Fortress L3 | build speed, tier 3 |
-| **Shard Tools** (id `VeilsteelTools`) | Alanthor | Fortress L3 | build speed, tier 4 |
-| **Trade Charters** | Alanthor | Fortress L1 (2026-11-09, decision 44) | unlocks the Trading Outpost ([§ Trading Outpost](#trading-outpost--alanthor_tradingoutpost-l1-l3-decision-42-2026-11-09)) |
+| **Field Intelligence** | all | Fortress L3 | marks hostiles in the territories your soldiers stand in ([Territory_Claims.md §7.4](Territory_Claims.md)) |
 | **Mason Guild** | Alanthor | Fortress L2 | faction-wide building HP |
 | **Scouting Celestarii** | Alanthor | — | the **Celestar passive** on every Scout ([§ Scouting Celestarii](#scouting-celestarii--the-celestar-passive-2026-10-19)) |
 
 **The tool ladder is build speed** — Alanthor builds its walls and towers
-faster as it climbs it; it does not touch gathering (nobody gathers).
+faster as it climbs it; it does not touch gathering (nobody gathers). Since
+decision 53 only Stone Tools is researched: **Iron Tools** come with Fortress
+L2, **Veilstone Tools** and **Shard Tools** (id `VeilsteelTools`) with
+Fortress L3 ([§ Building levels](#building-levels-2026-10-02--canonical-for-where-level-numbers-live)).
 
 #### Scouting Celestarii — the Celestar passive (2026-10-19)
 
@@ -187,29 +214,25 @@ Age 0 Barracks, renamed and reskinned. Its research files under
 | Unit | Gate | Role |
 |------|------|------|
 | **Spearman** | — | the Age 0 line unit; the anti-cavalry leg of the triangle |
-| **Swordsman** (`Alanthor_Swordsman`) | L1 | mid-game line infantry; bonus vs Siege — infantry is how a siege line dies |
-| **Nobleman** (`Alanthor_Nobleman`) | L2 | the all-rounder — **no bonus vs anything**, so it never wins an exchange on type advantage and never loses one either. Prices the flexibility |
-| **Sentinel** (`Alanthor_Sentinel`) | L3 | the damage sponge — the heaviest foot armour, bonus vs Heavy |
+| **Swordsman** (`Alanthor_Swordsman`) | L1 | the heavy line infantry; bonus vs Siege — infantry is how a siege line dies. It grows into the heavy-infantry role through the Garrison's levels (decision 52) |
+
+**One job per unit (decision 52, 2026-11-11).** The Nobleman and the Sentinel
+left the roster; their SOs and factories are parked (old saves and replays
+still spawn them), but no building trains them.
 
 Cavalry is not trained here — it is the Royal Stable's.
 
 #### Researchable techs
 
 All faction-wide. Gates are the tech SOs' `minBuildingLevel` on the Garrison.
+The melee weapon tiers above Stone, the plate tiers and the infantry veterancy
+tiers are **granted by the Garrison's levels**, not researched
+([§ Building levels](#building-levels-2026-10-02--canonical-for-where-level-numbers-live)).
 
 | Tech | Gate | Effect (rule) | Requires |
 |------|------|---------------|----------|
 | **Conscription** | — | faster training at every military building | |
-| **Stone Weapons** | — | melee weapon tier 1 | |
-| **Iron Weapons** | L1 | melee weapon tier 2 | Stone Weapons |
-| **Veilstone Weapons** | L2 | melee weapon tier 3 | Iron Weapons |
-| **Shard-infused Weapons** | L3 | melee weapon tier 4 | Veilstone Weapons |
-| **Iron Plate** | L1 | melee armour tier 1 | |
-| **Veilstone Plate** | L2 | melee armour tier 2 | Iron Plate |
-| **Shard Plate** | L3 | melee armour tier 3 | Veilstone Plate |
-| **Seasoned Infantry** | L1 | veterancy tier 1 for the line infantry | |
-| **Veteran Infantry** | L2 | veterancy tier 2 | Seasoned Infantry |
-| **Elite Infantry** | L3 | veterancy tier 3 | Veteran Infantry |
+| **Stone Weapons** | — | melee weapon tier 1 (Age 0) | |
 | **Charge** | L2 | after a spell out of combat, a soldier closes with a **speed burst** and his **first strike** in that window hits harder; miss the window and it resets. The burst, the bonus and the timings are on the tech SO | |
 | **Shield Wall** | L3 | a stationary-defence passive for the line infantry | Charge |
 
@@ -220,7 +243,7 @@ All faction-wide. Gates are the tech SOs' `minBuildingLevel` on the Garrison.
 The Archery Range is `minEra: 2` and never appears in Age 0, so for Alanthor
 there is nothing to rename: it is the Archery Range (SO
 `Civs/Alanthor/Buildings/ArcheryRange/ArcheryRange.asset`). Its roster is
-**Archer / Crossbowman / Longbowman**; the Archer's canonical id is
+**Archer / Crossbowman** (the Longbowman left it in decision 52); the Archer's canonical id is
 `Alanthor_Archer` (the bare `Archer` id survives only as a factory alias for
 old scenarios and saves). It reads its **own** footprint (decision 11 note in
 [Build_Grid.md](Build_Grid.md)).
@@ -230,8 +253,7 @@ old scenarios and saves). It reads its **own** footprint (decision 11 note in
 | Unit | Gate | Role |
 |------|------|------|
 | **Archer** (`Alanthor_Archer`) | L1 | the generalist bow; bonus vs Infantry closes the triangle |
-| **Crossbowman** (`Alanthor_Crossbowman`) | L2 | the heavy bolt; bonus vs Cavalry — the cataphract answer |
-| **Longbowman** (`Alanthor_Longbowman`) | L3 | the top of the ladder in damage and reach; no bonus |
+| **Crossbowman** (`Alanthor_Crossbowman`) | L2 | the heavy bolt; bonus vs Cavalry — the cataphract answer, and the bow that beats armour |
 
 The ladder's rules (range rises with tier, range never exceeds sight, no
 minimum range) are in [Combat_Pacing.md § The ranged ladder](Combat_Pacing.md).
@@ -242,17 +264,13 @@ minimum range) are in [Combat_Pacing.md § The ranged ladder](Combat_Pacing.md).
 |------|------|---------------|----------|
 | **Choreographed Volleys** | — | a unit active carried by every ranged unit: nearby allied ranged units fire faster for a few seconds ([Spells.md](Spells.md) §9) | |
 | **Fletching** | — | more attack range for every ranged unit | |
-| **Stone-Tipped Arrows** | — | arrow tier 1 | |
-| **Iron-Tipped Arrows** | L1 | arrow tier 2 | Stone-Tipped |
-| **Veilstone-Tipped Arrows** | L2 | arrow tier 3 | Iron-Tipped |
-| **Shard-Tipped Arrows** | L3 | arrow tier 4 | Veilstone-Tipped |
-| **Iron / Veilstone / Shard Brigandine** | L1 / L2 / L3 | ranged armour tiers 1-3, each requiring the previous | |
-| **Seasoned / Veteran / Elite Archers** | L1 / L2 / L3 | veterancy tiers, each requiring the previous | |
 | **Arrow Volley** | — | permanent faster fire for every ranged unit | |
-| **Arrow Shower** | L2 | faster still | Arrow Volley |
 | **Deploy Stakes** | L3 | the first cavalry charge against an archer is blunted and partly reflected; the stakes re-plant | |
 
-The arrow tiers are visible in flight ([Combat_Pacing.md § Arrow tips](Combat_Pacing.md)).
+The arrow tiers (Stone at L1, Iron and Veilstone at L2, Shard at L3), the
+brigandine tiers and the archer veterancy tiers are **granted by the Range's
+levels** ([§ Building levels](#building-levels-2026-10-02--canonical-for-where-level-numbers-live));
+Arrow Shower is cut (decision 53). The arrow tiers are visible in flight ([Combat_Pacing.md § Arrow tips](Combat_Pacing.md)).
 
 ---
 
@@ -291,9 +309,9 @@ decision 17): a developed hut ring is Alanthor's late-game mine.
 | **Supply Survey III** | Guild L3 | more supplies | Supply Survey II |
 
 The survey drips **scale with the hut's Guild level** (2026-08-11, "fully
-developed huts are the late-game mine"): map iron deposits are finite and run
-dry around mid-game, and a maxed hut ring with the top survey is designed to
-carry the iron economy from there. **Since 2026-10-08 this is literal:**
+developed huts are the late-game mine"): map iron deposits were finite then
+(nodes never run out since decision 55), and a maxed hut ring with the top
+survey was designed to carry the iron economy from there. **Since 2026-10-08 this is literal:**
 every completed survey tier makes every Guild pay a flat amount of its
 resource, scaled by that Guild's level, **drawn from no node** — it keeps
 paying after the nodes run dry at minute 30 (Territory_Claims.md § 11.3) —
@@ -329,9 +347,9 @@ The AI levels Mines with its other economy buildings.
 
 ### Veilstone is for elite and siege (2026-11-10, decision 48)
 
-Alanthor's **line units cost no veilstone** — the Swordsman, Crossbowman, Longbowman and
+Alanthor's **line units cost no veilstone** — the Swordsman, Crossbowman and
 Outrider are paid in supplies and iron. **Elite units carry a third** of the veilstone they
-used to (Sentinel, Nobleman, Cataphract), and **siege engines and heroes keep theirs**. The
+used to (the Cataphract), and **siege engines and heroes keep theirs**. The
 economy pays about five supplies per veilstone at every level of play, so a line army is
 always affordable; veilstone decides how much elite and siege a faction can field.
 
@@ -380,15 +398,12 @@ its scouts are dead ([Game_AI.md](Game_AI.md) §7).
 
 | Tech | Gate | Effect (rule) | Requires |
 |------|------|---------------|----------|
-| **Stone-Barded Lances** | — | cavalry weapon tier 1 | |
-| **Iron-Barded Lances** | L1 | tier 2 | Stone-Barded |
-| **Veilstone Lances** | L2 | tier 3 | Iron-Barded |
-| **Shard-infused Lances** | L3 | tier 4 | Veilstone Lances |
-| **Iron / Veilstone / Shard Barding** | L1 / L2 / L3 | cavalry armour tiers 1-3, each requiring the previous | |
-| **Seasoned / Veteran / Elite Cavalry** | L1 / L2 / L3 | veterancy tiers, each requiring the previous | |
 | **Charge** (`CavalryCharge`) | L1 | the cavalry version of the Garrison's Charge: speed burst + harder first strike, values on the tech SO | |
 | **War Horn** | L2 | unlocks the War Horn active for cavalry (`RoyalStable/Abilities/WarHorn/`) | |
 | **Full Gallop** | L3 | unlocks **Galloping** (below) for every Alanthor cavalry unit, and the Full Gallop active (a speed burst during which the riders cannot attack) | War Horn |
+
+The lance tiers, the barding tiers and the cavalry veterancy tiers are
+**granted by the Stable's levels** ([§ Building levels](#building-levels-2026-10-02--canonical-for-where-level-numbers-live)).
 
 #### Galloping (2026-11-07)
 
@@ -419,35 +434,32 @@ none is stated here. Code: `Civs/Alanthor/AlanthorGallop*.cs`.
 
 ### Siege Yard — `Alanthor_SiegeYard`
 
-Levels `SiegeYard/SiegeYard_Lvl1..3`. **All four engines coexist** (decision
-32; settled 2026-08-27 — the 2026-08-02 "Catapult replaced Ballista" swap is
-reversed):
+Levels `SiegeYard/SiegeYard_Lvl1..3`. **Two engines, one job each**
+(decision 52, 2026-11-11 — the Ballista and the Catapult left the roster;
+their SOs and factories are parked for old saves and replays, and the wall's
+emplaced Ballista and Trebuchet are wall features, untouched):
 
 | Unit | Gate | Role |
 |------|------|------|
-| **Ballista** (`Alanthor_Ballista`) | L1 | the flat single-target bolt, bonus vs Building — the hard-target cracker |
-| **Catapult** (`Alanthor_Catapult`) | L1 | the lobbed splash stone, bonus vs Building and Infantry — the anti-mass answer |
 | **Battering Ram** (`Alanthor_BatteringRam`) | L2 | buildings-only attacker, an armoured shell |
 | **Trebuchet** (`Alanthor_Trebuchet`) | L3 | long-range area siege, the wall-line killer |
 
 **Artillery doctrine (2026-08-02):** an engine may outrange its own sight; it
 auto-engages only inside its line of sight, and firing at the far band needs
-a spotter (scout or ally vision) plus an explicit attack order. The Catapult's
-launch angle is solved ballistically so the stone lands where the target is
-(Synty `SM_Wep_Catapult_01`, `FX_Catapult_Single_01`).
+a spotter (scout or ally vision) plus an explicit attack order.
 
 #### Researchable techs
 
 | Tech | Gate | Effect (rule) | Requires |
 |------|------|---------------|----------|
-| **Stone / Iron / Veilstone / Shard-infused Shot** | — / L1 / L2 / L3 | munition tiers 1-4 , each requiring the previous | |
-| **Iron / Veilstone / Shard Plating** | L1 / L2 / L3 | siege armour tiers 1-3, each requiring the previous | |
-| **Seasoned / Veteran / Elite Crews** | L1 / L2 / L3 | veterancy tiers, each requiring the previous | |
-| **Reinforced Bolts** | L1 | the Ballista hits harder | |
 | **Iron-Shod Ram** | L2 | the Ram survives the approach | |
 | **Ranging Shot** | L2 | an active: after standing still, the next shot hits much harder | |
 | **Counterweight Tuning** | L3 | the Trebuchet reaches further | |
 | **Siege Screens** | L3 | a stationary ranged-defence passive for engines | Ranging Shot |
+
+The shot tiers, the plating tiers and the crew veterancy tiers are **granted
+by the Yard's levels** ([§ Building levels](#building-levels-2026-10-02--canonical-for-where-level-numbers-live));
+Reinforced Bolts is cut with the Ballista (decision 53).
 
 ### Watch Tower — `Alanthor_Tower`
 
@@ -488,7 +500,71 @@ Watch Tower:
   always, an enemy's only while you can see the tower. Your own tower shows
   it when selected even when empty.
 
-### Trading Outpost — `Alanthor_TradingOutpost` (L1-L3, decision 42, 2026-11-09)
+### Farm — `Alanthor_Farm` (decision 55, 2026-11-11)
+
+Supplies from **Workers**, not from ground. Every number — price, footprint,
+HP, supplies per Worker, the cap and the slots — is on
+`Civs/Alanthor/Buildings/Farm/Farm.asset`.
+
+- **Placement:** built by Workers from the build palette, on the player's own
+  ground like every building, and **never on or over a resource node**.
+- **Cap:** at most `maxPerFaction` Farms per player (six), counting finished
+  Farms, sites and plans. At the cap the palette shows the Farm greyed and a
+  placement is refused.
+- **Workers inside:** a Farm holds up to `garrisonSlots` Workers (five) and
+  takes **only Workers** — no soldiers, no heroes. A Worker whose walk ends
+  within `farmIdleEntryRange` of the Farm (`WallGarrison.asset`) goes in even
+  when the edge point it aimed for was unreachable (2026-11-11). It uses the garrison rules
+  above (the order walks, the entry waits; the Workers leave the map; the
+  `n/max` badge; the **Empty** button), so right-clicking a finished Farm with
+  Workers selected sends them in. A damaged Farm is repaired first: the
+  right-click repairs it, and only an undamaged Farm takes Workers.
+  Workers inside still count against population.
+- **Pays:** supplies every minute in proportion to the Workers inside
+  (`suppliesPerWorkerPerMinute` each). An empty or unfinished Farm pays
+  nothing. It is its own income line (`IncomeSource.Farm`), shown as
+  **Farms** in the Economy panel, and the Vault's full supply bars raise it
+  like any income.
+- **A destroyed Farm** puts its Workers out alive beside where it stood.
+- **No levels, no research.**
+- Code: `Farm.cs`, `FarmComponents.cs`, `FarmSystem.cs` in that folder; the
+  slots are the wall garrison's (`WallGarrison.MayEnter` is the one rule that
+  differs: a Farm takes Workers, every other garrison foot units). The model
+  is placeholder art (the Guild's level-1 prefab).
+
+### Market — `Alanthor_Market` (decision 55, 2026-11-11)
+
+Iron and veilstone for supplies, at a price that never moves. Every number —
+price, footprint, HP, the two prices, the rate ceiling and the rate step — is
+on `Civs/Alanthor/Buildings/Market/Market.asset`.
+
+- **One per player** (`maxPerFaction`), built by Workers on owned ground.
+- **The player sets two rates:** how much **iron** and how much **veilstone**
+  it buys a minute, with **no ceiling** (decision 56: the bank is the only limit), in steps of
+  `rateStep` (the selected Market's **−** / **+** buttons; Shift moves five
+  steps; clicking the rate itself stops buying that resource). A new Market
+  buys nothing until a rate is set.
+- **Fixed prices:** it pays `suppliesPerIron` supplies for each iron and
+  `suppliesPerVeilstone` for each veilstone. The price never changes with the
+  nodes a player holds, the Market's age, or anything else.
+- **No debt:** the purchase runs every second, prorated from the rates; when
+  the bank cannot pay for a resource that second, none of it is bought.
+- **Intent (decision 55 (e)):** Farms and the Market let a player live with no
+  node at all, but nodes stay by far the richer income — a Mine's iron costs
+  several full Farms' worth of supplies at the Market.
+- The rates are a lockstep command (`SetMarketRate`) and live on the Market
+  (`MarketRates`), so they ride saves and replays. Purchases are booked as
+  `IncomeSource.Market` (the **Market** line of the Economy panel shows what
+  it buys and the supplies it spends) and are never raised by the Vault.
+- Code: `Market.cs`, `MarketComponents.cs`, `MarketSystem.cs` in that folder,
+  `CommandRouter.Market.cs`, the panel in `ActionsPanelPrefabBinder.Market.cs`.
+  The model is the retired Trading Outpost's art (`Market/Art/`).
+
+### ~~Trading Outpost — `Alanthor_TradingOutpost` (L1-L3, decision 42, 2026-11-09)~~
+
+**RETIRED 2026-11-11 ([decision 55](Unification_Decisions_2026-10-03.md))**, with Trade
+Charters, Trade Ledgers and Merchant Houses: nodes never run out, so there is nothing for a
+post to hold. Its art is the Market's model. The text below is history.
 
 Alanthor's late-game income: unlocked by **Trade Charters** (Fortress research,
 Fortress L3). Alanthor mine veilstone like everyone else until then, and keep their
@@ -990,15 +1066,19 @@ ownership part — no code changes either way.
 Every stat is on the unit SO; the roles, trainers and gates are above. Notes
 that are rules rather than numbers:
 
-- **Swordsman, Longbowman and the Royal Stable are settled** (decision 30) —
-  no longer "TBD".
+- **Swordsman and the Royal Stable are settled** (decision 30) — no longer
+  "TBD".
+- **One job per unit** (decision 52): the army is two units a kind —
+  Spearman / Swordsman, Archer / Crossbowman, Outrider / Cataphract,
+  Battering Ram / Trebuchet. The Sentinel, Nobleman, Longbowman, Ballista and
+  Catapult train nowhere (their SOs and factories are parked).
 - **Cut, never to be documented again** (decision 30): Royal Guard, L2 / L3
   cavalry tiers, the Academy tech, the Wheel cart, Stone Ledgers, the
   Crucible. The Holy Scholar is cut (decision 33); the Smelter is removed
   (decision 1).
-- **Weight tags** (decision 35): Outrider Light; Cataphract Heavy; Archer,
-  Crossbowman and Longbowman Light; Ballista, Catapult, Trebuchet, Battering
-  Ram and the emplaced engines Heavy ([Combat_Pacing.md](Combat_Pacing.md)).
+- **Weight tags** (decision 35): Outrider Light; Cataphract Heavy; Archer
+  and Crossbowman Light; Trebuchet, Battering Ram and the emplaced engines
+  Heavy ([Combat_Pacing.md](Combat_Pacing.md)).
 
 ### Ledger — court automaton
 
@@ -1031,20 +1111,22 @@ Levels, abilities and the death / revival choice: [Heroes.md](Heroes.md).
 
 1. ~~`KingsCourt` → `TownHall` rename~~ — **superseded 2026-10-03.** The Age 0
    Shelter becomes the **Fortress** at age-up.
-2. **Garrison roster** — Spearman, Swordsman (L1), Nobleman (L2), Sentinel
-   (L3); cavalry moved to the **Royal Stable** (Outrider L1, Cataphract L3).
+2. **Garrison roster** — Spearman, Swordsman (L1) since decision 52 (the
+   Nobleman and Sentinel are gone); cavalry moved to the **Royal Stable** (Outrider L1, Cataphract L3).
    The Royal Guard is cut (decision 30).
 3. **Archery Range** — standard cultured-building path, no population; levels
    on the level SOs.
 4. **Tech ladders** — originally "unlock a per-battalion upgrade". **Superseded
    2026-10-03 (decision 31):** every weapon / armour / arrow / tool / veterancy
-   tier is a faction-wide tech.
+   tier is a faction-wide tech — **granted by the building's level** since
+   decision 53, never researched.
 5. **Glow tiers** — superseded: the fourth tier of every ladder is the
    Shard tier (veilstone-priced since 2026-11-09).
 6. **Mason Guild** — canonical name; faction-wide building HP (value on the
    tech SO).
-7. **Archery Range ladder** — Stone → Iron → Veilstone → Shard-tipped arrows,
-   plus Choreographed Volleys and Fletching.
+7. **Archery Range ladder** — Stone → Iron → Veilstone → Shard-tipped arrows
+   (granted by the levels, decision 53), plus the researched Fletching, Arrow
+   Volley, Choreographed Volleys and Deploy Stakes.
 8. **Wall economy yield** — gone: compartment income was removed 2026-07-06 and
    Stone Ledgers is cut.
 9. **Build-cost discrepancies** — **resolved 2026-10-03:** the SO is the only
@@ -1052,6 +1134,4 @@ Levels, abilities and the death / revival choice: [Heroes.md](Heroes.md).
 
 ## Remaining open questions
 
-- **Trading Outpost art** — its own Alanthor model (it still borrows the Runai
-  Trading Post visual), now that it really stands beside the outcrop
-  (decision 40); level models for L2 / L3.
+- ~~**Trading Outpost art**~~ — moot: the Trading Outpost is retired (decision 55).

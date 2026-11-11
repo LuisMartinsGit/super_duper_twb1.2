@@ -205,8 +205,6 @@ namespace TheWaningBorder.World.Regions
             var partners = MirrorPartners(n, centres, boxMin, boxMax, out float2 mid);
 
             int placed = 0, short_ = 0;
-            _reserved.Clear();
-            _noPostRoomAt.Clear();
             // NODE PURITY (Territory_Claims.md § 11.2): one map-wide bag, its
             // own stream, dealt in territory order — the same on every peer,
             // and node POSITIONS draw from the territory streams untouched.
@@ -229,16 +227,14 @@ namespace TheWaningBorder.World.Regions
                 // A start territory, seated or not, is all Pure.
                 _dealPure = home || TypeOf(t) == ResourceType.Start;
 
-                // EVERY node keeps room for its four Trading Outposts
-                // (2026-11-09: posts stand beside supply and iron nodes too,
-                // Veilstone_Economy.md §3.1). Scarcest first: veilstone, iron,
-                // supply — each kind's posts are reserved before the next.
+                // Scarcest first: veilstone, iron, supply. (No side room is
+                // kept for Trading Outposts any more — retired, decision 55.)
                 for (int i = 0; i < veil; i++)
-                    short_ += PlaceWithPostRoom(em, t, home, centre, boxMin[t], boxMax[t], mine, 2, ref rng) ? 0 : 1;
+                    short_ += PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 2, ref rng) ? 0 : 1;
                 for (int i = 0; i < iron; i++)
-                    short_ += PlaceWithPostRoom(em, t, home, centre, boxMin[t], boxMax[t], mine, 1, ref rng) ? 0 : 1;
+                    short_ += PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 1, ref rng) ? 0 : 1;
                 for (int i = 0; i < supply; i++)
-                    short_ += PlaceWithPostRoom(em, t, home, centre, boxMin[t], boxMax[t], mine, 0, ref rng) ? 0 : 1;
+                    short_ += PlaceRandom(em, t, home, centre, boxMin[t], boxMax[t], mine, 0, ref rng) ? 0 : 1;
                 placed += mine.Count;
 
                 if (partners != null)
@@ -271,50 +267,10 @@ namespace TheWaningBorder.World.Regions
             _dealt[0] = _dealt[1] = _dealt[2] = 0;
             Debug.Log($"[TerritoryResources] {placed} node(s) laid from territory types" +
                       (short_ > 0 ? $"; {short_} could not find legal ground." : "."));
-            if (_noPostRoomAt.Count > 0)
-                Debug.LogWarning($"[TerritoryResources] {_noPostRoomAt.Count} node(s) found no site with room " +
-                                 $"for all four Trading Outposts and were laid without it ({string.Join(", ", _noPostRoomAt)}) " +
-                                 "— widen that ground on the map.");
-            else
-                Debug.Log("[TerritoryResources] every resource node has room for its four Trading Outposts.");
             // The Sanctum landmark (Art_Direction.md §6.3): after the nodes, so
             // it keeps clear of them; same peers, same order, same sites.
             SanctumCrystal.LayAll(em, centres);
-            _reserved.Clear();
         }
-
-        /// <summary>
-        /// Lay one node of <paramref name="kind"/> where all four of its side
-        /// slots are buildable for Trading Outposts. Room for all four posts
-        /// first; then the same with the wall band relaxed (and a full grid
-        /// scan); only a territory with no such ground anywhere gets a node
-        /// without it (logged).
-        /// </summary>
-        private static bool PlaceWithPostRoom(EntityManager em, int t, bool home, float3 centre,
-            float2 min, float2 max, List<float3> mine, int kind, ref Unity.Mathematics.Random rng)
-        {
-            System.Array.Clear(_why, 0, _why.Length);
-            _needPostRoom = true;
-            bool ok = PlaceRandom(em, t, home, centre, min, max, mine, kind, ref rng);
-            _needPostRoom = false;
-            if (!ok)
-            {
-                _needPostRoom = true;
-                _relaxBand = true;
-                ok = PlaceRandom(em, t, home, centre, min, max, mine, kind, ref rng)
-                  || ScanForPostRoom(em, t, home, centre, min, max, mine, kind);
-                _needPostRoom = false;
-                _relaxBand = false;
-            }
-            if (!ok)
-            {
-                ok = PlaceRandom(em, t, home, centre, min, max, mine, kind, ref rng);
-                if (ok) _noPostRoomAt.Add($"{RegionMap.NameOf(t)} {KindName(kind)} [bounds {_why[0]}, territory {_why[1]}, terrain {_why[2]}, obstacle {_why[3]}, building {_why[4]}, node {_why[5]}, reserved {_why[6]}]");
-            }
-            return ok;
-        }
-
-        private static string KindName(int kind) => kind == 0 ? "supply" : kind == 1 ? "iron" : "veilstone";
 
         private static void Counts(ResourceType type, ref Unity.Mathematics.Random rng,
             out int supply, out int iron, out int veil)
@@ -357,8 +313,6 @@ namespace TheWaningBorder.World.Regions
         /// </summary>
         private const float BorderBand = 10f;
         private const int RandomTries = 160;
-        /// <summary>RandomTries multiplier while an outcrop needs room for its posts.</summary>
-        private const int PostRoomTriesFactor = 12;
 
         /// <summary>
         /// MARGINS SCALE WITH THE TERRITORY (2026-10-17). BorderBand and
@@ -387,10 +341,7 @@ namespace TheWaningBorder.World.Regions
         }
 
         private static float BandOf(int t)
-        {
-            float band = t >= 0 && t < _band.Length ? _band[t] : BorderBand;
-            return _relaxBand ? math.min(band, InsetOf(t)) : band;
-        }
+            => t >= 0 && t < _band.Length ? _band[t] : BorderBand;
         private static float InsetOf(int t) => t >= 0 && t < _inset.Length ? _inset[t] : BorderInset;
 
         /// <summary>
@@ -404,11 +355,7 @@ namespace TheWaningBorder.World.Regions
         private static bool PlaceRandom(EntityManager em, int t, bool home, float3 centre,
             float2 min, float2 max, List<float3> mine, int kind, ref Unity.Mathematics.Random rng)
         {
-            // An outcrop that must keep room for its four posts draws far more
-            // spots: most draws die on the home / band rules before the post
-            // test, and a home edge band can hold only a few flat spots.
-            int tries = _needPostRoom ? RandomTries * PostRoomTriesFactor : RandomTries;
-            for (int k = 0; k < tries; k++)
+            for (int k = 0; k < RandomTries; k++)
             {
                 var d = new float3(rng.NextFloat(min.x, max.x), 0f, rng.NextFloat(min.y, max.y));
                 if (!InsideWithInset(d, t)) continue;
@@ -420,7 +367,6 @@ namespace TheWaningBorder.World.Regions
                 if (!InsideWithInset(site, t) || TooClose(site, mine)) continue;
                 if (StartClearing.Covers(site, BuildGrid.ResourceNodeHalf)) continue;
                 if (home && !OnHomeEdge(site, centre)) continue;
-                if (!SiteKeepsPostRoom(em, site, t, kind)) continue;
                 Create(em, site, kind);
                 mine.Add(site);
                 return true;
@@ -439,9 +385,7 @@ namespace TheWaningBorder.World.Regions
         private static bool OnHomeEdge(float3 p, float3 start)
         {
             float off = Cfg.homeNodeMinOffset;
-            // The relaxed post-room pass gives up the edge band before an
-            // outcrop goes without room for its posts (the start clearing holds).
-            if (off <= 0f || _relaxBand) return true;
+            if (off <= 0f) return true;
             return math.max(math.abs(p.x - start.x), math.abs(p.z - start.z)) >= off;
         }
 
@@ -647,128 +591,9 @@ namespace TheWaningBorder.World.Regions
                 UnityEngine.Debug.LogError($"[TerritoryResources] no legal ground for an authored node at {position}.");
         }
 
-        // ── Room for the Trading Outposts (2026-10-18) ──────────────────
-        //
-        // Every outcrop is laid where all four of its side slots
-        // (TradingOutpost.SideSlot, N/E/S/W — Veilstone_Economy.md §3.1) are
-        // buildable ground of the outcrop's own territory, by the same terrain
-        // and passability test the live placement runs. The four footprints
-        // are then RESERVED, so no node laid afterwards takes one of them.
-
-        /// <summary>Post footprints reserved around laid outcrops: (min.x, min.z, max.x, max.z).</summary>
-        private static readonly List<float4> _reserved = new List<float4>();
-        /// <summary>While set, a veilstone site must have room for its four posts.</summary>
-        private static bool _needPostRoom;
-        /// <summary>While set, BandOf falls back to the edge inset (the relaxed post-room pass).</summary>
-        private static bool _relaxBand;
-        /// <summary>Why post-room checks failed for the outcrop being placed (diagnostic for the warning).</summary>
-        private static readonly int[] _why = new int[7];
-        /// <summary>Territories whose outcrop was laid without post room, for the warning.</summary>
-        private static readonly List<string> _noPostRoomAt = new List<string>();
-
-        /// <summary>Float slack so a footprint flush against another counts as clear.</summary>
-        private const float FlushSlack = 0.05f;
-
-        private static bool SiteKeepsPostRoom(EntityManager em, float3 site, int t, int kind)
-        {
-            const float h = BuildGrid.ResourceNodeHalf;
-            if (HitsReserved(new float2(site.x - h, site.z - h), new float2(site.x + h, site.z + h)))
-                return false;
-            if (!_needPostRoom) return true;
-            return HasPostRoom(em, site, t);
-        }
-
-        private static bool HitsReserved(float2 min, float2 max)
-        {
-            for (int i = 0; i < _reserved.Count; i++)
-            {
-                var r = _reserved[i];
-                if (min.x < r.z - FlushSlack && max.x > r.x + FlushSlack
-                    && min.y < r.w - FlushSlack && max.y > r.y + FlushSlack)
-                    return true;
-            }
-            return false;
-        }
-
-        private static bool HasPostRoom(EntityManager em, float3 outcrop, int t)
-        {
-            int2 size = BuildingSizeConfig.GetSize(TradingOutpost.BuildingId);
-            var oq = TheWaningBorder.Core.Commands.Types.BuildCommandHelper.ObstacleQuery(em);
-            using var obsPos = oq.ToComponentDataArray<LocalTransform>(Unity.Collections.Allocator.Temp);
-            using var obsRad = oq.ToComponentDataArray<Radius>(Unity.Collections.Allocator.Temp);
-            for (int s = 0; s < 4; s++)
-            {
-                float3 slot = TradingOutpost.SideSlot(outcrop, s);
-                slot.y = TerrainUtility.GetHeight(slot.x, slot.z);
-                TheWaningBorder.Core.Commands.Types.BuildCommandHelper.FootprintAabb(slot, size, out var min, out var max);
-                if (!TheWaningBorder.Core.Commands.Types.BuildCommandHelper.InsideMapBounds(min, max)) { _why[0]++; return false; }
-                // The whole footprint in the outcrop's territory (2 m samples,
-                // edges included): a post across a border is not the owner's to build.
-                for (float x = min.x + FlushSlack; x <= max.x; x += BuildGrid.CellSize)
-                    for (float z = min.y + FlushSlack; z <= max.y; z += BuildGrid.CellSize)
-                        if (RegionMap.RegionAt(math.min(x, max.x - FlushSlack), math.min(z, max.y - FlushSlack)) != t)
-                        { _why[1]++; return false; }
-                if (!TheWaningBorder.Core.Commands.Types.BuildCommandHelper.PassesTerrainAndGrid(
-                        slot, size, min, max, isExtractor: false))
-                { _why[2]++; return false; }
-                for (int i = 0; i < obsPos.Length; i++)
-                    if (TheWaningBorder.Core.Commands.Types.BuildCommandHelper.CircleHitsAabb(
-                            obsPos[i].Position, obsRad[i].Value, min, max))
-                    { _why[3]++; return false; }
-                if (TheWaningBorder.Core.Commands.Types.BuildCommandHelper.OverlapsExistingBuilding(em, slot, size))
-                { _why[4]++; return false; }
-                var inMin = min + FlushSlack;
-                var inMax = max - FlushSlack;
-                if (ResourceNodeSite.OverlapsNode(em, inMin, inMax, null)) { _why[5]++; return false; }
-                if (HitsReserved(min, max)) { _why[6]++; return false; }
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// The last try before an outcrop goes without room for its posts:
-        /// every grid site of the territory, in a fixed order (the same on
-        /// every lockstep peer), cheapest tests first. Only a site the node
-        /// resolver leaves where it is counts, so the post test still holds.
-        /// </summary>
-        private static bool ScanForPostRoom(EntityManager em, int t, bool home, float3 centre,
-            float2 min, float2 max, List<float3> mine, int kind)
-        {
-            float step = BuildGrid.CellSize;
-            for (float z = min.y; z <= max.y; z += step)
-                for (float x = min.x; x <= max.x; x += step)
-                {
-                    var d = BuildGrid.SnapResourceNode(new float3(x, 0f, z));
-                    if (!InsideWithInset(d, t)) continue;
-                    if (StartClearing.Covers(d, BuildGrid.ResourceNodeHalf)) continue;
-                    if (home && !OnHomeEdge(d, centre)) continue;
-                    if (TooClose(d, mine)) continue;
-                    d.y = TerrainUtility.GetHeight(d.x, d.z);
-                    if (!SiteKeepsPostRoom(em, d, t, kind)) continue;
-                    if (!ResourceNodeSite.TryResolve(em, d, out var site)) continue;
-                    if (math.distancesq(site.xz, d.xz) > 0.01f) continue;
-                    Create(em, site, kind);
-                    mine.Add(site);
-                    return true;
-                }
-            return false;
-        }
-
-        private static void ReservePosts(float3 outcrop)
-        {
-            int2 size = BuildingSizeConfig.GetSize(TradingOutpost.BuildingId);
-            for (int s = 0; s < 4; s++)
-            {
-                float3 slot = TradingOutpost.SideSlot(outcrop, s);
-                TheWaningBorder.Core.Commands.Types.BuildCommandHelper.FootprintAabb(slot, size, out var min, out var max);
-                _reserved.Add(new float4(min.x, min.y, max.x, max.y));
-            }
-        }
-
         private static void Create(EntityManager em, float3 site, int kind, byte grade)
         {
             _record?.Add((site, kind, grade));
-            ReservePosts(site);   // every kind keeps its four post sides (2026-11-09)
             Entity e = kind switch
             {
                 0 => SupplyNode.Create(em, site),
@@ -805,7 +630,6 @@ namespace TheWaningBorder.World.Regions
                     desired.y = TerrainUtility.GetHeight(desired.x, desired.z);
                     if (!ResourceNodeSite.TryResolve(em, desired, out var site)) continue;
                     if (!InsideWithInset(site, t) || TooClose(site, mine)) continue;
-                    if (!SiteKeepsPostRoom(em, site, t, kind)) continue;
 
                     Create(em, site, kind);
                     mine.Add(site);

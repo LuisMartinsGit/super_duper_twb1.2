@@ -168,8 +168,10 @@ namespace TheWaningBorder.Tutorial
             }
 
             TutorialMissionState.Shelters = fortresses;
-            // 2b (2026-11-10): Trade Charters researched (Stop Extracting is gone, decision 45).
-            if (TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(Player)) TutorialMissionState.Charters = 1;
+            // 2b (decision 55, 2026-11-11): the Mines reach level 2 (Trade
+            // Charters is retired with the Trading Outpost).
+            TutorialMissionState.MineLevel = math.max(TutorialMissionState.MineLevel,
+                TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, Player, "Mine"));
             TutorialMissionState.Ranges = math.max(TutorialMissionState.Ranges, ranges);
             TutorialMissionState.Towers = math.max(TutorialMissionState.Towers, towers);
             TutorialMissionState.Temples = math.max(TutorialMissionState.Temples, temples);
@@ -216,7 +218,7 @@ namespace TheWaningBorder.Tutorial
                     break;
 
                 case AdvancedStage.Economy:
-                    if (TutorialMissionState.SurveyDone && TutorialMissionState.Charters >= 1)
+                    if (TutorialMissionState.SurveyDone && TutorialMissionState.MineLevel >= 2)
                         TutorialMissionState.AdvancedStage = AdvancedStage.Military;
                     break;
 

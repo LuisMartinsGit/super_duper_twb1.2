@@ -1,0 +1,73 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b98b52f4032a91549814ef127e8e0bff, type: 3}
+  m_Name: Farm
+  m_EditorClassIdentifier: 
+  id: Alanthor_Farm
+  displayName: Farm
+  role: Supplies from the Workers inside it - up to five, nothing when empty
+  description: Built on your own ground, never on a resource node, at most six per
+    player. Right-click it with Workers selected to put them to work inside; each
+    Worker pays supplies every minute. Empty sends them back out, and a destroyed
+    Farm sets them down beside it alive.
+  hp: 400
+  armorType: structure_human
+  defense:
+    melee: 3
+    ranged: 9
+    siege: 0
+    magic: 1
+  radius: 1.5
+  lineOfSight: 12
+  footprintCells: {x: 3, y: 3}
+  buildTime: 30
+  populationProvided: 0
+  suppliesPerTick: 0
+  suppliesInterval: 0
+  slotIncomePerMinute: []
+  maxPerFaction: 6
+  suppliesPerWorkerPerMinute: 50
+  suppliesPerIron: 0
+  suppliesPerVeilstone: 0
+  maxRatePerMinute: 0
+  rateStep: 0
+  minWallLevel: 0
+  garrisonSlots: 5
+  garrisonArrowsPerOccupant: 0
+  maxIron: 0
+  maxVeilstone: 0
+  segmentHp: 0
+  segmentLineOfSight: 0
+  trains: []
+  research: []
+  minEra: 2
+  cost:
+    Supplies: 150
+    Iron: 50
+    Veilstone: 0
+  tags:
+  - Building
+  attack:
+    enabled: 0
+    damage: 0
+    damageType: ranged
+    range: 0
+    cooldown: 0
+    maxTargets: 0
+    siegeShotDamage: 0
+  levels: []
+  unitUpgrades: []
+  prefab: {fileID: 966386778828022813, guid: b9765bd0c5615504cadb6369623c5582, type: 3}
+  culturePrefabs: []
+  presentationId: 512
+  prefabPath: 
+  canUpgradeTo: []

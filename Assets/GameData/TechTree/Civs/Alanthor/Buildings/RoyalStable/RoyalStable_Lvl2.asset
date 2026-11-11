@@ -17,9 +17,9 @@ MonoBehaviour:
   level: 2
   displayName: Royal Stable
   upgradeCost:
-    Supplies: 700
-    Iron: 350
-    Veilstone: 0
+    Supplies: 750
+    Iron: 650
+    Veilstone: 525
   upgradeSeconds: 30
   hpMultiplier: 1.15
   trainTimeMultiplier: 0.64
@@ -37,4 +37,10 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
+  grantsTechs:
+  - IronBardedLances
+  - IronBarding
+  - VeilstoneLances
+  - VeilstoneBarding
+  - VeteranCavalry
   prefab: {fileID: 4318664850858928862, guid: 052371f6a35a9b24693878e54e6160ab, type: 3}

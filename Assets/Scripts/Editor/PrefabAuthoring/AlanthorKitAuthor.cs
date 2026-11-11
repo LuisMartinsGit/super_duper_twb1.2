@@ -569,7 +569,8 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             AlLevels("Guild", "Guild", BuildGuild);
             AlLevels("Mine", "Mine", BuildAlMine);
             AlLevels("Tower", "WatchTower", BuildWatchTower);
-            AlLevels("TradingOutpost", "TradingOutpost", BuildTradingOutpost);
+            // The Trading Outpost is retired (decision 55): its art is no
+            // longer rebuilt here (BuildTradingOutpost stays as the recipe).
             AlLevels("Fortress", "Fortress", BuildAlFortress);
             AlLevels("ArcheryRange", "ArcheryRange", BuildArcheryRange);
             AlLevels("RoyalStable", "RoyalStable", BuildRoyalStable);
@@ -580,7 +581,6 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             AlFrameForm("RoyalStable", "Alanthor_RoyalStable", 8f);
             AlFrameForm("SiegeYard", "Alanthor_SiegeYard", 8f);
             AlFrameForm("Tower", "Alanthor_Tower", 4f);
-            AlFrameForm("TradingOutpost", "Alanthor_TradingOutpost", 4f);
             // the Alanthor Temple is the Age 0 Temple's culture look
             try
             {
@@ -726,7 +726,8 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             if (level >= 3) AlFlag(props, "Flag", new Vector3(1.6f, P, 1.6f), 3.6f, 0.45f);
         }
 
-        /// <summary>Trading Outpost (4 m): the House as a counting house with stalls and a flag; L2 a loft; L3 a pagoda tier.</summary>
+        /// <summary>Trading Outpost (4 m): the House as a counting house with stalls and a flag; L2 a loft; L3 a pagoda tier.
+        /// RETIRED recipe (decision 55): no longer called.</summary>
         static void BuildTradingOutpost(Transform root, int level)
         {
             float H = 2f, P = 0.28f;
@@ -1216,7 +1217,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             var dirs = new List<string>();
             foreach (var b in new[] { "Barracks", "GatherersHut", "Mine", "VeilstoneMine", "TempleOfRidan", "Fortress", "FiendstoneKeep", "VaultOfAlmierra" })
                 dirs.Add(AGE0 + b + "/Art");
-            foreach (var b in new[] { "ArcheryRange", "Fortress", "Garrison", "Guild", "Mine", "RoyalStable", "SiegeYard", "Tower", "TradingOutpost", "VaultOfAlmierra" })
+            foreach (var b in new[] { "ArcheryRange", "Fortress", "Garrison", "Guild", "Mine", "RoyalStable", "SiegeYard", "Tower", "VaultOfAlmierra" })
             { dirs.Add(ALA + b + "/Art"); dirs.Add(ALA + b); }
             dirs.AddRange(new[] { SECTS + "Antiquity/Buildings/Reliquary/Art", SECTS + "Fortitude/Buildings/Stonehold/Art", SECTS + "Prosperity/Buildings/Treasury/Art",
                                   SECTS + "Renewal/Abilities/DeployFieldHospital/Art", SECTS + "Renewal/Abilities/RaiseAnew/Art", SECTS + "Renewal/Buildings/MendingHall/Art",
@@ -1227,8 +1228,6 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
                 foreach (var f in Directory.GetFiles(d).Where(f => f.EndsWith(".fbx") || f.EndsWith(".blend")))
                     if (AssetDatabase.DeleteAsset(f.Replace('\\', '/'))) Report.Add("OK removed " + f.Replace('\\', '/'));
             }
-            // the old base prefab of the Trading Outpost (its form is Art/Alanthor_TradingOutpost_Age_0.prefab now)
-            if (AssetDatabase.DeleteAsset(ALA + "TradingOutpost/TradingOutpost.prefab")) Report.Add("OK removed the old TradingOutpost.prefab");
         }
 
         static void RenderAge0Alanthor()
@@ -1255,7 +1254,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             }
             foreach (var (folder, stem, fp) in new (string, string, float)[]
             {
-                ("Guild", "Guild", 4f), ("Mine", "Mine", 4f), ("Tower", "WatchTower", 4f), ("TradingOutpost", "TradingOutpost", 4f),
+                ("Guild", "Guild", 4f), ("Mine", "Mine", 4f), ("Tower", "WatchTower", 4f),
                 ("Fortress", "Fortress", 10f), ("ArcheryRange", "ArcheryRange", 8f), ("RoyalStable", "RoyalStable", 8f), ("SiegeYard", "SiegeYard", 8f), ("VaultOfAlmierra", "VaultOfAlmierra", 8f),
             })
             {

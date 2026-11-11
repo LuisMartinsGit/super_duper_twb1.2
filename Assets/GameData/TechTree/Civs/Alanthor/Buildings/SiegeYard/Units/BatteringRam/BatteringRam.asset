@@ -38,7 +38,7 @@ MonoBehaviour:
     Iron: 66
     Veilstone: 138
   populationCost: 2
-  minBuildingLevel: 2
+  minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0

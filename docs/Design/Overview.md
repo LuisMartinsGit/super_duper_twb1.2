@@ -304,7 +304,7 @@ level gate) and price are on its tech SO.
 - **Walls** were already faction-wide: the stone wall's level is the wall
   research the faction holds, applied to every hub, segment and tower
   (Age_1_Alanthor.md § The stone wall).
-- **The Trading Outpost's per-outcrop ramp prices building a post only**; a
+- *(Retired with the Trading Outpost, [decision 55](Unification_Decisions_2026-10-03.md).)* **The Trading Outpost's per-outcrop ramp prices building a post only**; a
   level is faction-wide, so which post it is ordered at cannot change its
   price (Veilstone_Economy.md §3.1).
 

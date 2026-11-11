@@ -57,7 +57,12 @@ namespace TheWaningBorder.Core.Save
         // 7 (2026-10-25): FogReveal pre-added on every unit and building (a
         //   shot reveals its shooter, a blocked claim its blockers) and the
         //   stance assist state — a format-6 snapshot has neither.
-        public const int SaveFormatVersion = 7;
+        // 8 (2026-11-11, decisions 55-56): the Trading Outpost is retired —
+        //   NodeDepletedGrace, NodeTradeHeld and the TradingOutpost*
+        //   components are gone, so a format-7 snapshot holding them cannot
+        //   load. (NodeReserve and DepletedHutTag are back: decision 56
+        //   restored finite nodes.)
+        public const int SaveFormatVersion = 8;
 
         /// <summary>Same value; kept for existing callers.</summary>
         public const int CurrentFormat = SaveFormatVersion;

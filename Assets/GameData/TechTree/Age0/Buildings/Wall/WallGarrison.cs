@@ -98,10 +98,20 @@ namespace TheWaningBorder.Entities
             return cls != UnitClass.Siege && cls != UnitClass.Scout;
         }
 
+        /// <summary>
+        /// Who this building takes: a Farm only Workers (docs/Design/
+        /// Age_1_Alanthor.md § The Farm, decision 55), every other
+        /// garrisonable building only foot units (<see cref="IsFootUnit"/>).
+        /// </summary>
+        public static bool MayEnter(EntityManager em, Entity unit, Entity building)
+            => building != Entity.Null && em.Exists(building) && em.HasComponent<FarmTag>(building)
+                ? Farm.IsFarmhand(em, unit)
+                : IsFootUnit(em, unit);
+
         /// <summary>Every gate this order has to pass before a unit walks in.</summary>
         public static bool CanGarrison(EntityManager em, Entity unit, Entity module)
         {
-            if (!IsFootUnit(em, unit)) return false;
+            if (!MayEnter(em, unit, module)) return false;
             if (em.HasComponent<WallGarrisonedIn>(unit)) return false;
             if (!HasFreeSlot(em, module)) return false;
             if (em.HasComponent<UnderConstruction>(module)) return false;
@@ -140,6 +150,12 @@ namespace TheWaningBorder.Entities
 
         /// <summary>True when <paramref name="unit"/> is close enough to go
         /// straight in (WallGarrisonConfig.entryRange past the footprint).</summary>
+        /// <summary>Within the Farm's looser idle-entry distance (see the approach system).</summary>
+        public static bool WithinFarmIdleEntry(EntityManager em, Entity unit, Entity building)
+            => em.HasComponent<LocalTransform>(unit)
+               && DistanceToFootprint(em, building, em.GetComponentData<LocalTransform>(unit).Position)
+                  <= Cfg.farmIdleEntryRange;
+
         public static bool InEntryRange(EntityManager em, Entity unit, Entity building)
             => em.HasComponent<LocalTransform>(unit)
                && DistanceToFootprint(em, building, em.GetComponentData<LocalTransform>(unit).Position)
@@ -231,6 +247,7 @@ namespace TheWaningBorder.Entities
         static void Reclad(EntityManager em, Entity module)
         {
             if (em.Exists(module) && em.HasComponent<WatchTowerTag>(module)) return;
+            if (em.Exists(module) && em.HasComponent<FarmTag>(module)) return;   // draws no occupants either
             var spawn = PresentationSpawnSystem.Instance;
             if (spawn != null && em.Exists(module)) spawn.ForceRespawn(module);
         }
@@ -371,6 +388,8 @@ namespace TheWaningBorder.Entities
                 RefreshTowerFire(em, module, manned);
                 return;
             }
+            // A Farm's Workers farm, they do not shoot (FarmSystem pays them).
+            if (em.HasComponent<FarmTag>(module)) return;
 
             if (manned == 0)
             {

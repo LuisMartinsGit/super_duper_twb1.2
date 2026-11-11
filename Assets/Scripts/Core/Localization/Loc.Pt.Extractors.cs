@@ -128,6 +128,11 @@ namespace TheWaningBorder.Core.Localization
             t["Watch Tower"] = "Torre de Vigia";
             t["Siege Yard"] = "Estaleiro de Cerco";
             t["Royal Stable"] = "Estrebaria Real";
+            // Decision 55 (2026-11-11): the Farm and the Market.
+            t["Farm"] = "Quinta";
+            t["Market"] = "Mercado";
+            t["The Workers in this Farm step back out beside it. An empty Farm pays nothing."] = "Os Trabalhadores desta Quinta saem para o seu lado. Uma Quinta vazia não rende nada.";
+            t["Limit reached - {0} per faction."] = "Limite atingido - {0} por facção.";
             t["Hunting Lodge"] = "Cabana de Caça";
             t["Logging Station"] = "Posto Madeireiro";
             t["Longhouse"] = "Casa Comunal";

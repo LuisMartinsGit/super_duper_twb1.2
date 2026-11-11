@@ -71,6 +71,8 @@ namespace TheWaningBorder.Entities
                 {
                     Create(em, site);
                     laid++;
+                    Debug.Log($"[SanctumCrystal] {RegionMap.NameOf(t)}: landmark at ({site.x:0},{site.y:0.0},{site.z:0}), " +
+                              $"centroid ({centres[t].x:0},{TerrainUtility.GetHeight(centres[t].x, centres[t].z):0.0},{centres[t].z:0})");
                 }
                 else
                 {

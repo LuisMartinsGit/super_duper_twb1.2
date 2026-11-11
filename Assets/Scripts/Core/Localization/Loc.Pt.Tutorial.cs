@@ -283,7 +283,7 @@ namespace TheWaningBorder.Core.Localization
               + "6. Sobreviver às vagas da maldição e destruir o nó";
             t["Your town is built. Age up to Alanthor and win the match.\n\n"
               + "1. Build the Vault of Almiérra and age up\n"
-              + "2. The Alanthor economy: Guilds and Trading Outposts\n"
+              + "2. The Alanthor economy: Guilds and Mines\n"
               + "3. The Alanthor army\n"
               + "4. Walls, towers and claiming territory\n"
               + "5. Religion Points, the Temple and the sects\n"
@@ -291,7 +291,7 @@ namespace TheWaningBorder.Core.Localization
               + "7. Three ways to win: conquest, enshrinement, or every Sanctum"] =
                 "A tua cidade está construída. Avança para Alanthor e vence a partida.\n\n"
               + "1. Construir o Cofre de Almiérra e avançar de Era\n"
-              + "2. A economia de Alanthor: Guildas e Entrepostos Comerciais\n"
+              + "2. A economia de Alanthor: Guildas e Minas\n"
               + "3. O exército de Alanthor\n"
               + "4. Muralhas, torres e conquista de território\n"
               + "5. Pontos de Religião, o Templo e as seitas\n"
@@ -304,9 +304,9 @@ namespace TheWaningBorder.Core.Localization
             t["Your capital has fallen."] = "A tua capital caiu.";
             t["1 - Build the Vault of Almiérra ({0}/{1})"] = "1 - Constrói o Cofre de Almiérra ({0}/{1})";
             t["2a - Level up your Guilds ({0}/{1})"] = "2a - Sobe as tuas Guildas de nível ({0}/{1})";
-            t["Your Gatherer's Huts are now <b>Guilds</b>: select one and level it up — every Guild levels with it and pays more. Every node runs dry in the end. Research <b>Trade Charters</b> at the Fortress: a <b>Trading Outpost</b> beside a node keeps it at its last unit, and pays you forever. The Litharch is now <b>King Lexor</b>, your hero."] =
-                "As tuas Cabanas do Recoletor são agora <b>Guildas</b>: seleciona uma e sobe-a de nível — todas as Guildas sobem com ela e rendem mais. Todos os nós acabam por se esgotar. Investiga as <b>Cartas de Comércio</b> na Fortaleza: um <b>Entreposto Comercial</b> junto a um nó mantém-no na sua última unidade e rende-te para sempre. O Litharch é agora o <b>Rei Lexor</b>, o teu herói.";
-            t["2b - Research Trade Charters at the Fortress ({0}/{1})"] = "2b - Investiga as Cartas de Comércio na Fortaleza ({0}/{1})";
+            t["Your Gatherer's Huts are now <b>Guilds</b>: select one and level it up — every Guild levels with it and pays more. Then level up a <b>Mine</b> the same way. Every node runs dry in the end: keep raising extractors on fresh nodes. The Litharch is now <b>King Lexor</b>, your hero."] =
+                "As tuas Cabanas do Recoletor são agora <b>Guildas</b>: seleciona uma e sobe-a de nível — todas as Guildas sobem com ela e rendem mais. Depois sobe uma <b>Mina</b> de nível da mesma forma. Todos os nós acabam por se esgotar: continua a erguer extratores em nós novos. O Litharch é agora o <b>Rei Lexor</b>, o teu herói.";
+            t["2b - Level up your Mines ({0}/{1})"] = "2b - Sobe as tuas Minas de nível ({0}/{1})";
             t["3 - Build an Archery Range ({0}/{1})"] = "3 - Constrói uma Campo de Tiro com Arco ({0}/{1})";
             t["4a - Build a Watch Tower ({0}/{1})"] = "4a - Constrói uma Torre de Vigia ({0}/{1})";
             t["4b - Claim a territory ({0}/{1})"] = "4b - Conquista um território ({0}/{1})";

@@ -37,4 +37,7 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
+  grantsTechs:
+  - StoneTippedArrows
+  - SeasonedArchers
   prefab: {fileID: 1201453078148912283, guid: 8dc495ad9d4f03944a94924d6d74d963, type: 3}

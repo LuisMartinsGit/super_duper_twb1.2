@@ -465,30 +465,12 @@ namespace TheWaningBorder.UI.Data
                         + $"Religion Points: {rp}";
             }
 
-            // Trading Outpost: what it trickles, per minute
-            // (docs/Design/Veilstone_Economy.md §3.1, 2026-11-09).
-            if (em.HasComponent<TradingOutpostTag>(entity) && em.HasComponent<FactionTag>(entity))
-            {
-                var earn = TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, entity);
-                string line = earn.IsEmpty
-                    ? Loc.T("Idle — its node is spent, cursed, or not in your ground.")
-                    : EntityActionExtractor.PerMinuteLine(earn, "+") + " " + Loc.T("per minute, never drawn from its node");
-                int rampIndex = TheWaningBorder.Entities.TradingOutpost.RampIndexOf(em, entity);
-                line += "\n" + string.Format(Loc.T("Post {0} of {1} beside its node"),
-                    rampIndex + 1, TheWaningBorder.Entities.TradingOutpost.SideCount);
-                line += "\n" + Loc.T("Holds its node: the node stops at its last unit and this post keeps paying.");
-                info.Description += (info.Description.Length > 0 ? "\n" : "") + line;
-            }
-
             // A depleted Gatherer's Hut / Guild (Territory_Claims.md § 11.3,
-            // 2026-10-19): its node is gone, so say what it still does.
+            // 2026-10-19; decision 56): its node is gone, so say what it still does.
             if (em.HasComponent<DepletedHutTag>(entity) && em.HasComponent<FactionTag>(entity))
             {
-                byte hutCulture = CultureConfig.GetCompletedCulture(em, em.GetComponentData<FactionTag>(entity).Value);
-                string line = hutCulture == Cultures.Alanthor
-                    ? Loc.T("Depleted — its supply node ran dry. It pays no supplies; its surveys still pay.")
-                    : Loc.T("Depleted — its supply node ran dry. It pays nothing.");
-                info.Description += (info.Description.Length > 0 ? "\n" : "") + line;
+                info.Description += (info.Description.Length > 0 ? "\n" : "")
+                    + Loc.T("Depleted — its supply node ran dry. It pays nothing.");
             }
 
             // Self-destruct timer
@@ -800,7 +782,9 @@ namespace TheWaningBorder.UI.Data
                     {
                         Id = "WallUngarrison",
                         Label = string.Format(Loc.T("Empty ({0}/{1})"), manned, slots),
-                        Tooltip = em.HasComponent<WatchTowerTag>(entity)
+                        Tooltip = em.HasComponent<FarmTag>(entity)
+                            ? Loc.T("The Workers in this Farm step back out beside it. An empty Farm pays nothing.")
+                            : em.HasComponent<WatchTowerTag>(entity)
                             ? Loc.T("The men in this tower step back out beside it.")
                             : Loc.T("The men in this wall section step back down on the friendly side."),
                         Enabled = true,

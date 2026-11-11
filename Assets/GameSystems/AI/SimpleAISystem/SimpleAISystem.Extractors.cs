@@ -15,9 +15,10 @@
 // because the generic Mine was worth building anywhere and nothing told it
 // where the nodes were — so a logged 30-minute match ended with four AIs
 // holding thousands of unspent veilstone and no building anywhere converting
-// ground into income. With nodes now DEPLETING, ignoring them is worse than
-// leaving money on the table: yield falls whether or not anyone is extracting,
-// so the faction that does not invest simply gets poorer.
+// ground into income. With nodes DEPLETING (finite again, decision 56),
+// ignoring them is worse than leaving money on the table: a node is spent
+// whether or not anyone extracts it, and a spent node takes its extractor
+// with it — so the AI keeps raising extractors on the fresh nodes it holds.
 // ─────────────────────────────────────────────────────────────────────────
 
 using System.Collections.Generic;
@@ -29,7 +30,6 @@ using TheWaningBorder.Core;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.World.Regions;
-using OutpostSites = TheWaningBorder.Entities.TradingOutpost;   // avoids the DC0062 Entities.ForEach misread
 
 namespace TheWaningBorder.AI
 {
@@ -41,12 +41,10 @@ namespace TheWaningBorder.AI
         /// <summary>The extractor for each node kind, scarcest first: veilstone,
         /// then iron, then supplies. Every culture but the Runai mines veilstone
         /// (Alanthor too since 2026-11-09, decision 42); the Runai raise a
-        /// Sanctuary instead. The Trading Outpost leads once Alanthor have
-        /// researched Trade Charters: it stands BESIDE a node and pays forever.
+        /// Sanctuary instead.
         /// </summary>
         private static readonly (string Building, ComponentType Node)[] ExtractorPlan =
         {
-            (OutpostSites.BuildingId, default),
             ("Runai_Sanctuary",  default),
             ("VeilstoneMine",    default),
             ("Mine",             default),
@@ -60,14 +58,13 @@ namespace TheWaningBorder.AI
         // each kind than the one above, so its extraction income lands at that
         // share of Expert's. What an extractor PAYS is never cut: the tier simply
         // owns fewer of them. Counted per kind — Gatherer's Huts against supply
-        // nodes, Mines against iron, Veilstone Mines against outcrops, Trading
-        // Outposts against free node sides — over the faction's own territory.
+        // nodes, Mines against iron, Veilstone Mines against outcrops — over the
+        // faction's own territory.
 
         static readonly ComponentType[] QT_ShareHuts = { ComponentType.ReadOnly<GathererHutTag>(), ComponentType.ReadOnly<FactionTag>(), ComponentType.Exclude<RaiderCampTag>(), ComponentType.Exclude<DepletedHutTag>() };
         static readonly ComponentType[] QT_ShareMines = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<FactionTag>() };
         static readonly ComponentType[] QT_ShareVeilMines = { ComponentType.ReadOnly<VeilstoneMineTag>(), ComponentType.ReadOnly<FactionTag>() };
-        static readonly ComponentType[] QT_SharePosts = { ComponentType.ReadOnly<TradingOutpostTag>(), ComponentType.ReadOnly<FactionTag>() };
-        static CachedEntityQuery QC_ShareHuts, QC_ShareMines, QC_ShareVeilMines, QC_SharePosts;
+        static CachedEntityQuery QC_ShareHuts, QC_ShareMines, QC_ShareVeilMines;
 
         private readonly List<float3> _shareFree = new List<float3>();
         private readonly HashSet<int> _shareOwned = new HashSet<int>();
@@ -93,7 +90,6 @@ namespace TheWaningBorder.AI
             if (buildingId == "GatherersHut") q = QC_ShareHuts.Get(em, QT_ShareHuts);
             else if (buildingId == "Mine") q = QC_ShareMines.Get(em, QT_ShareMines);
             else if (buildingId == "VeilstoneMine") q = QC_ShareVeilMines.Get(em, QT_ShareVeilMines);
-            else if (buildingId == OutpostSites.BuildingId) q = QC_SharePosts.Get(em, QT_SharePosts);
             else return 0;
             int n = 0;
             using (var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp))
@@ -129,8 +125,8 @@ namespace TheWaningBorder.AI
             why = null;
             float share = ExtractorShareOf(faction);
             if (share >= 1f) return int.MaxValue;            // Expert: everything
-            if (buildingId != "GatherersHut" && buildingId != "Mine" && buildingId != "VeilstoneMine"
-                && buildingId != OutpostSites.BuildingId) return int.MaxValue;
+            if (buildingId != "GatherersHut" && buildingId != "Mine" && buildingId != "VeilstoneMine")
+                return int.MaxValue;
             if (freeNodes < 0)
             {
                 _shareOwned.Clear();
@@ -151,91 +147,8 @@ namespace TheWaningBorder.AI
         /// One per attempt: each is a real purchase, and building four at once
         /// is how the economy wallet empties and unit production stops.
         /// </summary>
-        // ── THE GRACE RESCUE (2026-11-10, decision 50) ───────────────────
-        // A node that ran dry with no Trading Outpost beside it lives for
-        // depletedGraceSeconds and takes posts. Holding it is the cheapest
-        // income left on the map, so this runs FIRST, every couple of
-        // seconds, past the extractor share, the surplus test and the walk's
-        // cadence: one post beside every own node in its window, saved for
-        // strictly when the bank is short.
-        static readonly ComponentType[] QT_GraceNodes =
-        {
-            ComponentType.ReadOnly<NodeDepletedGrace>(),
-            ComponentType.ReadOnly<LocalTransform>(),
-        };
-        static CachedEntityQuery QC_GraceNodes;
-        private readonly Dictionary<int, float> _nextGraceRescue = new Dictionary<int, float>();
-        private const string GraceRescueReserveKey = "TradingOutpostRescue";
-        /// <summary>True only while the grace rescue places a post: the open-site
-        /// cap lets it through (SimpleAISystem.Building).</summary>
-        private bool _graceRescueBuild;
-        /// <summary>Seconds between rescue scans. Loop pacing, not tuning.</summary>
-        private const float GraceRescueInterval = 2f;
-
-        private bool TryRescueDepletedNodes(EntityManager em, Faction faction, float now)
-        {
-            if (CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor) return false;
-            if (!TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction)) return false;
-            int key = (int)faction;
-            if (_nextGraceRescue.TryGetValue(key, out float due) && now < due && due - now <= GraceRescueInterval) return false;
-            _nextGraceRescue[key] = now + GraceRescueInterval;
-
-            var q = QC_GraceNodes.Get(em, QT_GraceNodes);
-            if (q.IsEmptyIgnoreFilter) { AIPivotalReserve.Clear(faction, GraceRescueReserveKey); return false; }
-            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
-            const string id = OutpostSites.BuildingId;
-            var snap = TheWaningBorder.Core.Commands.Types.BuildSiteSnapshot.Current(em);
-            int2 size = BuildingSizeConfig.GetSize(id);
-            bool wanted = false;
-            for (int i = 0; i < xfs.Length; i++)
-            {
-                float3 np = xfs[i].Position;
-                if (TerritoryOwnership.OwnerAt(np.x, np.z) != (int)faction) continue;
-                if (TheWaningBorder.Systems.World.NodeCollapse.HasAnyPostBeside(em, np)) continue;
-                // A plan of ours already on one of its sides: a worker is on the way.
-                bool planned = false;
-                for (int s = 0; s < OutpostSites.SideCount && !planned; s++)
-                    planned = TheWaningBorder.Entities.PlannedBuildings.OverlapsOwnPlan(em, faction, OutpostSites.SideSlot(np, s), size);
-                if (planned) continue;
-
-                for (int s = 0; s < OutpostSites.SideCount; s++)
-                {
-                    var slot = OutpostSites.SideSlot(np, s);
-                    if (OutpostSites.SlotTaken(em, slot)) continue;
-                    if (TerritoryOwnership.OwnerAt(slot.x, slot.z) != (int)faction) continue;
-                    if (!snap.IsValidBuildPosition(em, slot, size, id)) continue;
-                    wanted = true;
-                    var cost = BuildCosts.For(em, faction, id, slot);
-                    if (!FactionEconomy.CanAfford(em, faction, cost))
-                    {
-                        AIPivotalReserve.Set(faction, GraceRescueReserveKey, cost, strict: true);
-                        AILogger.Log(faction, "EXTRACT", $"grace rescue: saving for a post beside the spent node at ({np.x:F0},{np.z:F0})");
-                        return false;
-                    }
-                    bool placed;
-                    string why;
-                    _graceRescueBuild = true;
-                    try { placed = TryBuildBuildingWithReason(em, faction, id, out why, slot); }
-                    finally { _graceRescueBuild = false; }
-                    if (placed)
-                    {
-                        AIPivotalReserve.Clear(faction, GraceRescueReserveKey);
-                        AILogger.Log(faction, "EXTRACT", $"grace rescue: Trading Outpost beside the spent node at ({np.x:F0},{np.z:F0})");
-                        return true;
-                    }
-                    if (AILogger.Enabled)
-                        AILogger.Log(faction, "EXTRACT", $"grace rescue: post refused at ({slot.x:F0},{slot.z:F0}): {why}");
-                }
-            }
-            if (!wanted) AIPivotalReserve.Clear(faction, GraceRescueReserveKey);
-            return false;
-        }
-
         private void EnsureExtractors(EntityManager em, Faction faction, float now)
         {
-            // Spent nodes in their grace window first (decision 50).
-            TryRescueDepletedNodes(em, faction, now);
-
             if (!RegionMap.Ready || !TerritoryOwnership.Ready) return;
 
             int key = (int)faction;
@@ -297,14 +210,18 @@ namespace TheWaningBorder.AI
                 // building we could not raise anyway.
                 if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null) continue;
 
-                // Culture: the Runai never mine veilstone; the Trading Outpost
-                // is Alanthor's, after Trade Charters (Veilstone_Economy.md §3).
-                bool alanthor = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Alanthor;
+                // Culture: the Runai never mine veilstone (Veilstone_Economy.md §3).
                 bool runai = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Runai;
-                bool isOutpost = buildingId == OutpostSites.BuildingId;
-                if (isOutpost && (!alanthor
-                    || !TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction))) continue;
                 if (buildingId == "VeilstoneMine" && runai) continue;
+                // A hoard pauses new Mines (never the Mines standing; developer 2026-11-11).
+                if ((buildingId == "Mine" || buildingId == "VeilstoneMine")
+                    && FactionEconomy.TryGetResources(em, faction, out var hb)
+                    && (buildingId == "Mine" ? hb.Iron > Cfg.ironNoNewMinesAbove
+                                             : hb.Veilstone > Cfg.veilstoneNoNewMinesAbove))
+                {
+                    if (AILogger.Enabled) blocked += $" | {buildingId}: hoard";
+                    continue;
+                }
                 // The Runai raise a Sanctuary on the outcrop (Age_1_Runai.md §5.1).
                 if (buildingId == "Runai_Sanctuary" && !runai) continue;
 
@@ -317,34 +234,12 @@ namespace TheWaningBorder.AI
                     if (AILogger.Enabled) blocked += $" | {buildingId}: opening huts first";
                     continue;
                 }
-                // A Trading Outpost is priced by WHERE it stands: the per-node
-                // ramp (Veilstone_Economy.md §3.1). Its free slots come back
-                // cheapest first, so the first one is the price to beat.
                 var planCost = AICommon.ToCost(def.cost);
-                if (isOutpost)
-                {
-                    _freeNodes.Clear();
-                    CollectFreeNodes(em, faction, buildingId, owned, _freeNodes);
-                    if (_freeNodes.Count > 0)
-                        planCost = BuildCosts.For(em, faction, buildingId, _freeNodes[0]);
-                }
                 if (!FactionEconomy.CanAfford(em, faction, planCost))
                 {
-                    // A POST SAVES FOR ITSELF (2026-11-10, decision 45). "Bank
-                    // short" was the commonest outpost refusal in the 0.0.79
-                    // batch: the army spent every coin first, so Expert had
-                    // half Easy's posts at 20 minutes. A post the share allows
-                    // now holds its price against unit purchases (a breathing
-                    // reserve, never strict), and the hold drops when it is
-                    // placed or no longer wanted.
-                    if (isOutpost && _freeNodes.Count > 0
-                        && ExtractorShareRoom(em, faction, buildingId, _freeNodes.Count, out _) > 0)
-                        AIPivotalReserve.Set(faction, OutpostReserveKey, planCost);
-                    else if (isOutpost) AIPivotalReserve.Clear(faction, OutpostReserveKey);
                     if (AILogger.Enabled) blocked += $" | {buildingId}: bank short";
                     continue;
                 }
-                if (isOutpost) AIPivotalReserve.Clear(faction, OutpostReserveKey);
 
                 // EVERY free node is a candidate, not just the first found.
                 // One node can be legitimately unplaceable (a foundation
@@ -367,38 +262,8 @@ namespace TheWaningBorder.AI
                 }
                 string reason = null;
 
-                // SURPLUS (Game_AI.md 5e): the bank is piling up — a post
-                // beside EVERY node with a free side this pass (cheapest ramp
-                // first), not one, for as long as a worker is free to take
-                // the site (the open-site cap and the bank are re-checked per
-                // placement). Each post is income that outlives the nodes.
-                if (isOutpost && IsTradeSurplus(em, faction))
-                {
-                    int placed = 0;
-                    for (int n = 0; n < _freeNodes.Count && placed < shareRoom; n++)
-                    {
-                        if (AICommon.CountIdleWorkers(em, faction) == 0) break;
-                        // Ramp-priced per slot; the list runs cheapest first,
-                        // so new outcrops are taken before a 3rd or 4th post.
-                        if (!FactionEconomy.CanAfford(em, faction,
-                                BuildCosts.For(em, faction, buildingId, _freeNodes[n]))) continue;
-                        if (!TryBuildBuildingWithReason(em, faction, buildingId,
-                                out reason, _freeNodes[n])) continue;
-                        placed++;
-                        LogSurplus(faction,
-                            $"outpost placed at ({_freeNodes[n].x:F0},{_freeNodes[n].z:F0}) " +
-                            $"({_freeNodes.Count} free node side(s))");
-                    }
-                    if (placed > 0) return;
-                    if (AILogger.Enabled)
-                        blocked += $" | {buildingId}: {_freeNodes.Count} node(s), last refusal: {reason}";
-                    continue;
-                }
-
                 for (int n = 0; n < _freeNodes.Count; n++)
                 {
-                    if (isOutpost && !FactionEconomy.CanAfford(em, faction,
-                            BuildCosts.For(em, faction, buildingId, _freeNodes[n]))) continue;
                     if (!TryBuildBuildingWithReason(em, faction, buildingId,
                             out reason, _freeNodes[n])) continue;
                     AILogger.Log(faction, "EXTRACT",
@@ -424,14 +289,6 @@ namespace TheWaningBorder.AI
                 LogExtractBlocked(faction, now, blocked.Substring(3));
             }
         }
-
-        static readonly ComponentType[] QT_Outposts =
-        {
-            ComponentType.ReadOnly<TradingOutpostTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-            ComponentType.Exclude<UnderConstruction>(),
-        };
-        static CachedEntityQuery QC_Outposts;
 
         private readonly Dictionary<int, float> _nextExtractLog = new Dictionary<int, float>();
 
@@ -481,7 +338,6 @@ namespace TheWaningBorder.AI
         /// <summary>AIPivotalReserve key the hut pipeline arms while its
         /// opening huts are still unbuilt (SimpleAISystem.Economy.cs).</summary>
         private const string HutBootstrapReserveKey = "OpeningHuts";
-        private const string OutpostReserveKey = "TradingOutpost";
 
         /// <summary>True while the hut pipeline is saving for its opening
         /// huts (the OpeningHuts reserve is armed).</summary>
@@ -583,13 +439,6 @@ namespace TheWaningBorder.AI
             var required = TerritoryOwnership.RequiredNodeFor(buildingId);
             if (required == null) return;
 
-            // The Trading Outpost stands on a SIDE of its outcrop, not on it.
-            if (buildingId == OutpostSites.BuildingId)
-            {
-                CollectFreeOutpostSlots(em, faction, owned, into);
-                return;
-            }
-
             var q = AIQueryCache.NodeAt(em, required.Value);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             // One node / extractor read per tick, not two queries per node.
@@ -617,99 +466,5 @@ namespace TheWaningBorder.AI
                 into.Add(site);
             }
         }
-
-        // Scratch for CollectFreeOutpostSlots: (site, ramp, safe 0/1, kind order, distance² to the Hall).
-        private readonly List<(float3 Site, int Ramp, int Safe, int Kind, float D2)> _outpostSlots =
-            new List<(float3, int, int, int, float)>();
-
-        /// <summary>
-        /// THE TRADING OUTPOST'S SITES (Veilstone_Economy.md §3.1, 2026-11-09):
-        /// up to four posts stand around one living node of ANY kind, one per
-        /// side, and every further post beside the same node costs more. One
-        /// candidate per node — its free, buildable side nearest the Hall —
-        /// returned CHEAPEST RAMP FIRST, then nodes that are already SAFE (no
-        /// extractor drawing on them, or one told to stop: a post beside a node
-        /// still being mined dies with it), then the scarcest resource
-        /// (veilstone, iron, supply), then nearest the Hall.
-        ///
-        /// Same gates as every extractor site: seen ground, held territory
-        /// at the SITE, a reachable approach, no own plan over it, and the
-        /// snapshot's placement test (terrain, other nodes, buildings).
-        /// </summary>
-        private void CollectFreeOutpostSlots(EntityManager em, Faction faction,
-            HashSet<int> owned, List<float3> into)
-        {
-            const string id = OutpostSites.BuildingId;
-            _outpostSlots.Clear();
-            var snap = TheWaningBorder.Core.Commands.Types.BuildSiteSnapshot.Current(em);
-            int2 size = BuildingSizeConfig.GetSize(id);
-
-            Entity hall = FindFactionBuilding<HallTag>(em, faction);
-            float3 hallPos = hall != Entity.Null && em.HasComponent<LocalTransform>(hall)
-                ? em.GetComponentData<LocalTransform>(hall).Position : float3.zero;
-
-            // Copied out: the node list is shared scratch the calls below reuse.
-            _postNodeScratch.Clear();
-            _postNodeScratch.AddRange(OutpostSites.AllNodes(em));
-            for (int i = 0; i < _postNodeScratch.Count; i++)
-            {
-                var node = _postNodeScratch[i];
-                var np = node.Position;
-                if (!AICommon.IsKnownGround(faction, np)) continue;
-                if (!OutpostSites.IsLiveNode(em, node.Entity, node.Kind)) continue;
-
-                bool found = false;
-                float bestD2 = float.MaxValue;
-                float3 best = default;
-                for (int s = 0; s < OutpostSites.SideCount; s++)
-                {
-                    var slot = OutpostSites.SideSlot(np, s);
-                    if (OutpostSites.SlotTaken(em, slot)) continue;
-                    if (TheWaningBorder.Entities.PlannedBuildings.OverlapsOwnPlan(em, faction, slot, size))
-                        continue;
-
-                    int region = RegionMap.RegionAt(slot.x, slot.z);
-                    if (region == RegionMap.None || !owned.Contains(region))
-                    { _nodesOffTerritory++; continue; }
-                    if (!HasReachableApproach(slot)) { _nodesUnreachable++; continue; }
-                    if (ExtractorSiteBlocked(em, faction, slot, _thinkNow)) { _nodesSiteBlocked++; continue; }
-                    if (!snap.IsValidBuildPosition(em, slot, size, id)) continue;
-
-                    float d2 = math.distancesq(slot.xz, hallPos.xz);
-                    if (!found || d2 < bestD2) { found = true; bestD2 = d2; best = slot; }
-                }
-                if (!found) continue;
-
-                int ramp = OutpostSites.RampIndexForNewPost(em, faction, best);
-                if (ramp >= OutpostSites.SideCount) continue;
-                int safe = 0;   // a post no longer falls with its node (decision 45): every node is safe
-                // A node in its grace window first (decision 50), then iron,
-                // veilstone, supply: iron is the late game's scarce resource.
-                int kind = em.HasComponent<NodeDepletedGrace>(node.Entity) ? -1
-                         : node.Kind == OutpostSites.NodeKind.Iron ? 0
-                         : node.Kind == OutpostSites.NodeKind.Veilstone ? 1 : 2;
-                _outpostSlots.Add((best, ramp, safe, kind, bestD2));
-            }
-
-            _outpostSlots.Sort((a, b) =>
-            {
-                // Rescue first (kind -1), then the fewest posts at the node.
-                int c = (a.Kind < 0 ? 0 : 1).CompareTo(b.Kind < 0 ? 0 : 1);
-                if (c != 0) return c;
-                c = a.Ramp.CompareTo(b.Ramp);
-                if (c != 0) return c;
-                c = a.Safe.CompareTo(b.Safe);
-                if (c != 0) return c;
-                c = a.Kind.CompareTo(b.Kind);
-                if (c != 0) return c;
-                c = a.D2.CompareTo(b.D2);
-                if (c != 0) return c;
-                c = a.Site.x.CompareTo(b.Site.x);
-                return c != 0 ? c : a.Site.z.CompareTo(b.Site.z);
-            });
-            for (int i = 0; i < _outpostSlots.Count; i++) into.Add(_outpostSlots[i].Site);
-        }
-
-        private readonly List<OutpostSites.NodeRef> _postNodeScratch = new List<OutpostSites.NodeRef>();
     }
 }

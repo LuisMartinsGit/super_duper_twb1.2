@@ -72,6 +72,13 @@ namespace TheWaningBorder.Economy
         TerritoryClaim,
         /// <summary>Sect / well / anything else tagged but uncategorised.</summary>
         Other,
+        /// <summary>The Alanthor Farm: supplies per Worker inside it
+        /// (decision 55, FarmSystem). Appended after Other so no earlier
+        /// value moves.</summary>
+        Farm,
+        /// <summary>Iron and veilstone the Alanthor Market bought for
+        /// supplies at its fixed prices (decision 55, MarketSystem).</summary>
+        Market,
         Count
     }
 

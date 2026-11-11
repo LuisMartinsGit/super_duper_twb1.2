@@ -47,16 +47,16 @@ namespace TheWaningBorder.World.Regions
             new Dictionary<TypeIndex, TypedQuery>();
 
         /// <summary>Cached {tag, LocalTransform} query over the nodes an
-        /// extractor may still be placed on: a node held at its last unit by
-        /// its Trading Outposts (NodeTradeHeld, decision 45) is left out.</summary>
+        /// extractor may be placed on — every living node of the kind (a spent
+        /// node is destroyed; there is no grace window and no node held by
+        /// trade, decision 56).</summary>
         internal static EntityQuery WorkableNodesWithTransform(EntityManager em, ComponentType tag)
         {
             if (!_workable.TryGetValue(tag.TypeIndex, out var box))
             {
                 box = new TypedQuery
                 {
-                    Types = new[] { tag, ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeTradeHeld>(),
-                                    ComponentType.Exclude<NodeDepletedGrace>() },
+                    Types = new[] { tag, ComponentType.ReadOnly<LocalTransform>() },
                 };
                 _workable[tag.TypeIndex] = box;
             }
@@ -698,12 +698,6 @@ namespace TheWaningBorder.World.Regions
             "GatherersHut"     => (ComponentType?)ComponentType.ReadOnly<SupplyNodeTag>(),
             "Mine"             => (ComponentType?)ComponentType.ReadOnly<IronMineTag>(),
             "VeilstoneMine"    => (ComponentType?)ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
-            // The Trading Outpost stands BESIDE a node of ANY kind (supply,
-            // iron or veilstone) on one of its four side slots — see
-            // NodeStoodOnBy and TradingOutpost.TrySnapToSide, which walk all
-            // three (docs/Design/Veilstone_Economy.md §3.1, 2026-11-09). This
-            // tag is only the "is the map seeded" probe.
-            "Alanthor_TradingOutpost" => (ComponentType?)ComponentType.ReadOnly<SupplyNodeTag>(),
             // The Runai Sanctuary stands ON its outcrop, Inactive or Cursed
             // (docs/Design/Age_1_Runai.md §5.1).
             "Runai_Sanctuary"  => (ComponentType?)ComponentType.ReadOnly<VeilstoneOutcroppingTag>(),
@@ -713,15 +707,10 @@ namespace TheWaningBorder.World.Regions
         /// <summary>
         /// The node kind this building's footprint may COVER — its own node,
         /// exempt from the "nothing on a node" and obstacle tests. Every
-        /// extractor stands on its node except the Alanthor Trading Outpost
-        /// (2026-10-04), which is tied to a veilstone outcrop but stands on a
-        /// side slot beside it: it covers no node at all, so it gets no
-        /// exemption and the strict tests keep it off every node.
+        /// extractor stands on its node.
         /// </summary>
         public static ComponentType? NodeStoodOnBy(string buildingId)
-            => buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId
-                ? null
-                : RequiredNodeFor(buildingId);
+            => RequiredNodeFor(buildingId);
 
         /// <summary>The tag that identifies an already-built extractor of this
         /// kind. Buildings carry tags, not ids, so occupancy is tested by tag.</summary>
@@ -731,7 +720,6 @@ namespace TheWaningBorder.World.Regions
             "GatherersHut"     => (ComponentType?)ComponentType.ReadOnly<GathererHutTag>(),
             "Mine"             => (ComponentType?)ComponentType.ReadOnly<MineTag>(),
             "VeilstoneMine"    => (ComponentType?)ComponentType.ReadOnly<VeilstoneMineTag>(),
-            "Alanthor_TradingOutpost" => (ComponentType?)ComponentType.ReadOnly<TradingOutpostTag>(),
             "Runai_Sanctuary"  => (ComponentType?)ComponentType.ReadOnly<RunaiSanctuaryTag>(),
             _ => null,
         };
@@ -742,9 +730,7 @@ namespace TheWaningBorder.World.Regions
         /// under the cursor decides which is raised. Returns the concrete id
         /// whose free node is nearest <paramref name="pos"/> (within snap
         /// reach), or false when none is. The Runai raise a Sanctuary on an
-        /// outcrop instead of a Veilstone Mine. The Trading Outpost is NOT on
-        /// this button (2026-11-09): it stands beside a node, not on it, and has
-        /// its own button (docs/Design/Veilstone_Economy.md §3.1).
+        /// outcrop instead of a Veilstone Mine.
         /// UI-side: the AI and the executor always deal in the concrete ids.
         /// </summary>
         public static bool ResolveExtractorAt(EntityManager em, Faction faction, float3 pos,
@@ -772,15 +758,12 @@ namespace TheWaningBorder.World.Regions
 
         /// <summary>
         /// False for a Veilstone Mine under a Runai faction (the crystal is
-        /// sacred to them: they raise a Sanctuary on it), and for the Trading
-        /// Outpost before its faction has researched Trade Charters. Alanthor
-        /// mine veilstone like everyone else since 2026-11-09 (decision 42,
+        /// sacred to them: they raise a Sanctuary on it). Alanthor mine
+        /// veilstone like everyone else since 2026-11-09 (decision 42,
         /// docs/Design/Veilstone_Economy.md §3.1).
         /// </summary>
         public static bool MayBuildMine(EntityManager em, Faction faction, string buildingId)
         {
-            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
-                return TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction);
             if (buildingId != "VeilstoneMine") return true;
             return CultureConfig.GetCompletedCulture(em, faction) != Cultures.Runai;
         }
@@ -848,11 +831,6 @@ namespace TheWaningBorder.World.Regions
             var required = RequiredNodeFor(buildingId);
             if (required == null) return false;
 
-            // The Trading Outpost snaps to a free SIDE of an uncursed outcrop,
-            // nearest first, skipping sides the ground refuses (2026-10-04).
-            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
-                return TheWaningBorder.Entities.TradingOutpost.TrySnapToSide(em, pos, out snapped);
-
             var nodes = WorkableNodesWithTransform(em, required.Value).ToComponentDataArray<LocalTransform>(
                 Unity.Collections.Allocator.Temp);
 
@@ -896,12 +874,6 @@ namespace TheWaningBorder.World.Regions
             LocalTransform[] taken, int takenCount, out float3 snapped)
         {
             snapped = pos;
-
-            // The Trading Outpost's side slots (the pure form — the snapshot
-            // has no ground test; the AI validates its sites separately).
-            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
-                return TheWaningBorder.Entities.TradingOutpost.SnapToSideAmong(
-                    pos, nodes, nodeCount, taken, takenCount, out snapped);
 
             float r2 = SupplyNodeSnapRange * SupplyNodeSnapRange;
             bool found = false;
@@ -1067,7 +1039,8 @@ namespace TheWaningBorder.World.Regions
         WrongCulture,
         /// <summary>The veilstone outcrop is cursed or mined out.</summary>
         OutcropUnavailable,
-        /// <summary>A Trading Outpost with no free side of a living node.</summary>
+        /// <summary>RETIRED with the Trading Outpost (decision 55): never
+        /// raised. Kept so the byte values of the later members never move.</summary>
         NoOutcropNearby,
         /// <summary>Another culture's building (CultureGate.CanFactionBuild) —
         /// a Feraldis slave cannot raise an Archery Range. Appended last so
@@ -1079,9 +1052,6 @@ namespace TheWaningBorder.World.Regions
         NeedsTemple,
         /// <summary>A sect building of a sect the faction has not adopted.</summary>
         SectNotAdopted,
-        /// <summary>A Trading Outpost before Trade Charters is researched
-        /// (Veilstone_Economy.md §3.1, 2026-11-09).</summary>
-        NeedsTradeCharters,
     }
 
     /// <summary>
@@ -1118,8 +1088,6 @@ namespace TheWaningBorder.World.Regions
                 PlacementRefusal.OnResourceNode   => "Cannot build on a resource node — only its own extractor may stand there",
                 PlacementRefusal.WrongCulture     => "The Runai do not mine veilstone — raise a Sanctuary on it",
                 PlacementRefusal.OutcropUnavailable => "This node is cursed or mined out",
-                PlacementRefusal.NoOutcropNearby  => "Trading Outposts must stand beside a living resource node",
-                PlacementRefusal.NeedsTradeCharters => "Research Trade Charters at the Fortress first",
                 PlacementRefusal.NotYourCulture   => "Your culture cannot build that",
                 PlacementRefusal.NotOnTradeRoute  => "Waystations must stand on a trade route, between a depot and a market",
                 PlacementRefusal.NeedsTemple      => "Sect buildings need a standing Temple of Ridan",
@@ -1137,7 +1105,6 @@ namespace TheWaningBorder.World.Regions
             "GatherersHut"     => "Gatherer's Huts must be built on a free supply node",
             "Mine"             => "Mines must be built on a free iron or veilstone node",
             "VeilstoneMine"    => "Veilstone Mines must be built on a free, uncursed veilstone outcropping",
-            "Alanthor_TradingOutpost" => "Trading Outposts must stand on a free side of a living resource node",
             "Runai_Sanctuary"  => "Sanctuaries must be built on a free veilstone outcropping",
             _                  => "This building must stand on a free resource node",
         };

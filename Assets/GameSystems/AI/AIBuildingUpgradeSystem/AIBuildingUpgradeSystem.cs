@@ -200,14 +200,6 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_FerSiegeYardUpgradeable;
 
-        static readonly ComponentType[] QT_TradingOutpostUpgradeable =
-        {
-            ComponentType.ReadOnly<TradingOutpostTag>(),
-            ComponentType.ReadOnly<BuildingUpgradeable>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        static CachedEntityQuery QC_TradingOutpostUpgradeable;
-
         // The iron Mine levels L1-L3 for every culture (2026-10-19).
         static readonly ComponentType[] QT_MineUpgradeable =
         {
@@ -396,10 +388,7 @@ namespace TheWaningBorder.AI
         /// <summary>The economy ladders TryEconomyUpgrade rotates through, in
         /// pass order (index = the query it picks a host from).</summary>
         private static readonly string[] EconomyLevelIds =
-            { "GatherersHut", "Alanthor_TradingOutpost", "Mine", "VeilstoneMine" };
-
-        /// <summary>AIPivotalReserve key of the Trading Outposts' next level (decision 51).</summary>
-        private const string PostLevelReserveKey = "TradingOutpostLevel";
+            { "GatherersHut", "Mine", "VeilstoneMine" };
 
         /// <summary>AIPivotalReserve key of the capital's next level.</summary>
         private const string CapitalReserveKey = "CapitalLevel";
@@ -415,8 +404,8 @@ namespace TheWaningBorder.AI
 
         /// <summary>
         /// One economy level, ahead of the rotation and without yielding to
-        /// the army (Game_AI.md 5f / 5h): the Gatherer's Hut, the Trading
-        /// Outpost and the iron Mine (2026-10-19) take turns by pass, each
+        /// the army (Game_AI.md 5f / 5h): the Gatherer's Hut, the iron Mine
+        /// (2026-10-19) and the Veilstone Mine take turns by pass, each
         /// falling back to the next.
         /// Respects the savings hold (the capital's price first) and the
         /// army's veilstone earmark.
@@ -428,39 +417,27 @@ namespace TheWaningBorder.AI
             {
                 int kind = (pass + k) % EconomyLevelIds.Length;
                 string id = EconomyLevelIds[kind];
-                // ONE decision per type: the level raises every hut / post / mine.
+                // ONE decision per type: the level raises every hut / mine.
                 Entity best = PickHost(em, faction, kind == 0
                     ? QC_GathererHutUpgradeableNotRaider.Get(em, QT_GathererHutUpgradeableNotRaider)
                     : kind == 1
-                        ? QC_TradingOutpostUpgradeable.Get(em, QT_TradingOutpostUpgradeable)
-                        : kind == 2
-                            ? QC_MineUpgradeable.Get(em, QT_MineUpgradeable)
-                            : QC_VeilstoneMineUpgradeable.Get(em, QT_VeilstoneMineUpgradeable));
-                bool postLine = id == "Alanthor_TradingOutpost";
-                if (best == Entity.Null) { if (postLine) AIPivotalReserve.Clear(faction, PostLevelReserveKey); continue; }
-                if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var cost, out byte next))
-                { if (postLine) AIPivotalReserve.Clear(faction, PostLevelReserveKey); continue; }
+                        ? QC_MineUpgradeable.Get(em, QT_MineUpgradeable)
+                        : QC_VeilstoneMineUpgradeable.Get(em, QT_VeilstoneMineUpgradeable));
+                if (best == Entity.Null) continue;
+                if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var cost, out byte next)) continue;
                 if (next <= 1) continue;   // L1 is the free age-up level
+                // A hoard pauses Mine levels too (developer 2026-11-11); the Mines keep working.
+                if (kind != 0 && FactionEconomy.TryGetResources(em, faction, out var hb)
+                    && (kind == 1 ? hb.Iron > TheWaningBorder.AI.SimpleAISystemConfig.I.ironNoNewMinesAbove
+                                  : hb.Veilstone > TheWaningBorder.AI.SimpleAISystemConfig.I.veilstoneNoNewMinesAbove))
+                    continue;
                 // EARLY EXTRACTOR LEVELS (decision 49, Hard / Expert): a Mine or a
-                // Trading Outpost levels past the level clock and the value gate,
-                // so the node pays at full level -- and its posts at full trickle --
-                // before it runs dry.
-                // ...but only once Trade Charters is in (decision 50): levelling a
-                // Mine before posts can hold its node just empties it sooner.
-                bool early = earlyExtractorLevels && (id == "Mine" || id == "Alanthor_TradingOutpost" || id == "VeilstoneMine")
-                             && TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction);
+                // Veilstone Mine levels past the level clock and the value gate,
+                // so the node pays at full level from early on, before its
+                // reserve runs dry (nodes are finite, decision 56).
+                bool early = earlyExtractorLevels && (id == "Mine" || id == "VeilstoneMine");
                 if (!early && !AIPacing.LevelAllowed(em, faction, next)) continue;
                 if (!early && !ValueGate(em, faction, best, cost, Cfg.soldiersPerEconomyBuilding, surplus: false)) continue;
-                // THE POSTS' NEXT LEVEL IS SAVED FOR (2026-11-10, decision 51,
-                // Hard / Expert): the 0.0.83 test's Expert placed 79 posts and
-                // never levelled one -- every coin of iron went to units the
-                // moment it came in. With posts standing, an unaffordable level
-                // is a strict savings goal until it is paid.
-                if (early && postLine && !FactionEconomy.CanAfford(em, faction, cost))
-                {
-                    AIPivotalReserve.Set(faction, PostLevelReserveKey, cost, strict: true);
-                    continue;
-                }
                 // Outside the budget's lump-sum reservation (the Fortress pot,
                 // Game_AI.md 5c): a level paid from the bank directly used
                 // to spend it on every release of the pivotal hold.
@@ -490,7 +467,6 @@ namespace TheWaningBorder.AI
                 if (UpgradeBuildingCommandHelper.Execute(em, best,
                         TheWaningBorder.Core.Commands.CommandSource.AI) != UpgradeBuildingResult.Ok) continue;
                 AIPacing.NoteLevelUp(em, faction);
-                if (postLine) AIPivotalReserve.Clear(faction, PostLevelReserveKey);
                 AILogger.Log(faction, "ECON", $"upgrade {id} -> L{next} ({cost.Supplies}s {cost.Iron}i)");
                 return true;
             }
@@ -930,7 +906,12 @@ namespace TheWaningBorder.AI
             // MORE BUILDINGS, A LEVEL WORTH MORE (2026-10-19): the price
             // against soldiers, scaled by how many buildings it raises. The
             // housing Hut is gated on need above instead.
-            if (buildingId != "Hut")
+            // A PRODUCTION LINE'S LEVEL IS ITS RESEARCH (2026-11-11, decision
+            // 56 e): the weapon / armour / veteran tiers come only from these
+            // levels now (decision 53), and the soldiers-for-price test refused
+            // every one of them in both decision-55 test matches -- no AI army
+            // ever got a tier. They pass on the level clock (AIPacing below).
+            if (buildingId != "Hut" && !feedsArmy)
             {
                 float perBuilding = feedsArmy ? Cfg.soldiersPerProductionBuilding
                     : buildingId == "GatherersHut" || buildingId == "Mine" ? Cfg.soldiersPerEconomyBuilding

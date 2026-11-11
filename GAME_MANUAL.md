@@ -176,6 +176,7 @@ Right-click does whatever makes sense for the target:
 | Ground | Move (in formation: units hold their shape en route — melee front, ranged back — at the slowest member's speed, slows included, with a +40% catch-up boost for stragglers; workers and far-away outliers path independently). The rear ranks keep formation right up to their own slots after the front has arrived. On an attack-move a unit that steps out of rank to fight falls back in once its fight is over. Formations hold their shape in multiplayer too. |
 | Your own / allied stone wall (any piece, foot units) | Climb onto its wall-walk at the spot nearest the click — they go up at the nearest hub, wall tower or gate on their side. |
 | Your own Watch Tower (foot units) | Garrison: they walk there and go inside on arrival (up to 4). |
+| Your own finished Farm (Workers, Alanthor) | Put them to work: they walk there and go inside on arrival (up to 5); each one inside pays supplies every minute. A damaged Farm is repaired instead. |
 | Overpass bridge deck | Send the selection OVER the bridge — any unit type; they climb a ramp, cross the deck, and descend the far side. Units not ordered onto the deck simply walk UNDER the span. |
 | Enemy unit / building | Attack. |
 | Friendly damaged building | Repair (with workers). |
@@ -463,7 +464,8 @@ Single-player skirmishes can be saved and every one is recorded
 - **Replays** — the same screen's **Replays** tab, or **Watch Replay** on the
   end-of-match screen. A replay shows the whole match with full vision; click a
   unit or building to see through that player's eyes. The bar at the top has
-  pause (**Space**), speeds, skip ahead, and a timeline you can click to jump.
+  pause (**Space**), four speeds (0.5x, 1x, 2x, 5x), skip ahead, and a timeline
+  you can click to jump. The camera moves at its usual pace at every speed.
   It also says whether the replay is still *in sync* with the match that was
   played.
 - Saves and replays only open on the game version that made them.
@@ -691,6 +693,8 @@ match starts.
 | Convert a wall section | Select the section: **Gate** (needs 4 clear sections; the gatehouse takes 3) or **Hub**; on a stone wall also **Tower** (3 clear sections), **Mount Ballista** (wall level 2+) or **Mount Trebuchet** (wall level 3) — emplacements are built by workers. |
 | Raise the stone wall's level | Select any Wall Hub and research **Battlements**, then **Shielded Ramparts** — every wall you own is re-clad at once. |
 | Garrison a Watch Tower (Alanthor) | Right-click it with **foot units** selected: they walk to it and up to **4** go inside on arrival; each one adds a target to the tower's volley. The **n/max** badge over the tower shows who is in it; **Empty** puts them out. A destroyed tower puts its men out alive. |
+| Earn supplies without a node (Alanthor) | Build a **Farm** (up to 6, on your own ground, never on a resource node) and right-click it with **Workers** selected: up to **5** go inside, and each one pays supplies every minute — an empty Farm pays nothing. Workers inside still count against population. **Empty** puts them out; a destroyed Farm puts them out alive. |
+| Buy iron or veilstone (Alanthor) | Build the **Market** (one per player) and select it: **Iron −/+** and **Veilstone −/+** set how much it buys a minute (Shift: five steps; click the rate itself to stop buying). It pays supplies at a fixed price (the tooltip shows it and the supplies a minute the setting costs); when you cannot pay, nothing is bought that moment. The Economy panel shows the Farms and the Market as their own lines. |
 | Man the battlements (Alanthor stone wall) | Right-click any part of your (or an ally's) stone wall with **foot units** selected: they climb at the nearest hub, wall tower or gate on their side and stand on the wall-walk, where you can see, select and move them. Up there they fight whatever is in reach and never chase off: troops on the wall deal +15% damage and have +15% of their armour on top (hover the stats panel to see it), and bowmen also shoot further from the height. Right-click the ground to bring them down. Palisades have no wall-walk. |
 | Heal a friendly unit | Right-click it with a Litharch selected. |
 | Convert a Veilstone Main Node | Channel **Acolyte** (Runai) on an active node. |

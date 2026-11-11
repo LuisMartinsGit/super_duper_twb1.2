@@ -53,7 +53,7 @@ namespace TheWaningBorder.AI
         private static CachedEntityQuery QC_Queues;
 
         private static readonly string[] Extractors =
-            { "GatherersHut", "Mine", "VeilstoneMine", "Alanthor_TradingOutpost", "Runai_Sanctuary" };
+            { "GatherersHut", "Mine", "VeilstoneMine", "Runai_Sanctuary" };
 
         public static bool IsExtractor(string buildingId)
             => System.Array.IndexOf(Extractors, buildingId) >= 0;

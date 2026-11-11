@@ -15,16 +15,14 @@
 // always be to grab more veilstone and, do upgrades".
 //
 // So the cap is hard (SimpleAISystem.Composition.cs), and the surplus it
-// leaves is spent by the existing spenders, each extended where it lives:
-//   * EnsureExtractors          an Outpost on EVERY free outcrop in one pass
-//   * TickSurplus (this file)   the Outpost's speed then discount research,
-//                               and one Outpost level-up (cheapest first)
+// leaves is spent by the existing spenders, each extended where it lives
+// (the Trading Outpost spenders are gone with the building, decision 55):
 //   * CollectClaimCandidates /  outcrop ground weighs more, claim rounds come
 //     EnsureTerritoryClaim      round faster
 //   * EnsureFortressExpansion   outcrop ground weighs more; a Fortress there
 //                               may use the army's veilstone earmark
-//   * TickEndgameResearchSweep  faster, ladder-free, Outpost and the plan's
-//                               trainers first, no veilstone while held
+//   * TickEndgameResearchSweep  faster, ladder-free, the plan's trainers
+//                               first, no veilstone while held
 //   * AIBuildingUpgradeSystem   several level-ups per think
 // Every action logs one SURPLUS line, so a headless batch can count them.
 // ─────────────────────────────────────────────────────────────────────────
@@ -47,127 +45,25 @@ namespace TheWaningBorder.AI
         /// of veilstone (AIBudget.IsMilitaryShort — the composition records
         /// it every think while it saves for a role unit) while the bank
         /// overflows with supplies and iron (AIBudget.BankOverflowing).
-        /// Only Alanthor buy veilstone at Outposts (Veilstone_Economy.md).
         /// </summary>
         private static bool IsVeilstoneSurplus(EntityManager em, Faction faction)
             => FactionCultureOf(em, faction) == Cultures.Alanthor
                && FactionEra(em, faction) >= 2
                && AIBudget.VeilstoneHeldSurplus(em, faction);
 
-        /// <summary>
-        /// TRADE SURPLUS (2026-10-12, Game_AI.md 5a): the veilstone surplus,
-        /// or supplies piling up while the army is short of iron or veilstone
-        /// (AIBudget.TradeHeldSurplus). The Outposts trickle what their node
-        /// holds, so either way the answer is more posts, their research
-        /// and their levels. Kept apart from IsVeilstoneSurplus, whose other
-        /// readers (claims, Fortress sites, the research sweep's veilstone
-        /// earmark) are about veilstone itself.
-        /// </summary>
-        private static bool IsTradeSurplus(EntityManager em, Faction faction)
-            => FactionCultureOf(em, faction) == Cultures.Alanthor
-               && FactionEra(em, faction) >= 2
-               && TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction)
-               && (AIBudget.VeilstoneHeldSurplus(em, faction) || AIBudget.TradeHeldSurplus(em, faction));
-
         /// <summary>One SURPLUS line per action, unthrottled — each is a real
         /// purchase, so it cannot spam faster than the bank allows.</summary>
         private static void LogSurplus(Faction faction, string message)
             => AILogger.Log(faction, "SURPLUS", message);
 
-        private readonly Dictionary<int, float> _nextSurplusLog = new Dictionary<int, float>();
-
-        /// <summary>
-        /// Every think, after the extractor walk and the Outpost modes: while
-        /// veilstone-held, buy the Trading Outpost's research (speed first —
-        /// it is the only one that raises veilstone bought per minute — then
-        /// the discounts), and once per surplusLogInterval say the state.
-        /// </summary>
-        private void TickSurplus(EntityManager em, Faction faction, float now)
-        {
-            if (!TechCatalog.IsReady) return;
-            if (!IsTradeSurplus(em, faction)) return;
-
-            TrySurplusOutpostUpgrade(em, faction);
-
-            int key = (int)faction;
-            if (!AILogger.Enabled) return;
-            if (_nextSurplusLog.TryGetValue(key, out float next) && now < next) return;
-            _nextSurplusLog[key] = now + Cfg.surplusLogInterval;
-
-            FactionEconomy.TryGetResources(em, faction, out var bank);
-            int outposts = 0;
-            {
-                var q = QC_Outposts.Get(em, QT_Outposts);
-                using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-                for (int i = 0; i < facs.Length; i++) if (facs[i].Value == faction) outposts++;
-            }
-            int free = 0;
-            if (RegionMap.Ready && TerritoryOwnership.Ready)
-            {
-                _nodeSiteOwned.Clear();
-                _nodeSiteOwned.UnionWith(TerritoryOwnership.TerritoriesOf(faction));
-                _nodeSites.Clear();
-                CollectFreeNodes(em, faction, TheWaningBorder.Entities.TradingOutpost.BuildingId,
-                    _nodeSiteOwned, _nodeSites);
-                free = _nodeSites.Count;
-            }
-            var p = GetArmyPlan(em, faction);
-            LogSurplus(faction,
-                $"trade-held (short:{ShortList(faction)}; supplies {bank.Supplies}, iron {bank.Iron}, " +
-                $"veilstone {bank.Veilstone}, " +
-                $"outposts {outposts}, free node sides {free}, saving for {p.SavingFor ?? "a role unit"})");
-        }
-
-        /// <summary>The non-supply resources the army is short of, for a log line.</summary>
-        private static string ShortList(Faction faction)
-        {
-            string s = "";
-            if (AIBudget.IsMilitaryShort(faction, AIBudget.ResIron)) s += " iron";
-            if (AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone)) s += " veilstone";
-            return s.Length == 0 ? " none" : s;
-        }
-
-        /// <summary>
-        /// Level the Trading Outposts while the bank piles up (Veilstone_Economy.md
-        /// §3.1): a level raises every post's trickle. Never one that dips into the army's veilstone
-        /// earmark. L1 is the free age-up level and is never bought here.
-        /// ONE faction-wide decision (2026-10-19): the level raises EVERY post,
-        /// so nothing is bought while one is queued or running on any post,
-        /// and the clock runs on the least busy post
-        /// (AIBuildingUpgradeSystem.PickHost). A surplus spend, so no value
-        /// gate against soldiers.
-        /// </summary>
-        private static void TrySurplusOutpostUpgrade(EntityManager em, Faction faction)
-        {
-            var q = QC_Outposts.Get(em, QT_Outposts);
-            Entity best = AIBuildingUpgradeSystem.PickHost(em, faction, q);
-            if (best == Entity.Null) return;
-            if (!TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.TryGetNextCost(
-                    em, best, out var bestCost, out byte bestLevel)) return;
-            if (bestLevel <= 1) return;
-            if (!AIPacing.LevelAllowed(em, faction, bestLevel)) return;   // Game_AI.md § 2a
-            if (!FactionEconomy.CanAfford(em, faction, bestCost)) return;
-            if (!AIBudget.LeavesMilitaryVeilstone(em, faction, bestCost)) return;
-
-            var result = TheWaningBorder.Core.Commands.Types.UpgradeBuildingCommandHelper.Execute(
-                em, best, TheWaningBorder.Core.Commands.CommandSource.AI);
-            if (result != UpgradeBuildingResult.Ok) return;
-            AIPacing.NoteLevelUp(em, faction);
-            InvalidateThinkMemo();
-            AILogger.Log(faction, "BUILDING",
-                $"Upgrading {TheWaningBorder.Entities.TradingOutpost.BuildingId} to L{bestLevel}");
-            LogSurplus(faction, $"upgrade {TheWaningBorder.Entities.TradingOutpost.BuildingId} to L{bestLevel} " +
-                                $"({bestCost.Supplies}s {bestCost.Iron}i)");
-        }
-
         /// <summary>Host tiers of the research sweep (Game_AI.md 5e).</summary>
         private const int SweepHostTiers = 3;
 
-        /// <summary>0 = Trading Outpost; 1 = trains a unit the composition
-        /// plan has a share for; 2 = everything else.</summary>
+        /// <summary>1 = trains a unit the composition plan has a share for;
+        /// 2 = everything else. (Tier 0, the Trading Outpost, is retired with
+        /// the building — decision 55.)</summary>
         private static int SweepHostTier(EntityManager em, Entity building, ArmyPlan plan)
         {
-            if (em.HasComponent<TradingOutpostTag>(building)) return 0;
             if (plan == null || !plan.Active) return 2;
             string buildingId = TheWaningBorder.Entities.BuildingIds.Of(building, em);
             if (string.IsNullOrEmpty(buildingId)

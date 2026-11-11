@@ -75,7 +75,6 @@ What the footprints must satisfy — the rules, which the SO values follow:
 |---|---|
 | **Smallest** — statues, not buildings | every Chapel — the statues docked in the Temple ring |
 | **A resource building's footprint IS its node's** (2026-09-29), so the extractor lands exactly on its node | Gatherer's Hut (on a supply spot), Mine (on an iron deposit), Veilstone Mine (on a veilstone outcrop) |
-| **The Alanthor Trading Outpost stands BESIDE its outcrop** (2026-10-04) — on a side slot, never on the node (next subsection) | Trading Outpost (`Alanthor_TradingOutpost`) |
 | **The wall hub's footprint is its drum's bounding square**, derived from `AlanthorWall.HubWidth` — the SO must stay in step with it | Wall Hub (`Alanthor_Wall`), Palisade hub (`Palisade`) |
 | **One footprint for the capital in both ages** — the Shelter becomes the Fortress in place (2026-10-03, decision 11) | the capital, id `Fortress` |
 | **Each building its own** — no building borrows another's size. The **Archery Range** used to fall back on a shared default; it now reads its own `footprintCells` (2026-10-03) | everything else: House, Barracks, Archery Range, Temple, the landmarks, Royal Stable, Siege Yard, Watch Tower, and the Runai / Feraldis / sect buildings |
@@ -86,7 +85,10 @@ What the footprints must satisfy — the rules, which the SO values follow:
 > with it, and `TempleChapelRing.SlotRadius` returned to the pre-doubling
 > value the docking was originally tuned for.
 
-### The Trading Outpost's side slots (2026-10-04, decision 40)
+### ~~The Trading Outpost's side slots (2026-10-04, decision 40)~~
+
+**RETIRED 2026-11-11 ([decision 55](Unification_Decisions_2026-10-03.md))** with the Trading Outpost. Map generation no
+longer keeps a node's four sides open or reserves them. The text below is history.
 
 *Supersedes decision 28's on-outcrop placement.* Every veilstone outcrop has
 **four side slots — north, east, south, west** — and an Alanthor Trading
@@ -207,9 +209,10 @@ exists**.
 | Trees | **Decoration on ground that is already blocked (2026-10-06)** — inside Forest / Mountain regions or an impassable forest stand. Not snapped, and never block a cell by themselves. [Territory_And_Nature.md](Territory_And_Nature.md) header |
 | Rocks, bushes | 1 cell, impassable, at most one per cell |
 
-"Impassable until mined" means the block is tied to the node's lifetime: the
-node is removed when depleted, and removal releases the cell on both the nav
-cost field and `PassabilityGrid`.
+"Impassable until mined" means the block is tied to the node's lifetime. Nodes
+never run out since [decision 55](Unification_Decisions_2026-10-03.md), so a node's cell stays blocked for the match
+(removal, should a node ever be removed, releases the cell on both the nav cost
+field and `PassabilityGrid`).
 
 ### Where a node may stand, and what may stand on one (2026-09-29)
 
@@ -227,9 +230,7 @@ cost field and `PassabilityGrid`.
 - Start Fortresses and the nature-region blocking run before any node spawns,
   so nodes also keep off them.
 - **Nothing is built on a node except the extractor made for it** (Gatherer's
-  Hut on supply, Mine on iron, Veilstone Mine on veilstone). The Alanthor
-  Trading Outpost is NOT built on its outcrop — it stands on a side slot (§2,
-  The Trading Outpost's side slots), and the node rule applies to it in full. The whole node square is tested — the supply spot
+  Hut on supply, Mine on iron, Veilstone Mine on veilstone). The whole node square is tested — the supply spot
   included, which is passable and no obstacle — by the placement ghost, the
   AI's site search and the command executor. Refusal: *"Cannot build on a
   resource node — only its own extractor may stand there"*.

@@ -411,7 +411,8 @@ namespace TheWaningBorder.UI.Data
             // Alanthor culture buildings. Alanthor_PracticeRange retired (it is
             // the LEVELED Archery Range).
             "Alanthor_Tower", "Alanthor_SiegeYard", "Alanthor_RoyalStable",
-            "Alanthor_TradingOutpost",
+            // The Farm and the Market (Unification decision 55).
+            "Alanthor_Farm", "Alanthor_Market",
             // NO emplacement platforms (2026-09-25): emplacements are
             // WALL-MOUNT ONLY — Mount Ballista / Mount Trebuchet on a masonry
             // curtain module's panel. The free-standing platforms are
@@ -555,12 +556,12 @@ namespace TheWaningBorder.UI.Data
                     if (building.id == "TempleOfRidan" && templeCount >= TempleCap)
                         lockReason = Loc.T("Already built - one Temple per faction.");
 
-                    // The Trading Outpost is a late research (Veilstone_Economy.md
-                    // §3.1, 2026-11-09): shown, greyed, until Trade Charters.
-                    if (building.id == TheWaningBorder.Entities.TradingOutpost.BuildingId
+                    // Six Farms, one Market (decision 55): shown greyed at the cap.
+                    if ((building.id == TheWaningBorder.Entities.Farm.BuildingId
+                         || building.id == TheWaningBorder.Entities.Market.BuildingId)
                         && !em.Equals(default(EntityManager))
-                        && !TheWaningBorder.Systems.Economy.TradingOutpostSystem.IsUnlocked(faction))
-                        lockReason = Loc.T("Research Trade Charters at the Fortress (level 3) first.");
+                        && BuildingFactory.AtFactionCap(em, faction, building.id))
+                        lockReason = string.Format(Loc.T("Limit reached - {0} per faction."), building.maxPerFaction);
 
                     // Sect buildings (Religion.md §3.2): shown for every sect of
                     // this culture's cluster that the edition offers (and for
@@ -657,16 +658,6 @@ namespace TheWaningBorder.UI.Data
                             + (requirement != null ? "\n" + requirement : "");
                     }
 
-                    // A Trading Outpost's price climbs per node
-                    // (docs/Design/Veilstone_Economy.md §3.1): the button
-                    // shows the first post's price and names the ramp; the
-                    // exact price is charged at the side it snaps to.
-                    if (building.id == TheWaningBorder.Entities.TradingOutpost.BuildingId)
-                    {
-                        requirement = OutpostRampLine()
-                            + (requirement != null ? "\n" + requirement : "");
-                    }
-
                     // After age-up a building is offered under the name it will
                     // carry once raised — its culture's level-1 name (Hut ->
                     // House, Barracks -> Garrison, Shelter -> Fortress), since
@@ -715,18 +706,5 @@ namespace TheWaningBorder.UI.Data
             return actions;
         }
 
-        /// <summary>"Up to 4 per node, one per side. Each further post beside
-        /// the same node costs x1.5 / x2.25 / x3.5 to build" — read from
-        /// TradingOutpostSystem.asset.</summary>
-        internal static string OutpostRampLine()
-        {
-            var sb = new System.Text.StringBuilder();   // the price ramp is gone (decision 50)
-            string line = string.Format(Loc.T("Stands on a free side of a supply, iron or veilstone node, up to {0} per node. Trickles that node's resource without drawing on it, for as long as the node lives."),
-                TheWaningBorder.Entities.TradingOutpost.SideCount);
-            if (sb.Length > 0)
-                line += " " + string.Format(Loc.T("Each further post beside the same node costs {0} to build; a new node starts at base price."),
-                    sb.ToString());
-            return line;
-        }
     }
 }

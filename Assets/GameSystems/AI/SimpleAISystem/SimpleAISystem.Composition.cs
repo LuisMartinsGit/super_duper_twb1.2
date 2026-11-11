@@ -10,8 +10,9 @@
 //
 // End-of-match rosters were Spearman + Archer and almost nothing else. The
 // first fix planned the army as five "lines" and trained the best unlocked
-// tier of each — but Swordsman, Nobleman and Sentinel are not tiers of one
-// line, and neither are Archer, Crossbowman and Longbowman. Each one has a job
+// tier of each — but Swordsman and Spearman are not tiers of one line, and
+// neither are Archer and Crossbowman. Each one has a job (decision 52: two units
+// a kind, one job each)
 // and a counter (docs/Design/Combat_Pacing.md — the counter table and the
 // weight tags; the numbers are the unit SOs' bonusVsTags / tags / defense),
 // and the right army is the one that answers what the enemy is fielding.
@@ -24,18 +25,12 @@
 //   Archer       anti-infantry (+Infantry bonus). Cheap massed bows that clear
 //                a foot line; the wrong answer to armour (8 damage into 4-7
 //                points of it) and to cavalry (no melee armour). A basic.
-//   Swordsman    mail line infantry with the anti-SIEGE bonus: the body of
-//                the line, and how an enemy siege train dies.
-//   Nobleman     elite shock infantry — the highest melee damage and the
-//                fastest foot, no bonus: the gap-closer onto an enemy bow
-//                line when cavalry is short, and a generalist brawler.
-//   Sentinel     the heaviest foot armour with the anti-HEAVY bonus: the
-//                answer to heavy infantry, barded cavalry and anything an
-//                arrow cannot hurt. Slow, two population.
+//   Swordsman    heavy line infantry with the anti-SIEGE bonus: the body of
+//                the line, how an enemy siege train dies, and (decision 52)
+//                the heavy-infantry role the cut Sentinel held — it grows
+//                into it through the Garrison's levels.
 //   Crossbowman  ranged anti-cavalry (+Cavalry bonus that ignores barding):
-//                the Cataphract answer.
-//   Longbowman   long-range bow DPS, no bonus — outranges every other bow and
-//                shreds slow foot and masses; glass against cavalry.
+//                the Cataphract answer, and the bow that beats armour.
 //   Outrider     light cavalry raider (+Ranged), the fastest unit: runs down
 //                bows and unescorted siege, harasses.
 //   Cataphract   heavy shock cavalry (+Ranged): breaks bow lines and siege
@@ -43,11 +38,8 @@
 //   Battering Ram  EARLY anti-building (buildings only). Its share moves to
 //                the Trebuchet once the Siege Yard can train one.
 //   Trebuchet    LATE anti-building / anti-fortification, the longest reach.
-//   Ballista     ANTI-ARMY siege, single target: heroes, heavy cavalry and
-//                enemy engines (its auto-acquire prefers them — unit SO
-//                preferTargets, Combat_Pacing.md § Target preference).
-//   Catapult     ANTI-ARMY siege, splash (+Infantry): clumped foot and
-//                formations (prefers the densest knot of enemies in reach).
+// (The Sentinel, Nobleman, Longbowman, Ballista and Catapult left every
+// roster in decision 52; their rows are gone from the role table.)
 //
 // HOW A SHARE IS MADE (all numbers in assets):
 //   1. INTEL. share = baseShare + counterResponse x sum(perEnemyX x enemy X
@@ -59,11 +51,11 @@
 //      by the personality's RoleBudget relative to Balanced; the basics by its
 //      basicsAppetite (AISettingsSO.PersonalityBlock).
 //   3. DIFFICULTY. The basics by basicsShareScale.
-//   4. ECONOMY. The veilstone roles by the veilstone income the Trading
-//      Outposts deliver (veilstoneIncomeForFullLadder) — a starved faction
+//   4. ECONOMY. The veilstone roles by the faction's veilstone territory
+//      income (veilstoneIncomeForFullLadder) — a starved faction
 //      leans on the basics, a rich one on the roles.
 //   5. LOCKS. A role its trainer cannot train yet hands its share down its
-//      fallback chain (Sentinel -> Swordsman -> Spearman ...); a superseded
+//      fallback chain (Outrider -> Swordsman -> Spearman ...); a superseded
 //      role (Ram -> Trebuchet) hands it up.
 //   6. The basics' total is clamped into [basicsMinShare, basicsMaxShare].
 // The next unit is the role furthest below its share. The basics may number
@@ -450,15 +442,19 @@ namespace TheWaningBorder.AI
                 p.CounterResponse *= math.max(0f, Cfg.doctrineCounterResponseScale);
             }
 
-            // ECONOMY: the veilstone the Outposts deliver a minute (on Buy),
-            // or a bank that already holds plenty.
-            p.VeilstoneIncome = OutpostVeilstoneIncome(em, faction);
+            // ECONOMY: the veilstone the faction's territory pays a minute
+            // (Veilstone Mines and slots), or a bank that already holds plenty.
+            p.VeilstoneIncome = TheWaningBorder.Systems.World.TerritoryIncomeSystem.FactionYield(em, faction).Veilstone;
             float econ = Cfg.veilstoneIncomeForFullLadder > 0f
                 ? math.saturate(p.VeilstoneIncome / Cfg.veilstoneIncomeForFullLadder) : 1f;
             if (FactionEconomy.TryGetResources(em, faction, out var bank)
                 && Cfg.veilstoneBankForFullLadder > 0f && bank.Veilstone >= Cfg.veilstoneBankForFullLadder)
                 econ = 1f;
             p.EconScale = math.lerp(math.saturate(Cfg.ladderScaleWhenStarved), 1f, econ);
+            // A VEILSTONE HOARD LEANS THE ARMY ON IT (2026-11-11): past the hoard
+            // line the units that cost veilstone weigh more, so the bank is spent.
+            if (bank.Veilstone > Cfg.veilstoneHoardLine)
+                p.EconScale = math.max(1f, Cfg.veilstoneGlutLadderScale);
 
             // THE BASICS SCALE IS NOT A WAY TO SHRINK THE ARMY (2026-10-04,
             // Game_AI.md § 5h). A tier below 1 leans on role units — but only
@@ -587,20 +583,6 @@ namespace TheWaningBorder.AI
             return -1;
         }
 
-        /// <summary>Veilstone a minute this faction's Trading Outposts
-        /// trickle right now (the posts beside living veilstone outcrops).</summary>
-        private static float OutpostVeilstoneIncome(EntityManager em, Faction faction)
-        {
-            var q = QC_Outposts.Get(em, QT_Outposts);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            float total = 0f;
-            for (int i = 0; i < facs.Length; i++)
-                if (facs[i].Value == faction)
-                    total += TheWaningBorder.Systems.Economy.TradingOutpostSystem.PerMinuteFor(em, ents[i]).Veilstone;
-            return total;
-        }
-
         /// <summary>An order went out this think: count it, so the next pick
         /// in the same think sees it.</summary>
         private static void NoteArmyPlanTrained(Faction faction, string unitId)
@@ -666,7 +648,7 @@ namespace TheWaningBorder.AI
 
             // Saving. Name the role unit; its train attempt fails on the
             // bank and records the shortage (AIBudget.NoteMilitaryShort),
-            // which keeps the Trading Outposts on Buy.
+            // (AIBudget.NoteMilitaryShort).
             if (bestRole >= 0) return p.Rows[bestRole].unitId;
             if (p.LexorOwed) p.SavingFor = "King Lexor";
             return bestBasic >= 0 ? p.Rows[bestBasic].unitId : "Spearman";
@@ -817,7 +799,7 @@ namespace TheWaningBorder.AI
             // the army waiting for a role unit the bank cannot cover in
             // veilstone records it here every think, not only when a train
             // attempt happened to reach the wallet — the surplus spenders
-            // (Outposts, trade research, outcrop claims) key off it.
+            // (outcrop claims, Fortress sites) key off it.
             if (p.SavingFor != null
                 && TechCatalog.TryGetUnit(p.SavingFor, out var saving) && saving != null)
             {

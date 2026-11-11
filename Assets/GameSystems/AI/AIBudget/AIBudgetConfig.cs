@@ -31,8 +31,8 @@ namespace TheWaningBorder.AI
 
         /// <summary>Seconds of simulated time a military shortage stays on
         /// the record after the last refused purchase. Walls yield while the
-        /// army is short of what they cost; Trading Outposts stay on Buy and
-        /// claims favour outcrops while it is short of veilstone.</summary>
+        /// army is short of what they cost; claims favour outcrops while it
+        /// is short of veilstone.</summary>
         public float militaryShortHoldSeconds;
 
         /// <summary>Share of every think window's veilstone income earmarked
@@ -52,7 +52,7 @@ namespace TheWaningBorder.AI
         /// OVERFLOWING while it holds at least surplusSupplies supplies AND
         /// surplusIron iron. Overflowing and short of veilstone for the army
         /// (IsMilitaryShort) = veilstone-held surplus: the AI spends on
-        /// Trading Outposts, their trade research and veilstone ground;
+        /// veilstone ground;
         /// overflowing alone = more building levels and research per think.
         /// 0 on either field turns surplus spending off.</summary>
         public int surplusSupplies;

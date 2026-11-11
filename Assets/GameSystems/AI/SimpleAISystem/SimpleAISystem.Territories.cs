@@ -3,8 +3,7 @@
 // docs/Design/Game_AI.md 5g):
 //
 //   1. resource buildings — an extractor on every free node it holds there
-//      (Gatherer's Huts, Mines, Veilstone Mines, Trading Outposts on outcrop
-//      sides);
+//      (Gatherer's Huts, Mines, Veilstone Mines);
 //   2. the Fortress — as soon as the resource buildings are up (2026-10-04
 //      revision); its footprint is RESERVED from the moment the territory is
 //      held (AIBaseLayout), kept clear by every other AI placer the way the
@@ -50,7 +49,6 @@ using TheWaningBorder.Economy;
 using TheWaningBorder.World.Regions;
 using TheWaningBorder.World.Terrain;
 using Plans = TheWaningBorder.Entities.PlannedBuildings;
-using OutpostIds = TheWaningBorder.Entities.TradingOutpost;   // avoids the DC0062 Entities.ForEach misread
 
 namespace TheWaningBorder.AI
 {
@@ -262,10 +260,9 @@ namespace TheWaningBorder.AI
                 for (int k = 0; k < ExtractorPlan.Length && !placed; k++)
                 {
                     string id = ExtractorPlan[k].Building;
-                    bool isOutpost = id == OutpostIds.BuildingId;
-                    if (isOutpost && !alanthor) continue;
                     bool runaiCulture = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Runai;
-                    if (id == "VeilstoneMine" && (alanthor || runaiCulture)) continue;
+                    // Alanthor mine veilstone too since decision 42; the Runai never do.
+                    if (id == "VeilstoneMine" && runaiCulture) continue;
                     if (id == "Runai_Sanctuary" && !runaiCulture) continue;
                     if (id != "GatherersHut" && AIPivotalReserve.Has(faction, HutBootstrapReserveKey)) continue;
                     if (!TechCatalog.TryGetBuilding(id, out var def) || def == null) continue;
@@ -284,14 +281,11 @@ namespace TheWaningBorder.AI
                     {
                         if (snap.OverlapsOwnPlan(faction, _devNodes[n], size)) continue;
                         free++;
-                        var cost = isOutpost ? BuildCosts.For(em, faction, id, _devNodes[n])
-                                             : AICommon.ToCost(def.cost);
+                        var cost = AICommon.ToCost(def.cost);
                         if (!FactionEconomy.CanAfford(em, faction, cost))
                         {
-                            // An Outpost's ramp price is its own savings goal
-                            // (EnsureExtractors); the core extractors are
-                            // what this territory waits on.
-                            if (!isOutpost) moneyHold = true;
+                            // The extractors are what this territory waits on.
+                            moneyHold = true;
                             blocked = $"{id} bank short";
                             continue;
                         }

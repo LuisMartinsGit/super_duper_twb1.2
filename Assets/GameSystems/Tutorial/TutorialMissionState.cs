@@ -26,7 +26,9 @@ namespace TheWaningBorder.Tutorial
     {
         public static AdvancedStage AdvancedStage;
         public static bool ConquestOpen, SurveyDone, SectAdopted, NodeDead, MonumentHeld, MonumentExplored;
-        public static int Charters, Ranges, Towers, Temples, Claimed, ReligionPoints;
+        /// <summary>Step 2b (decision 55, 2026-11-11): the faction's Mine level
+        /// (replaces the retired Trade Charters step).</summary>
+        public static int MineLevel, Ranges, Towers, Temples, Claimed, ReligionPoints;
         /// <summary>The Alanthor mission's enshrinement and Sanctum dominion countdown.</summary>
         public static float WinCountdownSeconds;
 
@@ -59,7 +61,7 @@ namespace TheWaningBorder.Tutorial
             LitharchMoved = ChainedOrders = false;
             AdvancedStage = AdvancedStage.Vault;
             ConquestOpen = SurveyDone = SectAdopted = NodeDead = MonumentHeld = MonumentExplored = false;
-            Charters = Ranges = Towers = Temples = Claimed = ReligionPoints = 0;
+            MineLevel = Ranges = Towers = Temples = Claimed = ReligionPoints = 0;
             WinCountdownSeconds = 0f;
             _deniedBuildings.Clear();
             _deniedUnits.Clear();

@@ -43,9 +43,6 @@ MonoBehaviour:
   - Alanthor_Outrider
   - Alanthor_Cataphract
   research:
-  - SeasonedCavalry
-  - VeteranCavalry
-  - EliteCavalry
   - WarHorn
   - FullGallop
   minEra: 0

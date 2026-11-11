@@ -159,7 +159,7 @@ namespace TheWaningBorder.Systems.Economy
             IncomeSource.EmptySlot or IncomeSource.GatherersHut or IncomeSource.Mine
                 or IncomeSource.VeilstoneMine or IncomeSource.FortressLevel or IncomeSource.Capital
                 or IncomeSource.BuildingPassive or IncomeSource.Trade or IncomeSource.GuildSurvey
-                or IncomeSource.TerritoryClaim => true,
+                or IncomeSource.TerritoryClaim or IncomeSource.Farm => true,
             _ => false,
         };
 

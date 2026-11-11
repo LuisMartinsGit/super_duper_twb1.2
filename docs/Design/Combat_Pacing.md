@@ -26,8 +26,8 @@ levels and the endgame loop, not to further ages.
 |------|----------|---------------|
 | **0 — Skirmish** | Age 0 | **A melee age**: spearmen and workers. Ranged is an Age-1 unlock (2026-08-11 — the Age-0 archer rush was uncounterable and ended matches by minute 15), so the age is about spear lines, map reading, and the economy race to age-up. **The race is SHORT by design: median age-up lands at 3-6 minutes depending on difficulty (2026-08-29) — Age 0 is a prologue, not a third of the match.** |
 | **1 — Lines** | Age-up, buildings L1-L2 | The bow arrives: archers and crossbowmen enter alongside swordsmen (the Archery Range unlocks at era 2) and beat the Age-0 comps. Walls appear: **walls keep you mostly safe — only siege units can attack wall pieces** (see The Wall Rule below). |
-| **2 — Maneuver** | Buildings L2-L3 | Early cavalry wins every open encounter **except against spearmen**. Longbowmen (Range L3) rule the field, urging the advent of the cataphract. Early siege cracks hard targets and brings area damage (Trebuchet). |
-| **3 — Game-enders** | L3 + veterancy / equipment tiers | Longbowmen and cataphracts answer almost everything. The triangle closes: **cavalry counters longbowmen; crossbowmen counter cataphracts; spearmen still counter cavalry**. |
+| **2 — Maneuver** | Buildings L2-L3 | Early cavalry wins every open encounter **except against spearmen**. Massed bows rule the field, urging the advent of the cataphract. Early siege cracks hard targets (the Ram) and brings area damage (Trebuchet). |
+| **3 — Game-enders** | L3 + the veterancy / equipment tiers its levels grant (decision 53) | Bows and cataphracts answer almost everything. The triangle closes: **cavalry counters bows; crossbowmen counter cataphracts and armour; spearmen still counter cavalry**. |
 | **4 — The Shardroot** | Endgame loop | The match revolves around escorting religious units to wells and holding the Shardroot — see [Curse_And_Shardroot.md](Curse_And_Shardroot.md). Armies exist to screen ritualists and break enemy holds. |
 
 Pacing is therefore tuned through **building-upgrade timing and cost** — each
@@ -189,14 +189,12 @@ ORDER and the reason for each row:
 | Scout | a token ranged point | Survives by not being there |
 | Litharch | magic only | Robes: the magic column is their only protection |
 | Spearman | light | Cheap line infantry; its counter is its bonus vs Cavalry, not its armor |
-| Swordsman | mail — clearly above the Spearman in melee | Takes visibly less from a spear than a Spearman does |
-| Nobleman | above the Swordsman | |
-| Sentinel | the heaviest foot armour | The wall. A plain Archer barely scratches it |
-| Archer / Longbowman | no melee armour, a token ranged point | Glass. Zero melee armor is what makes cavalry the answer |
+| Swordsman | mail — clearly above the Spearman in melee; the heaviest foot Alanthor trains since decision 52 | Takes visibly less from a spear than a Spearman does; the Garrison's levels grow it into the heavy line |
+| Archer | no melee armour, a token ranged point | Glass. Zero melee armor is what makes cavalry the answer |
 | Crossbowman | light | |
 | Outrider | light, both columns | |
 | Cataphract | heavy (barded) | Heavy — but the Spearman's and Crossbowman's bonuses land AFTER armor and ignore it, so the counters still hit in full |
-| Ballista / Catapult / Trebuchet | no melee armour, high ranged armour | Arrows bounce; swords do not. You cannot shoot a siege line down, you send something at it |
+| Trebuchet | no melee armour, high ranged armour | Arrows bounce; swords do not. You cannot shoot a siege line down, you send something at it |
 | Battering Ram | some melee, very high ranged | Armoured shell. An Archer does the minimum to it |
 | King Lexor | heavy across the board | |
 
@@ -223,7 +221,7 @@ values are on each building SO:
 Ranged armor is set **at or above a bow's entire attack** — so an Archer does
 the minimum 1 to a wall and a bow line simply *cannot* take a base. That is
 what makes the Siege Yard a necessary building rather than an optional one.
-Siege armor stays 0 everywhere, so a Ballista's damage and its bonus vs
+Siege armor stays 0 everywhere, so a siege engine's damage and its bonus vs
 Building land in full.
 
 Infantry keeps a slow path in on purpose: a Swordsman takes a Barracks down in
@@ -240,27 +238,30 @@ unit is bonused against and the beat it delivers.
 |------|----------|-------------------|
 | Spearman (Age 0) | **Cavalry** | The one thing early cavalry loses to (beats 2-3) |
 | Alanthor_Crossbowman | **Cavalry** | Bolts pierce barding — the cataphract answer (beat 3) |
-| Alanthor_Cataphract | **Ranged** | Runs down longbow/crossbow lines (beats 2-3) |
+| Alanthor_Cataphract | **Ranged** | Runs down bow and crossbow lines (beats 2-3) |
 | Alanthor_Outrider | **Ranged** (smaller than the Cataphract's) | Light harasser version of the same job |
-| Alanthor_Ballista | Building | Hard-target cracker (beat 2); in the field it hunts heroes, heavy cavalry and engines (§ Target preference) |
 | Alanthor_Trebuchet | Building (the largest) | Area siege, wall-line killer (beats 2-3) |
 | Alanthor_BatteringRam | Building (the largest) | Buildings-only attacker (`BuildingsOnlyAttacker`) |
 | Alanthor_Archer | **Infantry** | Closes the triangle (below) - massed bows clear a foot line |
 | Alanthor_Swordsman | **Siege** | Infantry is how a siege line dies; siege carries 0 melee armor to match |
-| Alanthor_Sentinel | **Heavy** | Gives the tank something it can actually kill: elite armour |
-| Alanthor_Catapult | **Building and Infantry** | Splash - the anti-mass answer as well as a wall-breaker; aims at the densest knot (§ Target preference) |
+
+**One job per unit (decision 52, 2026-11-11).** Every kind is two units: the
+Spearman (cheap line, beats cavalry) and the Swordsman (heavy line); the Archer
+(cheap, range) and the Crossbowman (beats armour and cavalry); the Outrider
+(raider) and the Cataphract (shock); the Battering Ram (cheap, close) and the
+Trebuchet (long range). The **Sentinel** (anti-Heavy), **Nobleman** (no
+bonus), **Longbowman** (no bonus), **Ballista** (anti-army bolt) and
+**Catapult** (anti-mass splash) left every roster: their jobs are covered by
+the Swordsman, the Crossbowman and the cavalry, and siege is now anti-building
+only. Their SOs are parked for old saves and replays.
 
 ### Target preference (2026-10-03)
 
-The two **anti-army** siege engines are built to pick a kind of target, and
-they do it when they choose their own: a unit carrying `preferTargets` on its
-SO takes a preferred candidate **inside its own attack reach** over the
-nearest one (TargetingSystem's auto-acquire; `TargetPreference` component).
-
-| Unit | Prefers | Why |
-|------|---------|-----|
-| Alanthor_Ballista | `Hero`, `Cavalry+Heavy`, `Siege` | Single heavy bolts: heroes, barded cavalry and enemy engines — the high-value targets a bow line cannot finish |
-| Alanthor_Catapult | `Massed` (the candidate standing among the most enemies) | Splash: put the stone where the formation is thickest |
+A unit carrying `preferTargets` on its SO takes a preferred candidate
+**inside its own attack reach** over the nearest one (TargetingSystem's
+auto-acquire; `TargetPreference` component). It was authored for the two
+anti-army engines, the Ballista and the Catapult, which left the rosters in
+decision 52; the mechanism stays for any unit that carries the field.
 
 Rules: an entry is tags joined by `+` (the candidate must carry all of them),
 `Hero`, or `Massed`; units only, never buildings; only inside reach, so a
@@ -268,7 +269,7 @@ preference never drags an engine off its post or out of its formation; an
 ORDERED target is never overridden. Every other unit keeps the nearest /
 value pick. The Battering Ram and the Trebuchet need no preference — the Ram
 attacks buildings only and the Trebuchet's work is walls. The AI composes by
-the same roles (Game_AI.md §5d).
+role (Game_AI.md §5d).
 
 ### The triangle
 
@@ -284,10 +285,9 @@ against it rather than given a bonus in isolation:
 
 Siege sits outside the triangle: it beats Buildings, and Infantry beats it.
 
-**Longbowmen still carry no bonus.** Their dominance is raw stats — the top of
-the bow ladder in damage and reach. Giving them the anti-infantry leg as well
-would leave them strong against two classes of three, which is exactly what
-makes the cavalry counter load-bearing.
+**The Crossbowman's bonus is the only extra leg** — against Cavalry, so the
+heavy rider has an answer that is not on foot. No bow carries two legs of the
+triangle, which is what keeps the cavalry counter load-bearing.
 
 ### Counters are decisive (2026-10-09)
 
@@ -328,13 +328,13 @@ a weight tag (Heavy / Light).** The Age 0 and Alanthor weights (decision 35,
 
 | Weight | Units |
 |---|---|
-| **Light** | Outrider; Archer, Crossbowman, Longbowman; Scout, Worker, Ledger |
-| **Heavy** | Spearman, Swordsman, Nobleman, Sentinel; Cataphract; Ballista, Catapult, Trebuchet, Battering Ram; the emplaced Ballista and Trebuchet; King Lexor |
+| **Light** | Outrider; Archer, Crossbowman; Scout, Worker, Ledger |
+| **Heavy** | Spearman, Swordsman; Cataphract; Trebuchet, Battering Ram; the emplaced Ballista and Trebuchet; King Lexor |
 
 ### The ranged ladder
 
-Rules for the three bow lines (values on the `Alanthor_Archer`,
-`Alanthor_Crossbowman` and `Alanthor_Longbowman` SOs). Rebalanced 2026-08-13 —
+Rules for the two bow lines (values on the `Alanthor_Archer` and
+`Alanthor_Crossbowman` SOs; the Longbowman left the roster in decision 52). Rebalanced 2026-08-13 —
 the old numbers had the **Archer out-ranging the Crossbowman** despite sitting
 below it on the ladder, and every line shot further than it could see.
 
@@ -355,12 +355,9 @@ Three rules hold across the ladder, and new ranged units must respect all:
   can only use the difference through someone else's eyes, which reads as
   shooting at nothing. Range and sight are set equal.
 - **Range rises with the ladder.** Damage and reach both increase
-  Archer → Crossbowman → Longbowman, so the ordering is unambiguous and a
-  higher-tier bow is never a sidegrade.
+  Archer → Crossbowman, so the ordering is unambiguous and the higher-tier
+  bow is never a sidegrade.
 - **No minimum range** (above).
-
-Longbowmen deliberately carry **no** bonus tag — their dominance is raw
-stats, which is exactly what makes the cavalry counter necessary.
 
 Runai / Feraldis counter data follows the same pattern when those trees
 are unlocked; the triangle roles (anti-cavalry spear, armor-piercing
@@ -389,8 +386,10 @@ same white streak, so a fully-upgraded army looked exactly like a starting one
 on the field — the one place the ladder matters. Giving tier 0 no trail is what
 gives the first upgrade something to be.
 
-Ballista bolts share the look. They are shot by the same army from the same
-racks, and the design has no separate bolt ladder to read them against.
+Bolts (the Crossbowman's, the emplaced Ballista's) share the look. They are
+shot by the same army from the same racks, and the design has no separate
+bolt ladder to read them against. The arrow tiers come with the Archery
+Range's levels (decision 53).
 
 Implementation: `GameSystems/Rendering/Vfx/ArrowTrailTiers.cs`. The tech id for
 tier 4 is `ShardTippedArrows`, not "VeilsteelTipped" — older name, same tier,
@@ -555,11 +554,13 @@ The AI rides this ladder automatically (`SimpleAISystem` /
 `AIAlanthorEndgameSystem`):
 
 - Composition picker trains the best trainable unit per class —
-  Longbowman > Crossbowman > Archer, Swordsman > Spearman — and holds
-  spearmen while enemy cavalry dominates sightings.
+  Crossbowman > Archer, Swordsman > Spearman — and holds spearmen while
+  enemy cavalry dominates sightings.
 - Cavalry from the Royal Stable (Cataphract > Outrider), siege from the
-  Siege Yard. All four engines (Battering Ram, Ballista, Catapult,
-  Trebuchet) coexist on the Siege Yard roster.
+  Siege Yard: the Battering Ram early, the Trebuchet once the Yard trains it
+  (decision 52 — no Ballista or Catapult).
+- The AI never researches a tier tech: the building levels grant them
+  (decision 53).
 - Fortress uniques (Ledger, King Lexor) train once, outside the
   budget window.
 - The wall doctrine ([Game_AI.md](Game_AI.md)) seals terrain chokepoints

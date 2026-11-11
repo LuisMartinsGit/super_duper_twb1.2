@@ -19,7 +19,7 @@ MonoBehaviour:
   upgradeCost:
     Supplies: 1400
     Iron: 700
-    Veilstone: 0
+    Veilstone: 600
   upgradeSeconds: 50
   hpMultiplier: 1.2
   trainTimeMultiplier: 0.512
@@ -37,4 +37,8 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
+  grantsTechs:
+  - ShardInfusedShot
+  - ShardPlating
+  - EliteCrews
   prefab: {fileID: 6287696073539617556, guid: d04f84a32c136fa47a64f83095803c42, type: 3}

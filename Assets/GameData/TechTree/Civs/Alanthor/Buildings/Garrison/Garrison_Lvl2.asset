@@ -17,9 +17,9 @@ MonoBehaviour:
   level: 2
   displayName: Garrison
   upgradeCost:
-    Supplies: 600
-    Iron: 300
-    Veilstone: 0
+    Supplies: 650
+    Iron: 600
+    Veilstone: 500
   upgradeSeconds: 30
   hpMultiplier: 1.15
   trainTimeMultiplier: 0.64
@@ -38,4 +38,10 @@ MonoBehaviour:
     siegeShotDamage: 0
   firePoints: []
   lineOfSight: 0
+  grantsTechs:
+  - IronWeapons
+  - IronPlate
+  - VeilstoneWeapons
+  - VeilstonePlate
+  - VeteranInfantry
   prefab: {fileID: 1435027818078621703, guid: 45e136e5be599a7488503dbd2e1127f8, type: 3}

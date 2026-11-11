@@ -37,4 +37,7 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
+  grantsTechs:
+  - StoneShotEngines
+  - SeasonedCrews
   prefab: {fileID: 1564758319344664979, guid: 891f2f5754335a642b4948b25be600bd, type: 3}

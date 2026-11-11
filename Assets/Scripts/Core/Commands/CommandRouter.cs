@@ -1172,6 +1172,8 @@ namespace TheWaningBorder.Core.Commands
                 var research = TheWaningBorder.Economy.FactionResearchState.Instance;
                 if (research != null && research.HasResearched(faction, techId)) return;
                 if (IsResearchQueued(em, faction, techId, out _, out _)) return;
+                // A building level grants it (decision 53): never bought.
+                if (TechCatalog.IsGrantedByLevel(techId)) return;
 
                 var cost = ResearchCost(faction, techId);
                 if (!cost.IsZero
@@ -1979,13 +1981,10 @@ namespace TheWaningBorder.Core.Commands
 
             // VEILSTONE (docs/Design/Veilstone_Economy.md §3). The Runai do not
             // mine it; a Veilstone Mine needs an INACTIVE outcrop (a cursed one
-            // is the curse's); a Trading Outpost needs Trade Charters and a free
-            // side of a living node of any kind. Here, not only in the ghost, so
-            // the AI and the lockstep replay obey it.
+            // is the curse's). Here, not only in the ghost, so the AI and the
+            // lockstep replay obey it.
             if (!TheWaningBorder.World.Regions.TerritoryOwnership.MayBuildMine(em, faction, buildingId))
-                return buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId
-                    ? TheWaningBorder.World.Regions.PlacementRefusal.NeedsTradeCharters
-                    : TheWaningBorder.World.Regions.PlacementRefusal.WrongCulture;
+                return TheWaningBorder.World.Regions.PlacementRefusal.WrongCulture;
             // The Runai Sanctuary: Inactive, never a spent outcrop, and a Cursed
             // one only with Consecrated Ground (docs/Design/Age_1_Runai.md §5.1).
             if (buildingId == "Runai_Sanctuary"
@@ -2002,18 +2001,6 @@ namespace TheWaningBorder.Core.Commands
                     && kind != VeilstoneNodeKind.Inactive)
                     return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
             }
-            // The Trading Outpost stands on a SIDE SLOT of a living node of any
-            // kind — not spent, not a Cursed outcrop — up to four posts per
-            // node (Veilstone_Economy.md §3.1, 2026-11-09).
-            if (buildingId == TheWaningBorder.Entities.TradingOutpost.BuildingId)
-            {
-                if (!TheWaningBorder.Entities.TradingOutpost.TryGetNodeOf(
-                        em, position.x, position.z, out var node, out _, out _, out var nodeKind))
-                    return TheWaningBorder.World.Regions.PlacementRefusal.NoOutcropNearby;
-                if (!TheWaningBorder.Entities.TradingOutpost.IsLiveNode(em, node, nodeKind))
-                    return TheWaningBorder.World.Regions.PlacementRefusal.OutcropUnavailable;
-            }
-
             // The faction's own plans reserve their tiles
             // (docs/Design/Planned_Buildings.md).
             if (TheWaningBorder.Entities.PlannedBuildings.UsesPlan(buildingId)
@@ -2337,8 +2324,7 @@ namespace TheWaningBorder.Core.Commands
                 return Entity.Null;
             }
 
-            // Position-aware: a Trading Outpost's price climbs with every post
-            // already beside its outcrop (BuildCosts.For, 2026-10-04).
+            // Position-aware entry point (BuildCosts.For).
             var cost = TheWaningBorder.Data.BuildCosts.For(em, faction, buildingId, snappedPos);
             if (!TheWaningBorder.Economy.FactionEconomy.Spend(em, faction, cost, TheWaningBorder.Economy.SpendCategory.Buildings))
                 return Entity.Null;

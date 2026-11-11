@@ -323,7 +323,7 @@ namespace TheWaningBorder.AI
                 TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military);
         }
 
-        private const string SiegeUnitId = "Alanthor_Catapult";
+        private const string SiegeUnitId = "Alanthor_BatteringRam"; // decision 52: no Catapult
         private readonly System.Collections.Generic.Dictionary<int, float> _nextSiegeTrain
             = new System.Collections.Generic.Dictionary<int, float>();
 
@@ -345,6 +345,14 @@ namespace TheWaningBorder.AI
                 // yards still come from the production rule.
                 int otherTrainers = CountLine(em, faction, 0) + CountLine(em, faction, 1) + CountLine(em, faction, 2);
                 bool floor = Cfg.siegeYardAfterTrainers > 0 && otherTrainers >= Cfg.siegeYardAfterTrainers;
+                // ...or as soon as veilstone is hoarded with one trainer up
+                // (2026-11-11, overnight tuning): the Rush plans stand few
+                // trainers, never reached the floor, and banked 5,000-6,300
+                // veilstone with no Ram or Trebuchet to spend it on.
+                if (!floor && otherTrainers >= 1
+                    && FactionEconomy.TryGetResources(em, faction, out var syBank)
+                    && syBank.Veilstone > Cfg.veilstoneHoardLine)
+                    floor = true;
                 bool yardOk;
                 string yardWhy;
                 _siegeYardFloor = floor;
@@ -411,18 +419,10 @@ namespace TheWaningBorder.AI
             return n;
         }
 
-        /// <summary>Ladder techs that raise income, paid from the Economy wallet.</summary>
-        private const string TradeChartersTech = "Alanthor_TradeCharters";
-        private const string TradeChartersReserveKey = "TradeCharters";
-        private const string TradeResearchReserveKey = "TradeResearch";
-        /// <summary>The trade research the AI buys from the bank when the wallet
-        /// split refuses it (decision 50). A roster, not tuning.</summary>
-        private static readonly string[] TradeTechs =
-            { "Alanthor_TradeCharters", "Alanthor_TradeLedgers", "Alanthor_MerchantHouses" };
-
+        /// <summary>Ladder techs that raise income, paid from the Economy wallet.
+        /// (The trade research is retired with the Trading Outpost, decision 55.)</summary>
         private static readonly string[] EconomyWalletTechs =
-            { "DeepShafts", "RichSeams", "Alanthor_TradeCharters",
-              "Alanthor_TradeLedgers", "Alanthor_MerchantHouses" };
+            { "DeepShafts", "RichSeams" };
 
         /// <summary>Research priority ladder for the always-on economy layer.
         /// The walk attempts every unresearched entry until ONE succeeds — the
@@ -433,23 +433,17 @@ namespace TheWaningBorder.AI
         {
             "StoneTools",                        // Fortress — gather speed (cheap opener)
             "DeepShafts",                        // Mine — raises worked iron and veilstone slots
-            // Trade Charters (2026-11-09, Alanthor, Fortress L1): unlocks the
-            // Trading Outpost: income beside every node, and a post holds its
-            // node at its last unit (decision 45). Culture-gated, so a
-            // no-op elsewhere; Economy wallet, early, so every tier trades.
-            "Alanthor_TradeCharters",
-            "Alanthor_TradeLedgers",
-            "Alanthor_MerchantHouses",
             "ArmedScouts",                       // Fortress — arms scouts (attack gate)
             // Fortress (Alanthor) — the Celestar passive: idle scouts reveal
             // random patches (2026-10-19). Early, cheap intel; the scout
             // director parks a watcher at home so it fires.
             "ScoutingCelestarii",
             "Conscription", "StoneWeapons",      // Barracks — train speed / T1
-            "Fletching", "StoneTippedArrows",    // Archery Range (Age 1) — range / T1
-            "IronTools", "MasonGuild",           // Fortress (Alanthor) — T2 eco + building HP
+            // The tier techs (StoneTippedArrows, Iron/Veilstone Tools) are
+            // granted by building levels (decision 53), never researched.
+            "Fletching",                         // Archery Range (Age 1) — range
+            "MasonGuild",                        // Fortress (Alanthor) — building HP
             "RichSeams",                         // Mine — replaces Deep Shafts
-            "VeilstoneTools",                    // Fortress (Alanthor) — T3 eco
         };
 
         /// <summary>
@@ -721,47 +715,15 @@ namespace TheWaningBorder.AI
                     && !string.IsNullOrEmpty(tdef.culture)
                     && tdef.culture != CultureConfig.GetName(CultureConfig.GetCompletedCulture(em, faction)))
                     continue;
-                // Income techs are economy spends; the rest advance. Trade Charters
-                // sat 197 times behind "Advancement wallet short" in the 0.0.78
-                // batch, so the trade never came (2026-11-09).
+                // Income techs are economy spends; the rest advance.
                 var cat = System.Array.IndexOf(EconomyWalletTechs, techId) >= 0
                     ? AIBudgetCategory.EconomyExpansion
                     : AIBudgetCategory.Advancement;
                 if (TryResearchTechBudgetedWithReason(em, faction, techId, cat, out string reason))
                 {
                     AILogger.Log(faction, "RESEARCH", $"{techId} queued");
-                    if (techId == TradeChartersTech) AIPivotalReserve.Clear(faction, TradeChartersReserveKey);
-                    else if (System.Array.IndexOf(TradeTechs, techId) >= 0) AIPivotalReserve.Clear(faction, TradeResearchReserveKey);
                     queuedAny = true;
                     break;
-                }
-                // THE TRADE TECHS ARE PAID FROM THE BANK (2026-11-10, decision 50):
-                // the wallet split starved Trade Charters for 40 minutes on an
-                // Expert whose iron went to Mine levels ("EconomyExpansion wallet
-                // short" x133), and with no Charters there are no posts, so its
-                // iron fell to 70/min. When the bank can pay, they are bought
-                // outright; Trade Charters is a strict savings goal until then.
-                if (System.Array.IndexOf(TradeTechs, techId) >= 0 && reason != null && reason.Contains("wallet short"))
-                {
-                    var tcost = TechCatalog.TryGetTechnology(techId, out var tdef2) && tdef2 != null
-                        ? AICommon.ToCost(tdef2.cost) : default;
-                    if (FactionEconomy.CanAfford(em, faction, tcost)
-                        && TryResearchTechWithReason(em, faction, techId, out reason))
-                    {
-                        AILogger.Log(faction, "RESEARCH", $"{techId} queued (from the bank: trade tech)");
-                        if (techId == TradeChartersTech) AIPivotalReserve.Clear(faction, TradeChartersReserveKey);
-                        else AIPivotalReserve.Clear(faction, TradeResearchReserveKey);
-                        queuedAny = true;
-                        break;
-                    }
-                    // Trade Charters is a strict goal on every tier; the post
-                    // research on the tiers that level early (Hard / Expert,
-                    // decision 51) -- Expert's iron never sat still long
-                    // enough to buy Trade Ledgers otherwise.
-                    if (techId == TradeChartersTech)
-                        AIPivotalReserve.Set(faction, TradeChartersReserveKey, tcost, strict: true);
-                    else if (ProfileOf(faction).EarlyExtractorLevels)
-                        AIPivotalReserve.Set(faction, TradeResearchReserveKey, tcost, strict: true);
                 }
                 if (firstBlocked == null) { firstBlocked = techId; firstReason = reason; }
             }
@@ -859,8 +821,7 @@ namespace TheWaningBorder.AI
 
             // Walk every owned research-capable building (a ProductionQueueItem
             // buffer is the research-host marker).
-            // HOST ORDER (2026-10-04, Game_AI.md 5e): the Trading Outpost
-            // first (its research is veilstone income), then the buildings
+            // HOST ORDER (2026-10-04, Game_AI.md 5e): the buildings
             // that train a unit the composition plan has a share for (their
             // techs improve the army being built), then the rest. Within a
             // tier the query order, as before.
@@ -882,7 +843,6 @@ namespace TheWaningBorder.AI
                 if (string.IsNullOrEmpty(buildingId)) continue;
                 if (!TechCatalog.TryGetBuilding(buildingId, out var def)
                     || def == null || def.research == null) continue;
-                bool tradeHost = em.HasComponent<TradingOutpostTag>(building);
 
                 // Host building level for minBuildingLevel gates (unstamped
                 // buildings count as L1 — mirrors the research extractor).
@@ -913,26 +873,21 @@ namespace TheWaningBorder.AI
 
                     // VEILSTONE-HELD SURPLUS (Game_AI.md 5e): the surplus is
                     // supplies and iron — while the army waits on veilstone a
-                    // tech that costs veilstone is not bought from it, except
-                    // the Trading Outpost's own (they ARE veilstone income,
-                    // and pass the hold and the earmark below).
-                    bool tradeCarve = veilstoneHeld && tradeHost;
-                    if (veilstoneHeld && !tradeHost && cost.Veilstone > 0) continue;
+                    // tech that costs veilstone is not bought from it.
+                    if (veilstoneHeld && cost.Veilstone > 0) continue;
 
                     // PIVOTAL HOLD (2026-08-31): the research sweep is the
                     // third bank drain — it waits its <=MaxHoldSeconds turn
                     // when the tech spends a resource the save is short on.
-                    if (!tradeCarve && TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
+                    if (TheWaningBorder.AI.AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
                     // Nor may it spend the army's veilstone earmark — the
                     // sweep reaches the 300-680 veilstone techs (masses,
                     // lances, plate) that one Swordsman's worth of income
                     // cannot keep up with (2026-10-03).
-                    if (!tradeCarve && !AIBudget.LeavesMilitaryVeilstone(em, faction, cost)) continue;
+                    if (!AIBudget.LeavesMilitaryVeilstone(em, faction, cost)) continue;
                     // ARMY FIRST (2026-10-04, Game_AI.md 5f): the sweep yields
                     // to an army below its target that could spend the money
-                    // (AIBudget.ArmyFirstYield). The Trading Outpost's own
-                    // research is veilstone income and does not yield.
-                    if (!tradeHost)
+                    // (AIBudget.ArmyFirstYield).
                     {
                         string armyFirst = AIBudget.ArmyFirstYield(em, faction, cost);
                         if (armyFirst != null)
@@ -1066,8 +1021,7 @@ namespace TheWaningBorder.AI
                 // pattern): the composition picker passes this unit over
                 // while the bank cannot pay for it, and the brain learns
                 // WHICH resource the army is short of (AIBudget readers:
-                // walls yield, Trading Outposts stay on Buy, claims favour
-                // outcrops).
+                // walls yield, claims favour outcrops).
                 if (cat == AIBudgetCategory.Military)
                 {
                     RecordUnaffordable(faction, unitId);

@@ -379,19 +379,25 @@ namespace TheWaningBorder.Core.Commands.Issuing
             var faction = GameSettings.LocalPlayerFaction;
             if (!_em.HasComponent<FactionTag>(target)
                 || _em.GetComponentData<FactionTag>(target).Value != faction) return false;
+            // A damaged Farm is repaired first: Workers right-clicking it
+            // fall through to the repair order (Age_1_Alanthor.md § The Farm).
+            if (_em.HasComponent<FarmTag>(target) && IsBuildingDamaged(target)) return false;
 
             float3 at = _em.GetComponentData<LocalTransform>(target).Position;
             bool any = false;
             foreach (var e in CurrentSelection)
             {
                 if (!_em.Exists(e) || !IsOwnedByLocalPlayer(e)) continue;
-                if (!TheWaningBorder.Entities.WallGarrison.IsFootUnit(_em, e)) continue;
+                // Who the clicked building takes: a Farm Workers, the rest foot units.
+                if (!TheWaningBorder.Entities.WallGarrison.MayEnter(_em, e, target)) continue;
 
                 // The clicked module first; then the nearest one with room.
                 Entity module = TheWaningBorder.Entities.WallGarrison.HasFreeSlot(_em, target)
                     ? target
                     : CommandRouter.FindGarrisonModuleNear(_em, at, faction, WallGarrisonSpill);
                 if (module == Entity.Null) break;
+                // The spill never sends a man somewhere that would not take him.
+                if (!TheWaningBorder.Entities.WallGarrison.MayEnter(_em, e, module)) continue;
 
                 CommandRouter.IssueGarrisonWall(_em, e, module, CommandSource.LocalPlayer);
                 any = true;

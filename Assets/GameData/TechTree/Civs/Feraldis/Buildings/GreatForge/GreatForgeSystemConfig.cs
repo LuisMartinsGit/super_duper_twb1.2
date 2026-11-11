@@ -6,9 +6,7 @@ namespace TheWaningBorder.Feraldis
     /// <summary>
     /// Every number of the Great Forge (docs/Design/Age_1_Feraldis.md §4). The
     /// asset is GreatForgeSystem.asset, beside <see cref="GreatForgeSystem"/>.
-    /// Rates are per minute at bay level 1 with no crew and no research; the
-    /// Forge loop is tuned to match the Alanthor Trading Outpost loop at equal
-    /// investment (TradingOutpostSystem.asset).
+    /// Rates are per minute at bay level 1 with no crew and no research.
     /// </summary>
     [CreateAssetMenu(menuName = "Waning Border/Component Config/Feraldis/GreatForgeSystem",
                      fileName = "GreatForgeSystem")]

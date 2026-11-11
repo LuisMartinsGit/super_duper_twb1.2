@@ -19,7 +19,7 @@ MonoBehaviour:
   upgradeCost:
     Supplies: 1200
     Iron: 600
-    Veilstone: 0
+    Veilstone: 500
   upgradeSeconds: 45
   hpMultiplier: 1.2
   trainTimeMultiplier: 0.512
@@ -39,4 +39,8 @@ MonoBehaviour:
   firePoints:
   - {x: -3.599605, y: 6.0912695, z: 2.0998902}
   lineOfSight: 0
+  grantsTechs:
+  - ShardInfusedWeapons
+  - ShardPlate
+  - EliteInfantry
   prefab: {fileID: 5712497353321532482, guid: ef9175618fc39774ba0bb64d4d8b13c1, type: 3}

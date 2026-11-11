@@ -111,7 +111,6 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             RunaiSiegeWorkshop();
             RunaiTradingPost();
             RunaiVault();
-            AlanthorTradingOutpost();
 
             // ───────────── SECT BUILDINGS with no SO yet (art only) ─────────────
             HushVault();
@@ -592,25 +591,6 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
                 WireSo(f + "Vault.asset", prefab, 365, null, "Runai_Vault");
             }
             catch (Exception e) { Fail("Runai_Vault", e.ToString()); }
-        }
-
-        static void AlanthorTradingOutpost()
-        {
-            string f = TT + "Civs/Alanthor/Buildings/TradingOutpost/";
-            try
-            {
-                var root = new GameObject("TradingOutpost");
-                Add(root, "Buildings/SM_Bld_Tent_Open_01.prefab", Vector3.zero, 0, 1f);
-                Add(root, "Props/SM_Prop_Market_Stall_03.prefab", new Vector3(4.0f, 0, 0), -90, 1f);
-                Add(root, "Props/SM_Prop_Crate_Stack_01.prefab", new Vector3(-4.0f, 0, 1.0f), 0, 1f);
-                Add(root, "Props/SM_Prop_Sign_Wood_08.prefab", new Vector3(-3.5f, 0, -2.5f), 30, 1f);
-                Add(root, "Items/SM_Item_Crystal_02.prefab", new Vector3(3.5f, 0, 3.0f), 0, 1.2f);
-                Add(root, "Props/SM_Prop_Sack_Stack_01.prefab", new Vector3(0, 0, 3.5f), 0, 1f);
-                Banner(root, new Vector3(4.5f, 0, -3.0f), 0);
-                var prefab = Save(root, f + "TradingOutpost.prefab");
-                WireSo(f + "TradingOutpost.asset", prefab, 523, null, "Alanthor_TradingOutpost");
-            }
-            catch (Exception e) { Fail("Alanthor_TradingOutpost", e.ToString()); }
         }
 
         // ───────────── Sect buildings that exist only in the design yet ─────────────

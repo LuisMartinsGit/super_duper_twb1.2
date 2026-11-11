@@ -95,8 +95,6 @@ namespace TheWaningBorder.Data
             // matches with zero claims. Iron is the currency that piles up.
             { "Mine",                    Cost.Of(supplies: 100, veilstone: 10) },   // no iron since 2026-10-02
             { "VeilstoneMine",           Cost.Of(supplies: 100, veilstone: 10) },
-            // docs/Design/Veilstone_Economy.md §3.1.
-            { "Alanthor_TradingOutpost", Cost.Of(supplies: 160, iron: 80) },
 
             // Alanthor Culture Buildings
             { "Alanthor_Wall",           Cost.Of(supplies: 50, iron: 20) },
@@ -117,6 +115,10 @@ namespace TheWaningBorder.Data
             // LEVELED Archery Range, not a separate placeable building.
             { "Alanthor_SiegeYard",      Cost.Of(supplies: 260, iron: 100, veilstone: 60) },
             { "Alanthor_RoyalStable",    Cost.Of(supplies: 220, iron: 80) },
+            // Decision 55. Placeholder rows only: SyncFromTechTree overwrites
+            // them from Farm.asset / Market.asset.
+            { "Alanthor_Farm",           Cost.Of(supplies: 150, iron: 50) },
+            { "Alanthor_Market",         Cost.Of(supplies: 250, iron: 100) },
 
             // Sect buildings — one per sect, unlocked by adopting that sect,
             // capped at 5 per faction (SectBuilding.CapPerFaction). Priced as a
@@ -228,8 +230,7 @@ namespace TheWaningBorder.Data
         /// <see cref="For(EntityManager, Faction, string)"/> at a known SITE —
         /// what the executor charges. One building's price depends on where it
         /// stands. Since decision 50 (2026-11-10) the place no longer changes
-        /// the price: every Trading Outpost costs the same (the per-node ramp is
-        /// gone). Kept as the one entry point placement code calls.
+        /// the price. Kept as the one entry point placement code calls.
         /// </summary>
         public static Cost For(EntityManager em, Faction faction, string id, Unity.Mathematics.float3 position)
             => For(em, faction, id);
@@ -331,6 +332,8 @@ namespace TheWaningBorder.Data
                     ? "Alanthor_TrebuchetEmplacement" : "Alanthor_BallistaEmplacement";
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
+            if (em.HasComponent<FarmTag>(entity)) return "Alanthor_Farm";
+            if (em.HasComponent<MarketTag>(entity)) return "Alanthor_Market";
 
             // Feraldis
             if (em.HasComponent<HuntingLodgeTag>(entity)) return "Feraldis_HuntingLodge";
@@ -343,7 +346,6 @@ namespace TheWaningBorder.Data
             if (em.HasComponent<PastureTag>(entity)) return "Feraldis_Pasture";
             if (em.HasComponent<MineTag>(entity)) return "Mine";
             if (em.HasComponent<VeilstoneMineTag>(entity)) return "VeilstoneMine";
-            if (em.HasComponent<TradingOutpostTag>(entity)) return "Alanthor_TradingOutpost";
 
             // Walls / wall instances — map to the generic Alanthor wall ID; refund
             // here is small and identical across cultures, so a per-culture branch

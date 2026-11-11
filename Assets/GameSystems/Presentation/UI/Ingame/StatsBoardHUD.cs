@@ -17,10 +17,10 @@
 //     entity count, single/multiplayer + lockstep tick, the curse (nodes,
 //     territories held, wrath per faction);
 //   * one row per faction — culture/era, human/AI, banks with NET income per
-//     minute (Trading Outposts included, red when draining), population,
+//     minute (red when draining), population,
 //     territories held and how many are cut off from a Fortress,
 //     military / economy units, buildings, plans waiting for a worker,
-//     Trading Outposts by trade, Religion Points;
+//     Religion Points;
 //   * twelve charts (5 s samples, 2 h window): the four banks, the four net
 //     incomes per minute, military units, population, territories held (with
 //     the curse as a purple series) and Religion Points.
@@ -85,7 +85,7 @@ namespace TheWaningBorder.UI.Ingame
         private float _fps, _worstMs, _worstWindowMs;
         private float _fpsWindowStart, _worstWindowStart;
 
-        private EntityQuery _unitQuery, _buildingQuery, _outpostQuery, _brainQuery, _curseNodeQuery;
+        private EntityQuery _unitQuery, _buildingQuery, _brainQuery, _curseNodeQuery;
         private bool _queriesReady;
 
         private void Start()
@@ -223,8 +223,6 @@ namespace TheWaningBorder.UI.Ingame
                 .WithAll<UnitTag, FactionTag>().WithNone<PlundererTag>().Build(em);
             _buildingQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<BuildingTag, FactionTag>().Build(em);
-            _outpostQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<TradingOutpostTag, FactionTag>().Build(em);
             _brainQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<TheWaningBorder.AI.AIBrain>().Build(em);
             _curseNodeQuery = new EntityQueryBuilder(Allocator.Temp)
@@ -241,7 +239,6 @@ namespace TheWaningBorder.UI.Ingame
             public TerritoryYield Net;
             public int PopCur, PopMax, Military, Economy, Buildings, UnderConstruction, Plans;
             public int Held, Disconnected;
-            public int Posts;
             public int Rp, RpHave, RpNeed, Era;
             public byte Culture;
         }
@@ -273,13 +270,6 @@ namespace TheWaningBorder.UI.Ingame
                     if (f < 0 || f >= MaxFactions) continue;
                     _rows[f].Buildings++;
                     if (em.HasComponent<UnderConstruction>(ents[i])) _rows[f].UnderConstruction++;
-                }
-
-            using (var facs = _outpostQuery.ToComponentDataArray<FactionTag>(Allocator.Temp))
-                for (int i = 0; i < facs.Length; i++)
-                {
-                    int f = (int)facs[i].Value;
-                    if (f >= 0 && f < MaxFactions) _rows[f].Posts++;
                 }
 
             using (var brains = _brainQuery.ToComponentDataArray<TheWaningBorder.AI.AIBrain>(Allocator.Temp))
@@ -462,7 +452,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             Collect(em);
             var sb = new StringBuilder(1024);
-            sb.AppendLine("<b>Faction        Age/Cult  Supplies         Iron             Veilstone        Pop       Terr(cut)  Mil/Eco  Bld(+site/plan)  Posts  RP (pts)   Score (units/bld/stock)  K/D</b>");
+            sb.AppendLine("<b>Faction        Age/Cult  Supplies         Iron             Veilstone        Pop       Terr(cut)  Mil/Eco  Bld(+site/plan)  RP (pts)   Score (units/bld/stock)  K/D</b>");
             for (int f = 0; f < MaxFactions; f++)
             {
                 var r = _rows[f];
@@ -479,7 +469,6 @@ namespace TheWaningBorder.UI.Ingame
                 sb.Append($"{r.Held,-4}{cut}  ");
                 sb.Append($"{r.Military,3}/{r.Economy,-4} ");
                 sb.Append($"{r.Buildings,3}(+{r.UnderConstruction}/{r.Plans})      ");
-                sb.Append($"{r.Posts,-7}");
                 sb.Append($"{r.Rp} ({r.RpHave}/{r.RpNeed})".PadRight(11));
                 // The Score (docs/Design/Score.md): MatchScoreSystem's latest sample.
                 if (TheWaningBorder.Core.Diagnostics.MatchScore.TryGet(fac, out var score))

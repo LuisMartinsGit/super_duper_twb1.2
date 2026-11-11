@@ -41,7 +41,8 @@ namespace TheWaningBorder.AI
         /// still pays its bonus. Money coming back or moving about is not income.</summary>
         public static Cost ScaleIncome(Faction faction, in Cost c, IncomeSource source)
         {
-            if (source == IncomeSource.Refund || source == IncomeSource.Vault || source == IncomeSource.Grant) return c;
+            if (source == IncomeSource.Refund || source == IncomeSource.Vault || source == IncomeSource.Grant
+                || source == IncomeSource.Market) return c;   // a purchase, at the Market's fixed price
             if (!IsCheating(faction)) return c;
             if (_carryEpoch != SimCadence.Epoch)
             {

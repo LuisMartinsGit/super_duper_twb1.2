@@ -770,8 +770,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (tags[i].Value != faction) continue;
 
                 // THE WHOLE PICTURE: each amount carries the faction's net
-                // income per minute; hovering the row splits it into what is
-                // produced and what the Trading Outposts sell.
+                // income per minute; hovering the row splits it by source.
                 _income = TheWaningBorder.Systems.World.TerritoryIncomeSystem.FactionIncomeForDisplay(em, faction);
                 var net = FullNetRate(em, faction);
                 SetAmount(_supplies,  banks[i].Supplies,  net.Supplies);
@@ -779,9 +778,7 @@ namespace TheWaningBorder.UI.Ingame
                 SetAmount(_veilstone, banks[i].Veilstone, net.Veilstone);
 
                 // RED WHEN DRAINING (docs/Design/Veilstone_Economy.md §5): a
-                // resource the faction's trades consume faster than it is
-                // produced turns red, so a Trading Outpost eating the bank is
-                // visible before the bank is empty.
+                // resource consumed faster than it is produced turns red.
                 Tint(_supplies,  net.Supplies);
                 Tint(_iron,      net.Iron);
                 Tint(_veilstone, net.Veilstone);
@@ -963,7 +960,6 @@ namespace TheWaningBorder.UI.Ingame
             Line(sb, Loc.T("Territory"), Part(PC));
             Line(sb, Loc.T("Unworked nodes"), Part(PE));
             Line(sb, Loc.T("Other buildings"), otherBuildings);
-            Line(sb, Loc.T("Trading Outposts"), Pick(_income.Bought, r));
             // One-off income of the last minute, by source — only the sources
             // that actually paid, so a faction never sees one it cannot have.
             if (_lumpyKnown)
@@ -991,8 +987,7 @@ namespace TheWaningBorder.UI.Ingame
         /// capital the Fortress), else the catalog name (the Age 0 Shelter).
         /// The QUIET catalog lookup, not BuildingUpgradeConfig.LevelDef: that
         /// one logs an ERROR for an Alanthor ladder with no level asset, and
-        /// the Veilstone Mine has none on purpose (it becomes a Trading
-        /// Outpost at age-up) — so merely hovering the veilstone figure put
+        /// the Veilstone Mine had none at the time — so merely hovering the veilstone figure put
         /// a false "[BuildingLevels] … VeilstoneMine" error in every Alanthor
         /// match log (2026-10-16).</summary>
         private static string CulturedName(byte culture, string buildingId)

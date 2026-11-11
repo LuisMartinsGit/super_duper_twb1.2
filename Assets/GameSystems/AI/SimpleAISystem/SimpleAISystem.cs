@@ -355,13 +355,12 @@ namespace TheWaningBorder.AI
                 }
                 case 5:
                 {
-                    // VEILSTONE SURPLUS (Game_AI.md 5e): the Outpost's research,
-                    // and the throttled veilstone-held state line.
-                    TickSurplus(em, brain.Owner, now);
                     TickWaste(em, brain.Owner);
                     // The Vault, and the ECON / PRODUCTION measurement lines
                     // (Game_AI.md § 5h).
                     TickEconomyDrive(em, brain.Owner, aiState.Posture, profile, now);
+                    // Alanthor Farms and the Market (decision 55, SimpleAISystem.Farms.cs).
+                    TickFarmsAndMarket(em, brain.Owner, now);
                     break;
                 }
                 case 6:

@@ -14,11 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: ArcheryRange
   displayName: Archery Range
-  role: "Train ranged units \u2014 Archer at L1, Crossbowman at L2, Longbowman at
-    L3"
+  role: "Train ranged units \u2014 Archer at L1, Crossbowman at L2"
   description: Ranged training building. Its level unlocks the archer ladder (Archer
-    at L1, Crossbowman at L2, Longbowman at L3) and it researches the volley / fletching
-    techs.
+    at L1, Crossbowman at L2) and grants the arrow / armour / experience tiers; it
+    researches the volley / fletching / stakes techs.
   hp: 600
   armorType: structure_human
   defense:
@@ -45,19 +44,10 @@ MonoBehaviour:
   trains:
   - Alanthor_Archer
   - Alanthor_Crossbowman
-  - Alanthor_Longbowman
   research:
-  - StoneTippedArrows
   - Fletching
   - ChoreographedVolleys
-  - IronTippedArrows
-  - VeilstoneTippedArrows
-  - ShardTippedArrows
-  - SeasonedArchers
-  - VeteranArchers
-  - EliteArchers
   - ArrowVolley
-  - ArrowShower
   - DeployStakes
   minEra: 2
   cost:

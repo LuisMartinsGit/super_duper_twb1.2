@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   entryRange: 2.5
   approachSlack: 1
+  farmIdleEntryRange: 7
   ejectGap: 1.5
   ejectSpacing: 1.2
   ejectRings: 4

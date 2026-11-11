@@ -38,4 +38,6 @@ MonoBehaviour:
     siegeShotDamage: 0
   firePoints: []
   lineOfSight: 0
+  grantsTechs:
+  - SeasonedInfantry
   prefab: {fileID: 1435027818078621703, guid: 66b167f7c9e79394f8e15dd345c3ed00, type: 3}

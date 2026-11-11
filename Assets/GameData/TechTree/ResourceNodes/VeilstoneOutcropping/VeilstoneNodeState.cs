@@ -6,7 +6,7 @@ using Unity.Entities;
 /// <summary>Which of its three states a veilstone outcrop is in.</summary>
 public enum VeilstoneNodeKind : byte
 {
-    /// <summary>Ordinary, uncursed crystal: Mines go on it, Trading Outposts beside it.</summary>
+    /// <summary>Ordinary, uncursed crystal: Mines go on it.</summary>
     Inactive = 0,
     /// <summary>A curse node stands on it.</summary>
     Cursed = 1,
@@ -18,7 +18,7 @@ public enum VeilstoneNodeKind : byte
 /// The outcrop's current state. DERIVED, never authored: VeilstoneNodeStateSystem
 /// recomputes it from whether a live curse node stands on the outcrop and from
 /// its NodeReserve, so it cannot disagree with either. Readers (placement,
-/// income, the Trading Outpost, the UI) read this rather than re-deriving.
+/// income, the UI) read this rather than re-deriving.
 /// </summary>
 public struct VeilstoneNodeState : IComponentData
 {

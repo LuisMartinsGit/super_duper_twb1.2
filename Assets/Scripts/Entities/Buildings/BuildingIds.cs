@@ -55,6 +55,8 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
             if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_RoyalStable";
+            if (em.HasComponent<FarmTag>(entity)) return TheWaningBorder.Entities.Farm.BuildingId;
+            if (em.HasComponent<MarketTag>(entity)) return TheWaningBorder.Entities.Market.BuildingId;
             // Feraldis culture buildings
             if (em.HasComponent<HuntingLodgeTag>(entity)) return "Feraldis_HuntingLodge";
             if (em.HasComponent<LoggingStationTag>(entity)) return "Feraldis_LoggingStation";
@@ -69,7 +71,6 @@ namespace TheWaningBorder.Entities
             if (em.HasComponent<PastureTag>(entity)) return "Feraldis_Pasture";
             if (em.HasComponent<MineTag>(entity)) return "Mine";
             if (em.HasComponent<VeilstoneMineTag>(entity)) return "VeilstoneMine";
-            if (em.HasComponent<TradingOutpostTag>(entity)) return "Alanthor_TradingOutpost";
             // Wall pieces — same mapping BuildCosts.IdOf uses for refunds.
             // These were MISSING here, and a to-completion batch made every
             // building ledger read "unknown 165" per faction: the endgame

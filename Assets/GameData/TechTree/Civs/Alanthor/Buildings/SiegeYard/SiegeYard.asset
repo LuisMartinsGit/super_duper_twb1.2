@@ -40,17 +40,11 @@ MonoBehaviour:
   segmentHp: 0
   segmentLineOfSight: 0
   trains:
-  - Alanthor_Ballista
   - Alanthor_BatteringRam
-  - Alanthor_Catapult
   - Alanthor_Trebuchet
   research:
-  - ReinforcedBolts
   - IronShodRam
   - CounterweightTuning
-  - SeasonedCrews
-  - VeteranCrews
-  - EliteCrews
   - RangingShot
   - SiegeScreens
   minEra: 0

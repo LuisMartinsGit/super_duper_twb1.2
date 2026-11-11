@@ -109,7 +109,7 @@ namespace TheWaningBorder.Economy
         /// a node and pays its slot ladder.</summary>
         public static bool IsExtractor(string buildingId) => buildingId switch
         {
-            "GatherersHut" or "Mine" or "VeilstoneMine" or "Alanthor_TradingOutpost" => true,
+            "GatherersHut" or "Mine" or "VeilstoneMine" => true,
             _ => false,
         };
 

@@ -246,11 +246,6 @@ namespace TheWaningBorder.Core.Commands.Types
         /// (BuildingUpgradeConfig — the level SO first). The check, the spend,
         /// the refund and the UI all price through here, so a refund hands
         /// back exactly what was charged.
-        ///
-        /// The Trading Outpost's per-outcrop ramp prices BUILDING a post only
-        /// since 2026-10-19: a level is faction-wide, so the post its clock
-        /// happens to run on cannot change what it costs
-        /// (docs/Design/Veilstone_Economy.md §3.1).
         /// </summary>
         private static bool TryGetLevelCost(EntityManager em, Entity building, Faction faction,
             string buildingId, byte level, out Cost cost)
@@ -271,9 +266,6 @@ namespace TheWaningBorder.Core.Commands.Types
         /// </summary>
         public static string ResolveBuildingId(EntityManager em, Entity e)
         {
-            // The Alanthor Trading Outpost's L1-L3 ladder (2026-10-04,
-            // Civs/Alanthor/Buildings/TradingOutpost/TradingOutpost_Lvl1..3).
-            if (em.HasComponent<TradingOutpostTag>(e)) return TheWaningBorder.Entities.TradingOutpost.BuildingId;
             if (em.HasComponent<HallTag>(e))         return "Fortress";
             if (em.HasComponent<BarracksTag>(e))     return "Barracks";
             if (em.HasComponent<ArcheryRangeTag>(e)) return "ArcheryRange";

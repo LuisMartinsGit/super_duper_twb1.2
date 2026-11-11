@@ -41,6 +41,11 @@ namespace TheWaningBorder.Data
         public float vaultBarBonus;
         public int vaultSubBars;
         public int maxPerFaction;
+        public int suppliesPerWorkerPerMinute;
+        public int suppliesPerIron;
+        public int suppliesPerVeilstone;
+        public int maxRatePerMinute;
+        public int rateStep;
         public int minWallLevel;
         public int garrisonSlots;
         public int garrisonArrowsPerOccupant;
@@ -136,6 +141,11 @@ namespace TheWaningBorder.Data
             def.garrisonSlots      = garrisonSlots;
             def.garrisonArrowsPerOccupant = garrisonArrowsPerOccupant;
             def.maxPerFaction      = maxPerFaction;
+            def.suppliesPerWorkerPerMinute = suppliesPerWorkerPerMinute;
+            def.suppliesPerIron      = suppliesPerIron;
+            def.suppliesPerVeilstone = suppliesPerVeilstone;
+            def.maxRatePerMinute     = maxRatePerMinute;
+            def.rateStep             = rateStep;
             def.maxIron            = maxIron;
             def.maxVeilstone       = maxVeilstone;
             def.segmentHp          = segmentHp;
@@ -178,6 +188,11 @@ namespace TheWaningBorder.Data
             garrisonSlots      = def.garrisonSlots;
             garrisonArrowsPerOccupant = def.garrisonArrowsPerOccupant;
             maxPerFaction      = def.maxPerFaction;
+            suppliesPerWorkerPerMinute = def.suppliesPerWorkerPerMinute;
+            suppliesPerIron      = def.suppliesPerIron;
+            suppliesPerVeilstone = def.suppliesPerVeilstone;
+            maxRatePerMinute     = def.maxRatePerMinute;
+            rateStep             = def.rateStep;
             maxIron            = def.maxIron;
             maxVeilstone       = def.maxVeilstone;
             segmentHp          = def.segmentHp;

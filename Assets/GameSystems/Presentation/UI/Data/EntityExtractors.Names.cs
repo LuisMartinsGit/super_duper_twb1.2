@@ -40,7 +40,7 @@ namespace TheWaningBorder.UI.Data
             if (!em.HasComponent<BuildingTag>(entity)) return WithPurity(entity, em, name);
             name = WithLevel(entity, em, name);
             // A hut whose supply node collapsed under it (Territory_Claims.md
-            // § 11.3, 2026-10-19) stands on as "Guild - Lvl 2 (Depleted)".
+            // § 11.3, 2026-10-19; decision 56) stands on as "Guild - Lvl 2 (Depleted)".
             bool frozen = TheWaningBorder.Rendering.LastSeenBuildings.TryGetFrozen(entity, out var lastSeen);
             if (frozen ? lastSeen.Depleted : em.HasComponent<DepletedHutTag>(entity))
                 name = string.Format(Loc.T("{0} (Depleted)"), name);

@@ -140,6 +140,7 @@ namespace TheWaningBorder.UI.Ingame
                 + "</b>\n"
                 + (NextLevelStats(em, building, nextLevel)
                    ?? Loc.T("Raises this building's stats and unlocks its next tier of units and research."))
+                + GrantsLine(em, faction, ladderId, nextLevel)
                 + "\n" + string.Format(
                     Loc.T("Applies to all {0} buildings of this type you own, and every one you build later."),
                     TheWaningBorder.Systems.Buildings.FactionBuildingLevels.CountOwned(em, faction, ladderId))
@@ -147,6 +148,23 @@ namespace TheWaningBorder.UI.Ingame
                 + (canAfford ? ""
                     : "\n" + Loc.T("<color=#C08040>Not enough resources.</color>"));
             return info;
+        }
+
+        /// <summary>"\nGrants: Iron Weapons, Iron Plate, ..." — the techs the
+        /// next level grants (BuildingLevelDefSO.grantsTechs, decision 53), or
+        /// "" when it grants none.</summary>
+        private static string GrantsLine(EntityManager em, Faction faction, string ladderId, byte nextLevel)
+        {
+            var levelDef = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.LevelDef(em, faction, ladderId, nextLevel);
+            if (levelDef?.grantsTechs == null || levelDef.grantsTechs.Length == 0) return "";
+            var sb = new System.Text.StringBuilder();
+            foreach (var id in levelDef.grantsTechs)
+            {
+                if (string.IsNullOrEmpty(id)) continue;
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append(TechCatalog.TryGetTechnology(id, out var t) && t != null ? Loc.T(t.name) : id);
+            }
+            return sb.Length > 0 ? "\n" + Loc.T("Grants: ") + sb : "";
         }
 
         /// <summary>
@@ -163,11 +181,6 @@ namespace TheWaningBorder.UI.Ingame
             var levelDef = TheWaningBorder.Core.Settings.BuildingUpgradeConfig.LevelDef(em, faction,
                 UpgradeBuildingCommandHelper.ResolveBuildingId(em, building), nextLevel);
             if (levelDef != null) { a = levelDef.attack; sight = levelDef.lineOfSight; }
-            // A Trading Outpost's level is its trade speed (Veilstone_Economy.md §3.1).
-            if (levelDef != null && levelDef.tradeRateMultiplier > 0f
-                && em.HasComponent<TradingOutpostTag>(building))
-                return string.Format(Loc.T("Trades x{0} — spends and earns that much more per minute."),
-                    levelDef.tradeRateMultiplier.ToString("0.##"));
             else
             {
                 string id = TheWaningBorder.Entities.BuildingIds.Of(building, em);

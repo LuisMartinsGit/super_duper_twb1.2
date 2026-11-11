@@ -419,6 +419,11 @@ def main():
         if s(lv.get("culture")) != CULTURE:
             continue
         levels_by_bld.setdefault(s(lv.get("buildingId")), {})[int(lv.get("level") or 0)] = lv
+    # Decision 53: techs a building level GRANTS (BuildingLevelDefSO.grantsTechs)
+    # are never researched - the game's research lists skip them, so the page
+    # shows them on the level node instead of as research.
+    granted = {s(t) for lvs in levels_by_bld.values() for L in lvs.values()
+               for t in (L.get("grantsTechs") or []) if s(t)}
 
     def uname(uid):
         p, u = resolve_unit(uid)
@@ -464,15 +469,19 @@ def main():
         # units filed in this building's Units/ folder that NO building trains
         # (the emplacements' crews): shown here, marked as spawned.
         unit_dir = os.path.join(os.path.dirname(bpath), "Units") + os.sep
-        spawned_units = [(p, u) for p, u in units
-                         if p.startswith(unit_dir) and s(u.get("id")) not in all_trained
-                         and s(u.get("id")) not in trained_here]
+        # A building that trains someone is a trainer: an untrained unit in
+        # its folder is a PARKED one (decision 52), not a spawned crew.
+        spawned_units = [] if train_units else [
+            (p, u) for p, u in units
+            if p.startswith(unit_dir) and s(u.get("id")) not in all_trained
+            and s(u.get("id")) not in trained_here]
 
         # what it researches: derived from TechDefSO.researchAt (the game's rule),
         # catalog order, culture-filtered.
         research = [(p, t) for p, t in techs
                     if s(t.get("researchAt")) == bid
-                    and s(t.get("culture")) not in OUT_OF_SCOPE_CULTURES]
+                    and s(t.get("culture")) not in OUT_OF_SCOPE_CULTURES
+                    and s(t.get("id")) not in granted]
 
         mil = any(unit_type(u) != "Economic" and float(u.get("damage") or 0) > 0
                   for _, u in train_units)
@@ -497,6 +506,43 @@ def main():
                 return [level_title(minlvl)]
             return ["%s Lv %d" % (bdisp, minlvl)]
 
+        def tech_lines(t):
+            """The tech's description lines and its page effects."""
+            d, effects = [], []
+            for line in (s(t.get("desc")), s(t.get("effect"))):
+                if line and line not in d:
+                    d.append(line)
+            for fx in (t.get("effectsList") or []):
+                if not fx:
+                    continue
+                target, stat, op, val = s(fx.get("Target")), s(fx.get("Stat")), s(fx.get("Op")), fx.get("Value")
+                page_op = EFFECT_OPS.get(op)
+                page_target = None
+                if target.startswith("unit:"):
+                    upath, u = resolve_unit(target[5:])
+                    if u is not None:
+                        page_target = "unit:" + (s(u.get("displayName")) or s(u.get("id")))
+                elif target.startswith("type:"):
+                    page_target = target
+                if page_target and page_op and stat in EFFECT_STATS:
+                    for row in EFFECT_STATS[stat]:
+                        effects.append({"target": page_target, "stat": row, "op": page_op,
+                                        "value": float(val or 0)})
+                else:
+                    d.append("%s: %s %s %s" % (target, stat, op, num(val)))
+            return d, effects
+
+        def grant_lines(L):
+            """'Grants: ...' plus the granted techs' effects (decision 53)."""
+            ids = [s(x) for x in (L.get("grantsTechs") or []) if s(x)]
+            if not ids:
+                return [], []
+            effects = []
+            for tid in ids:
+                if tid in tech_by_id:
+                    effects += tech_lines(tech_by_id[tid][1])[1]
+            return ["Grants: " + ", ".join(tname(x) for x in ids)], effects
+
         # row 1: the building's level ladder
         max_lvl = max(lv.keys()) if lv else 0
         if is_age0 or not lv:
@@ -509,11 +555,13 @@ def main():
         for n_lvl in sorted(lv):
             L = lv[n_lvl]
             req = ["Age 1"] if n_lvl == 1 else [level_title(n_lvl - 1)]
+            g_lines, g_effects = grant_lines(L)
             nodes.append(node("so_lvl_%s_%d" % (slug(bid), n_lvl), min(n_lvl, 3), 1,
                               level_title(n_lvl), "lvl", o="mil" if mil else "eco",
                               arw=n_lvl < max_lvl, scope="per", up=True, culture=CULTURE,
-                              d=level_lines(L), req=req, cost=cost_of(L.get("upgradeCost")),
-                              researchTime=float(L.get("upgradeSeconds") or 0)))
+                              d=level_lines(L) + g_lines, req=req, cost=cost_of(L.get("upgradeCost")),
+                              researchTime=float(L.get("upgradeSeconds") or 0),
+                              effects=g_effects))
 
         # units
         for upath, u in train_units + spawned_units:
@@ -537,29 +585,9 @@ def main():
             cul = s(t.get("culture"))
             minlvl = int(t.get("minBuildingLevel") or 0)
             a = minlvl if not cul else max(1, minlvl)
-            d, effects = [], []
-            for line in (s(t.get("desc")), s(t.get("effect"))):
-                if line and line not in d:
-                    d.append(line)
-            for fx in (t.get("effectsList") or []):
-                if not fx:
-                    continue
-                target, stat, op, val = s(fx.get("Target")), s(fx.get("Stat")), s(fx.get("Op")), fx.get("Value")
-                page_op = EFFECT_OPS.get(op)
-                page_target = None
-                if target.startswith("unit:"):
-                    upath, u = resolve_unit(target[5:])
-                    if u is not None:
-                        page_target = "unit:" + (s(u.get("displayName")) or s(u.get("id")))
-                elif target.startswith("type:"):
-                    page_target = target
-                if page_target and page_op and stat in EFFECT_STATS:
-                    for row in EFFECT_STATS[stat]:
-                        effects.append({"target": page_target, "stat": row, "op": page_op,
-                                        "value": float(val or 0)})
-                else:
-                    d.append("%s: %s %s %s" % (target, stat, op, num(val)))
-            req = [tname(p) for p in (t.get("prerequisites") or []) if s(p)]
+            d, effects = tech_lines(t)
+            req = [tname(p) for p in (t.get("prerequisites") or []) if s(p)
+                   and s(p) not in granted]
             req += gate_req(minlvl, cul)
             tid = s(t.get("id"))
             nodes.append(node("so_tech_%s" % slug(tid), min(a, 3), take_row(min(a, 3)),

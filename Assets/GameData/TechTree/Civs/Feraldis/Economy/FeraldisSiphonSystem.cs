@@ -1,7 +1,7 @@
 // FeraldisSiphonSystem.cs
 // SIPHON (docs/Design/Age_1_Feraldis.md §3.5, 2026-10-12): while a Feraldis
 // faction is hitting an enemy extractor (Gatherer's Hut, Mine, Veilstone
-// Mine), Trading Outpost or capital, supplies drain from that enemy's bank to
+// Mine) or capital, supplies drain from that enemy's bank to
 // the raider's — never below zero, and only what was actually taken is paid.
 //
 // A hit is seen as a drop in the building's HP with a Feraldis last damager;
@@ -114,10 +114,10 @@ namespace TheWaningBorder.Feraldis
             }
         }
 
-        /// <summary>Economic buildings a raid drains: extractors, Trading Outposts and the capital.</summary>
+        /// <summary>Economic buildings a raid drains: extractors and the capital.</summary>
         public static bool IsSiphonTarget(EntityManager em, Entity b)
             => em.HasComponent<GathererHutTag>(b) || em.HasComponent<MineTag>(b)
-               || em.HasComponent<VeilstoneMineTag>(b) || em.HasComponent<TradingOutpostTag>(b)
+               || em.HasComponent<VeilstoneMineTag>(b)
                || em.HasComponent<HallTag>(b);
     }
 }

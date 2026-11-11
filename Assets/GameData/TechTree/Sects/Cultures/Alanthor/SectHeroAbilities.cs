@@ -307,10 +307,10 @@ namespace TheWaningBorder.Systems.Sect
         }
 
         /// <summary>An extractor Stake can take: the Gatherer's Hut line, the
-        /// Mine, the Veilstone Mine and the Trading Outpost.</summary>
+        /// Mine and the Veilstone Mine.</summary>
         public static bool IsStakeable(EntityManager em, Entity b)
             => em.HasComponent<GathererHutTag>(b) || em.HasComponent<MineTag>(b)
-               || em.HasComponent<VeilstoneMineTag>(b) || em.HasComponent<TradingOutpostTag>(b);
+               || em.HasComponent<VeilstoneMineTag>(b);
 
         /// <summary>The own finished extractor nearest the Guildmaster within
         /// <see cref="StakeRange"/>, or Null.</summary>

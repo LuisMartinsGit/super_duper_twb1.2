@@ -19,7 +19,7 @@ MonoBehaviour:
   upgradeCost:
     Supplies: 1400
     Iron: 700
-    Veilstone: 0
+    Veilstone: 550
   upgradeSeconds: 45
   hpMultiplier: 1.2
   trainTimeMultiplier: 0.512
@@ -37,4 +37,8 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
+  grantsTechs:
+  - ShardInfusedLances
+  - ShardBarding
+  - EliteCavalry
   prefab: {fileID: 5708814948376836780, guid: ebc00ec29bbb77d41b225775bad68bca, type: 3}

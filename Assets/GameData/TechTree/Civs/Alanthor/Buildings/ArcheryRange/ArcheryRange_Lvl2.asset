@@ -17,9 +17,9 @@ MonoBehaviour:
   level: 2
   displayName: Archery Range
   upgradeCost:
-    Supplies: 600
-    Iron: 300
-    Veilstone: 0
+    Supplies: 650
+    Iron: 575
+    Veilstone: 450
   upgradeSeconds: 30
   hpMultiplier: 1.15
   trainTimeMultiplier: 0.64
@@ -37,4 +37,10 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
+  grantsTechs:
+  - IronTippedArrows
+  - IronBrigandine
+  - VeilstoneTippedArrows
+  - VeilstoneBrigandine
+  - VeteranArchers
   prefab: {fileID: 1201453078148912283, guid: 9c52cadbb9929cc4dbc9d405539dbea8, type: 3}

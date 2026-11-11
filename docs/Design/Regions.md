@@ -474,8 +474,7 @@ is shown (see *Reading a territory* at the end of this section).
   trickle was doubled — armies were being trained but not replaced fast
   enough to fight with, and the ore economy was the bottleneck). Holding the
   ground is what pays; the node is the reason the ground is worth holding.
-  A higher yield drains the node's reserve faster, which sharpens the
-  expand-or-decline pressure rather than blunting it.
+  (Nodes never run out since decision 55; the reserve this used to drain is gone.)
 - **Every resource has its OWN extraction building, and it stands ON the node.**
   One per node — the node count is what limits how many a territory supports,
   which is the whole reason nodes replaced area-based caps.
@@ -509,7 +508,7 @@ is shown (see *Reading a territory* at the end of this section).
   prices are on the `Mine` and `VeilstoneMine` SOs (both Age 0 buildings for
   everyone, Unification decision 15). The Gatherer's Hut stays supply-priced.
 
-- **NODES DEPLETE.** A fresh node holds a finite reserve; yield scales with
+- ~~**NODES DEPLETE.**~~ *Superseded: nodes never run out ([decision 55](Unification_Decisions_2026-10-03.md)).* A fresh node holds a finite reserve; yield scales with
   what is left, down to a **floor** so a spent node still trickles rather than
   turning its territory into dead ground nobody contests (`NodeReserveUnits`
   and `DepletionFloor` in `TerritoryIncomeSystem`).
@@ -695,7 +694,8 @@ either would be silently mistaken for a gather order by a peer on an old build.
   Feraldis perk, and the Feraldis culture gate in
   `EntityExtractors.GetRequiredCulture` is removed. **The Mine and the
   Veilstone Mine are Age 0 buildings for everyone** (Unification decision 15);
-  Alanthor's Veilstone Mines become Trading Outposts at age-up. It keeps its
+  Alanthor keep their Veilstone Mines at age-up (decision 42; the Trading Outpost
+  is retired, decision 55). It keeps its
   unprefixed id for the reasons CLAUDE.md gives.
 
   It does **not** double-count with the territory trickle: the trickle is the

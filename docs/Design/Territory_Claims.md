@@ -1,5 +1,11 @@
 # Territory Claims & the Curse
 
+> **2026-11-11 ([decision 55](Unification_Decisions_2026-10-03.md)): income without ground.**
+> The Alanthor **Farm** (Workers inside it pay supplies) and **Market** (iron and veilstone
+> bought for supplies at fixed prices) let a player live with no node at all. Both obey the
+> build gate of §5 (owned ground only), and a Farm never stands on a node. Rules:
+> [Age_1_Alanthor.md § Farm / § Market](Age_1_Alanthor.md).
+
 > **Doc version: 2026-09-29 — FOURTH MODEL. Canon for how ground is owned, by
 > players and by the curse, and for how a match is won.** Supersedes:
 >
@@ -154,7 +160,7 @@ block lasts:
 - **Locked** (this section's table): the player's coalition leads the tug of
   war (§2.2), it is the side that would drain the meter, and the holder's
   locking structures stand. Every one of the **holder's locking structures in
-  that territory** (Fortress, node buildings, Trading Outposts, Sanctuaries)
+  that territory** (Fortress, node buildings, Sanctuaries)
   is revealed.
 - **Cursed** (§6.9.4): the player's coalition leads on ground with cursed
   cells in it, so the meter cannot rise. The player sees **the cursed ground
@@ -530,7 +536,7 @@ attack waves below are **drafted out of the garrison pool**:
   **locked** territory that borders curse ground, the wave marches on that
   territory instead — the one whose locking structure stands nearest a curse
   node — and its objectives are **the structures that lock it** (extractors,
-  Trading Outposts, Fortresses — §3). Idle, it goes for the next locking
+  Fortresses — §3). Idle, it goes for the next locking
   structure there before any unit. The moment the territory is **unlocked**,
   the wave does not go home: it **becomes a claim party** on it (§6.5 — it
   stands until the meter turns, then raises a curse node on a free resource
@@ -1004,8 +1010,8 @@ non-start territories logs a warning.
 **The Normal kinds are dealt 1 : 2 : 4 (2026-10-03)** — of every seven filler
 territories, one is Normal, two are Normal + iron and four are Normal +
 veilstone (~57 % carry veilstone, was an even third each). Veilstone is what an
-aged-up army runs out of, and Alanthor gets it only from Trading Outposts
-beside outcrops in held ground (Veilstone_Economy.md §3.1): a 0.0.33 batch on
+aged-up army runs out of (Alanthor mine it with Veilstone Mines since decision 42;
+the Trading Outposts of the time are retired, decision 55): a 0.0.33 batch on
 Veilmarch dealt 23 outcrops to 8 players and every faction held 1-3 of them.
 With the new deal and the 1-2 draw, Veilmarch's 33 fillers carry ~19
 veilstone territories and ~28 of their outcrops (was 11), ~40 on the map in
@@ -1099,7 +1105,7 @@ normal and for every 10 poor."
 - Every generated node — supply, iron and veilstone alike — has a **purity**:
   Pure, Normal or Poor. It scales everything the node's slot pays, empty or
   built, at every extractor level and through every research multiplier; a
-  node pays (and drains its reserve) at its purity's rate. (The Fortress
+  node pays at its purity's rate. (The Fortress
   level no longer scales slots at all since 2026-10-08, § 11.3.)
 - **Start territories are all Pure**, seated or not, so the opening is the
   same as before purity existed.
@@ -1113,7 +1119,28 @@ normal and for every 10 poor."
 - The purity is shown with the node's name (Pure / Poor; Normal is unmarked).
 - The three multipliers and the bag's mix are on `TerritoryResources.asset`.
 
-### 11.3 Nodes run dry (2026-10-07)
+### 11.3 Finite nodes, twice as long (2026-11-11, decision 56)
+
+> **[Decision 56](Unification_Decisions_2026-10-03.md) (2026-11-11) restored finite nodes,
+> after the first decision-55 test.** Decision 55 (a) — "nodes never run out" — lasted one
+> test and is withdrawn.
+>
+> - **Every node holds a finite reserve again** — supply, iron and veilstone — and every unit
+>   its slot pays (empty or built) is drawn from it, as before decision 55. **Each reserve is
+>   double what it was** (`TerritoryIncomeSystem.asset`: `supplyNodeReserve`,
+>   `ironNodeReserve`, `veilstoneNodeReserve`; purity scales it by the
+>   `pure/normal/poorReserveMultiplier` fields). Each node shows its remaining bar.
+> - **A spent node collapses with its extractor** (Mine, Veilstone Mine, Runai Sanctuary).
+>   **The Gatherer's Hut line (Guild / Work Camp / Trading Post) stays standing as Depleted**
+>   (`DepletedHutTag`): it works no node, pays nothing, no longer locks its territory and
+>   takes no Feraldis crew, but keeps its level.
+> - **No grace window and no node held by trade**: the Trading Outpost stays retired
+>   (decision 55 b), with Trade Charters, Trade Ledgers and Merchant Houses. Node placement
+>   keeps no side room for posts.
+> - **Purity (§ 11.2) scales both what a node pays and how much it holds.**
+>
+> *Everything below in this section is history. Where it disagrees with this block, this
+> block wins — in particular every Trading Outpost, grace window and "held by trade" rule.*
 
 > **Revised again 2026-11-10 — the five-minute window (decision 50).** A node that runs dry
 > with **no** Trading Outpost beside it no longer collapses at once: its extractor collapses and

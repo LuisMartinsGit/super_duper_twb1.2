@@ -93,6 +93,7 @@ namespace TheWaningBorder.Core.Multiplayer
         EnshrineShardroot = 56, // CommandRouter.IssueEnshrineShardroot (the Shardroot's bearer in EntityNetworkId, its own Temple of Ridan in TargetEntityId) — the bearer walks to the Temple and enshrines the artifact there; docs/Design/Curse_And_Shardroot.md § 3.1d
         BuildingAttack = 50,    // CommandRouter.IssueBuildingAttack (shooting building in EntityNetworkId, forced target in TargetEntityId; 0 = clear the order, i.e. Stop) — docs/Design/Combat_Pacing.md § Directed building fire
         DropShardroot = 58,     // CommandRouter.IssueDropShardroot (the bearer in EntityNetworkId) — the hero sets the Shardroot down safely; docs/Design/Heroes.md §4
+        SetMarketRate = 59,     // CommandRouter.IssueSetMarketRate (the Alanthor Market in EntityNetworkId; iron per minute in TargetEntityId, veilstone per minute in SecondaryTargetId) — what it buys changes what the faction spends and earns every second; docs/Design/Age_1_Alanthor.md § The Market (decision 55)
         Resign = 57,            // CommandRouter.IssueResign (the resigning FACTION in EntityNetworkId) — the pause menu's Resign: EliminationSystem retires the faction on every peer at the same tick, exactly like an elimination, so the replay and every peer agree on when it left (2026-10-28)
     }
 

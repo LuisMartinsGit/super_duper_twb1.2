@@ -171,9 +171,13 @@ namespace TheWaningBorder.AI
             // measured factions at 17 workers on 3 territories after age-up
             // with every target-setting path already on the rule — the
             // refusal log names the caller so the stray path shows itself.
+            // ...plus one for every empty Farm slot (2026-11-11): staffed
+            // Workers leave the count, but the rule refused the hands to staff
+            // the Farms with ("extra Worker refused (worker rule) - asked by
+            // TickFarms"), so Hard Economic sat on 8,000 iron with no supplies.
             if (unitId == "Worker"
                 && CountAliveWorkers(em, faction)
-                   + CountQueuedByPredicate(em, faction, isWorker: true) >= WorkerFloorFor(em, faction))
+                   + CountQueuedByPredicate(em, faction, isWorker: true) >= WorkerFloorFor(em, faction) + FarmVacancies(em, faction))
             {
                 blockReason = "worker rule reached";
                 LogWorkerRefusal(faction);
@@ -349,17 +353,13 @@ namespace TheWaningBorder.AI
                 case "Spearman":
                 case "Swordsman":
                 case "Alanthor_Swordsman":
-                case "Alanthor_Nobleman":
-                case "Alanthor_Sentinel":
                     return FindLeastBusyTrainer<BarracksTag>(em, faction);
                 case "Archer":
                 case "Alanthor_Crossbowman":
-                case "Alanthor_Longbowman":
                     return FindLeastBusyTrainer<ArcheryRangeTag>(em, faction);
                 case "Alanthor_Cataphract":
                 case "Alanthor_Outrider":
                     return FindLeastBusyTrainer<RoyalStableTag>(em, faction);
-                case "Alanthor_Ballista":
                 case "Alanthor_Trebuchet":
                 case "Alanthor_BatteringRam":
                     return FindLeastBusyTrainer<SiegeYardTag>(em, faction);
@@ -412,17 +412,13 @@ namespace TheWaningBorder.AI
                 case "Spearman":
                 case "Swordsman":
                 case "Alanthor_Swordsman":
-                case "Alanthor_Nobleman":
-                case "Alanthor_Sentinel":
                     return "Barracks";
                 case "Archer":
                 case "Alanthor_Crossbowman":
-                case "Alanthor_Longbowman":
                     return "ArcheryRange";
                 case "Alanthor_Cataphract":
                 case "Alanthor_Outrider":
                     return "Alanthor_RoyalStable";
-                case "Alanthor_Ballista":
                 case "Alanthor_Trebuchet":
                 case "Alanthor_BatteringRam":
                     return "Alanthor_SiegeYard";
@@ -485,6 +481,9 @@ namespace TheWaningBorder.AI
             if (!TechCatalog.IsReady) { blockReason = "catalog not ready"; return false; }
             if (!TechCatalog.TryGetTechnology(techId, out var def) || def == null)
             { blockReason = "no catalog def"; return false; }
+            // A building level grants it (decision 53) — never researched.
+            if (TechCatalog.IsGrantedByLevel(techId))
+            { blockReason = "granted by a building level"; return false; }
 
             // Skip if already researched (or in flight) on this faction.
             var researchState = FactionResearchState.Instance;
@@ -530,10 +529,6 @@ namespace TheWaningBorder.AI
                 "Runai_Arrowyard" => FindResearchHost<ArrowyardTag>(em, faction),
                 "Runai_SiegeWorkshop"  => FindResearchHost<SiegeWorkshopTag>(em, faction),
                 "Runai_Sanctuary"      => FindResearchHost<RunaiSanctuaryTag>(em, faction),
-                // The Trading Outpost hosts its own trade research
-                // (Veilstone_Economy.md §3.1). With no case here the AI
-                // could never buy a single Outpost tech.
-                "Alanthor_TradingOutpost" => FindResearchHost<TradingOutpostTag>(em, faction),
                 // The Temple's own research (docs/Design/Religion.md §2).
                 "TempleOfRidan"        => FindResearchHost<TempleOfRidanTag>(em, faction),
                 // Sect buildings — each sells exactly its own sect's research
@@ -1130,7 +1125,7 @@ namespace TheWaningBorder.AI
             // Class choice as before; the unit WITHIN the class follows the
             // age meta ladder (2026-08-11: the picker only ever returned
             // Archer/Spearman, so the AI shipped an Age-0 army all game).
-            // Ranged: Longbowman (Range L3) > Crossbowman (L2) > Archer.
+            // Ranged: Crossbowman (L2) > Archer (decision 52: no Longbowman).
             // Melee: Swordsman > Spearman — EXCEPT under cavalry pressure,
             // where the spear wall is the counter and stays the pick.
             string melee = "Spearman";
@@ -1162,7 +1157,7 @@ namespace TheWaningBorder.AI
             else if (FactionCultureOf(em, faction) == Cultures.Alanthor)
             {
                 ranged = FirstTrainable(em, faction,
-                    "Alanthor_Longbowman", "Alanthor_Crossbowman", "Alanthor_Archer");
+                    "Alanthor_Crossbowman", "Alanthor_Archer");
                 if (cavHeavy)
                 {
                     // spear wall — melee stays Spearman
@@ -1174,7 +1169,7 @@ namespace TheWaningBorder.AI
                     // for the cavalry branch below being empty; a heavier unit
                     // only spends longer under fire crossing the same ground.
                     melee = FirstTrainable(em, faction,
-                        "Alanthor_Nobleman", "Alanthor_Swordsman", "Spearman");
+                        "Alanthor_Swordsman", "Spearman");
                 }
                 else
                 {
@@ -1204,7 +1199,7 @@ namespace TheWaningBorder.AI
                 cavalry = FirstTrainableOrNull(em, faction,
                     "Alanthor_Cataphract", "Alanthor_Outrider");
                 siege = FirstTrainableOrNull(em, faction,
-                    "Alanthor_Trebuchet", "Alanthor_Catapult", "Alanthor_Ballista");
+                    "Alanthor_Trebuchet", "Alanthor_BatteringRam");
             }
             else if (FactionCultureOf(em, faction) == Cultures.Runai)
             {

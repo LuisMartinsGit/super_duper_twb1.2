@@ -12,10 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a856fd59fa94ef5b5c94394ed0a1169, type: 3}
   m_Name: TerritoryIncomeSystem
   m_EditorClassIdentifier: 
-  depletedGraceSeconds: 300
-  supplyNodeReserve: 4500
-  ironNodeReserve: 2500
-  veilstoneNodeReserve: 2000
+  supplyNodeReserve: 9000
+  ironNodeReserve: 5000
+  veilstoneNodeReserve: 4000
   pureReserveMultiplier: 1.8
   normalReserveMultiplier: 1
   poorReserveMultiplier: 0.4

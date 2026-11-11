@@ -124,6 +124,9 @@ namespace TheWaningBorder.Entities
                 ["Alanthor_BallistaEmplacement"]  = new BuildingRecipe(BallistaEmplacement.Create, BallistaEmplacement.Create, BallistaEmplacement.PresentationID),
                 ["Alanthor_TrebuchetEmplacement"] = new BuildingRecipe(TrebuchetEmplacement.Create, TrebuchetEmplacement.Create, TrebuchetEmplacement.PresentationID),
                 ["Alanthor_RoyalStable"]   = new BuildingRecipe(RoyalStable.Create, RoyalStable.Create, RoyalStable.PresentationID),
+                // The Farm and the Market (Unification decision 55).
+                [Farm.BuildingId]          = new BuildingRecipe(Farm.Create, Farm.Create, Farm.PresentationID),
+                [Market.BuildingId]        = new BuildingRecipe(Market.Create, Market.Create, Market.PresentationID),
 
                 // Feraldis culture buildings
                 ["Feraldis_HuntingLodge"]   = new BuildingRecipe(HuntingLodge.Create, HuntingLodge.Create, 580), // 358 is the Field Hospital
@@ -142,9 +145,6 @@ namespace TheWaningBorder.Entities
                 // Mine); without this, veilstone was the one territory
                 // resource with no way to invest in it.
                 ["VeilstoneMine"]           = new BuildingRecipe(VeilstoneMine.Create, VeilstoneMine.Create, VeilstoneMine.PresentationID),
-                // Alanthor trade for veilstone instead of mining it
-                // (docs/Design/Veilstone_Economy.md §3.1).
-                ["Alanthor_TradingOutpost"] = new BuildingRecipe(TradingOutpost.Create, TradingOutpost.Create, TradingOutpost.PresentationID),
 
                 // Sect buildings — one per sect, capped at 5 per faction
                 // (SectBuilding.CapPerFaction). Each trains its sect's unit and
@@ -418,6 +418,9 @@ namespace TheWaningBorder.Entities
                 case "Sect_MendingHall": built = GetFactionBuildingCount<MendingHallTag>(em, faction); break;
                 case "Sect_Stonehold": built = GetFactionBuildingCount<StoneholdTag>(em, faction); break;
                 case "Sect_Treasury": built = GetFactionBuildingCount<TreasuryTag>(em, faction); break;
+                // Six Farms and one Market a player (decision 55).
+                case Farm.BuildingId: built = GetFactionBuildingCount<FarmTag>(em, faction); break;
+                case Market.BuildingId: built = GetFactionBuildingCount<MarketTag>(em, faction); break;
                 default:
                     if (_uncountedCapWarned.Add(buildingId))
                         UnityEngine.Debug.LogError(

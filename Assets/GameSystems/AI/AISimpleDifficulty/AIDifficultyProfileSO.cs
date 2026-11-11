@@ -97,7 +97,7 @@ namespace TheWaningBorder.AI
         /// A capital level multiplies every slot of the home territory.</summary>
         public bool reserveForCapitalLevel;
 
-        /// <summary>Economy levels (Gatherer's Hut, Trading Outpost) queued
+        /// <summary>Economy levels (Gatherer's Hut, Mine, Veilstone Mine) queued
         /// per upgrade think AHEAD of the rotation and without yielding to
         /// the army. 0 = only the rotation and the surplus pass.</summary>
         public int economyUpgradesPerThink;
@@ -137,7 +137,7 @@ namespace TheWaningBorder.AI
         /// 2026-10-05, operator directive). On: a combat unit passes every
         /// non-strict savings goal (the Fortress pot, the capital level) and
         /// the budget's lump-sum reservation at any army size, and the
-        /// income levels (Gatherer's Hut, Trading Outpost) pass the Fortress
+        /// income levels (Gatherer's Hut, Mine, Veilstone Mine) pass the Fortress
         /// reservation too — Fortresses come out of what the economy makes
         /// beyond what production can spend. The age-up stays strict.</summary>
         public bool armyBeforeSaves;
@@ -207,9 +207,9 @@ namespace TheWaningBorder.AI
         /// <summary>Match time when the level 3 phase opens (level 2 is levelUpsFromSeconds).</summary>
         public float levelThreeFromSeconds;
         /// <summary>EARLY EXTRACTOR LEVELS (2026-11-10, decision 49): Mines and
-        /// Trading Outposts level as soon as the bank allows, past the level
-        /// clock and the value gate, so a worked node pays at full level (and its
-        /// posts at full trickle) before it runs dry. Hard and Expert.</summary>
+        /// Veilstone Mines level as soon as the bank allows, past the level
+        /// clock and the value gate, so a worked node pays at full level early.
+        /// Hard and Expert.</summary>
         public bool earlyExtractorLevels;
         /// <summary>Least seconds between starting two level-ups. 0 = no gap.</summary>
         public float levelUpGapSeconds;
@@ -263,7 +263,7 @@ namespace TheWaningBorder.AI
 
         /// <summary>THE TIER'S ECONOMIC HANDLE (2026-11-09, Game_AI.md § 2c): the share of the
         /// nodes it could work that this tier puts an extractor on, per kind (Gatherer's Hut,
-        /// Mine, Veilstone Mine, Trading Outpost side). Expert 1 (everything, as soon as
+        /// Mine, Veilstone Mine). Expert 1 (everything, as soon as
         /// possible); each tier below works 25 % fewer than the one above, so its extraction
         /// income lands at that share of Expert's. What an extractor pays is never cut.</summary>
         public float extractorShare;
@@ -333,7 +333,7 @@ namespace TheWaningBorder.AI
         public int concurrentArmies;
 
         /// <summary>Waves aim at the enemy's INCOME — its extractors
-        /// (Gatherer's Hut, Mine, Veilstone Mine, Trading Outpost) and the
+        /// (Gatherer's Hut, Mine, Veilstone Mine) and the
         /// holdings outside its walls, ranked by value — instead of the
         /// nearest thing or the capital. Off: the nearest-first doctrine.</summary>
         public bool incomeTargeting;

@@ -9,6 +9,34 @@ build always name the same number.
 
 ---
 
+## [0.0.84] — 2026-11-11
+
+### Units and research
+- **One job per unit.** Alanthor fields two units of each kind: Spearman and Swordsman, Archer and Crossbowman, Outrider and Cataphract, Battering Ram and Trebuchet. The Sentinel, Nobleman, Longbowman, Ballista and Catapult are gone (the wall emplacements stay).
+- **The Battering Ram trains at a level 1 Siege Yard.**
+- **Building levels carry the upgrades.** Weapon, armour and veteran upgrades are no longer researched: levelling a Garrison, Archery Range, Royal Stable or Siege Yard grants them to everything it trains (level 1: stone tier and Seasoned; level 2: iron and veilstone tiers and Veteran; level 3: shard tier and Elite). The Fortress's levels carry the tool upgrades. Level-ups cost more to match, and their tooltip lists what each level grants.
+- **About 40 researches instead of 87.** What is left changes how a unit plays (Charge, Shield Wall, Fletching, Arrow Volley, War Horn, Ranging Shot...). Arrow Shower and Reinforced Bolts are gone.
+
+### Economy
+- **Farms.** Up to six per player; each holds up to five Workers and pays 50 supplies a minute for every Worker inside, so a full Farm out-earns a level 3 Guild. Right-click a Farm with Workers selected to put them in; Empty sends them out.
+- **The Market.** One per player: set how much iron and veilstone to buy each minute. It pays 4 supplies per iron and 8 per veilstone, the price never moves, and there is no ceiling but your bank.
+- **Nodes last twice as long.** Every node still runs dry in the end; a spent node takes its Mine with it and a Guild stands on as Depleted.
+- **The Trading Outpost is retired**, with Trade Charters, Trade Ledgers and Merchant Houses.
+
+### Interface
+- **The Objectives panel names every way to win:** conquest (rivals left), Sanctum dominion (Sanctums held and the countdown) and the Shardroot (ruins explored, who carries it, the ascension countdown). The old "cleanse the curse nodes" step is gone.
+- **The build menu is 5 x 4**, so the Farm and the Market fit.
+
+### AI
+- **No army ceilings below the population cap.** Lower tiers field fewer soldiers because their economy is weaker, not because they stop at a number.
+- **The AI builds, saves for and staffs its Farms**, trains Workers for empty slots, and runs its Market from its spare supplies.
+- **The AI levels its military buildings**, which now carry the upgrades.
+- **A large stockpile pauses new Mines and Mine levels**; the Mines already standing keep working until their node runs dry.
+- **An AI that loses its Fortress rebuilds** instead of freezing for the rest of the match.
+
+### Fixes
+- **Workers sent into a Farm go in** even when the edge they walk to is blocked by another Farm or a cliff.
+
 ## [0.0.83] — 2026-11-10
 
 ### Economy

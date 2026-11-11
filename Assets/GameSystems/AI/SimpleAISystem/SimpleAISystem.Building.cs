@@ -158,6 +158,12 @@ namespace TheWaningBorder.AI
 
             // Need a Hall to anchor placement around.
             Entity hall = FindFactionBuilding<HallTag>(em, faction);
+            // A LOST CAPITAL IS NOT THE END (2026-11-11, overnight tuning): Hard
+            // Rush lost its Fortress at minute 32 holding 13 territories and
+            // 14,000 iron, and every build -- the new Fortress included -- was
+            // refused "no hall" for the rest of the match. Any other building
+            // it still owns anchors the search instead.
+            if (hall == Entity.Null) hall = FindFactionBuilding<BuildingTag>(em, faction);
             if (hall == Entity.Null) { reason = "no hall"; return false; }
             if (!em.HasComponent<LocalTransform>(hall)) { reason = "hall has no transform"; return false; }
             float3 hallPos = em.GetComponentData<LocalTransform>(hall).Position;
@@ -182,7 +188,7 @@ namespace TheWaningBorder.AI
             // paid from the veilstone the army has not claimed.
             // (A veilstone-surplus Fortress on outcrop ground may use it —
             // _surplusEarmarkCarve, Game_AI.md 5e: more ground is more
-            // Outposts, the income the earmark is waiting on.)
+            // income.)
             // A PRODUCTION BUILDING NEVER YIELDS TO THE ARMY (2026-10-04,
             // Game_AI.md 5f): it is what lets the army grow faster, and its
             // count is bounded by the province / saturation rule instead.
@@ -443,6 +449,9 @@ namespace TheWaningBorder.AI
                 && buildingId != "TempleOfRidan"
                 && buildingId != "Hut"
                 && !TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(buildingId)
+                // A Farm is income like an extractor (2026-11-11, overnight tuning:
+                // Expert's first Farm waited on the savings hold until minute 17).
+                && buildingId != TheWaningBorder.Entities.Farm.BuildingId
                 && !(buildingId == "Barracks"
                      && CountFactionBuildings<BarracksTag>(em, faction) == 0)
                 // A SATURATED LINE PASSES TOO (2026-09-12, Game_AI.md 6c).
@@ -466,10 +475,6 @@ namespace TheWaningBorder.AI
             // job (AICommon.PullWorkersTo). Measured Headless28: "38 sites
             // open, crew 3" refused a Siege Yard rebuild outright.
             if (_rebuildingLostTrainer) return true;
-            // A post beside a spent node in its grace window passes too
-            // (decision 50): Hard's rescue was refused 516 times by "3 sites
-            // open, crew 3" while its nodes ran out their five minutes.
-            if (_graceRescueBuild) return true;
             int openSites = CountFactionBuildingsUnderConstruction(em, faction);
             int siteCap = math.max(2, crew);
             if (openSites >= siteCap)

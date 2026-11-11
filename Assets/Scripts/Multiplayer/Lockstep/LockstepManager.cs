@@ -1735,6 +1735,14 @@ namespace TheWaningBorder.Multiplayer
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed DeleteEntity from player {cmd.PlayerIndex}");
                     break;
 
+                case LockstepCommandType.SetMarketRate:
+                    // EntityNetworkId: the Market. TargetEntityId: iron a minute.
+                    // SecondaryTargetId: veilstone a minute (decision 55).
+                    if (entity != Entity.Null)
+                        CommandRouter.SetMarketRateDirect(em, entity, cmd.TargetEntityId, cmd.SecondaryTargetId);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetMarketRate from player {cmd.PlayerIndex}");
+                    break;
+
                 case LockstepCommandType.RetiredSetExtractorStopped:
                     // Stop Extracting was removed (decision 45, 2026-11-10); an
                     // older replay may still carry the order. It does nothing.

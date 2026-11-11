@@ -95,7 +95,7 @@ namespace TheWaningBorder.AI
         public float unaffordableUnitCooldownSeconds;
         /// <summary>Extra claim score per uncursed veilstone outcrop in a
         /// candidate territory, for an Alanthor faction whose army is short
-        /// of veilstone — a Veilstone Mine site, then a Trading Outpost's. Added on top
+        /// of veilstone — a Veilstone Mine site. Added on top
         /// of claimNodeBonus, which the outcrop already earns as a node.</summary>
         public float claimVeilstoneNodeBonus;
 
@@ -972,12 +972,8 @@ namespace TheWaningBorder.AI
         /// the sweep no longer waits behind the authored ladder.</summary>
         public float surplusResearchSweepInterval;
 
-        /// <summary>SURPLUS: seconds between the repeating "veilstone-held"
-        /// state lines (each action logs once, unthrottled).</summary>
-        public float surplusLogInterval;
-
         /// <summary>THE ECONOMY'S SAY. Veilstone income (the faction's
-        /// Trading Outposts' trickle, per minute) at which the veilstone
+        /// territory veilstone income, per minute) at which the veilstone
         /// roles get their full share; below it they are scaled down toward
         /// ladderScaleWhenStarved and the basics take up the slack. A bank of
         /// veilstoneBankForFullLadder counts as full income on its own.</summary>
@@ -1425,7 +1421,7 @@ namespace TheWaningBorder.AI
         public float armySyncTimeoutSeconds;
 
         /// <summary>Income-target ranking (§ 6f): the value of an extractor
-        /// (Gatherer's Hut, Mine, Veilstone Mine, Trading Outpost), of a
+        /// (Gatherer's Hut, Mine, Veilstone Mine), of a
         /// military building, and of a house or other eco building. Each
         /// is worth 100 points per unit of weight before distance, defence
         /// and intel age are charged by the target scorer's rates.</summary>
@@ -1755,5 +1751,42 @@ namespace TheWaningBorder.AI
         public float victoryBaseRadius;
         /// <summary>The tower budget while it holds the artifact.</summary>
         public float victoryFortifyTowerScale;
+
+        // ── Farms and the Market (decision 55, SimpleAISystem.Farms.cs) ──
+        /// <summary>Seconds between the Farm / Market decisions.</summary>
+        public float farmThinkInterval;
+        /// <summary>Farms an Alanthor AI keeps while its supplies are healthy.</summary>
+        public int farmSteadyCount;
+        /// <summary>Below this many banked supplies it builds Farms up to the cap.</summary>
+        public int farmShortSupplies;
+        /// <summary>Idle Workers never sent into a Farm (kept free to build).</summary>
+        public int farmFreeWorkerReserve;
+        /// <summary>Most Workers sent into Farms in one decision.</summary>
+        public int farmStaffPerThink;
+        /// <summary>Extra Workers trained for empty Farm slots: only while the
+        /// bank holds at least this many supplies.</summary>
+        public int farmTrainWorkerMinSupplies;
+        /// <summary>The Market is raised once the bank holds this many supplies.</summary>
+        public int marketBuildMinSupplies;
+        /// <summary>The bank amount of each resource the Market buys toward: the
+        /// further below it, the larger that resource's share of the spend.</summary>
+        public int marketIronShort;
+        public int marketVeilstoneShort;
+        /// <summary>Supplies the Market never spends: only the bank above this is surplus.</summary>
+        public int marketSupplyFloor;
+        /// <summary>Minutes over which the surplus above the floor is spent at
+        /// the Market (smaller = converts a glut faster).</summary>
+        public float marketSpendMinutes;
+        /// <summary>Banked veilstone above which veilstone counts as hoarded: the
+        /// army leans on veilstone units and the first Siege Yard comes early.
+        /// (Mines are never stopped by a hoard -- only by their node running dry.)</summary>
+        public int veilstoneHoardLine;
+        /// <summary>A HOARD PAUSES MINE GROWTH, NEVER A MINE (developer, 2026-11-11):
+        /// past these banks the AI raises no new Mine / Veilstone Mine and levels
+        /// none; the Mines it has keep working until their node runs dry.</summary>
+        public int ironNoNewMinesAbove;
+        public int veilstoneNoNewMinesAbove;
+        /// <summary>Weight on veilstone-costing units while veilstone is hoarded.</summary>
+        public float veilstoneGlutLadderScale;
     }
 }

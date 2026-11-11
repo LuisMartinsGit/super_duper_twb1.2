@@ -1186,9 +1186,8 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_Outcrops;
 
-        /// <summary>Known veilstone outcrops a Trading Outpost could trade
-        /// beside: not Cursed (a cursed one idles its Outpost until it is
-        /// pacified — Veilstone_Economy.md §3.1).</summary>
+        /// <summary>Known veilstone outcrops a Veilstone Mine could work: not
+        /// Cursed (Veilstone_Economy.md §2).</summary>
         private static void CollectUncursedOutcrops(EntityManager em, Faction faction, List<float3> into)
         {
             var q = QC_Outcrops.Get(em, QT_Outcrops);
@@ -1464,7 +1463,7 @@ namespace TheWaningBorder.AI
             bool ok;
             string reason;
             // A surplus Fortress on (or bordering) outcrop ground may use the
-            // army's veilstone earmark: the ground is more Outposts, the
+            // army's veilstone earmark: the ground is more veilstone, the
             // income the earmark is waiting on.
             bool carve = surplus && bestOutcrops + bestFrontier > 0;
             _siteRegionLock = best;

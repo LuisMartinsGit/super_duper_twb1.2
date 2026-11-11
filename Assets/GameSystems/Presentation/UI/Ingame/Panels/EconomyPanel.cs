@@ -4,8 +4,7 @@
 // its header button opens and closes it; open, it lists every territory the
 // local player holds with what that territory pays per minute — supplies, iron,
 // veilstone (TerritoryIncomeSystem.ComputeYieldForDisplay, the number the income
-// tick pays, so the readout cannot drift from the bank) — the share its Trading
-// Outposts trickle (TerritoryTradeForDisplay), and a total.
+// tick pays, so the readout cannot drift from the bank) — and a total.
 //
 // Own territories only, so it reveals nothing the fog hides. Presentation only.
 
@@ -22,7 +21,7 @@ using TheWaningBorder.World.Regions;
 
 namespace TheWaningBorder.UI.Ingame
 {
-    public sealed class EconomyPanel : MonoBehaviour
+    public sealed partial class EconomyPanel : MonoBehaviour
     {
         /// <summary>Seconds between content refreshes while open.</summary>
         private const float UpdateInterval = 0.5f;
@@ -41,8 +40,8 @@ namespace TheWaningBorder.UI.Ingame
         private bool _open;
         private float _next;
         private readonly StringBuilder _sb = new StringBuilder(1024);
-        private readonly List<(string Name, TerritoryYield Y, TerritoryYield Posts)> _rows =
-            new List<(string, TerritoryYield, TerritoryYield)>();
+        private readonly List<(string Name, TerritoryYield Y)> _rows =
+            new List<(string, TerritoryYield)>();
 
         /// <summary>The live panel, for <see cref="TryGetHeaderScreenRect"/>.</summary>
         private static EconomyPanel _instance;
@@ -147,16 +146,14 @@ namespace TheWaningBorder.UI.Ingame
                 var me = GameSettings.LocalPlayerFaction;
                 _rows.Clear();
                 var total = new TerritoryYield();
-                var totalPosts = new TerritoryYield();
                 foreach (int t in TerritoryOwnership.TerritoriesOf(me))
                 {
                     var y = TerritoryIncomeSystem.ComputeYieldForDisplay(em, t, me);
-                    TerritoryIncomeSystem.TerritoryTradeForDisplay(em, t, me, out var posts);
-                    _rows.Add((RegionMap.NameOf(t), y, posts));
-                    Add(ref total, y); Add(ref totalPosts, posts);
+                    _rows.Add((RegionMap.NameOf(t), y));
+                    Add(ref total, y);
                 }
                 // Richest first: the player reads where the money is.
-                _rows.Sort((a, b) => Sum(b.Y, b.Posts).CompareTo(Sum(a.Y, a.Posts)));
+                _rows.Sort((a, b) => Sum(b.Y).CompareTo(Sum(a.Y)));
 
                 string s = ResourceIcons.Tag(ResourceIcons.Supplies) ?? "S";
                 string i = ResourceIcons.Tag(ResourceIcons.Iron) ?? "Fe";
@@ -173,13 +170,8 @@ namespace TheWaningBorder.UI.Ingame
                 for (int r = 0; r < _rows.Count && r < MaxRows; r++)
                 {
                     var row = _rows[r];
-                    Row(Trim(row.Name), Plus(row.Y, row.Posts), false);
+                    Row(Trim(row.Name), row.Y, false);
                     lines++;
-                    if (!row.Posts.IsEmpty)
-                    {
-                        Row("   " + Loc.T("of which Trading Outposts"), row.Posts, true);
-                        lines++;
-                    }
                 }
                 if (_rows.Count > MaxRows)
                 {
@@ -187,8 +179,10 @@ namespace TheWaningBorder.UI.Ingame
                        .Append("</color>\n");
                     lines++;
                 }
+                // The Farms and the Market: income from no territory (decision 55).
+                lines += AppendFarmsAndMarket(em, me, ref total);
                 _sb.Append("<color=#E8C77A><b>");
-                Row(Loc.T("Total"), Plus(total, totalPosts), false);
+                Row(Loc.T("Total"), total, false);
                 _sb.Append("</b></color>");
                 lines++;
             }
@@ -210,13 +204,7 @@ namespace TheWaningBorder.UI.Ingame
         private static string Trim(string name)
             => string.IsNullOrEmpty(name) ? "?" : name.Length > 20 ? name.Substring(0, 19) + "…" : name;
 
-        private static float Sum(TerritoryYield a, TerritoryYield b)
-            => a.Supplies + a.Iron + a.Veilstone + b.Supplies + b.Iron + b.Veilstone;
-
-        private static TerritoryYield Plus(TerritoryYield a, TerritoryYield b) => new TerritoryYield
-        {
-            Supplies = a.Supplies + b.Supplies, Iron = a.Iron + b.Iron, Veilstone = a.Veilstone + b.Veilstone,
-        };
+        private static float Sum(TerritoryYield a) => a.Supplies + a.Iron + a.Veilstone;
 
         private static void Add(ref TerritoryYield into, TerritoryYield y)
         {

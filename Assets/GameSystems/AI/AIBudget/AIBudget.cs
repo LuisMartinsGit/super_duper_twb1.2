@@ -636,8 +636,7 @@ namespace TheWaningBorder.AI
         /// army at 2-80 of 300, while the floor logged "Military budget short
         /// for Alanthor_Catapult" ~800 times — and nothing else in the brain
         /// knew veilstone was the wall. Readers: the wall doctrine (yields
-        /// while the army is short of supplies or iron), the Trading Outposts
-        /// (stay on Buy while it is short of veilstone) and the claim picker
+        /// while the army is short of supplies or iron) and the claim picker
         /// (favours outcrops while it is short of veilstone).
         ///
         /// Simulated time (SimClock), so the record ticks with the match.
@@ -682,28 +681,10 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>Overflowing AND the army is short of veilstone: the
-        /// surplus goes to veilstone (Outposts, their research, outcrop
-        /// ground) and, if spent on anything else, never on veilstone.</summary>
+        /// surplus goes to veilstone (outcrop ground) and, if spent on
+        /// anything else, never on veilstone.</summary>
         public static bool VeilstoneHeldSurplus(EntityManager em, Faction faction)
             => IsMilitaryShort(faction, ResVeilstone) && BankOverflowing(em, faction);
-
-        /// <summary>
-        /// Supplies are piling up AND the army is short of something a
-        /// Trading Outpost makes — iron or veilstone (Game_AI.md 5a,
-        /// 2026-10-12). Supplies alone are enough: unlike
-        /// BankOverflowing, iron need not be piling up too. The 0.0.40
-        /// Mirror Marches batch had Alanthor banks of 30-57k supplies with
-        /// 0-30 iron for an hour — "wallet short" on every purchase, and no
-        /// surplus spender ever fired because iron was not overflowing.
-        /// </summary>
-        public static bool TradeHeldSurplus(EntityManager em, Faction faction)
-        {
-            if (Cfg.surplusSupplies <= 0) return false;
-            if (!FactionEconomy.TryGetResources(em, faction, out var res)) return false;
-            if (res.Supplies < Cfg.surplusSupplies) return false;
-            return IsMilitaryShort(faction, ResIron)
-                || IsMilitaryShort(faction, ResVeilstone);
-        }
 
         // ─────────────────────────────────────────────────────────────
         // ARMY FIRST (2026-10-04, docs/Design/Game_AI.md 5f)

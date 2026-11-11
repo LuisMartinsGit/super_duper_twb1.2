@@ -307,6 +307,8 @@ namespace TheWaningBorder.UI.Ingame
             // first (ActionsPanelPrefabBinder.Special.cs).
             if (!hasLayout && IsSpecialType(info.Type))
                 return RenderSpecial(em, info);
+            // The Market's rate buttons (ActionsPanelPrefabBinder.Market.cs).
+            if (em.HasComponent<MarketRates>(_entity)) return RenderMarket(em, info);
 
             if (!hasLayout
                 && info.Type != ActionType.UnitTraining

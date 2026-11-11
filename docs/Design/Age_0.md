@@ -176,9 +176,8 @@ on a veilstone outcrop ([Build_Grid.md § 3](Build_Grid.md)). The SOs live in
 `Age0/Buildings/Mine/` and `Age0/Buildings/VeilstoneMine/`. They are priced in
 supplies and veilstone, never iron. Each pays its slot-income ladder
 ([Veilstone_Economy.md §5](Veilstone_Economy.md)). The Mine hosts its own
-research (Deep Shafts, Rich Seams). At age-up **Alanthor's Veilstone Mines
-become Trading Outposts** (Alanthor never mine veilstone; their iron Mines
-stay). **The iron Mine levels L1-L3 after age-up** (2026-10-19), every
+research (Deep Shafts, Rich Seams). Alanthor keep their Veilstone Mines at
+age-up (decision 42; the Trading Outpost they once became is retired, [decision 55](Unification_Decisions_2026-10-03.md)). **The iron Mine levels L1-L3 after age-up** (2026-10-19), every
 culture, faction-wide ([Age_1_Alanthor.md § Mine](Age_1_Alanthor.md),
 [Overview.md § Building levels](Overview.md#building-levels-faction-wide));
 the Veilstone Mine has no levels.
@@ -398,7 +397,7 @@ is harder to fill than the last** (2026-11-10, developer).
   sub-bars, and each filled sub-bar at once adds its share of the Vault SO's `vaultBarBonus` to
   the **income** of the resource the bar boosts — a full bar gives the whole bonus. Bars stack:
   four full bars on one resource give four times the bonus.
-- **Income** means resource income: territory, extractors, Trading Outposts, the capital and
+- **Income** means resource income: territory, extractors, the capital and
   every building trickle. Never refunds, grants, loot, curse bounties, a withdrawal or
   religion points.
 - **Withdraw** takes everything back, at any time, exactly as it was paid in (by resource).
@@ -530,7 +529,7 @@ only the rename map so the Age 0 build order can be planned forward.
 | House | House (Alanthor) — level ladder | **Waystation** — no population (Runai get the full cap at age-up); a shooting tower that speeds caravans and taxes them veilstone | **House (Feraldis)** — a **raider-spawn building only** (no population). Every build / upgrade spawns autonomous Raider units that attack the closest enemy. |
 | Gatherer's Hut | **Guild** (levels + the Guild research lines) | **Trading Post** — a supply depot; its output is hauled by caravan ([Age_1_Runai.md §3](Age_1_Runai.md)) | persists — can be upgraded to **Hunting Lodge** or **Logging Station** |
 | Mine | Mine (Alanthor levels) | Mine | Mine |
-| Veilstone Mine | **Trading Outpost** (Alanthor never mine veilstone) | **Sanctuary**, in place (the Runai never mine it either) | Veilstone Mine |
+| Veilstone Mine | Veilstone Mine (Alanthor keep it since decision 42; the Trading Outpost is retired, decision 55) | **Sanctuary**, in place (the Runai never mine it either) | Veilstone Mine |
 | Palisade | stays timber; no new palisade | stays timber; no new palisade | **Wooden Wall** — raised automatically to its one cultured level; keeps building it |
 
 > **The capital (2026-10-03).** The Shelter becomes the **Fortress** for every

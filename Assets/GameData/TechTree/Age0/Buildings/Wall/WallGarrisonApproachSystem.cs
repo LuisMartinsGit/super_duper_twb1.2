@@ -63,7 +63,18 @@ namespace TheWaningBorder.Systems.Buildings
                     continue;
                 }
 
-                if (Idle(em, u)) WallGarrison.CancelApproach(em, u);
+                if (Idle(em, u))
+                {
+                    // A FARM TAKES A WORKER WHOSE WALK ENDED CLOSE BY (2026-11-11,
+                    // overnight AI tuning): the edge point beside a packed row of
+                    // Farms or a cliff is often unreachable, the walk stops short,
+                    // and the approach was dropped -- Expert Economic sent Workers
+                    // 93 times into Farms that stayed empty.
+                    if (em.HasComponent<FarmTag>(building)
+                        && WallGarrison.WithinFarmIdleEntry(em, u, building))
+                        WallGarrison.Enter(em, u, building);
+                    WallGarrison.CancelApproach(em, u);
+                }
             }
         }
 

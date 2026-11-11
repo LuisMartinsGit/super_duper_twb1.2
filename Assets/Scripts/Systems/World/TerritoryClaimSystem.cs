@@ -941,10 +941,7 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>
         /// Structures that LOCK a territory (Territory_Claims.md §3): a
-        /// building on a resource node, a Fortress, a curse node — and the
-        /// Alanthor Trading Outpost, which stands beside its outcrop rather than
-        /// on it but is that culture's node building
-        /// (docs/Design/Veilstone_Economy.md §3.1).
+        /// building on a resource node, a Fortress, a curse node.
         /// </summary>
         public static bool IsLocking(EntityManager em, Entity e)
             => em.HasComponent<FortressTag>(e)
@@ -953,7 +950,6 @@ namespace TheWaningBorder.Systems.World
             || (em.HasComponent<GathererHutTag>(e) && !em.HasComponent<DepletedHutTag>(e))
             || em.HasComponent<MineTag>(e)
             || em.HasComponent<VeilstoneMineTag>(e)
-            || em.HasComponent<TradingOutpostTag>(e)
             || em.HasComponent<RunaiSanctuaryTag>(e)   // the Runai node building (Age_1_Runai.md §5.1)
             || em.HasComponent<SmallNodeTag>(e);
 

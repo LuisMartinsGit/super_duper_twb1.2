@@ -3,10 +3,12 @@
 // top-left) to live match state. Four fixed step rows, found by node name:
 //   Step_Special  — build a choice building (Vault / Keep)
 //   Step_Culture  — select a culture and age up (Era 2)
-//   Step_Temple   — 3A: build the Temple, upgrade it through the ages,
-//                   then claim every curse node with the culture's verb
-//                   (Alanthor purify / Runai pacify / Feraldis destroy)
-//   Step_Military — 3B: destroy all other players
+//   Step_Temple   — 3: the ways to win (decision 54): conquest (rivals
+//                   left) and Sanctum dominion (held / on the map, and the
+//                   countdown while it runs)
+//   Step_Military — 3, cont.: the Shardroot (ruins explored, who carries
+//                   it, the ascension countdown) — never its hidden spot
+// The old "cleanse the curse nodes" step is gone with that victory.
 // Step states: pending = dim, active = white, done = dim + strikethrough.
 //
 // COLLAPSIBLE AND OUT OF THE WAY (2026-11-10, developer: it sat in front of
@@ -22,6 +24,7 @@ using TMPro;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;
+using TheWaningBorder.Core;
 using TheWaningBorder.Core.Config;
 using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Entities;
@@ -69,30 +72,29 @@ namespace TheWaningBorder.UI.Ingame
             ComponentType.ReadOnly<HallTag>(),
             ComponentType.ReadOnly<FactionTag>(),
         };
-        private static readonly ComponentType[] TempleQueryTypes =
-        {
-            ComponentType.ReadOnly<TempleOfRidanTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        private static readonly ComponentType[] WellQueryTypes =
-        {
-            ComponentType.ReadOnly<BorderMainNodeTag>(),
-            ComponentType.ReadOnly<BorderNodeState>(),
-        };
         private static readonly ComponentType[] BuildingQueryTypes =
         {
             ComponentType.ReadOnly<BuildingTag>(),
             ComponentType.ReadOnly<FactionTag>(),
         };
-        private static readonly ComponentType[] VictoryQueryTypes =
+        private static readonly ComponentType[] MonumentQueryTypes =
         {
-            ComponentType.ReadOnly<NodeVictoryState>(),
+            ComponentType.ReadOnly<MonumentTag>(),
+            ComponentType.ReadOnly<MonumentState>(),
+        };
+        private static readonly ComponentType[] ShardrootQueryTypes =
+        {
+            ComponentType.ReadOnly<ShardrootState>(),
+        };
+        private static readonly ComponentType[] HiddenQueryTypes =
+        {
+            ComponentType.ReadOnly<ShardrootHidden>(),
         };
         private TheWaningBorder.Core.CachedEntityQuery _hallQuery;
-        private TheWaningBorder.Core.CachedEntityQuery _templeQuery;
-        private TheWaningBorder.Core.CachedEntityQuery _wellQuery;
         private TheWaningBorder.Core.CachedEntityQuery _buildingQuery;
-        private TheWaningBorder.Core.CachedEntityQuery _victoryQuery;
+        private TheWaningBorder.Core.CachedEntityQuery _monumentQuery;
+        private TheWaningBorder.Core.CachedEntityQuery _shardrootQuery;
+        private TheWaningBorder.Core.CachedEntityQuery _hiddenQuery;
 
         private void Awake()
         {
@@ -264,120 +266,40 @@ namespace TheWaningBorder.UI.Ingame
             Set(_stepCulture, Loc.T("2. Select a culture and age up"), gate ? Active : Dim);
         }
 
-        // ── Step 3A: temple path ───────────────────────────────────────────
+        // ── Step 3: the ways to win (decision 54) ──────────────────────────
+        //
+        // Every live victory with its progress (Territory_Claims.md § 7):
+        // conquest (last side standing, Teams.md), Sanctum dominion (§ 11.4)
+        // and the Shardroot ascension (Monuments_And_Petriarchy.md § 3,
+        // Heroes.md § 4). The retired curse-node victory is gone. Dim until
+        // the faction has aged up, as the two opening steps lead there.
+        //   Step_Temple   — the header, conquest and Sanctum dominion
+        //   Step_Military — the Shardroot (two lines)
 
         private void RefreshTemple(EntityManager em, Faction faction)
         {
             if (_stepTemple == null) return;
+            bool aged = FactionColors.GetFactionCulture(faction) != Cultures.None;
 
-            byte culture = FactionColors.GetFactionCulture(faction);
-            if (culture == Cultures.None)
-            {
-                Set(_stepTemple,
-                    Loc.T("3A. Build the Temple, ascend the ages,\n     then cleanse the curse nodes"),
-                    Dim);
-                return;
-            }
-
-            // Temple presence + level.
-            Entity temple = Entity.Null;
-            bool building = false;
-            var q = _templeQuery.Get(em, TempleQueryTypes);
-            using (var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp))
-            {
-                for (int i = 0; i < ents.Length; i++)
-                {
-                    if (em.GetComponentData<FactionTag>(ents[i]).Value != faction) continue;
-                    temple = ents[i];
-                    building = em.HasComponent<UnderConstruction>(ents[i]);
-                    break;
-                }
-            }
-
-            // The verb variable stays English; Loc.T translates it at each
-            // composition site below.
-            string verb = culture == Cultures.Runai ? "Pacify"
-                : culture == Cultures.Feraldis ? "Destroy" : "Purify";
-            var sb = new System.Text.StringBuilder(160);
-
-            // Phase 1: build the Temple.
-            if (temple == Entity.Null)
-            {
-                Set(_stepTemple,
-                    string.Format(
-                        Loc.T("3A. Build the Temple of Ridan,\n     then {0} the curse nodes"),
-                        Loc.T(verb).ToLowerInvariant()),
-                    Active);
-                return;
-            }
-            if (building)
-            {
-                Set(_stepTemple, Loc.T("3A. Temple of Ridan - under construction"), Active);
-                return;
-            }
-            sb.Append(Loc.T("<s>3A. Build the Temple of Ridan</s>")).Append('\n');
-
-            // Phase 2: claim every curse node with the culture verb.
-            CountWells(em, faction, culture, out int claimed, out int total);
-            if (total > 0 && claimed >= total)
-            {
-                float hold = HoldRemaining(em, culture);
-                if (hold > 0f)
-                    sb.Append(string.Format(
-                        Loc.T("     {0} the curse nodes ({1}/{2}) - hold {3:0.0}s"),
-                        Loc.T(verb), claimed, total, hold));
-                else
-                    sb.Append(string.Format(
-                        Loc.T("<s>     {0} the curse nodes ({1}/{2})</s>"),
-                        Loc.T(verb), claimed, total));
-            }
-            else
-            {
-                sb.Append(string.Format(
-                    Loc.T("     {0} the curse nodes ({1}/{2})"),
-                    Loc.T(verb), claimed, total));
-            }
-            Set(_stepTemple, sb.ToString(), Active);
+            var sb = new System.Text.StringBuilder(200);
+            sb.Append(Loc.T("3. Win the match, any one way:"));
+            sb.Append('\n').Append(ConquestLine(em, faction));
+            string sanctum = SanctumLine(em, faction);
+            if (sanctum != null) sb.Append('\n').Append(sanctum);
+            Set(_stepTemple, sb.ToString(), aged ? Active : Dim);
         }
 
-        private void CountWells(EntityManager em, Faction faction, byte culture,
-            out int claimed, out int total)
+        /// <summary>Conquest: hostile sides still standing, of all hostile
+        /// sides (last side standing, Teams.md). A side stands while it owns a
+        /// finished building — the rule VictoryConditionSystem used, close
+        /// enough for a progress line.</summary>
+        private string ConquestLine(EntityManager em, Faction faction)
         {
-            claimed = 0;
-            total = 0;
-            NodeState want = culture == Cultures.Runai ? NodeState.Converted
-                : culture == Cultures.Feraldis ? NodeState.Destroyed : NodeState.Cleansed;
+            int players = Mathf.Clamp(GameSettings.TotalPlayers, 0, (int)Faction.Border);
+            int rivals = 0;
+            for (int f = 0; f < players; f++)
+                if ((Faction)f != faction && Alliances.AreHostile(faction, (Faction)f)) rivals++;
 
-            var q = _wellQuery.Get(em, WellQueryTypes);
-            using var states = q.ToComponentDataArray<BorderNodeState>(Unity.Collections.Allocator.Temp);
-            total = states.Length;
-            for (int i = 0; i < states.Length; i++)
-                if (states[i].State == want && states[i].OwnerFaction == faction)
-                    claimed++;
-        }
-
-        private float HoldRemaining(EntityManager em, byte culture)
-        {
-            // Feraldis destruction wins instantly — no hold timer.
-            if (culture == Cultures.Feraldis) return 0f;
-            var q = _victoryQuery.Get(em, VictoryQueryTypes);
-            if (q.IsEmptyIgnoreFilter) return 0f;
-            var v = q.GetSingleton<NodeVictoryState>();
-            float timer = culture == Cultures.Runai ? v.RunaiHoldTimer : v.AlanthorHoldTimer;
-            return Mathf.Max(0f, BorderConstants.NodeVictoryHoldTime - timer);
-        }
-
-        // ── Step 3B: destroy the other players ─────────────────────────────
-
-        private void RefreshMilitary(EntityManager em, Faction faction)
-        {
-            if (_stepMilitary == null) return;
-
-            byte culture = FactionColors.GetFactionCulture(faction);
-            int opponents = Mathf.Max(0, GameSettings.TotalPlayers - 1);
-
-            // A faction is alive while it owns at least one completed
-            // building — same rule as VictoryConditionSystem.
             var alive = new System.Collections.Generic.HashSet<Faction>();
             var q = _buildingQuery.Get(em, BuildingQueryTypes);
             using (var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp))
@@ -386,24 +308,114 @@ namespace TheWaningBorder.UI.Ingame
                 for (int i = 0; i < ents.Length; i++)
                 {
                     var fac = facs[i].Value;
-                    if (fac == faction || fac >= Faction.Border) continue;
-                    if (alive.Contains(fac)) continue;
+                    if (fac == faction || fac >= Faction.Border || (int)fac >= players) continue;
+                    if (alive.Contains(fac) || !Alliances.AreHostile(faction, fac)) continue;
                     if (em.HasComponent<UnderConstruction>(ents[i])) continue;
                     alive.Add(fac);
                 }
             }
-            int aliveOpponents = Mathf.Min(alive.Count, opponents);
-            int destroyed = opponents - aliveOpponents;
+            int left = Mathf.Min(alive.Count, rivals);
+            return rivals > 0 && left == 0
+                ? string.Format(Loc.T("<s>   Conquest - rivals left ({0}/{1})</s>"), left, rivals)
+                : string.Format(Loc.T("   Conquest - rivals left ({0}/{1})"), left, rivals);
+        }
 
-            if (opponents > 0 && aliveOpponents == 0)
-                Set(_stepMilitary,
-                    string.Format(Loc.T("<s>3B. Destroy all other players ({0}/{1})</s>"),
-                        destroyed, opponents), Done);
-            else
-                Set(_stepMilitary,
-                    string.Format(Loc.T("3B. Destroy all other players ({0}/{1})"),
-                        destroyed, opponents),
-                    culture == Cultures.None ? Dim : Active);
+        /// <summary>Sanctum dominion: Sanctums your side holds (allies count
+        /// together, as the dominion does) of all on the map, and the running
+        /// countdown — public to every player (§ 11.4). Null on a map with no
+        /// Sanctum.</summary>
+        private static string SanctumLine(EntityManager em, Faction faction)
+        {
+            if (!TheWaningBorder.World.Regions.RegionMap.Ready
+                || !TheWaningBorder.World.Regions.TerritoryOwnership.Ready) return null;
+            int total = 0, held = 0;
+            for (int t = 0; t < TheWaningBorder.World.Regions.RegionMap.Count; t++)
+            {
+                if (!TheWaningBorder.World.Regions.TerritoryResources.IsSanctum(t)) continue;
+                total++;
+                int owner = TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t);
+                if (owner >= 0 && owner < (int)Faction.Border && Alliances.AreAllied(faction, (Faction)owner))
+                    held++;
+            }
+            if (total == 0) return null;
+
+            if (TheWaningBorder.Systems.Economy.SanctumSystem.TryCountdown(em, out var holder, out float left))
+            {
+                string time = CountdownWarnings.Clock(left);
+                return CountdownWarnings.SideOf(holder) == CountdownSide.Own
+                    ? string.Format(Loc.T("   Sanctum dominion - held {0}/{1}, you win in {2}"), held, total, time)
+                    : string.Format(Loc.T("   Sanctum dominion - held {0}/{1}, {2} wins in {3}"),
+                        held, total, FactionColors.RichName(holder), time);
+            }
+            return string.Format(Loc.T("   Sanctum dominion - held {0}/{1}"), held, total);
+        }
+
+        /// <summary>The Shardroot: ruins you explored of all monuments, then
+        /// where it stands — only what this player may know. Its spot is
+        /// private until someone picks it up (Monuments_And_Petriarchy.md
+        /// § 3): before that the line says only whether YOU know it.</summary>
+        private void RefreshMilitary(EntityManager em, Faction faction)
+        {
+            if (_stepMilitary == null) return;
+            bool aged = FactionColors.GetFactionCulture(faction) != Cultures.None;
+
+            int monuments, explored = 0;
+            var mq = _monumentQuery.Get(em, MonumentQueryTypes);
+            using (var states = mq.ToComponentDataArray<MonumentState>(Unity.Collections.Allocator.Temp))
+            {
+                monuments = states.Length;
+                for (int i = 0; i < states.Length; i++)
+                    if (Monument.HasExplored(states[i], faction)) explored++;
+            }
+
+            var sb = new System.Text.StringBuilder(160);
+            sb.Append(monuments > 0
+                ? string.Format(Loc.T("   Shardroot - ruins explored ({0}/{1})"), explored, monuments)
+                : Loc.T("   Shardroot"));
+            sb.Append('\n').Append(ShardrootStatus(em, faction));
+            Set(_stepMilitary, sb.ToString(), aged ? Active : Dim);
+        }
+
+        private string ShardrootStatus(EntityManager em, Faction faction)
+        {
+            var sq = _shardrootQuery.Get(em, ShardrootQueryTypes);
+            ShardrootState st = default;
+            bool hasState = !sq.IsEmptyIgnoreFilter;
+            if (hasState)
+            {
+                using var arr = sq.ToComponentDataArray<ShardrootState>(Unity.Collections.Allocator.Temp);
+                if (arr.Length > 0) st = arr[0];
+            }
+
+            // Enshrined: the ascension countdown is public (§ 7).
+            if (TheWaningBorder.Systems.Border.ShardrootSystem.TryAscensionCountdown(em, out var temple, out float left))
+            {
+                string time = CountdownWarnings.Clock(left);
+                return CountdownWarnings.SideOf(temple) == CountdownSide.Own
+                    ? string.Format(Loc.T("     enshrined in your Temple - you ascend in {0}"), time)
+                    : string.Format(Loc.T("     enshrined by {0} - ascends in {1}"), FactionColors.RichName(temple), time);
+            }
+            // Carried: public once picked up (the minimap beacon shows it).
+            if (hasState && st.HolderFaction != Faction.Border)
+                return st.HolderFaction == faction
+                    ? Loc.T("     carried by your hero - enshrine it in the Temple")
+                    : string.Format(Loc.T("     carried by {0}"), FactionColors.RichName(st.HolderFaction));
+
+            // Still hidden (or not laid yet): say only whether this player has
+            // learned the spot by exploring the right ruins.
+            var hq = _hiddenQuery.Get(em, HiddenQueryTypes);
+            if (!hq.IsEmptyIgnoreFilter || !hasState || st.Found == 0)
+            {
+                bool known = false;
+                using (var hidden = hq.ToComponentDataArray<ShardrootHidden>(Unity.Collections.Allocator.Temp))
+                    for (int i = 0; i < hidden.Length; i++)
+                        if ((hidden[i].RevealedTo & (1u << (int)faction)) != 0) known = true;
+                return known
+                    ? Loc.T("     found - send a hero to take it")
+                    : Loc.T("     hidden - explore ruins to find it");
+            }
+            // Picked up once and set down: public, nobody holds it.
+            return Loc.T("     loose - no one holds it");
         }
 
         // ── Helpers ────────────────────────────────────────────────────────

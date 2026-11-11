@@ -64,7 +64,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                 Description =
                     "Your town is built. Age up to Alanthor and win the match.\n\n"
                     + "1. Build the Vault of Almiérra and age up\n"
-                    + "2. The Alanthor economy: Guilds and Trading Outposts\n"
+                    + "2. The Alanthor economy: Guilds and Mines\n"
                     + "3. The Alanthor army\n"
                     + "4. Walls, towers and claiming territory\n"
                     + "5. Religion Points, the Temple and the sects\n"

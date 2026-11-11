@@ -157,7 +157,6 @@ namespace TheWaningBorder.AI
             ScanBuilt(em, AIQueryCache.TagFactionXf<GathererHutTag>(em), faction, now);
             ScanBuilt(em, AIQueryCache.TagFactionXf<MineTag>(em), faction, now);
             ScanBuilt(em, AIQueryCache.TagFactionXf<VeilstoneMineTag>(em), faction, now);
-            ScanBuilt(em, AIQueryCache.TagFactionXf<TradingOutpostTag>(em), faction, now);
         }
 
         private void ScanBuilt(EntityManager em, EntityQuery q, Faction faction, float now)

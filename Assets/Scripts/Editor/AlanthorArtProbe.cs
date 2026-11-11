@@ -40,7 +40,7 @@ namespace TheWaningBorder.EditorTools
     {
         static readonly string[] Ladders = {
             "Fortress", "Barracks", "Hut", "GatherersHut", "Mine", "ArcheryRange", "Alanthor_RoyalStable",
-            "Alanthor_SiegeYard", "Alanthor_Tower", "Alanthor_TradingOutpost", "VaultOfAlmierra" };
+            "Alanthor_SiegeYard", "Alanthor_Tower", "VaultOfAlmierra" };
         static readonly List<GameObject> _showcase = new List<GameObject>();
         static float3 _showcaseAt;
 

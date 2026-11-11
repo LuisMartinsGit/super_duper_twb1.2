@@ -19,7 +19,7 @@
 //     minute) into a node it could not beat;
 //   * a lost hut was rebuilt only when the 15 s extractor walk found the bank
 //     at 120 supplies — and the capital's L2 savings goal (447 supplies), the
-//     Fortress pot and the Outpost pot held every trickle, the army floor
+//     Fortress pot (and the since-retired Outpost pot) held every trickle, the army floor
 //     included ("pivotal hold (saving) short supplies"). Huts came back 13
 //     minutes after their claim; the army stayed at 3-17 against a desired
 //     45, and Yellow's wave razed the Fortress at 25:47.
@@ -45,7 +45,6 @@ using TheWaningBorder.Core.Settings;
 using TheWaningBorder.Data;
 using TheWaningBorder.Economy;
 using TheWaningBorder.World.Regions;
-using RebuildOutpost = TheWaningBorder.Entities.TradingOutpost;   // avoids the DC0062 Entities.ForEach misread
 
 namespace TheWaningBorder.AI
 {
@@ -120,13 +119,13 @@ namespace TheWaningBorder.AI
         private readonly List<(int, int, int)> _econSeenDrop = new List<(int, int, int)>();
 
         /// <summary>AIPivotalReserve key of an owed extractor rebuild (strict:
-        /// it outranks the capital, the Fortress and the Outpost pots).</summary>
+        /// it outranks the capital and the Fortress pots).</summary>
         private const string ExtractorRebuildKey = "ExtractorRebuild";
 
         /// <summary>The extractors a loss makes owed, by kind index. A roster
         /// table of building ids, not tuning.</summary>
         private static readonly string[] RebuildIds =
-            { "GatherersHut", "Mine", "VeilstoneMine", RebuildOutpost.BuildingId };
+            { "GatherersHut", "Mine", "VeilstoneMine" };
 
         private void ResetEconomyDefenceIfNewMatch()
         {
@@ -321,7 +320,7 @@ namespace TheWaningBorder.AI
                     if (facs[i].Value != faction || hps[i].Value <= 0) continue;
                     var e = ents[i];
                     if (!(em.HasComponent<GathererHutTag>(e) || em.HasComponent<MineTag>(e)
-                          || em.HasComponent<VeilstoneMineTag>(e) || em.HasComponent<TradingOutpostTag>(e)
+                          || em.HasComponent<VeilstoneMineTag>(e)
                           || em.HasComponent<HutTag>(e))) continue;
                     TryAddEconIncident(em, faction, xfs[i].Position, atk[i].Value);
                 }
@@ -437,18 +436,15 @@ namespace TheWaningBorder.AI
             {
                 case 0: return CountFactionBuildings<GathererHutTag>(em, faction);
                 case 1: return CountFactionBuildings<MineTag>(em, faction);
-                case 2: return CountFactionBuildings<VeilstoneMineTag>(em, faction);
-                default: return CountFactionBuildings<TradingOutpostTag>(em, faction);
+                default: return CountFactionBuildings<VeilstoneMineTag>(em, faction);
             }
         }
 
         /// <summary>Can this faction raise this extractor at all (culture:
-        /// Alanthor trades beside veilstone, everyone else mines it)?</summary>
+        /// the Runai never mine veilstone; Alanthor do since decision 42)?</summary>
         private static bool RebuildAllowed(EntityManager em, Faction faction, int kind)
         {
-            bool alanthor = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Alanthor;
-            if (kind == 2 && alanthor) return false;
-            if (kind == 3 && !alanthor) return false;
+            if (kind == 2 && CultureConfig.GetCompletedCulture(em, faction) == Cultures.Runai) return false;
             return TechCatalog.TryGetBuilding(RebuildIds[kind], out var def) && def != null;
         }
 
@@ -456,7 +452,7 @@ namespace TheWaningBorder.AI
         /// Once a think: a drop in an extractor count is a loss, and the lost
         /// kind is owed a rebuild for extractorRebuildWindowSeconds (or until
         /// the count is back). While owed, a strict savings goal holds its
-        /// price — above the capital's level, the Fortress and the Outposts —
+        /// price — above the capital's level and the Fortress —
         /// and the extractor walk runs every few seconds with it first.
         /// Ground lost with the building (no free node of the kind left in
         /// held territory) drops the debt.
@@ -508,9 +504,7 @@ namespace TheWaningBorder.AI
                     AILogger.Log(faction, "ECON", $"rebuild of {bid} dropped — no free node in held ground");
                     return;
                 }
-                var cost = kind == 3
-                    ? BuildCosts.For(em, faction, bid, _freeNodes[0])
-                    : (TechCatalog.TryGetBuilding(bid, out var def) && def != null ? AICommon.ToCost(def.cost) : default);
+                var cost = TechCatalog.TryGetBuilding(bid, out var def) && def != null ? AICommon.ToCost(def.cost) : default;
                 AIPivotalReserve.Set(faction, ExtractorRebuildKey, cost, strict: true);
             }
             else AIPivotalReserve.Clear(faction, ExtractorRebuildKey);
@@ -533,7 +527,6 @@ namespace TheWaningBorder.AI
             NoteExtractorEntities(em, AIQueryCache.TagFactionXf<GathererHutTag>(em), faction, 0);
             NoteExtractorEntities(em, AIQueryCache.TagFactionXf<MineTag>(em), faction, 1);
             NoteExtractorEntities(em, AIQueryCache.TagFactionXf<VeilstoneMineTag>(em), faction, 2);
-            NoteExtractorEntities(em, AIQueryCache.TagFactionXf<TradingOutpostTag>(em), faction, 3);
 
             _extractorGone.Clear();
             foreach (var kv in _extractorSeen)
@@ -648,7 +641,7 @@ namespace TheWaningBorder.AI
         /// economyAttackLingerSeconds), or REBUILDING (an extractor owed).
         /// While it is, every ordinary savings goal pauses
         /// (AIPivotalReserve.SetSuspended) — the capital's level saving, the
-        /// Fortress and Outpost pots — and the Vault releases its supplies;
+        /// Fortress pot — and the Vault releases its supplies;
         /// strict goals (the age-up landmark, a lost trainer, the rebuild)
         /// keep holding.
         /// </summary>

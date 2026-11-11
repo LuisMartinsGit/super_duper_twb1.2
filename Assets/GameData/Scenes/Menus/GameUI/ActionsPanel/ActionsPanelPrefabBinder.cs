@@ -85,8 +85,9 @@ namespace TheWaningBorder.UI.Ingame
         private static readonly HashSet<string> EconomyBuildings = new()
         {
             "Hut", "GatherersHut", "Mine", "VeilstoneMine",
-            "Alanthor_TradingOutpost", "Feraldis_GreatForge", "Runai_Sanctuary",
+            "Feraldis_GreatForge", "Runai_Sanctuary",
             "Feraldis_HuntingLodge", "Feraldis_LoggingStation",
+            "Alanthor_Farm", "Alanthor_Market",
         };
         // The Fortress sits in the Defense row of the build palette
         // (2026-10-22), so it is tinted with the row.
@@ -100,7 +101,7 @@ namespace TheWaningBorder.UI.Ingame
         // order within the row. An id the table does not name joins the row
         // its colour category implies, after the named ones, in catalog
         // order — so a new building is never dropped from the palette.
-        // THE PALETTE IS 4 x 4 (2026-11-02, developer): economy (green) /
+        // THE PALETTE IS 5 x 4 (2026-11-02 4 x 4; a fifth column 2026-11-11, developer): economy (green) /
         // military (red) / three defensive (blue) + the Temple (gold) /
         // the sect buildings (purple), shown greyed until their sect is
         // adopted, so the grid never reflows as the match goes on.
@@ -108,8 +109,8 @@ namespace TheWaningBorder.UI.Ingame
 
         private static readonly string[][] BuildOrder =
         {
-            // Economy: Guild, Mine, Trader's Post, House
-            new[] { "GatherersHut", "Mine", "Alanthor_TradingOutpost", "Hut",
+            // Economy: Guild, Mine, Farm, House, then the Market (decision 55)
+            new[] { "GatherersHut", "Mine", "Alanthor_Farm", "Hut", "Alanthor_Market",
                     "Feraldis_GreatForge" },
             // Training: Barracks, Archery Range, Royal Stables, Siege Yard
             new[] { "Barracks", "ArcheryRange", "Alanthor_RoyalStable", "Alanthor_SiegeYard",
@@ -123,7 +124,10 @@ namespace TheWaningBorder.UI.Ingame
                     "Sect_Treasury", "Sect_MusterYard", "Feraldis_WarTotem" },
         };
         /// <summary>Columns of the build palette (the action grid keeps Cols).</summary>
-        private const int PaletteCols = 4;
+        // 5 x 4 since 2026-11-11 (developer): the Farm and the Market made
+        // Alanthor's economy row five wide; the palette now uses the action
+        // grid's full five columns.
+        private const int PaletteCols = 5;
 
         private static BuildRow BuildRowOf(string id)
         {

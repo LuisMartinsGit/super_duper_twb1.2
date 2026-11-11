@@ -143,6 +143,10 @@ namespace TheWaningBorder.Systems.Buildings
                 TWBLog.Log(
                     $"[Upgrade] auto-L{target} — {faction} entity {e.Index} (faction level for its type)");
             }
+
+            // Decision 53: the levels a faction holds grant their tier techs
+            // (rule and determinism notes on the method). Same cadence.
+            FactionBuildingLevels.GrantLevelTechs(em);
         }
 
         /// <summary>

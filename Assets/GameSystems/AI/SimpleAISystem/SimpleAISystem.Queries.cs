@@ -221,9 +221,9 @@ namespace TheWaningBorder.AI
         /// <summary>The faction's Gatherer's Huts that still WORK a supply
         /// node (sites and plans included): every hut minus the depleted ones,
         /// whose node collapsed under them (Territory_Claims.md § 11.3,
-        /// 2026-10-19). A depleted hut keeps standing — its Guild surveys
-        /// still pay — but it is not a working extractor, so it must not
-        /// fill the hut cap and stop the AI founding huts on fresh nodes.</summary>
+        /// 2026-10-19; decision 56). A depleted hut keeps standing, but it is
+        /// not a working extractor, so it must not fill the hut cap and stop
+        /// the AI founding huts on fresh nodes.</summary>
         private static int CountWorkingHuts(EntityManager em, Faction faction)
         {
             int n = CountFactionBuildings<GathererHutTag>(em, faction);

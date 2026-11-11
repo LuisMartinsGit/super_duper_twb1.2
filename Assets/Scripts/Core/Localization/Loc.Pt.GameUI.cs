@@ -274,33 +274,29 @@ namespace TheWaningBorder.Core.Localization
                 "<s>2. Selecione uma cultura e avance de era</s>";
             t["2. Advancing to Era 2 - {0}%"] = "2. A avançar para a Era 2 - {0}%";
             t["2. Select a culture and age up"] = "2. Selecione uma cultura e avance de era";
-            t["3A. Build the Temple, ascend the ages,\n     then cleanse the curse nodes"] =
-                "3A. Construa o Templo, ascenda pelas eras,\n     depois purgue os nós da maldição";
             t["Pacify"] = "Pacificar";
             t["Destroy"] = "Destruir";
             t["Purify"] = "Purificar";
-            t["3A. Build the Temple of Ridan,\n     then {0} the curse nodes"] =
-                "3A. Construa o Templo de Ridan,\n     depois {0} os nós da maldição";
-            t["3A. Temple of Ridan - under construction"] =
-                "3A. Templo de Ridan - em construção";
-            t["<s>3A. Build the Temple of Ridan</s>"] =
-                "<s>3A. Construa o Templo de Ridan</s>";
-            t["     Upgrade the Temple (Lv {0}, upgrading {1}%)"] =
-                "     Melhore o Templo (Nv {0}, a melhorar {1}%)";
-            t["     Upgrade the Temple to age up (Lv {0} of {1})"] =
-                "     Melhore o Templo para avançar de era (Nv {0} de {1})";
-            t["<s>     Upgrade the Temple to age up</s>"] =
-                "<s>     Melhore o Templo para avançar de era</s>";
-            t["     {0} the curse nodes ({1}/{2}) - hold {3:0.0}s"] =
-                "     {0} os nós da maldição ({1}/{2}) - mantenha {3:0.0}s";
-            t["<s>     {0} the curse nodes ({1}/{2})</s>"] =
-                "<s>     {0} os nós da maldição ({1}/{2})</s>";
-            t["     {0} the curse nodes ({1}/{2})"] =
-                "     {0} os nós da maldição ({1}/{2})";
-            t["<s>3B. Destroy all other players ({0}/{1})</s>"] =
-                "<s>3B. Destrua todos os outros jogadores ({0}/{1})</s>";
-            t["3B. Destroy all other players ({0}/{1})"] =
-                "3B. Destrua todos os outros jogadores ({0}/{1})";
+            // Step 3: the ways to win (decision 54)
+            t["3. Win the match, any one way:"] = "3. Vença a partida, de qualquer uma destas formas:";
+            t["   Conquest - rivals left ({0}/{1})"] = "   Conquista - rivais restantes ({0}/{1})";
+            t["<s>   Conquest - rivals left ({0}/{1})</s>"] = "<s>   Conquista - rivais restantes ({0}/{1})</s>";
+            t["   Sanctum dominion - held {0}/{1}"] = "   Domínio dos Santuários - detidos {0}/{1}";
+            t["   Sanctum dominion - held {0}/{1}, you win in {2}"] =
+                "   Domínio dos Santuários - detidos {0}/{1}, vence em {2}";
+            t["   Sanctum dominion - held {0}/{1}, {2} wins in {3}"] =
+                "   Domínio dos Santuários - detidos {0}/{1}, {2} vence em {3}";
+            t["   Shardroot"] = "   Shardroot";
+            t["   Shardroot - ruins explored ({0}/{1})"] = "   Shardroot - ruínas exploradas ({0}/{1})";
+            t["     enshrined in your Temple - you ascend in {0}"] =
+                "     consagrado no seu Templo - ascende em {0}";
+            t["     enshrined by {0} - ascends in {1}"] = "     consagrado por {0} - ascende em {1}";
+            t["     carried by your hero - enshrine it in the Temple"] =
+                "     levado pelo seu herói - consagre-o no Templo";
+            t["     carried by {0}"] = "     levado por {0}";
+            t["     found - send a hero to take it"] = "     encontrado - envie um herói para o tomar";
+            t["     hidden - explore ruins to find it"] = "     escondido - explore ruínas para o encontrar";
+            t["     loose - no one holds it"] = "     solto - ninguém o detém";
 
             // ── FormationsPanelBinder (Labels[]/Tips[] stay English) ───────
             t["FORMATION  (X to cycle)"] = "FORMAÇÃO  (X para alternar)";
@@ -359,6 +355,17 @@ namespace TheWaningBorder.Core.Localization
             t["No territory yet."] = "Ainda sem território.";
             t["of which Trading Outposts"] = "dos quais Entrepostos Comerciais";
             t["+{0} more"] = "+{0} mais";
+            // Decision 55 (2026-11-11): the Farm and the Market.
+            t["Farms ({0}, {1} Workers)"] = "Quintas ({0}, {1} Trabalhadores)";
+            t["Market"] = "Mercado";
+            t["The Market spends {0} supplies a minute in all ({1} on {2})."] = "O Mercado gasta {0} mantimentos por minuto no total ({1} em {2}).";
+            t["Fixed price: {0} supplies for 1 {1}. Nothing is bought while the bank cannot pay."] = "Preço fixo: {0} mantimentos por 1 de {1}. Nada é comprado enquanto o tesouro não puder pagar.";
+            t["Buy less {0}"] = "Comprar menos {0}";
+            t["Buy more {0}"] = "Comprar mais {0}";
+            t["-{0} a minute (Shift: -{1})."] = "-{0} por minuto (Shift: -{1}).";
+            t["+{0} a minute (Shift: +{1}). No ceiling: the bank is the only limit."] = "+{0} por minuto (Shift: +{1}). Sem teto: o único limite é o tesouro.";
+            t["Buying {0} {1} a minute for {2} supplies"] = "A comprar {0} de {1} por minuto por {2} mantimentos";
+            t["Click to stop buying it."] = "Clica para deixar de comprar.";
             t["Every iron and veilstone slot your Mines and Veilstone Mines work pays +20%."] = "Cada nó de ferro e veilstone trabalhado pelas tuas Minas e Minas de Veilstone rende +20%.";
             t["Every iron and veilstone slot your Mines and Veilstone Mines work pays +40% (replaces Deep Shafts)."] = "Cada nó de ferro e veilstone trabalhado pelas tuas Minas e Minas de Veilstone rende +40% (substitui Poços Profundos).";
             t["Trade Charters"] = "Cartas de Comércio";
@@ -380,6 +387,15 @@ namespace TheWaningBorder.Core.Localization
             t["Holds its node: the node stops at its last unit and this post keeps paying."] = "Segura o seu nó: o nó pára na última unidade e este posto continua a render.";
             t["{0} in {1} ran dry — raise a Trading Outpost beside it within {2} minutes or it is lost"] = "{0} em {1} esgotou — ergue um Entreposto Comercial ao lado dentro de {2} minutos ou perde-se";
             t["{0} in {1} is worked out — its Trading Outposts keep it, the extractor collapsed"] = "{0} em {1} está esgotado — os Entrepostos Comerciais mantêm-no, o extrator colapsou";
+            t["{0} in {1} ran dry — the buildings working it collapsed"] = "{0} em {1} esgotou — os edifícios que o exploravam colapsaram";
+            t["{0} in {1} ran dry — the building working it is depleted"] = "{0} em {1} esgotou — o edifício que o explorava ficou esgotado";
+            t["{0} in {1} ran dry"] = "{0} em {1} esgotou";
+            t["A supply node"] = "Um nó de mantimentos";
+            t["An iron node"] = "Um nó de ferro";
+            t["A veilstone outcrop"] = "Um afloramento de veilstone";
+            t["the wilds"] = "as terras selvagens";
+            t["{0} (Depleted)"] = "{0} (Esgotado)";
+            t["Depleted — its supply node ran dry. It pays nothing."] = "Esgotado — o seu nó de mantimentos esgotou. Não rende nada.";
             t["Post {0} of {1} beside its node"] = "Posto {0} de {1} junto ao seu nó";
             t["Falls with its node when the node runs dry — stop its extractor in time."] = "Cai com o seu nó quando este se esgota — para o extrator a tempo.";
             t["Research Trade Charters at the Fortress (level 3) first."] = "Investiga primeiro as Cartas de Comércio na Fortaleza (nível 3).";

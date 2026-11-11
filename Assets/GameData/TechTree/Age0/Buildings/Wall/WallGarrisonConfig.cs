@@ -28,6 +28,10 @@ namespace TheWaningBorder.Entities
         /// <summary>Metres outside the footprint edge the garrison walk aims
         /// at (the footprint itself is impassable).</summary>
         public float approachSlack;
+        /// <summary>A walk into a Farm that ends this close to its footprint
+        /// goes in anyway (the edge point beside a packed row or a cliff is
+        /// often unreachable). Walls and towers keep entryRange.</summary>
+        public float farmIdleEntryRange;
 
         /// <summary>Metres outside the footprint edge where ejected or
         /// released men are stood.</summary>

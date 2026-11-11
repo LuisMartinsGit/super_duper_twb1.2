@@ -1,7 +1,24 @@
 # Veilstone Economy
 
+> **2026-11-11 ([decision 55](Unification_Decisions_2026-10-03.md)): Farms and the Market.**
+> Alanthor can earn without nodes: the **Farm** pays supplies per Worker inside it and the
+> **Market** buys iron and veilstone for supplies at fixed prices (the rules are
+> [Age_1_Alanthor.md § Farm / § Market](Age_1_Alanthor.md), the numbers `Farm.asset` and
+> `Market.asset`). Nodes stay the richer income: the Market's prices are set so that a
+> Mine's iron costs several full Farms' worth of supplies.
+
+> **2026-11-11 ([decision 56](Unification_Decisions_2026-10-03.md)) — nodes are finite
+> again, with the reserves doubled; the Trading Outpost stays retired.** Decision 55 made
+> nodes endless; decision 56 withdrew that after one test. Every node holds a finite reserve
+> (double the old one, `TerritoryIncomeSystem.asset`), drained by what its slot pays, and
+> shows a remaining bar; a spent node collapses with its extractor, except the Gatherer's Hut
+> line, which stands on as Depleted. **There is no grace window and no node held by trade**:
+> the Trading Outpost, Trade Charters, Trade Ledgers and Merchant Houses are gone (decision
+> 55 b) — every "Trading Outpost", grace and "held by trade" rule below is history.
+> Alanthor veilstone comes from Veilstone Mines (and the Market).
+
 > **2026-11-09 revision ([decision 42](Unification_Decisions_2026-10-03.md)) — read this
-> first; it overrides everything below that disagrees.**
+> first; it overrides everything below that disagrees** (except decisions 55 and 56, above).
 >
 > - **Veilsteel no longer exists.** Veilstone is the only crystal. Wherever this doc
 >   says veilsteel is made, forged, bought, sold, paid or spent, read veilstone: every
@@ -9,12 +26,11 @@
 >   Veilsteel Survey is cut. The lore of §1 stays background (lore-only, no mechanic).
 > - **Alanthor keep and build Veilstone Mines.** The age-up conversion to Trading
 >   Outposts is gone (§3.1's first row and §4's `ConvertMinesForCulture` are void).
-> - **The Trading Outpost (§3.1) is rewritten — see §3.1 below.**
+> - ~~**The Trading Outpost (§3.1) is rewritten — see §3.1 below.**~~ Retired (decision 55).
 > - **Stop extracting** (§3.5): every extractor can stop drawing on its node.
 
 > **Doc version: 2026-10-08. Canon for where veilstone and veilsteel come
-> from.** Numbers (prices, trade rates, income ladders) live on the SOs and in
-> `TradingOutpostSystem.asset`; on a conflict they win (2026-10-03,
+> from.** Numbers (prices, income ladders) live on the SOs; on a conflict they win (2026-10-03,
 > [Unification decisions](Unification_Decisions_2026-10-03.md)). Supersedes:
 >
 > - [Territory_Claims.md](Territory_Claims.md) / [Regions.md](Regions.md) §4:
@@ -53,9 +69,10 @@ Every veilstone outcrop on the map is in exactly one state:
 |---|---|---|
 | **Inactive** | Ordinary, uncursed crystal | Start state; a curse node on it is destroyed |
 | **Cursed** | A curse node stands on it | The curse builds a node on it (Territory_Claims.md §6.3) |
-| ~~**Depleted**~~ **Collapsed** (2026-10-18) | Mined out — **gone** | Its reserve reached zero: the outcrop is removed from the map with every building working it (Territory_Claims.md § 11.3) |
+| **Depleted** | Mined out — only ever the state of an outcrop on the tick it empties | Its reserve reaches zero; it then collapses (below) |
 
-**Revised 2026-10-18:** an outcrop has a **finite** reserve and no lifetime;
+**Decision 56 (2026-11-11): an outcrop is finite again** (reserve doubled, no grace, no
+Trading Outposts). **Revised 2026-10-18:** an outcrop has a **finite** reserve and no lifetime;
 when it is fully extracted it **collapses** — removed, together with the
 Veilstone Mine or Sanctuary on it and the Trading Outposts on its side slots.
 There is no Depleted outcrop any more, so nothing below that refills, trades
@@ -89,7 +106,12 @@ exists, 2026-10-18).
 | **Age 0 (no culture)** | **Veilstone Mine** on it | Destroy the curse node → pacified | nothing |
 | **Alanthor** | **Veilstone Mine** on it; after Trade Charters, up to four **Trading Outposts** beside it (any node, §3.1) | Destroy the curse node → pacified (back to Inactive) | Up to four **Trading Outposts** beside it |
 
-### 3.1 Alanthor — the Trading Outpost (rewritten 2026-11-09, decision 42)
+### 3.1 ~~Alanthor — the Trading Outpost (rewritten 2026-11-09, decision 42)~~
+
+**RETIRED 2026-11-11 ([decision 55](Unification_Decisions_2026-10-03.md)).** The Trading
+Outpost, Trade Charters, Trade Ledgers and Merchant Houses are gone; nodes never run out, so
+there is nothing for a post to hold. Income without nodes is the Farm and the Market
+([Age_1_Alanthor.md](Age_1_Alanthor.md)). The section below is history.
 
 The Outpost is Alanthor's late-game answer to nodes that run dry. It does not trade:
 it **trickles the resource of the node it stands beside, without ever drawing on that
@@ -134,9 +156,9 @@ Toggle it again to resume. Delete still works, and is the other way to stop.
 **Superseded in detail by [Age_1_Feraldis.md](Age_1_Feraldis.md) §3-4 (2026-10-12).** In short:
 
 - **Veilstone Mine** on an Inactive outcrop, **staffed by slaves**: veilstone
-  per mine level and crew, Feraldis scaled up, and every unit paid is drawn
-  from the outcrop's reserve — each slave drains it faster. A spent outcrop
-  collapses with the Mine on it (2026-10-18).
+  per mine level and crew, Feraldis scaled up — and drained that much faster:
+  the outcrop is finite and collapses when spent (decision 56, 2026-11-11, with
+  the reserves doubled).
 - **The curse pays veilstone**: a curse unit Feraldis kills pays veilstone
   (not religion points); a destroyed curse node pays **veilstone and
   veilsteel** (`curseNodeVeilstone`, `curseNodeVeilsteel` in
@@ -174,6 +196,11 @@ Toggle it again to resume. Delete still works, and is the other way to stop.
   not a preference for a faction, and is kept until decided otherwise.
 
 ## 5. Territory income (2026-10-01; data moved onto the SOs 2026-10-03)
+
+**Decision 56 (2026-11-11):** nodes are finite again (reserves doubled from the pre-55
+values), so every slot below pays until its node is spent. The Trading Outpost row is
+retired (decision 55 b): nothing pays "after the nodes" but claims, the Fortress, Farms and
+the Market. The rest of the table (who pays, where the number lives) stands.
 
 **Superseded in timing (2026-10-09):** developer: "I need deaths to start occurring from minute 15 or even earlier", with ~45-minute 8-player matches. The late game now comes earlier (the minute is `allInAfterSeconds` on `SimpleAISystem.asset` and `nodeLifetimeMinutes` on `TerritoryIncomeSystem.asset`), and stalled factions are hunted before it ([Game_AI.md § 6o](Game_AI.md)). Read "minute 30" below as "the late game".
 

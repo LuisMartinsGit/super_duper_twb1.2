@@ -194,8 +194,8 @@ namespace TheWaningBorder.AI
             public float Score;
             public string What;
             public Faction Owner;
-            /// <summary>An extractor (Gatherer's Hut, Mine, Veilstone Mine,
-            /// Trading Outpost) — where the income is made.</summary>
+            /// <summary>An extractor (Gatherer's Hut, Mine, Veilstone Mine) —
+            /// where the income is made.</summary>
             public bool Extractor;
         }
         private readonly System.Collections.Generic.List<IncomeTarget> _scratchIncome
@@ -449,8 +449,8 @@ namespace TheWaningBorder.AI
         /// <summary>
         /// THE ENEMY'S INCOME (2026-10-05, Game_AI.md 6f). Every known
         /// hostile building outside its owner's walls, ranked by what it is
-        /// worth to the enemy: extractors first (the Gatherer's Hut, Mine,
-        /// Veilstone Mine and Trading Outpost are where income is made),
+        /// worth to the enemy: extractors first (the Gatherer's Hut, Mine and
+        /// Veilstone Mine are where income is made),
         /// military buildings next, houses and the rest last — minus the
         /// target scorer's charges for distance, the garrison seen there
         /// and the age of the report. <paramref name="victim"/> equal to
@@ -481,7 +481,6 @@ namespace TheWaningBorder.AI
                 float weight; string what; bool extractor = false;
                 Entity e = s.Enemy;
                 if (s.Category == IntelCategory.MilitaryBuilding) { weight = Cfg.incomeWeightMilitary; what = "military building"; }
-                else if (em.HasComponent<TradingOutpostTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "trading outpost"; extractor = true; }
                 else if (em.HasComponent<VeilstoneMineTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "veilstone mine"; extractor = true; }
                 else if (em.HasComponent<MineTag>(e) || em.HasComponent<IronMineTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "mine"; extractor = true; }
                 else if (em.HasComponent<GathererHutTag>(e)) { weight = Cfg.incomeWeightExtractor; what = "gatherer's hut"; extractor = true; }

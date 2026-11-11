@@ -78,8 +78,8 @@ namespace TheWaningBorder.AI
         /// more. 0 = no gate for the category.</summary>
         public float soldiersPerProductionBuilding;
 
-        /// <summary>The same, for an economy building (Gatherer's Hut, Trading
-        /// Outpost).</summary>
+        /// <summary>The same, for an economy building (Gatherer's Hut, Mine,
+        /// Veilstone Mine).</summary>
         public float soldiersPerEconomyBuilding;
 
         /// <summary>The same, for everything else in the rotation (Watch

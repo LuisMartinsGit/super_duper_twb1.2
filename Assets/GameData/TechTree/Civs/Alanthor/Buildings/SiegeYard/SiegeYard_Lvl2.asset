@@ -17,9 +17,9 @@ MonoBehaviour:
   level: 2
   displayName: Siege Yard
   upgradeCost:
-    Supplies: 700
-    Iron: 350
-    Veilstone: 0
+    Supplies: 750
+    Iron: 650
+    Veilstone: 525
   upgradeSeconds: 35
   hpMultiplier: 1.15
   trainTimeMultiplier: 0.64
@@ -37,4 +37,10 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
+  grantsTechs:
+  - IronShotEngines
+  - IronPlating
+  - VeilstoneShot
+  - VeilstonePlating
+  - VeteranCrews
   prefab: {fileID: 7445132172505334940, guid: e63cae6b2cd6cc4409088e758239b783, type: 3}

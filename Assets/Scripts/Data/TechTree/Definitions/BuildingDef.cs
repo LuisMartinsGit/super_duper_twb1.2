@@ -72,6 +72,19 @@ namespace TheWaningBorder.Data
         /// 0 = unlimited. Enforced by <c>BuildingFactory.AtFactionCap</c>.</summary>
         public int maxPerFaction;
 
+        // ==================== Farm and Market (decision 55) ====================
+        /// <summary>Supplies a minute each Worker inside pays (WallGarrisonSlot
+        /// occupants). The Alanthor Farm only; FarmSystem reads it.</summary>
+        public int suppliesPerWorkerPerMinute;
+        /// <summary>The Market's FIXED price: supplies paid for one iron.</summary>
+        public int suppliesPerIron;
+        /// <summary>The Market's FIXED price: supplies paid for one veilstone.</summary>
+        public int suppliesPerVeilstone;
+        /// <summary>Highest purchase rate a Market may be set to, per resource, a minute.</summary>
+        public int maxRatePerMinute;
+        /// <summary>One click of a Market rate button, a minute.</summary>
+        public int rateStep;
+
         // ==================== Storage ====================
         public int maxIron;
         public int maxVeilstone;

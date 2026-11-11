@@ -75,14 +75,11 @@ same, and a tier simply works fewer of the nodes it holds.
 | Beginner | 0.32 |
 
 - Counted **per kind** over the faction's own territory: Gatherer's Huts against supply nodes,
-  Mines against iron, Veilstone Mines against outcrops, Trading Outposts against free node
-  sides. A tier may add one while it works fewer than `ceil(share × (worked + free))`; plans
-  and sites count as worked. A node held by trade is not workable. The territory development
-  step obeys the share too (§ 2d).
-- **Every tier uses the trade.** Trade Charters is on the economy ladder right after Deep
-  Shafts and paid from the Economy wallet (it starved behind the Advancement wallet in the
-  0.0.78 batch). The posts follow the same share, and a post keeps its node at the last unit
-  (§ 2d; `extractorStopMinutes` is gone with Stop Extracting).
+  Mines against iron, Veilstone Mines against outcrops. A tier may add one while it works
+  fewer than `ceil(share × (worked + free))`; plans and sites count as worked. The territory
+  development step obeys the share too (§ 2d). Alanthor build Veilstone Mines like every
+  culture but the Runai (decision 42), in the walk, the development step and the rebuild.
+- ~~**Every tier uses the trade.**~~ Retired with the Trading Outpost (decision 55).
 - **Nothing else holds the economy back.** `extractorGapSeconds` is 0 and the old flat
   `extractorLimit` is gone (the share replaced it); tech, level, military and sect pacing
   (§ 2a) are unchanged.
@@ -90,6 +87,47 @@ same, and a tier simply works fewer of the nodes it holds.
   on `AISimpleDifficulty.asset` (`beginnerExtractorShare`). Code:
   `SimpleAISystem.Extractors.cs` (`ExtractorShareRoom`), read by the extractor walk and the hut
   pipeline.
+
+> **Decision 56 (2026-11-11): nodes are finite again** (reserves doubled, no grace, no
+> posts). The AI's extractor share skips Depleted Gatherer's Huts (`QT_ShareHuts`,
+> `CountWorkingHuts`), so a hut on a spent node never fills the hut cap, and the extractor
+> walk keeps raising extractors on the fresh nodes it holds.
+>
+> **§ 2d-2i below are partly superseded by [decision 55](Unification_Decisions_2026-10-03.md)
+> (2026-11-11): the Trading Outpost is retired.** Everything about
+> posts, Trade Charters / Ledgers / Merchant Houses, the grace rescue,
+> the post savings goals (TradingOutpostLevel, TradeResearch, TradeCharters,
+> TradingOutpostRescue) and the trade surplus (`IsTradeSurplus`, `TickSurplus`) is history:
+> that code is deleted. `earlyExtractorLevels` (Hard, Expert) still levels Mines and Veilstone
+> Mines past the level clock and the value gate, with no Charters gate. The veilstone ladder's
+> economy input (`veilstoneIncomeForFullLadder`) now reads the faction's territory veilstone
+> income (`TerritoryIncomeSystem.FactionYield`) instead of the posts' trickle.
+
+### 2k. No army ceilings below the population cap; hoards steer the economy (2026-11-11, overnight tuning)
+
+Developer: "low unit count should stem from a weak economy on the lower tiers, not on artificial
+ceilings". Every tier's `sustainArmyCap` is now the population cap (the personality's plan
+`ArmyScale` still shapes it); a lower tier fields fewer units because it works fewer extractors
+and Farms (`extractorShare`) and plays worse (`AIPacing`), not because it stops at a number. The
+worker rule counts empty Farm slots; Farms kept = the cap times the tier's extractor share; no
+veilstone hoard weighs veilstone-costing units up (`veilstoneHoardLine`, `veilstoneGlutLadderScale`).
+**A hoard pauses Mine growth, never a Mine** (developer, 2026-11-11: "mines never stop; only when the
+node ends do mines stop; what stops is the building of new mines and the upgrades"): past
+`ironNoNewMinesAbove` / `veilstoneNoNewMinesAbove` the AI raises no new Mine / Veilstone Mine and
+levels none, and the Mines it has keep working until their node runs dry. The developer's
+yardsticks: **every AI fills its population**, and **no resource passes 50,000** unless the faction
+dominates with nothing left to buy; a reserve of 10,000-30,000 is fine. All on `SimpleAISystem.asset`.
+
+### 2j. Production levels and the Market (2026-11-11, decision 56)
+
+The first decision-55 test: no AI levelled a Garrison, Archery Range, Royal Stable or Siege Yard
+in 40 minutes (the soldiers-for-price test refused every one), so no army ever got a tier
+(decision 53 puts them only on levels), and supplies piled to 54,000 beside an empty iron bank
+while the Market crept up and down by 20 a minute. Now **a production line's level skips that
+test** and is bought on the level clock (`AIPacing`), and **the Market's rates are set each
+decision from the surplus** (`SimpleAISystem.Farms`): the supplies above `marketSupplyFloor`
+are spent over `marketSpendMinutes`, split between iron and veilstone by how far each is below
+its target (`marketIronShort` / `marketVeilstoneShort`).
 
 ### 2i. The posts are saved for (2026-11-10, decision 51)
 

@@ -328,9 +328,9 @@ weapon ladder, a veterancy ladder and — in place of an armour ladder — a
 ### 7.0 Trading Post (the cultured Gatherer's Hut)
 
 **Supply Survey I-III** (2026-10-20, gated Trading Post L1 / L2 / L3): every
-Trading Post also produces supplies a minute, drawn from no node, depleted
-posts included — the supply floor that outlives the nodes
-([Veilstone_Economy.md §5.2](Veilstone_Economy.md)). Outside the home
+Trading Post also produces supplies a minute, drawn from no node
+([Veilstone_Economy.md §5.2](Veilstone_Economy.md); the surveys were cut on 2026-11-09, and
+nodes never run out since [decision 55](Unification_Decisions_2026-10-03.md), so there is nothing to outlive). Outside the home
 territory it goes to the post's depot, like all Runai supply (§3.1).
 
 ### 7.1 Fortress

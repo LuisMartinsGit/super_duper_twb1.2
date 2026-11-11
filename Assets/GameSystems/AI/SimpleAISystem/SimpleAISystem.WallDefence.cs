@@ -107,6 +107,7 @@ namespace TheWaningBorder.AI
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
             ComponentType.Exclude<UnderConstruction>(),
+            ComponentType.Exclude<FarmTag>(),   // Workers only (decision 55) — SimpleAISystem.Farms.cs staffs them
         };
         static CachedEntityQuery QC_WdGarrisonable;
 

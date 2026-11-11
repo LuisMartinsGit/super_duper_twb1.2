@@ -227,6 +227,7 @@ canvas.chart.tall{height:200px}
       <div class="clock" id="clock">0:00<small>match time</small></div>
       <div class="counts" id="counts"></div>
       <div class="caption" id="caption"></div>
+      <div class="caption" id="objstate"></div>
       <div class="mapctl">
         <button type="button" class="btn" id="zin" aria-label="Zoom in">+</button>
         <button type="button" class="btn" id="zout" aria-label="Zoom out">&minus;</button>
@@ -260,6 +261,13 @@ canvas.chart.tall{height:200px}
   <p class="note">Every attack this match launched: when it went, how many marched, how many
   reinforcements were fed in behind it, and how many ever reached the objective.</p>
   <div class="scroll" id="waves"></div>
+  </section>
+
+  <section id="cultureSec" hidden>
+  <h2>Cultures</h2>
+  <p class="note">The culture each faction aged up into, and the match time its landmark
+  was finished — the age-up.</p>
+  <div class="scroll" id="cultures"></div>
   </section>
 
   <h2 id="standingHead">Where each faction finished</h2>
@@ -310,17 +318,17 @@ canvas.chart.tall{height:200px}
   <div class="foot" id="foot"></div>
 </div>
 
-<script type="application/json" id="data">{"generated":"2026-10-09 19:38:56","roots":["-h"],"matches":[],"mapArt":{},"history":[{"key":"2026-10-09_10-01-46_MirrorMarches-3","stamp":"2026-10-09_10-01-46","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5389,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v8 pacing #3: Blue=Balanced,Red=Turtle,Green=EcoBoom,Yellow=Defensive,Purple=Defensive,Orange=TechBoom,Teal=Defensive,White=TechBoom","scoreLeader":["Blue",77182],"exceptions":0},{"key":"2026-10-09_10-01-25_MirrorMarches-2","stamp":"2026-10-09_10-01-25","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5399,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v8 pacing #2: Blue=Rush,Red=Defensive,Green=TechBoom,Yellow=Turtle,Purple=Turtle,Orange=Defensive,Teal=Rush,White=Balanced","scoreLeader":["Red",59888],"exceptions":0},{"key":"2026-10-09_10-01-12_MirrorMarches","stamp":"2026-10-09_10-01-12","map":"MirrorMarches","kind":"sp","peers":1,"tmax":4113,"outcome":"Purple wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v8 pacing #1: Blue=TechBoom,Red=EcoBoom,Green=Rush,Yellow=Defensive,Purple=EcoBoom,Orange=Rush,Teal=Defensive,White=Turtle","scoreLeader":["White",42804],"exceptions":0},{"key":"2026-10-08_12-52-58_MirrorMarches-3","stamp":"2026-10-08_12-52-58","map":"MirrorMarches","kind":"sp","peers":1,"tmax":1590,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v8 #3: claims 50 supplies, curse cap halved: Blue=EcoBoom,Red=Turtle,Green=TechBoom,Yellow=Rush,Purple=Defensive,Orange=Turtle,Teal=EcoBoom,White=EcoBoom","scoreLeader":["Green",10375],"exceptions":0},{"key":"2026-10-08_12-52-38_MirrorMarches-2","stamp":"2026-10-08_12-52-38","map":"MirrorMarches","kind":"sp","peers":1,"tmax":1833,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v8 #2: claims 50 supplies, curse cap halved: Blue=Turtle,Red=Rush,Green=Turtle,Yellow=Balanced,Purple=EcoBoom,Orange=Turtle,Teal=Turtle,White=Turtle","scoreLeader":["Red",13175],"exceptions":0},{"key":"2026-10-08_12-52-24_MirrorMarches","stamp":"2026-10-08_12-52-24","map":"MirrorMarches","kind":"sp","peers":1,"tmax":1726,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v8 #1: claims 50 supplies, curse cap halved: Blue=Balanced,Red=Balanced,Green=Rush,Yellow=Turtle,Purple=Rush,Orange=Turtle,Teal=Balanced,White=EcoBoom","scoreLeader":["Green",11449],"exceptions":0},{"key":"2026-10-08_12-23-03_MirrorMarches","stamp":"2026-10-08_12-23-03","map":"MirrorMarches","kind":"sp","peers":1,"tmax":3777,"outcome":"Teal wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v7 90m: 30-min nodes, claims, guild surveys, all-in, landless elim: Blue=TechBoom,Red=Balanced,Green=Rush,Yellow=EcoBoom,Purple=EcoBoom,Orange=TechBoom,Teal=Balanced,White=Defensive","scoreLeader":["Green",17140],"exceptions":0},{"key":"2026-10-08_00-11-55_MirrorMarches-3","stamp":"2026-10-08_00-11-55","map":"MirrorMarches","kind":"sp","peers":1,"tmax":7196,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w6.3 [v6 shardroot + node decay]: Blue=EcoBoom,Red=Turtle,Green=Turtle,Yellow=TechBoom,Purple=Rush,Orange=Balanced,Teal=Turtle,White=Defensive","scoreLeader":["Purple",129688],"exceptions":0},{"key":"2026-10-08_00-11-34_MirrorMarches-2","stamp":"2026-10-08_00-11-34","map":"MirrorMarches","kind":"sp","peers":1,"tmax":7192,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w6.2 [v6 shardroot + node decay]: Blue=Rush,Red=EcoBoom,Green=TechBoom,Yellow=Turtle,Purple=Defensive,Orange=TechBoom,Teal=Rush,White=Defensive","scoreLeader":["Green",158145],"exceptions":0},{"key":"2026-10-08_00-11-22_MirrorMarches","stamp":"2026-10-08_00-11-22","map":"MirrorMarches","kind":"sp","peers":1,"tmax":7189,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w6.1 [v6 shardroot + node decay]: Blue=EcoBoom,Red=Defensive,Green=Turtle,Yellow=Turtle,Purple=Defensive,Orange=Balanced,Teal=Balanced,White=Rush","scoreLeader":["White",131582],"exceptions":0},{"key":"2026-10-07_20-48-56_MirrorMarches-3","stamp":"2026-10-07_20-48-56","map":"MirrorMarches","kind":"sp","peers":1,"tmax":7195,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w4.3 [v4 sim-time 120]: Blue=EcoBoom,Red=Turtle,Green=TechBoom,Yellow=Balanced,Purple=EcoBoom,Orange=TechBoom,Teal=Defensive,White=Defensive","scoreLeader":["White",100872],"exceptions":0},{"key":"2026-10-07_20-48-34_MirrorMarches-2","stamp":"2026-10-07_20-48-34","map":"MirrorMarches","kind":"sp","peers":1,"tmax":7198,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w4.2 [v4 sim-time 120]: Blue=Rush,Red=Balanced,Green=Defensive,Yellow=Defensive,Purple=Rush,Orange=Rush,Teal=TechBoom,White=Turtle","scoreLeader":["Purple",132540],"exceptions":0},{"key":"2026-10-07_20-48-21_MirrorMarches","stamp":"2026-10-07_20-48-21","map":"MirrorMarches","kind":"sp","peers":1,"tmax":7197,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w4.1 [v4 sim-time 120]: Blue=Rush,Red=Balanced,Green=Rush,Yellow=TechBoom,Purple=Turtle,Orange=Rush,Teal=Rush,White=TechBoom","scoreLeader":["Orange",139770],"exceptions":0},{"key":"2026-10-07_20-07-55_MirrorMarches-3","stamp":"2026-10-07_20-07-55","map":"MirrorMarches","kind":"sp","peers":1,"tmax":6054,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w3.3 [v3 throat]: Blue=Balanced,Red=EcoBoom,Green=Defensive,Yellow=EcoBoom,Purple=Balanced,Orange=Turtle,Teal=Turtle,White=TechBoom","scoreLeader":["Green",50804],"exceptions":0},{"key":"2026-10-07_20-07-34_MirrorMarches-2","stamp":"2026-10-07_20-07-34","map":"MirrorMarches","kind":"sp","peers":1,"tmax":6964,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w3.2 [v3 throat]: Blue=Turtle,Red=Turtle,Green=Turtle,Yellow=Rush,Purple=Rush,Orange=EcoBoom,Teal=Balanced,White=Rush","scoreLeader":["White",103712],"exceptions":0},{"key":"2026-10-07_20-07-23_MirrorMarches","stamp":"2026-10-07_20-07-23","map":"MirrorMarches","kind":"sp","peers":1,"tmax":6509,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w3.1 [v3 throat]: Blue=Rush,Red=Defensive,Green=Rush,Yellow=Turtle,Purple=Rush,Orange=Defensive,Teal=EcoBoom,White=Defensive","scoreLeader":["Blue",75574],"exceptions":0},{"key":"2026-10-07_19-26-54_MirrorMarches-6","stamp":"2026-10-07_19-26-54","map":"MirrorMarches","kind":"sp","peers":1,"tmax":6772,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{},"label":"120m w2.3 [v2 archetype-fix]: Blue=Balanced,Red=Balanced,Green=Rush,Yellow=Turtle,Purple=EcoBoom,Orange=Balanced,Teal=Turtle,White=TechBoom","scoreLeader":["Green",73723],"exceptions":0},{"key":"2026-10-07_19-26-32_MirrorMarches-4","stamp":"2026-10-07_19-26-32","map":"MirrorMarches","kind":"sp","peers":1,"tmax":6639,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w2.2 [v2 archetype-fix]: Blue=Rush,Red=Defensive,Green=Rush,Yellow=Rush,Purple=EcoBoom,Orange=EcoBoom,Teal=Defensive,White=Rush","scoreLeader":["Blue",62134],"exceptions":0},{"key":"2026-10-07_19-26-18_MirrorMarches","stamp":"2026-10-07_19-26-18","map":"MirrorMarches","kind":"sp","peers":1,"tmax":6873,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w2.1 [v2 archetype-fix]: Blue=Balanced,Red=Defensive,Green=TechBoom,Yellow=Rush,Purple=Balanced,Orange=TechBoom,Teal=TechBoom,White=Defensive","scoreLeader":["Yellow",81669],"exceptions":0},{"key":"2026-10-07_18-46-16_MirrorMarches-3","stamp":"2026-10-07_18-46-16","map":"MirrorMarches","kind":"sp","peers":1,"tmax":4611,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w1.3 [v1 victim-ground]: Blue=Defensive,Red=Rush,Green=Defensive,Yellow=Defensive,Purple=Defensive,Orange=EcoBoom,Teal=Defensive,White=Balanced","scoreLeader":["Red",81022],"exceptions":0},{"key":"2026-10-07_18-45-55_MirrorMarches-2","stamp":"2026-10-07_18-45-55","map":"MirrorMarches","kind":"sp","peers":1,"tmax":6352,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w1.2 [v1 victim-ground]: Blue=EcoBoom,Red=Defensive,Green=Turtle,Yellow=TechBoom,Purple=EcoBoom,Orange=Turtle,Teal=Defensive,White=Defensive","scoreLeader":["White",41419],"exceptions":0},{"key":"2026-10-07_18-45-43_MirrorMarches","stamp":"2026-10-07_18-45-43","map":"MirrorMarches","kind":"sp","peers":1,"tmax":4777,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"120m w1.1 [v1 victim-ground]: Blue=Turtle,Red=EcoBoom,Green=Turtle,Yellow=TechBoom,Purple=Rush,Orange=Balanced,Teal=Defensive,White=Turtle","scoreLeader":["Teal",39878],"exceptions":0},{"key":"2026-10-07_18-17-11_MirrorMarches-3","stamp":"2026-10-07_18-17-11","map":"MirrorMarches","kind":"sp","peers":1,"tmax":3747,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"8p FFA #3: Blue=Defensive,Red=Rush,Green=Balanced,Yellow=Rush,Purple=TechBoom,Orange=EcoBoom,Teal=EcoBoom,White=TechBoom","scoreLeader":["Yellow",50261],"exceptions":0},{"key":"2026-10-07_18-16-51_MirrorMarches-2","stamp":"2026-10-07_18-16-51","map":"MirrorMarches","kind":"sp","peers":1,"tmax":4775,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"8p FFA #2: Blue=EcoBoom,Red=TechBoom,Green=Defensive,Yellow=Defensive,Purple=EcoBoom,Orange=Rush,Teal=Balanced,White=Turtle","scoreLeader":["Teal",48204],"exceptions":0},{"key":"2026-10-07_18-16-30_MirrorMarches","stamp":"2026-10-07_18-16-30","map":"MirrorMarches","kind":"sp","peers":1,"tmax":4009,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"8p FFA #1: Blue=TechBoom,Red=Balanced,Green=Rush,Yellow=EcoBoom,Purple=EcoBoom,Orange=TechBoom,Teal=Balanced,White=Defensive","scoreLeader":["Green",56024],"exceptions":0},{"key":"2026-10-07_18-06-02_MirrorMarches","stamp":"2026-10-07_18-06-02","map":"MirrorMarches","kind":"sp","peers":1,"tmax":856,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"purity check","scoreLeader":["Teal",5494],"exceptions":0},{"key":"2026-10-07_17-32-46_MirrorMarches-3","stamp":"2026-10-07_17-32-46","map":"MirrorMarches","kind":"sp","peers":1,"tmax":4959,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"8p random personalities #3: Blue=Rush,Red=Balanced,Green=Defensive,Yellow=EcoBoom,Purple=Defensive,Orange=Balanced,Teal=Turtle,White=EcoBoom","scoreLeader":["Blue",50948],"exceptions":0},{"key":"2026-10-07_17-32-26_MirrorMarches-2","stamp":"2026-10-07_17-32-26","map":"MirrorMarches","kind":"sp","peers":1,"tmax":4321,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"8p random personalities #2: Blue=Defensive,Red=Balanced,Green=TechBoom,Yellow=EcoBoom,Purple=Turtle,Orange=Turtle,Teal=Balanced,White=Balanced","scoreLeader":["Teal",53962],"exceptions":0},{"key":"2026-10-07_17-32-12_MirrorMarches","stamp":"2026-10-07_17-32-12","map":"MirrorMarches","kind":"sp","peers":1,"tmax":4958,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"8p random personalities #1: Blue=EcoBoom,Red=TechBoom,Green=Balanced,Yellow=TechBoom,Purple=Turtle,Orange=Turtle,Teal=Defensive,White=Turtle","scoreLeader":["Yellow",50073],"exceptions":0},{"key":"2026-10-07_17-03-29_MirrorMarches-3","stamp":"2026-10-07_17-03-29","map":"MirrorMarches","kind":"sp","peers":1,"tmax":90,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Curse placement check","scoreLeader":["Blue",227],"exceptions":0},{"key":"2026-10-07_17-03-27_MirrorMarches-2","stamp":"2026-10-07_17-03-27","map":"MirrorMarches","kind":"sp","peers":1,"tmax":90,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Curse placement check","scoreLeader":["Blue",227],"exceptions":0},{"key":"2026-10-07_17-03-26_MirrorMarches","stamp":"2026-10-07_17-03-26","map":"MirrorMarches","kind":"sp","peers":1,"tmax":90,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Curse placement check","scoreLeader":["Red",263],"exceptions":0},{"key":"2026-10-07_16-56-15_MirrorMarches","stamp":"2026-10-07_16-56-15","map":"MirrorMarches","kind":"sp","peers":1,"tmax":871,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Natural borders + random curse (15 min)","scoreLeader":["Green",4531],"exceptions":0},{"key":"2026-10-07_16-56-15_MirrorMarches-2","stamp":"2026-10-07_16-56-15","map":"MirrorMarches","kind":"sp","peers":1,"tmax":871,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Natural borders + random curse (15 min)","scoreLeader":["Yellow",3315],"exceptions":0},{"key":"2026-10-07_15-57-06_MirrorMarches","stamp":"2026-10-07_15-57-06","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5326,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Armies route round the curse (4p 90 min)","scoreLeader":["Blue",62723],"exceptions":0},{"key":"2026-10-07_15-15-49_MirrorMarches","stamp":"2026-10-07_15-15-49","map":"MirrorMarches","kind":"sp","peers":1,"tmax":2179,"outcome":"Blue wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Cap rises, pile-on, costlier forts, vault cap (1v1 90 min)","scoreLeader":["Blue",26684],"exceptions":0},{"key":"2026-10-07_15-15-49_MirrorMarches-2","stamp":"2026-10-07_15-15-49","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5378,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Cap rises, pile-on, costlier forts, vault cap (4p 90 min)","scoreLeader":["Green",73467],"exceptions":0},{"key":"2026-10-07_13-33-06_MirrorMarches-2","stamp":"2026-10-07_13-33-06","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5366,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Weaker towers/Fortress, home walls only (90 min)","scoreLeader":["Green",46407],"exceptions":0},{"key":"2026-10-07_13-33-05_MirrorMarches","stamp":"2026-10-07_13-33-05","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5374,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Weaker towers/Fortress, home walls only (90 min)","scoreLeader":["Yellow",73974],"exceptions":0},{"key":"2026-10-07_12-48-02_MirrorMarches-3","stamp":"2026-10-07_12-48-02","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5358,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Half-size, one war at a time (90 min)","scoreLeader":["Green",45862],"exceptions":0},{"key":"2026-10-07_12-35-42_MirrorMarches-2","stamp":"2026-10-07_12-35-42","map":"MirrorMarches","kind":"sp","peers":1,"tmax":7019,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Half-size, one war at a time (120 min)","scoreLeader":["Green",50446],"exceptions":0},{"key":"2026-10-07_12-35-41_MirrorMarches","stamp":"2026-10-07_12-35-41","map":"MirrorMarches","kind":"sp","peers":1,"tmax":7099,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Half-size, one war at a time (120 min)","scoreLeader":["Yellow",52597],"exceptions":0},{"key":"2026-10-07_11-59-45_MirrorMarches-2","stamp":"2026-10-07_11-59-45","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5927,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Half-size Mirror Marches (120 min)","scoreLeader":["Blue",55435],"exceptions":0},{"key":"2026-10-07_11-59-44_MirrorMarches","stamp":"2026-10-07_11-59-44","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5944,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Half-size Mirror Marches (120 min)","scoreLeader":["Green",60476],"exceptions":0},{"key":"2026-10-07_11-45-06_MirrorMarches","stamp":"2026-10-07_11-45-06","map":"MirrorMarches","kind":"sp","peers":1,"tmax":1171,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Half-size Mirror Marches (20 min)","scoreLeader":["Blue",6860],"exceptions":0},{"key":"2026-10-07_11-45-06_MirrorMarches-2","stamp":"2026-10-07_11-45-06","map":"MirrorMarches","kind":"sp","peers":1,"tmax":1171,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Half-size Mirror Marches (20 min)","scoreLeader":["Green",5398],"exceptions":0},{"key":"2026-10-07_10-07-46_MirrorMarches","stamp":"2026-10-07_10-07-46","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5302,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Retreat/staging + eco-first + walls (90 min)","scoreLeader":["Red",34474],"exceptions":0},{"key":"2026-10-07_10-07-46_MirrorMarches-2","stamp":"2026-10-07_10-07-46","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5348,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Retreat/staging + eco-first + walls (90 min)","scoreLeader":["Yellow",60407],"exceptions":0},{"key":"2026-10-07_10-07-46_MirrorMarches-3","stamp":"2026-10-07_10-07-46","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5318,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Retreat/staging + eco-first + walls (90 min)","scoreLeader":["Yellow",51275],"exceptions":0},{"key":"2026-10-07_10-07-46_MirrorMarches-4","stamp":"2026-10-07_10-07-46","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5197,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Retreat/staging + eco-first + walls (90 min)","scoreLeader":["Yellow",33140],"exceptions":0},{"key":"2026-10-06_18-58-07_MirrorMarches","stamp":"2026-10-06_18-58-07","map":"MirrorMarches","kind":"sp","peers":1,"tmax":5516,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","scoreLeader":null,"exceptions":0},{"key":"2026-10-06_16-44-48_MirrorMarches","stamp":"2026-10-06_16-44-48","map":"MirrorMarches","kind":"sp","peers":1,"tmax":1752,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Base layout + variants (Mirror Marches)","scoreLeader":["Blue",9061],"exceptions":0},{"key":"2026-10-06_16-44-48_MirrorMarches-2","stamp":"2026-10-06_16-44-48","map":"MirrorMarches","kind":"sp","peers":1,"tmax":1766,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Base layout + variants (Mirror Marches)","scoreLeader":["Yellow",10803],"exceptions":0},{"key":"2026-10-06_16-44-48_MirrorMarches-3","stamp":"2026-10-06_16-44-48","map":"MirrorMarches","kind":"sp","peers":1,"tmax":1754,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Base layout + variants (Mirror Marches)","scoreLeader":["Blue",10480],"exceptions":0},{"key":"2026-10-06_16-44-48_MirrorMarches-4","stamp":"2026-10-06_16-44-48","map":"MirrorMarches","kind":"sp","peers":1,"tmax":1742,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Base layout + variants (Mirror Marches)","scoreLeader":["Blue",8298],"exceptions":0},{"key":"2026-10-04_18-34-17_SunderedCrown-6","stamp":"2026-10-04_18-34-17","map":"SunderedCrown","kind":"sp","peers":1,"tmax":3567,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{},"label":"","exceptions":0},{"key":"2026-10-04_18-34-16_HollowTable-5","stamp":"2026-10-04_18-34-16","map":"HollowTable","kind":"sp","peers":1,"tmax":3558,"outcome":"Blue wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{},"label":"","exceptions":0},{"key":"2026-10-04_18-34-16_SunderedCrown-2","stamp":"2026-10-04_18-34-16","map":"SunderedCrown","kind":"sp","peers":1,"tmax":3566,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Red = Expert","exceptions":0},{"key":"2026-10-04_18-34-16_SunderedReach","stamp":"2026-10-04_18-34-16","map":"SunderedReach","kind":"sp","peers":1,"tmax":3539,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"console-only label","exceptions":0},{"key":"2026-10-04_18-34-16_TwinSpans-3","stamp":"2026-10-04_18-34-16","map":"TwinSpans","kind":"sp","peers":1,"tmax":3572,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","exceptions":0},{"key":"2026-10-04_18-34-16_Veilmarch-4","stamp":"2026-10-04_18-34-16","map":"Veilmarch","kind":"sp","peers":1,"tmax":3275,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","exceptions":0}],"live":[],"since":"","totals":{"warmups":0,"runs":61,"mp":0,"forks":0,"compared":0,"simSeconds":264266,"since":"2026-10-04_18-34-16"},"pruned":[],"coverage":[]}</script>
+<script type="application/json" id="data">{"generated":"2026-11-11 07:44:00","roots":["--help"],"matches":[],"mapArt":{},"history":[{"key":"2026-11-02_23-47-43_YielLymwerra","stamp":"2026-11-02_23-47-43","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1305,"outcome":"Blue wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"ai-fixes-2026-11-02","scoreLeader":["Blue",69237],"exceptions":0},{"key":"2026-10-25_22-45-51_FiendstonePass","stamp":"2026-10-25_22-45-51","map":"FiendstonePass","kind":"sp","peers":1,"tmax":1794,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wall-tangent-slide","scoreLeader":["Orange",268476],"exceptions":0},{"key":"2026-10-25_22-45-51_FiendstonePass-2","stamp":"2026-10-25_22-45-51","map":"FiendstonePass","kind":"sp","peers":1,"tmax":1794,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wall-tangent-slide","scoreLeader":["Orange",212850],"exceptions":0},{"key":"2026-10-25_22-45-51_FiendstonePass-3","stamp":"2026-10-25_22-45-51","map":"FiendstonePass","kind":"sp","peers":1,"tmax":1796,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wall-tangent-slide","scoreLeader":["Orange",280624],"exceptions":0},{"key":"2026-10-25_22-45-51_FiendstonePass-4","stamp":"2026-10-25_22-45-51","map":"FiendstonePass","kind":"sp","peers":1,"tmax":153,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"1"},"label":"","scoreLeader":null,"exceptions":0},{"key":"2026-10-25_19-24-01_FiendstonePass","stamp":"2026-10-25_19-24-01","map":"FiendstonePass","kind":"sp","peers":1,"tmax":1794,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"reachable-slots","scoreLeader":["Blue",193755],"exceptions":0},{"key":"2026-10-25_19-24-01_FiendstonePass-2","stamp":"2026-10-25_19-24-01","map":"FiendstonePass","kind":"sp","peers":1,"tmax":1796,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"reachable-slots","scoreLeader":["Orange",192273],"exceptions":0},{"key":"2026-10-25_19-24-01_FiendstonePass-3","stamp":"2026-10-25_19-24-01","map":"FiendstonePass","kind":"sp","peers":1,"tmax":1795,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"reachable-slots","scoreLeader":["Orange",200976],"exceptions":0},{"key":"2026-10-25_19-05-48_FiendstonePass-3","stamp":"2026-10-25_19-05-48","map":"FiendstonePass","kind":"sp","peers":1,"tmax":2397,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wall-tangent","scoreLeader":["Orange",527755],"exceptions":0},{"key":"2026-10-25_19-00-10_TrineHollow","stamp":"2026-10-25_19-00-10","map":"TrineHollow","kind":"sp","peers":1,"tmax":2392,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wall-tangent","scoreLeader":["Blue",715733],"exceptions":0},{"key":"2026-10-25_18-54-38_BrokenOath-2","stamp":"2026-10-25_18-54-38","map":"BrokenOath","kind":"sp","peers":1,"tmax":2398,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wall-tangent","scoreLeader":["Red",704699],"exceptions":0},{"key":"2026-10-25_18-42-43_Highfold-3","stamp":"2026-10-25_18-42-43","map":"Highfold","kind":"sp","peers":1,"tmax":2391,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wall-tangent","scoreLeader":["Teal",414521],"exceptions":0},{"key":"2026-10-25_18-42-43_Moatwatch","stamp":"2026-10-25_18-42-43","map":"Moatwatch","kind":"sp","peers":1,"tmax":2386,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wall-tangent","scoreLeader":["Red",777526],"exceptions":0},{"key":"2026-10-25_18-42-43_YielLymwerra-2","stamp":"2026-10-25_18-42-43","map":"YielLymwerra","kind":"sp","peers":1,"tmax":2041,"outcome":"Blue wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wall-tangent","scoreLeader":["Blue",129104],"exceptions":0},{"key":"2026-10-25_18-30-36_FiendstonePass","stamp":"2026-10-25_18-30-36","map":"FiendstonePass","kind":"sp","peers":1,"tmax":1186,"outcome":"?","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{},"label":"","scoreLeader":null,"exceptions":0},{"key":"2026-10-25_18-13-26_FiendstonePass-2","stamp":"2026-10-25_18-13-26","map":"FiendstonePass","kind":"sp","peers":1,"tmax":2395,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"cliff-slide","scoreLeader":["Orange",956173],"exceptions":0},{"key":"2026-10-25_18-06-59_TrineHollow","stamp":"2026-10-25_18-06-59","map":"TrineHollow","kind":"sp","peers":1,"tmax":2394,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"cliff-slide","scoreLeader":["Blue",795710],"exceptions":0},{"key":"2026-10-25_18-04-56_BrokenOath-3","stamp":"2026-10-25_18-04-56","map":"BrokenOath","kind":"sp","peers":1,"tmax":2397,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"cliff-slide","scoreLeader":["Red",957239],"exceptions":0},{"key":"2026-10-25_17-51-17_Highfold-2","stamp":"2026-10-25_17-51-17","map":"Highfold","kind":"sp","peers":1,"tmax":2392,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"cliff-slide","scoreLeader":["Teal",626942],"exceptions":0},{"key":"2026-10-25_17-51-17_Moatwatch","stamp":"2026-10-25_17-51-17","map":"Moatwatch","kind":"sp","peers":1,"tmax":2398,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"cliff-slide","scoreLeader":["Red",564153],"exceptions":0},{"key":"2026-10-25_17-51-17_YielLymwerra-3","stamp":"2026-10-25_17-51-17","map":"YielLymwerra","kind":"sp","peers":1,"tmax":2387,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"cliff-slide","scoreLeader":["Blue",177930],"exceptions":0},{"key":"2026-10-25_16-39-16_FiendstonePass-3","stamp":"2026-10-25_16-39-16","map":"FiendstonePass","kind":"sp","peers":1,"tmax":2394,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.57","scoreLeader":["Orange",629077],"exceptions":0},{"key":"2026-10-25_16-33-19_TrineHollow-2","stamp":"2026-10-25_16-33-19","map":"TrineHollow","kind":"sp","peers":1,"tmax":2393,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.57","scoreLeader":["Blue",715049],"exceptions":0},{"key":"2026-10-25_16-28-46_BrokenOath","stamp":"2026-10-25_16-28-46","map":"BrokenOath","kind":"sp","peers":1,"tmax":2399,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.57","scoreLeader":["Red",977030],"exceptions":0},{"key":"2026-10-25_16-17-22_Highfold-3","stamp":"2026-10-25_16-17-22","map":"Highfold","kind":"sp","peers":1,"tmax":2391,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.57","scoreLeader":["Yellow",1306416],"exceptions":0},{"key":"2026-10-25_16-17-20_Moatwatch-2","stamp":"2026-10-25_16-17-20","map":"Moatwatch","kind":"sp","peers":1,"tmax":2385,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.57","scoreLeader":["Red",1106497],"exceptions":0},{"key":"2026-10-25_16-17-20_YielLymwerra","stamp":"2026-10-25_16-17-20","map":"YielLymwerra","kind":"sp","peers":1,"tmax":2011,"outcome":"Red wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.57","scoreLeader":["Red",137459],"exceptions":0},{"key":"2026-10-22_23-45-35_FiendstonePass","stamp":"2026-10-22_23-45-35","map":"FiendstonePass","kind":"sp","peers":1,"tmax":5397,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.55-90min","scoreLeader":["Purple",375364],"exceptions":0},{"key":"2026-10-22_23-43-22_TrineHollow-3","stamp":"2026-10-22_23-43-22","map":"TrineHollow","kind":"sp","peers":1,"tmax":2574,"outcome":"Blue wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.55-90min","scoreLeader":["Blue",737002],"exceptions":0},{"key":"2026-10-22_23-20-38_BrokenOath-3","stamp":"2026-10-22_23-20-38","map":"BrokenOath","kind":"sp","peers":1,"tmax":3469,"outcome":"Blue wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.55-90min","scoreLeader":["Blue",924080],"exceptions":0},{"key":"2026-10-22_23-12-14_Highfold-2","stamp":"2026-10-22_23-12-14","map":"Highfold","kind":"sp","peers":1,"tmax":5388,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.55-90min","scoreLeader":["Blue",777759],"exceptions":0},{"key":"2026-10-22_23-12-14_Moatwatch","stamp":"2026-10-22_23-12-14","map":"Moatwatch","kind":"sp","peers":1,"tmax":5400,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.55-90min","scoreLeader":["Blue",491869],"exceptions":0},{"key":"2026-10-22_23-12-14_YielLymwerra-3","stamp":"2026-10-22_23-12-14","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1456,"outcome":"Red wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"0.0.55-90min","scoreLeader":["Blue",77822],"exceptions":0},{"key":"2026-10-22_19-28-23_FiendstonePass","stamp":"2026-10-22_19-28-23","map":"FiendstonePass","kind":"sp","peers":1,"tmax":1488,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wards","scoreLeader":["Blue",122404],"exceptions":0},{"key":"2026-10-22_19-25-22_TrineHollow-3","stamp":"2026-10-22_19-25-22","map":"TrineHollow","kind":"sp","peers":1,"tmax":1489,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wards","scoreLeader":["Blue",117492],"exceptions":0},{"key":"2026-10-22_19-24-00_BrokenOath-2","stamp":"2026-10-22_19-24-00","map":"BrokenOath","kind":"sp","peers":1,"tmax":1491,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wards","scoreLeader":["Red",114365],"exceptions":0},{"key":"2026-10-22_19-15-22_Highfold","stamp":"2026-10-22_19-15-22","map":"Highfold","kind":"sp","peers":1,"tmax":1498,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wards","scoreLeader":["White",135648],"exceptions":0},{"key":"2026-10-22_19-15-22_Moatwatch-3","stamp":"2026-10-22_19-15-22","map":"Moatwatch","kind":"sp","peers":1,"tmax":1494,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wards","scoreLeader":["Yellow",160643],"exceptions":0},{"key":"2026-10-22_19-15-22_YielLymwerra-2","stamp":"2026-10-22_19-15-22","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1485,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"wards","scoreLeader":["Red",72649],"exceptions":0},{"key":"2026-10-22_17-41-35_Highfold-2","stamp":"2026-10-22_17-41-35","map":"Highfold","kind":"sp","peers":1,"tmax":1496,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v0054","scoreLeader":["Purple",117579],"exceptions":0},{"key":"2026-10-22_17-41-35_Moatwatch","stamp":"2026-10-22_17-41-35","map":"Moatwatch","kind":"sp","peers":1,"tmax":1492,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v0054","scoreLeader":["Red",115816],"exceptions":0},{"key":"2026-10-22_17-41-35_YielLymwerra-3","stamp":"2026-10-22_17-41-35","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1486,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"v0054","scoreLeader":["Blue",73429],"exceptions":0},{"key":"2026-10-18_20-09-52_TrineHollow","stamp":"2026-10-18_20-09-52","map":"TrineHollow","kind":"sp","peers":1,"tmax":1200,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"newmaps-final","scoreLeader":["Green",7106],"exceptions":0},{"key":"2026-10-18_20-02-55_BrokenOath","stamp":"2026-10-18_20-02-55","map":"BrokenOath","kind":"sp","peers":1,"tmax":1185,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"newmaps-final","scoreLeader":["Purple",7124],"exceptions":0},{"key":"2026-10-18_19-33-05_Highfold","stamp":"2026-10-18_19-33-05","map":"Highfold","kind":"sp","peers":1,"tmax":1187,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"newmaps-seated","scoreLeader":["Orange",8707],"exceptions":0},{"key":"2026-10-18_19-08-38_Moatwatch-4","stamp":"2026-10-18_19-08-38","map":"Moatwatch","kind":"sp","peers":1,"tmax":1188,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"newmaps","scoreLeader":["Red",4418],"exceptions":0},{"key":"2026-10-18_15-39-26_YielLymwerra","stamp":"2026-10-18_15-39-26","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1785,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Yiel Lymwerra - Cleanse test","scoreLeader":["Blue",6675],"exceptions":0},{"key":"2026-10-18_15-39-26_YielLymwerra-2","stamp":"2026-10-18_15-39-26","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1785,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Yiel Lymwerra - Cleanse test","scoreLeader":["Blue",5386],"exceptions":0},{"key":"2026-10-17_23-54-19_YielLymwerra-3","stamp":"2026-10-17_23-54-19","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1785,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Yiel Lymwerra - 2 Hard AI","scoreLeader":["Blue",6504],"exceptions":0},{"key":"2026-10-17_23-54-18_YielLymwerra-2","stamp":"2026-10-17_23-54-18","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1035,"outcome":"Red wins","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Yiel Lymwerra - 2 Hard AI","scoreLeader":["Red",4082],"exceptions":0},{"key":"2026-10-17_23-54-12_YielLymwerra","stamp":"2026-10-17_23-54-12","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1785,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Yiel Lymwerra - 2 Hard AI","scoreLeader":["Blue",6836],"exceptions":0},{"key":"2026-10-17_23-43-59_YielLymwerra-3","stamp":"2026-10-17_23-43-59","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1785,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Yiel Lymwerra - 2 Hard AI","scoreLeader":["Blue",6576],"exceptions":0},{"key":"2026-10-17_23-43-57_YielLymwerra-2","stamp":"2026-10-17_23-43-57","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1786,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Yiel Lymwerra - 2 Hard AI","scoreLeader":["Blue",5205],"exceptions":0},{"key":"2026-10-17_23-43-56_YielLymwerra","stamp":"2026-10-17_23-43-56","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1785,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Yiel Lymwerra - 2 Hard AI","scoreLeader":["Blue",4918],"exceptions":0},{"key":"2026-10-17_23-26-05_YielLymwerra-3","stamp":"2026-10-17_23-26-05","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1786,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","scoreLeader":["Blue",10681],"exceptions":0},{"key":"2026-10-17_23-26-03_YielLymwerra-2","stamp":"2026-10-17_23-26-03","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1785,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","scoreLeader":["Blue",6147],"exceptions":0},{"key":"2026-10-17_23-25-57_YielLymwerra","stamp":"2026-10-17_23-25-57","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1786,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","scoreLeader":["Blue",8570],"exceptions":0},{"key":"2026-10-17_23-15-44_YielLymwerra-3","stamp":"2026-10-17_23-15-44","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1785,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","scoreLeader":["Blue",7799],"exceptions":0},{"key":"2026-10-17_23-15-43_YielLymwerra-2","stamp":"2026-10-17_23-15-43","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1785,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","scoreLeader":["Blue",7882],"exceptions":0},{"key":"2026-10-17_23-15-42_YielLymwerra","stamp":"2026-10-17_23-15-42","map":"YielLymwerra","kind":"sp","peers":1,"tmax":1786,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","scoreLeader":["Blue",5838],"exceptions":0},{"key":"2026-10-17_21-55-14_YielLymwerra","stamp":"2026-10-17_21-55-14","map":"YielLymwerra","kind":"sp","peers":1,"tmax":900,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"","scoreLeader":["Blue",2924],"exceptions":0},{"key":"2026-10-17_17-36-57_FiendstonePass-7","stamp":"2026-10-17_17-36-57","map":"FiendstonePass","kind":"sp","peers":1,"tmax":5389,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Fiendstone culture set - 7. FFA, two of each culture","scoreLeader":["Yellow",43417],"exceptions":0},{"key":"2026-10-17_17-36-55_FiendstonePass-6","stamp":"2026-10-17_17-36-55","map":"FiendstonePass","kind":"sp","peers":1,"tmax":5392,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Fiendstone culture set - 6. Feraldis (north) vs Runai (south), 3v3","scoreLeader":["Green",30349],"exceptions":0},{"key":"2026-10-17_17-36-53_FiendstonePass-5","stamp":"2026-10-17_17-36-53","map":"FiendstonePass","kind":"sp","peers":1,"tmax":5392,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Fiendstone culture set - 5. Runai (north) vs Alanthor (south), 3v3","scoreLeader":["Yellow",66815],"exceptions":0},{"key":"2026-10-17_17-36-52_FiendstonePass-4","stamp":"2026-10-17_17-36-52","map":"FiendstonePass","kind":"sp","peers":1,"tmax":5389,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Fiendstone culture set - 4. Feraldis (north) vs Alanthor (south), 3v3","scoreLeader":["Yellow",44233],"exceptions":0},{"key":"2026-10-17_17-36-50_FiendstonePass-3","stamp":"2026-10-17_17-36-50","map":"FiendstonePass","kind":"sp","peers":1,"tmax":5391,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Fiendstone culture set - 3. All Runai FFA","scoreLeader":["Red",30054],"exceptions":0},{"key":"2026-10-17_17-36-48_FiendstonePass-2","stamp":"2026-10-17_17-36-48","map":"FiendstonePass","kind":"sp","peers":1,"tmax":5389,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Fiendstone culture set - 2. All Feraldis FFA","scoreLeader":["Red",11272],"exceptions":0},{"key":"2026-10-17_17-36-46_FiendstonePass","stamp":"2026-10-17_17-36-46","map":"FiendstonePass","kind":"sp","peers":1,"tmax":5390,"outcome":"quit","ticks":0,"compared":0,"forked":false,"forkTick":null,"forkCols":[],"config":{"age":"0"},"label":"Fiendstone culture set - 1. All Alanthor FFA","scoreLeader":["Green",32358],"exceptions":0}],"live":[],"since":"","totals":{"warmups":0,"runs":68,"mp":0,"forks":0,"compared":0,"simSeconds":160493,"since":"2026-10-17_17-36-46"},"pruned":[],"coverage":[]}</script>
 <script>
 (function(){
 "use strict";
 var DOC = JSON.parse(document.getElementById("data").textContent);
-/* A match is replayable when it has per-unit tracks or sampled frames; the
-   extractor says which (hasReplay), and a page built before it said so falls
-   back to counting frames. In a FOLDER build each entry here is a light
-   summary and carries `file`, its full record, fetched on selection. */
+/* A match is shown when it is TRACED and replayable (hasReplay); sampled
+   matches are not shown at all (2026-10-25). In a FOLDER build each entry
+   here is a light summary and carries `file`, its full record, fetched on
+   selection. */
 var M = (DOC.matches||[]).filter(function(m){
-  return m.hasReplay!=null ? !!m.hasReplay : (m.frames||[]).length > 1; });
+  return m.fidelity==="trace" && !!m.hasReplay; });
 var sel = 0;
 
 /* CSS custom properties, cached. getComputedStyle is a style recalc, and the
@@ -578,8 +586,8 @@ function bindView(){
 }
 
 /* ── symbols: what a thing IS and what LEVEL it is (2026-10-03) ─────────
-   A building's kind comes from its tech-tree id (MapTrace "type", or the
-   Metrics_BuildingEvents id on a sampled match), and from its display name
+   A building's kind comes from its tech-tree id (MapTrace "type"), and
+   from its display name
    on a trace written before the type was recorded. */
 function bkind(b){
   var s=String(b.ty||b.id||"").toLowerCase().replace(/[^a-z]/g,"");
@@ -1242,6 +1250,34 @@ function drawTerritory(g,m,t,k,PX,PZ){
   return T;
 }
 
+/* ── THE CURSED GROUND (2026-10-17): CurseGroundSystem's field over time,
+   from MapTrace's KG/KS/KR snapshots (coarsened to 4 m by the extractor).
+   The frame in force at the replay time is painted once into a w x h
+   offscreen canvas (repainted only when the frame changes) and drawn scaled,
+   nearest-neighbour, in the curse colour. No m.curseGround (an older trace): nothing. */
+function drawCurse(g,m,t,k,PX,PZ){
+  var C=m.curseGround; if(!C||!C.frames||!C.frames.length) return;
+  var fi=evAt(C.frames,t)-1; if(fi<0) return;
+  if(!C._cv){ C._cv=document.createElement("canvas"); C._cv.width=C.w; C._cv.height=C.h; C._fi=-1; }
+  var sig=fi+"|"+css("--well");
+  if(C._sig!==sig){
+    C._sig=sig;
+    var w=C.w, h=C.h, cg=C._cv.getContext("2d"), img=cg.createImageData(w,h), d=img.data;
+    var c=rgbOf(css("--well")), rows=C.frames[fi][1];
+    for(var q=0;q<rows.length;q++){
+      var j=rows[q][0], r=rows[q][1], py=(h-1-j)*w;       /* canvas row 0 = north */
+      for(var u=0;u+1<r.length;u+=2)
+        for(var i=r[u];i<r[u]+r[u+1]&&i<w;i++){ var p=(py+i)*4; d[p]=c[0]; d[p+1]=c[1]; d[p+2]=c[2]; d[p+3]=255; }
+    }
+    cg.putImageData(img,0,0);
+  }
+  g.save();
+  g.imageSmoothingEnabled=false;
+  g.globalAlpha=.5;
+  g.drawImage(C._cv, PX(C.x0), PZ(C.z0+C.h*C.cell), C.w*C.cell*k, C.h*C.cell*k);
+  g.restore();
+}
+
 /* ?debug=1 turns on the draw counter overlay (see the end of draw). */
 var DBG=/[?&]debug=1/.test(location.search||"")?{}:null;
 
@@ -1310,6 +1346,9 @@ function draw(){
   var tb=document.getElementById("zterr");
   if(tb){ var hide=!m.terr; if(tb.hidden!==hide) tb.hidden=hide; }
   var TT=(TERR.on&&m.terr)?drawTerritory(g,m,R.t,k,PX,PZ):null;
+  /* the cursed ground at the replay time, over the territory tint */
+  if(m.curseGround) drawCurse(g,m,R.t,k,PX,PZ);
+  drawObjectives(g,m,R.t,PX,PZ);
 
   /* region seeds, when the trace recorded them -- with the ownership meter
      under the name while someone is filling or draining it */
@@ -1429,10 +1468,10 @@ function draw(){
      a stranger -- and is hidden before its first keyframe and after its last
      (spawn and death). Nothing is sampled away: every unit alive at t is
      drawn, or counted into its formation glyph when zoomed out.
-     Sampled matches -- recorded before the trace existed -- still carry
-     frames with id 0 on every point, and are SNAPPED rather than tweened. A
-     15 s sample honestly shown as a slideshow beats a smooth animation of
-     something that never happened.
+     TRACED MATCHES ONLY (2026-10-25, developer: "remove the old mode"):
+     the 15 s sampled-frame matches are gone from the page and the
+     extractor. m.frames now carries only a LIVE snapshot -- one frame,
+     every unit at the snapshot second -- drawn as it stands.
      SHAPE IS TYPE: a track's type index (or m.utype on an old frame) points
      into m.utypes; no entry draws the plain dot it always did. */
   var fr=m.frames||[];
@@ -1472,18 +1511,15 @@ function draw(){
     var i=0; while(i<fr.length-1 && fr[i+1].t<=t) i++;
     var a=fr[i], b2=fr[Math.min(i+1,fr.length-1)], a0=fr[Math.max(0,i-1)];
     var span=(b2.t-a.t)||1, f=Math.max(0,Math.min(1,(t-a.t)/span));
-    var tween=(m.fidelity==="trace");
     Object.keys(a.u).forEach(function(fa){
-      var pa=a.u[fa]||[], pb=(b2.u&&b2.u[fa])||[];
-      var c=fhue(fa), nxt=null, prv=null;
-      if(tween){ nxt={}; for(var j=0;j<pb.length;j++) nxt[pb[j][0]]=pb[j]; }
+      var pa=a.u[fa]||[];
+      var c=fhue(fa), prv=null;
       /* positions this instant, then (zoomed out) the formation groups */
       var P=new Array(pa.length);
       for(var n=0;n<pa.length;n++){
-        var cur=pa[n], q=(tween&&nxt[cur[0]])||cur;
-        var ti=UM[cur[0]];
-        P[n]={x:cur[1]+(q[1]-cur[1])*f, z:cur[2]+(q[2]-cur[2])*f, fl:cur[3]|0,
-              sh:(ti==null)?"dot":m._ush[ti], c:cur, q:q};
+        var cur=pa[n], ti=UM[cur[0]];
+        P[n]={x:cur[1], z:cur[2], fl:cur[3]|0,
+              sh:(ti==null)?"dot":m._ush[ti], c:cur, q:cur};
       }
       var grouped=null;
       if(aggregate && a.fg){
@@ -1588,6 +1624,7 @@ function draw(){
         ' · <b>'+best.army+'</b> marched'+(best.arrived?', '+best.arrived+' arrived':', none arrived')+
         ' <span class="t">'+esc(best.why)+'</span>';
   setHTML("caption", cap);
+  setHTML("objstate", objectiveText(m,t));
 
   /* ?debug=1: what was drawn against what is alive, and what it cost. Every
      live unit is exactly one of: drawn on its own, inside a formation glyph,
@@ -1606,7 +1643,7 @@ function draw(){
         "\nunits in match "+TRK.n+" | keyframes "+TRK.K+" | tol "+((m.trackInfo||{}).tol||"?")+" m"+
         "\ndraw "+DBG.ms.toFixed(2)+" ms | "+(R.fps?R.fps.toFixed(0):"-")+" fps | "+R.speed+"x"+
         "\n"+DBG.lay+(DBG.bench?"\n"+DBG.bench:"");
-    } else el.textContent="sampled frames (no tracks) | draw "+DBG.ms.toFixed(2)+" ms";
+    } else el.textContent="live snapshot (no tracks) | draw "+DBG.ms.toFixed(2)+" ms";
   }
 
   renderRoster(false);
@@ -1753,6 +1790,17 @@ function renderTransport(){
 
   /* wave marks on the scrubber, the way the original showed its moments */
   var mk=document.getElementById("marks"); mk.textContent="";
+  (m.objectives||[]).forEach(function(ev){
+    if(!m.tmax||!OBJ_MARK[ev.k]) return;
+    var d=document.createElement("button");
+    d.className="mark"; d.style.left=(ev.t/m.tmax*100)+"%";
+    d.style.background="none"; d.style.border="0"; d.style.cursor="pointer";
+    d.style.color=ev.f?fhue(ev.f):"#ffd94d";
+    d.textContent=OBJ_MARK[ev.k];
+    d.title=(ev.f?ev.f+" ":"")+OBJ_NAME[ev.k]+" at "+mmss(ev.t);
+    d.onclick=function(){ R.t=ev.t; sc.value=String(ev.t); draw(); };
+    mk.appendChild(d);
+  });
   (m.waveList||[]).forEach(function(wv){
     if(!m.tmax) return;
     var d=document.createElement("button");
@@ -1768,6 +1816,59 @@ function renderTransport(){
 }
 
 /* ── tables ─────────────────────────────────────────────────────────── */
+/* THE SHARDROOT AND THE TIMED VICTORIES (2026-11-06): what decides a match says so
+   on the map. A replay watches every side, so the hidden artifact is drawn too. */
+var OBJ_MARK={kingDied:"☠",learned:"◆?",taken:"◆",dropped:"◇",king:"♔",ascension:"⧗",ascended:"★",templeDown:"✕",dominion:"⧗",dominionWon:"★"};
+var OBJ_NAME={kingDied:"lost the Shardbound King",learned:"learned where the Shardroot lies",taken:"took the Shardroot",dropped:"dropped the Shardroot",
+  king:"made King Lexor the Shardbound King",ascension:"began Ascension",ascended:"won by Ascension",
+  templeDown:"enshrining Temple destroyed",dominion:"began Sanctum dominion",dominionWon:"won by Sanctum dominion"};
+function objectiveNow(m,t){
+  var S={spot:null,state:"",who:null,since:0,told:[],asc:null,dom:null,won:null};
+  (m.objectives||[]).forEach(function(e){
+    if(e.t>t) return;
+    if(e.k==="hidden"){ S.spot=[e.x,e.z]; S.state="hidden"; S.since=e.t; }
+    else if(e.k==="moved"){ S.spot=[e.x,e.z]; S.moves=(S.moves||0)+1; }
+    else if(e.k==="learned"){ if(S.told.indexOf(e.f)<0) S.told.push(e.f); }
+    else if(e.k==="taken"){ S.spot=[e.x,e.z]; S.state="carried"; S.who=e.f; S.since=e.t; }
+    else if(e.k==="dropped"){ S.spot=[e.x,e.z]; S.state="ground"; S.who=e.f; S.since=e.t; S.asc=null; }
+    else if(e.k==="king"){ S.state="king"; S.who=e.f; S.since=e.t; }
+    else if(e.k==="kingDied"){ S.kingDied=e; }
+    else if(e.k==="ascension"){ S.state="temple"; S.who=e.f; S.since=e.t; S.asc={f:e.f,end:e.t+e.secs}; }
+    else if(e.k==="templeDown"){ S.spot=[e.x,e.z]; S.state="ground"; S.who=null; S.since=e.t; S.asc=null; }
+    else if(e.k==="dominion"){ S.dom={f:e.f,end:e.t+e.secs}; }
+    else if(e.k==="ascended"||e.k==="dominionWon"){ S.won={f:e.f,how:e.k==="ascended"?"Ascension":"Sanctum dominion"}; }
+  });
+  return S;
+}
+function objectiveText(m,t){
+  if(!(m.objectives||[]).length) return "";
+  var S=objectiveNow(m,t), who=function(f){ return '<b style="color:'+fhue(f)+'">'+esc(f)+'</b>'; }, parts=[];
+  if(S.state==="hidden") parts.push("Shardroot hidden, known to "+(S.told.length?S.told.map(who).join(", "):"nobody")+(S.moves?", moved "+S.moves+"x":""));
+  else if(S.state==="carried") parts.push("Shardroot carried by "+who(S.who)+" since "+mmss(S.since)+", the curse hunts them");
+  else if(S.state==="king") parts.push('<b>King Lexor ascended</b>: '+who(S.who)+"'s Shardbound King since "+mmss(S.since)+", the curse hunts them");
+  else if(S.state==="temple") parts.push("Shardroot enshrined by "+who(S.who));
+  else if(S.state==="ground") parts.push("Shardroot on the ground since "+mmss(S.since));
+  if(S.kingDied&&t-S.kingDied.t<60) parts.push('<b>'+who(S.kingDied.f)+"'s Shardbound King died</b>");
+  if(S.asc&&!S.won) parts.push('<b>Ascension</b> '+who(S.asc.f)+" "+mmss(Math.max(0,S.asc.end-t))+" left");
+  if(S.dom&&!S.won&&S.dom.end>t) parts.push('<b>Sanctum dominion</b> '+who(S.dom.f)+" "+mmss(S.dom.end-t)+" left if held");
+  if(S.won) parts.push(who(S.won.f)+" won by "+S.won.how);
+  return parts.join(" · ");
+}
+function drawObjectives(g,m,t,PX,PZ){
+  if(!(m.objectives||[]).length) return;
+  var S=objectiveNow(m,t);
+  if(!S.spot||(S.state!=="hidden"&&S.state!=="ground")) return;
+  var x=PX(S.spot[0]), y=PZ(S.spot[1]), r=9;
+  g.save(); g.lineWidth=2; g.strokeStyle="#ffd94d"; g.fillStyle="#ffd94d";
+  g.globalAlpha=S.state==="hidden"?.55:1;
+  if(S.state==="hidden") g.setLineDash([3,3]);
+  g.beginPath(); g.moveTo(x,y-r); g.lineTo(x+r,y); g.lineTo(x,y+r); g.lineTo(x-r,y); g.closePath();
+  if(S.state==="hidden") g.stroke(); else g.fill();
+  g.setLineDash([]); g.font="11px "+(css("--mono")||"monospace"); g.textAlign="center"; g.textBaseline="bottom";
+  g.fillText(S.state==="hidden"?"Shardroot (hidden)":"Shardroot",x,y-r-2);
+  g.restore();
+}
+
 function renderWaves(){
   var m=M[sel], host=document.getElementById("waves");
   var ws=m.waveList||[];
@@ -1784,6 +1885,34 @@ function renderWaves(){
         '<td class="num">'+esc(w.posture||"")+'</td>'+
         '<td style="color:var(--ink2)">'+esc(w.why)+'</td></tr>';
     }).join("")+'</tbody></table>';
+}
+
+/* ── CULTURES (2026-10-17): m.cultures = {faction: {culture, at, landmark}} ── */
+var CULTURE_HUE={Alanthor:"--f-Blue",Feraldis:"--f-Red",Runai:"--f-Yellow"};
+function renderCultures(){
+  var m=M[sel], sec=document.getElementById("cultureSec"), host=document.getElementById("cultures");
+  if(!sec||!host) return;
+  var C=(m&&m.cultures)||{};
+  var facs=Object.keys(m&&m.series||{}).filter(function(f){ return f!=="Border"; });
+  Object.keys(C).forEach(function(f){ if(facs.indexOf(f)<0&&f!=="Border") facs.push(f); });
+  if(!facs.length){ sec.hidden=true; host.textContent=""; return; }
+  sec.hidden=false;
+  facs.sort();
+  var count={};
+  facs.forEach(function(f){ var c=(C[f]||{}).culture; if(c) count[c]=(count[c]||0)+1; });
+  host.innerHTML='<table><thead><tr><th>Faction</th><th>Culture</th><th class="num">Aged up at</th>'+
+    '<th>Landmark</th></tr></thead><tbody>'+
+    facs.map(function(f){
+      var e=C[f]||{}, el=(m.eliminated||{})[f];
+      var cul=e.culture?'<span class="swatch" style="background:var('+(CULTURE_HUE[e.culture]||"--mute")+')"></span>'+esc(e.culture)
+                       :'<span style="color:var(--mute)">not yet chosen</span>';
+      return '<tr'+(el!=null?' style="opacity:.6"':'')+'><td><span class="swatch" style="background:'+fhue(f)+'"></span>'+
+        esc(fnm(f))+'</td><td>'+cul+'</td><td class="num">'+(e.at!=null?mmss(e.at):'—')+'</td>'+
+        '<td>'+esc(String(e.landmark||'').replace(/_/g,' '))+'</td></tr>';
+    }).join("")+'</tbody></table>'+
+    '<p class="note" style="padding:8px 9px">'+Object.keys(count).sort().map(function(c){
+      return '<span class="swatch" style="background:var('+(CULTURE_HUE[c]||"--mute")+')"></span>'+esc(c)+' '+count[c];
+    }).join(' · ')+'</p>';
 }
 
 function renderStanding(){
@@ -1824,9 +1953,19 @@ function renderScore(){
   sec.hidden=false;
   facs.sort(function(a,b){ return ((+F[b].score)||0)-((+F[a].score)||0) || a.localeCompare(b); });
   var lead=facs[0];
-  note.innerHTML='<b>Economy</b> (resources earned, weighted, plus income rate) + <b>Strategy</b> '+
-    '(territories, Fortresses, techs, building levels, age-up timing) + <b>Military</b> (kills and '+
-    'razed buildings, scaled by the kill/death ratio). '+
+  /* Two shapes of score (docs/Design/Score.md): since 0.0.52 the price of
+     what a faction owns (units / buildings / stockpile); before that
+     economy / strategy / military. The parts present decide the columns. */
+  var neo=facs.some(function(f){ var v=F[f]||{}; return ((+v.units)||0)+((+v.buildings)||0)+((+v.stockpile)||0)>0; });
+  var P=neo?[["units","Units"],["buildings","Buildings"],["stockpile","Stockpile"]]
+           :[["economy","Economy"],["strategy","Strategy"],["military","Military"]];
+  note.innerHTML=(neo
+    ? '<b>Units</b> (every living unit at its price, scaled by its researched stats) + <b>Buildings</b> '+
+      '(standing buildings at what they cost, with their level-ups) + <b>Stockpile</b> (the bank), at '+
+      'supplies 1 / iron 3 / veilstone 5 / veilsteel 10. A defeated faction scores 0; kills are shown, not scored. '
+    : '<b>Economy</b> (resources earned, weighted, plus income rate) + <b>Strategy</b> '+
+      '(territories, Fortresses, techs, building levels, age-up timing) + <b>Military</b> (kills and '+
+      'razed buildings, scaled by the kill/death ratio). ')+
     (m.live?'Standings at the latest snapshot':'Final standings')+': <span class="swatch" style="background:'+
     fhue(lead)+'"></span><b>'+esc(fnm(lead))+'</b> leads with '+fmtScore(F[lead].score)+'.';
   var rows=facs.map(function(f,i){
@@ -1835,16 +1974,15 @@ function renderScore(){
       '<td><span class="swatch" style="background:'+fhue(f)+'"></span>'+esc(fnm(f))+
       (el!=null?' <span class="v bad" title="last seen in the metrics">eliminated '+mmss(el)+'</span>':'')+'</td>'+
       '<td class="num"><b>'+fmtScore(v.score)+'</b></td>'+
-      '<td class="num">'+fmtScore(v.economy)+'</td><td class="num">'+fmtScore(v.strategy)+'</td>'+
-      '<td class="num">'+fmtScore(v.military)+'</td>'+
+      P.map(function(p){ return '<td class="num">'+fmtScore(v[p[0]])+'</td>'; }).join("")+
       '<td class="num">'+(v.kills||0)+'/'+(v.deaths||0)+' <span style="color:var(--mute)">('+
         ((+v.kd)||0).toFixed(2)+')</span></td>'+
       '<td class="num">'+(v.territories||0)+'</td><td class="num">'+(v.fortresses||0)+'</td>'+
       '<td class="num">'+(v.techs||0)+'</td></tr>';
   }).join("");
   host.innerHTML='<div class="scroll"><table><thead><tr><th class="num">#</th><th>Faction</th>'+
-    '<th class="num">Score</th><th class="num">Economy</th><th class="num">Strategy</th>'+
-    '<th class="num">Military</th><th class="num" title="kills / deaths (ratio)">K/D</th>'+
+    '<th class="num">Score</th>'+P.map(function(p){ return '<th class="num">'+p[1]+'</th>'; }).join("")+
+    '<th class="num" title="kills / deaths (ratio)">K/D</th>'+
     '<th class="num">Territories</th><th class="num">Fortresses</th><th class="num">Techs</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
   /* score over time: one line per faction on the shared sample times, in
@@ -2205,24 +2343,20 @@ function renderHead(){
         '<span>'+(m.liveN||0)+' units drawn'+(m.liveCap?' (thinned: '+esc(m.liveCap)+')':'')+'</span>'
       : '<span>'+m.peers+' peers</span>'+
     '<span>'+esc(m.build)+'</span>'+
-    '<span>positions every <b>'+(m.fidelity==="trace"?"1 s":"15 s")+'</b></span>'+
+    '<span>positions every <b>1 s</b></span>'+
     '<span>'+(forked(m)
       ? '<b class="warn">forked at tick '+(d.forkTick!=null?d.forkTick:d.flagTick)+'</b>'
       : '<b>'+(d.compared||0).toLocaleString()+' tick rows agreed</b>')+'</span>')+
     scoreSpec(m);
-  document.getElementById("lede").innerHTML= m.fidelity==="trace"
-    ? 'Every unit, all of them, recorded once a second with its state and drawn along its own '+
+  document.getElementById("lede").innerHTML=
+      'Every unit, all of them, recorded once a second with its state and drawn along its own '+
       'track: between keyframes it moves in a straight line at a steady pace, and the keyframes are '+
       'kept so that line never strays more than <b>'+(((m.trackInfo||{}).tol)||"0.75")+' m</b> from where '+
       'the game had it. A <b>gold ring</b> is a unit in '+
       'formation; a <b>red halo</b> is one with a target. Buildings are drawn at their real '+
       'footprint on the 2 m build grid, and the map’s regions and resource nodes are the ones the '+
       'match actually had. A unit’s shape is its class and a building’s glyph its type, with gold pips '+
-      'for its level (see the legend). Drag to pan, scroll or pinch to zoom.'
-    : 'Recorded before the trace existed, so units are sampled every 15 s without formation or '+
-      'combat state — but the map underneath is real: true world extent, every resource node '+
-      'from the map asset, and every building at its true footprint on the 2 m build grid, marked '+
-      'with its type. Drag to pan, scroll or pinch to zoom.';
+      'for its level (see the legend). Drag to pan, scroll or pinch to zoom.';
   /* THE LEGEND IS DRAWN BY THE SAME CODE AS THE MAP (markURL), so a symbol
      here can never disagree with a symbol there. */
   var mu=css("--mute");
@@ -2261,6 +2395,10 @@ function renderHead(){
         '<span style="color:var(--bad)">dashed red: contested (hostiles share it, meter frozen)</span>'+
         '<span>“Red 60%” under a name: who is filling its ownership meter</span>'+
         '<span>TER or T toggles the territory layer</span>'
+      : '')+
+    (m.curseGround
+      ? '<span><span class="sq" style="background:var(--well);opacity:.6"></span>cursed ground at the '+
+        'replay time — the curse’s spread, in 4 m cells</span>'
       : '')+
     '<span>drag to pan · wheel, pinch or + / − to zoom · double-click zooms in · FIT or 0 resets</span>'+
     '</div>';
@@ -2307,7 +2445,7 @@ function renderAll(){
   if(VW.sel!==sel){ viewReset(); VW.sel=sel; }
   bindView(); renderRosterMode();
   renderRuns(); renderHead(); renderTransport();
-  renderOverflow(); renderScore(); renderWaves(); renderStanding(); renderComposition(); renderStructures();
+  renderOverflow(); renderScore(); renderWaves(); renderCultures(); renderStanding(); renderComposition(); renderStructures();
   renderResearch(); renderCharts(); renderEcon(); renderCombat(); renderCurse();
   requestAnimationFrame(function(){ draw(); renderRoster(true); });
 }
@@ -2521,9 +2659,11 @@ function liveApply(m,d){
     var sc=m.score, ti=sc.ts.length;
     if(ti&&sc.ts[ti-1]>=d.t) ti--; else sc.ts.push(d.t);
     Object.keys(SF).forEach(function(f){
-      var v=SF[f]||{}, s=(sc.f[f]=sc.f[f]||{s:[],e:[],st:[],m:[],kd:[]});
-      while(s.s.length<ti){ s.s.push(null); s.e.push(null); s.st.push(null); s.m.push(null); s.kd.push(null); }
-      s.s[ti]=v.score; s.e[ti]=v.economy; s.st[ti]=v.strategy; s.m[ti]=v.military; s.kd[ti]=v.kd;
+      var v=SF[f]||{}, s=(sc.f[f]=sc.f[f]||{s:[],e:[],st:[],m:[],u:[],b:[],sp:[],kd:[]});
+      while(s.s.length<ti){ s.s.push(null); s.e.push(null); s.st.push(null); s.m.push(null);
+        s.u.push(null); s.b.push(null); s.sp.push(null); s.kd.push(null); }
+      s.s[ti]=v.score; s.e[ti]=v.economy; s.st[ti]=v.strategy; s.m[ti]=v.military;
+      s.u[ti]=v.units; s.b[ti]=v.buildings; s.sp[ti]=v.stockpile; s.kd[ti]=v.kd;
     });
     sc.final=SF;
   } else m.score=null;
@@ -2552,7 +2692,7 @@ function liveRefresh(e){
   var m=e&&e.m; if(!m||M[sel]!==m||!e.doc) return;
   liveApply(m,e.doc);
   R.t=m.tmax; RS.sig="";
-  renderRuns(); renderHead(); renderScore(); renderStanding(); renderComposition(); renderStructures();
+  renderRuns(); renderHead(); renderScore(); renderCultures(); renderStanding(); renderComposition(); renderStructures();
   renderCharts(); draw(); renderRoster(true); liveBar();
 }
 

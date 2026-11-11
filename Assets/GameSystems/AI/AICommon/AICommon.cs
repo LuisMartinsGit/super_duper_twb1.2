@@ -197,6 +197,8 @@ namespace TheWaningBorder.AI
             => TransientState.Active<BuildCommand>(em, worker)
             || TransientState.Active<BuildOrder>(em, worker)
             || TransientState.Active<RepairOrder>(em, worker)
+            // Walking into a Farm (decision 55): pulling it off drops the staffing.
+            || TransientState.Active<GarrisonApproach>(em, worker)
             // A Feraldis slave crewing an extractor or the Forge, or walking to
             // one (or to the Altar), is working — pulling it off to build
             // drops the crew (docs/Design/Age_1_Feraldis.md §3.1).
@@ -310,6 +312,10 @@ namespace TheWaningBorder.AI
             {
                 if (facs[i].Value != faction) continue;
                 if (!IsCommittedWorker(em, ents[i])) continue;
+                // A Worker walking into a Farm is never pulled off (2026-11-11,
+                // overnight tuning: Expert Turtle's wall jobs re-took the same
+                // two farmhands every think -- its Farms paid 0 all match).
+                if (TransientState.Active<GarrisonApproach>(em, ents[i])) continue;
                 float dx = xfs[i].Position.x - sitePos.x;
                 float dz = xfs[i].Position.z - sitePos.z;
                 busy.Add(new Candidate { Entity = ents[i], DistSq = dx * dx + dz * dz });

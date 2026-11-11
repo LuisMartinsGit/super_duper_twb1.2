@@ -9,6 +9,63 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+56. **Nodes are finite again, twice as long; the Market has no ceiling; a full Farm out-earns a
+    level 3 Guild (2026-11-11, developer, after the first decision-55 test).** Supersedes decision
+    55 (a). (a) **Every node holds a finite reserve again** — supply, iron and veilstone — drained
+    by what its extractor pays, as before decision 55, but **each reserve is double** what it was
+    (`TerritoryIncomeSystem.asset`). (b) A spent node collapses with its extractor, as before; the
+    Gatherer's Hut line still stands as Depleted. There is **no grace window and no node held by
+    trade**: the Trading Outpost stays retired (decision 55 b). (c) **The Market buys any amount a
+    minute**: no rate ceiling; the only limit is what the bank can pay at its fixed prices. (d) **A
+    Farm with all five Workers pays more than a level 3 Guild hut on a Pure node** (the Farm SO's
+    supplies per Worker). (e) The AI buys its military building levels on a schedule by tier, like
+    research, instead of weighing them against soldiers (the tier techs now come only from levels,
+    decision 53), and runs its Market from its supply surplus.
+55. **Nodes never run out; Farms and the Market (2026-11-11, developer, after player feedback:
+    "the economy is convoluted — nodes that get spent and disappear, markets everywhere").**
+    Supersedes decisions 45, 49, 50 and 51 and the finite-reserve rules of
+    [Territory_Claims.md § 11.3-11.4](Territory_Claims.md). (a) **A node is never spent**: no
+    reserve, no collapse, no grace window, no remaining bar. An extractor on a node pays its SO
+    slot-income ladder for as long as it stands. (b) **The Trading Outpost is retired** with Trade
+    Charters, Trade Ledgers and Merchant Houses. (c) **The Farm** (Alanthor, Age 1): built on the
+    player's own ground, on no node; **at most six per player**; it holds **up to five Workers**
+    and pays supplies in proportion to the Workers inside it (an empty Farm pays nothing). Workers
+    are ordered in and ejected like a garrison; a destroyed Farm ejects them. Price, footprint,
+    supplies per Worker and the cap are on the Farm SO. (d) **The Market** (Alanthor, Age 1, one per
+    player): the player sets how much iron and how much veilstone a minute it buys; it pays
+    supplies for them at **fixed prices** on the Market SO. The price never moves with the nodes a
+    player holds, or with anything else. When the bank cannot pay, nothing is bought that tick.
+    (e) **The intent**: Farms and the Market let a player live without a single node, but holding
+    nodes is by far the richer income — a Mine's iron costs several full Farms' worth of supplies
+    at the Market. (f) Feraldis and Runai (editions B / C) lose finite nodes too; their own
+    staffing and haul rules are untouched.
+54. **The Objectives panel names every way to win (2026-11-11, developer, after player feedback:
+    "map objectives are not clear").** After the two opening steps (a special building; a
+    culture and age-up) the panel lists the live victories with their progress: conquest (rivals
+    left), **Sanctum dominion** (Sanctums held / on the map, and the countdown while it runs), and
+    **the Shardroot** (monuments explored, who carries it, the ascension countdown). The old
+    "cleanse the curse nodes" line is gone — that victory no longer exists
+    ([Territory_Claims.md § 7](Territory_Claims.md)).
+53. **Fewer researches: a building's level carries its unit tiers (2026-11-11, developer, after
+    player feedback: "too many upgrades").** The weapon / armour / experience tier techs of the
+    Garrison, Archery Range, Royal Stable and Siege Yard, and the Fortress's tool tiers, are no
+    longer researched: **each building level grants them** (`BuildingLevelDefSO.grantsTechs`) the
+    moment the faction reaches that level of that building type — L1 the stone tier and Seasoned,
+    L2 the iron and veilstone tiers and Veteran, L3 the shard tier and Elite (the Fortress: L2 iron
+    tools, L3 veilstone and shard tools). The level-up prices absorb part of the techs' prices.
+    What is still researched changes how a unit plays: Garrison — Charge, Shield Wall; Archery
+    Range — Fletching, Arrow Volley, Choreographed Volleys, Deploy Stakes; Royal Stable — Charge,
+    War Horn, Full Gallop; Siege Yard — Iron-Shod Ram, Counterweight Tuning, Ranging Shot, Siege
+    Screens. Arrow Shower and Reinforced Bolts are cut. About 40 researches remain in Age 0 +
+    Alanthor, from 87.
+52. **One job per unit (2026-11-11, developer, after player feedback: "too many units of each
+    kind without a clear role").** The Alanthor army is two units a kind: **Spearman** (cheap line,
+    beats cavalry) and **Swordsman** (heavy line); **Archer** (cheap, range) and **Crossbowman**
+    (beats armour); **Outrider** (raider) and **Cataphract** (shock); **Battering Ram** (cheap, close)
+    and **Trebuchet** (long range). The **Sentinel, Nobleman, Longbowman, Ballista and Catapult
+    leave every roster** (the wall emplacements stay — they are wall features, not units you
+    train). The Swordsman grows into the old heavy-infantry role through the Garrison's levels
+    (decision 53). Battalions are the next step, after these (developer).
 51. **Trading Outposts carry the endgame (2026-11-10, developer: "players in the endgame must earn
     more than players in the early game, but must also venture out and fight for resources").**
     The posts' base trickle is doubled (`TradingOutpostSystem.asset`): a node's four posts, levelled

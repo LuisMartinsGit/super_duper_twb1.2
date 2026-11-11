@@ -56,8 +56,8 @@
 | Population | army population is the game cap from age-up (unchanged); **slaves are capped separately** by the Slave Pens (§3.2) |
 
 **Design yardstick — Alanthor.** Alanthor's economy is buildings that keep
-paying after the nodes run dry (Vault, Guild surveys, the Trading Outpost
-chain); it wins by outlasting. Feraldis peaks earlier, carries its value in
+paying (Vault, extractor levels, the Farm and the Market; nodes never run out
+since [decision 55](Unification_Decisions_2026-10-03.md), and the Trading Outpost chain is retired); it wins by outlasting. Feraldis peaks earlier, carries its value in
 bodies that can be killed and in one Forge that can be razed, and keeps
 pace after minute 30 **only while it raids**. At equal investment the Great
 Forge loop is tuned to match the Outpost loop's net; Feraldis reaches its
@@ -101,11 +101,12 @@ tick exactly as today.
   of the same level — the premium for slaves that cost supplies, walk there
   and die. The curve is `crewIncomeAtZero` / `crewIncomeAtFull`
   (`FeraldisEconomy.asset`).
-- **On a Veilstone Mine every slave also drains the outcrop faster** — the
-  standing rule "Feraldis mine fast and finite" ([Veilstone_Economy.md §3.2](Veilstone_Economy.md)).
+- **Feraldis mine veilstone fast** ([Veilstone_Economy.md §3.2](Veilstone_Economy.md)).
+  The outcrop no longer drains or runs out ([decision 55](Unification_Decisions_2026-10-03.md)); a crew still raises
+  what the Mine pays.
 - Slaves still **build and repair**, exactly as Workers did — **only the
   Age 0 buildings and the Feraldis ones** (2026-10-13). No Alanthor or Runai
-  building (Archery Range, Royal Stable, Siege Yard, Trading Outpost, stone
+  building (Archery Range, Royal Stable, Siege Yard, stone
   wall, …) is offered to a slave or accepted from any order; the one rule is
   `CultureGate.CanFactionBuild`, read by the build palette and enforced by
   `CommandRouter` for the AI and every lockstep order. The reverse holds for
@@ -140,15 +141,16 @@ never dead money.
 
 ### 3.5 Raiding is the late-game supply
 
-After the nodes run dry ([Territory_Claims.md § 11.3](Territory_Claims.md)),
-**Feraldis supplies come only from raiding**. A Feraldis player who avoids
+After the opening (nodes never run out since [decision 55](Unification_Decisions_2026-10-03.md); this used to read
+"after the nodes run dry"), **Feraldis late-game supplies come only from raiding**
+— Feraldis claims pay no supplies. A Feraldis player who avoids
 fights is meant to lose. The sources:
 
 | Source | Rule |
 |---|---|
 | **Raze bounty** | §3.4 — buildings are priced mostly in supplies |
 | **Pillage** | killing an enemy unit pays a share of its whole cost, **as supplies** (`pillageShare`) — Alanthor soldiers cost iron and veilstone, so a share of the supply cost alone would pay nothing; slaves and workers count |
-| **Siphon** | a Feraldis unit attacking an enemy **extractor, Trading Outpost or Fortress** drains supplies from that faction's bank to its own (`siphonPerSecond`, never below zero) |
+| **Siphon** | a Feraldis unit attacking an enemy **extractor or Fortress** drains supplies from that faction's bank to its own (`siphonPerSecond`, never below zero) |
 | **The curse** | pays **no supplies** (§3.6) — otherwise farming the curse would be a way to avoid other players |
 
 To make it bite, **Feraldis territory claims pay no supplies** — only their
@@ -191,8 +193,7 @@ heart of the culture and the building an enemy most wants to raze.
 ### 4.1 Bays
 
 The Forge holds up to **four bays**, each bought separately at a rising
-price (the per-bay ramp, like the Trading Outpost's per-outcrop ramp —
-`bayCostRamp`). Each bay runs **one recipe** at a time, has its own level
+price (the per-bay ramp — `bayCostRamp`). Each bay runs **one recipe** at a time, has its own level
 (L1–L3, rate multiplier on the level SO) and can be set to **Hold**:
 
 | Recipe | In | Out | Alanthor counterpart |

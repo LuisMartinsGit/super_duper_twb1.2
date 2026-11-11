@@ -17,8 +17,8 @@ MonoBehaviour:
   level: 2
   displayName: Fortress
   upgradeCost:
-    Supplies: 1000
-    Iron: 500
+    Supplies: 1075
+    Iron: 550
     Veilstone: 0
   upgradeSeconds: 65
   hpMultiplier: 1.15
@@ -42,4 +42,6 @@ MonoBehaviour:
   - {x: -2.8141022, y: 4.9528036, z: 2.8134203}
   - {x: -2.8136652, y: 4.9528036, z: -2.8085175}
   lineOfSight: 0
+  grantsTechs:
+  - IronTools
   prefab: {fileID: 7646223963695624410, guid: 1a0d2259faf926740bb711cd9fbd1372, type: 3}
