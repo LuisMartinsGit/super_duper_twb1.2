@@ -198,7 +198,7 @@ namespace TheWaningBorder.UI.Ingame
                 {
                     if (hps[i].Max <= 0 || hps[i].Value <= 0 || !IsVisible(ents[i])) continue;
                     var wp = xfs[i].Position;
-                    Vector3 sp = cam.WorldToScreenPoint(new Vector3(wp.x, wp.y + yOffsetAboveEntity, wp.z));
+                    Vector3 sp = cam.WorldToScreenPoint(new Vector3(wp.x, wp.y + yOffsetAboveEntity * TheWaningBorder.Rendering.UnitWorldScale.Value, wp.z));
                     if (sp.z < 0f) continue;
                     while (_heroBars.Count <= used)
                         _heroBars.Add(Instantiate(_heroBarPrefab, _canvasRect, false).GetComponent<HeroBarWidget>());
@@ -318,7 +318,7 @@ namespace TheWaningBorder.UI.Ingame
 
                     var wp = xfs[i].Position;
                     var anchor = new Vector3(wp.x,
-                        wp.y + (isBuilding ? buildingYOffset : yOffsetAboveEntity), wp.z);
+                        wp.y + (isBuilding ? buildingYOffset : yOffsetAboveEntity * TheWaningBorder.Rendering.UnitWorldScale.Value), wp.z);
                     // Managed frustum pre-test (padded well past the pixel
                     // margin) before the native WorldToScreenPoint.
                     if (!TheWaningBorder.Rendering.ProceduralRigCulling.Visible(anchor, FrustumPrePad))
@@ -386,7 +386,7 @@ namespace TheWaningBorder.UI.Ingame
 
             var pos = _em.GetComponentData<LocalTransform>(e).Position;
             bool isBuilding = _em.HasComponent<BuildingTag>(e);
-            float yOff = isBuilding ? buildingYOffset : yOffsetAboveEntity;
+            float yOff = isBuilding ? buildingYOffset : yOffsetAboveEntity * TheWaningBorder.Rendering.UnitWorldScale.Value;
 
             Vector3 worldPos = new Vector3(pos.x, pos.y + yOff, pos.z);
             Vector3 screenPos = cam.WorldToScreenPoint(worldPos);

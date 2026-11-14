@@ -102,6 +102,9 @@ param(
     # Per-colour personality, "Red=Turtle,Blue=Rush" (Balanced|Economic|
     # TechBoom|Rush|Turtle|Defensive); omitted colours keep their default.
     [string]$FactionPersonality = "",
+    # Per-colour culture, "Blue=Alanthor,Red=Alanthor": that AI builds that
+    # culture's landmark (still edition-gated). Test batches are all-Alanthor.
+    [string]$FactionCulture = "",
     # Colours that build and defend but never attack: "Blue,Red" (a new-player stand-in).
     [string]$FactionPassive = "",
     [string]$FactionStart = "",   # "Blue=0,Red=3": start position per colour
@@ -144,6 +147,12 @@ $MapPlayers = @{
     "Highfold"       = 8
     "BrokenOath"     = 5
     "TrineHollow"    = 3
+    # the v2 maps (2026-11-14, half-size redesigns)
+    "Moatwatch_v2"      = 4
+    "Highfold_v2"       = 8
+    "BrokenOath_v2"     = 5
+    "TrineHollow_v2"    = 3
+    "FiendstonePass_v2" = 6
 }
 
 function PlayersFor([string]$m) {
@@ -172,6 +181,7 @@ function RunTagArgs {
     if ($Difficulty -ne "")        { $a += @("-twbDifficulty", $Difficulty) }
     if ($FactionDifficulty -ne "") { $a += @("-twbFactionDifficulty", (Quote-Arg ($FactionDifficulty -replace '\s', ''))) }
     if ($FactionPersonality -ne "") { $a += @("-twbFactionPersonality", (Quote-Arg ($FactionPersonality -replace '\s', ''))) }
+    if ($FactionCulture -ne "")    { $a += @("-twbFactionCulture", (Quote-Arg ($FactionCulture -replace '\s', ''))) }
     if ($FactionPassive -ne "")    { $a += @("-twbFactionPassive", (Quote-Arg $FactionPassive)) }
     if ($FactionStart -ne "")      { $a += @("-twbFactionStart", (Quote-Arg $FactionStart)) }
     if ($NoCurse)                  { $a += "-twbNoCurse" }

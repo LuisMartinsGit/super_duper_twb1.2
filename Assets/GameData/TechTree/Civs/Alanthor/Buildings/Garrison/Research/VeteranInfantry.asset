@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Veteran Infantry
   role: Military
   effect: 
-  desc: "+30 HP, +10% speed, +1 damage, +1 defense to all Garrison line infantry."
+  desc: "Garrison level 2: Garrison infantry gain HP, armour of every type, speed and line of sight."
   researchAt: Barracks
   minBuildingLevel: 2
   researchTime: 35
@@ -38,64 +38,32 @@ MonoBehaviour:
   - Target: "unit:Spearman"
     Stat: Hp
     Op: Add
-    Value: 30
+    Value: 20
   - Target: "unit:Spearman"
-    Stat: Speed
-    Op: Pct
-    Value: 10
-  - Target: "unit:Spearman"
-    Stat: Damage
+    Stat: DefenseAll
     Op: Add
     Value: 1
   - Target: "unit:Spearman"
-    Stat: DefenseAll
+    Stat: Speed
+    Op: Pct
+    Value: 3
+  - Target: "unit:Spearman"
+    Stat: LineOfSight
     Op: Add
     Value: 1
   - Target: "unit:Alanthor_Swordsman"
     Stat: Hp
     Op: Add
-    Value: 30
-  - Target: "unit:Alanthor_Swordsman"
-    Stat: Speed
-    Op: Pct
-    Value: 10
-  - Target: "unit:Alanthor_Swordsman"
-    Stat: Damage
-    Op: Add
-    Value: 1
+    Value: 20
   - Target: "unit:Alanthor_Swordsman"
     Stat: DefenseAll
     Op: Add
     Value: 1
-  - Target: "unit:Alanthor_Nobleman"
-    Stat: Hp
-    Op: Add
-    Value: 30
-  - Target: "unit:Alanthor_Nobleman"
+  - Target: "unit:Alanthor_Swordsman"
     Stat: Speed
     Op: Pct
-    Value: 10
-  - Target: "unit:Alanthor_Nobleman"
-    Stat: Damage
-    Op: Add
-    Value: 1
-  - Target: "unit:Alanthor_Nobleman"
-    Stat: DefenseAll
-    Op: Add
-    Value: 1
-  - Target: "unit:Alanthor_Sentinel"
-    Stat: Hp
-    Op: Add
-    Value: 30
-  - Target: "unit:Alanthor_Sentinel"
-    Stat: Speed
-    Op: Pct
-    Value: 10
-  - Target: "unit:Alanthor_Sentinel"
-    Stat: Damage
-    Op: Add
-    Value: 1
-  - Target: "unit:Alanthor_Sentinel"
-    Stat: DefenseAll
+    Value: 3
+  - Target: "unit:Alanthor_Swordsman"
+    Stat: LineOfSight
     Op: Add
     Value: 1

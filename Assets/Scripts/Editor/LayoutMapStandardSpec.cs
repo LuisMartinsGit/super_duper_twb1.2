@@ -15,7 +15,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
     public static class LayoutMapStandardSpec
     {
         public static LayoutMapSpec Make(string mapName, string sceneName, string layoutFolder, int floraSeed,
-            int treeAttempts, string displayName = null, string folderOverride = null)
+            int treeAttempts, string displayName = null, string folderOverride = null, int fringePercent = 18)
         {
             string folder = folderOverride ?? $"Assets/GameData/Scenes/Maps/{mapName}";
             return new LayoutMapSpec
@@ -58,7 +58,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                         if (map.Mask("forest.png", x, z)) return true;
                         if (!map.Mask("fringe.png", x, z)) return false;
                         uint hsh = (uint)(Mathf.FloorToInt(x) * 73856093) ^ (uint)(Mathf.FloorToInt(z) * 19349663);
-                        return (hsh % 100) < 18;
+                        return (hsh % 100) < fringePercent;   // the v2 maps plant their mountains denser (2026-11-14)
                     },
                     RockAboveHeight = 30f,
                     RockAboveSteep = 50f,

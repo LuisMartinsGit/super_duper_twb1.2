@@ -198,7 +198,7 @@ this layer asks for.
 | | Sect unit | Sect hero |
 |---|---|---|
 | Trained / recruited at | the sect building | the sect building |
-| Price | the unit's resource price (its SO) **+ `sectUnitRp` religion points, each (2026-11-07)** | an RP price (`heroRp`) + the hero's resource price (its SO) |
+| Price | the unit's resource price (its SO), which includes **veilstone**. **No religion points (2026-11-14, developer; `sectUnitRp` is 0)** — it cost a point each from 2026-11-07 until then | an RP price (`heroRp`) + the hero's resource price (its SO) |
 | Limit | **20 per faction**, live and queued | **one** (unique) |
 | Levels | — | 1-10 from kills, exactly as [Heroes.md](Heroes.md); abilities unlock at levels 1, 3 and 6 |
 | Death | train another | recruited again at the sect building for its resources only — revival never costs RP. It returns at level 1 (the Rally-the-Oath / Full-Honours choice is King Lexor's alone) |

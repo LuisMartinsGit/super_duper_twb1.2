@@ -1,7 +1,8 @@
 // UnitVisualOverlaySystem.cs
 // Procedural overlays for unit feedback (spec refinement #7):
-//   - Rank pips above the unit (one per UnitRank.Value, capped at 5).
-//   - Shield bar under the pips while an equipment shield holds points.
+//   - Shield bar above the unit while an equipment shield holds points.
+// The rank pips (a yellow sphere per UnitRank.Value above every unit) were
+// removed on 2026-11-13 at the developer's request.
 //
 // 2026-10-15 (3,000-unit pass): drawn with GPU INSTANCING, not GameObjects.
 // Every unit used to own a wrapper GameObject plus a sphere per rank pip
@@ -27,10 +28,7 @@ namespace TheWaningBorder.Rendering
 {
     public class UnitVisualOverlaySystem : MonoBehaviour
     {
-        private const float PipBaseHeight = 2.4f;
-        private const float PipSpacing = 0.18f;
-        private const float PipSize = 0.14f;
-        private const float ShieldBarHeight = PipBaseHeight - 0.25f;
+        private const float ShieldBarHeight = 2.15f;
 
         /// <summary>Frustum pad (m) around a unit's overlay anchor: the widest
         /// overlay is the 1 m shield bar.</summary>
@@ -48,23 +46,18 @@ namespace TheWaningBorder.Rendering
             ComponentType.ReadOnly<LocalTransform>() };
         private TheWaningBorder.Core.CachedEntityQuery _unitQuery;
 
-        private Material _pipMat;
         private Material _shieldBgMat;
         private Material _shieldFillMat;
-        private Mesh _sphereMesh;
         private Mesh _cubeMesh;
 
-        private Matrix4x4[] _pips = new Matrix4x4[1024];
         private Matrix4x4[] _bgs = new Matrix4x4[64];
         private Matrix4x4[] _fills = new Matrix4x4[64];
-        private int _pipCount, _bgCount, _fillCount;
+        private int _bgCount, _fillCount;
 
         void Awake()
         {
-            _pipMat = BuildMat(new Color(1.00f, 0.85f, 0.30f, 1f), emissive: true);
             _shieldBgMat = BuildMat(new Color(0.10f, 0.20f, 0.30f, 0.85f), emissive: false);
             _shieldFillMat = BuildMat(new Color(0.45f, 0.80f, 1.00f, 0.95f), emissive: true);
-            _sphereMesh = PrimitiveMesh(PrimitiveType.Sphere);
             _cubeMesh = PrimitiveMesh(PrimitiveType.Cube);
         }
 
@@ -76,16 +69,15 @@ namespace TheWaningBorder.Rendering
                 if (_world == null || !_world.IsCreated) return;
                 _em = _world.EntityManager;
             }
-            if (_pipMat == null || _sphereMesh == null || _cubeMesh == null) return;
+            if (_shieldBgMat == null || _cubeMesh == null) return;
 
-            _pipCount = _bgCount = _fillCount = 0;
+            _bgCount = _fillCount = 0;
             var evm = EntityViewManager.Instance;
 
             var unitQuery = _unitQuery.Get(_em, UnitQueryTypes);
             unitQuery.CompleteDependency();
             var entityHandle = _em.GetEntityTypeHandle();
             var ltHandle = _em.GetComponentTypeHandle<LocalTransform>(true);
-            var rankHandle = _em.GetComponentTypeHandle<UnitRank>(true);
             var shieldHandle = _em.GetComponentTypeHandle<ShieldBar>(true);
 
             using var chunks = unitQuery.ToArchetypeChunkArray(Allocator.Temp);
@@ -94,15 +86,14 @@ namespace TheWaningBorder.Rendering
                 var chunk = chunks[c];
                 var entities = chunk.GetNativeArray(entityHandle);
                 var transforms = chunk.GetNativeArray(ref ltHandle);
-                bool hasRank = chunk.Has(ref rankHandle);
                 bool hasShield = chunk.Has(ref shieldHandle);
-                var ranks = hasRank ? chunk.GetNativeArray(ref rankHandle) : default;
                 var shields = hasShield ? chunk.GetNativeArray(ref shieldHandle) : default;
 
                 for (int i = 0; i < entities.Length; i++)
                 {
                     float3 p = transforms[i].Position;
-                    var anchor = new Vector3(p.x, p.y + PipBaseHeight, p.z);
+                    float k = UnitWorldScale.Value;
+                    var anchor = new Vector3(p.x, p.y + ShieldBarHeight * k, p.z);
 
                     // Cheapest test first: pure math on the frame's planes.
                     if (!ProceduralRigCulling.Visible(anchor, CullPad)) continue;
@@ -117,14 +108,6 @@ namespace TheWaningBorder.Rendering
                             continue;
                     }
 
-                    // ── Rank pips ──
-                    int rank = hasRank ? math.clamp(ranks[i].Value, 1, 5) : 1;
-                    float row = -(rank - 1) * PipSpacing * 0.5f;
-                    for (int k = 0; k < rank; k++)
-                        Push(ref _pips, ref _pipCount,
-                            new Vector3(p.x + row + k * PipSpacing, anchor.y, p.z),
-                            new Vector3(PipSize, PipSize, PipSize));
-
                     // ── Shield bar ── (visible only while Current > 0)
                     if (hasShield)
                     {
@@ -132,26 +115,24 @@ namespace TheWaningBorder.Rendering
                         if (sb.Current > 0 && sb.Max > 0)
                         {
                             float ratio = math.clamp((float)sb.Current / sb.Max, 0f, 1f);
-                            float y = p.y + ShieldBarHeight;
+                            float y = p.y + ShieldBarHeight * k;
                             Push(ref _bgs, ref _bgCount,
-                                new Vector3(p.x, y, p.z), new Vector3(1f, 0.08f, 0.1f));
+                                new Vector3(p.x, y, p.z), new Vector3(1f, 0.08f, 0.1f) * k);
                             // Pivoted to the left edge so it shrinks rightward.
                             Push(ref _fills, ref _fillCount,
-                                new Vector3(p.x - 0.5f * (1f - ratio), y, p.z),
-                                new Vector3(ratio, 0.088f, 0.12f));
+                                new Vector3(p.x - 0.5f * (1f - ratio) * k, y, p.z),
+                                new Vector3(ratio, 0.088f, 0.12f) * k);
                         }
                     }
                 }
             }
 
-            Draw(_pipMat, _sphereMesh, _pips, _pipCount);
             Draw(_shieldBgMat, _cubeMesh, _bgs, _bgCount);
             Draw(_shieldFillMat, _cubeMesh, _fills, _fillCount);
         }
 
         void OnDestroy()
         {
-            if (_pipMat != null) Destroy(_pipMat);
             if (_shieldBgMat != null) Destroy(_shieldBgMat);
             if (_shieldFillMat != null) Destroy(_shieldFillMat);
         }

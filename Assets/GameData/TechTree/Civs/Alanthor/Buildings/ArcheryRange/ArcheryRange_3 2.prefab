@@ -26,7 +26,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.3654615, y: 0.3654615, z: 0.3654615}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2262316521192690787}
@@ -690,10 +690,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6880194012777468044}
     m_Modifications:
-    - target: {fileID: 23250528210892778, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
-      propertyPath: m_Materials.Array.data[1]
-      value: 
-      objectReference: {fileID: 2100000, guid: 8d2fab1c5e3a4f6b8c7d9e0f1a2b3c4d, type: 2}
     - target: {fileID: 1199337164041772, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
       propertyPath: m_Name
       value: SM_Bld_Castle_Roof_M_Curved_Corner_01
@@ -750,6 +746,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 23250528210892778, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 8d2fab1c5e3a4f6b8c7d9e0f1a2b3c4d, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1650,10 +1650,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6880194012777468044}
     m_Modifications:
-    - target: {fileID: 23250528210892778, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
-      propertyPath: m_Materials.Array.data[1]
-      value: 
-      objectReference: {fileID: 2100000, guid: 8d2fab1c5e3a4f6b8c7d9e0f1a2b3c4d, type: 2}
     - target: {fileID: 1199337164041772, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
       propertyPath: m_Name
       value: SM_Bld_Castle_Roof_M_Curved_Corner_01 (1)
@@ -1710,6 +1706,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 23250528210892778, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 8d2fab1c5e3a4f6b8c7d9e0f1a2b3c4d, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2236,10 +2236,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6880194012777468044}
     m_Modifications:
-    - target: {fileID: 23250528210892778, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
-      propertyPath: m_Materials.Array.data[1]
-      value: 
-      objectReference: {fileID: 2100000, guid: 8d2fab1c5e3a4f6b8c7d9e0f1a2b3c4d, type: 2}
     - target: {fileID: 1199337164041772, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
       propertyPath: m_Name
       value: SM_Bld_Castle_Roof_M_Curved_Corner_01 (2)
@@ -2296,6 +2292,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 23250528210892778, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 8d2fab1c5e3a4f6b8c7d9e0f1a2b3c4d, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2656,10 +2656,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6880194012777468044}
     m_Modifications:
-    - target: {fileID: 23250528210892778, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
-      propertyPath: m_Materials.Array.data[1]
-      value: 
-      objectReference: {fileID: 2100000, guid: 8d2fab1c5e3a4f6b8c7d9e0f1a2b3c4d, type: 2}
     - target: {fileID: 1199337164041772, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
       propertyPath: m_Name
       value: SM_Bld_Castle_Roof_M_Curved_Corner_01 (3)
@@ -2716,6 +2712,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 23250528210892778, guid: 25ca79a09235cc24484a9af5f228f6e7, type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 8d2fab1c5e3a4f6b8c7d9e0f1a2b3c4d, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

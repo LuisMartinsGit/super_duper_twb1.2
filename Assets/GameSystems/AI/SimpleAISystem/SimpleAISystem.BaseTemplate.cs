@@ -25,6 +25,10 @@ namespace TheWaningBorder.AI
 
         readonly List<int> _slotScratch = new List<int>(32);
 
+        /// <summary>The current slot search keeps off the faction's Farm rings
+        /// (held in _ownFarmCentres); set by TryTemplateSlot.</summary>
+        bool _slotFarmRings;
+
         /// <summary>
         /// The template site for <paramref name="buildingId"/> in the territory
         /// <paramref name="anchor"/> stands in (or the locked territory), if
@@ -43,6 +47,9 @@ namespace TheWaningBorder.AI
 
             AIBaseTemplate.CandidateSlots(faction, region, layout, buildingId, size, _slotScratch);
             if (_slotScratch.Count == 0) return SlotNone;
+            // The faction's Farm rings, which a slot keeps off (SlotLegal).
+            _slotFarmRings = buildingId != Farm.BuildingId && Cfg.farmRingKeepClear != 0
+                && CollectOwnFarmCentres(em, faction, _ownFarmCentres) > 0;
             var snap = BuildSiteSnapshot.Current(em);
 
             for (int k = 0; k < _slotScratch.Count; k++)
@@ -138,6 +145,12 @@ namespace TheWaningBorder.AI
             if (snap.Overlaps(c, size, 0f, ignoreWalls: false)) return SlotNone;
             if (snap.OverlapsOwnPlan(faction, c, size)) return SlotNone;
             if (PlannedBuildings.IsRecentlyRefused(faction, c, Cfg.refusedSpotRadius, _thinkNow)) return SlotNone;
+            // A SLOT NEVER EATS A FARM'S FIELD (2026-11-14, Game_AI.md § 6ac):
+            // the drawn slots were the one placer that skipped the ring
+            // keep-clear, so Houses and trainers filled the fields of the Farms
+            // beside the capital. A slot on a ring moves off it, or the building
+            // falls back to the ring search (which keeps clear too).
+            if (_slotFarmRings && FootprintOnFarmRing(c, size, _ownFarmCentres)) return SlotNone;
             if (layoutRules)
             {
                 if (!AIWallCorridor.FootprintClear(em, faction, c, size)) return SlotNone;

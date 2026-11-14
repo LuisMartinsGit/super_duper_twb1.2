@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: RecklessAttack
+  m_EditorClassIdentifier: 
+  id: RecklessAttack
+  displayName: Reckless Attack
+  role: Military
+  effect: 
+  desc: "Swordsman: every fourth swing also hits all enemies within 2 m of him, and for 1 s afterwards he takes 30% more damage."
+  researchAt: Barracks
+  minBuildingLevel: 3
+  researchTime: 40
+  prerequisites: []
+  culture: Alanthor
+  cost:
+    Supplies: 0
+    Iron: 60
+    Veilstone: 200
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList:
+  - Target: "passive"
+    Stat: RecklessEverySwings
+    Op: Set
+    Value: 4
+  - Target: "passive"
+    Stat: RecklessRadius
+    Op: Set
+    Value: 2
+  - Target: "passive"
+    Stat: RecklessVulnerablePct
+    Op: Set
+    Value: 30
+  - Target: "passive"
+    Stat: RecklessVulnerableSeconds
+    Op: Set
+    Value: 1

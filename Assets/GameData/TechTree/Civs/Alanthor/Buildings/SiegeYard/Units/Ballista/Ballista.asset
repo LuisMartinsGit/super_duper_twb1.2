@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Ballista
   unitClass: machinery_siege
   hp: 220
-  speed: 3.2
+  speed: 1.6
   trainingTime: 90
   damage: 40
   damageType: siege
@@ -27,10 +27,10 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 7
-  attackRange: 22
-  minAttackRange: 6
-  lineOfSight: 26
-  radius: 0.8
+  attackRange: 11
+  minAttackRange: 3
+  lineOfSight: 13
+  radius: 0.4
   aimTime: 1
   trajectory: flat
   projectileSpeed: 38.5

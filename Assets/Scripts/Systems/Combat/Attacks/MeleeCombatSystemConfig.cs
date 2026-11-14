@@ -28,5 +28,12 @@ namespace TheWaningBorder.Systems.Combat
         /// side of its facing. A hit from inside it (boundary included) is a
         /// normal hit; beyond it is a flank hit.</summary>
         public float frontArcHalfAngleDegrees;
+
+        /// <summary>Seconds a unit stays planted after it starts a swing: it
+        /// finishes the attack where it stands and does not chase a target
+        /// that stepped away until this has run (never longer than its own
+        /// attack cooldown). The presentation plays one attack clip over the
+        /// same window.</summary>
+        public float swingCommitSeconds;
     }
 }

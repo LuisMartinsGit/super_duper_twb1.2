@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: Parry
+  m_EditorClassIdentifier: 
+  id: Parry
+  displayName: Parry
+  role: Military
+  effect: 
+  desc: "Swordsman: turns one melee attack aside completely, then needs 8 s before he can parry again."
+  researchAt: Barracks
+  minBuildingLevel: 1
+  researchTime: 30
+  prerequisites: []
+  culture: Alanthor
+  cost:
+    Supplies: 120
+    Iron: 60
+    Veilstone: 0
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList:
+  - Target: "passive"
+    Stat: ParryCooldownSeconds
+    Op: Set
+    Value: 8

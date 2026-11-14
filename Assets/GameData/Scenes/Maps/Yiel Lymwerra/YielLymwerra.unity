@@ -667,19 +667,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shallowColor: {r: 0.3, g: 0.6, b: 0.7, a: 0.6}
   deepColor: {r: 0.08, g: 0.22, b: 0.35, a: 0.95}
-  foamColor: {r: 0.95, g: 0.98, b: 1, a: 0.9}
-  waterLevel: 3.6
+  foamColor: {r: 1, g: 1, b: 1, a: 0.9}
+  waterLevel: 3.35
   wadeDepth: 0.5
   flowSpeed: 0.06
   flowStrength: 0.25
-  rippleScale: 0.05
+  rippleScale: 0.22
   rippleSpeed: 0.4
-  bumpiness: 0.35
-  foamScale: 0.07
-  foamThreshold: 0.55
-  foamIntensity: 1.2
-  specularPower: 64
-  specularIntensity: 0.35
+  bumpiness: 0.33
+  foamScale: 0.71
+  foamThreshold: 3.4
+  foamIntensity: 0.88
+  specularPower: 72.62
+  specularIntensity: 37
 --- !u!4 &269381873
 Transform:
   m_ObjectHideFlags: 0
@@ -852,6 +852,7 @@ GameObject:
   m_Component:
   - component: {fileID: 584466400}
   - component: {fileID: 584466399}
+  - component: {fileID: 584466401}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -939,6 +940,29 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!114 &584466401
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 584466398}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Version: 3
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_LightLayerMask: 1
+  m_RenderingLayers: 1
+  m_CustomShadowLayers: 0
+  m_ShadowLayerMask: 1
+  m_ShadowRenderingLayers: 1
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
 --- !u!1 &635313189
 GameObject:
   m_ObjectHideFlags: 0
@@ -1404,6 +1428,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1000158985}
   - component: {fileID: 1000158984}
+  - component: {fileID: 1000158986}
   m_Layer: 0
   m_Name: Sun
   m_TagString: Untagged
@@ -1491,6 +1516,29 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1000158986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000158983}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Version: 3
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_LightLayerMask: 1
+  m_RenderingLayers: 1
+  m_CustomShadowLayers: 0
+  m_ShadowLayerMask: 1
+  m_ShadowRenderingLayers: 1
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
 --- !u!1 &1094493708
 GameObject:
   m_ObjectHideFlags: 0
@@ -1502,6 +1550,7 @@ GameObject:
   - component: {fileID: 1094493711}
   - component: {fileID: 1094493710}
   - component: {fileID: 1094493709}
+  - component: {fileID: 1094493712}
   m_Layer: 0
   m_Name: Terrain
   m_TagString: Untagged
@@ -1584,6 +1633,23 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1094493712
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1094493708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bcfc7b268461c414a8849f2c1589954f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  antiTile: 1
+  antiTileCells: 0.45
+  macroVariation: 0.13
+  macroCells: {x: 12.8, y: 6.4}
+  cliffProjection: 1
 --- !u!1 &1264427613
 GameObject:
   m_ObjectHideFlags: 0

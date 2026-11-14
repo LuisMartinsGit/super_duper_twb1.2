@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   houseTarget: 8
   fleeRadius: 14
-  sectUnitCap: 1
+  sectUnitCap: 6
   sectBuildingTarget: 2
   minTowerSpacing: 24
   chokeWidthThreshold: 26

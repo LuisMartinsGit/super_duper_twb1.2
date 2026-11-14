@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Guildmaster
   unitClass: melee
   hp: 640
-  speed: 7.0
+  speed: 3.5
   trainingTime: 45
   damage: 34
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.0
   attackRange: 1.2
   minAttackRange: 0
-  lineOfSight: 26
-  radius: 0.55
+  lineOfSight: 13
+  radius: 0.275
   aimTime: 0
   trajectory: 
   projectileSpeed: 0

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Feraldis_SiegeRam
   unitClass: machinery_siege
   hp: 300
-  speed: 3
+  speed: 1.5
   trainingTime: 37.8
   damage: 34
   damageType: siege
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 3
   attackRange: 1
   minAttackRange: 0
-  lineOfSight: 20
+  lineOfSight: 10
   aimTime: 0
-  radius: 1
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

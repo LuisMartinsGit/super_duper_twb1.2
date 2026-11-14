@@ -492,13 +492,19 @@ is shown (see *Reading a territory* at the end of this section).
 - **An extraction building pays more with each level** (its SO's slot-income
   ladder). All of them are upgradeable; the level prices are on the level SOs.
 
-- **One Mine button** (2026-09-29): the ore extractors are ONE entry in
-  the build menu. The node under the cursor decides which is raised — an iron
-  deposit an Iron Mine, a veilstone outcropping a Veilstone Mine — and the
-  ghost shows that pithead. Both share one procedural pithead
-  (`MineVisual`) and differ by their ore: rust iron, glowing cyan veilstone
-  crystal. The ids stay separate underneath; the AI
-  and the command stream use them directly.
+- **Extractors are built from the node, not from the build menu**
+  (2026-11-13; replaces the "one Mine button" of 2026-09-29). With a Worker
+  selected, pointing at a free resource node the player has explored raises a
+  button over it: the Gatherer's Hut line on a supply spot, the Mine on an iron
+  deposit, the Veilstone Mine (the Runai Sanctuary) on a veilstone outcropping.
+  One click places that building on the node and sends the selected Workers to
+  it (Shift appends to their build queue) — there is no ghost to aim. The
+  button is greyed, with the reason in its tooltip, when the placement would be
+  refused (not your ground, cannot afford it, something in the way). The
+  Gatherer's Hut and the Mine are **not in the build palette**, which is a
+  square 4 x 4 again. The ids stay separate underneath; the AI and the command
+  stream use them directly. Code: `ActionsPanelPrefabBinder.NodeButton.cs`,
+  `WorkerCommandPanel.PlaceNow`.
 
 - **Ore extractors were moved off a pure supply price** (2026-08-30). They were
   supply-priced, and the measured result — the moment on-node placement

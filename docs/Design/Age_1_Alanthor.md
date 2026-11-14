@@ -565,9 +565,11 @@ folder.
   allies' Farms; your own whenever selected), and its supplies bar in the
   selection panel is what it pays now.
 - **The AI** scores several legal sites by their free share and builds on the
-  best (refusing any below a floor in `SimpleAISystem.asset`), keeps its other
-  buildings off its own Farm rings while it has room elsewhere, and levels
-  Farms as an economy ladder.
+  best (refusing any below a floor in `SimpleAISystem.asset`), keeps the ring
+  off its base layout's free slots, keeps its other buildings (the drawn slots
+  included) off its own Farm rings while it has room elsewhere, staffs them with
+  Workers it trains for the empty slots, and levels Farms when a level repays
+  its price ([Game_AI.md § 6ac](Game_AI.md)).
 - **A destroyed Farm** puts its Workers out alive beside where it stood.
 - **No research.**
 - Code: `Farm.cs`, `FarmComponents.cs` (`FarmPay`, `FarmField`),
@@ -1265,6 +1267,43 @@ Levels, abilities and the death / revival choice: [Heroes.md](Heroes.md).
    Stone Ledgers is cut.
 9. **Build-cost discrepancies** — **resolved 2026-10-03:** the SO is the only
    source; `BuildCosts.cs` and `TechTree.json` no longer hold prices.
+
+## The Garrison, restructured (2026-11-13)
+
+Developer's rules; they supersede item 4 above and the earlier Garrison tech
+lists for the Garrison only. Every value is on the unit and tech SOs.
+
+- **Unit level = building level.** The Garrison's units have four levels: Age 0
+  (the Spearman only), then Garrison 1, 2 and 3. Each level changes the unit's
+  look and raises its defensive stats a little: HP, armour of every type, move
+  speed and line of sight. The step is granted by the Garrison's level
+  (`grantsTechs`: Seasoned / Veteran / Elite Infantry, which are no longer
+  shown as researches). The Swordsman's own SO stats are his Garrison 1 stats.
+- **The plate tiers are gone** (Iron / Veilstone / Shard Plate): armour is part
+  of the unit level.
+- **Four weapon technologies, one per building level**, each requiring the one
+  before: Stone Weapons (Barracks, Age 0), Iron (Garrison 1), Veilstone
+  (Garrison 2), Shard-infused (Garrison 3). They are RESEARCHED, not granted,
+  share one cell of the panel, and apply to all infantry. Each has its own
+  weapon look on the units.
+- **Two passives for the Spearman**, researched: Charge (Garrison 2) and Shield
+  Wall (Garrison 3). They no longer apply to the Swordsman.
+- **Three passives for the Swordsman**, researched: **Parry** (turns one melee
+  attack aside completely, then rests), **Counter** (part of every melee blow
+  that lands on him is dealt back) and **Reckless Attack** (every few swings he
+  also hits all enemies round him, and is briefly vulnerable after). Code:
+  `ParryState` / `CounterState` / `RecklessState` in `AlanthorCombatPassives.cs`,
+  applied at the damage site in `CombatDamageHelper`.
+- **The Age 0 Spearman is the Militia.** Same unit SO (`Spearman`): its display
+  name is Militia until the faction has a culture and Spearman from then on.
+- **The Swordsman does not exist in Age 0.**
+- **Panel**: row 1 the building (level-up, Conscription, the weapon tier cell);
+  row 2 the Spearman, then Charge and Shield Wall one cell to the right; row 3
+  the Swordsman, Parry, Counter, Reckless Attack
+  (`BuildingActionLayouts`, key `Barracks`). Unit cells show a rendered picture
+  of the unit at the building's level, the weapon cell a picture of the weapon
+  (`ActionIcons`, rendered by `UnitGearIcons`). A building's menu uses the
+  builder's grid.
 
 ## Remaining open questions
 

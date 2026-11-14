@@ -1781,6 +1781,7 @@ GameObject:
   m_Component:
   - component: {fileID: 371128307}
   - component: {fileID: 371128306}
+  - component: {fileID: 371128308}
   m_Layer: 0
   m_Name: Sun
   m_TagString: Untagged
@@ -1868,6 +1869,29 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &371128308
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 371128305}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Version: 3
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_LightLayerMask: 1
+  m_RenderingLayers: 1
+  m_CustomShadowLayers: 0
+  m_ShadowLayerMask: 1
+  m_ShadowRenderingLayers: 1
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
 --- !u!1 &387948891
 GameObject:
   m_ObjectHideFlags: 0
@@ -6799,6 +6823,7 @@ GameObject:
   - component: {fileID: 1489502517}
   - component: {fileID: 1489502516}
   - component: {fileID: 1489502515}
+  - component: {fileID: 1489502518}
   m_Layer: 0
   m_Name: Terrain
   m_TagString: Untagged
@@ -6881,6 +6906,23 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1489502518
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1489502514}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bcfc7b268461c414a8849f2c1589954f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  antiTile: 1
+  antiTileCells: 0.45
+  macroVariation: 0.08
+  macroCells: {x: 25.6, y: 25.6}
+  cliffProjection: 1
 --- !u!1 &1496241954
 GameObject:
   m_ObjectHideFlags: 0

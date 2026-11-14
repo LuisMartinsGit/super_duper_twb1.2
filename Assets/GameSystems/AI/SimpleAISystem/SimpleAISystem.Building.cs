@@ -78,6 +78,11 @@ namespace TheWaningBorder.AI
             // own (step 4) passes here, whichever path asked for it.
             reason = ProductionGate(em, faction, buildingId, _thinkNow, out bool extra, out string detail);
             if (reason != null) return false;
+            // THE TIER'S EARLIEST AGE-UP (2026-11-14): every path that places the
+            // landmark passes here.
+            if (TheWaningBorder.Entities.BuildingFactory.IsChoiceBuilding(buildingId)
+                && _thinkNow < ProfileOf(faction).AgeUpEarliestSeconds)
+            { reason = "bank short (the tier ages up later)"; return false; }
             // THE TIER'S EXTRACTOR PACE (Game_AI.md § 2a), past the opening huts.
             bool extractor = AIPacing.IsExtractor(buildingId)
                 && !(buildingId == "GatherersHut" && CountWorkingHuts(em, faction) < Cfg.hutPipelineFreeCount);
@@ -452,6 +457,11 @@ namespace TheWaningBorder.AI
                 // A Farm is income like an extractor (2026-11-11, overnight tuning:
                 // Expert's first Farm waited on the savings hold until minute 17).
                 && buildingId != TheWaningBorder.Entities.Farm.BuildingId
+                // ...and so is the Market (2026-11-14, Game_AI.md § 6ac): it turns
+                // idle supplies into iron; on Moatwatch it was refused "pivotal
+                // hold" 95 times and stood at minutes 12-21 while armies waited
+                // on iron beside 4,500 banked supplies.
+                && buildingId != TheWaningBorder.Entities.Market.BuildingId
                 && !(buildingId == "Barracks"
                      && CountFactionBuildings<BarracksTag>(em, faction) == 0)
                 // A SATURATED LINE PASSES TOO (2026-09-12, Game_AI.md 6c).
@@ -1227,6 +1237,16 @@ namespace TheWaningBorder.AI
                                 firstSeal + $" — sited elsewhere after {nSeal} such candidate(s)", _thinkNow);
                         if (farmSite)
                         {
+                            // THE FIELD KEEPS OFF THE DRAWN BASE (2026-11-14,
+                            // Game_AI.md § 6ac): a Farm sited beside the capital
+                            // scored 100 % and then lost its field to the Houses
+                            // and trainers the base layout put in its free slots.
+                            // Its whole ring keeps off those slots and the
+                            // reserved Fortress spots (normal passes only).
+                            if (!lastResort
+                                && (!AIBaseTemplate.FootprintClearOfFreeSlots(em, faction, candidate, FarmRingCells)
+                                    || !AIBaseLayout.FootprintClearOfFortressSpots(candidate, FarmRingCells, buildingId)))
+                            { nFarmRing++; continue; }
                             // Score it and keep looking until enough are seen.
                             int free = FarmRing.FreePermilleAt(em, candidate.xz, Entity.Null, FarmRing.Ghost.None);
                             _farmScored++;
@@ -1280,6 +1300,18 @@ namespace TheWaningBorder.AI
             AILogger.Log(faction, "FARM",
                 $"Farm site ({pos.x:F0},{pos.z:F0}) field {_farmBestPermille / 10}% (best of {_farmScored})");
             return true;
+        }
+
+        /// <summary>A Farm's crop ring as a square footprint in build cells
+        /// (the ring's outer circle, boxed) — for the keep-out tests that take
+        /// a footprint.</summary>
+        private static int2 FarmRingCells
+        {
+            get
+            {
+                int n = (int)math.ceil(2f * FarmRing.OuterRadius / BuildGrid.CellSize);
+                return new int2(n, n);
+            }
         }
 
         /// <summary>This faction's Farms, finished and sites (a plan carries

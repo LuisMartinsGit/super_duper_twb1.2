@@ -205,7 +205,8 @@ namespace TheWaningBorder.AI
             // the (least busy) trainer's whole queue is shorter than it; the
             // reason keeps "queue full" so the army reads as unable to take
             // money (AIBudget.SetArmyStatus) and the surplus goes elsewhere.
-            if (AtQueueCap(em, faction, trainer))
+            if (AtQueueCap(em, faction, trainer) && !(unitId == "Ledger"
+                    || TheWaningBorder.Abilities.HeroTrainLimit.IsKingLexorId(unitId)))
             { blockReason = $"trainer queue full (depth {ProfileOf(faction).ProductionQueueDepth})"; return false; }
 
             // Capital seat (2026-08-11): an aged-up Alanthor faction that

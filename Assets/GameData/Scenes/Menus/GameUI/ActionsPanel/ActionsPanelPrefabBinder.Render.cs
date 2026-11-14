@@ -29,7 +29,9 @@ namespace TheWaningBorder.UI.Ingame
         private int RenderBuilder(EntityManager em, List<ActionButton> actions)
         {
             bool placing = WorkerCommandPanel.IsPlacingBuilding;
-            SetWorkerRows(true);
+            SetGrid(GridMode.Palette);
+            // The palette is 4 x 4; the cells past it belong to other modes.
+            int limit = Mathf.Min(_slots.Length, PaletteSlotCount);
 
             // Four category rows (BuildOrder): each row starts on a grid row
             // of its own, padded with blanks; a row longer than the grid is
@@ -40,6 +42,9 @@ namespace TheWaningBorder.UI.Ingame
             {
                 var b = actions[i];
                 if (!b.Enabled && !b.ShownWhenLocked) continue;   // era-locked → hidden in this panel
+                // Extractors are built from the button over their node
+                // (NodeButton.cs), never from the palette.
+                if (TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(b.Id)) continue;
                 rows[(int)BuildRowOf(b.Id)].Add(b);
             }
             for (int r = 0; r < rows.Length; r++)
@@ -56,11 +61,11 @@ namespace TheWaningBorder.UI.Ingame
             }
 
             int used = 0, cell = 0;
-            for (int r = 0; r < rows.Length && cell < _slots.Length; r++)
+            for (int r = 0; r < rows.Length && cell < limit; r++)
             {
                 var list = rows[r];
                 if (list.Count == 0) continue;
-                for (int i = 0; i < list.Count && cell < _slots.Length; i++)
+                for (int i = 0; i < list.Count && cell < limit; i++)
                 {
                     var b = list[i];
                     string id = b.Id;
@@ -75,13 +80,13 @@ namespace TheWaningBorder.UI.Ingame
                 bool more = false;
                 for (int q = r + 1; q < rows.Length && !more; q++) more = rows[q].Count > 0;
                 if (!more) break;
-                while (cell % PaletteCols != 0 && cell < _slots.Length) BlankSlot(_slots[cell++]);
+                while (cell % PaletteCols != 0 && cell < limit) BlankSlot(_slots[cell++]);
             }
             if (RowsOverflow(rows) && !_paletteOverflowLogged)
             {
                 _paletteOverflowLogged = true;
                 TWBLog.Log($"[GameUI] ActionsPanel: the build palette needs more than " +
-                    $"{_slots.Length} cells — overflow dropped.");
+                    $"{limit} cells — overflow dropped.");
             }
             for (int i = cell; i < _slots.Length; i++) ClearSlot(_slots[i]);
             return used;
@@ -98,7 +103,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (rows[r].Count == 0) continue;
                 cells = ((cells + PaletteCols - 1) / PaletteCols) * PaletteCols + rows[r].Count;
             }
-            return cells > _slots.Length;
+            return cells > Mathf.Min(_slots.Length, PaletteSlotCount);
         }
 
         /// <summary>
@@ -297,7 +302,11 @@ namespace TheWaningBorder.UI.Ingame
         /// when this selection is not one the authored panel owns.</summary>
         private int RenderBuilding(EntityManager em)
         {
-            SetWorkerRows(false);
+            // A building's menu is the builder's grid (developer, 2026-11-13:
+            // "building menu should use the same menu as the builder"): the
+            // same large cells filling the frame, no separator. Its own cells
+            // stay within the first three rows; the fourth is left empty.
+            SetWorkerRows(true);
             HideWorkerOnlyRow();
             var info = EntityActionExtractor.GetActionInfo(_entity, em);
             bool hasLayout = BuildingActionLayouts.TryResolve(_entity, em, out var layoutSlots);
@@ -334,9 +343,15 @@ namespace TheWaningBorder.UI.Ingame
             int used = 0;
             if (hasLayout)
             {
+                bool keepGrid = BuildingActionLayouts.KeepsGrid(
+                    EntityActionExtractor.GetBuildingIdPublic(_entity, em));
                 for (int i = 0; i < _slots.Length; i++)
                 {
-                    if (i >= layoutSlots.Length || layoutSlots[i].Empty) { ClearSlot(_slots[i]); continue; }
+                    if (i >= layoutSlots.Length || layoutSlots[i].Empty)
+                    {
+                        if (keepGrid && i < SlotCount) BlankSlot(_slots[i]); else ClearSlot(_slots[i]);
+                        continue;
+                    }
                     var resolved = layoutSlots[i];
                     var b = resolved.Button;
                     var cat = resolved.IsTrain ? UnitCategory(b.Id) : Category.Research;
@@ -384,13 +399,29 @@ namespace TheWaningBorder.UI.Ingame
         /// genuinely full the upgrade is skipped rather than shadowing an
         /// action (logged once so it is not silent).
         /// </summary>
+        private static int TrailingNumber(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return 0;
+            int end = text.Length;
+            while (end > 0 && !char.IsDigit(text[end - 1])) end--;
+            int start = end;
+            while (start > 0 && char.IsDigit(text[start - 1])) start--;
+            return start < end && int.TryParse(text.Substring(start, end - start), out int n) ? n : 0;
+        }
+
         private int RenderUpgradeSlot(EntityManager em)
         {
             var upgrade = BuildingUpgradeAction.Describe(em, _entity);
             if (!upgrade.Show) return 0;
 
             int index = -1;
-            for (int i = Mathf.Min(_slots.Length, SlotCount) - 1; i >= 0; i--)
+            // A layout may name the cell (the Garrison: top left).
+            int preferred = BuildingActionLayouts.UpgradeSlotIndex(
+                EntityActionExtractor.GetBuildingIdPublic(_entity, em));
+            if (preferred >= 0 && preferred < _slots.Length
+                && (!_slots[preferred].Root.activeSelf || _slots[preferred].ActionId == null))
+                index = preferred;
+            for (int i = Mathf.Min(_slots.Length, SlotCount) - 1; index < 0 && i >= 0; i--)
                 if (!_slots[i].Root.activeSelf) { index = i; break; }
             if (index < 0)
             {
@@ -412,6 +443,9 @@ namespace TheWaningBorder.UI.Ingame
                 Cost = upgrade.Cost,
                 Enabled = upgrade.Enabled,
                 CanAfford = upgrade.CanAfford,
+                // An arrow pointing up, with the level it leads to (the label
+                // ends in that number).
+                Icon = ActionIcons.Upgrade(TrailingNumber(upgrade.Label)),
             };
             var slot = _slots[index];
             FillSlot(slot, button, Category.Research, null,

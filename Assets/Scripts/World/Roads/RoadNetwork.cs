@@ -81,6 +81,7 @@ namespace TheWaningBorder.World.Roads
             public Faction Faction;    // buildings only
             public int Region;         // RegionMap.RawRegionAt, or RegionMap.None
             public Vector2 Size;       // buildings: footprint, metres
+            public float Yaw;          // buildings: rotation about Y, radians (the pad turns with it)
             public bool Pad;           // buildings: owner has chosen Alanthor — lay a culture pad
         }
 
@@ -403,6 +404,7 @@ namespace TheWaningBorder.World.Roads
                     Faction = faction,
                     Region = RegionOf(e, pos),
                     Size = new Vector2(sz.Width, sz.Height),
+                    Yaw = YawOf(lt.Rotation),
                     // THE ALANTHOR PAD (Roads.md §4b, 2026-09-30): once its
                     // owner has chosen Alanthor, every building stands on a
                     // square of Alanthor paving, its footprint plus
@@ -422,6 +424,7 @@ namespace TheWaningBorder.World.Roads
             h ^= (ulong)(uint)(s.Region + 7) * 0xC4CEB9FE1A85EC53UL;
             h ^= (s.Finished ? 1UL : 0UL) | (s.IsBuilding ? 2UL : 0UL) | ((ulong)(uint)(int)s.Faction << 2)
                | (s.Pad ? 1UL << 40 : 0UL);
+            h ^= (ulong)(uint)Mathf.RoundToInt(s.Yaw * 100f) * 0x9E3779B97F4A7C15UL;
             h ^= h >> 31; h *= 0xBF58476D1CE4E5B9UL; h ^= h >> 29;
             return h;
         }
@@ -941,13 +944,13 @@ namespace TheWaningBorder.World.Roads
                 });
                 if (s.IsBuilding && s.Pad)
                 {
+                    // The pad turns with its building.
                     var half = s.Size * 0.5f + new Vector2(padMargin, padMargin);
-                    var lo = ToTexel(s.Pos - half);
-                    var hi = ToTexel(s.Pos + half);
                     _squareCmds.Add(new SquareCmd
                     {
-                        Min = new float2(Mathf.Min(lo.x, hi.x), Mathf.Min(lo.y, hi.y)),
-                        Max = new float2(Mathf.Max(lo.x, hi.x), Mathf.Max(lo.y, hi.y)),
+                        Centre = new float2(c.x, c.y),
+                        Half = new float2(half.x, half.y) * texelsPerMetre,
+                        CosSin = new float2(Mathf.Cos(s.Yaw), Mathf.Sin(s.Yaw)),
                         Finished = (byte)(s.Finished ? 1 : 0), Strength = Ease(st.Strength),
                     });
                 }
@@ -1015,6 +1018,13 @@ namespace TheWaningBorder.World.Roads
         private static int Slot(int region, int regions) => region == RegionMap.None ? regions - 1 : region;
         private int Find(int i) { while (_uf[i] != i) { _uf[i] = _uf[_uf[i]]; i = _uf[i]; } return i; }
         private void Union(int a, int b) { a = Find(a); b = Find(b); if (a != b) _uf[a] = b; }
+
+        /// <summary>A building's rotation about Y, radians.</summary>
+        private static float YawOf(quaternion rot)
+        {
+            float3 f = math.mul(rot, new float3(0f, 0f, 1f));
+            return math.atan2(f.x, f.z);
+        }
 
         private Vector2 ToTexel(Vector2 world)
             => new Vector2((world.x - _worldMin.x) / _worldSize.x * _res,

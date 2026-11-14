@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.2
   attackRange: 0
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 5
   aimTime: 0
-  radius: 0.5
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:

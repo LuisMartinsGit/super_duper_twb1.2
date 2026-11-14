@@ -209,6 +209,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         /// </summary>
         public GameObject View;
         public ProceduralScaleTag ScaleTag;
+        /// <summary>UnitWorldScale for a unit's view, 1 for everything else.</summary>
+        public float WorldScale = 1f;
         public BuildingRiseData Rise;
         /// <summary>An emplaced engine stands on a wall deck: its simulated
         /// Y IS its height, and no ground/bridge sample may replace it.</summary>
@@ -220,6 +222,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         /// <summary>Resolved with the view — was a GetComponent per frame
         /// for every building under construction.</summary>
         public BuildingVisualSinkDepth Sink;
+        /// <summary>The corner markers of the prefab a building view was
+        /// built from (BuildingAnchors), or null: the view stands on the
+        /// highest ground under its corners instead of under its centre.</summary>
+        public TheWaningBorder.Systems.Buildings.BuildingAnchors Anchors;
         /// <summary>Frame this view was last synced (see SyncView).</summary>
         public int LastFrame = -1;
 
@@ -673,8 +679,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // human in its unit folder) is the visual now.
                 // 201: the Swordsman prefab is a Synty variant whose skinned-mesh
                 // guid resolves to nothing on disk (invisible). Authored rig wins.
-                case 201: authored = TheWaningBorder.Rendering.SwordsmanVisual.Build(entity.Index + 201); break;
-                case 202: authored = TheWaningBorder.Rendering.ArcherVisual.Build(entity.Index + 202); break;
+                // 201 Swordsman: its SO prefab is the Synty kit now
+                // (SwordsmanSyntyAuthor, 2026-11-13).
+                // 202 Archer: no procedural case - its SO prefab is the Synty
+                // kit (ArcherSyntyAuthor, 2026-11-13).
                 case 349: authored = TheWaningBorder.Rendering.OutriderVisual.Build(entity.Index + 349); break;
                 case 336: authored = TheWaningBorder.Rendering.CataphractVisual.Build(entity.Index + 336); break;
                 case 251: authored = TheWaningBorder.Rendering.KingLexorVisual.Build(entity.Index + 251); break;
@@ -998,7 +1006,18 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             // prefab swap) never got it and kept an authored blue roof.
             BuildingFactionColorMarker.Apply(go, color);
         }
-        // Units keep their authored prefab materials untinted. Team ownership
+        if (!isBuilding && go.TryGetComponent<TheWaningBorder.Rendering.UnitAgeKit>(out var ageKit))
+        {
+            // A unit that changes kit when its faction ages up (the Spearman).
+            ageKit.Bind(faction);
+        }
+        if (!isBuilding && go.TryGetComponent<TheWaningBorder.Rendering.UnitPlayerColor>(out var playerColor))
+        {
+            // Opt-in: the prefab's red cloth is drawn in the player's colour
+            // (the legionary Spearman's tunic and scutum).
+            playerColor.Apply(color);
+        }
+        // Other units keep their authored prefab materials untinted. Team ownership
         // reads through selection rings, health bars, and the minimap instead.
         // (The old whole-body wash / Synty atlas team-region recolor was removed
         // here — it flattened the real character models wired from the KI and
@@ -1387,10 +1406,19 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         {
             sync.View = go;
             sync.ScaleTag = go.GetComponent<ProceduralScaleTag>();
+            sync.WorldScale = _em.HasComponent<UnitTag>(entity)
+                ? TheWaningBorder.Rendering.UnitWorldScale.Value : 1f;
             sync.Rise = go.GetComponent<TheWaningBorder.Rendering.BuildingRiseData>();
             sync.Sink = go.GetComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>();
             sync.KeepSimY = _em.HasComponent<EmplacedEngineTag>(entity);
             sync.BuildingLike = IsBuildingLike(entity);
+            sync.Anchors = null;
+            if (sync.BuildingLike)
+            {
+                var source = go.GetComponent<BuildingVisualSource>();
+                var anchors = TheWaningBorder.Systems.Buildings.BuildingAnchors.For(source != null ? source.Prefab : null);
+                if (anchors.HasCorners) sync.Anchors = anchors;
+            }
             sync.Primed = false;   // new view: force a full write
         }
 
@@ -1464,6 +1492,11 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             if (sync.RenderPos.y - surfaceY > WallWalkLiftThreshold && IsOnWallLayer(entity))
                 surfaceY = sync.RenderPos.y;
             pos.y = surfaceY;
+            // A building with corner markers stands on the highest ground
+            // under them, so no corner is buried on an incline.
+            if (sync.Anchors != null)
+                pos.y = sync.Anchors.GroundY(pos, sync.RenderRot,
+                    lt.Scale * (sync.ScaleTag != null ? sync.ScaleTag.BaseScale : 1f), pos.y);
         }
 
         // Construction rising animation: pieces start below ground and
@@ -1508,7 +1541,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
         // Respect procedural unit base scale (ProceduralScaleTag)
         float baseScale = (sync.ScaleTag != null) ? sync.ScaleTag.BaseScale : 1f;
-        float finalScale = lt.Scale * baseScale;
+        float finalScale = lt.Scale * baseScale * sync.WorldScale;
 
         // Pivot-offset compensation: shift the root so the SCALED
         // bounds centre — not the prefab pivot — sits on the entity

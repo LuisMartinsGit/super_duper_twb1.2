@@ -45,6 +45,7 @@ namespace TheWaningBorder.Systems.Combat
         internal const byte MeleeInRange = 3;   // stop, face, swing when ready
         internal const byte MeleeChase = 4;     // walk to the chase anchor
         internal const byte MeleeDropPost = 5;  // dropped AFTER the target-alive test
+        internal const byte MeleeCommitted = 6; // mid-swing, target stepped away: stay planted
 
         internal struct MeleePlan
         {
@@ -84,6 +85,8 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public ComponentLookup<Damage> Damages;
             [ReadOnly] public EntityStorageInfoLookup Storage;
             public float Dt;
+            /// <summary>MeleeCombatSystemConfig.swingCommitSeconds.</summary>
+            public float SwingCommit;
             [WriteOnly] public NativeArray<MeleePlan> Plans;
 
             public void Execute(int idx)
@@ -149,6 +152,17 @@ namespace TheWaningBorder.Systems.Combat
                             p.NewRot = turned;
                         }
                     }
+                    return;
+                }
+
+                // A swing that has started is finished where the unit stands:
+                // the target stepping out of reach does not pull the attacker
+                // after it until the swing window has run. The next swing
+                // needs the target in range again (the InRange branch above).
+                if (SwingCommit > 0f && cd.Cooldown > 0f && p.CdDec != 0
+                    && cd.Timer > cd.Cooldown - math.min(SwingCommit, cd.Cooldown))
+                {
+                    p.Kind = MeleeCommitted;
                     return;
                 }
 
@@ -242,6 +256,11 @@ namespace TheWaningBorder.Systems.Combat
                             break;
 
                         case MeleeIdle:
+                            break;
+
+                        case MeleeCommitted:
+                            if (p.HasDest != 0)
+                                Ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                             break;
 
                         case MeleeInRange:

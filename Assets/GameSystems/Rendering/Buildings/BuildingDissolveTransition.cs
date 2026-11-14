@@ -155,6 +155,167 @@ namespace TheWaningBorder.Rendering
             ApplyWave(0f, 1f);
         }
 
+        /// <summary>
+        /// A BuildingLitDissolve material carrying <paramref name="src"/>'s
+        /// whole look (albedo, normal map, emission, occlusion, metallic,
+        /// smoothness, player colour), set up for a wave over
+        /// [originY, originY + span]. Null when the shader is missing.
+        /// Shared with BuildingConstructionSequence, whose "disolve" groups
+        /// appear by the same wave.
+        /// </summary>
+        internal static Material CreateLitDissolve(Material src, float inverted, float originY, float span)
+        {
+            if (LitDissolveShader == null) return null;
+            var mat = new Material(LitDissolveShader);
+            mat.name = $"LitDissolve({(src != null ? src.name : "null")})";
+
+            // Capture the colour WITHOUT Material.color — its getter
+            // hard-requires a "_Color" property and spams the log for
+            // any shader that lacks it (e.g. TheWaningBorder/Building-
+            // Damage). Resolve URP-Lit's _BaseColor first, then legacy
+            // _Color, else white.
+            Color baseCol = Color.white;
+            if (src != null)
+            {
+                if (src.HasProperty("_BaseColor")) baseCol = src.GetColor("_BaseColor");
+                else if (src.HasProperty("_Color")) baseCol = src.GetColor("_Color");
+            }
+            mat.SetColor("_BaseColor", baseCol);
+
+            // The albedo, whatever slot the source shader keeps it in:
+            // URP-Lit's _BaseMap, the legacy _MainTex, or Synty's
+            // _Albedo_Map (Generic_Basic shader graph). Only _BaseMap
+            // was read until 2026-10-30, so a building assembled from
+            // raw Synty pieces dissolved as flat white: the texture
+            // never made it onto the wave material.
+            var baseTex = BuildingFactionColorMarker.AlbedoOf(src, out Vector4 baseST);
+            if (baseTex != null)
+            {
+                mat.SetTexture("_BaseMap", baseTex);
+                mat.SetFloat("_UseBaseMap", 1f);
+                mat.SetVector("_BaseMap_ST", baseST);
+            }
+
+            // Detail Inputs > Base Map (URP-Lit's ×2 detail-overlay
+            // slot). Kept as a fallback so any materials still using
+            // detail-map workflow continue to render correctly.
+            if (src != null && src.HasProperty("_DetailAlbedoMap"))
+            {
+                var detailTex = src.GetTexture("_DetailAlbedoMap");
+                if (detailTex != null)
+                {
+                    mat.SetTexture("_DetailAlbedoMap", detailTex);
+                    mat.SetFloat("_UseDetailMap", 1f);
+                    if (src.HasProperty("_DetailAlbedoMap_ST"))
+                        mat.SetVector("_DetailAlbedoMap_ST",
+                            src.GetVector("_DetailAlbedoMap_ST"));
+                    else
+                        mat.SetVector("_DetailAlbedoMap_ST",
+                            new Vector4(1, 1, 0, 0));
+                }
+            }
+
+            // Carry metallic / smoothness across so UniversalFragmentPBR
+            // uses the same fresnel / specular-environment response as
+            // the source URP-Lit material, keeping the lit look
+            // seamless across the transition.
+            if (src != null)
+            {
+                if (src.HasProperty("_Metallic"))
+                    mat.SetFloat("_Metallic", src.GetFloat("_Metallic"));
+                if (src.HasProperty("_Smoothness"))
+                    mat.SetFloat("_Smoothness", src.GetFloat("_Smoothness"));
+                else if (src.HasProperty("_Glossiness"))
+                    mat.SetFloat("_Smoothness", src.GetFloat("_Glossiness"));
+            }
+
+            // Normal map, emission and occlusion too (2026-10-30): the
+            // relief of tiles and planks, a lit window, a shaded
+            // corner — without them the dissolving building read as
+            // flat, unlit paint.
+            var normalMap = BuildingFactionColorMarker.NormalMapOf(src, out float normalScale);
+            if (normalMap != null)
+            {
+                mat.SetTexture("_BumpMap", normalMap);
+                mat.SetFloat("_BumpScale", normalScale);
+                mat.SetFloat("_UseBumpMap", 1f);
+            }
+            var emissionMap = BuildingFactionColorMarker.EmissionOf(src, out Color emissionColor);
+            mat.SetColor("_EmissionColor", emissionColor);
+            if (emissionMap != null)
+            {
+                mat.SetTexture("_EmissionMap", emissionMap);
+                mat.SetFloat("_UseEmissionMap", 1f);
+            }
+            var occlusionMap = BuildingFactionColorMarker.OcclusionOf(src);
+            if (occlusionMap != null)
+            {
+                mat.SetTexture("_OcclusionMap", occlusionMap);
+                mat.SetFloat("_UseOcclusionMap", 1f);
+            }
+
+            // Player colour rides on _TWB_FactionHSV, not the albedo.
+            BuildingFactionColorMarker.CopyFactionProperties(src, mat);
+
+            mat.SetFloat("_Inverted",      inverted);
+            mat.SetFloat("_WaveOriginY",   originY);
+            mat.SetFloat("_WaveSpan",      span);
+            mat.SetFloat("_NoiseScale",    NoiseScale);
+            mat.SetFloat("_NoiseStrength", NoiseStrength);
+            mat.SetFloat("_AmountPad",     AmountPad);
+            mat.SetFloat("_DissolveAmount", 0f);
+
+            return mat;
+        }
+
+        /// <summary>Turn a wave material into a plain alpha fade (the
+        /// construction sequence's "fade in"): nothing clipped, blended by
+        /// _Opacity, drawn after the opaque geometry and still writing depth
+        /// so the faded building does not sort against itself.</summary>
+        internal static void MakeFading(Material mat)
+        {
+            mat.SetFloat("_Inverted", 0f);
+            mat.SetFloat("_DissolveAmount", 0f);
+            mat.SetFloat("_Opacity", 0f);
+            mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        }
+
+        /// <summary>The glowing seam material of the wave. Null when the shader is missing.</summary>
+        internal static Material CreateBand(Color edgeColor, float originY, float span, string name)
+        {
+            if (BandShader == null) return null;
+            var mat = new Material(BandShader);
+            mat.name = $"WaveBand({name})";
+            mat.SetColor("_EdgeColor",     edgeColor);
+            mat.SetFloat("_WaveOriginY",   originY);
+            mat.SetFloat("_WaveSpan",      span);
+            mat.SetFloat("_NoiseScale",    NoiseScale);
+            mat.SetFloat("_NoiseStrength", NoiseStrength);
+            mat.SetFloat("_BandWidth",     BandWidth);
+            mat.SetFloat("_TrailLength",   TrailLength);
+            mat.SetFloat("_Intensity",     PeakIntensity);
+            mat.SetFloat("_DissolveAmount", 0f);
+            return mat;
+        }
+
+        /// <summary>A copy of <paramref name="mf"/>'s mesh, parented to it,
+        /// wearing the seam material.</summary>
+        internal static GameObject CreateBandOverlay(MeshFilter mf, Material band)
+        {
+            var overlayGo = new GameObject($"WaveOverlay_{mf.name}");
+            overlayGo.transform.SetParent(mf.transform, worldPositionStays: false);
+            overlayGo.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+            var or = overlayGo.AddComponent<MeshRenderer>();
+            or.shadowCastingMode    = UnityEngine.Rendering.ShadowCastingMode.Off;
+            or.receiveShadows       = false;
+            or.lightProbeUsage      = UnityEngine.Rendering.LightProbeUsage.Off;
+            or.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            or.sharedMaterial = band;
+            return overlayGo;
+        }
+
         private void BindLitDissolve(GameObject root, float inverted, List<RendererBinding> bindings)
         {
             if (root == null) return;
@@ -168,106 +329,7 @@ namespace TheWaningBorder.Rendering
                 var instances = new Material[originals.Length];
                 for (int i = 0; i < originals.Length; i++)
                 {
-                    var src = originals[i];
-                    var mat = new Material(LitDissolveShader);
-                    mat.name = $"LitDissolve({(src != null ? src.name : "null")})";
-
-                    // Capture the colour WITHOUT Material.color — its getter
-                    // hard-requires a "_Color" property and spams the log for
-                    // any shader that lacks it (e.g. TheWaningBorder/Building-
-                    // Damage). Resolve URP-Lit's _BaseColor first, then legacy
-                    // _Color, else white.
-                    Color baseCol = Color.white;
-                    if (src != null)
-                    {
-                        if (src.HasProperty("_BaseColor")) baseCol = src.GetColor("_BaseColor");
-                        else if (src.HasProperty("_Color")) baseCol = src.GetColor("_Color");
-                    }
-                    mat.SetColor("_BaseColor", baseCol);
-
-                    // The albedo, whatever slot the source shader keeps it in:
-                    // URP-Lit's _BaseMap, the legacy _MainTex, or Synty's
-                    // _Albedo_Map (Generic_Basic shader graph). Only _BaseMap
-                    // was read until 2026-10-30, so a building assembled from
-                    // raw Synty pieces dissolved as flat white: the texture
-                    // never made it onto the wave material.
-                    var baseTex = BuildingFactionColorMarker.AlbedoOf(src, out Vector4 baseST);
-                    if (baseTex != null)
-                    {
-                        mat.SetTexture("_BaseMap", baseTex);
-                        mat.SetFloat("_UseBaseMap", 1f);
-                        mat.SetVector("_BaseMap_ST", baseST);
-                    }
-
-                    // Detail Inputs > Base Map (URP-Lit's ×2 detail-overlay
-                    // slot). Kept as a fallback so any materials still using
-                    // detail-map workflow continue to render correctly.
-                    if (src != null && src.HasProperty("_DetailAlbedoMap"))
-                    {
-                        var detailTex = src.GetTexture("_DetailAlbedoMap");
-                        if (detailTex != null)
-                        {
-                            mat.SetTexture("_DetailAlbedoMap", detailTex);
-                            mat.SetFloat("_UseDetailMap", 1f);
-                            if (src.HasProperty("_DetailAlbedoMap_ST"))
-                                mat.SetVector("_DetailAlbedoMap_ST",
-                                    src.GetVector("_DetailAlbedoMap_ST"));
-                            else
-                                mat.SetVector("_DetailAlbedoMap_ST",
-                                    new Vector4(1, 1, 0, 0));
-                        }
-                    }
-
-                    // Carry metallic / smoothness across so UniversalFragmentPBR
-                    // uses the same fresnel / specular-environment response as
-                    // the source URP-Lit material, keeping the lit look
-                    // seamless across the transition.
-                    if (src != null)
-                    {
-                        if (src.HasProperty("_Metallic"))
-                            mat.SetFloat("_Metallic", src.GetFloat("_Metallic"));
-                        if (src.HasProperty("_Smoothness"))
-                            mat.SetFloat("_Smoothness", src.GetFloat("_Smoothness"));
-                        else if (src.HasProperty("_Glossiness"))
-                            mat.SetFloat("_Smoothness", src.GetFloat("_Glossiness"));
-                    }
-
-                    // Normal map, emission and occlusion too (2026-10-30): the
-                    // relief of tiles and planks, a lit window, a shaded
-                    // corner — without them the dissolving building read as
-                    // flat, unlit paint.
-                    var normalMap = BuildingFactionColorMarker.NormalMapOf(src, out float normalScale);
-                    if (normalMap != null)
-                    {
-                        mat.SetTexture("_BumpMap", normalMap);
-                        mat.SetFloat("_BumpScale", normalScale);
-                        mat.SetFloat("_UseBumpMap", 1f);
-                    }
-                    var emissionMap = BuildingFactionColorMarker.EmissionOf(src, out Color emissionColor);
-                    mat.SetColor("_EmissionColor", emissionColor);
-                    if (emissionMap != null)
-                    {
-                        mat.SetTexture("_EmissionMap", emissionMap);
-                        mat.SetFloat("_UseEmissionMap", 1f);
-                    }
-                    var occlusionMap = BuildingFactionColorMarker.OcclusionOf(src);
-                    if (occlusionMap != null)
-                    {
-                        mat.SetTexture("_OcclusionMap", occlusionMap);
-                        mat.SetFloat("_UseOcclusionMap", 1f);
-                    }
-
-                    // Player colour rides on _TWB_FactionHSV, not the albedo.
-                    BuildingFactionColorMarker.CopyFactionProperties(src, mat);
-
-                    mat.SetFloat("_Inverted",      inverted);
-                    mat.SetFloat("_WaveOriginY",   _originY);
-                    mat.SetFloat("_WaveSpan",      _span);
-                    mat.SetFloat("_NoiseScale",    NoiseScale);
-                    mat.SetFloat("_NoiseStrength", NoiseStrength);
-                    mat.SetFloat("_AmountPad",     AmountPad);
-                    mat.SetFloat("_DissolveAmount", 0f);
-
+                    var mat = CreateLitDissolve(originals[i], inverted, _originY, _span);
                     instances[i] = mat;
                 }
 

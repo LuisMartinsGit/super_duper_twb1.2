@@ -514,7 +514,7 @@ namespace TheWaningBorder.AI
                             break;
                         }
             }
-            if (want == null) return StepDone;
+            if (want == null) { if (!dry) AIPivotalReserve.Clear(faction, FirstTrainerReserveKey); return StepDone; }
             int line = -1;
             for (int l = 0; l < LostTrainerLines.Length; l++)
                 if (LostTrainerLines[l] == want) { line = l; break; }
@@ -522,6 +522,18 @@ namespace TheWaningBorder.AI
             if (dry) return StepProduction;
 
             int n = _homeLineCount[line] + 1;
+            // THE FIRST BUILDING OF A LINE IS A SAVINGS GOAL (2026-11-14). The
+            // Range, Stable and Siege Yard used to wait on the Military wallet
+            // behind every soldier the Barracks could queue, and arrived 10 to
+            // 17 minutes after it - so the army was infantry for half the match.
+            // Until a line has its first trainer its price is held back (unit
+            // purchases included) and it is bought from the bank the moment
+            // the bank covers it, as the age-up landmark is.
+            TheWaningBorder.Data.BuildingDef firstDef = null;
+            bool firstOfLine = line > 0 && _homeLineCount[line] == 0 && CountLine(em, faction, line) == 0
+                && TechCatalog.TryGetBuilding(want, out firstDef) && firstDef != null;
+            Cost firstCost = firstOfLine ? AICommon.ToCost(firstDef.cost) : default;
+            if (!firstOfLine) AIPivotalReserve.Clear(faction, FirstTrainerReserveKey);
             var core = AIBaseLayout.CoreOf(em, faction, r);
             var anchor = new float3(core.x, TerrainUtility.GetHeight(core.x, core.z), core.z);
             bool ok;
@@ -529,8 +541,28 @@ namespace TheWaningBorder.AI
             _homeProductionFloor = true;
             try
             {
-                ok = TryBuildInTerritory(em, faction, want, r, anchor, AIBudgetCategory.Military,
-                    true, out why);
+                if (firstOfLine)
+                {
+                    if (FactionEconomy.CanAfford(em, faction, firstCost))
+                    {
+                        // Its own hold must not refuse it.
+                        AIPivotalReserve.Clear(faction, FirstTrainerReserveKey);
+                        int prevLock = _siteRegionLock;
+                        _siteRegionLock = r;
+                        try { ok = TryBuildBuildingWithReason(em, faction, want, out why, anchor); }
+                        finally { _siteRegionLock = prevLock; }
+                        if (ok) AIBudget.RecordSpend(faction, AIBudgetCategory.Military, firstCost);
+                    }
+                    else
+                    {
+                        ok = false;
+                        why = "bank short (saving for the line's first trainer)";
+                        AIPivotalReserve.Set(faction, FirstTrainerReserveKey, firstCost, strict: true);
+                    }
+                }
+                else
+                    ok = TryBuildInTerritory(em, faction, want, r, anchor, AIBudgetCategory.Military,
+                        true, out why);
             }
             finally { _homeProductionFloor = false; }
             if (ok)
@@ -553,6 +585,9 @@ namespace TheWaningBorder.AI
             what = $"{StepNames[StepProduction]} — home floor {want} {n}/{perLine} has no legal spot ({why})";
             return StepDone;
         }
+
+        /// <summary>AIPivotalReserve key of a line's first trainer building.</summary>
+        private const string FirstTrainerReserveKey = "FirstTrainer";
 
         private static bool IsCrewRefusal(string why)
             => why != null && (why == "no build crew" || why == "sites open" || why.Contains("sites open, crew"));
@@ -958,7 +993,8 @@ namespace TheWaningBorder.AI
             extra = false;
             detail = null;
             if (!BuildSiteSnapshot.IsProductionId(buildingId)) return null;
-            if (_provinceProductionStep || _homeProductionFloor || _rebuildingLostTrainer || _siegeYardFloor) return null;
+            if (_provinceProductionStep || _homeProductionFloor || _rebuildingLostTrainer || _siegeYardFloor
+                || _firstTrainerPass) return null;
 
             int total = 0;
             for (int l = 0; l < LostTrainerLines.Length; l++) total += CountLine(em, faction, l);

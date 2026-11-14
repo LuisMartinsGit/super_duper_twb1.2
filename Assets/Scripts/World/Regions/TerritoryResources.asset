@@ -17,7 +17,7 @@ MonoBehaviour:
   normalVeilstoneWeight: 4
   normalVeilstoneOutcropsMin: 1
   normalVeilstoneOutcropsMax: 2
-  homeNodeMinOffset: 38
+  homeNodeMinOffset: 24
   randomizeCurseTerritories: 1
   purityPureMultiplier: 1.25
   purityNormalMultiplier: 1

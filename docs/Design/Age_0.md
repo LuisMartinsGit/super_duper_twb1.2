@@ -498,6 +498,14 @@ Alanthor's Garrison unit). Spear reach — slightly longer than a sword. Its
 **bonus vs Cavalry** is the infantry leg of the counter triangle
 ([Combat_Pacing.md](Combat_Pacing.md)).
 
+**Look (2026-11-13).** In the first age the Spearman is a levy: a peasant with
+a spear gripped at its middle, no armour and no shield. It is a reskin of the
+aged-up look and plays exactly the same animations. Once its faction has aged
+up it is drawn as an armoured legionary with a helmet, a tall shield and a
+pilum — the same unit and the same stats, a different kit on the same prefab
+(`UnitAgeKit`). The cloth and the shield face are in the player's colour
+(`UnitPlayerColor`).
+
 ### Litharch
 
 Trains at the Temple of Ridan. **A pure healer by default — no attack** until

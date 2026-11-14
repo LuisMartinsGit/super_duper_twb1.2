@@ -401,6 +401,42 @@ namespace TheWaningBorder.Systems.Combat
                 em.GetComponentData<FactionTag>(target).Value);
         }
 
+        private static readonly ComponentType[] QT_Sweep =
+        {
+            ComponentType.ReadOnly<UnitTag>(), ComponentType.ReadWrite<Health>(),
+            ComponentType.ReadOnly<Unity.Transforms.LocalTransform>(), ComponentType.ReadOnly<FactionTag>(),
+        };
+        private static TheWaningBorder.Core.CachedEntityQuery QC_Sweep;
+
+        /// <summary>Reckless Attack's sweep: <paramref name="damage"/> to every
+        /// living unit hostile to <paramref name="attacker"/> within
+        /// <paramref name="radius"/> of him, the blow's own target excepted
+        /// (it takes the blow itself). Every victim takes the same amount, so
+        /// the order they are visited in does not matter to lockstep.</summary>
+        private static void RecklessSweep(EntityManager em, Entity attacker, Entity mainTarget, int damage, float radius)
+        {
+            if (damage <= 0 || radius <= 0f) return;
+            if (!em.HasComponent<Unity.Transforms.LocalTransform>(attacker) || !em.HasComponent<FactionTag>(attacker)) return;
+            float3 at = em.GetComponentData<Unity.Transforms.LocalTransform>(attacker).Position;
+            Faction mine = em.GetComponentData<FactionTag>(attacker).Value;
+            float r2 = radius * radius;
+            var query = QC_Sweep.Get(em, QT_Sweep);
+            using var units = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+            for (int i = 0; i < units.Length; i++)
+            {
+                var u = units[i];
+                if (u == attacker || u == mainTarget) continue;
+                if (!Alliances.AreHostile(mine, em.GetComponentData<FactionTag>(u).Value)) continue;
+                float3 p = em.GetComponentData<Unity.Transforms.LocalTransform>(u).Position;
+                float dx = p.x - at.x, dz = p.z - at.z;
+                if (dx * dx + dz * dz > r2) continue;
+                var h = em.GetComponentData<Health>(u);
+                if (h.Value <= 0) continue;
+                h.Value -= ShieldDamage.Absorb(em, u, TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, u, damage));
+                em.SetComponentData(u, h);
+            }
+        }
+
         public static int ApplyBonusDamageOnHit(EntityManager em, EntityCommandBuffer ecb,
             Entity attacker, Entity target, int baseDamage,
             TheWaningBorder.Core.HitSource source = TheWaningBorder.Core.HitSource.Melee)
@@ -657,6 +693,43 @@ namespace TheWaningBorder.Systems.Combat
                 TransientState.Clear<TheWaningBorder.Abilities.NextShotBonus>(em, ecb, attacker);
             }
 
+            // The Swordsman's Reckless Attack: every Every-th swing also hits
+            // all hostile units round him, and leaves him open for a moment.
+            bool meleeBlow = source == TheWaningBorder.Core.HitSource.Melee;
+            if (meleeBlow && em.HasComponent<TheWaningBorder.Abilities.RecklessState>(attacker))
+            {
+                var rk = em.GetComponentData<TheWaningBorder.Abilities.RecklessState>(attacker);
+                rk.Count++;
+                if (rk.Every > 0 && rk.Count >= rk.Every)
+                {
+                    rk.Count = 0;
+                    rk.VulnerableRemaining = rk.VulnerableSeconds;
+                    RecklessSweep(em, attacker, target, final, rk.Radius);
+                }
+                em.SetComponentData(attacker, rk);
+            }
+
+            // ... and whoever hits him while he is open hits harder.
+            if (em.HasComponent<TheWaningBorder.Abilities.RecklessState>(target))
+            {
+                var open = em.GetComponentData<TheWaningBorder.Abilities.RecklessState>(target);
+                if (open.VulnerableRemaining > 0f)
+                    final = (int)(final * (1f + open.VulnerablePct / 100f));
+            }
+
+            // Parry: one melee blow turned aside completely, then a rest.
+            bool parried = false;
+            if (meleeBlow && em.HasComponent<TheWaningBorder.Abilities.ParryState>(target))
+            {
+                var parry = em.GetComponentData<TheWaningBorder.Abilities.ParryState>(target);
+                if (parry.CooldownRemaining <= 0f)
+                {
+                    parried = true;
+                    parry.CooldownRemaining = parry.CooldownSeconds;
+                    em.SetComponentData(target, parry);
+                }
+            }
+
             // Defender side. Shield Wall eats the first hit while planted; Deploy
             // Stakes only answers a CHARGING attacker; Siege Screens is continuous
             // but ranged-only. Each reduction comes off the post-bonus number.
@@ -706,8 +779,22 @@ namespace TheWaningBorder.Systems.Combat
                 var ss = em.GetComponentData<TheWaningBorder.Abilities.SiegeScreens>(target);
                 if (ss.Ready != 0) final = (int)(final * (1f - ss.Pct / 100f));
             }
+            if (parried) return 0;
             if (final < 1) final = 1;
 
+            // Counter: part of a melee blow that landed is paid back.
+            if (meleeBlow && em.HasComponent<TheWaningBorder.Abilities.CounterState>(target)
+                && em.HasComponent<Health>(attacker))
+            {
+                float pct = em.GetComponentData<TheWaningBorder.Abilities.CounterState>(target).ReflectPct;
+                int paid = (int)(final * (pct / 100f));
+                if (paid > 0)
+                {
+                    var atkHealth = em.GetComponentData<Health>(attacker);
+                    atkHealth.Value -= ShieldDamage.Absorb(em, attacker, TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, attacker, paid));
+                    em.SetComponentData(attacker, atkHealth);
+                }
+            }
 
             return final;
         }

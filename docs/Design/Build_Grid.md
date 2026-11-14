@@ -139,8 +139,13 @@ Consequences worth stating plainly, because they change how a base packs:
   validation, and the starting army spawned inside its own capital's blocked
   cells.
 
-Building **visuals are scaled to their footprint** so the mesh fills its
-cells with no overhang and no gap.
+**Building visuals are NOT scaled (2026-11-12).** Every prefab is drawn at
+1 : 1, the size it was authored; a prefab larger than its footprint overhangs
+its cells. The measurement described below is still made, but only to CENTRE
+the model on its cells and stand it on the ground
+(`PresentationSpawnSystem.ComputeFootprintFitScoped` returns 1). Until that
+date visuals were scaled to their footprint, and the paragraphs below
+describe the fit as it was.
 
 **What is measured is the plinth, not the whole model (2026-11-01).** A
 building prefab marks the slab it stands on — a child named `Footprint`

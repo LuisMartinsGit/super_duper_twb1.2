@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Firethrower
   unitClass: human_ranged
   hp: 100
-  speed: 5
+  speed: 2.5
   trainingTime: 12.6
   damage: 14
   damageType: ranged
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 2.2
-  attackRange: 10
+  attackRange: 5
   minAttackRange: 0
-  lineOfSight: 14
+  lineOfSight: 7
   aimTime: 0.5
-  radius: 0.5
+  radius: 0.25
   trajectory: high
   projectileSpeed: 0
   cost:

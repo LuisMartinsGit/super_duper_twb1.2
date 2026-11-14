@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Dune Guard
   unitClass: human_melee
   hp: 140
-  speed: 5.8
+  speed: 2.9
   trainingTime: 18
   damage: 14
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.4
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 18
+  lineOfSight: 9
   aimTime: 0
-  radius: 0.5
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:

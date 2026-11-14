@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Seasoned Infantry
   role: Military
   effect: 
-  desc: "+30 HP, +5% speed, +1 damage, +1 defense to all Garrison line infantry."
+  desc: "Garrison level 1: the Spearman gains HP, armour of every type, speed and line of sight."
   researchAt: Barracks
   minBuildingLevel: 1
   researchTime: 28
@@ -37,64 +37,16 @@ MonoBehaviour:
   - Target: "unit:Spearman"
     Stat: Hp
     Op: Add
-    Value: 30
-  - Target: "unit:Spearman"
-    Stat: Speed
-    Op: Pct
-    Value: 5
-  - Target: "unit:Spearman"
-    Stat: Damage
-    Op: Add
-    Value: 1
+    Value: 20
   - Target: "unit:Spearman"
     Stat: DefenseAll
     Op: Add
     Value: 1
-  - Target: "unit:Alanthor_Swordsman"
-    Stat: Hp
-    Op: Add
-    Value: 30
-  - Target: "unit:Alanthor_Swordsman"
+  - Target: "unit:Spearman"
     Stat: Speed
     Op: Pct
-    Value: 5
-  - Target: "unit:Alanthor_Swordsman"
-    Stat: Damage
-    Op: Add
-    Value: 1
-  - Target: "unit:Alanthor_Swordsman"
-    Stat: DefenseAll
-    Op: Add
-    Value: 1
-  - Target: "unit:Alanthor_Nobleman"
-    Stat: Hp
-    Op: Add
-    Value: 30
-  - Target: "unit:Alanthor_Nobleman"
-    Stat: Speed
-    Op: Pct
-    Value: 5
-  - Target: "unit:Alanthor_Nobleman"
-    Stat: Damage
-    Op: Add
-    Value: 1
-  - Target: "unit:Alanthor_Nobleman"
-    Stat: DefenseAll
-    Op: Add
-    Value: 1
-  - Target: "unit:Alanthor_Sentinel"
-    Stat: Hp
-    Op: Add
-    Value: 30
-  - Target: "unit:Alanthor_Sentinel"
-    Stat: Speed
-    Op: Pct
-    Value: 5
-  - Target: "unit:Alanthor_Sentinel"
-    Stat: Damage
-    Op: Add
-    Value: 1
-  - Target: "unit:Alanthor_Sentinel"
-    Stat: DefenseAll
+    Value: 3
+  - Target: "unit:Spearman"
+    Stat: LineOfSight
     Op: Add
     Value: 1

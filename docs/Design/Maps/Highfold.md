@@ -68,3 +68,14 @@ field seats start beside the rich centre and have to hold it in the open.
 ## Verified
 
 See the end of this file once the headless runs are in.
+
+## The look (snowfield, 2026-11-14)
+
+The Yiel Lymwérra kit with its own biome: snow over tundra patches (which also ring the trees) with sheets of cracked ice, cold blue-grey rock, ice under the pond; no grass blades. The textures are the
+stylized pack on the five layers the builder paints, plus three detail layers
+(broad patches, sparse clumps, the bed under water too deep to wade), and a
+`TerrainLook` on the Terrain (anti-tiling, colour drift, cliff side-projection).
+Walkability is not touched: the NoWalk layer is never written. The look is
+DATA in `TerrainBiomeDress.cs` (one `Biome` entry per map, menu
+`Waning Border > Maps > Dress <map>`), and `MapBuilderFromLayout` runs it after
+every rebuild.

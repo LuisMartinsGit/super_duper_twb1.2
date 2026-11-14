@@ -64,13 +64,16 @@ namespace TheWaningBorder.World.Roads
         public float Strength;
     }
 
-    /// <summary>A culture PAD: an axis-aligned, hard-edged square of full
-    /// coverage, marked plaza (and finished when its building is) — so the
-    /// shader's per-pixel culture rule paves it (Roads.md §4b).</summary>
+    /// <summary>A culture PAD: a hard-edged rectangle of full coverage,
+    /// TURNED WITH ITS BUILDING (2026-11-12 — it used to be axis-aligned, so
+    /// a rotated building stood askew on its paving), marked plaza (and
+    /// finished when its building is) — so the shader's per-pixel culture
+    /// rule paves it (Roads.md §4b).</summary>
     public struct SquareCmd
     {
-        public float2 Min;         // texels
-        public float2 Max;         // texels
+        public float2 Centre;      // texels
+        public float2 Half;        // half extents along the building's own X / Z, x-texels
+        public float2 CosSin;      // cos, sin of the building's yaw
         public byte Finished;
         public float Strength;
     }
@@ -163,17 +166,25 @@ namespace TheWaningBorder.World.Roads
         void DrawSquare(in SquareCmd c)
         {
             if (c.Strength <= 0f) return;
-            int x0 = math.max(0, (int)math.floor(c.Min.x));
-            int x1 = math.min(Res - 1, (int)math.ceil(c.Max.x));
-            int y0 = math.max(0, (int)math.floor(c.Min.y));
-            int y1 = math.min(Res - 1, (int)math.ceil(c.Max.y));
+            // Bounds of the turned rectangle (its diagonal covers every
+            // yaw); y in texels, the rest in x-texels (see YScale).
+            float reach = math.length(c.Half) + 1f;
+            float ys = math.max(YScale, 1e-4f);
+            int x0 = math.max(0, (int)math.floor(c.Centre.x - reach));
+            int x1 = math.min(Res - 1, (int)math.ceil(c.Centre.x + reach));
+            int y0 = math.max(0, (int)math.floor(c.Centre.y - reach / ys));
+            int y1 = math.min(Res - 1, (int)math.ceil(c.Centre.y + reach / ys));
             for (int y = y0; y <= y1; y++)
             {
-                float cy = math.saturate(math.min((y + 1f) - c.Min.y, c.Max.y - y));
+                float dz = ((y + 0.5f) - c.Centre.y) * ys;
                 for (int x = x0; x <= x1; x++)
                 {
-                    float cx = math.saturate(math.min((x + 1f) - c.Min.x, c.Max.x - x));
-                    float cov = cx * cy;
+                    float dx = (x + 0.5f) - c.Centre.x;
+                    // The texel centre in the building's own frame.
+                    float lx = dx * c.CosSin.x - dz * c.CosSin.y;
+                    float lz = dx * c.CosSin.y + dz * c.CosSin.x;
+                    float cov = math.saturate(c.Half.x - math.abs(lx) + 0.5f)
+                              * math.saturate(c.Half.y - math.abs(lz) + 0.5f);
                     if (cov <= 0f) continue;
                     WriteCoverage(y * Res + x, cov * c.Strength, c.Finished, 1);
                 }

@@ -202,7 +202,7 @@ namespace TheWaningBorder.UI.Ingame
 
                     bool isOwn = _em.HasComponent<FactionTag>(e)
                         && _em.GetComponentData<FactionTag>(e).Value == local;
-                    float yOff = _em.HasComponent<BuildingTag>(e) ? buildingYOffset : yOffsetAboveEntity;
+                    float yOff = _em.HasComponent<BuildingTag>(e) ? buildingYOffset : yOffsetAboveEntity * TheWaningBorder.Rendering.UnitWorldScale.Value;
 
                     if (!_pending.TryGetValue(e, out var p))
                     {

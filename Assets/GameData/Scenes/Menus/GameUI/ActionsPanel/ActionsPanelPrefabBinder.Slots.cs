@@ -48,7 +48,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (sprite != null)
                 {
                     slot.Icon.sprite = sprite;
-                    slot.Icon.color = locked ? new Color(1f, 1f, 1f, 0.35f)
+                    slot.Icon.color = locked ? new Color(1f, 1f, 1f, 0.5f)
                                : poor ? new Color(1f, 1f, 1f, 0.6f)
                                : Color.white;
                 }

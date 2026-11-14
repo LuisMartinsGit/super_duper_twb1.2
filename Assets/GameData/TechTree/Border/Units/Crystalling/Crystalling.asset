@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Crystalling
   unitClass: magic
   hp: 35
-  speed: 5.5
+  speed: 2.75
   trainingTime: 8
   damage: 3
   damageType: siege
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.2
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 5
   aimTime: 0
-  radius: 0.4
+  radius: 0.2
   trajectory: 
   projectileSpeed: 0
   cost:
@@ -54,6 +54,6 @@ MonoBehaviour:
   preferTargets: []
   abilities:
   - Veil Offering
-  prefab: {fileID: 2978161759476928202, guid: 855ce4916bb3df44c87f2d75699aa999, type: 3}
+  prefab: {fileID: 103670402920498, guid: d2c2926a2c81e59d0d8d0bebb9c6872d, type: 3}
   presentationId: 320
   animatorController: {fileID: 0}

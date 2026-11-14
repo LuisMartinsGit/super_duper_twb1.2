@@ -9,6 +9,23 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+58. **Half-size units: reach, sight and the v2 maps (2026-11-14, developer).** (a) Units are half
+    size and half speed (unit SO `radius` and `speed`); **the 2 m build grid and every building
+    footprint are unchanged, on purpose.** (b) **Reach and sight follow the units**, halved on the
+    SOs: every unit's `lineOfSight`; a ranged or siege unit's `attackRange` and `minAttackRange`
+    (melee reach is unchanged); `siegeRange`, `aoeRadius`, `healRange`; every building's and
+    building level's `lineOfSight`, never below the footprint's half side + 2 m (a building sees
+    past its own walls) nor above its old value; every enabled authored building attack's
+    `range`. The distances that pair with them halve too: the AI's ranged line
+    (`AITactics.asset`), the stance leash, melee-engage and assist radii
+    (`UnitStanceSystem.asset`), the Litharch's heal search. Ability and sect-power radii are
+    not part of this pass. (c) **The maps get v2s**: each map's concept on half the ground with
+    the players closer, redrawn so every claimable territory holds its nodes, a Farm with its
+    whole field and Houses (the home a full base), proven by the layout kit's building-room
+    probe; the originals stay, Yiel Lymwérra has no v2 — [Maps/V2_Maps.md](Maps/V2_Maps.md).
+    (d) For them, `homeNodeMinOffset` and the start clearing are cut (assets), and
+    `TerritoryResources.MirrorPartners` no longer gives up its mirrored node layout over a
+    node-less territory (Sanctum, Empty) that straddles an axis.
 57. **The Farm's crop ring, and Farm levels (2026-11-11, developer).** (a) **Every Farm has a crop
     ring**: a circle reaching the Farm SO's `cropRingMeters` out from its footprint edge, less the
     footprint. (b) **A Farm is paid by the ring's free share**: supplies a minute = Workers inside

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Glassmark Arcanist
   unitClass: magic
   hp: 210
-  speed: 5.0
+  speed: 2.5
   trainingTime: 21
   damage: 40
   damageType: magic
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 2
   attackCooldown: 1.6
-  attackRange: 15
+  attackRange: 7.5
   minAttackRange: 0
-  lineOfSight: 20
+  lineOfSight: 10
   aimTime: 0.4
-  radius: 0.5
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:

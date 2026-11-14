@@ -1985,11 +1985,8 @@ namespace TheWaningBorder.Multiplayer
                     break;
 
                 case LockstepCommandType.UnitPromote:
-                    if (entity != Entity.Null)
-                    {
-                        UnitRankCommandHelper.Execute(em, entity);
-                        if (LogCommands) TWBLog.Log($"[Lockstep] Executed UnitPromote from player {cmd.PlayerIndex}");
-                    }
+                    // Unit ranks were removed (2026-11-13: only heroes have
+                    // levels). The wire slot is kept, and does nothing.
                     break;
 
                 case LockstepCommandType.QueueWaypoint:

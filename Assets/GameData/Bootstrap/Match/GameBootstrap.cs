@@ -689,7 +689,7 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<BuildingEffectSystem>();    // Construction dust + collapse effects
             managersGO.AddComponent<RitualBeamSystem>();         // Ritual broadcast beams (spec §5.1)
             managersGO.AddComponent<CaravanVisualSystem>();       // Procedural desert-traveler visual (spec refinement #3)
-            managersGO.AddComponent<UnitVisualOverlaySystem>();   // Rank pips + Glow halo (spec refinement #7)
+            managersGO.AddComponent<UnitVisualOverlaySystem>();   // equipment shield bars
             // GathererHutGrassPainter (yellow farm-field quads around huts)
             // REMOVED entirely (2026-07-15, user request).
             managersGO.AddComponent<RallyPointDisplay>();        // Rally point marker display

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: King Lexor
   unitClass: melee
   hp: 720
-  speed: 7.0
+  speed: 3.5
   trainingTime: 45
   damage: 46
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.4
   attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 28
-  radius: 0.6
+  lineOfSight: 14
+  radius: 0.3
   cost:
     Supplies: 300
     Iron: 200

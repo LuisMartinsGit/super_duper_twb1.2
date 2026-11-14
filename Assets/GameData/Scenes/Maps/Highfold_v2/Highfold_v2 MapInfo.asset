@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d2f9c81a6e34b0f8d1c5a7e2b9f6034, type: 3}
+  m_Name: Highfold_v2 MapInfo
+  m_EditorClassIdentifier: 
+  SceneName: Highfold_v2
+  DisplayName: Highfold v2
+  PlayerCount: 8
+  SizeTag: OPEN
+  Description: 
+  Thumbnail: {fileID: 2800000, guid: 4669a1868c2593f49aee77042088ec0c, type: 3}
+  WorldSize: {x: 384, y: 384}
+  PlayerStarts:
+  - {x: 0.119791664, y: 0.109375}
+  - {x: 0.8802083, y: 0.109375}
+  - {x: 0.119791664, y: 0.890625}
+  - {x: 0.8802083, y: 0.890625}
+  - {x: 0.35416666, y: 0.22395833}
+  - {x: 0.6458333, y: 0.22395833}
+  - {x: 0.35416666, y: 0.7760417}
+  - {x: 0.6458333, y: 0.7760417}
+  PlayerStartFactions: 0001020304050607
+  PlayerStartTeams: 
+  IronDeposits: []
+  VeilstoneNodes: []
+  CurseNodes: []
+  SupplyNodes: []
+  RegionStamp: CC33D61565DBD3E8

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Archivist Adept
   unitClass: magic
   hp: 230
-  speed: 5.0
+  speed: 2.5
   trainingTime: 21
   damage: 36
   damageType: magic
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 3
   attackCooldown: 1.6
-  attackRange: 14
+  attackRange: 7
   minAttackRange: 0
-  lineOfSight: 20
+  lineOfSight: 10
   aimTime: 0.4
-  radius: 0.5
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:

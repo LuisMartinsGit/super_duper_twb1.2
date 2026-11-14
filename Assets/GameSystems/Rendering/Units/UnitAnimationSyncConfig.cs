@@ -44,6 +44,17 @@ namespace TheWaningBorder.Rendering
         /// never shows on screen.</summary>
         public float offscreenPollInterval;
 
+        /// <summary>Metres a second a move clip is taken to be authored for
+        /// when the clip itself carries no root motion to measure. The move
+        /// animation plays at (the unit's actual speed / the clip's speed), so
+        /// feet keep pace with the ground at any movement speed.</summary>
+        public float moveClipReferenceSpeed;
+
+        /// <summary>Lowest and highest playback rate the move animation is
+        /// allowed while a unit is walking.</summary>
+        public float moveAnimSpeedMin;
+        public float moveAnimSpeedMax;
+
         /// <summary>Padding (m) around a unit's last polled position for the
         /// on-screen test. Covers how far a unit can walk between two
         /// off-screen polls plus its own size, so it is re-polled before any

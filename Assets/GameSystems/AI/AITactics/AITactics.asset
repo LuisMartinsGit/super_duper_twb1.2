@@ -35,10 +35,10 @@ MonoBehaviour:
   focusTopK: 6
   memberDistanceScale: 0.6
   switchMargin: 12
-  rangedReachSlack: 3
-  rangedStandoff: 6
-  rangedLineTolerance: 4
-  rangedLineSpacing: 1.8
+  rangedReachSlack: 1.5
+  rangedStandoff: 3
+  rangedLineTolerance: 2
+  rangedLineSpacing: 0.9
   rangedLineSlots: 8
   flankMinArmy: 8
   flankMinGroup: 3
@@ -62,7 +62,7 @@ MonoBehaviour:
   fallbackSafeShare: 0.5
   fallbackRetargetRadius: 220
   fallbackRetargetShare: 0.6
-  fallbackMaxHolds: 1
+  fallbackMaxHolds: 3
   abilityScanRadius: 18
   heroUltimateMinEnemies: 8
   contactDistance: 10

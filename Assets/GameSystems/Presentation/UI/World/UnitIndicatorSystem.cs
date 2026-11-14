@@ -196,7 +196,7 @@ namespace TheWaningBorder.UI.World
             _toRemove.Clear();
             foreach (var kv in _indicators)
             {
-                if (!_em.Exists(kv.Key) || kv.Value.Circle == null)
+                if (!_em.Exists(kv.Key) || kv.Value.CrossH == null)
                     _toRemove.Add(kv.Key);
             }
             foreach (var e in _toRemove)
@@ -253,8 +253,9 @@ namespace TheWaningBorder.UI.World
                 var ind = new Indicators
                 {
                     Ring = CreateSelectionRing(),
-                    Circle = CreateCircle(out var circleRenderer),
-                    CircleRenderer = circleRenderer,
+                    // No ownership disc (developer, 2026-11-13: "remove the
+                    // ownership discs") - the owner reads from the unit's own
+                    // player colours. Circle stays null; every use is guarded.
                     CrossH = CreateCrossBar(out var crossHR),
                     CrossV = CreateCrossBar(out var crossVR),
                     CrossHRenderer = crossHR,
@@ -330,7 +331,7 @@ namespace TheWaningBorder.UI.World
                     // They are re-shown and re-placed the frame it is back in
                     // view, before anything renders.
                     if (!ProceduralRigCulling.Visible(
-                            new Vector3(pos.x, pos.y + circleYAboveUnit, pos.z), CullPad))
+                            new Vector3(pos.x, pos.y + circleYAboveUnit * TheWaningBorder.Rendering.UnitWorldScale.Value, pos.z), CullPad))
                     {
                         // (!Primed: a brand-new disc is created active at the
                         // origin and has never been placed — hide it too.)
@@ -367,7 +368,7 @@ namespace TheWaningBorder.UI.World
                         // max(): a unit on a wall-walk stands above the ground
                         // under it, and its disc goes over its head there.
                         float terrainY = math.max(TerrainUtility.GetHeight(pos.x, pos.z), pos.y);
-                        ind.IndicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit, pos.z);
+                        ind.IndicatorPos = new Vector3(pos.x, terrainY + circleYAboveUnit * TheWaningBorder.Rendering.UnitWorldScale.Value, pos.z);
                         ind.LastPos = pos;
                     }
 
@@ -531,7 +532,7 @@ namespace TheWaningBorder.UI.World
         {
             if (ring == null) return;
 
-            float radius = defaultRingRadius;
+            float radius = defaultRingRadius * TheWaningBorder.Rendering.UnitWorldScale.Value;
             if (_em.HasComponent<Radius>(entity))
             {
                 float r = _em.GetComponentData<Radius>(entity).Value;
@@ -543,24 +544,6 @@ namespace TheWaningBorder.UI.World
 
             GroundDecals.SetShape(ring, GroundDecals.Ring(), color);
             GroundDecals.Place(ring, new Vector3(pos.x, pos.y, pos.z), radius * 2f);
-        }
-
-        private GameObject CreateCircle(out MeshRenderer renderer)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            go.name = "OwnershipDisc";
-            go.transform.localScale = new Vector3(circleRadius * 2f, circleThickness, circleRadius * 2f);
-
-            // Remove collider
-            var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
-
-            renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = SharedMat(UnownedColor);
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-
-            return go;
         }
 
         /// <summary>

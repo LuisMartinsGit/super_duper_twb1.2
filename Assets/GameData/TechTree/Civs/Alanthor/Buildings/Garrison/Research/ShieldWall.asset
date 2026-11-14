@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Shield Wall
   role: Military
   effect: 
-  desc: "Unlocks the Shield Wall passive for Garrison line infantry: +30% defense against the first incoming attack while stationary; recharges after 3 s."
+  desc: "Unlocks Shield Wall for the Spearman: the first incoming attack while he stands still is reduced by 30%; recharges after 3 s."
   researchAt: Barracks
   minBuildingLevel: 3
   researchTime: 30

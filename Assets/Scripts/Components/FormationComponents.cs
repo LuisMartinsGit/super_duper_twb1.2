@@ -173,7 +173,7 @@ public struct FormationGroup : IComponentData
     /// formed squad began every order 2 m out of position and the leader
     /// stalled while it "formed up" on ground it was already standing on.
     /// </summary>
-    public const float LeaderTetherDistance = 3f;
+    public const float LeaderTetherDistance = 1.5f;   // halved with the units, 2026-11-13 (UnitWorldScale)
     /// <summary>Ticks the leader may ease with NO improvement in the worst
     /// member offset before that member is dropped from the group. The
     /// improvement that counts is FormationGroupSystem.asset
@@ -192,10 +192,10 @@ public struct FormationGroup : IComponentData
     public const float CatchUpMultiplier = 1.6f;   // 1.4 until 2026-10-17: more flank budget, a faster honest wheel
     /// <summary>How far behind its spot a member must be before the
     /// catch-up bonus kicks in.</summary>
-    public const float CatchUpTriggerDistance = 1.5f;
+    public const float CatchUpTriggerDistance = 0.75f;   // halved with the units, 2026-11-13 (UnitWorldScale)
     /// <summary>Leader arrival radius (matches the integrator's
     /// StopDistance so members settle exactly once).</summary>
-    public const float ArriveDistance = 0.5f;
+    public const float ArriveDistance = 0.25f;   // halved with the units, 2026-11-13 (UnitWorldScale)
 }
 
 /// <summary>
@@ -279,4 +279,21 @@ public struct FormationSlotMemory : IComponentData, IEnableableComponent
     /// can tell one just-arrived formation from a mob of new faces. 0 = none.
     /// Deterministic: built only from sim state every peer agrees on.</summary>
     public uint GroupKey;
+}
+
+/// <summary>
+/// "When you reach your slot, turn to face this way" (2026-11-13). Set on
+/// every unit of a formation order with the facing its slots were laid out
+/// around; FormationArriveFacingSystem turns the unit once it has stopped ON
+/// that slot, then switches the component off. Developer: "the units should
+/// form up facing the direction of the arrow (no soldiers facing back on the
+/// front row!)" - a unit otherwise keeps the heading of its last step, and the
+/// last step into a slot can point anywhere.
+/// </summary>
+public struct FormationArriveFacing : IComponentData, IEnableableComponent
+{
+    /// <summary>The slot the order sent the unit to.</summary>
+    public float3 Slot;
+    /// <summary>Unit-length facing on the XZ plane.</summary>
+    public float2 Dir;
 }

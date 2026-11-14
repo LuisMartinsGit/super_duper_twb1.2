@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Feraldis_Iconoclast
   unitClass: human_magic
   hp: 280
-  speed: 3.2
+  speed: 1.6
   trainingTime: 47.6
   damage: 10
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 0
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 16
-  radius: 0.7
+  lineOfSight: 8
+  radius: 0.35
   cost:
     Supplies: 0
     Iron: 82

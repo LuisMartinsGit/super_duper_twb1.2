@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Scout
   unitClass: human_scout
   hp: 60
-  speed: 6
+  speed: 3
   trainingTime: 18.2
   damage: 0
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1
   attackRange: 1
   minAttackRange: 0
-  lineOfSight: 40
-  radius: 0.5
+  lineOfSight: 20
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:

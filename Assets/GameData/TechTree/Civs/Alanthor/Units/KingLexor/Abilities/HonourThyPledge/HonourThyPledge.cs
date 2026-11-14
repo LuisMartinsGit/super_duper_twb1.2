@@ -18,8 +18,8 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// Hero level the ability unlocks at.
         ///
-        /// Also the zero point for every scaling axis in PledgeArmy — soldiers,
-        /// rank and duration are all expressed relative to it — so moving the
+        /// Also the zero point for every scaling axis in PledgeArmy — soldiers
+        /// and duration are both expressed relative to it — so moving the
         /// unlock moves the whole ladder with it and the level-4 row of the
         /// design table stays the floor.
         /// </summary>

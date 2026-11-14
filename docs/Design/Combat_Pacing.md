@@ -121,6 +121,25 @@ rule applies to everyone alike: players, the AI and the curse's own units.
   `meleeHits` / `flankHits`), so a headless batch can read how often the rule
   fires. Nothing is logged per hit.
 
+### A swing is finished where it started (2026-11-13)
+
+A melee unit attacks standing still. Once a swing has started — the target
+was in reach and the unit's cooldown was ready — the hit lands and the unit
+stays planted for the **swing window** (`swingCommitSeconds` on
+`MeleeCombatSystem.asset`, never longer than the unit's own attack cooldown),
+even if the target steps out of reach meanwhile. Only when the window has run
+does the unit chase again, and its next swing needs the target back in reach.
+
+- **Why.** A target walking away used to pull the attacker after it in the
+  middle of its swing: the unit slid along the ground playing the attack
+  animation. The swing is now a commitment, and the walk is a walk.
+- **What the player sees.** One attack animation per swing, played over the
+  swing window; the move animation while a unit closes on its target (its
+  playback rate follows the unit's actual ground speed); the idle stance
+  between swings. Presentation: `UnitAnimationSync`.
+- **Arrival.** A unit reaching its destination brakes over the last three
+  quarters of a metre only (it used to crawl the last 2.5 m).
+
 ### Shield points are hit points
 
 **There is no difference between shield and HP.** A unit with shield points

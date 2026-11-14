@@ -38,6 +38,7 @@ MonoBehaviour:
   holdBackAheadRatio: 0
   armyCapFixed: 0
   wallsForbidden: 0
+  ageUpEarliestSeconds: 0
   sanctumLateSeconds: 0
   sanctumMode: 0
   victoryMultiFocus: 1
@@ -45,9 +46,9 @@ MonoBehaviour:
   reinforceMode: 0
   maxWaveUnits: 0
   attackWaveIntervalSeconds: 150
-  waveBaseUnits: 12
+  waveBaseUnits: 24
   standingArmyFloorFraction: 0.08
-  waveMinArmyFraction: 0.1
+  waveMinArmyFraction: 0.65
   territoryCadenceScale: 0.7
   fortressDelaySeconds: 0
   reconquestMargin: 1.15

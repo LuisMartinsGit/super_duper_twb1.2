@@ -4,8 +4,8 @@
 // of the transform name — "1", "03_roof", "2_Walls"; a labeled GROUP passes
 // its number down to its meshes), parts rise in ascending numerical order and
 // parts SHARING a number rise TOGETHER in one shared slot (one construction
-// step). Pieces without a label (the spawn system parents helpers like the
-// faction banner pole/flag onto the visual before this snapshot) form a
+// step). Pieces without a label (any helper parented onto the visual before
+// this snapshot — the game itself adds no banner or flag, 2026-07-15) form a
 // final step after the numbered ones — they must NOT disable numeric mode.
 // Only when NO piece has a label does the visual use the legacy order:
 // per-piece slots by ascending world Y (lowest first, top last).
@@ -33,6 +33,10 @@ namespace TheWaningBorder.Rendering
         private float _slotWidth;         // duration of each piece's slot
         private bool _initialized;
         private bool _underConstructionLastFrame;
+        // A prefab whose groups are named "N [effect] - ..." plays its own
+        // construction sequence (BuildingConstructionSequence); this
+        // component then only forwards to it.
+        private BuildingConstructionSequence _sequence;
 
         /// <summary>
         /// True when the snapshot found at least one movable piece. False for
@@ -43,12 +47,26 @@ namespace TheWaningBorder.Rendering
         /// ApplyRise would silently do nothing and the building would start
         /// fully above ground.
         /// </summary>
-        public bool HasPieces => _initialized && _pieces != null && _pieces.Length > 0;
+        public bool HasPieces => _sequence != null
+            || (_initialized && _pieces != null && _pieces.Length > 0);
 
         public void Init()
         {
             if (_initialized) return;
             _initialized = true;
+
+            if (BuildingConstructionSequence.IsAuthoredOn(transform))
+            {
+                var sequence = GetComponent<BuildingConstructionSequence>()
+                            ?? gameObject.AddComponent<BuildingConstructionSequence>();
+                sequence.Build();
+                if (sequence.HasSteps)
+                {
+                    _sequence = sequence;
+                    _pieces = new Transform[0];
+                    return;
+                }
+            }
 
             var collected = new List<Transform>();
             var labels = new List<int>();
@@ -75,8 +93,8 @@ namespace TheWaningBorder.Rendering
             {
                 // NUMERIC MODE. One slot per DISTINCT label, ascending — so
                 // parts sharing a number rise simultaneously as one step.
-                // Unlabeled pieces (banner pole/flag and other helpers the
-                // spawn system adds to the visual) become the final step
+                // Unlabeled pieces (any helper parented onto the visual)
+                // become the final step
                 // instead of knocking the whole model out of numeric mode.
                 for (int i = 0; i < n; i++)
                 {
@@ -184,6 +202,12 @@ namespace TheWaningBorder.Rendering
         /// <summary>Position each piece based on overall construction progress (0..1). One piece rises at a time.</summary>
         public void ApplyRise(float ratio, float sinkDepth)
         {
+            if (_sequence != null)
+            {
+                _sequence.Apply(ratio);
+                _underConstructionLastFrame = true;
+                return;
+            }
             if (!_initialized || _pieces == null || _slotWidth <= 0f) return;
 
             for (int i = 0; i < _pieces.Length; i++)
@@ -215,6 +239,7 @@ namespace TheWaningBorder.Rendering
         {
             if (!_underConstructionLastFrame) return false;
             _underConstructionLastFrame = false;
+            if (_sequence != null) { _sequence.Complete(); return true; }
             if (!_initialized || _pieces == null) return true;
             for (int i = 0; i < _pieces.Length; i++)
             {

@@ -126,6 +126,13 @@ namespace TheWaningBorder.Rendering
             newGo.transform.localScale = Vector3.one * scale;
             if (centreOffset != Vector3.zero)
                 newGo.transform.position = pos - (visualRot * centreOffset) * scale;
+            // Corner markers: on the highest ground under them (as the sync does).
+            var anchors = TheWaningBorder.Systems.Buildings.BuildingAnchors.For(prefab);
+            if (anchors.HasCorners)
+            {
+                pos.y = anchors.GroundY(pos, visualRot, scale, pos.y);
+                newGo.transform.position = pos;
+            }
 
             Color accent = new Color(1f, 0.85f, 0.45f);
             if (_em.HasComponent<FactionTag>(e))

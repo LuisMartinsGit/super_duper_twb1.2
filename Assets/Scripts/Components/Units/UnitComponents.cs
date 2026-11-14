@@ -51,54 +51,6 @@ public struct UnitTypeId : IComponentData
     public FixedString64Bytes Value;
 }
 
-/// <summary>
-/// Veteran rank for military units (1..5 per the design spec). Lv 1 is the
-/// default for newly-trained units; Lv 2-5 are bought via UnitRankCommand
-/// at the cost gates in UnitRankConfig.CostFor.
-///
-/// Per-level stat scaling (UnitRankConfig.MultiplierFor):
-///   Lv 1: 1.00× attack/defense/LOS (base)
-///   Lv 2: 1.10× attack/defense
-///   Lv 3: 1.15× attack/defense, 1.20× LOS
-///   Lv 4: 1.20× attack/defense/LOS + Lv4 HP regen + small AOE on death
-///   Lv 5: 1.25× attack/defense/LOS + Lv5 push-back AOE on death + ShardrootAbility
-///
-/// Stamp-and-apply pattern: UnitRankSystem reads UnitRankApplied to compute
-/// the diff factor (stats[new]/stats[applied]) and updates the stamp.
-/// (Audit fix #1)
-/// </summary>
-public struct UnitRank : IComponentData
-{
-    public byte Value; // 1..5
-}
-
-/// <summary>
-/// Last-applied rank stamp for diff scaling.
-/// </summary>
-public struct UnitRankApplied : IComponentData
-{
-    public byte Value;
-}
-
-/// <summary>
-/// Lv 5 ShardrootAbility — when Active is non-zero, the unit is in the 6-second
-/// burst window (fast HP regen mirrored into SpellBuff). Cooldown counts
-/// down between casts. Stamped lazily on first activation.
-/// </summary>
-public struct ShardrootAbilityState : IComponentData
-{
-    public float ActiveRemaining;   // Seconds left in the burst (0 = not active)
-    public float CooldownRemaining; // Seconds until castable again (0 = ready)
-}
-
-/// <summary>
-/// Pickup entity dropped when a Lv 2+ veteran unit dies. Carries the
-/// cumulative resources the unit consumed during its rank-ups. Any unit
-/// of any faction that walks within <see cref="PickupRadius"/> credits
-/// the pile to its faction and destroys the pile. Self-despawns after
-/// <see cref="Lifetime"/> seconds if not collected.
-/// </summary>
-
 /// <summary>Marker tag for Cavalry units (mounted). Used for anti-cavalry bonus detection.</summary>
 public struct CavalryTag : IComponentData { }
 

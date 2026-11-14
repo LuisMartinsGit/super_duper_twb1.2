@@ -1,0 +1,123 @@
+{
+ "SM_Bld_Kawara_M_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_M_Half_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_M_Tip_Far_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_M_Tip_Near_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_M_Hafu_01": [
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_M_Gable_01": [
+  "Wall"
+ ],
+ "SM_Bld_Kawara_M_Corner_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_S_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_S_Half_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_S_Tip_Far_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_S_Tip_Near_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_S_Hafu_01": [
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_S_Gable_01": [
+  "Wall"
+ ],
+ "SM_Bld_Kawara_S_Corner_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_Eave_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_Eave_Half_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_Eave_Tip_Far_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_Eave_Tip_Near_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_Eave_Corner_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_Ridge_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_Ridge_Half_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Kawara_Ridge_End_01": [
+  "Tile",
+  "Lacquer"
+ ],
+ "SM_Bld_Shoji_Wall_01": [
+  "Lacquer",
+  "Paper"
+ ],
+ "SM_Bld_Shoji_Wall_Half_01": [
+  "Lacquer",
+  "Paper"
+ ],
+ "SM_Bld_Shoji_Wall_Quarter_01": [
+  "Lacquer",
+  "Paper"
+ ],
+ "SM_Bld_Shoji_Wall_Low_01": [
+  "Lacquer",
+  "Paper"
+ ],
+ "SM_Bld_Shoji_Wall_Door_01": [
+  "Lacquer",
+  "Paper"
+ ],
+ "SM_Bld_Lacquer_Pillar_Round_01": [
+  "Wall",
+  "Lacquer"
+ ],
+ "SM_Bld_Lacquer_Pillar_Round_02": [
+  "Wall",
+  "Lacquer"
+ ],
+ "SM_Bld_Lacquer_Beam_01": [
+  "Lacquer"
+ ],
+ "SM_Bld_Lacquer_Beam_Half_01": [
+  "Lacquer"
+ ],
+ "SM_Bld_Lacquer_Gate_Beam_01": [
+  "Lacquer"
+ ]
+}

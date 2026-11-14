@@ -366,7 +366,12 @@ namespace TheWaningBorder.UI.Ingame
                 // so it aligns flush with the resource/stats/roster row.
                 var actionsPanel = SpawnPanel(catalog.actionsPanel, "GameUI_ActionsPanel",
                     _bottomLeftDock);
-                actionsPanel.AddComponent<ActionsPanelPrefabBinder>().Init(_symbols);
+                // The button that pops over a resource node is the hexagonal
+                // age-up button of the special-building menu.
+                var hexButton = catalog.specialBuildingMenu != null
+                    ? catalog.specialBuildingMenu.GetComponentInChildren<Button>(true) : null;
+                actionsPanel.AddComponent<ActionsPanelPrefabBinder>().Init(_symbols,
+                    hexButton != null ? hexButton.gameObject : null);
             }
             else
                 Debug.LogError("[GameUI] GameUICatalog.actionsPanel is unassigned - no actions panel. " +

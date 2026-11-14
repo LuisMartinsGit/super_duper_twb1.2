@@ -295,8 +295,30 @@ namespace TheWaningBorder.UI.Data
         public static string GetUnitDisplayName(string unitId) =>
             string.IsNullOrEmpty(unitId) ? "" : ResolveUnitDisplayName(unitId);
 
+        /// <summary>
+        /// The unit SO "Spearman" is the MILITIA until its faction has a
+        /// culture (the SO's display name), and the Spearman from then on
+        /// (developer, 2026-11-13) - the same unit, as the Shelter is the
+        /// Fortress.
+        /// </summary>
+        public const string AgedSpearmanName = "Spearman";
+
+        /// <summary>A unit's display name for a faction of <paramref name="culture"/>.</summary>
+        public static string UnitNameFor(string unitId, byte culture)
+        {
+            if (unitId == "Spearman" && culture != Cultures.None) return AgedSpearmanName;
+            if (TechCatalog.TryGetUnit(unitId, out var udef) && !string.IsNullOrEmpty(udef.name))
+                return udef.name;
+            return unitId;
+        }
+
         private static string ResolveUnitDisplayName(string unitId)
         {
+            // UI that only has an id is the local player's (queue chips,
+            // notices, tooltips): name the unit as their faction has it.
+            if (unitId == "Spearman"
+                && FactionColors.GetFactionCulture(GameSettings.LocalPlayerFaction) != 0)
+                return AgedSpearmanName;
             if (TechCatalog.TryGetUnit(unitId, out var udef)
                 && !string.IsNullOrEmpty(udef.name))
                 return udef.name;
@@ -408,6 +430,14 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<PresentationId>(entity))
             {
                 int pid = em.GetComponentData<PresentationId>(entity).Id;
+                // 368 = the "Spearman" SO: Militia before a culture, Spearman after.
+                if (pid == 368)
+                {
+                    byte culture = em.HasComponent<FactionTag>(entity)
+                        ? (byte)FactionColors.GetFactionCulture(em.GetComponentData<FactionTag>(entity).Value)
+                        : Cultures.None;
+                    return UnitNameFor("Spearman", culture);
+                }
                 string name = GetUnitNameByPresentationId(pid);
                 if (name != null) return name;
             }

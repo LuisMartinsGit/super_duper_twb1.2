@@ -10,6 +10,11 @@ Every stat and price is on the hero's unit SO, every cooldown and radius on the
 ability SO, the XP curve and the revival scale in `HeroProgressionConfig`, and
 the Ascended numbers in `AscendedHero.asset`.
 
+**Only heroes have levels (2026-11-13).** Ordinary units have no rank, no
+veterancy and no promotion: the bought unit ranks (1-5, with their stat steps,
+regeneration and death blasts) are removed from the game, and so are the rank
+pips above units. Lexor's pledged soldiers are ordinary soldiers.
+
 ## 1. What a hero is
 
 A hero is **a normal unit, but stronger and with levels**: trained at a building
@@ -65,7 +70,7 @@ same system.
 
 | Hero | Level 1 | Level 3 | Level 4-6 | Level 10: the game ender (manual) |
 |---|---|---|---|---|
-| Lexor | King's Call, Liquid Courage | | L4 Honour thy Pledge | **Call to the Banners:** a great temporary army of veterans around Lexor |
+| Lexor | King's Call, Liquid Courage | | L4 Honour thy Pledge | **Call to the Banners:** a great temporary army around Lexor |
 | Ledger | Automate Facility | Iron Frame | L6 Accounts Settled | **Foreclosure:** takes a large share of every hostile faction's stockpile |
 | Archivist | Catalogued | Stamp of Record | L6 Recall | **Stop the Hours:** every hostile unit on the map is frozen; enemy heroes' abilities go on cooldown |
 | Surgeon | Cauterize | Bloodletting | L6 Lancet | **The Great Rewind:** your whole army healed and the recently fallen return |

@@ -112,6 +112,18 @@ namespace TheWaningBorder.Systems.Abilities
                 }
             }
 
+            // ---- Swordsman: the parry's rest, the opening a reckless swing leaves ----
+            foreach (var pr in SystemAPI.Query<RefRW<ParryState>>())
+            {
+                float left = pr.ValueRO.CooldownRemaining;
+                if (left > 0f) pr.ValueRW.CooldownRemaining = left > dt ? left - dt : 0f;
+            }
+            foreach (var rk in SystemAPI.Query<RefRW<RecklessState>>())
+            {
+                float left = rk.ValueRO.VulnerableRemaining;
+                if (left > 0f) rk.ValueRW.VulnerableRemaining = left > dt ? left - dt : 0f;
+            }
+
             foreach (var (ss, xf) in SystemAPI.Query<RefRW<SiegeScreens>, RefRO<LocalTransform>>())
             {
                 var v = ss.ValueRO;

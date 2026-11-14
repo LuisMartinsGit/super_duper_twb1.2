@@ -114,7 +114,7 @@ namespace TheWaningBorder.Systems.Research
                         (e) => TheWaningBorder.Abilities.AlanthorGallop.Grant(em, e));
                     break;
                 case "Charge":
-                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.GarrisonInfantry,
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Spearmen,
                         (e) => TransientState.Set(em, e,
                             TheWaningBorder.Abilities.AlanthorActiveHelper.ChargeFromTech("Charge")));
                     break;
@@ -125,8 +125,21 @@ namespace TheWaningBorder.Systems.Research
                         (e) => TransientState.Set(em, e,
                             TheWaningBorder.Abilities.AlanthorActiveHelper.ChargeFromTech("CavalryCharge")));
                     break;
+                // The Swordsman's three (2026-11-13).
+                case "Parry":
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Swordsmen,
+                        (e) => AddOrSet(em, e, TheWaningBorder.Abilities.AlanthorActiveHelper.ParryFromTech()));
+                    break;
+                case "Counter":
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Swordsmen,
+                        (e) => AddOrSet(em, e, TheWaningBorder.Abilities.AlanthorActiveHelper.CounterFromTech()));
+                    break;
+                case "RecklessAttack":
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Swordsmen,
+                        (e) => AddOrSet(em, e, TheWaningBorder.Abilities.AlanthorActiveHelper.RecklessFromTech()));
+                    break;
                 case "ShieldWall":
-                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.GarrisonInfantry,
+                    GrantPassiveToUnits(em, faction, AlanthorPassiveTarget.Spearmen,
                         (e) => AddOrSet(em, e, new TheWaningBorder.Abilities.ShieldWallState
                         { Pct = 30f }));
                     break;

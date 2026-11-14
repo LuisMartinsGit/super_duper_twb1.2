@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Sun Archer
   unitClass: human_ranged
   hp: 110
-  speed: 5.8
+  speed: 2.9
   trainingTime: 26
   damage: 26
   damageType: ranged
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 1.6
-  attackRange: 22
+  attackRange: 11
   minAttackRange: 0
-  lineOfSight: 26
+  lineOfSight: 13
   aimTime: 0.6
-  radius: 0.5
+  radius: 0.25
   trajectory: high
   projectileSpeed: 23.8
   cost:

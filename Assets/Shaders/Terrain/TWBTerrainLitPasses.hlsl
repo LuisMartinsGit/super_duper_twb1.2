@@ -150,14 +150,141 @@ void InitializeBakedGIData(Varyings IN, inout InputData inputData)
 
 #ifndef TERRAIN_SPLAT_BASEPASS
 
-void NormalMapMix(float4 uvSplat01, float4 uvSplat23, inout half4 splatControl, inout half3 mixedNormal)
+// ── TWB: anti-tiling (2026-11-12) ───────────────────────────────────────
+// A tiled layer repeats visibly from an RTS camera. Each layer is sampled
+// TWICE, each sample shifted by an offset that changes from one soft noise
+// cell to the next, and the two are blended across the cell — the texture
+// keeps its scale and its look, but no two neighbouring repeats line up
+// (the "virtual pattern" trick). A broad brightness / warmth drift is then
+// laid over the mixed ground. Both are OFF unless a map's TerrainLook
+// component sets the globals, so every other map samples exactly as before.
+float  _TWBAntiTile;        // 0 = off; else the offset strength, in repeats
+float  _TWBAntiTileCells;   // noise cells per texture repeat
+float  _TWBMacroVariation;  // 0 = off; else the brightness drift, 0..1
+float4 _TWBMacroCells;      // xy: noise cells across the terrain
+
+float TWBHash(float2 p)
+{
+    p = frac(p * float2(0.1031, 0.1030));
+    p += dot(p, p.yx + 33.33);
+    return frac((p.x + p.y) * p.x);
+}
+
+float TWBNoise(float2 p)
+{
+    float2 i = floor(p), f = frac(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return lerp(lerp(TWBHash(i), TWBHash(i + float2(1, 0)), f.x),
+                lerp(TWBHash(i + float2(0, 1)), TWBHash(i + float2(1, 1)), f.x), f.y);
+}
+
+struct TWBTile
+{
+    float2 uv, uvA, uvB, dx, dy;
+    half f;
+};
+
+TWBTile TWBTileSetup(float2 uv)
+{
+    TWBTile t;
+    t.uv = uv; t.uvA = uv; t.uvB = uv; t.f = 0;
+    t.dx = ddx(uv); t.dy = ddy(uv);
+    if (_TWBAntiTile > 0.0)
+    {
+        float2 q = uv * _TWBAntiTileCells;
+        float k = TWBNoise(q) * 0.65 + TWBNoise(q * 2.7 + 13.1) * 0.35;
+        float l = k * 8.0;
+        float i = floor(l);
+        t.f = frac(l);
+        t.uvA = uv + _TWBAntiTile * sin(float2(3.0, 7.0) * i);
+        t.uvB = uv + _TWBAntiTile * sin(float2(3.0, 7.0) * (i + 1.0));
+    }
+    return t;
+}
+
+half4 TWBTileColor(TEXTURE2D_PARAM(tex, smp), TWBTile t)
+{
+    half4 a = SAMPLE_TEXTURE2D_GRAD(tex, smp, t.uvA, t.dx, t.dy);
+    if (_TWBAntiTile <= 0.0) return a;
+    half4 b = SAMPLE_TEXTURE2D_GRAD(tex, smp, t.uvB, t.dx, t.dy);
+    half3 d = a.rgb - b.rgb;
+    return lerp(a, b, smoothstep(0.2, 0.8, t.f - 0.1 * (d.r + d.g + d.b)));
+}
+
+half4 TWBTileNormal(TEXTURE2D_PARAM(tex, smp), TWBTile t)
+{
+    half4 a = SAMPLE_TEXTURE2D_GRAD(tex, smp, t.uvA, t.dx, t.dy);
+    if (_TWBAntiTile <= 0.0) return a;
+    half4 b = SAMPLE_TEXTURE2D_GRAD(tex, smp, t.uvB, t.dx, t.dy);
+    return lerp(a, b, smoothstep(0.2, 0.8, t.f));
+}
+
+// ── TWB: cliff projection ───────────────────────────────────────────────
+// Terrain layers are mapped from above, so a steep face smears each texel
+// down the cliff. Where the ground is steep the layer is instead projected
+// from the side (along world X and Z, blended by the direction the face
+// looks) at the layer's own tile size, and the layer's normal map fades to
+// the geometric normal there. Off unless TerrainLook switches it on.
+float  _TWBCliffProjection;  // 0 = off
+float4 _TWBTerrainSize;      // xy: the terrain's size on X and Z, metres
+
+struct TWBLayer
+{
+    TWBTile top, sideX, sideZ;
+    half side;   // 0 = mapped from above, 1 = from the side
+    half faceX;  // share of the X-facing projection in the side part
+};
+
+TWBLayer TWBLayerSetup(float2 uv, float2 tiling, float3 positionWS, half3 normalWS)
+{
+    TWBLayer l;
+    l.top = TWBTileSetup(uv);
+    float2 perMetre = tiling / max(_TWBTerrainSize.xy, 1.0);
+    l.sideX = TWBTileSetup(float2(positionWS.z * perMetre.y, positionWS.y * perMetre.y));
+    l.sideZ = TWBTileSetup(float2(positionWS.x * perMetre.x, positionWS.y * perMetre.x));
+    l.side = _TWBCliffProjection > 0.0 ? smoothstep(0.78, 0.58, normalWS.y) : 0.0;
+    half2 a = abs(normalWS.xz);
+    half fx = a.x / max(a.x + a.y, 1e-4);
+    l.faceX = smoothstep(0.3, 0.7, fx);
+    return l;
+}
+
+half4 TWBLayerColor(TEXTURE2D_PARAM(tex, smp), TWBLayer l)
+{
+    half4 c = 0;
+    if (l.side < 1.0) c += (1.0 - l.side) * TWBTileColor(TEXTURE2D_ARGS(tex, smp), l.top);
+    if (l.side > 0.0)
+    {
+        if (l.faceX > 0.0) c += l.side * l.faceX * TWBTileColor(TEXTURE2D_ARGS(tex, smp), l.sideX);
+        if (l.faceX < 1.0) c += l.side * (1.0 - l.faceX) * TWBTileColor(TEXTURE2D_ARGS(tex, smp), l.sideZ);
+    }
+    return c;
+}
+
+half3 TWBLayerNormal(TEXTURE2D_PARAM(tex, smp), TWBLayer l, half scale)
+{
+    half3 n = UnpackNormalScale(TWBTileNormal(TEXTURE2D_ARGS(tex, smp), l.top), scale);
+    return lerp(n, half3(0, 0, 1), l.side);
+}
+
+half3 TWBMacroTint(float2 terrainUV)
+{
+    if (_TWBMacroVariation <= 0.0) return half3(1, 1, 1);
+    float2 q = terrainUV * _TWBMacroCells.xy;
+    float n = TWBNoise(q) * 0.6 + TWBNoise(q * 2.3 + 7.7) * 0.4;        // brightness
+    float w = TWBNoise(q * 0.6 + 41.3);                                  // warm / cool
+    half3 tint = lerp(half3(0.96, 1.0, 1.05), half3(1.05, 1.0, 0.94), w);
+    return tint * (1.0 + _TWBMacroVariation * (n - 0.5) * 2.0);
+}
+
+void NormalMapMix(TWBLayer t0, TWBLayer t1, TWBLayer t2, TWBLayer t3, inout half4 splatControl, inout half3 mixedNormal)
 {
     #if defined(_NORMALMAP)
         half3 nrm = half(0.0);
-        nrm += splatControl.r * UnpackNormalScale(SAMPLE_TEXTURE2D(_Normal0, sampler_Normal0, uvSplat01.xy), _NormalScale0);
-        nrm += splatControl.g * UnpackNormalScale(SAMPLE_TEXTURE2D(_Normal1, sampler_Normal0, uvSplat01.zw), _NormalScale1);
-        nrm += splatControl.b * UnpackNormalScale(SAMPLE_TEXTURE2D(_Normal2, sampler_Normal0, uvSplat23.xy), _NormalScale2);
-        nrm += splatControl.a * UnpackNormalScale(SAMPLE_TEXTURE2D(_Normal3, sampler_Normal0, uvSplat23.zw), _NormalScale3);
+        nrm += splatControl.r * TWBLayerNormal(TEXTURE2D_ARGS(_Normal0, sampler_Normal0), t0, _NormalScale0);
+        nrm += splatControl.g * TWBLayerNormal(TEXTURE2D_ARGS(_Normal1, sampler_Normal0), t1, _NormalScale1);
+        nrm += splatControl.b * TWBLayerNormal(TEXTURE2D_ARGS(_Normal2, sampler_Normal0), t2, _NormalScale2);
+        nrm += splatControl.a * TWBLayerNormal(TEXTURE2D_ARGS(_Normal3, sampler_Normal0), t3, _NormalScale3);
 
         // avoid risk of NaN when normalizing.
         #if !HALF_IS_FLOAT
@@ -170,14 +297,18 @@ void NormalMapMix(float4 uvSplat01, float4 uvSplat23, inout half4 splatControl, 
     #endif
 }
 
-void SplatmapMix(float4 uvMainAndLM, float4 uvSplat01, float4 uvSplat23, inout half4 splatControl, out half weight, out half4 mixedDiffuse, out half4 defaultSmoothness, inout half3 mixedNormal)
+void SplatmapMix(float3 positionWS, half3 geoNormalWS, float4 uvMainAndLM, float4 uvSplat01, float4 uvSplat23, inout half4 splatControl, out half weight, out half4 mixedDiffuse, out half4 defaultSmoothness, inout half3 mixedNormal)
 {
     half4 diffAlbedo[4];
 
-    diffAlbedo[0] = SAMPLE_TEXTURE2D(_Splat0, sampler_Splat0, uvSplat01.xy);
-    diffAlbedo[1] = SAMPLE_TEXTURE2D(_Splat1, sampler_Splat0, uvSplat01.zw);
-    diffAlbedo[2] = SAMPLE_TEXTURE2D(_Splat2, sampler_Splat0, uvSplat23.xy);
-    diffAlbedo[3] = SAMPLE_TEXTURE2D(_Splat3, sampler_Splat0, uvSplat23.zw);
+    TWBLayer t0 = TWBLayerSetup(uvSplat01.xy, _Splat0_ST.xy, positionWS, geoNormalWS);
+    TWBLayer t1 = TWBLayerSetup(uvSplat01.zw, _Splat1_ST.xy, positionWS, geoNormalWS);
+    TWBLayer t2 = TWBLayerSetup(uvSplat23.xy, _Splat2_ST.xy, positionWS, geoNormalWS);
+    TWBLayer t3 = TWBLayerSetup(uvSplat23.zw, _Splat3_ST.xy, positionWS, geoNormalWS);
+    diffAlbedo[0] = TWBLayerColor(TEXTURE2D_ARGS(_Splat0, sampler_Splat0), t0);
+    diffAlbedo[1] = TWBLayerColor(TEXTURE2D_ARGS(_Splat1, sampler_Splat0), t1);
+    diffAlbedo[2] = TWBLayerColor(TEXTURE2D_ARGS(_Splat2, sampler_Splat0), t2);
+    diffAlbedo[3] = TWBLayerColor(TEXTURE2D_ARGS(_Splat3, sampler_Splat0), t3);
 
     // This might be a bit of a gamble -- the assumption here is that if the diffuseMap has no
     // alpha channel, then diffAlbedo[n].a = 1.0 (and _DiffuseHasAlphaN = 0.0)
@@ -217,7 +348,9 @@ void SplatmapMix(float4 uvMainAndLM, float4 uvSplat01, float4 uvSplat23, inout h
     mixedDiffuse += diffAlbedo[2] * half4(_DiffuseRemapScale2.rgb * splatControl.bbb, 1.0h);
     mixedDiffuse += diffAlbedo[3] * half4(_DiffuseRemapScale3.rgb * splatControl.aaa, 1.0h);
 
-    NormalMapMix(uvSplat01, uvSplat23, splatControl, mixedNormal);
+    mixedDiffuse.rgb *= TWBMacroTint(uvMainAndLM.xy);
+
+    NormalMapMix(t0, t1, t2, t3, splatControl, mixedNormal);
 }
 
 #endif
@@ -406,6 +539,17 @@ void SplatmapFragment(
 #endif
 
     half3 normalTS = half3(0.0h, 0.0h, 1.0h);
+    // TWB: the geometric world normal. The cliff projection and the
+    // overlays' slope detection both read it.
+    half3 twbGeoNormal;
+    #if defined(_NORMALMAP) && !defined(ENABLE_TERRAIN_PERPIXEL_NORMAL)
+        twbGeoNormal = IN.normal.xyz;
+    #elif defined(ENABLE_TERRAIN_PERPIXEL_NORMAL)
+        float2 twbNormalCoords = (IN.uvMainAndLM.xy / _TerrainHeightmapRecipSize.zw + 0.5f) * _TerrainHeightmapRecipSize.xy;
+        twbGeoNormal = TransformObjectToWorldNormal(normalize(SAMPLE_TEXTURE2D(_TerrainNormalmapTexture, sampler_TerrainNormalmapTexture, twbNormalCoords).rgb * 2 - 1));
+    #else
+        twbGeoNormal = IN.normal;
+    #endif
 #ifdef TERRAIN_SPLAT_BASEPASS
     half3 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uvMainAndLM.xy).rgb;
     half smoothness = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uvMainAndLM.xy).a;
@@ -431,7 +575,7 @@ void SplatmapFragment(
     half weight;
     half4 mixedDiffuse;
     half4 defaultSmoothness;
-    SplatmapMix(IN.uvMainAndLM, IN.uvSplat01, IN.uvSplat23, splatControl, weight, mixedDiffuse, defaultSmoothness, normalTS);
+    SplatmapMix(IN.positionWS, normalize(twbGeoNormal), IN.uvMainAndLM, IN.uvSplat01, IN.uvSplat23, splatControl, weight, mixedDiffuse, defaultSmoothness, normalTS);
     half3 albedo = mixedDiffuse.rgb;
 
     half4 defaultMetallic = half4(_Metallic0, _Metallic1, _Metallic2, _Metallic3);
@@ -451,19 +595,10 @@ void SplatmapFragment(
     half occlusion = dot(splatControl, defaultOcclusion);
 #endif
 
-    // ── TWB: dynamic world-mask ground overlays (Alanthor slate/terraces,
+    // ── TWB: dynamic world-mask ground overlays (Alanthor slate,
     // blood, curse crystallized rock). Applied after the splat mix, before
     // lighting, so overlays are lit exactly like authored ground. The
-    // geometric world normal feeds the slope detection (cliffs → masonry).
-    half3 twbGeoNormal;
-    #if defined(_NORMALMAP) && !defined(ENABLE_TERRAIN_PERPIXEL_NORMAL)
-        twbGeoNormal = IN.normal.xyz;
-    #elif defined(ENABLE_TERRAIN_PERPIXEL_NORMAL)
-        float2 twbNormalCoords = (IN.uvMainAndLM.xy / _TerrainHeightmapRecipSize.zw + 0.5f) * _TerrainHeightmapRecipSize.xy;
-        twbGeoNormal = TransformObjectToWorldNormal(normalize(SAMPLE_TEXTURE2D(_TerrainNormalmapTexture, sampler_TerrainNormalmapTexture, twbNormalCoords).rgb * 2 - 1));
-    #else
-        twbGeoNormal = IN.normal;
-    #endif
+    // geometric world normal is passed for the overlays' slope tests.
     ApplyTWBGroundOverlays(IN.positionWS, twbGeoNormal, albedo, normalTS, smoothness, metallic, occlusion);
 
     InputData inputData;

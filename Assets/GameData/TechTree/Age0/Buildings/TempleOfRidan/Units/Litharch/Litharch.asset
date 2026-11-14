@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Litharch
   unitClass: human_support
   hp: 120
-  speed: 5.5
+  speed: 2.75
   trainingTime: 16.8
   damage: 0
   damageType: magic
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 3
   attackCooldown: 1.5
-  attackRange: 10
+  attackRange: 5
   minAttackRange: 0
-  lineOfSight: 20
+  lineOfSight: 10
   aimTime: 0
-  radius: 0.5
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:
@@ -43,7 +43,7 @@ MonoBehaviour:
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 6
-  healRange: 10
+  healRange: 5
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0

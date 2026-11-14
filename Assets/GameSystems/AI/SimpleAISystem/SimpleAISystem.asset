@@ -189,7 +189,7 @@ MonoBehaviour:
     perEnemyHighValue: 0
     perEnemyMassed: 0
   - unitId: Alanthor_Archer
-    fallbackUnitId: Spearman
+    fallbackUnitId: 
     supersededByUnitId: 
     basic: 1
     baseShare: 0.1
@@ -217,7 +217,7 @@ MonoBehaviour:
     perEnemyHighValue: 0
     perEnemyMassed: 0
   - unitId: Alanthor_Crossbowman
-    fallbackUnitId: Spearman
+    fallbackUnitId: Alanthor_Archer
     supersededByUnitId: 
     basic: 0
     baseShare: 0.12
@@ -231,7 +231,7 @@ MonoBehaviour:
     perEnemyHighValue: 0
     perEnemyMassed: 0
   - unitId: Alanthor_Outrider
-    fallbackUnitId: Alanthor_Swordsman
+    fallbackUnitId: 
     supersededByUnitId: 
     basic: 0
     baseShare: 0.1
@@ -522,6 +522,7 @@ MonoBehaviour:
   monumentReorderSeconds: 15
   monumentArrivedRadius: 2
   monumentBlockedSeconds: 300
+  waveBlockSeconds: 360
   petriarchyTradeBelow: 200
   petriarchyArmySaveRp: 10
   victoryPlanEnabled: 1
@@ -546,7 +547,9 @@ MonoBehaviour:
   farmShortSupplies: 400
   farmFreeWorkerReserve: 3
   farmStaffPerThink: 4
-  farmTrainWorkerMinSupplies: 300
+  farmTrainWorkerMinSupplies: 60
+  farmWorkersQueuedMax: 5
+  farmWantExponent: 1
   farmSiteCandidates: 6
   farmMinFreePermille: 600
   farmRingKeepClear: 1

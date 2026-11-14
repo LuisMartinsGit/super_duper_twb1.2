@@ -1,11 +1,9 @@
 // HeroProgressionConfig.cs
 // Static tuning for hero levels 1..10. Canon: docs/Design/Heroes.md.
 //
-// Sits beside UnitRankConfig on purpose — they are the two progression
-// ladders in the game and they are deliberately opposite:
-//
-//   UnitRank 1..5   is BOUGHT with resources, for any military unit.
-//   HeroLevel 1..10 is EARNED from kills, for UniqueUnitTag heroes only.
+// Hero levels are the ONLY progression ladder on a unit (2026-11-13: the
+// bought unit ranks 1..5 were removed). They are EARNED from kills, by
+// UniqueUnitTag heroes only.
 //
 // A hero left standing in your base stays level 1 no matter how rich you are.
 // That is the whole point: it makes "where is my hero right now" a real

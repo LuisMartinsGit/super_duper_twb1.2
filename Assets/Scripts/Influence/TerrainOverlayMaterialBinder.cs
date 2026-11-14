@@ -11,7 +11,7 @@
 // ground fell back to the row-amortized splat painter (visible flicker).
 // This binder closes that gap: it assigns the TWBTerrain material
 // (Resources/TWBTerrain.mat — curse rock + purple tint, blood, slate,
-// terraces, all wired) as every active terrain's materialTemplate, and
+// all wired) as every active terrain's materialTemplate, and
 // keeps re-asserting it in case MapMagic regenerates or swaps materials.
 //
 // The shader is a faithful copy of URP Terrain/Lit, so the terrain's own

@@ -29,7 +29,7 @@ namespace TheWaningBorder.Entities
 
             em.SetComponentData(e, new PresentationId { Id = PresentationID });
             em.SetComponentData(e, LocalTransform.FromPositionRotationScale(
-                position, quaternion.identity, 0.45f));
+                position, quaternion.identity, 1f));
             em.SetComponentData(e, new FactionTag { Value = faction });
             em.SetComponentData(e, new LineOfSight
             {

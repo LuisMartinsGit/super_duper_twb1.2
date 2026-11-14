@@ -1,0 +1,963 @@
+{
+ "eave_edge": 0.055,
+ "tile": [
+  0.22,
+  0.24
+ ],
+ "wall_thickness": 0.14,
+ "pieces": {
+  "UK_Kawara_Gable_25": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 848,
+   "min": [
+    -1.41,
+    -0.06,
+    -1.7
+   ],
+   "max": [
+    1.41,
+    1.704,
+    1.7
+   ],
+   "planes": 2
+  },
+  "UK_Kawara_Slope_25": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 210,
+   "min": [
+    -1.25,
+    -0.02,
+    -1.7
+   ],
+   "max": [
+    1.25,
+    1.15,
+    0.0
+   ],
+   "planes": 1
+  },
+  "UK_Kawara_LeanTo_25": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 266,
+   "min": [
+    -1.27,
+    -0.08,
+    -1.45
+   ],
+   "max": [
+    1.27,
+    0.64,
+    0.05
+   ],
+   "planes": 1
+  },
+  "UK_Kawara_Coping_25": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 188,
+   "min": [
+    -1.25,
+    -0.02,
+    -0.31
+   ],
+   "max": [
+    1.25,
+    0.34,
+    0.31
+   ],
+   "planes": 2
+  },
+  "UK_Kawara_Gable_50": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 1248,
+   "min": [
+    -2.66,
+    -0.06,
+    -1.7
+   ],
+   "max": [
+    2.66,
+    1.704,
+    1.7
+   ],
+   "planes": 2
+  },
+  "UK_Kawara_Slope_50": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 378,
+   "min": [
+    -2.5,
+    -0.02,
+    -1.7
+   ],
+   "max": [
+    2.5,
+    1.15,
+    0.0
+   ],
+   "planes": 1
+  },
+  "UK_Kawara_LeanTo_50": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 386,
+   "min": [
+    -2.52,
+    -0.08,
+    -1.45
+   ],
+   "max": [
+    2.52,
+    0.64,
+    0.05
+   ],
+   "planes": 1
+  },
+  "UK_Kawara_Coping_50": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 348,
+   "min": [
+    -2.5,
+    -0.02,
+    -0.31
+   ],
+   "max": [
+    2.5,
+    0.34,
+    0.31
+   ],
+   "planes": 2
+  },
+  "UK_Kawara_Coping_Corner": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 374,
+   "min": [
+    -0.38,
+    -0.02,
+    -0.38
+   ],
+   "max": [
+    0.38,
+    0.56,
+    0.38
+   ],
+   "planes": 4
+  },
+  "UK_Kawara_Hip_Corner": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 336,
+   "min": [
+    0.0,
+    -0.02,
+    -1.7
+   ],
+   "max": [
+    1.7,
+    1.15,
+    0.0
+   ],
+   "planes": 2
+  },
+  "UK_Kawara_Ridge_25": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 124,
+   "min": [
+    -1.41,
+    -0.03,
+    -0.06
+   ],
+   "max": [
+    1.41,
+    0.534,
+    0.06
+   ],
+   "planes": 0
+  },
+  "UK_Ridge_Ornament": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 28,
+   "min": [
+    -0.12,
+    0.0,
+    -0.035
+   ],
+   "max": [
+    0.16,
+    0.408,
+    0.035
+   ],
+   "planes": 0
+  },
+  "UK_Kawara_Cap_26": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 1062,
+   "min": [
+    -1.37,
+    -0.018,
+    -1.37
+   ],
+   "max": [
+    1.37,
+    1.31,
+    1.37
+   ],
+   "planes": 4
+  },
+  "UK_Kawara_Skirt_Turret": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 568,
+   "min": [
+    -1.545,
+    -0.018,
+    -1.545
+   ],
+   "max": [
+    1.545,
+    0.525,
+    1.545
+   ],
+   "planes": 4
+  },
+  "UK_Kawara_Skirt_A": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 1152,
+   "min": [
+    -2.82,
+    -0.02,
+    -2.42
+   ],
+   "max": [
+    2.82,
+    0.655,
+    2.42
+   ],
+   "planes": 4
+  },
+  "UK_Kawara_Skirt_B": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 960,
+   "min": [
+    -2.372,
+    -0.02,
+    -1.968
+   ],
+   "max": [
+    2.372,
+    0.605,
+    1.968
+   ],
+   "planes": 4
+  },
+  "UK_Kawara_Skirt_C": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 764,
+   "min": [
+    -1.972,
+    -0.02,
+    -1.668
+   ],
+   "max": [
+    1.972,
+    0.565,
+    1.668
+   ],
+   "planes": 4
+  },
+  "UK_Kawara_Top_A": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 1916,
+   "min": [
+    -2.414,
+    -0.02,
+    -2.024
+   ],
+   "max": [
+    2.414,
+    2.054,
+    2.024
+   ],
+   "planes": 4
+  },
+  "UK_Kawara_Top_B": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 1472,
+   "min": [
+    -2.014,
+    -0.02,
+    -1.724
+   ],
+   "max": [
+    2.014,
+    1.855,
+    1.724
+   ],
+   "planes": 4
+  },
+  "UK_Kawara_Top_C": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 1112,
+   "min": [
+    -1.615,
+    -0.02,
+    -1.424
+   ],
+   "max": [
+    1.615,
+    1.654,
+    1.424
+   ],
+   "planes": 4
+  },
+  "UK_Kawara_Gate": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 1200,
+   "min": [
+    -2.016,
+    -0.019,
+    -1.324
+   ],
+   "max": [
+    2.016,
+    1.504,
+    1.324
+   ],
+   "planes": 4
+  },
+  "UK_Marble_Column_22": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 382,
+   "min": [
+    -0.202,
+    0.0,
+    -0.202
+   ],
+   "max": [
+    0.202,
+    2.2,
+    0.202
+   ],
+   "planes": 0
+  },
+  "UK_Marble_Column_26": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 382,
+   "min": [
+    -0.202,
+    0.0,
+    -0.202
+   ],
+   "max": [
+    0.202,
+    2.6,
+    0.202
+   ],
+   "planes": 0
+  },
+  "UK_Marble_Column_36": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 382,
+   "min": [
+    -0.248,
+    0.0,
+    -0.248
+   ],
+   "max": [
+    0.248,
+    3.6,
+    0.248
+   ],
+   "planes": 0
+  },
+  "UK_Marble_Entablature_25": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 28,
+   "min": [
+    -1.25,
+    0.0,
+    -0.2
+   ],
+   "max": [
+    1.25,
+    0.3,
+    0.14
+   ],
+   "planes": 0
+  },
+  "UK_Marble_Pediment_32": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 38,
+   "min": [
+    -1.68,
+    -0.02,
+    -0.2
+   ],
+   "max": [
+    1.68,
+    0.81,
+    0.2
+   ],
+   "planes": 0
+  },
+  "UK_Marble_Arch_16": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 144,
+   "min": [
+    -0.95,
+    0.0,
+    -0.13
+   ],
+   "max": [
+    0.95,
+    2.62,
+    0.13
+   ],
+   "planes": 0
+  },
+  "UK_Marble_Pilaster_26": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 36,
+   "min": [
+    -0.14,
+    0.0,
+    -0.08
+   ],
+   "max": [
+    0.14,
+    2.6,
+    0.0
+   ],
+   "planes": 0
+  },
+  "UK_Base_Run_25": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 62,
+   "min": [
+    -1.25,
+    -1.3,
+    -0.415
+   ],
+   "max": [
+    1.25,
+    1.2,
+    0.35
+   ],
+   "planes": 0,
+   "below": 1.3
+  },
+  "UK_Base_Run_125": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 26,
+   "min": [
+    -0.625,
+    -1.3,
+    -0.414
+   ],
+   "max": [
+    0.625,
+    1.2,
+    0.35
+   ],
+   "planes": 0,
+   "below": 1.3
+  },
+  "UK_Base_Corner": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 26,
+   "min": [
+    -0.4,
+    -1.3,
+    -0.4
+   ],
+   "max": [
+    0.35,
+    1.2,
+    0.35
+   ],
+   "planes": 0,
+   "below": 1.3
+  },
+  "UK_Base_Steps_24": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 76,
+   "min": [
+    -1.52,
+    -1.3,
+    -0.42
+   ],
+   "max": [
+    1.52,
+    1.27,
+    1.28
+   ],
+   "planes": 0,
+   "below": 1.3
+  },
+  "UK_Base_Keep_52x44": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 306,
+   "min": [
+    -2.6,
+    0.0,
+    -2.2
+   ],
+   "max": [
+    2.6,
+    1.0,
+    2.2
+   ],
+   "planes": 0
+  },
+  "UK_Base_Turret_24": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 162,
+   "min": [
+    -1.2,
+    0.0,
+    -1.2
+   ],
+   "max": [
+    1.2,
+    0.5,
+    1.2
+   ],
+   "planes": 0
+  },
+  "UK_Court_Floor_90": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 72,
+   "min": [
+    -4.5,
+    0.0,
+    -4.5
+   ],
+   "max": [
+    4.5,
+    0.0,
+    4.5
+   ],
+   "planes": 0
+  },
+  "UK_Ground_Patch_10": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 12,
+   "min": [
+    -5.0,
+    0.0,
+    -5.0
+   ],
+   "max": [
+    5.0,
+    0.02,
+    5.0
+   ],
+   "planes": 0
+  },
+  "UK_Plaster_Wall_25": {
+   "slots": [
+    "Atlas",
+    "Band"
+   ],
+   "tris": 40,
+   "min": [
+    -1.25,
+    0.0,
+    -0.082
+   ],
+   "max": [
+    1.25,
+    2.3,
+    0.082
+   ],
+   "planes": 0,
+   "band": true
+  },
+  "UK_Plaster_Wall_25_Slit": {
+   "slots": [
+    "Atlas",
+    "Band"
+   ],
+   "tris": 58,
+   "min": [
+    -1.25,
+    0.0,
+    -0.082
+   ],
+   "max": [
+    1.25,
+    2.3,
+    0.082
+   ],
+   "planes": 0,
+   "band": true
+  },
+  "UK_Plaster_Wall_25_Window": {
+   "slots": [
+    "Atlas",
+    "Band"
+   ],
+   "tris": 106,
+   "min": [
+    -1.25,
+    0.0,
+    -0.085
+   ],
+   "max": [
+    1.25,
+    2.3,
+    0.082
+   ],
+   "planes": 0,
+   "band": true
+  },
+  "UK_Plaster_Wall_125": {
+   "slots": [
+    "Atlas",
+    "Band"
+   ],
+   "tris": 40,
+   "min": [
+    -0.625,
+    0.0,
+    -0.082
+   ],
+   "max": [
+    0.625,
+    2.3,
+    0.082
+   ],
+   "planes": 0,
+   "band": true
+  },
+  "UK_Plaster_Wall_125_Slit": {
+   "slots": [
+    "Atlas",
+    "Band"
+   ],
+   "tris": 58,
+   "min": [
+    -0.625,
+    0.0,
+    -0.082
+   ],
+   "max": [
+    0.625,
+    2.3,
+    0.082
+   ],
+   "planes": 0,
+   "band": true
+  },
+  "UK_Keep_Wall_10": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 34,
+   "min": [
+    -0.5,
+    0.0,
+    -0.072
+   ],
+   "max": [
+    0.5,
+    2.0,
+    0.072
+   ],
+   "planes": 0
+  },
+  "UK_Keep_Wall_10_Window": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 100,
+   "min": [
+    -0.5,
+    0.0,
+    -0.075
+   ],
+   "max": [
+    0.5,
+    2.0,
+    0.072
+   ],
+   "planes": 0
+  },
+  "UK_Keep_Wall_10_Slit": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 52,
+   "min": [
+    -0.5,
+    0.0,
+    -0.072
+   ],
+   "max": [
+    0.5,
+    2.0,
+    0.072
+   ],
+   "planes": 0
+  },
+  "UK_Timber_Post_23": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 12,
+   "min": [
+    -0.08,
+    0.0,
+    -0.09
+   ],
+   "max": [
+    0.08,
+    2.3,
+    0.09
+   ],
+   "planes": 0
+  },
+  "UK_Timber_Post_20": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 12,
+   "min": [
+    -0.07,
+    0.0,
+    -0.08
+   ],
+   "max": [
+    0.07,
+    2.0,
+    0.08
+   ],
+   "planes": 0
+  },
+  "UK_Timber_Beam_25": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 12,
+   "min": [
+    -1.25,
+    0.0,
+    -0.06
+   ],
+   "max": [
+    1.25,
+    0.14,
+    0.06
+   ],
+   "planes": 0
+  },
+  "UK_Gate_Frame_22": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 72,
+   "min": [
+    -1.32,
+    0.0,
+    -0.2
+   ],
+   "max": [
+    1.32,
+    2.58,
+    0.16
+   ],
+   "planes": 0
+  },
+  "UK_Gate_Leaf_Pair_22": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 20,
+   "min": [
+    -0.92,
+    0.03,
+    -0.03
+   ],
+   "max": [
+    0.92,
+    2.23,
+    0.03
+   ],
+   "planes": 0,
+   "leaf": 2.2
+  },
+  "UK_Door_Single_22": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 38,
+   "min": [
+    -0.7,
+    0.0,
+    -0.1
+   ],
+   "max": [
+    0.7,
+    2.34,
+    0.1
+   ],
+   "planes": 0,
+   "leaf": 2.18
+  },
+  "UK_Bracket": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 36,
+   "min": [
+    -0.05,
+    -0.22,
+    -0.36
+   ],
+   "max": [
+    0.05,
+    0.08,
+    0.0
+   ],
+   "planes": 0
+  },
+  "UK_Lantern_Stone": {
+   "slots": [
+    "Atlas",
+    "Glow"
+   ],
+   "tris": 222,
+   "min": [
+    -0.27,
+    0.0,
+    -0.27
+   ],
+   "max": [
+    0.27,
+    1.52,
+    0.27
+   ],
+   "planes": 0
+  },
+  "UK_Lantern_Hanging": {
+   "slots": [
+    "Atlas",
+    "Glow"
+   ],
+   "tris": 72,
+   "min": [
+    -0.13,
+    -0.32,
+    -0.13
+   ],
+   "max": [
+    0.13,
+    0.16,
+    0.13
+   ],
+   "planes": 0
+  },
+  "UK_Banner_Pole": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 60,
+   "min": [
+    -0.34,
+    0.0,
+    -0.06
+   ],
+   "max": [
+    0.34,
+    3.56,
+    0.06
+   ],
+   "planes": 0
+  },
+  "UK_Standard_Eagle": {
+   "slots": [
+    "Atlas"
+   ],
+   "tris": 138,
+   "min": [
+    -0.34,
+    0.0,
+    -0.16
+   ],
+   "max": [
+    0.34,
+    3.22,
+    0.16
+   ],
+   "planes": 0
+  }
+ }
+}

@@ -30,7 +30,14 @@ namespace TheWaningBorder.UI.Ingame
         private const float LineHeight = 25f;
         private const float Padding = 16f;
         /// <summary>The panel's top-left corner, from the screen's top-left.</summary>
-        private static readonly Vector2 Corner = new Vector2(14f, -150f);
+        // In line with the Menu button (developer, 2026-11-13: the header sat
+        // 150 px down, in front of the play field): beside the button, its
+        // middle on the button's middle. The Objectives panel follows this
+        // header, so it lands on the same row.
+        private const float MenuGap = 16f;
+        private static readonly Vector2 Corner = new Vector2(
+            PauseMenuPanel.MenuButtonMargin.x + PauseMenuPanel.MenuButtonSize.x + MenuGap,
+            -(PauseMenuPanel.MenuButtonMargin.y + (PauseMenuPanel.MenuButtonSize.y - HeaderHeight) * 0.5f));
         /// <summary>Most territory rows shown before "+N more".</summary>
         private const int MaxRows = 18;
         private const int CanvasSortingOrder = 40;
@@ -117,6 +124,22 @@ namespace TheWaningBorder.UI.Ingame
             if (_header != null)
                 _header.text = (_open ? "▾  " : "▸  ") + Loc.T("Economy per territory");
             if (_body != null) _body.gameObject.SetActive(_open);
+        }
+
+        private Vector3 _placedAt;
+
+        /// <summary>Beside the Menu button, the header's middle on the button's
+        /// middle, every frame (only moved when the spot changes). Measured
+        /// on screen because the two canvases scale differently, so authored
+        /// offsets do not line up (2026-11-13).</summary>
+        private void LateUpdate()
+        {
+            if (_root == null || !PauseMenuPanel.TryGetMenuButtonScreenRect(out var menu)) return;
+            float headerPx = HeaderHeight * _root.lossyScale.y;
+            var at = new Vector3(menu.xMax + menu.height * 0.35f, menu.center.y + headerPx * 0.5f, 0f);
+            if (at == _placedAt) return;
+            _placedAt = at;
+            _root.position = at;   // pivot = top-left corner
         }
 
         private void Update()

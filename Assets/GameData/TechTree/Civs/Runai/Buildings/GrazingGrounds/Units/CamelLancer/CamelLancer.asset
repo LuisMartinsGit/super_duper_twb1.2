@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Camel Lancer
   unitClass: human_cavalry
   hp: 260
-  speed: 6.6
+  speed: 3.3
   trainingTime: 30
   damage: 20
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.6
   attackRange: 1.8
   minAttackRange: 0
-  lineOfSight: 20
+  lineOfSight: 10
   aimTime: 0
-  radius: 0.7
+  radius: 0.35
   trajectory: 
   projectileSpeed: 0
   cost:

@@ -15,15 +15,15 @@ MonoBehaviour:
   fieldOfView: 40
   nearClipPlane: 0.1
   farClipPlane: 5000
-  cameraDistance: 37.5
+  cameraDistance: 18.75
   panSpeed: 1
   moveDamping: 0.15
   edgeScrollSpeed: 30
   edgeScrollBorder: 15
   keyPanSpeed: 40
   zoomSpeed: 10
-  minZoom: 15
-  maxZoom: 80
+  minZoom: 7.5
+  maxZoom: 40
   zoomDamping: 0.2
   rotationPerNotch: 15
   rotationDamping: 0.15

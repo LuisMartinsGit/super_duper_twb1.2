@@ -47,15 +47,6 @@ namespace TheWaningBorder.Entities
         /// <summary>Archers among them; the rest carry swords.</summary>
         public static int ArchersFor(int heroLevel) => SoldiersFor(heroLevel) / ArcherEvery;
 
-        /// <summary>Veteran rank they arrive at — one step every two levels
-        /// above the unlock, capped at 4. This is the "upgrades" half of the
-        /// ability.</summary>
-        public static byte RankFor(int heroLevel)
-        {
-            int r = 1 + (heroLevel - HonourThyPledge.UnlockLevel) / 2;
-            return (byte)math.clamp(r, 1, 4);
-        }
-
         /// <summary>Seconds they stay: 30 at the unlock, +5 per level after.</summary>
         public static float DurationFor(int heroLevel)
             => 30f + 5f * math.max(0, heroLevel - HonourThyPledge.UnlockLevel);
@@ -81,7 +72,6 @@ namespace TheWaningBorder.Entities
             if (total <= 0) return 0;
 
             int archers = ArchersFor(level);
-            byte rank = RankFor(level);
             float ttl = DurationFor(level);
 
             float3 origin = em.GetComponentData<LocalTransform>(caster).Position;
@@ -105,7 +95,7 @@ namespace TheWaningBorder.Entities
 
                 Entity e = UnitFactory.Create(em, id, pos, faction);
                 if (e == Entity.Null) continue;
-                MakeTemporary(em, e, rank, ttl);
+                MakeTemporary(em, e, ttl);
                 made++;
             }
 
@@ -113,15 +103,15 @@ namespace TheWaningBorder.Entities
             {
                 SimSignals.Ping(origin, SimPingKind.Combat, SpawnRing);
                 TWBLog.Log($"[HonourThyPledge] {faction} King Lexor (lv {level}) called " +
-                           $"{made} sworn — rank {rank}, {ttl:0}s.");
+                           $"{made} sworn, {ttl:0}s.");
             }
             return made;
         }
 
         /// <summary>
         /// Call to the Banners, Lexor's level-10 game ender (Heroes.md §3): the
-        /// pledge at full strength, in as many rings as it takes, every man at
-        /// the top rank. Numbers come from the card.
+        /// pledge at full strength, in as many rings as it takes. Numbers come
+        /// from the card.
         /// </summary>
         public static int SummonBanners(EntityManager em, Entity caster, int total, float ttl)
         {
@@ -139,7 +129,7 @@ namespace TheWaningBorder.Entities
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
                 Entity e = UnitFactory.Create(em, i >= total - archers ? ArcherId : SwordsmanId, pos, faction);
                 if (e == Entity.Null) continue;
-                MakeTemporary(em, e, BannerRank, ttl);
+                MakeTemporary(em, e, ttl);
                 made++;
             }
             SimSignals.Announce(string.Format(TheWaningBorder.Core.Localization.Loc.T(
@@ -151,7 +141,6 @@ namespace TheWaningBorder.Entities
         private const float BannerAngleStep = 2.39996f;
         private const int BannersPerRing = 12;
         private const float BannerRingGap = 2.5f;
-        private const byte BannerRank = 4;
 
         /// <summary>
         /// Turn a freshly trained unit into a pledged one.
@@ -163,15 +152,10 @@ namespace TheWaningBorder.Entities
         /// Lexor levels off men he paid nothing for, and his opponent farms
         /// them right back.
         /// </summary>
-        private static void MakeTemporary(EntityManager em, Entity e, byte rank, float ttl)
+        private static void MakeTemporary(EntityManager em, Entity e, float ttl)
         {
             if (em.HasComponent<PopulationCost>(e))
                 em.RemoveComponent<PopulationCost>(e);
-
-            if (em.HasComponent<UnitRank>(e))
-                em.SetComponentData(e, new UnitRank { Value = rank });
-            else
-                em.AddComponentData(e, new UnitRank { Value = rank });
 
             em.AddComponentData(e, new TemporarySummon { TimeToLive = ttl });
         }

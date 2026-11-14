@@ -30,7 +30,7 @@ namespace TheWaningBorder.Core.Commands.Types
         /// Unlike regular move, does NOT add UserMoveOrder so TargetingSystem can auto-acquire.
         /// </summary>
         public static void Execute(EntityManager em, Entity unit, float3 destination,
-            bool keepFormation = false)
+            bool keepFormation = false, bool exactSlot = false)
         {
             if (!em.Exists(unit)) return;
             // An emplaced engine is bolted to its wall deck: no move takes it.
@@ -40,9 +40,13 @@ namespace TheWaningBorder.Core.Commands.Types
             // task-112 M3: snap onto the cost field via NavGridQuery (see
             // MoveCommandHelper for the rationale -- this replaces the
             // legacy NavMeshManager snap on the attack-move write side).
-            NavGridQuery.SnapToWalkable(destination, out var snapped, out var snapOk);
-            if (snapOk)
-                destination = snapped;
+            // A formation slot keeps its exact place: see MoveCommandHelper.Execute.
+            if (!(exactSlot && NavGridQuery.IsWorldStandable(destination)))
+            {
+                NavGridQuery.SnapToWalkable(destination, out var snapped, out var snapOk);
+                if (snapOk)
+                    destination = snapped;
+            }
 
             // Emit a real pathfinding request. Previously attack-move relied on
             // a legacy NavMeshPathRequestSystem that was deleted in the M-series

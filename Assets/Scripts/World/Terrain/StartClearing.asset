@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7cb7cc9f8732486385e74b9fa374f372, type: 3}
   m_Name: StartClearing
   m_EditorClassIdentifier: 
-  radiusCells: 13
+  radiusCells: 7

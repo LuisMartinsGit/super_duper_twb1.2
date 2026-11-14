@@ -480,7 +480,7 @@ public partial class PresentationSpawnSystem
     /// (<see cref="HubR"/> = one wall section) — the curtain mesh starts at
     /// AlanthorWall.HubInset, exactly this drum's rim. Plinth, drum with a
     /// course band, a corbelled crown ledge with a merlon ring, the dome
-    /// with a brass finial and the faction banner. Omnidirectional —
+    /// with a brass finial. Omnidirectional —
     /// identity rotation.
     /// </summary>
     private GameObject CreateProceduralWallHub(Vector3 center, Entity entity)

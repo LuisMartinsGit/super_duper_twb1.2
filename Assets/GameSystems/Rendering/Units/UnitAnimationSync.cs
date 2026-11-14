@@ -82,6 +82,23 @@ namespace TheWaningBorder.Rendering
         // Natural attack clip length (seconds); 0 = no attack clip found.
         private float _attackClipLength;
 
+        // Ground speed (m/s) the move clip was authored at; 0 = unknown (the
+        // config's reference speed stands in).
+        private float _moveClipSpeed;
+        // Sim position and time at the last speed sample, and the playback
+        // rate last written to the Animator.
+        private Vector3 _speedPos;
+        private float _speedTime = -1f;
+        private float _animRate = 1f;
+
+        // Melee swings are played ONE CLIP PER SWING: the AttackCooldown
+        // timer jumping back up is the swing starting, and the attack state
+        // is held for the swing window (MeleeCombatSystemConfig
+        // .swingCommitSeconds, during which the simulation keeps the unit
+        // planted). A unit chasing its target is moving, not attacking.
+        private float _lastCdTimer = float.MaxValue;
+        private float _swingEnd = -1f;
+
         /// <summary>State-boolean poll cadence (2026-08-31 profile pass;
         /// tunable since 2026-10-15). The booleans feed animator TRANSITIONS,
         /// which blend over longer than the on-screen interval anyway, so it
@@ -170,16 +187,7 @@ namespace TheWaningBorder.Rendering
             // AnimatorController"). _valid stays false so LateUpdate no-ops.
             if (_animator.runtimeAnimatorController == null) return;
 
-            // Natural length of the attack clip, used to scale the Attack
-            // state so exactly one swing plays per attack cooldown tick.
-            foreach (var clip in _animator.runtimeAnimatorController.animationClips)
-            {
-                if (clip != null && clip.name.IndexOf("Attack", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    _attackClipLength = clip.length;
-                    break;
-                }
-            }
+            ReadClips();
 
             // Probe which parameters exist
             foreach (var param in _animator.parameters)
@@ -197,7 +205,59 @@ namespace TheWaningBorder.Rendering
             }
 
             _valid = true;
+            FinishStart();
+        }
 
+        /// <summary>The Animator was given another controller with the same
+        /// parameters (UnitAgeKit): re-read the clip metrics and forget the
+        /// cached parameter values, which the new controller starts without.</summary>
+        public void ControllerChanged()
+        {
+            // A kit switch may also have swapped WHICH rig is shown (each kit
+            // carries its own Animator): take the one that is active now.
+            ExitLod();
+            var shown = GetComponentInChildren<Animator>();
+            if (shown != null) _animator = shown;
+            _animRate = 1f;
+            if (_animator == null || _animator.runtimeAnimatorController == null) return;
+            ReadClips();
+            _vMoving = _vAttacking = _vWorking = _vBuilding = _vMining = _vHealing = -1;
+            _vAttackSpeed = float.NaN;
+        }
+
+        void ReadClips()
+        {
+            _attackClipLength = 0f;
+            _moveClipSpeed = 0f;
+            // Natural length of the attack clip, used to scale the Attack
+            // state so exactly one swing plays per attack cooldown tick.
+            foreach (var clip in _animator.runtimeAnimatorController.animationClips)
+            {
+                if (clip != null && clip.name.IndexOf("Attack", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    _attackClipLength = clip.length;
+                    break;
+                }
+            }
+
+            // Ground speed of the move clip, for matching its playback rate
+            // to the unit's actual speed. Only a clip that carries root
+            // motion reports one.
+            foreach (var clip in _animator.runtimeAnimatorController.animationClips)
+            {
+                if (clip == null) continue;
+                string cn = clip.name;
+                if (cn.IndexOf("Run", System.StringComparison.OrdinalIgnoreCase) < 0
+                    && cn.IndexOf("Walk", System.StringComparison.OrdinalIgnoreCase) < 0
+                    && cn.IndexOf("Move", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+                var avg = clip.averageSpeed;
+                float ground = new Vector2(avg.x, avg.z).magnitude;
+                if (ground > 0.3f) { _moveClipSpeed = ground; break; }
+            }
+        }
+
+        void FinishStart()
+        {
             var cfg = Cfg;
             float interval = cfg != null ? cfg.onscreenPollInterval : 0.1f;
 
@@ -306,8 +366,24 @@ namespace TheWaningBorder.Rendering
             if (!becameVisible && f.Now < _nextPoll) return;
             _nextPoll = f.Now + (visible ? f.OnscreenInterval : f.OffscreenInterval);
 
+            // Actual ground speed since the last poll (formation pace, slows
+            // and haste included) — the move animation's rate follows it.
+            float groundSpeed = -1f;
             if (_em.HasComponent<LocalTransform>(LinkedEntity))
+            {
                 _lastPos = _em.GetComponentData<LocalTransform>(LinkedEntity).Position;
+                float t = Time.time;
+                if (_speedTime >= 0f && t - _speedTime > 0.02f)
+                {
+                    float dx = _lastPos.x - _speedPos.x, dz = _lastPos.z - _speedPos.z;
+                    groundSpeed = Mathf.Sqrt(dx * dx + dz * dz) / (t - _speedTime);
+                }
+                if (_speedTime < 0f || t - _speedTime > 0.02f)
+                {
+                    _speedPos = _lastPos;
+                    _speedTime = t;
+                }
+            }
 
             // ── Death check ──
             if (_em.HasComponent<Health>(LinkedEntity))
@@ -318,6 +394,7 @@ namespace TheWaningBorder.Rendering
                     if (_hasIsDead)
                     {
                         ExitLod();
+                        SetAnimRate(1f);
                         _animator.SetTrigger(IsDeadHash);
                         _deathTriggered = true;
                     }
@@ -332,6 +409,7 @@ namespace TheWaningBorder.Rendering
                 if (_hasIsDead && !_deathTriggered)
                 {
                     ExitLod();
+                    SetAnimRate(1f);
                     _animator.SetTrigger(IsDeadHash);
                     _deathTriggered = true;
                 }
@@ -339,16 +417,32 @@ namespace TheWaningBorder.Rendering
             }
 
             // ── Movement ──
-            if (_hasIsMoving)
+            bool isMoving = false;
+            if (_em.HasComponent<DesiredDestination>(LinkedEntity))
             {
-                bool isMoving = false;
-                if (_em.HasComponent<DesiredDestination>(LinkedEntity))
-                {
-                    var dest = _em.GetComponentData<DesiredDestination>(LinkedEntity);
-                    isMoving = dest.Has == 1;
-                }
-                SetBoolCached(IsMovingHash, isMoving, ref _vMoving);
+                var dest = _em.GetComponentData<DesiredDestination>(LinkedEntity);
+                isMoving = dest.Has == 1;
             }
+            if (_hasIsMoving)
+                SetBoolCached(IsMovingHash, isMoving, ref _vMoving);
+
+            // The move clip plays at the unit's real pace: actual ground
+            // speed over the speed the clip was authored for.
+            if (isMoving && groundSpeed >= 0f && cfg != null)
+            {
+                // A clip's ground speed is for the model at scale 1. Drawn
+                // smaller (UnitWorldScale, a prefab's own root scale) each
+                // cycle covers that much less ground, so the reference shrinks
+                // with the view - or the feet slide (2026-11-13: a half-size
+                // Spearman ran at half the rate its pace needed).
+                float reference = _moveClipSpeed > 0f
+                    ? _moveClipSpeed * Mathf.Max(0.01f, transform.lossyScale.y)
+                    : cfg.moveClipReferenceSpeed;
+                if (reference > 0.01f)
+                    SetAnimRate(Mathf.Clamp(groundSpeed / reference, cfg.moveAnimSpeedMin, cfg.moveAnimSpeedMax));
+            }
+            else if (!isMoving)
+                SetAnimRate(1f);
 
             // ── Attack (ranged via ArcherState or melee via Target) ──
             if (_hasIsAttacking)
@@ -372,8 +466,21 @@ namespace TheWaningBorder.Rendering
                     && !(_em.HasComponent<Damage>(LinkedEntity)
                          && _em.GetComponentData<Damage>(LinkedEntity).Value <= 0))
                 {
-                    var target = _em.GetComponentData<Target>(LinkedEntity);
-                    isAttacking = target.Value != Entity.Null;
+                    if (_em.HasComponent<AttackCooldown>(LinkedEntity))
+                    {
+                        // One clip per swing, never while walking after the
+                        // target: the cooldown timer jumping up IS the swing.
+                        var cd = _em.GetComponentData<AttackCooldown>(LinkedEntity);
+                        if (cd.Timer > _lastCdTimer + 0.01f)
+                            _swingEnd = f.Now + SwingWindow(cd.Cooldown);
+                        _lastCdTimer = cd.Timer;
+                        isAttacking = !isMoving && f.Now < _swingEnd;
+                    }
+                    else
+                    {
+                        var target = _em.GetComponentData<Target>(LinkedEntity);
+                        isAttacking = target.Value != Entity.Null && !isMoving;
+                    }
                 }
 
                 SetBoolCached(IsAttackingHash, isAttacking, ref _vAttacking);
@@ -453,7 +560,7 @@ namespace TheWaningBorder.Rendering
                     {
                         var cd = _em.GetComponentData<AttackCooldown>(LinkedEntity);
                         if (cd.Cooldown > 0.01f)
-                            speed = Mathf.Clamp(_attackClipLength / cd.Cooldown, 0.25f, 4f);
+                            speed = Mathf.Clamp(_attackClipLength / SwingWindow(cd.Cooldown), 0.25f, 4f);
                     }
                     else if (_em.HasComponent<MoveSpeed>(LinkedEntity))
                     {
@@ -468,6 +575,22 @@ namespace TheWaningBorder.Rendering
                 }
             }
 
+        }
+
+        /// <summary>Seconds one melee swing is shown for — the window the
+        /// simulation keeps the attacker planted (never past its cooldown).</summary>
+        private static float SwingWindow(float cooldown)
+        {
+            var melee = TheWaningBorder.Systems.Combat.MeleeCombatSystemConfig.I;
+            float commit = melee != null ? melee.swingCommitSeconds : 0f;
+            return commit > 0f ? Mathf.Min(commit, cooldown) : cooldown;
+        }
+
+        private void SetAnimRate(float rate)
+        {
+            if (Mathf.Abs(rate - _animRate) < 0.03f) return;
+            _animRate = rate;
+            _animator.speed = rate;
         }
 
         private void SetBoolCached(int hash, bool value, ref sbyte last)

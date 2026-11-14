@@ -39,6 +39,7 @@ namespace TheWaningBorder.AI
         public int SanctumMode;
         public bool VictoryMultiFocus;
         public float SanctumLateSeconds;
+        public float AgeUpEarliestSeconds;
         public int WallsForbidden;
         public int ArmyCapFixed;
         public float HoldBackAheadRatio;
@@ -165,6 +166,7 @@ namespace TheWaningBorder.AI
                 SanctumMode = so.sanctumMode,
                 VictoryMultiFocus = so.victoryMultiFocus,
                 SanctumLateSeconds = so.sanctumLateSeconds,
+                AgeUpEarliestSeconds = so.ageUpEarliestSeconds,
                 WallsForbidden = so.wallsForbidden,
                 ArmyCapFixed = so.armyCapFixed,
                 HoldBackAheadRatio = so.holdBackAheadRatio,

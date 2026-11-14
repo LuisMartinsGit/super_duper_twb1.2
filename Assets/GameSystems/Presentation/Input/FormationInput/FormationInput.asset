@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c1d2e3f405162738495a6b7c8d9e0f05, type: 3}
   m_Name: FormationInput
   m_EditorClassIdentifier:
-  formationSpacing: 2
+  formationSpacing: 1
   startingShape: 0

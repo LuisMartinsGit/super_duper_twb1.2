@@ -73,3 +73,14 @@ distance from every seat.
 ## Verified
 
 See the end of this file once the headless runs are in.
+
+## The look (ash basin, 2026-11-14)
+
+The Yiel Lymwérra kit with its own biome: cinder-dark ground with coal patches and ember cracks, basalt rock; its forests stand as rock outcrops and the grass is gone but for the ember ground. The textures are the
+stylized pack on the five layers the builder paints, plus three detail layers
+(broad patches, sparse clumps, the bed under water too deep to wade), and a
+`TerrainLook` on the Terrain (anti-tiling, colour drift, cliff side-projection).
+Walkability is not touched: the NoWalk layer is never written. The look is
+DATA in `TerrainBiomeDress.cs` (one `Biome` entry per map, menu
+`Waning Border > Maps > Dress <map>`), and `MapBuilderFromLayout` runs it after
+every rebuild.

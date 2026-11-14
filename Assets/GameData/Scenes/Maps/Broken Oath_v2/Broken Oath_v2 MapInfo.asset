@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d2f9c81a6e34b0f8d1c5a7e2b9f6034, type: 3}
+  m_Name: Broken Oath_v2 MapInfo
+  m_EditorClassIdentifier: 
+  SceneName: BrokenOath_v2
+  DisplayName: Broken Oath v2
+  PlayerCount: 5
+  SizeTag: OPEN
+  Description: 
+  Thumbnail: {fileID: 2800000, guid: 67077beb0f058eb4dbbde5062688bce2, type: 3}
+  WorldSize: {x: 384, y: 224}
+  PlayerStarts:
+  - {x: 0.23958333, y: 0.3125}
+  - {x: 0.23958333, y: 0.6875}
+  - {x: 0.16666667, y: 0.5}
+  - {x: 0.75, y: 0.33854166}
+  - {x: 0.75, y: 0.6614583}
+  PlayerStartFactions: 0001020304
+  PlayerStartTeams: 
+  IronDeposits: []
+  VeilstoneNodes: []
+  CurseNodes: []
+  SupplyNodes: []
+  RegionStamp: 8E21E2F6CEFD0BBB

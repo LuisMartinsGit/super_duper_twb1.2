@@ -136,7 +136,48 @@ namespace TheWaningBorder.UI.Data
                 ActionSlot.Empty,
                 ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
             },
+
+            // BARRACKS -> Garrison (Alanthor), 2026-11-13. One row per thing:
+            //  row 1  the building: its level-up (slot 0, drawn by the panel's
+            //         upgrade cell - UpgradeSlotIndex), Conscription, and the
+            //         four weapon tiers in ONE slot
+            //  row 2  the Spearman and his passives (Charge Lv 2, Shield Wall Lv 3)
+            //  row 3  the Swordsman and his (Parry, Counter, Reckless Attack)
+            // The units are authored in their rows, so this grid does not take
+            // its top row from trains[] (AuthoredTraining).
+            ["Barracks"] = new[]
+            {
+                ActionSlot.Empty,
+                ActionSlot.Tech("Conscription"),
+                ActionSlot.ChainOf("StoneWeapons", "IronWeapons", "VeilstoneWeapons", "ShardInfusedWeapons"),
+                ActionSlot.Empty, ActionSlot.Empty,
+
+                ActionSlot.Train("Spearman", 0),
+                ActionSlot.Empty,
+                ActionSlot.Tech("Charge"),
+                ActionSlot.Tech("ShieldWall"),
+                ActionSlot.Empty,
+
+                ActionSlot.Train("Alanthor_Swordsman", 1),
+                ActionSlot.Tech("Parry"),
+                ActionSlot.Tech("Counter"),
+                ActionSlot.Tech("RecklessAttack"),
+                ActionSlot.Empty,
+            },
         };
+
+        /// <summary>Layouts whose Train slots are authored in the grid: their
+        /// top row is not filled from the building SO's trains[].</summary>
+        private static readonly HashSet<string> AuthoredTraining = new HashSet<string> { "Barracks" };
+
+        /// <summary>The cell a building's level-up button takes, or -1 for the
+        /// panel's default (the last free cell).</summary>
+        public static int UpgradeSlotIndex(string buildingId) => buildingId == "Barracks" ? 0 : -1;
+
+        /// <summary>A grid whose rows mean something (a unit and its skills):
+        /// its empty cells keep their place, so nothing slides along.</summary>
+        public static bool KeepsGrid(string buildingId) =>
+            buildingId != null && AuthoredTraining.Contains(buildingId);
 
         public static bool HasLayout(string buildingId) =>
             buildingId != null && _layouts.ContainsKey(buildingId);
@@ -177,7 +218,8 @@ namespace TheWaningBorder.UI.Data
             for (int i = 0; i < SlotCount && i < slots.Length; i++)
                 resolved[i] = ResolveSlot(slots[i], entity, em, faction, culture, buildingLevel,
                     research, available);
-            ResolveTrainingRow(buildingId, entity, em, faction, culture, buildingLevel, available, resolved);
+            if (!AuthoredTraining.Contains(buildingId))
+                ResolveTrainingRow(buildingId, entity, em, faction, culture, buildingLevel, available, resolved);
             return true;
         }
 
@@ -216,6 +258,10 @@ namespace TheWaningBorder.UI.Data
             switch (slot.Kind)
             {
                 case ActionSlotKind.Train:
+                    // An authored unit cell obeys the same gates as the
+                    // training row: a unit this culture cannot field is absent.
+                    if (!CultureGate.CanFactionTrain(slot.Id, culture)) return Blank;
+                    if (CultureGate.IsSupersededByCulture(slot.Id, culture)) return Blank;
                     return ResolveTrain(slot, building, em, faction, buildingLevel, available);
 
                 case ActionSlotKind.Tech:
@@ -242,7 +288,7 @@ namespace TheWaningBorder.UI.Data
             float trainTime = 0f;
             if (TechCatalog.TryGetUnit(slot.Id, out var unit))
             {
-                name = unit.name ?? slot.Id;
+                name = EntityInfoExtractor.UnitNameFor(slot.Id, GetFactionCulture(em, faction));
                 effect = unit.unitClass;
                 // The real duration this building will charge, not the SO
                 // base — same fix as the roster tooltip in
@@ -271,6 +317,9 @@ namespace TheWaningBorder.UI.Data
                     Id = slot.Id, Label = name,
                     Tooltip = Tip(name, effect, cost, trainTime, req),
                     Cost = cost, Enabled = !locked, CanAfford = afford,
+                    // A picture of the unit as it looks at this level.
+                    Icon = ActionIcons.Unit(slot.Id,
+                        GetFactionCulture(em, faction) == Cultures.None ? 0 : buildingLevel),
                 },
             };
         }
@@ -315,6 +364,7 @@ namespace TheWaningBorder.UI.Data
                     Id = techId, Label = name,
                     Tooltip = Tip(name, effect, cost, time, req),
                     Cost = cost, Enabled = !locked, CanAfford = afford,
+                    Icon = ActionIcons.Tech(techId),
                 },
             };
         }

@@ -241,7 +241,7 @@ namespace TheWaningBorder.Systems.Navigation
         /// tight enough that "in formation" and "arrived" look the same.
         /// Correcting a 0.15 m error costs nothing now that formation-mates no
         /// longer shove each other out of position (see SteeringSystem).</summary>
-        private const float InPlaceDistance = 0.15f;
+        private const float InPlaceDistance = 0.075f;   // halved with the units, 2026-11-13 (UnitWorldScale)
 
         /// <summary>
         /// How hard a member is pulled back onto its spot, per metre of error
@@ -264,7 +264,7 @@ namespace TheWaningBorder.Systems.Navigation
         /// <summary>Leader speed while anybody is out of formation. Enough to
         /// let a catching-up member gain, small enough that a formation is
         /// never visibly punished for one straggler.</summary>
-        private const float OutOfFormationLeaderSpeed = 0.9f;
+        private const float OutOfFormationLeaderSpeed = 0.45f;   // halved with the units, 2026-11-13 (UnitWorldScale)
 
         /// <summary>
         /// Slowest the leader may travel while wheeling, as a fraction of the

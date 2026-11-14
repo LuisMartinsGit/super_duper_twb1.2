@@ -275,14 +275,9 @@ namespace TheWaningBorder.Systems.Combat
             }
 
             // Reset state — use unit's configured cooldown.
-            // Glow Ability (Lv 5 active window) shortens by 30%
-            // per the design spec. (audit follow-up)
             float cooldownValue = 1.5f;
             if (em.HasComponent<AttackCooldown>(entity))
                 cooldownValue = em.GetComponentData<AttackCooldown>(entity).Cooldown;
-            if (em.HasComponent<ShardrootAbilityState>(entity)
-                && em.GetComponentData<ShardrootAbilityState>(entity).ActiveRemaining > 0f)
-                cooldownValue *= (1f / 1.30f);
             cooldownValue *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
             // Timed haste (Blood Rain and any future SpellBuff
             // attack-speed effect) fires faster too.

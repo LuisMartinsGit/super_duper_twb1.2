@@ -1721,6 +1721,9 @@ namespace TheWaningBorder.AI
         public float monumentArrivedRadius;
         /// <summary>Seconds a monument is left alone after a squad dies on it.</summary>
         public float monumentBlockedSeconds;
+        /// <summary>Seconds a 40 m cell stays off the wave target list after a
+        /// mission against it timed out (was a 960 s constant).</summary>
+        public float waveBlockSeconds;
         /// <summary>Spare RP buys Petriarchy support for a resource below this.</summary>
         public int petriarchyTradeBelow;
         /// <summary>Spare RP is saved up to this before it calls an army.</summary>
@@ -1766,6 +1769,12 @@ namespace TheWaningBorder.AI
         /// <summary>Extra Workers trained for empty Farm slots: only while the
         /// bank holds at least this many supplies.</summary>
         public int farmTrainWorkerMinSupplies;
+        /// <summary>Most Workers queued at once for empty Farm slots (trained
+        /// outside the economy wallet, Game_AI.md § 6ac).</summary>
+        public int farmWorkersQueuedMax;
+        /// <summary>Farms kept = the Farm cap x the tier's extractorShare to this
+        /// power (1 = proportional; higher keeps lower tiers to fewer Farms).</summary>
+        public float farmWantExponent;
         /// <summary>Legal Farm sites scored (their crop ring's free share,
         /// FarmRing) before the AI takes the best (decision 57).</summary>
         public int farmSiteCandidates;

@@ -27,12 +27,12 @@ MonoBehaviour:
   maxTargets: 0
   populationProvided: 0
   slotIncomePerMinute: 0
-  tradeRateMultiplier: 0
+  suppliesPerWorkerPerMinute: 0
   attack:
     enabled: 1
     damage: 8
     damageType: ranged
-    range: 18
+    range: 9
     cooldown: 2.0833333
     maxTargets: 1
     siegeShotDamage: 0
@@ -40,7 +40,5 @@ MonoBehaviour:
   - {x: -3.599605, y: 6.0912695, z: 2.0998902}
   lineOfSight: 0
   grantsTechs:
-  - ShardInfusedWeapons
-  - ShardPlate
   - EliteInfantry
-  prefab: {fileID: 5712497353321532482, guid: ef9175618fc39774ba0bb64d4d8b13c1, type: 3}
+  prefab: {fileID: 1435027818078621703, guid: 898c0d9e430168e429fda92bbbe61a0b, type: 3}

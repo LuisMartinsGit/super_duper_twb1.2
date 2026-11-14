@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Veilstinger
   unitClass: ranged
   hp: 35
-  speed: 4
+  speed: 2
   trainingTime: 35
   damage: 18
   damageType: ranged
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 1
     magic: 2
   attackCooldown: 1
-  attackRange: 15
+  attackRange: 7.5
   minAttackRange: 0
-  lineOfSight: 20
+  lineOfSight: 10
   aimTime: 0
-  radius: 0.5
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:

@@ -43,8 +43,9 @@ namespace TheWaningBorder.Core.Commands.Types
     /// </summary>
     public static class FormationMoveCommandHelper
     {
-        /// <summary>Base spacing between unit centers (m).</summary>
-        public const float Spacing = 2.0f;
+        /// <summary>Base spacing between unit centers (m). Halved with the
+        /// units on 2026-11-13 (UnitWorldScale 0.5: unit radius 0.25 m).</summary>
+        public const float Spacing = 1.0f;
 
         /// <summary>
         /// Distance between two TYPE BLOCKS, in row pitches. 2 means the bow
@@ -257,7 +258,7 @@ namespace TheWaningBorder.Core.Commands.Types
         /// that has never formed up — which must snap, or it would wheel away
         /// from the destination before setting off.
         /// </summary>
-        private const float PoseFitTolerance = 2.0f;
+        private const float PoseFitTolerance = 1.0f;   // halved with the units, 2026-11-13 (UnitWorldScale)
 
         /// <summary>
         /// Execute a formation move (or attack-move) directly. Creates the
@@ -546,9 +547,26 @@ namespace TheWaningBorder.Core.Commands.Types
                 }
                 bool keep = reattaches && plan.Member[i];
                 if (attackMove)
-                    AttackMoveCommandHelper.Execute(em, unit, plan.SlotWorld[i], keep);
+                    AttackMoveCommandHelper.Execute(em, unit, plan.SlotWorld[i], keep, exactSlot: true);
                 else
-                    MoveCommandHelper.Execute(em, unit, plan.SlotWorld[i], keep);
+                    MoveCommandHelper.Execute(em, unit, plan.SlotWorld[i], keep, exactSlot: true);
+
+                // Form up FACING the way the slots were laid out
+                // (FormationArriveFacingSystem turns the unit on its slot).
+                if (math.lengthsq(plan.Facing) > 1e-6f && em.Exists(unit))
+                {
+                    var face = new FormationArriveFacing
+                    {
+                        Slot = plan.SlotWorld[i],
+                        Dir = math.normalizesafe(new float2(plan.Facing.x, plan.Facing.z)),
+                    };
+                    if (em.HasComponent<FormationArriveFacing>(unit))
+                    {
+                        em.SetComponentData(unit, face);
+                        em.SetComponentEnabled<FormationArriveFacing>(unit, true);
+                    }
+                    else em.AddComponentData(unit, face);
+                }
             }
         }
 

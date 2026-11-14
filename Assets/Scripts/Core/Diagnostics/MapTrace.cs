@@ -558,11 +558,10 @@ namespace TheWaningBorder.Core.Diagnostics
             return 0;
         }
 
-        /// <summary>A hero's level, else bought veterancy rank, else 1.</summary>
+        /// <summary>A hero's level, else 1 (only heroes have levels).</summary>
         private static int UnitLevel(EntityManager em, Entity e)
         {
             if (em.HasComponent<HeroLevel>(e)) return em.GetComponentData<HeroLevel>(e).Value;
-            if (em.HasComponent<UnitRank>(e)) return em.GetComponentData<UnitRank>(e).Value;
             return 1;
         }
 

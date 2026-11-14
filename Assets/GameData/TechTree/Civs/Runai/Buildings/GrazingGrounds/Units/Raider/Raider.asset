@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Raider
   unitClass: human_cavalry
   hp: 150
-  speed: 7.6
+  speed: 3.8
   trainingTime: 22
   damage: 16
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.4
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 22
+  lineOfSight: 11
   aimTime: 0
-  radius: 0.6
+  radius: 0.3
   trajectory: 
   projectileSpeed: 0
   cost:

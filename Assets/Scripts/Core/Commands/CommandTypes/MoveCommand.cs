@@ -51,7 +51,7 @@ namespace TheWaningBorder.Core.Commands.Types
         /// Clears conflicting commands and sets up movement state.
         /// </summary>
         public static void Execute(EntityManager em, Entity unit, float3 destination,
-            bool keepFormation = false)
+            bool keepFormation = false, bool exactSlot = false)
         {
             if (!em.Exists(unit)) return;
             // An emplaced engine is bolted to its wall deck: no move takes it.
@@ -84,9 +84,19 @@ namespace TheWaningBorder.Core.Commands.Types
             // snap from M1/M2. NavGridQuery walks a deterministic
             // row-major ring around the click cell so two callers on
             // different machines pick the same snap target.
-            NavGridQuery.SnapToWalkable(destination, out var snapped, out var snapOk);
-            if (snapOk)
-                destination = snapped;
+            // A FORMATION SLOT IS KEPT WHERE THE LAYOUT PUT IT (2026-11-13).
+            // The snap moves a point to its cell's CENTRE. At the old 2 m
+            // pitch every slot already was one; at a 1 m pitch the ranks that
+            // stand half a step off (two men behind three) were pulled onto
+            // their neighbours' cells and the stopped formation lost its
+            // ranks. The plan has already put each slot on standable ground
+            // (FormationMoveCommandHelper.ResolveSlot).
+            if (!(exactSlot && NavGridQuery.IsWorldStandable(destination)))
+            {
+                NavGridQuery.SnapToWalkable(destination, out var snapped, out var snapOk);
+                if (snapOk)
+                    destination = snapped;
+            }
 
             // task-112 M3: emit a NavPathRequest on the unit so
             // AbstractPathfinderSystem produces a NavPathResult + buffer

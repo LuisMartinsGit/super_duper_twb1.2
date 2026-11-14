@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Charge
   role: Military
   effect: 
-  desc: "Infantry charge: after 5 s out of combat a soldier closes at +50% speed for 2 s and his first blow in that window deals +30%. Miss the window and it resets."
+  desc: "Spearman charge: after 5 s out of combat he closes at +50% speed for 2 s and his first blow in that window deals +30%. Miss the window and it resets."
   researchAt: Barracks
   minBuildingLevel: 2
   researchTime: 33

@@ -1,0 +1,16 @@
+# Footprint scale jobs (FootprintScalePass.cs: Waning Border > Art > Scale > Footprint Jobs).
+# <group>|<prefab>|<target metres>|<mode model/marker/corners>[|<tile metres>]
+# The Garrison's model is held to 7 m on its 8 m tile: 0.5 m clear on every side.
+# The Houses are centred on their plinth and House 1 has a pillar 0.2 m off it: 3.92 m keeps that inside the 4 m tile.
+fortress|Assets/GameData/TechTree/Civs/Alanthor/Buildings/Fortress/Fortress 1.prefab|10|model
+fortress|Assets/GameData/TechTree/Civs/Alanthor/Buildings/Fortress/Fortress 2.prefab|10|model
+fortress|Assets/GameData/TechTree/Civs/Alanthor/Buildings/Fortress/Fortress 3.prefab|10|model
+house|Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House 1.prefab|3.92|model|4
+house|Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House 2.prefab|3.92|model|4
+house|Assets/GameData/TechTree/Civs/Alanthor/Buildings/House/House 3.prefab|3.92|model|4
+garrison|Assets/GameData/TechTree/Civs/Alanthor/Buildings/Garrison/Garrison_2.prefab|7|model|8
+# The Watch Tower stands on 2 x 2 cells (4 m): the whole model, crown included, inside 3.9 m.
+tower|Assets/GameData/TechTree/Civs/Alanthor/Buildings/Tower/Tower 1.prefab|3.9|model|4
+tower|Assets/GameData/TechTree/Civs/Alanthor/Buildings/Tower/Tower 2.prefab|3.9|model|4
+tower|Assets/GameData/TechTree/Civs/Alanthor/Buildings/Tower/Tower 3.prefab|3.9|model|4
+tower0|Assets/GameData/TechTree/Civs/Alanthor/Buildings/Tower/Art/Alanthor_Tower_Age_0.prefab|3.9|model|4

@@ -10,19 +10,19 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1589557308427376, guid: a2ccd4fc468295e488ffde235c567605, type: 3}
       propertyPath: m_Name
-      value: Catapult
+      value: AlanthorCatapult
       objectReference: {fileID: 0}
     - target: {fileID: 4070465253498742, guid: a2ccd4fc468295e488ffde235c567605, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.7
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4070465253498742, guid: a2ccd4fc468295e488ffde235c567605, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.7
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4070465253498742, guid: a2ccd4fc468295e488ffde235c567605, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.7
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4070465253498742, guid: a2ccd4fc468295e488ffde235c567605, type: 3}
       propertyPath: m_LocalPosition.x
@@ -105,12 +105,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ArmChildName: SM_Wep_Catapult_Arm_01
+  BoltChildName: 
   ReleasedAngle: 75
   SnapSeconds: 0.12
   HoldSeconds: 0.6
   RewindSeconds: 2.2
-  NearPitchOffset: -10
-  FarPitchOffset: 15
+  TemplateElevation: 30
+  PitchTrim: 0
   MuzzleHeight: 2.4
   MuzzleForward: 1.2
   ShotFxTemplate: {fileID: 7154254405275333811}

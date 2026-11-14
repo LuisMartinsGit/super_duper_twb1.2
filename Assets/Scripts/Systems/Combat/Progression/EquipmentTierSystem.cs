@@ -33,7 +33,6 @@ using TheWaningBorder.Core.Settings;
 namespace TheWaningBorder.Systems.Combat
 {
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(UnitRankSystem))]
     public partial struct EquipmentTierSystem : ISystem
     {
         // Faction enum ranges 0..7 (player) and 8 (Border) — size 9.

@@ -1,0 +1,45 @@
+# Dressing of the Alanthor Garrison (Garrison_2) with Synty Fantasy Kingdom props.
+# Read by Waning Border > Art > Dressing > Apply Layouts (PropDressingPass.cs).
+# Frame: the prefab root at scale 1. Front (the gate) is +Z; the hall stands at
+# the back (x -4.5..4.5, z -6..0.4) on a raised floor, the two pavilions in front
+# (z 3..8), the yard wall at x -7.5 / 7.75 and z -7.1. Ground is y 0.
+# Keep |x| < 1.4 clear from the hall steps to the gate: units walk out there
+# (Unit_spawn 0,3.75 -> Exit_point 0,12).
+# <prop> | x | z | yaw [| y= | s= | pivot | player | tilt=]
+
+prefab Assets/GameData/TechTree/Civs/Alanthor/Buildings/Garrison/Garrison_2.prefab
+group 15 [fade-in] - Props
+
+# --- west yard: the stores -------------------------------------------------
+SM_Prop_Crate_Stack_03   | -6.45 | -5.70 | 90
+SM_Prop_Crate_Wood_01    | -5.30 | -6.25 | 15
+SM_Prop_Barrel_Stack_02  | -6.85 | -2.60 | 90
+SM_Prop_Barrel_01        | -6.85 | -0.55 | 0
+SM_Prop_Barrel_01        | -6.05 | -0.95 | 40
+SM_Prop_Sack_Stack_01    | -6.75 |  1.55 | 90
+SM_Prop_Hay_Bale_01      | -5.40 | -3.90 | 80
+
+# --- east yard: the training ground ---------------------------------------
+SM_Prop_Dummy_Armour_01  |  6.10 | -0.90 | 200
+SM_Prop_Dummy_Armour_02  |  5.70 | -3.10 | 160
+SM_Prop_Target_01        |  6.20 | -6.10 | 0 | pivot | y=0.10
+SM_Prop_Hay_Bale_01      |  5.00 | -6.30 | 10
+SM_Prop_Bench_Seat_02    |  7.25 | -4.60 | 90
+SM_Prop_Weapon_Rack_03   |  7.20 |  1.30 | 90
+
+# --- the court between the hall and the pavilions ---------------------------
+SM_Prop_Camp_Weapon_Rack_01 | -3.30 | 1.75 | 0
+SM_Prop_Barrel_Arrows_01    | -5.00 | 1.50 | 0
+SM_Prop_Weapon_Rack_01      |  5.50 | 2.20 | 180
+SM_Prop_Knight_Armor_01     |  2.20 | 1.10 | 0
+SM_Prop_Knight_Armor_01     | -2.20 | 1.10 | 0
+
+# --- the way in: braziers and the colours ----------------------------------
+SM_Prop_Camp_Brazier_01  | -1.95 | 7.90 | 0 | s=1.5
+SM_Prop_Camp_Brazier_01  |  1.95 | 7.90 | 0 | s=1.5
+SM_Prop_Camp_Brazier_01  | -1.95 | 3.30 | 0 | s=1.5
+SM_Prop_Camp_Brazier_01  |  1.95 | 3.30 | 0 | s=1.5
+SM_Prop_Barrel_01        |  2.05 | 5.60 | 0
+SM_Prop_Crate_Wood_01    | -1.95 | 5.60 | 10 | s=0.8
+SM_Prop_Flag_01          | -5.25 | 8.05 | 0 | pivot | y=2.95 | s=0.42 | player
+SM_Prop_Flag_01          |  5.50 | 8.05 | 0 | pivot | y=2.95 | s=0.42 | player

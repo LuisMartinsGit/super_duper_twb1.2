@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Longbowman
   unitClass: human_ranged
   hp: 55
-  speed: 4
+  speed: 2
   trainingTime: 15.4
   damage: 25
   damageType: ranged
@@ -27,10 +27,10 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 3.5
-  attackRange: 20
+  attackRange: 10
   minAttackRange: 0
-  lineOfSight: 20
-  radius: 0.5
+  lineOfSight: 10
+  radius: 0.25
   aimTime: 0.5
   trajectory: high
   projectileSpeed: 0

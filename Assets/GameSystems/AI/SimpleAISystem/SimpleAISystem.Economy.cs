@@ -1092,12 +1092,73 @@ namespace TheWaningBorder.AI
             if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null)
             { reason = "no catalog def"; return false; }
             var cost = AICommon.ToCost(def.cost);
+
+            // THE FIRST BUILDING OF A LINE IS A SAVINGS GOAL (2026-11-14,
+            // Game_AI.md § 6ab.2). The first Archery Range, Royal Stable and
+            // Siege Yard are asked for HERE, by the goal list - the home floor
+            // (DevelopHomeProduction) sits behind the home's resource and tower
+            // steps and only ever placed the second of each. They were refused
+            // "wallet short" behind every soldier, then held as "extra"
+            // production until the Barracks was saturated: the first Range
+            // stood at minute 13. A line with no building yet has its price
+            // held back (unit purchases included) and is bought straight from
+            // the bank the moment the bank covers it.
+            int firstLine = FirstOfLine(em, faction, buildingId);
+            if (firstLine < 0 && AIPivotalReserve.Has(faction, FirstTrainerReserveKey)
+                && !AnyLineUnstarted(em, faction))
+                AIPivotalReserve.Clear(faction, FirstTrainerReserveKey);
+            if (firstLine > 0)
+            {
+                if (!FactionEconomy.CanAfford(em, faction, cost))
+                {
+                    AIPivotalReserve.Set(faction, FirstTrainerReserveKey, cost, strict: true);
+                    reason = "bank short (saving for the line's first trainer)";
+                    return false;
+                }
+                AIPivotalReserve.Clear(faction, FirstTrainerReserveKey);
+                bool placedFirst;
+                _firstTrainerPass = true;
+                try { placedFirst = TryBuildBuildingWithReason(em, faction, buildingId, out reason); }
+                finally { _firstTrainerPass = false; }
+                if (placedFirst)
+                {
+                    AIBudget.RecordSpend(faction, cat, cost);
+                    AILogger.Log(faction, "PRODUCTION", $"first {buildingId}: bought from the bank ahead of the wallet");
+                }
+                return placedFirst;
+            }
+
             if (!AIBudget.TryAfford(faction, cat, cost,
                     TheWaningBorder.Core.SimClock.Now, honourReservation))
             { reason = "wallet short"; return false; }
             if (!TryBuildBuildingWithReason(em, faction, buildingId, out reason)) return false;
             AIBudget.RecordSpend(faction, cat, cost);
             return true;
+        }
+
+        /// <summary>True only while the first building of a line is placed -
+        /// ProductionGate lets it through (it is not "extra" production).</summary>
+        private bool _firstTrainerPass;
+
+        /// <summary>The line index (1 Range, 2 Stable, 3 Siege Yard) when this
+        /// is a trainer the aged-up Alanthor faction has none of, built or
+        /// rising; -1 otherwise. The Barracks (line 0) is the opening's.</summary>
+        private static int FirstOfLine(EntityManager em, Faction faction, string buildingId)
+        {
+            for (int l = 1; l < LostTrainerLines.Length; l++)
+            {
+                if (LostTrainerLines[l] != buildingId) continue;
+                if (CultureConfig.GetCompletedCulture(em, faction) != Cultures.Alanthor || !HasAgedUp(em, faction)) return -1;
+                return CountLine(em, faction, l) == 0 ? l : -1;
+            }
+            return -1;
+        }
+
+        private static bool AnyLineUnstarted(EntityManager em, Faction faction)
+        {
+            for (int l = 1; l < LostTrainerLines.Length; l++)
+                if (CountLine(em, faction, l) == 0) return true;
+            return false;
         }
 
         private static bool TryResearchTechBudgetedWithReason(EntityManager em, Faction faction,

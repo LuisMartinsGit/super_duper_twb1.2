@@ -97,7 +97,11 @@ namespace TheWaningBorder.AI
             // ...to the power 1.3 (iteration 9: Beginner, Easy and Normal all kept
             // ~3 Farms and their armies bunched; 1.5 starved Hard on Fiendstone):
             // Expert 6, Hard 5, Normal 3, Easy 2, Beginner 2.
-            int want = math.clamp((int)math.ceil(cap * math.pow(math.saturate(ProfileOf(faction).ExtractorShare), 1.3f)), 1, cap);
+            // ...now farmWantExponent on SimpleAISystem.asset (2026-11-14, Game_AI.md
+            // § 6ac: 1.0 -- Expert 6, Hard 5, Normal 4, Easy 3 -- the Farm is the
+            // supply engine that lets a faction fill its population by minute 30).
+            int want = math.clamp((int)math.ceil(cap * math.pow(math.saturate(ProfileOf(faction).ExtractorShare),
+                math.max(0.1f, Cfg.farmWantExponent))), 1, cap);
 
             // Two Farms may rise at once (iteration 3: one at a time left the
             // Farms full only by minute 20-25).
@@ -125,14 +129,27 @@ namespace TheWaningBorder.AI
             if (sent > 0)
                 AILogger.Log(faction, "FARM", $"sent {sent} Worker(s) into Farms, {vacancies} slot(s) still empty");
 
-            // Empty slots and no spare Worker: queue one more, while supplies allow.
+            // Empty slots and no spare Worker: queue more, while supplies allow.
+            // OUTSIDE THE ECONOMY WALLET (2026-11-14, Game_AI.md § 6ac): a Farm
+            // Worker repays its price in about a minute, faster than anything
+            // else the AI buys, yet on Moatwatch (0.0.85) the 300-supply gate and
+            // the wallet share left Farm slots empty for six minutes and more.
+            int queuedWorkers = CountQueuedByPredicate(em, faction, isWorker: true);
+            int queueWant = math.min(vacancies, math.max(1, Cfg.farmWorkersQueuedMax));
             if (vacancies > 0
                 && AICommon.CountIdleWorkers(em, faction) <= Cfg.farmFreeWorkerReserve
-                && bank.Supplies >= Cfg.farmTrainWorkerMinSupplies
-                && CountQueuedByPredicate(em, faction, isWorker: true) < math.min(vacancies, 3))
+                && queuedWorkers < queueWant)
             {
-                if (TryTrainUnitBudgeted(em, faction, "Worker", AIBudgetCategory.EconomyExpansion))
-                    AILogger.Log(faction, "FARM", $"training a Worker for {vacancies} empty Farm slot(s)");
+                int trained = 0;
+                for (int q = queuedWorkers; q < queueWant; q++)
+                {
+                    if (FactionEconomy.TryGetResources(em, faction, out var now2)
+                        && now2.Supplies < Cfg.farmTrainWorkerMinSupplies) break;
+                    if (!TryTrainUnitWithReason(em, faction, "Worker", out _)) break;
+                    trained++;
+                }
+                if (trained > 0)
+                    AILogger.Log(faction, "FARM", $"training {trained} Worker(s) for {vacancies} empty Farm slot(s)");
             }
         }
 

@@ -42,13 +42,6 @@ TEXTURE2D(_AlanthorNormal);
 float  _AlanthorTiling;
 float  _AlanthorSmoothness;
 
-// Alanthor cliffs → masonry terraces (slope-aware, triplanar, banded).
-TEXTURE2D(_TerraceAlbedo);
-half4  _TerraceTint;
-float  _TerraceTiling;
-float  _TerraceCourseHeight;
-float  _TerraceSlopeStart;      // 1 − normal.y where masonry starts
-float  _TerraceSlopeFull;       // fully masonry at/above this steepness
 half4  _FeraldisTint;
 half4  _RunaiTint;
 
@@ -195,22 +188,15 @@ void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
         smoothness = lerp(smoothness, lerp(0.08h, 0.18h, rut), earthen);
     }
 
-    // ── Alanthor: slate paving ON THE NETWORK, masonry terraces on cliffs ─
-    // Paving is network-only (Roads.md); the cliff treatment stays
-    // territory-wide because it dresses cliff FACES, not ground.
-    half aTerritory = TWB_Edge(m.r, positionWS.xz, 0.18h);
-    half aBlend = aTerritory * paved;
-    if (aTerritory > 0.003h)
+    // ── Alanthor: slate paving ON THE NETWORK ───────────────────────────
+    // Paving is network-only (Roads.md). Cliff faces keep the map's own
+    // ground: the masonry-terrace treatment was removed 2026-11-12.
+    half aBlend = TWB_Edge(m.r, positionWS.xz, 0.18h) * paved;
+    if (aBlend > 0.003h)
     {
-        // Steepness of the GEOMETRIC surface (1 − up): flats stay paving,
-        // cliff faces inside Alanthor territory become dressed stone.
-        half steep = (half)smoothstep(_TerraceSlopeStart, _TerraceSlopeFull,
-            1.0 - saturate(geoNormalWS.y));
-
         // Bricks follow the road: on a road the paving UV is the road's own
-        // (along, across) frame; on a plaza and on cliffs it is
-        // world-aligned, and the two are blended so a road entering a plaza
-        // does not snap.
+        // (along, across) frame; on a plaza it is world-aligned, and the
+        // two are blended so a road entering a plaza does not snap.
         float2 worldUV = positionWS.xz / max(_AlanthorTiling, 0.01);
         float2 alongUV = roadUV / max(_AlanthorTiling, 0.01);
         half3 groundW = SAMPLE_TEXTURE2D(_AlanthorAlbedo, sampler_AlanthorAlbedo, worldUV).rgb;
@@ -218,41 +204,11 @@ void ApplyTWBGroundOverlays(float3 positionWS, half3 geoNormalWS,
         half3 ground = lerp(groundW, groundR, onRoad);
         float2 aUV = lerp(worldUV, alongUV, onRoad);
 
-        if (steep > 0.003h)
-        {
-            // Triplanar masonry — terrain UVs smear on cliffs, so project
-            // from the sides in world space, weighted by facing axis.
-            float tile = max(_TerraceTiling, 0.01);
-            half3 wallX = SAMPLE_TEXTURE2D(_TerraceAlbedo, sampler_AlanthorAlbedo, positionWS.zy / tile).rgb;
-            half3 wallZ = SAMPLE_TEXTURE2D(_TerraceAlbedo, sampler_AlanthorAlbedo, positionWS.xy / tile).rgb;
-            half2 axisW = abs(geoNormalWS.xz);
-            axisW /= max(axisW.x + axisW.y, 1e-4h);
-            half3 wall = (wallX * axisW.x + wallZ * axisW.y) * _TerraceTint.rgb;
-
-            // Stacked-course banding by world height: recessed mortar lines
-            // between courses plus a hashed brightness step per course —
-            // this is what makes a cliff read as BUILT terraces/ramparts
-            // rather than merely stone-textured rock.
-            float courseH = max(_TerraceCourseHeight, 0.05);
-            float course = frac(positionWS.y / courseH);
-            half mortar = (half)(smoothstep(0.0, 0.10, course) * smoothstep(1.0, 0.90, course));
-            half courseStep = lerp(0.90h, 1.10h,
-                (half)TWB_Hash(float2(floor(positionWS.y / courseH), 7.31)));
-            wall *= lerp(0.55h, 1.0h, mortar) * courseStep;
-
-            ground = lerp(ground, wall, steep);
-        }
-
-        // Flats blend by the network, cliff faces by the territory.
-        half aMix = lerp(aBlend, aTerritory, steep);
-        albedo = lerp(albedo, ground, aMix);
-        smoothness = lerp(smoothness, _AlanthorSmoothness * (1.0h - 0.5h * steep), aMix);
+        albedo = lerp(albedo, ground, aBlend);
+        smoothness = lerp(smoothness, _AlanthorSmoothness, aBlend);
         #if defined(_NORMALMAP)
             half3 aNrm = UnpackNormal(SAMPLE_TEXTURE2D(_AlanthorNormal, sampler_AlanthorAlbedo, aUV));
-            // On steep faces the course banding carries the detail; the
-            // paving normal (projected top-down) would just smear there.
-            aNrm = lerp(aNrm, half3(0.0h, 0.0h, 1.0h), steep);
-            normalTS = normalize(lerp(normalTS, aNrm, aMix));
+            normalTS = normalize(lerp(normalTS, aNrm, aBlend));
         #endif
     }
 

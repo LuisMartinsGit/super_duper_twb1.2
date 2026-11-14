@@ -174,6 +174,8 @@ namespace TheWaningBorder.AI
         }
 
         private static readonly ArmyPlan _armyPlan = new ArmyPlan();
+        private static readonly System.Collections.Generic.HashSet<string> _crossLineFallbackLogged
+            = new System.Collections.Generic.HashSet<string>();
 
         private static int RowIndex(ArmyPlan p, string unitId)
         {
@@ -246,6 +248,21 @@ namespace TheWaningBorder.AI
                 p.SupIdx[r] = RowIndex(p, row?.supersededByUnitId);
                 p.Class[r] = RoleClassOf(row?.unitId);
                 p.Trainable[r] = row != null && FirstTrainableOrNull(em, faction, row.unitId) != null;
+            }
+            // A LINE FALLS BACK INSIDE ITSELF (developer, 2026-11-14): infantry,
+            // ranged, cavalry and siege each hand a locked unit's share to the
+            // cheapest unit of their OWN line and to nobody else - a horse is
+            // never replaced with infantry. A fallback authored across lines
+            // is ignored (and reported once): with nothing of the line
+            // trainable its share is simply not fielded yet.
+            for (int r = 0; r < p.N; r++)
+            {
+                int f = p.FallbackIdx[r];
+                if (f < 0 || rows[r] == null || RoleClassOf(rows[f]?.unitId) == p.Class[r]) continue;
+                p.FallbackIdx[r] = -1;
+                if (_crossLineFallbackLogged.Add(rows[r].unitId))
+                    UnityEngine.Debug.LogError($"[AI] compositionRoles: {rows[r].unitId} falls back to {rows[f]?.unitId}, " +
+                                   "a unit of another line - ignored. A line falls back only inside itself.");
             }
 
             // Alive...

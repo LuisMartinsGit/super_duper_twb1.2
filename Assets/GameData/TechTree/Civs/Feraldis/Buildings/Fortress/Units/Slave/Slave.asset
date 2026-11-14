@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Slave
   unitClass: human_support
   hp: 80
-  speed: 6
+  speed: 3
   trainingTime: 20
   damage: 2
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.5
   attackRange: 1
   minAttackRange: 0
-  lineOfSight: 14
+  lineOfSight: 7
   aimTime: 0
-  radius: 0.5
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:

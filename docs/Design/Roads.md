@@ -156,7 +156,8 @@ Widths: road **3 m**; trail (a network with no buildings at all) **2 m**.
 Once a faction has chosen **Alanthor**, every one of its buildings stands on
 a **square of Alanthor paving**: its footprint plus **1 build cell (2 m) on
 every side** (`alanthorPadMarginCells`), so a 3 x 3-cell building gets a
-5 x 5-cell pad. Unlike a plaza it is cut square — hard edge, full
+5 x 5-cell pad. **The pad turns with its building** (2026-11-12): a rotated
+building stands square on its paving. Unlike a plaza it is cut square — hard edge, full
 coverage, no lobes or fade — and it sits inside the building's earthen
 plaza. It is paved by the same per-pixel rule as everything else (§5): it
 shows stone once the building is **finished** and the ground is Alanthor's,
@@ -191,7 +192,7 @@ one comparison:
 - **Bricks follow the road.** The raster also stores the road's own frame
   (`_TWB_RoadDir`: arc length along the nearest road and signed distance
   across it, in metres), and Age 1 paving on a road samples the brick
-  texture on that frame instead of world XZ; plazas and cliff terraces stay
+  texture on that frame instead of world XZ; plazas stay
   world-aligned, and the two are blended where a road enters a plaza so
   nothing snaps. **Not a tangent (2026-10-28):** the first version stored
   the road's tangent and rotated the WORLD position into it, which rotates

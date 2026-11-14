@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Stone Weapons
   role: Military Offense
   effect: 
-  desc: "Knapped stone heads harden the line: melee units gain +2 damage. (Interim faction-wide bump until per-battalion upgrades ship.)"
+  desc: "Weapon tier 1: knapped stone heads. All infantry deal +2 damage."
   researchAt: Barracks
   minBuildingLevel: 0
   researchTime: 25

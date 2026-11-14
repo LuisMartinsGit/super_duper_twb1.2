@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Harkon Fiend
   unitClass: human_melee
   hp: 700
-  speed: 6.5
+  speed: 3.25
   trainingTime: 63
   damage: 34
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.2
   attackRange: 1.6
   minAttackRange: 0
-  lineOfSight: 28
+  lineOfSight: 14
   aimTime: 0
-  radius: 0.7
+  radius: 0.35
   trajectory: 
   projectileSpeed: 0
   cost:

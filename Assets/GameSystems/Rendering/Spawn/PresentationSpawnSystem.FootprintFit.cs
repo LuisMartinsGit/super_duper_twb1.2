@@ -68,6 +68,17 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     public static float ComputeBuildingViewScale(GameObject instance, GameObject shownPrefab, string ladderId, byte culture,
         float width, float height, out float authoredScale, out Vector3 centreOffset)
     {
+        // A prefab with corner markers (BuildingAnchors) is authored at unit
+        // scale in the entity's own frame and has no floor to measure: no
+        // fit, no pivot offset, whatever the rest of its ladder does. Its
+        // height comes from the corners (BuildingAnchors.GroundY).
+        if (TheWaningBorder.Systems.Buildings.BuildingAnchors.For(shownPrefab).HasCorners)
+        {
+            authoredScale = AuthoredScaleOf(shownPrefab);
+            centreOffset = Vector3.zero;
+            return authoredScale;
+        }
+
         var reference = ResolveFitReference(ladderId, culture, shownPrefab);
         if (reference == null || reference == shownPrefab)
         {
@@ -236,7 +247,17 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         // remarks) — distrust the offset from the same measurement.
         if (!(fit > 0f) || float.IsInfinity(fit)) { centreOffset = Vector3.zero; return 1f; }
         if (fit < MinFootprintFit || fit > MaxFootprintFit) { centreOffset = Vector3.zero; return 1f; }
-        return fit;
+
+        // NO BUILDING IS SCALED (2026-11-12). Developer: "remove all scaling
+        // from buildings. all prefabs must render at 1:1 scale." The fit is
+        // still measured, because the pivot offset that comes out of the same
+        // measurement is PLACEMENT, not scale — it centres a model on its
+        // cells and stands it on the ground, in the same cases as before —
+        // but the factor itself is always 1: a prefab is drawn at the size it
+        // was authored (its own root scale included), whatever its footprint.
+        // Every path comes through here: the spawn, the level swap, the
+        // placement and ability ghosts, the variant refit and the editor bakers.
+        return 1f;
     }
 
     /// <summary>

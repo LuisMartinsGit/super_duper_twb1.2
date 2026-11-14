@@ -32,6 +32,7 @@ using Unity.Entities;
 using TheWaningBorder.Core.Commands.Types;
 using TheWaningBorder.Core.Settings;
 using TheWaningBorder.Economy;
+using TheWaningBorder.Entities;
 
 namespace TheWaningBorder.AI
 {
@@ -269,8 +270,8 @@ namespace TheWaningBorder.AI
         // ladder ships — wall Tower/Gate CONVERSIONS stay with
         // WallUpgradeSystem and are NOT driven from here.
         private static readonly string[] PriorityOrder =
-            { "GatherersHut", "Mine", "Alanthor_Farm", "Fortress", "Barracks", "Hut", "ArcheryRange",
-              "Alanthor_RoyalStable", "Alanthor_SiegeYard", "Alanthor_Tower",
+            { "Barracks", "GatherersHut", "ArcheryRange", "Mine", "Alanthor_RoyalStable", "Fortress",
+              "Alanthor_SiegeYard", "Alanthor_Farm", "Hut", "Alanthor_Tower",
               "VaultOfAlmierra", "Alanthor_Wall",
               "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop", "Runai_Sanctuary",
               "Feraldis_HallOfAxes", "Feraldis_Pasture", "Feraldis_SiegeYard" };
@@ -328,6 +329,15 @@ namespace TheWaningBorder.AI
                 if (em.GetComponentData<FactionEra>(bank).Value < 2) continue;
                 if (!HasCulture(em, faction)) continue;
 
+                // HOUSING BEFORE THE TURN (2026-11-14, Game_AI.md § 6ac): a
+                // House level near the cap is bought outside the level-up gap
+                // and the rotation, and saved for when the bank cannot pay.
+                TryUpgradeHousing(em, faction, time);
+                // ...and so is a Farm level that repays its price (§ 6ac): it
+                // is income, and waited behind ten other types in batch B.
+                TryUpgradeBuildingType(em, faction, "Alanthor_Farm", supplyEngine: true, outsideGap: true);
+                TryUpgradeBuildingType(em, faction, "Mine", supplyEngine: true, outsideGap: true);
+
                 // PHASES (Game_AI.md § 2a): the tier's gap between level-ups.
                 if (!AIPacing.LevelUpTurn(em, faction))
                 {
@@ -381,10 +391,18 @@ namespace TheWaningBorder.AI
                     && !AIPivotalReserve.IsSuspended(faction);
                 if (!reserveCapital) AIPivotalReserve.Clear(faction, CapitalReserveKey);
 
-                for (int a = 0; a < attempts && AIPacing.LevelUpTurn(em, faction); a++)
-                    if (!TryUpgradeOne(em, faction, (rotation + a) % PriorityOrder.Length,
+                // A LINE THAT CANNOT LEVEL DOES NOT COST THE TURN (2026-11-14).
+                // The walk used to stop at the first entry that did nothing, and
+                // most entries do nothing for a given faction (another culture's
+                // buildings, a line with no building yet, one already at its top):
+                // the Royal Stable and Siege Yard reached level 3 in 11 of 84
+                // faction-games. It now goes on down the rotation until it has
+                // made its level-ups for this think.
+                int made = 0;
+                for (int a = 0; a < PriorityOrder.Length && made < attempts && AIPacing.LevelUpTurn(em, faction); a++)
+                    if (TryUpgradeOne(em, faction, (rotation + a) % PriorityOrder.Length,
                             reservesOk, overflowing, veilstoneHeld, reserveCapital, profile, time))
-                        break;
+                        made++;
 
                 // ECONOMY LEVELS FIRST (Game_AI.md 5h): a level is income,
                 // which is what the army is waiting on.
@@ -401,6 +419,121 @@ namespace TheWaningBorder.AI
 
         /// <summary>AIPivotalReserve key of the capital's next level.</summary>
         private const string CapitalReserveKey = "CapitalLevel";
+
+        /// <summary>The next Farm level's added supplies a minute (every
+        /// finished Farm of the faction: Workers inside x field share x the
+        /// per-Worker gain) repay its price within farmLevelPaybackMinutes.</summary>
+        private static bool FarmLevelPaysBack(EntityManager em, Faction faction, in Cost price, byte nextLevel)
+        {
+            if (Cfg.farmLevelPaybackMinutes <= 0f) return false;
+            var nextDef = BuildingUpgradeConfig.LevelDef(Cultures.Alanthor, Farm.BuildingId, nextLevel);
+            if (nextDef == null) return false;
+            int gainPerWorker = nextDef.suppliesPerWorkerPerMinute - Farm.PerWorkerPerMinute(em, faction);
+            if (gainPerWorker <= 0) return false;
+
+            var q = QC_FarmUpgradeable.Get(em, QT_FarmUpgradeable);
+            using var farms = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            int gain = 0;
+            for (int i = 0; i < farms.Length; i++)
+            {
+                if (facs[i].Value != faction || em.HasComponent<UnderConstruction>(farms[i])) continue;
+                gain += Farm.SuppliesPerMinute(WallGarrison.OccupantCount(em, farms[i]), gainPerWorker,
+                    FarmRing.CachedFreePermille(em, farms[i]));
+            }
+            float priceSum = price.Supplies + price.Iron + price.Veilstone;
+            if (gain * Cfg.farmLevelPaybackMinutes >= priceSum) return true;
+            if (AILogger.Enabled)
+                AIBudget.NoteEconomyDeferred(faction, "upgrade Alanthor_Farm",
+                    $"+{gain} supplies/min x {Cfg.farmLevelPaybackMinutes:F0} min < price {priceSum:F0}");
+            return false;
+        }
+
+        /// <summary>The next Mine level's added ore a minute (every finished
+        /// Mine of the faction, the level SOs' slotIncomePerMinute rungs)
+        /// repays its price within farmLevelPaybackMinutes. <paramref name="judged"/>
+        /// is false when the culture authors no Mine level SOs (then the
+        /// ordinary value gate decides).</summary>
+        private static bool MineLevelPaysBack(EntityManager em, Faction faction, in Cost price, byte nextLevel,
+            out bool judged)
+        {
+            judged = false;
+            if (Cfg.farmLevelPaybackMinutes <= 0f) return false;
+            byte culture = CultureConfig.GetCompletedCulture(em, faction);
+            var nextDef = BuildingUpgradeConfig.LevelDef(culture, "Mine", nextLevel);
+            var nowDef = BuildingUpgradeConfig.LevelDef(culture, "Mine", (byte)(nextLevel - 1));
+            if (nextDef == null || nowDef == null) return false;
+            judged = true;
+            float step = nextDef.slotIncomePerMinute - nowDef.slotIncomePerMinute;
+            if (step <= 0f) return false;
+            var q = QC_MineUpgradeable.Get(em, QT_MineUpgradeable);
+            using var mines = q.ToEntityArray(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            int owned = 0;
+            for (int i = 0; i < mines.Length; i++)
+                if (facs[i].Value == faction && !em.HasComponent<UnderConstruction>(mines[i])) owned++;
+            float gain = owned * step;
+            float priceSum = price.Supplies + price.Iron + price.Veilstone;
+            if (gain * Cfg.farmLevelPaybackMinutes >= priceSum) return true;
+            if (AILogger.Enabled)
+                AIBudget.NoteEconomyDeferred(faction, "upgrade Mine",
+                    $"+{gain:F0} ore/min x {Cfg.farmLevelPaybackMinutes:F0} min < price {priceSum:F0}");
+            return false;
+        }
+
+        /// <summary>AIPivotalReserve key of the next House level.</summary>
+        private const string HousingReserveKey = "HousingLevel";
+
+        /// <summary>
+        /// THE HOUSE LEVEL IS THE POPULATION CAP (2026-11-14, Game_AI.md
+        /// § 6ac). Twenty Houses at L1 hold a faction at 110; only House
+        /// levels reach the 300 cap. Measured on Moatwatch (0.0.85, 24
+        /// faction-games): every faction had its twenty Houses by minute 14,
+        /// one House L2 was bought by minute 15.5, and the level waited in a
+        /// ten-type rotation behind the tier's level-up gap while every supply
+        /// went to units as it arrived. So while free housing is within
+        /// hutUpgradeHeadroomMax, the House level is taken here, before the
+        /// gap and the rotation: bought the moment the bank covers it,
+        /// otherwise a savings goal (non-strict, so the army still breathes
+        /// on the reserve's duty cycle). The tier's phase clocks still apply.
+        /// </summary>
+        private static void TryUpgradeHousing(EntityManager em, Faction faction, float time)
+        {
+            if (time < SimpleAISystem.TierOf(faction).LevelUpsFromSeconds
+                || !PopulationHelper.TryGetFactionPopulation(faction, out int pop, out int popMax)
+                || popMax - pop > Cfg.hutUpgradeHeadroomMax)
+            {
+                AIPivotalReserve.Clear(faction, HousingReserveKey);
+                return;
+            }
+            var query = QC_HutTagBuildingUpgradeableFactionTag.Get(em, QT_HutTagBuildingUpgradeableFactionTag);
+            Entity host = PickHost(em, faction, query);
+            if (host == Entity.Null
+                || !UpgradeBuildingCommandHelper.TryGetNextCost(em, host, out var price, out byte next)
+                || !AIPacing.LevelPhaseOpen(em, faction, next))
+            {
+                AIPivotalReserve.Clear(faction, HousingReserveKey);
+                return;
+            }
+            if (!FactionEconomy.CanAfford(em, faction, price))
+            {
+                if (!AIPivotalReserve.Has(faction, HousingReserveKey))
+                    AILogger.Log(faction, "ECON",
+                        $"House L{next} saving ({price.Supplies}s {price.Iron}i {price.Veilstone}v) - pop {pop}/{popMax}");
+                // AT THE CAP THE SAVING IS STRICT: nothing can be trained until
+                // the level is bought, so an economy-distress pause (which drops
+                // every non-strict goal) must not spend the price elsewhere --
+                // measured: Green on Moatwatch saved from 12:39 and still sat at
+                // 110/110 at minute 15, "savings paused (rebuilding Mine)".
+                bool atCap = popMax - pop <= Cfg.hutUpgradeStrictHeadroom;
+                AIPivotalReserve.Set(faction, HousingReserveKey, price, strict: atCap);
+                return;
+            }
+            AIPivotalReserve.Clear(faction, HousingReserveKey);
+            if (UpgradeBuildingCommandHelper.Execute(em, host,
+                    TheWaningBorder.Core.Commands.CommandSource.AI) == UpgradeBuildingResult.Ok)
+                AILogger.Log(faction, "BUILDING", $"Upgrading Hut to L{next} (housing, pop {pop}/{popMax})");
+        }
 
         /// <summary>Seconds between "capital saving" lines per faction (log
         /// cadence, not tuning).</summary>
@@ -601,7 +734,9 @@ namespace TheWaningBorder.AI
                     return true;
                 case CapitalUpgrade.Saving:
                     return TryUpgradeBuildingType(em, faction, "GatherersHut", surplus, veilstoneHeld,
-                        supplyEngine: true);
+                            supplyEngine: true)
+                        || TryUpgradeBuildingType(em, faction, "Alanthor_Farm", surplus, veilstoneHeld,
+                            supplyEngine: true);
             }
 
             // Below the reserve floor only the supply engine is eligible —
@@ -612,6 +747,9 @@ namespace TheWaningBorder.AI
             if (!reservesOk)
             {
                 if (TryUpgradeBuildingType(em, faction, "GatherersHut", surplus, veilstoneHeld,
+                        supplyEngine: true))
+                    return true;
+                if (TryUpgradeBuildingType(em, faction, "Alanthor_Farm", surplus, veilstoneHeld,
                         supplyEngine: true))
                     return true;
                 for (int p = 0; p < ProductionLineIds.Length; p++)
@@ -810,7 +948,7 @@ namespace TheWaningBorder.AI
         /// forms) — exempt from the army-first gate and the savings hold,
         /// because it is the income both are waiting on.</param>
         private static bool TryUpgradeBuildingType(EntityManager em, Faction faction, string buildingId,
-            bool surplus = false, bool veilstoneHeld = false, bool supplyEngine = false)
+            bool surplus = false, bool veilstoneHeld = false, bool supplyEngine = false, bool outsideGap = false)
         {
             // A tier that levels late (Game_AI.md § 2).
             if (TheWaningBorder.Core.SimClock.Now < SimpleAISystem.TierOf(faction).LevelUpsFromSeconds) return false;
@@ -925,7 +1063,32 @@ namespace TheWaningBorder.AI
             // levels now (decision 53), and the soldiers-for-price test refused
             // every one of them in both decision-55 test matches -- no AI army
             // ever got a tier. They pass on the level clock (AIPacing below).
-            if (buildingId != "Hut" && !feedsArmy)
+            // A FARM LEVEL IS THE SUPPLY ENGINE (2026-11-14, Game_AI.md § 6ac):
+            // judged on what it pays, not on soldiers. Measured on Moatwatch
+            // (0.0.85): no Farm level in 24 faction-games, the level yielding
+            // to the army up to 114 times a match while the Farms were full.
+            bool farmEngine = false;
+            if (buildingId == "Alanthor_Farm")
+            {
+                if (!FarmLevelPaysBack(em, faction, price, nextLevel)) return false;
+                farmEngine = true;
+                supplyEngine = true;
+            }
+            // ...and an Alanthor Mine level is the iron engine, judged the same
+            // way (the army ran short of iron, not supplies, in batch C).
+            else if (buildingId == "Mine")
+            {
+                if (MineLevelPaysBack(em, faction, price, nextLevel, out bool judged))
+                {
+                    farmEngine = true;
+                    supplyEngine = true;
+                }
+                // Judged and refused, or no level SOs on the payback-only pass
+                // outside the gap: no. Otherwise the ordinary value gate below.
+                else if (judged || supplyEngine) return false;
+            }
+
+            if (buildingId != "Hut" && !feedsArmy && !farmEngine)
             {
                 float perBuilding = feedsArmy ? Cfg.soldiersPerProductionBuilding
                     : buildingId == "GatherersHut" || buildingId == "Mine" || buildingId == "Alanthor_Farm"
@@ -984,7 +1147,8 @@ namespace TheWaningBorder.AI
                 && !AIBudget.LeavesMilitaryVeilstone(em, faction, nextCost))
                 return false;
 
-            if (!AIPacing.LevelAllowed(em, faction, (byte)(bestLevel + 1))) return false;
+            if (outsideGap ? !AIPacing.LevelPhaseOpen(em, faction, (byte)(bestLevel + 1))
+                           : !AIPacing.LevelAllowed(em, faction, (byte)(bestLevel + 1))) return false;
             var result = UpgradeBuildingCommandHelper.Execute(em, best,
                 TheWaningBorder.Core.Commands.CommandSource.AI);
             if (result == UpgradeBuildingResult.Ok)

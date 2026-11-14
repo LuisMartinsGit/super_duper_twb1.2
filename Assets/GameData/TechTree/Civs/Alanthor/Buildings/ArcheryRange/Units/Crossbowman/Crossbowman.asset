@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Crossbowman
   unitClass: human_ranged
   hp: 70
-  speed: 5
+  speed: 2.5
   trainingTime: 15.4
   damage: 18
   damageType: ranged
@@ -27,10 +27,10 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 3
-  attackRange: 12
+  attackRange: 6
   minAttackRange: 0
-  lineOfSight: 12
-  radius: 0.5
+  lineOfSight: 6
+  radius: 0.25
   aimTime: 0.35
   trajectory: flat
   projectileSpeed: 38.5

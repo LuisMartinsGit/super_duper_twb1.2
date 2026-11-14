@@ -8,10 +8,8 @@
 // playback.
 //
 // What makes the expiry "clean" in the design sense is therefore not a
-// different removal path but a set of exclusions elsewhere:
+// different removal path but an exclusion elsewhere:
 //   * HeroLevelSystem skips TemporarySummon, so nobody earns XP off them
-//   * UnitRankDeathEffectsSystem skips them, so a rank-4 pledge does not
-//     detonate when its time simply runs out
 // A pledged soldier CUT DOWN in the field still dies an ordinary death — it is
 // only running out of time that is quiet.
 

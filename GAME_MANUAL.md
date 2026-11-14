@@ -688,7 +688,7 @@ match starts.
 
 | Need to… | Do this |
 |---|---|
-| Get iron | Build a Mine on an iron node in ground you hold; it pays straight into your stockpile. Workers only build and repair. |
+| Get iron | Select a Worker, point at an iron node in ground you hold and click the Mine button that appears over it; it pays straight into your stockpile. Supply spots (Gatherer's Hut / Guild) and veilstone outcroppings (Veilstone Mine) work the same way — these buildings are not in the build palette. Workers only build and repair. |
 | Build a wall | Pick the Palisade (Age 0) or Stone Wall (Alanthor) and **drag** the line; hubs and sections are laid along it. |
 | Convert a wall section | Select the section: **Gate** (needs 4 clear sections; the gatehouse takes 3) or **Hub**; on a stone wall also **Tower** (3 clear sections), **Mount Ballista** (wall level 2+) or **Mount Trebuchet** (wall level 3) — emplacements are built by workers. |
 | Raise the stone wall's level | Select any Wall Hub and research **Battlements**, then **Shielded Ramparts** — every wall you own is re-clad at once. |

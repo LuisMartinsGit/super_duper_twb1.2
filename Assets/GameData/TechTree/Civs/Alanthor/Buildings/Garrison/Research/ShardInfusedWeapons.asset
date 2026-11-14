@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Shard-infused Weapons
   role: Military
   effect: 
-  desc: "Weapon tier 4: melee units deal a further +75% damage."
+  desc: "Weapon tier 4: all infantry deal a further +5 damage."
   researchAt: Barracks
   minBuildingLevel: 3
   researchTime: 50
@@ -37,5 +37,5 @@ MonoBehaviour:
   effectsList:
   - Target: "type:Melee"
     Stat: Damage
-    Op: Pct
-    Value: 75
+    Op: Add
+    Value: 5

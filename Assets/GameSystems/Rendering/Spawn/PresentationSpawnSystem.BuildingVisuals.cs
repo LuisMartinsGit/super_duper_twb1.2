@@ -183,6 +183,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             tag.BaseOffset = fitOffset;
             go.transform.localScale = Vector3.one * transform.Scale * baseScale;
         }
+        // Corner markers: stand on the highest ground under them from the
+        // first frame (the sync keeps it there).
+        var anchors = TheWaningBorder.Systems.Buildings.BuildingAnchors.For(prefab);
+        if (anchors.HasCorners)
+        {
+            pos.y = anchors.GroundY(pos, VisualRotation(entity, transform.Rotation), transform.Scale * baseScale, pos.y);
+            go.transform.position = pos;
+        }
         var finished = FinishProceduralBuilding(go, entity, transform);
         var source = finished.GetComponent<BuildingVisualSource>() ?? finished.AddComponent<BuildingVisualSource>();
         source.Prefab = prefab;

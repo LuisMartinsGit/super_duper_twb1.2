@@ -225,6 +225,9 @@ namespace TheWaningBorder.Rendering
                     continue;
                 }
                 if (!EntityViewManager.Instance.TryGetView(entity, out var bgo) || bgo == null) continue;
+                // A prefab with an authored construction sequence raises its
+                // own dust, group by group — and only where it says so.
+                if (bgo.GetComponent<BuildingConstructionSequence>() != null) continue;
                 if (dust != null && dust.transform.parent == bgo.transform) continue;
                 if (dust != null) Destroy(dust);
                 _constructionDust[entity] = SpawnEffect(cfg.constructionDustPrefab, cfg.constructionDustMaterial,
@@ -321,6 +324,24 @@ namespace TheWaningBorder.Rendering
             foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>())
                 ps.Stop(false, ParticleSystemStopBehavior.StopEmitting);
             Destroy(fx, seconds);
+        }
+
+        /// <summary>The site-dust loop (the config's Hovl prefab) at one spot
+        /// of a building, <paramref name="radius"/> metres wide — for
+        /// BuildingConstructionSequence's rising groups. Null without a prefab.</summary>
+        internal static GameObject SpawnConstructionDust(Transform parent, Vector3 position, float radius)
+        {
+            var cfg = Cfg;
+            if (cfg == null || cfg.constructionDustPrefab == null) return null;
+            return SpawnEffect(cfg.constructionDustPrefab, cfg.constructionDustMaterial, parent, position,
+                radius * cfg.constructionDustScalePerMetre, loop: true);
+        }
+
+        /// <summary>Let a dust loop from <see cref="SpawnConstructionDust"/> die away.</summary>
+        internal static void FadeOutEffect(GameObject fx)
+        {
+            var cfg = Cfg;
+            FadeOut(fx, cfg != null ? cfg.constructionDustFadeSeconds : 1f);
         }
 
         // ── Shared helpers for the Hovl effects ──

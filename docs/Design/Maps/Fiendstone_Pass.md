@@ -141,3 +141,14 @@ pocket's place. The map must have at least one (Territory_Claims.md §9).
 - **Look, in the Editor:** cliffs and ramps read clearly from the player camera;
   the river is deep blue water and each ford is a shallow under it, its bed
   visible through the caustics. The fords' edges are straight-cut.
+
+## The look (highland forest, 2026-11-14)
+
+The Yiel Lymwérra kit with its own biome: dark needle-litter ground with moss patches and loose scree, grey cliff rock, a stony riverbed under the deep water; the forests stay forests. The textures are the
+stylized pack on the five layers the builder paints, plus three detail layers
+(broad patches, sparse clumps, the bed under water too deep to wade), and a
+`TerrainLook` on the Terrain (anti-tiling, colour drift, cliff side-projection).
+Walkability is not touched: the NoWalk layer is never written. The look is
+DATA in `TerrainBiomeDress.cs` (one `Biome` entry per map, menu
+`Waning Border > Maps > Dress <map>`), and `MapBuilderFromLayout` runs it after
+every rebuild.

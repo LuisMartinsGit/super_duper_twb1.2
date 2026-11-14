@@ -921,16 +921,56 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         private void SpawnSelectedBuilding(float3 pos, float yawDegrees)
+            => SpawnBuilding(_currentBuildId, pos, yawDegrees);
+
+        // ── Placing without a ghost (the button over a resource node) ──────
+
+        private static WorkerCommandPanel Live
+            => _activeInstance != null ? _activeInstance : FindFirstObjectByType<WorkerCommandPanel>();
+
+        /// <summary>The ground point under the pointer (terrain only).</summary>
+        public static bool TryMouseGround(out Vector3 world)
+        {
+            world = default;
+            var instance = Live;
+            return instance != null && instance.TryGetMouseWorld(out world);
+        }
+
+        /// <summary>Would <paramref name="buildingId"/> be accepted at
+        /// <paramref name="pos"/> right now? The ghost's own evaluation, for a
+        /// caller that has no ghost.</summary>
+        public static PlacementRefusal EvaluateNow(string buildingId, float3 pos)
+        {
+            var instance = Live;
+            if (instance == null) return PlacementRefusal.UnknownBuilding;
+            instance._em = (instance._world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
+            return instance.EvaluatePlacement(pos, buildingId, instance.PlacementFaction(buildingId), out _);
+        }
+
+        /// <summary>
+        /// Place <paramref name="buildingId"/> at <paramref name="pos"/> at
+        /// once, with no ghost: every check, notice and order a click on a
+        /// valid ghost runs, the selected workers sent to the site included.
+        /// False when it was refused (the reason has been shown).
+        /// </summary>
+        public static bool PlaceNow(string buildingId, float3 pos)
+        {
+            if (GameSettings.IsSpectating) return false;
+            var instance = Live;
+            return instance != null && instance.SpawnBuilding(buildingId, pos, 0f);
+        }
+
+        /// <summary>True when the order went out.</summary>
+        private bool SpawnBuilding(string id, float3 pos, float yawDegrees)
         {
             _em = (_world ?? EntityWorld.DefaultGameObjectInjectionWorld).EntityManager;
 
-            var id = _currentBuildId;
             if (!IsPlaceableId(id))
             {
                 Debug.LogError($"[WorkerCommandPanel] Refused placement of unknown building id '{id}'.");
                 PlayerNotificationSystem.NotifyError(
                     PlacementRefusalText.Of(PlacementRefusal.UnknownBuilding));
-                return;
+                return false;
             }
 
             var fac = PlacementFaction(id);
@@ -942,7 +982,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (tpCount >= 10)
                 {
                     PlayerNotificationSystem.Notify(Loc.T("Maximum 10 Trading Posts"));
-                    return;
+                    return false;
                 }
             }
 
@@ -951,7 +991,7 @@ namespace TheWaningBorder.UI.Ingame
             {
                 PlayerNotificationSystem.Notify(string.Format(Loc.T("Limit reached: {0} per faction"),
                     TechCatalog.Building(id).maxPerFaction));
-                return;
+                return false;
             }
 
             // Block additional Temples of Ridan — only one per faction.
@@ -963,7 +1003,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (templeCount >= 1)
                 {
                     PlayerNotificationSystem.Notify(Loc.T("Only one Temple of Ridan per faction"));
-                    return;
+                    return false;
                 }
             }
 
@@ -974,7 +1014,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (existing != null)
                 {
                     PlayerNotificationSystem.Notify(Loc.T("Already have a choice building"));
-                    return;
+                    return false;
                 }
             }
 
@@ -989,7 +1029,7 @@ namespace TheWaningBorder.UI.Ingame
             if (refusal != PlacementRefusal.None)
             {
                 PlayerNotificationSystem.NotifyError(PlacementRefusalText.Of(refusal, id));
-                return;
+                return false;
             }
 
             // The price the executor will charge THIS faction — the Hall's
@@ -1005,7 +1045,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!FactionEconomy.CanAfford(_em, fac, cost))
             {
                 PlayerNotificationSystem.NotifyError(TheWaningBorder.UI.Common.UIHelpers.CantAfford(_em, fac, cost));
-                return;
+                return false;
             }
 
             if (GameSettings.UsesLockstep)
@@ -1033,7 +1073,7 @@ namespace TheWaningBorder.UI.Ingame
                             CommandSource.LocalPlayer, append: ChainHeld);
                     }
                 }
-                return;
+                return true;
             }
 
             // Single player: create building directly and assign workers.
@@ -1048,7 +1088,7 @@ namespace TheWaningBorder.UI.Ingame
                 PlayerNotificationSystem.NotifyError(why != PlacementRefusal.None
                     ? PlacementRefusalText.Of(why, id)
                     : Loc.T("Not enough resources"));
-                return;
+                return false;
             }
 
             // The mouse-wheel rotation is applied by PlaceBuildingDirect itself
@@ -1062,6 +1102,7 @@ namespace TheWaningBorder.UI.Ingame
             if (pt != null) pt.FlattenAt(new Vector3(pos.x, 0f, pos.z), halfExtent);
 
             AssignWorkersToConstruction(building, id, pos);
+            return true;
         }
 
         /// <summary>

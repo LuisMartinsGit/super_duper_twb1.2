@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Scar Guard
   unitClass: melee
   hp: 320
-  speed: 5.5
+  speed: 2.75
   trainingTime: 22
   damage: 26
   damageType: melee
@@ -29,14 +29,14 @@ MonoBehaviour:
   attackCooldown: 1.2
   attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 18
-  radius: 0.5
+  lineOfSight: 9
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:
     Supplies: 80
     Iron: 45
-    Veilstone: 0
+    Veilstone: 80
   populationCost: 1
   minBuildingLevel: 0
   buildSpeed: 0

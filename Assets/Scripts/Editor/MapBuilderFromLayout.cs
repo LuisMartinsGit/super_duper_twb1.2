@@ -246,6 +246,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             if (bad > 0) Debug.LogError($"[{spec.MapName}] {bad} validation problem(s) — see Console.");
             Debug.Log($"[{spec.MapName}] built: {layout.regions.Length} territories, {layout.starts.Length} starts.");
             MapGenKit.ReportLobbyReadiness(spec.MapName, spec.MapName, spec.Folder, scenePath, registered);
+            // The map's biome look (textures, detail layers, TerrainLook), when it has one.
+            TerrainBiomeDress.RunIfKnown(spec.SceneName);
             return true;
         }
 

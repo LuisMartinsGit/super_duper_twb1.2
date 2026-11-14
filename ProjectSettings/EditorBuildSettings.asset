@@ -161,6 +161,21 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/GameData/Scenes/Tutorial/TutorialAlanthor/TutorialAlanthor.unity
     guid: 1e80574731728d84fb73abe8ad184d8f
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Moatwatch_v2/Moatwatch_v2.unity
+    guid: 5bb1b2207475add47ac9c0ea2c6d8675
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Trine Hollow_v2/TrineHollow_v2.unity
+    guid: 838561177127abd47829b1455071d0f8
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Fiendstone Pass_v2/FiendstonePass_v2.unity
+    guid: 331ebe01b738d1e47b908947acff587b
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Broken Oath_v2/BrokenOath_v2.unity
+    guid: f8cf688f2ae69734587b11dfcd7784d0
+  - enabled: 1
+    path: Assets/GameData/Scenes/Maps/Highfold_v2/Highfold_v2.unity
+    guid: d838288f7c2541b44a4b12a97178bdab
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

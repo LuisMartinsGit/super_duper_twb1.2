@@ -563,7 +563,23 @@ namespace TheWaningBorder.World.Regions
             for (int t = 0; t < n; t++)
             {
                 if (boxMin[t].x > boxMax[t].x) return null;
-                float2 c = (boxMin[t] + boxMax[t]) * 0.5f - mid;
+                // A territory that gets NO nodes (Sanctum, Empty) needs no twin:
+                // it may sit across an axis — Moatwatch_v2's one central
+                // Sanctum, shared by all four seats (2026-11-14) — without
+                // costing every other territory its mirrored layout. It lays
+                // nothing (x < 0) and is never a curse candidate.
+                var t0 = TypeOf(t);
+                if (t0 == ResourceType.Sanctum || t0 == ResourceType.Empty)
+                {
+                    result[t] = new int4(-1, t, t, t);
+                    continue;
+                }
+                // A point INSIDE the territory (Centroids guarantees it), not
+                // its bounding box's centre: a territory curved round a moat
+                // (Moatwatch_v2's arms, 2026-11-14) has its box centre in the
+                // water, and the mirror of that point is in no territory at
+                // all — which used to give up the mirrored layout map-wide.
+                float2 c = centres[t].xz - mid;
                 if (math.abs(c.x) < 4f || math.abs(c.y) < 4f) return null;   // straddles an axis
                 int mx = RegionMap.RegionAt(mid.x - c.x, mid.y + c.y);
                 int mz = RegionMap.RegionAt(mid.x + c.x, mid.y - c.y);

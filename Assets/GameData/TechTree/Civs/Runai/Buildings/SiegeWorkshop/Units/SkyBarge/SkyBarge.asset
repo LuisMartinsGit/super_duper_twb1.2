@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Sky Barge
   unitClass: machinery_siege
   hp: 260
-  speed: 4.2
+  speed: 2.1
   trainingTime: 35
   damage: 40
   damageType: siege
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 4.5
-  attackRange: 6
+  attackRange: 3
   minAttackRange: 0
-  lineOfSight: 26
+  lineOfSight: 13
   aimTime: 0.5
-  radius: 1.4
+  radius: 0.7
   trajectory: high
   projectileSpeed: 8.4
   cost:
@@ -46,7 +46,7 @@ MonoBehaviour:
   healRange: 0
   siegeRange: 0
   siegeCooldown: 0
-  aoeRadius: 2.5
+  aoeRadius: 1.25
   tags:
   - Siege
   - Flying

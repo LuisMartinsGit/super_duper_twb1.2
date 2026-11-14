@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Swordsman
   unitClass: human_melee
   hp: 120
-  speed: 5.5
+  speed: 2.75
   trainingTime: 16.8
   damage: 14
   damageType: melee
@@ -29,24 +29,32 @@ MonoBehaviour:
   attackCooldown: 1.4
   attackRange: 1
   minAttackRange: 0
-  lineOfSight: 16
-  radius: 0.5
+  lineOfSight: 8
+  aimTime: 0
+  radius: 0.25
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 160
     Iron: 70
-    Crystal: 0
+    Veilstone: 0
   populationCost: 1
   minBuildingLevel: 1
   buildSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
   - Infantry
   - Heavy
   bonusVsTags:
   - vsTag: Siege
     amount: 10
+  preferTargets: []
+  abilities: []
   prefab: {fileID: 8293738258166481217, guid: c2d7af86fa435794aa3335fc44afbe55, type: 3}
   presentationId: 201
   animatorController: {fileID: 9100000, guid: dd302ea46427750438be71e2827c1239, type: 2}

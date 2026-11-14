@@ -66,6 +66,11 @@ namespace TheWaningBorder.AI
         /// is at most this. A Hut level buys population and nothing else.</summary>
         public int hutUpgradeHeadroomMax;
 
+        /// <summary>Within this much free housing the House level's savings goal
+        /// is strict (it holds through an economy-distress pause): at the cap
+        /// nothing else can grow the army (Game_AI.md § 6ac).</summary>
+        public int hutUpgradeStrictHeadroom;
+
         /// <summary>FACTION-WIDE LEVELS (2026-10-19): a level is priced
         /// against soldiers. The unit whose SO cost (all four resources
         /// summed) is "one soldier". Empty = the value gate is off.</summary>
@@ -90,5 +95,11 @@ namespace TheWaningBorder.AI
         /// <summary>While the bank overflows (AIBudget.BankOverflowing) the
         /// value gate is skipped: the basics cap leaves nothing to train.</summary>
         public bool surplusIgnoresValue;
+
+        /// <summary>A Farm level is bought (as the supply engine, Game_AI.md
+        /// § 6ac) when the supplies it adds a minute - Workers inside x field
+        /// share x the per-Worker gain of the next level - repay its price
+        /// (supplies + iron) within this many minutes. 0 = never.</summary>
+        public float farmLevelPaybackMinutes;
     }
 }

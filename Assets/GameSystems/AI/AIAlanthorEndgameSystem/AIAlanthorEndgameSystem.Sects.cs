@@ -83,11 +83,17 @@ namespace TheWaningBorder.AI
         // powers follow, pure aggression flavor sits at the tail.
         private static readonly string[] AlanthorSectPriority =
         {
+            // THE HOME CLUSTER FIRST (2026-11-14): Alanthor's four sects -
+            // Renewal, Fortitude, Antiquity, Prosperity - are the ones with a
+            // building, a line unit and a hero, and the only ones in the demo.
+            // Justice and Veneration used to sit third and sixth and took two
+            // of an AI's chapel slots for no building at all. (War is not an
+            // Alanthor sect - developer, 2026-11-14.)
             SectConfig.Renewal,      // heal circle + hp lever — defense core
             SectConfig.Fortitude,    // armor circle + melee armor — the wall behind the wall
-            SectConfig.Justice,      // reveal + global damage lever
             SectConfig.Antiquity,    // Trespass on home ground + Artificer slows
             SectConfig.Prosperity,   // Treasury income + Plenty — the economy insurance
+            SectConfig.Justice,      // reveal + global damage lever
             SectConfig.Veneration,   // damage circle on the garrison
             SectConfig.War,          // speed surge + Warbreaker shock elite
             SectConfig.Witness,      // wide reveal — scout redundancy

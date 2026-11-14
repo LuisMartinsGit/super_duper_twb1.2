@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e4b2d63a0f94c71b2d3e4f5a6b7c801, type: 3}
   m_Name: UnitStanceSystem
   m_EditorClassIdentifier:
-  aggressiveLeash: 30
-  formationMeleeEngage: 10
+  aggressiveLeash: 15
+  formationMeleeEngage: 5
   retaliationWindow: 5
   leashReacquireCooldown: 1.5
   underFireWindow: 2.5
-  assistRadius: 5
+  assistRadius: 2.5
   assistWindow: 1

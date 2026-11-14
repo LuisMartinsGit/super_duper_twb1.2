@@ -126,6 +126,26 @@ namespace TheWaningBorder.Abilities
             => id == "Spearman" || id == "Alanthor_Swordsman"
             || id == "Alanthor_Nobleman" || id == "Alanthor_Sentinel";
 
+        public static bool IsSpearman(string id) => id == "Spearman";
+        public static bool IsSwordsman(string id) => id == "Alanthor_Swordsman" || id == "Swordsman";
+
+        /// <summary>The Swordsman passives as their techs author them (effectsList).</summary>
+        public static ParryState ParryFromTech() => new ParryState
+        {
+            CooldownSeconds = TechCatalog.TechEffect("Parry", "ParryCooldownSeconds"),
+        };
+        public static CounterState CounterFromTech() => new CounterState
+        {
+            ReflectPct = TechCatalog.TechEffect("Counter", "CounterReflectPct"),
+        };
+        public static RecklessState RecklessFromTech() => new RecklessState
+        {
+            Every = (byte)TechCatalog.TechEffect("RecklessAttack", "RecklessEverySwings"),
+            Radius = TechCatalog.TechEffect("RecklessAttack", "RecklessRadius"),
+            VulnerablePct = TechCatalog.TechEffect("RecklessAttack", "RecklessVulnerablePct"),
+            VulnerableSeconds = TechCatalog.TechEffect("RecklessAttack", "RecklessVulnerableSeconds"),
+        };
+
         public static bool IsArcher(string id)
             => id == "Alanthor_Archer" || id == "Archer" || id == "Alanthor_Crossbowman" || id == "Alanthor_Longbowman";
 
@@ -149,10 +169,22 @@ namespace TheWaningBorder.Abilities
 
             if (IsGarrisonInfantry(unitId))
             {
-                if (rs.HasResearched(faction, "Charge"))
-                    SetEnabled(em, e, ChargeFromTech("Charge"));
-                if (rs.HasResearched(faction, "ShieldWall"))
-                    AddOrSet(em, e, new ShieldWallState { Pct = 30f });
+                // Each Garrison unit has its own passives (2026-11-13): Charge
+                // and Shield Wall are the Spearman's, Parry / Counter /
+                // Reckless Attack the Swordsman's.
+                if (IsSpearman(unitId))
+                {
+                    if (rs.HasResearched(faction, "Charge"))
+                        SetEnabled(em, e, ChargeFromTech("Charge"));
+                    if (rs.HasResearched(faction, "ShieldWall"))
+                        AddOrSet(em, e, new ShieldWallState { Pct = 30f });
+                }
+                else if (IsSwordsman(unitId))
+                {
+                    if (rs.HasResearched(faction, "Parry")) AddOrSet(em, e, ParryFromTech());
+                    if (rs.HasResearched(faction, "Counter")) AddOrSet(em, e, CounterFromTech());
+                    if (rs.HasResearched(faction, "RecklessAttack")) AddOrSet(em, e, RecklessFromTech());
+                }
             }
             else if (IsArcher(unitId))
             {

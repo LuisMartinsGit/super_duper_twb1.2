@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Harpoon Rig
   unitClass: siege
   hp: 210
-  speed: 4.6
+  speed: 2.3
   trainingTime: 26
   damage: 30
   damageType: siege
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 3.5
-  attackRange: 16
-  minAttackRange: 3
-  lineOfSight: 20
+  attackRange: 8
+  minAttackRange: 1.5
+  lineOfSight: 10
   aimTime: 0.8
-  radius: 0.9
+  radius: 0.45
   trajectory: flat
   projectileSpeed: 38.5
   cost:

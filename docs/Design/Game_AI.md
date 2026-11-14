@@ -3580,6 +3580,116 @@ A road is kept for `victoryMinHoldSeconds` and a new one must beat it by
 it replaces `sanctumMode` while `victoryPlanEnabled` is on. Code:
 `SimpleAISystem.VictoryPlan.cs`.
 
+## 6ab. The 2026-11-14 all-Alanthor batch review: ten fixes
+
+Eighteen all-Alanthor matches (84 faction-games) all ran to the 45-minute
+limit; armies were 59 % infantry by unit-time; 30 sect line units were queued
+in the whole batch. The causes were read out of each AI's log and the code, and
+these are the rules that came of it. Every value is on the config named.
+
+1. **A line falls back inside itself.** Infantry, ranged, cavalry and siege
+   each hand a locked unit's share to the cheapest unit of their OWN line
+   (`compositionRoles[].fallbackUnitId`): Swordsman to Spearman, Crossbowman to
+   Archer, Cataphract to Outrider, Trebuchet to Ram. The cheapest unit of a
+   line has no fallback: while nothing of a line can train, its share is not
+   fielded. **A horse is never replaced with infantry.** A fallback authored
+   across lines is ignored and reported (`BuildArmyPlan`). Supersedes the
+   cross-line chain of § 5 (Crossbowman / Archer to Spearman, Outrider to
+   Swordsman).
+2. **The first trainer of a line is a savings goal.** Until the home has its
+   first Archery Range, Royal Stable or Siege Yard, that building's price is
+   held back, unit purchases included, and it is bought from the bank the
+   moment the bank covers it (`DevelopHomeProduction`, reserve key
+   `FirstTrainer`). They used to wait on the Military wallet behind every
+   soldier and arrived 10 to 17 minutes after the Barracks.
+3. **A line that cannot level does not cost the turn.** The level-up rotation
+   goes on down its list until it has made the think's level-ups, instead of
+   stopping at the first entry that did nothing; the production lines lead the
+   list. Normal and Hard may run two level-ups at once (`levelUpMaxConcurrent`).
+4. **An objective is given up after three retreats, not one**
+   (`AITactics.fallbackMaxHolds`), and timed-out ground stays off the target
+   list for `SimpleAISystem.waveBlockSeconds` (360 s; it was a 960 s constant).
+5. **A strict Shardroot save holds the army's purchases too.** While the
+   enshrine price is within reach (`saveStrictEtaSeconds`, for at most
+   `saveStrictMaxSeconds`) nothing is bought; a soft save still never touches
+   the army. Amends § 6l: "the army never waits" now holds for the soft save
+   only.
+6. **Capital uniques are not refused by the shallow queue.** The Ledger and
+   King Lexor may be queued past a tier's `productionQueueDepth`.
+7. **The home cluster's sects first.** Alanthor's four sects are Renewal,
+   Fortitude, Antiquity and Prosperity (War is not one of them and is not in
+   the demo); the adoption order is those four, then the others; `maxSects` is
+   1 / 3 / 4 / unlimited by tier.
+8. **Sect line units are an army, not a token, and cost no religion points.**
+   `sectUnitCap` is 6 a sect (it was 1). A sect line unit is paid in resources
+   only, veilstone among them ([Religion.md §4](Religion.md)): `sectUnitRp` and
+   the AI's `aiSectUnitRpReserve` are 0, so points go to chapels, powers and
+   heroes.
+10. **Waves are larger.** A wave is at least `waveMinArmyFraction` of the
+    standing army (0.4 / 0.55 / 0.65 / 0.65 by tier; it was 0 / 0.05 / 0.1 /
+    0.1) and the tier caps are higher (`maxWaveUnits` 35 / 90 / 130 / none,
+    `waveBaseUnits` 10 / 20 / 24 / 24). The median wave of the batch was 23
+    units, a third of the army.
+9. **The tier sets the earliest age-up.** `ageUpEarliestSeconds` (Easy 330,
+   Normal 285, Hard and Expert 0) is the match time before which the landmark
+   is not placed. Every AI reaches the landmark's price at about the same
+   minute, so nothing else spread the age-up by tier.
+
+Not changed, and still true of the batch: a wave mostly targets economy
+buildings outside the walls; a faction is eliminated
+only with no capital, no military building and no Worker; iron, not veilstone,
+is what level-ups run short of.
+
+## 6ac. The population cap by minute 30 (2026-11-14)
+
+Developer: "Rework the economy so that the AI hits the cap at 30 minutes",
+"The AI is building farms in building clusters, negating the production area
+effect" and "Make sure the AI is upgrading the farms and garrisoning them with
+workers". Measured on six Moatwatch matches (0.0.85, all Normal, to minute
+15.5): every faction had its twenty Houses by minute 14 and sat at the twenty-L1
+cap with one House L2 bought in 24 faction-games; supplies were the only scarce
+resource (iron and veilstone banked in the thousands); no Farm level was ever
+bought; Farm slots stood empty for six minutes and more; and the Farms sited at
+a 100 % field beside the capital lost it to the Houses and trainers the base
+layout put in its free slots.
+
+- **The House level is taken before the turn** (`AIBuildingUpgradeSystem.TryUpgradeHousing`):
+  while free housing is within `hutUpgradeHeadroomMax`, the House level is
+  bought outside the tier's level-up gap and the rotation the moment the bank
+  covers it, and is otherwise a non-strict savings goal (reserve key
+  `HousingLevel`). Within `hutUpgradeStrictHeadroom` of the cap the goal is strict:
+  at the cap nothing can be trained, so an economy-distress pause must not
+  spend the price elsewhere. The tier's phase clocks still apply. Log: `ECON: House LN saving`,
+  `BUILDING: Upgrading Hut to LN (housing, ...)`.
+- **A Farm level is the supply engine**: it is judged on what it pays, not on
+  soldiers — bought when the supplies it adds a minute (Workers inside x field
+  share x the per-Worker gain) repay its price within `farmLevelPaybackMinutes`
+  (`AIBuildingUpgradeSystem.asset`) — and, like the Guild, skips the army-first
+  yield, the economy deferral and the savings hold, and is tried every think
+  outside the tier's level-up gap (its phase clocks still apply), below the
+  reserve floor and while the capital saves.
+- **An Alanthor Mine level is the iron engine**, judged the same way as a
+  Farm level (its level SOs' rungs x the Mines owned, repaid within
+  `farmLevelPaybackMinutes`), with the same exemptions and outside-the-gap pass.
+  Once supplies were plentiful the army ran short of iron, not supplies.
+- **The Market passes the savings hold**, like the extractors and the Farm: it
+  turns idle supplies into iron, and was refused by the hold until minutes 12-21.
+- **Farm Workers are trained outside the economy wallet**: up to
+  `farmWorkersQueuedMax` at once while the bank holds `farmTrainWorkerMinSupplies`
+  (`SimpleAISystem.asset`); the worker rule still caps them (one per empty slot).
+- **Farms kept** = the cap x the tier's `extractorShare` to `farmWantExponent`
+  (it was a code constant).
+- **A field keeps off the drawn base**: a Farm candidate's whole ring must miss
+  the layout's free slots and the reserved Fortress spots (normal passes; the
+  last-resort pass may still use them), and a drawn slot on one of the
+  faction's Farm rings is skipped like any blocked slot — it moves off the ring
+  or the building falls back to the ring search, which keeps clear too.
+- **Economy data** (the SOs): the Guild's level ladder now pays a real step at L2
+  and L3 a Farm Worker pays more at every level, and the Mine ladder steps
+  like the Guild's (`Guild_Lvl*.asset`, `Farm_Lvl*.asset`, `Mine_Lvl*.asset`). House levels stay paid in supplies only: moving part of
+  the price onto iron (tried in batch C) stranded a faction whose idle resource
+  was veilstone, not iron.
+
 ## 7. Scouting
 
 Keep the information-driven `ScoutDirectorSystem` (zone staleness scoring,

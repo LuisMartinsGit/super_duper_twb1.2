@@ -101,7 +101,9 @@ namespace TheWaningBorder.UI.Ingame
         // order within the row. An id the table does not name joins the row
         // its colour category implies, after the named ones, in catalog
         // order — so a new building is never dropped from the palette.
-        // THE PALETTE IS 5 x 4 (2026-11-02 4 x 4; a fifth column 2026-11-11, developer): economy (green) /
+        // THE PALETTE IS 4 x 4 (2026-11-13, developer: square again now that
+        // the Guild and the Mine are built from their node - NodeButton.cs;
+        // it was 5 x 4 from 2026-11-11): economy (green) /
         // military (red) / three defensive (blue) + the Temple (gold) /
         // the sect buildings (purple), shown greyed until their sect is
         // adopted, so the grid never reflows as the match goes on.
@@ -109,9 +111,10 @@ namespace TheWaningBorder.UI.Ingame
 
         private static readonly string[][] BuildOrder =
         {
-            // Economy: Guild, Mine, Farm, House, then the Market (decision 55)
-            new[] { "GatherersHut", "Mine", "Alanthor_Farm", "Hut", "Alanthor_Market",
-                    "Feraldis_GreatForge" },
+            // Economy: Farm, House, Market (decision 55). The extractors -
+            // Guild, Mine, Veilstone Mine - are not palette entries: they are
+            // built from the button over their node (NodeButton.cs).
+            new[] { "Alanthor_Farm", "Hut", "Alanthor_Market", "Feraldis_GreatForge" },
             // Training: Barracks, Archery Range, Royal Stables, Siege Yard
             new[] { "Barracks", "ArcheryRange", "Alanthor_RoyalStable", "Alanthor_SiegeYard",
                     "Feraldis_HallOfAxes", "Feraldis_Pasture", "Feraldis_SiegeYard",
@@ -124,10 +127,12 @@ namespace TheWaningBorder.UI.Ingame
                     "Sect_Treasury", "Sect_MusterYard", "Feraldis_WarTotem" },
         };
         /// <summary>Columns of the build palette (the action grid keeps Cols).</summary>
-        // 5 x 4 since 2026-11-11 (developer): the Farm and the Market made
-        // Alanthor's economy row five wide; the palette now uses the action
-        // grid's full five columns.
-        private const int PaletteCols = 5;
+        // 4 x 4 since 2026-11-13 (developer): a perfect square. The palette
+        // has as many columns as rows, and its cells grow to fill the frame
+        // (SetGrid).
+        private const int PaletteCols = 4;
+        /// <summary>Cells the build palette may use.</summary>
+        private const int PaletteSlotCount = PaletteCols * WorkerRows;
 
         private static BuildRow BuildRowOf(string id)
         {
@@ -186,15 +191,23 @@ namespace TheWaningBorder.UI.Ingame
         private Vector2 _gridPosAuthored, _gridSizeAuthored, _separatorPosAuthored;
         private Vector2 _cellAuthored, _spacingAuthored;
         private float _rowPitch;
-        private bool _workerRows;
+        private GridLayoutGroup.Constraint _constraintAuthored;
+        private int _constraintCountAuthored;
+
+        /// <summary>How the grid is laid out: as authored (3 x 5 with the
+        /// separator), the large five-column grid every building menu uses,
+        /// or the builder's square palette.</summary>
+        private enum GridMode { Authored, Large, Palette }
+        private GridMode _gridMode = GridMode.Authored;
 
         /// <summary>
         /// THE BUILD PALETTE FILLS THE PANEL (2026-11-02). In worker mode the
         /// separator is hidden and the grid takes the frame's whole interior:
         /// the panel's content square minus this inset on each side, square
-        /// cells sized so five columns span that width, four rows centred in
-        /// it. Every other mode gets the authored grid, cells and separator
-        /// back.
+        /// cells sized so the mode's columns span that width - four for the
+        /// builder's palette, which makes it a square of 4 x 4; five for a
+        /// building's menu. The authored grid, cells and separator come back
+        /// in GridMode.Authored.
         /// </summary>
         private const float WorkerGridInset = 40f;
         private const float WorkerCellSpacing = 8f;
@@ -207,7 +220,15 @@ namespace TheWaningBorder.UI.Ingame
         private Entity _entity;
         private bool _upgradeOverflowLogged;
 
-        public void Init(Dictionary<string, Sprite> symbols) => _symbols = symbols;
+        /// <param name="nodeButtonTemplate">The hexagonal age-up button the
+        /// node button copies (NodeButton.cs); null falls back to a round
+        /// copy of this panel's own button.</param>
+        public void Init(Dictionary<string, Sprite> symbols, GameObject nodeButtonTemplate = null)
+        {
+            _symbols = symbols;
+            if (_slots != null) BindNodeButton(_nodeFallback, nodeButtonTemplate);
+            _nodeFallback = null;
+        }
 
         // ── Setup ──────────────────────────────────────────────────────────
 
@@ -236,6 +257,7 @@ namespace TheWaningBorder.UI.Ingame
             // authored button, cloned BEFORE any slot is bound so the clones
             // carry no caption or listener of their own.
             int total = count;
+            Transform nodeClone = null;
             if (count > 0)
             {
                 var template = grid.GetChild(count - 1).gameObject;
@@ -245,7 +267,14 @@ namespace TheWaningBorder.UI.Ingame
                     clone.name = template.name + "_row" + (i / Cols);
                     total++;
                 }
+                // One more for the button that pops over a resource node
+                // (NodeButton.cs); it leaves the grid before any slot is bound.
+                nodeClone = Instantiate(template, grid).transform;
             }
+            // Kept inactive (the grid skips it) until Init builds the node
+            // button from it or from the hexagonal template.
+            if (nodeClone != null) nodeClone.gameObject.SetActive(false);
+            _nodeFallback = nodeClone;
             _slots = new Slot[total];
             for (int i = 0; i < total; i++)
                 _slots[i] = BindSlot(grid.GetChild(i));
@@ -263,7 +292,13 @@ namespace TheWaningBorder.UI.Ingame
             var layout = grid.GetComponent<GridLayoutGroup>();
             _gridLayout = layout;
             _rowPitch = layout != null ? layout.cellSize.y + layout.spacing.y : 0f;
-            if (layout != null) { _cellAuthored = layout.cellSize; _spacingAuthored = layout.spacing; }
+            if (layout != null)
+            {
+                _cellAuthored = layout.cellSize;
+                _spacingAuthored = layout.spacing;
+                _constraintAuthored = layout.constraint;
+                _constraintCountAuthored = layout.constraintCount;
+            }
             if (_gridRect != null)
             {
                 _gridPosAuthored = _gridRect.anchoredPosition;
@@ -280,6 +315,7 @@ namespace TheWaningBorder.UI.Ingame
         private void OnDestroy()
         {
             Active = false;
+            DestroyNodeButton();
         }
 
         /// <summary>
@@ -288,28 +324,47 @@ namespace TheWaningBorder.UI.Ingame
         /// row lands where the authored third row sat. Every other mode gets
         /// the authored rects back.
         /// </summary>
-        private void SetWorkerRows(bool on)
+        private void SetWorkerRows(bool on) => SetGrid(on ? GridMode.Large : GridMode.Authored);
+
+        private void SetGrid(GridMode mode)
         {
-            if (_workerRows == on) return;
-            _workerRows = on;
+            if (_gridMode == mode) return;
+            _gridMode = mode;
             if (_gridRect == null) return;
+            bool on = mode != GridMode.Authored;
             if (_separatorRect != null && _separatorRect.gameObject.activeSelf == on)
                 _separatorRect.gameObject.SetActive(!on);
             if (!on)
             {
                 _gridRect.sizeDelta = _gridSizeAuthored;
                 _gridRect.anchoredPosition = _gridPosAuthored;
-                if (_gridLayout != null) { _gridLayout.cellSize = _cellAuthored; _gridLayout.spacing = _spacingAuthored; }
+                if (_gridLayout != null)
+                {
+                    _gridLayout.cellSize = _cellAuthored;
+                    _gridLayout.spacing = _spacingAuthored;
+                    _gridLayout.constraint = _constraintAuthored;
+                    _gridLayout.constraintCount = _constraintCountAuthored;
+                }
                 return;
             }
+            // The builder's palette is a square: as many columns as rows, so
+            // its cells are larger than a building menu's five-column ones
+            // and the grid is as tall as it is wide.
+            int cols = mode == GridMode.Palette ? PaletteCols : Cols;
             var content = _gridRect.parent as RectTransform;
             float avail = (content != null ? content.rect.width : _gridSizeAuthored.x) - 2f * WorkerGridInset;
-            float cell = (avail - (PaletteCols - 1) * WorkerCellSpacing) / PaletteCols;
+            if (mode == GridMode.Palette && content != null && content.rect.height > 0f)
+                avail = Mathf.Min(avail, content.rect.height - 2f * WorkerGridInset);
+            float cell = (avail - (cols - 1) * WorkerCellSpacing) / cols;
             float height = WorkerRows * cell + (WorkerRows - 1) * WorkerCellSpacing;
             if (_gridLayout != null)
             {
                 _gridLayout.cellSize = new Vector2(cell, cell);
                 _gridLayout.spacing = new Vector2(WorkerCellSpacing, WorkerCellSpacing);
+                // The column count is stated, never left to how many cells
+                // happen to fit the width after rounding.
+                _gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+                _gridLayout.constraintCount = cols;
             }
             _gridRect.sizeDelta = new Vector2(avail, height);
             // Centred in the content square; the authored x offset keeps the
@@ -418,9 +473,13 @@ namespace TheWaningBorder.UI.Ingame
             if (_slots == null || _slots.Length == 0) return;
             bool changed = _detector.Poll();
             _timer += Time.unscaledDeltaTime;
-            if (_timer < RefreshInterval && !changed) return;
-            _timer = 0f;
-            Refresh();
+            if (_timer >= RefreshInterval || changed)
+            {
+                _timer = 0f;
+                Refresh();
+            }
+            // Every frame: the button follows its node on screen.
+            UpdateNodeButton();
         }
 
         private static EntityManager EM(out bool ok)
@@ -436,6 +495,9 @@ namespace TheWaningBorder.UI.Ingame
             if (!ok || GameSettings.IsSpectating) { SetShown(false); return; }
 
             _vaultWanted = false;
+            // Only the builder branch below sets it again.
+            _builderActions = null;
+            _nodeDirty = true;
             _entity = FirstOwnedSelected(em);
             if (_entity == Entity.Null) { SetShown(false); return; }
             if (em.HasComponent<UnderConstruction>(_entity)
@@ -449,6 +511,7 @@ namespace TheWaningBorder.UI.Ingame
                     || info.Actions == null || info.Actions.Count == 0)
                 { SetShown(false); return; }
                 used = RenderBuilder(em, info.Actions);
+                _builderActions = info.Actions;
             }
             else
             {

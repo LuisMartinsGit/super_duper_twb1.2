@@ -63,7 +63,7 @@ namespace TheWaningBorder.Core.Multiplayer
         ReliquaryAbility = 31,   // CommandRouter.IssueReliquaryAbility (reliquary + ability index in TargetEntityId + target in TargetPosition)
         WallUpgrade = 32,        // CommandRouter.IssueWallUpgrade (wall instance + upgrade type in TargetEntityId)
         KeepWing = 33,           // CommandRouter.IssueKeepWing (keep + KeepWingType byte in TargetEntityId)
-        UnitPromote = 34,        // CommandRouter.IssueUnitPromote (unit)
+        UnitPromote = 34,        // RETIRED 2026-11-13 (unit ranks removed); slot kept, a no-op
         QueueWaypoint = 35,      // CommandRouter.IssueQueuedWaypoint (unit + QueuedCommandType byte in TargetEntityId + point in TargetPosition)
 
         // ── Added 2026-08-16 (docs/Multiplayer_Desync_Sweep_2026-08-16.md) ──

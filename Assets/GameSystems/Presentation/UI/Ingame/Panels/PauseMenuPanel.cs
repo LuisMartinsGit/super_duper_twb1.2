@@ -56,8 +56,8 @@ namespace TheWaningBorder.UI.Ingame
         private const float PanelWidth = 760f;
         private const float ButtonHeight = 92f;
         private const int SaveNameLimit = 40;
-        private static readonly Vector2 MenuButtonSize = new Vector2(190f, 72f);
-        private static readonly Vector2 MenuButtonMargin = new Vector2(24f, 24f);
+        internal static readonly Vector2 MenuButtonSize = new Vector2(190f, 72f);
+        internal static readonly Vector2 MenuButtonMargin = new Vector2(24f, 24f);
 
         public static bool IsOpen { get; private set; }
 
@@ -118,6 +118,22 @@ namespace TheWaningBorder.UI.Ingame
             relay.OnExit = () => { bg.color = GameUIKit.ButtonBg; text.color = GameUIKit.TextMain; };
             UITooltip.Bind(bg.gameObject, Loc.T("Menu (Esc): pause, save, restart or resign."));
             _menuButton = rt.gameObject;
+            _menuButtonRect = rt;
+        }
+
+        private static RectTransform _menuButtonRect;
+
+        /// <summary>Where the Menu button is on screen, in pixels (overlay
+        /// canvas: world space is screen space). The Economy header lines
+        /// itself up beside it; the two live on canvases that scale differently.</summary>
+        internal static bool TryGetMenuButtonScreenRect(out Rect rect)
+        {
+            rect = default;
+            if (_menuButtonRect == null) return false;
+            var corners = new Vector3[4];
+            _menuButtonRect.GetWorldCorners(corners);
+            rect = Rect.MinMaxRect(corners[0].x, corners[0].y, corners[2].x, corners[2].y);
+            return rect.width > 1f;
         }
 
         private void Build()

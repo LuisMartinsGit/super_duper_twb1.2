@@ -26,8 +26,8 @@ MonoBehaviour:
   levelThreeFromSeconds: 1200
   earlyExtractorLevels: 0
   levelUpGapSeconds: 120
-  levelUpMaxConcurrent: 1
-  maxSects: 2
+  levelUpMaxConcurrent: 2
+  maxSects: 3
   sectPowerGapSeconds: 45
   attacksBlind: 0
   armyStraggles: 0
@@ -38,16 +38,17 @@ MonoBehaviour:
   holdBackAheadRatio: 0
   armyCapFixed: 1
   wallsForbidden: 1
+  ageUpEarliestSeconds: 285
   sanctumLateSeconds: 2400
   sanctumMode: 1
   victoryMultiFocus: 0
   targetStyle: 1
   reinforceMode: 1
-  maxWaveUnits: 40
+  maxWaveUnits: 90
   attackWaveIntervalSeconds: 300
-  waveBaseUnits: 12
+  waveBaseUnits: 20
   standingArmyFloorFraction: 0.08
-  waveMinArmyFraction: 0.05
+  waveMinArmyFraction: 0.55
   territoryCadenceScale: 1.5
   fortressDelaySeconds: 180
   reconquestMargin: 1.6

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Bloodletter
   unitClass: human_melee
   hp: 90
-  speed: 6.8
+  speed: 3.4
   trainingTime: 6.3
   damage: 6
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.2
   attackRange: 1.6
   minAttackRange: 0
-  lineOfSight: 16
+  lineOfSight: 8
   aimTime: 0
-  radius: 0.5
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:

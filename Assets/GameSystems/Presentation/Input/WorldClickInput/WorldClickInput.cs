@@ -499,7 +499,7 @@ namespace TheWaningBorder.Input
             if (!_press.HavePreview) return;
 
             if (_preview == null) _preview = new FormationDragPreview();
-            _preview.Show(_previewSlots, _press.World, cursor, Cfg);
+            _preview.Show(_previewSlots, _press.World, cursor, _press.PreviewFacing, Cfg);
         }
 
         /// <summary>
@@ -526,8 +526,10 @@ namespace TheWaningBorder.Input
         }
 
         /// <summary>
-        /// The ghost of a right-drag: one flat disc per formation slot and an
-        /// arrow from the press point along the drag. Pooled — discs are
+        /// The ghost of a right-drag: one flat ARROW per formation slot,
+        /// pointing the way the unit will face when it has formed up
+        /// (2026-11-13; they were discs, which said nothing about the front),
+        /// and an arrow from the press point along the drag. Pooled — discs are
         /// created once, reused for every later drag, and only hidden between
         /// drags.
         /// </summary>
@@ -542,8 +544,9 @@ namespace TheWaningBorder.Input
             private int _shown;
 
             public void Show(System.Collections.Generic.List<float3> slots, float3 centre,
-                             float3 cursor, WorldClickInputConfig cfg)
+                             float3 cursor, float3 facing, WorldClickInputConfig cfg)
             {
+                var slotRot = Quaternion.Euler(0f, Mathf.Atan2(facing.x, facing.z) * Mathf.Rad2Deg, 0f);
                 Ensure(cfg);
                 if (!_root.activeSelf) _root.SetActive(true);
 
@@ -554,6 +557,7 @@ namespace TheWaningBorder.Input
                     var disc = _discs[i];
                     if (!disc.activeSelf) disc.SetActive(true);
                     float3 s = slots[i];
+                    disc.transform.rotation = slotRot;
                     disc.transform.position = new Vector3(s.x,
                         TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(s.x, s.z) + y, s.z);
                 }
@@ -609,17 +613,45 @@ namespace TheWaningBorder.Input
 
             private GameObject MakeDisc(WorldClickInputConfig cfg)
             {
-                var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                disc.name = "GhostSlot";
+                // No collider: it must never catch a click ray.
+                var disc = new GameObject("GhostSlot");
                 disc.transform.SetParent(_root.transform, false);
-                disc.transform.localScale = new Vector3(cfg.previewSlotSize, 0.02f, cfg.previewSlotSize);
-                var col = disc.GetComponent<Collider>();
-                if (col != null) UnityEngine.Object.Destroy(col);   // must never catch a click ray
-                var r = disc.GetComponent<Renderer>();
+                disc.transform.localScale = Vector3.one * cfg.previewSlotSize;
+                disc.AddComponent<MeshFilter>().sharedMesh = ArrowMesh();
+                var r = disc.AddComponent<MeshRenderer>();
                 r.sharedMaterial = _slotMat;
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 r.receiveShadows = false;
                 return disc;
+            }
+
+            private static Mesh _arrowMesh;
+
+            /// <summary>A flat arrow one unit long, lying on XZ and pointing
+            /// +Z: a broad head on a short shaft. Both faces, so it shows from
+            /// any camera.</summary>
+            private static Mesh ArrowMesh()
+            {
+                if (_arrowMesh != null) return _arrowMesh;
+                var v = new[]
+                {
+                    new Vector3(0f, 0f, 0.5f),      // tip
+                    new Vector3(-0.42f, 0f, 0.02f), // head, left
+                    new Vector3(0.42f, 0f, 0.02f),  // head, right
+                    new Vector3(-0.15f, 0f, 0.02f), // shaft
+                    new Vector3(0.15f, 0f, 0.02f),
+                    new Vector3(-0.15f, 0f, -0.5f),
+                    new Vector3(0.15f, 0f, -0.5f),
+                };
+                var t = new[]
+                {
+                    0, 2, 1,   3, 4, 6,   3, 6, 5,     // seen from above
+                    0, 1, 2,   3, 6, 4,   3, 5, 6,     // and from below
+                };
+                _arrowMesh = new Mesh { name = "FormationSlotArrow", vertices = v, triangles = t };
+                _arrowMesh.RecalculateBounds();
+                _arrowMesh.RecalculateNormals();
+                return _arrowMesh;
             }
 
             private static Material MakeTransparent(Color color)

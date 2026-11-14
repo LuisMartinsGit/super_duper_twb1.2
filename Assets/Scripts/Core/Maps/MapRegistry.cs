@@ -126,6 +126,15 @@ namespace TheWaningBorder.Core.Maps
                                // above an escarpment (2026-10-18)
             "TrineHollow",     // 3P, 640 m, three-fold bowl: rim, terraces,
                                // a rich basin (2026-10-18)
+            // The v2 maps (2026-11-14): each map's concept on HALF the ground,
+            // players closer, redrawn so every territory still holds real
+            // buildings (units were halved, the grid and buildings were not).
+            // Built by Editor/MapBuilderV2 from tools/maps/<map>_v2/.
+            "Moatwatch_v2",      // 4P, 256 m
+            "Highfold_v2",       // 8P, 384 m
+            "BrokenOath_v2",     // 5P 3v2, 384 x 224 m
+            "TrineHollow_v2",    // 3P, 320 m
+            "FiendstonePass_v2", // 6P, 512 m
         };
 
         /// <summary>

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Surgeon
   unitClass: melee
   hp: 700
-  speed: 6.2
+  speed: 3.1
   trainingTime: 45
   damage: 40
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.2
   attackRange: 1.2
   minAttackRange: 0
-  lineOfSight: 26
-  radius: 0.55
+  lineOfSight: 13
+  radius: 0.275
   aimTime: 0
   trajectory: 
   projectileSpeed: 0

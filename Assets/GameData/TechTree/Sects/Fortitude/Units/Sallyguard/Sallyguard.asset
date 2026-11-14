@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Sallyguard
   unitClass: melee
   hp: 300
-  speed: 5.0
+  speed: 2.5
   trainingTime: 22
   damage: 24
   damageType: melee
@@ -29,14 +29,14 @@ MonoBehaviour:
   attackCooldown: 1.5
   attackRange: 1.2
   minAttackRange: 0
-  lineOfSight: 18
-  radius: 0.5
+  lineOfSight: 9
+  radius: 0.25
   trajectory: 
   projectileSpeed: 0
   cost:
     Supplies: 75
     Iron: 45
-    Veilstone: 0
+    Veilstone: 80
   populationCost: 1
   minBuildingLevel: 0
   buildSpeed: 0

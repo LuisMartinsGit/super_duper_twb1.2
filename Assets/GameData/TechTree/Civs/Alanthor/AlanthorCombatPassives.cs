@@ -44,6 +44,39 @@ namespace TheWaningBorder.Abilities
         public float SpeedBonus;       // move speed ADDED while charging, for exact removal
     }
 
+    /// <summary>
+    /// Garrison "Parry" tech (Swordsman, 2026-11-13). The swordsman turns one
+    /// melee blow aside completely, then needs CooldownSeconds before he can
+    /// do it again. Ready while CooldownRemaining is 0.
+    /// </summary>
+    public struct ParryState : IComponentData
+    {
+        public float CooldownSeconds;
+        public float CooldownRemaining;
+    }
+
+    /// <summary>Garrison "Counter" tech (Swordsman). ReflectPct% of every melee
+    /// blow that lands on him is paid back into whoever struck it.</summary>
+    public struct CounterState : IComponentData
+    {
+        public float ReflectPct;
+    }
+
+    /// <summary>
+    /// Garrison "Reckless Attack" tech (Swordsman). Every Every-th swing also
+    /// hits all hostile units within Radius of him, and leaves him open: for
+    /// VulnerableSeconds he takes VulnerablePct% more damage.
+    /// </summary>
+    public struct RecklessState : IComponentData
+    {
+        public byte Every;
+        public byte Count;
+        public float Radius;
+        public float VulnerablePct;
+        public float VulnerableSeconds;
+        public float VulnerableRemaining;
+    }
+
     /// <summary>Garrison "Shield Wall" tech. While stationary, the first incoming
     /// attack is reduced by Pct%; rearms after StillRequired seconds standing.</summary>
     public struct ShieldWallState : IComponentData

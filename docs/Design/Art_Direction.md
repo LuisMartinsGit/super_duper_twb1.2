@@ -932,6 +932,20 @@ files are untouched.
   toward +Z; a ridge end faces -X. The ridge line sits 3.25 m over the wall top
   on the `M` slopes and 2.35 m on the `S` slopes.
 
+### Unit-scale Alanthor buildings (2026-11-11)
+
+How to make an Alanthor building by hand is in
+[Alanthor_Building_Authoring.md](Alanthor_Building_Authoring.md).
+
+Alanthor buildings made from 2026-11-11 on follow the unit-scale rules of
+that guide: composed 1 : 1 on a ground patch the size of the footprint (fit
+1.0, no paved slab), door leaves at soldier height, thin edges, roofs taking
+half the height. Their roofs are **verdigris copper tile** (matte, never
+glowing, never player-coloured), and the player colour moves to **a painted
+wall band at chest height and cloth**. The approved example is the test
+Fortress, `Civs/Alanthor/Buildings/Fortress/ProportionTest/Fortress_PT3_Lvl1..3`.
+Buildings not yet remade keep the rules above (§4.1, §13) until they are.
+
 ## 12. Open questions
 
 1. **Which atlas does Age 0 sample?** The `*Variants.fbx` models reference
@@ -950,3 +964,17 @@ files are untouched.
    design (no cycle). This document assumes one global look. A per-map
    override (e.g. a colder northern map) would be a second config asset and
    a `MapInfo` field — not planned, noted so it is not done ad hoc.
+
+## 14. One body size for every unit on foot (2026-11-14)
+
+Every unit that is a man on foot stands as tall as the Spearman: his body
+(the top of the skinned meshes, weapons left out) is the reference, and each
+other unit prefab carries the ROOT scale that makes its body the same height
+(`UnitHeightPass.cs`, menu `Waning Border > Art > Scale > Units: Body Heights -
+Match The Spearman`; `Units: Measure Sizes` lists them). A mounted unit is
+matched by its rider's torso when the rider is a humanoid rig. Engines, wagons,
+the Ledger and code-built visuals are not men and keep their own size. How
+large units are DRAWN is still one factor for all of them, `UnitWorldScale.asset`;
+speed and collision radius on the unit SOs were scaled with it. Buildings take
+their root scale from `tools/art/footprint-scale.txt` (`FootprintScalePass.cs`):
+the Watch Tower's three levels and its Age 0 form fit their 2 x 2 cell footprint.

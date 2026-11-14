@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: War Rig
   unitClass: siege
   hp: 650
-  speed: 4
+  speed: 2
   trainingTime: 40
   damage: 70
   damageType: siege
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 1
   attackCooldown: 5
-  attackRange: 26
-  minAttackRange: 6
-  lineOfSight: 28
+  attackRange: 13
+  minAttackRange: 3
+  lineOfSight: 14
   aimTime: 1
-  radius: 1.3
+  radius: 0.65
   trajectory: high
   projectileSpeed: 14
   cost:
@@ -46,7 +46,7 @@ MonoBehaviour:
   healRange: 0
   siegeRange: 0
   siegeCooldown: 0
-  aoeRadius: 4
+  aoeRadius: 2
   tags:
   - Siege
   - Heavy

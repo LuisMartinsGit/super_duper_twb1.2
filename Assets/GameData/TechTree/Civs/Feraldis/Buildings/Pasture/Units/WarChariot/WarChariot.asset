@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: War Chariot
   unitClass: human_cavalry
   hp: 180
-  speed: 7
+  speed: 3.5
   trainingTime: 14
   damage: 16
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.5
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 20
+  lineOfSight: 10
   aimTime: 0
-  radius: 0.6
+  radius: 0.3
   trajectory: 
   projectileSpeed: 0
   cost:

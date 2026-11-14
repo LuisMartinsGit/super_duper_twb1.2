@@ -237,14 +237,34 @@ namespace TheWaningBorder.Systems.Training
             }
             float3 spawnPos = transform.Position + exitDir * exitOffset;
 
-            // Find empty position near the building to avoid overlap
-            float spawnRadius = 0.5f;
-            float3 finalPos = SpawnPlacementHelper.FindEmptyPosition(
-                spawnPos,
-                spawnRadius,
-                em,
-                maxAttempts: 16
-            );
+            // A building whose prefab carries Unit_spawn and Exit_point
+            // (BuildingAnchors) releases the unit INSIDE itself, on the spawn
+            // marker, and it walks out to the exit marker (BuildingExitSystem).
+            // No empty-position search: the marker is inside the blocked
+            // footprint on purpose, and the search would push it back out.
+            var anchors = TheWaningBorder.Systems.Buildings.BuildingAnchors.For(
+                PresentationSpawnSystem.TryResolveBuildingVisual(em, building, out var buildingPrefab)
+                    ? buildingPrefab : null);
+            bool viaDoor = anchors.HasExitPath;
+            float3 doorPos = float3.zero;
+
+            float3 finalPos;
+            if (viaDoor)
+            {
+                finalPos = anchors.ToWorld(transform, anchors.UnitSpawn);
+                doorPos = anchors.ToWorld(transform, anchors.ExitPoint);
+            }
+            else
+            {
+                // Find empty position near the building to avoid overlap
+                float spawnRadius = 0.5f;
+                finalPos = SpawnPlacementHelper.FindEmptyPosition(
+                    spawnPos,
+                    spawnRadius,
+                    em,
+                    maxAttempts: 16
+                );
+            }
 
             // All units spawn as individual entities via the centralized
             // UnitFactory. (Battalions removed — every trained unit is a
@@ -273,6 +293,20 @@ namespace TheWaningBorder.Systems.Training
                     TheWaningBorder.Abilities.FactionHeroRecords.TryGet(em, faction, unitId, out _, out int xp);
                     em.SetComponentData(unit, new HeroExperience { Xp = xp });
                 }
+            }
+
+            // Out of the door with no rally point to go to — or one that lies
+            // inside this building's own blocked footprint (the default rally
+            // does): muster a few metres past the door, so the next unit out
+            // does not find this one standing on the exit.
+            if (viaDoor && (!hasRally || InsideFootprint(transform.Position, buildingHalf, rallyTarget)))
+            {
+                float3 outward = doorPos - finalPos;
+                outward.y = 0f;
+                outward = math.lengthsq(outward) > 1e-4f ? math.normalize(outward) : exitDir;
+                rallyTarget = doorPos + outward * DoorMusterDistance;
+                rallyTargetEntity = Entity.Null;
+                hasRally = true;
             }
 
             if (!hasRally) return;
@@ -308,7 +342,24 @@ namespace TheWaningBorder.Systems.Training
                     math.cos(angle) * radius, 0f, math.sin(angle) * radius);
             }
 
-            if (!em.HasComponent<DesiredDestination>(unit))
+            if (viaDoor)
+            {
+                // The walk to the door comes first; BuildingExitSystem hands
+                // the unit its muster order there. Units released together
+                // (or faster than one clears the spawn marker) set off in turn.
+                var idle = new DesiredDestination { Position = finalPos, Has = 0 };
+                if (!em.HasComponent<DesiredDestination>(unit)) em.AddComponentData(unit, idle);
+                else em.SetComponentData(unit, idle);
+                em.AddComponentData(unit, new ExitingBuilding
+                {
+                    Building = building,
+                    Exit = doorPos,
+                    Muster = slotTarget,
+                    Delay = DoorQueueDelay(em, building, unit, finalPos),
+                    Started = 0,
+                });
+            }
+            else if (!em.HasComponent<DesiredDestination>(unit))
                 em.AddComponentData(unit, new DesiredDestination { Position = slotTarget, Has = 1 });
             else
                 em.SetComponentData(unit, new DesiredDestination { Position = slotTarget, Has = 1 });
@@ -317,6 +368,57 @@ namespace TheWaningBorder.Systems.Training
                 TransientState.Set(em, unit, new GuardPoint { Position = slotTarget, Has = 1 });
             else
                 em.SetComponentData(unit, new GuardPoint { Position = slotTarget, Has = 1 });
+        }
+
+        // ── Walking out of the door ────────────────────────────────────────
+
+        /// <summary>How far past Exit_point a unit with no usable rally point musters.</summary>
+        private const float DoorMusterDistance = 3f;
+
+        /// <summary>Seconds between two units setting off from Unit_spawn.</summary>
+        private const float DoorInterval = 0.6f;
+
+        /// <summary>A unit this close to Unit_spawn has not cleared it yet.</summary>
+        private const float DoorClearDistance = 1.5f;
+
+        static readonly ComponentType[] QT_Exiting =
+        {
+            ComponentType.ReadOnly<ExitingBuilding>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_Exiting;
+
+        /// <summary>
+        /// Is <paramref name="point"/> inside the building's blocked box
+        /// (footprint half + the 1 m passability pad)?
+        /// </summary>
+        private static bool InsideFootprint(float3 centre, float half, float3 point)
+        {
+            float reach = half + 1f;
+            return math.abs(point.x - centre.x) <= reach && math.abs(point.z - centre.z) <= reach;
+        }
+
+        /// <summary>
+        /// How long <paramref name="unit"/> waits on Unit_spawn: one interval
+        /// behind the last unit of the same building still waiting there, or
+        /// behind one that has set off but not yet cleared the marker.
+        /// </summary>
+        private static float DoorQueueDelay(EntityManager em, Entity building, Entity unit, float3 spawnPos)
+        {
+            var q = QC_Exiting.Get(em, QT_Exiting);
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var exits = q.ToComponentDataArray<ExitingBuilding>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            float delay = 0f;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (ents[i] == unit || exits[i].Building != building) continue;
+                if (exits[i].Started == 0)
+                    delay = math.max(delay, math.max(0f, exits[i].Delay) + DoorInterval);
+                else if (math.distancesq(xfs[i].Position, spawnPos) < DoorClearDistance * DoorClearDistance)
+                    delay = math.max(delay, DoorInterval);
+            }
+            return delay;
         }
     }
 }

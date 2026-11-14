@@ -287,7 +287,7 @@ namespace TheWaningBorder.Systems.Research
         }
 
         /// <summary>Which roster an Alanthor combat passive applies to.</summary>
-        private enum AlanthorPassiveTarget { GarrisonInfantry, Archers, Siege, Cavalry }
+        private enum AlanthorPassiveTarget { GarrisonInfantry, Archers, Siege, Cavalry, Spearmen, Swordsmen }
 
         /// <summary>
         /// Stamp a passive component on every existing unit of the faction that
@@ -320,6 +320,10 @@ namespace TheWaningBorder.Systems.Research
                 case AlanthorPassiveTarget.GarrisonInfantry:
                     return IdIs(unitId, "Spearman") || IdIs(unitId, "Swordsman")
                         || IdIs(unitId, "Nobleman") || IdIs(unitId, "Sentinel");
+                case AlanthorPassiveTarget.Spearmen:
+                    return unitId == "Spearman";
+                case AlanthorPassiveTarget.Swordsmen:
+                    return IdIs(unitId, "Swordsman");
                 case AlanthorPassiveTarget.Archers:
                     return IdIs(unitId, "Archer") || IdIs(unitId, "Crossbowman")
                         || IdIs(unitId, "Longbowman");

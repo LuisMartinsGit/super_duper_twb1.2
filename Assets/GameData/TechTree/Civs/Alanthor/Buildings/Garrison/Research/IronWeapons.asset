@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Iron Weapons
   role: Military
   effect: 
-  desc: "Weapon tier 2: melee units deal +15% damage."
+  desc: "Weapon tier 2: all infantry deal +3 damage."
   researchAt: Barracks
   minBuildingLevel: 1
   researchTime: 40
@@ -37,5 +37,5 @@ MonoBehaviour:
   effectsList:
   - Target: "type:Melee"
     Stat: Damage
-    Op: Pct
-    Value: 15
+    Op: Add
+    Value: 3

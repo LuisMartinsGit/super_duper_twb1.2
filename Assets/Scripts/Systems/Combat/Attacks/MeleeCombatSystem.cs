@@ -114,6 +114,7 @@ namespace TheWaningBorder.Systems.Combat
                 Damages = SystemAPI.GetComponentLookup<Damage>(true),
                 Storage = SystemAPI.GetEntityStorageInfoLookup(),
                 Dt = dt,
+                SwingCommit = meleeCfg != null ? meleeCfg.swingCommitSeconds : 0f,
                 Plans = plans,
             };
             var planHandle = planJob.Schedule(n, 32, state.Dependency);
@@ -321,13 +322,8 @@ namespace TheWaningBorder.Systems.Combat
             // Hamstring (Feraldis War Hall tech): melee hits slow.
             TheWaningBorder.Feraldis.FeraldisCombat.OnMeleeHit(em, ecb, entity, tgt.Value);
 
-            // Reset cooldown. Glow Ability (Lv 5 active window)
-            // shortens the cooldown by 30% per the design spec.
-            // (audit follow-up — was deferred in PR #258.)
+            // Reset cooldown.
             float cdMult = 1f;
-            if (em.HasComponent<ShardrootAbilityState>(entity)
-                && em.GetComponentData<ShardrootAbilityState>(entity).ActiveRemaining > 0f)
-                cdMult = 1f / 1.30f;
             // Feraldis blood frenzy also swings faster.
             cdMult *= CombatDamageHelper.GetFrenzyCooldownMult(em, entity);
             // Timed haste (Blood Rain and any future SpellBuff

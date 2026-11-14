@@ -50,6 +50,13 @@ Shader "TheWaningBorder/BuildingLitDissolve"
         _NoiseScale     ("Noise Scale", Float)      = 4.5
         _NoiseStrength  ("Noise Strength", Range(0,1)) = 0.30
         _AmountPad      ("Amount Pad", Range(0, 0.5)) = 0.20
+
+        // The construction sequence's "fade in" (BuildingDissolveTransition
+        // .MakeFading): alpha-blended by _Opacity. One / Zero and 1 for the
+        // wave itself, which is what every other user gets.
+        _Opacity        ("Opacity", Range(0,1)) = 1
+        [HideInInspector] _SrcBlend ("Src Blend", Float) = 1
+        [HideInInspector] _DstBlend ("Dst Blend", Float) = 0
     }
 
     SubShader
@@ -72,6 +79,7 @@ Shader "TheWaningBorder/BuildingLitDissolve"
         float _NoiseScale;
         float _NoiseStrength;
         float _AmountPad;
+        float _Opacity;
 
         float Hash13(float3 p)
         {
@@ -119,6 +127,7 @@ Shader "TheWaningBorder/BuildingLitDissolve"
 
             Cull Back
             ZWrite On
+            Blend [_SrcBlend] [_DstBlend]
 
             HLSLPROGRAM
             #pragma vertex vert
@@ -281,6 +290,7 @@ Shader "TheWaningBorder/BuildingLitDissolve"
                 // it, my output sits "in front of" the scene's fog tint, which
                 // reads as different lighting / reflection intensity.
                 color.rgb = MixFog(color.rgb, IN.fogFactor);
+                color.a   = _Opacity;
 
                 return color;
             }
@@ -347,6 +357,7 @@ Shader "TheWaningBorder/BuildingLitDissolve"
             half4 frag(Varyings IN) : SV_Target
             {
                 WaveClip(IN.worldPos);
+                clip(_Opacity - 0.5);   // a fading part casts once it is half there
                 return 0;
             }
             ENDHLSL

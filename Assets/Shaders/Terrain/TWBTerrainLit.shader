@@ -21,12 +21,6 @@ Shader "TWB/Terrain/Lit"
         _AlanthorNormal("Alanthor Slate Normal", 2D) = "bump" {}
         _AlanthorTiling("Alanthor Tiling (m)", Float) = 6.0
         _AlanthorSmoothness("Alanthor Smoothness", Range(0,1)) = 0.35
-        _TerraceAlbedo("Alanthor Terrace Masonry", 2D) = "white" {}
-        _TerraceTint("Terrace Tint", Color) = (0.85, 0.84, 0.8, 1)
-        _TerraceTiling("Terrace Tiling (m)", Float) = 3.0
-        _TerraceCourseHeight("Terrace Course Height (m)", Float) = 1.5
-        _TerraceSlopeStart("Terrace Slope Start", Range(0,1)) = 0.25
-        _TerraceSlopeFull("Terrace Slope Full", Range(0,1)) = 0.45
         _FeraldisTint("Feraldis Tint (placeholder)", Color) = (0.78, 0.45, 0.32, 1)
         _RunaiTint("Runai Tint (placeholder)", Color) = (0.88, 0.82, 0.55, 1)
         // Blood's look is NOT edited here: Resources/Blood.mat owns it and
@@ -336,7 +330,7 @@ Shader "TWB/Terrain/Lit"
 
         UsePass "Hidden/Nature/Terrain/Utilities/PICKING"
     }
-    Dependency "AddPassShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Add Pass)"
+    Dependency "AddPassShader" = "Hidden/TWB/Terrain/Lit (Add Pass)"
     Dependency "BaseMapShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Base Pass)"
     Dependency "BaseMapGenShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Basemap Gen)"
 

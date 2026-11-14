@@ -274,8 +274,9 @@ So the two budgets are separate, and only one of them is the author's problem:
 | **Owner analogues** | Shader properties + the coverage mask | Texture samples in one pass; no extra terrain layers | **No** — adding a culture costs no layers |
 
 **Adding a culture look costs zero terrain layers.** `_AlanthorAlbedo`,
-`_BloodAlbedo`, `_CurseAlbedo` and the `_TerraceAlbedo` masonry set are already
-wired this way. `_FeraldisTint` and `_RunaiTint` are explicitly marked
+`_BloodAlbedo` and `_CurseAlbedo` are already wired this way (the Alanthor
+cliff masonry-terrace set was removed 2026-11-12: cliffs keep the map's own
+ground in every territory). `_FeraldisTint` and `_RunaiTint` are explicitly marked
 *"placeholder"* / *"not in demo"* — those two cultures are missing **art**, not
 missing layer slots.
 
@@ -401,7 +402,7 @@ Recorded so the implementation pass does not rebuild any of it:
    replace it? Interacts with the crust's own impassability stamp.
 5. **Feraldis and Runai ground art does not exist.** `_FeraldisTint` and
    `_RunaiTint` are flat placeholder colours marked *"not in demo"*, while
-   Alanthor has a full slate + masonry-terrace set. This is the nearest
+   Alanthor has a full slate paving set. This is the nearest
    shippable work and it needs no new system.
 
 6. **Code and canon disagree about fog, and canon wins.** §5 of this doc follows

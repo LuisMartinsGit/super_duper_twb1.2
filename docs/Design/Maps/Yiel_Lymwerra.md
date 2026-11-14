@@ -110,7 +110,40 @@ are laid, and the island takes all four of its outcrops.
   mountains' feet and along the clifftops, never near a start, a ramp or
   Bayhead.
 
-## Ground look
+## The look: an arid, rocky coast (2026-11-12)
+
+Yiel Lymwérra is a dry chalk coast — England's white cliffs, Portugal's
+Costa Vicentina. The rules:
+
+- **Cliffs and mountains are pale chalk**, over a sand beach.
+- **The cliff tops are dry cracked earth**, broken by pale stone plates
+  (hardpan), with **sparse scrub** in small scattered patches. There is no
+  lawn anywhere on this map; grass blades grow only inside the scrub.
+- **"Forest" is ROCK OUTCROPS on this map.** Wherever the layout says
+  forest (`forest.png`), boulders stand instead of trees. They block
+  exactly as the trees did (same cells, same NoWalk paint).
+- The sea floor below the wade line is its own seabed layer.
+
+The dressing is one editor pass, `TerrainDetailLayersPass`
+(`Waning Border > Maps > Yiel Lymwerra: Dress Terrain (arid coast)`), which
+`MapBuilderYielLymwerra` runs after every rebuild. It retextures the five
+layers the builder paints, adds three detail layers (Hardpan, Scrub,
+Seabed), swaps the tree instances for rocks, thins the grass and puts a
+`TerrainLook` on the Terrain. **It never writes the NoWalk layer** — it only
+moves paint between walkable layers and refuses to save if a single NoWalk
+texel would change — so walkability is what the layout says.
+
+`TerrainLook` (on the scene's Terrain) switches on the terrain shader's
+**anti-tiling** (each layer sampled twice at offsets that change from one
+noise cell to the next, so repeats never line up) and a broad brightness /
+warmth drift. Maps without the component render as before. Layers five to
+eight are drawn by `TWBTerrainLitAdd.shader`, so the ground overlays
+(curse, blood, culture paving, roads) reach them too.
+
+The textures are the free Game Buffs stylised set (`Assets/Game Buffs/`),
+a stand-in until a bought hand-painted set replaces them.
+
+## Ground look (the builder's base paint)
 
 The second ground layer is **sand** on this map (`GroundSubstance003`, in
 the slot other maps use for meadow or moss): beaches, the bay and sea floor,

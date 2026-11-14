@@ -249,6 +249,13 @@ namespace TheWaningBorder.AI
         /// <summary>Match time when a sanctumMode 1 tier starts raising Sanctum armies. (2026-11-04, Game_AI.md § 2)</summary>
         public float sanctumLateSeconds;
 
+        /// <summary>Match time before which this tier does not place its age-up
+        /// landmark, however full the bank (0 = as soon as it is paid for).
+        /// The landmark's price is reached at about the same minute by every
+        /// AI, so this is the only thing that spreads the age-up by tier.
+        /// (2026-11-14)</summary>
+        public float ageUpEarliestSeconds;
+
         /// <summary>1 = this tier builds no walls, whatever the personality says. (2026-11-04, Game_AI.md § 2)</summary>
         public int wallsForbidden;
 

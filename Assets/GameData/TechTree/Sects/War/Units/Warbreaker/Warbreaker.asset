@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Warbreaker
   unitClass: melee
   hp: 340
-  speed: 5.5
+  speed: 2.75
   trainingTime: 21
   damage: 26
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.2
   attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 18
+  lineOfSight: 9
   aimTime: 0
-  radius: 0.6
+  radius: 0.3
   trajectory: 
   projectileSpeed: 0
   cost:

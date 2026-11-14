@@ -36,7 +36,7 @@ namespace TheWaningBorder.Entities
             var entity = creator.CreateEntity();
 
             creator.AddComponent(entity, new PresentationId { Id = PresentationID });
-            creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 0.85f));
+            creator.AddComponent(entity, LocalTransform.FromPositionRotationScale(position, quaternion.identity, 1f));
             creator.AddComponent(entity, new FactionTag { Value = faction });
             creator.AddComponent(entity, new UnitTag { Class = UnitClass.Melee });
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });

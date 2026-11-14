@@ -157,7 +157,14 @@ namespace TheWaningBorder.AI
         /// <summary>It is this tier's turn to level, and the phase of that level is open.</summary>
         public static bool LevelAllowed(EntityManager em, Faction faction, byte level)
         {
-            if (!LevelUpTurn(em, faction)) return false;
+            return LevelUpTurn(em, faction) && LevelPhaseOpen(em, faction, level);
+        }
+
+        /// <summary>The phase of this level is open on the tier's clock (the
+        /// gap between level-ups is not asked) — the House level near the
+        /// cap is taken outside the gap (Game_AI.md § 6ac).</summary>
+        public static bool LevelPhaseOpen(EntityManager em, Faction faction, byte level)
+        {
             if (!TryBrain(em, faction, out _, out var pace)) return true;
             return SimClock.Now >= (level >= 3 ? pace.LevelThreeFrom : pace.LevelTwoFrom);
         }

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Mirage Rider
   unitClass: human_cavalry
   hp: 60
-  speed: 7.6
+  speed: 3.8
   trainingTime: 0
   damage: 0
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.4
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 14
+  lineOfSight: 7
   aimTime: 0
-  radius: 0.6
+  radius: 0.3
   trajectory: 
   projectileSpeed: 0
   cost:

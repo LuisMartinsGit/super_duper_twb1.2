@@ -9,6 +9,35 @@ build always name the same number.
 
 ---
 
+## [0.0.86] — 2026-11-14
+
+### Five new maps: the v2 maps
+- **Moatwatch v2, Highfold v2, Broken Oath v2, Trine Hollow v2 and Fiendstone Pass v2.** Each is its map's idea on half the ground, with the players much closer — redrawn, not shrunk, so every territory still has room for its resources, a Farm with its whole field and a few Houses, and every home for a full base. The original maps stay in the list beside them.
+- **Each v2 map has its own look**: a wetland fen, alpine highlands, a red-rock canyon, mossy boulder woods and an autumn valley, with trees along the borders, rocks on the heights and woods along the water.
+
+### Units
+- **Units are half their old size**, and move at half their old speed; buildings and the build grid are unchanged.
+- **Bows, siege, healing and sight follow them**: every ranged attack, siege range, splash, heal range and line of sight is halved, buildings' sight included (never less than just past their own walls), and towers shoot half as far.
+- **The Swordsman and the Archer have new models**, and every unit on foot is drawn at the Spearman's size.
+- **Trained units walk out of their building** instead of appearing beside it.
+- **Unit ranks are gone** — only heroes level up. Each Garrison unit has passives of its own (the Swordsman's Parry, among them).
+
+### Formations
+- **A formation keeps its shape**: each soldier stands where the layout put him, faces the way the formation faces, and a line that runs into rock, a cliff or a building falls back inside itself instead of skating round it.
+
+### Maps
+- **Every original map has a biome of its own** in Yiel Lymwérra's style: Fiendstone Pass highland forest, Moatwatch green pasture, Highfold snowfield, Broken Oath autumn heath, Trine Hollow ash basin.
+- Homes keep a tighter ring clear of resources, so a home on a small map still holds its camp.
+
+### Buildings and interface
+- **No building is scaled any more**; the Alanthor buildings are redrawn at true size.
+- **The build palette is a 4 x 4 grid again**, and **age-up is the hexagonal button**.
+- Extractors are built from their node, and every extractor is listed.
+
+### AI
+- **The AI fills its population by about minute 30** on a normal map: it levels Houses before it is capped, levels its Farms and Mines when they pay back, trains Workers for its Farms and keeps them full, builds its Market sooner and keeps its other buildings off its Farm fields.
+- The AI adopts its home sects first and buys its sect units before support.
+
 ## [0.0.85] — 2026-11-11
 
 ### Farms

@@ -251,6 +251,10 @@ Assets/Resources/PerformanceTestRunSettings.json.meta
 !Assets/GameData/TechTree/**/Art/*.fbx.meta
 !Assets/GameData/TechTree/**/Art/*.blend
 !Assets/GameData/TechTree/**/Art/*.blend.meta
+# The Alanthor oriental kit (2026-11-10): Japanese roof pieces and lacquer columns
+# written by tools/blender/alanthor/build_oriental_kit.py; its prefabs point at these.
+!Assets/GameData/TechTree/**/Art/Oriental/*.fbx
+!Assets/GameData/TechTree/**/Art/Oriental/*.fbx.meta
 # Wall pieces: one folder per piece per level (StoneWall/Lvl<N>/<Piece>/,
 # Palisade/Lvl0/<Piece>/), 2026-10-21.
 !Assets/GameData/TechTree/**/Lvl*/*/*.fbx

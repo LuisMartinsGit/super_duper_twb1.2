@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Corpse Engine
   unitClass: siege
   hp: 230
-  speed: 4.2
+  speed: 2.1
   trainingTime: 27
   damage: 45
   damageType: siege
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 4
-  attackRange: 24
-  minAttackRange: 8
-  lineOfSight: 22
+  attackRange: 12
+  minAttackRange: 4
+  lineOfSight: 11
   aimTime: 1
-  radius: 0.9
+  radius: 0.45
   trajectory: high
   projectileSpeed: 18.2
   cost:
@@ -46,7 +46,7 @@ MonoBehaviour:
   healRange: 0
   siegeRange: 0
   siegeCooldown: 0
-  aoeRadius: 3.5
+  aoeRadius: 1.75
   tags:
   - Siege
   - Heavy

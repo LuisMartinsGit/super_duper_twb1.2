@@ -107,6 +107,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                     "Build", "Cancel"))
                 return;
             MapBuilderFromLayout.Build(Spec);
+            // The arid-coast look: textures, detail layers, rocks for trees.
+            TerrainDetailLayersPass.Run();
         }
 
         [MenuItem("Waning Border/Maps/Build + Bake Yiel Lymwerra")]

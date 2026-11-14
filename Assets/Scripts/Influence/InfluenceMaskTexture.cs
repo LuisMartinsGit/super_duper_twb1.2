@@ -154,7 +154,7 @@ namespace TheWaningBorder.Influence
         }
 
         /// <summary>Eased Alanthor ground coverage (0..1) at a world position
-        /// — the same value the terrain shader blends slate/terraces with, so
+        /// — the same value the terrain shader blends the slate paving with, so
         /// presentation systems (rampart props) can grow in lockstep with the
         /// painted front. Bilinear; 0 when no mask is live.</summary>
         public static float AlanthorCoverage(float worldX, float worldZ) => Coverage(worldX, worldZ, 0);

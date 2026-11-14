@@ -320,7 +320,16 @@ namespace TheWaningBorder.AI
             if (!FactionEconomy.CanAfford(em, faction, Cost.Of(iron: below))) short1 = ReligionPurchaseKind.SupportIron;
             else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(supplies: below))) short1 = ReligionPurchaseKind.SupportSupplies;
             else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(veilstone: below))) short1 = ReligionPurchaseKind.SupportVeilstone;
-            if (short1 != ReligionPurchaseKind.Tithe
+            // SECT UNITS BEFORE SUPPORT (2026-11-14): a point traded for iron
+            // is a sect unit not trained. 731 support trades against 30 sect
+            // line units in 84 faction-games - the trade ran every time a point
+            // appeared, so the balance never reached a unit's price. Support is
+            // asked for only with a unit's points (price + the AI's reserve)
+            // left in hand afterwards.
+            var rpCfg = FactionReligionPointsHelper.Cfg;
+            bool keepsUnitPoints = FactionReligionPointsHelper.GetBalance(em, faction)
+                > rpCfg.sectUnitRp + rpCfg.aiSectUnitRpReserve;
+            if (short1 != ReligionPurchaseKind.Tithe && keepsUnitPoints
                 && CommandRouter.IssueReligionPurchase(em, faction, short1, null, CommandSource.AI))
             {
                 AILogger.Log(faction, "PETRIARCHY", $"asks for support: {short1}");

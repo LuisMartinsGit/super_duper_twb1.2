@@ -270,7 +270,14 @@ namespace TheWaningBorder.AI
             // and buildings only — unit purchases are exempt — and it takes no
             // budget reservation, so the military wallet is never earmarked
             // for the artifact and the waves keep coming.
-            AIPivotalReserve.Set(faction, ShardrootReserveKey, price, strict, exemptMilitary: true);
+            // ...EXCEPT WHILE THE PRICE IS WITHIN REACH (2026-11-14). Seven
+            // bearers in 18 matches sat "0.2 min" from the price for ten minutes
+            // and more: the army's purchases kept draining the bank the save was
+            // counting on, and no match ended by ascension. A STRICT save (the
+            // price reachable within saveStrictEtaSeconds, for at most
+            // saveStrictMaxSeconds) now holds unit purchases too; a soft save
+            // still never touches the army.
+            AIPivotalReserve.Set(faction, ShardrootReserveKey, price, strict, exemptMilitary: !strict);
             AIBudget.ClearReservation(faction, ShardrootReservePriority);
 
             const string road = "enshrine";

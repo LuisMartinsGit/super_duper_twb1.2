@@ -22,7 +22,7 @@ circles / Resources/Spells), `—` = nothing.
 | 1.5 | Cavalry charge hit | once | victim | — | |
 | 1.6 | Unit dies | once | corpse | proc (corpse dissolve) | |
 | 1.7 | Unit healed (any source, not repair) | once | unit | Lana Regeneration_health | |
-| 1.8 | Unit gains a rank (veterancy) | once | unit | proc (rank pips) | |
+| 1.8 | Unit gains a rank (veterancy) | once | unit | none (the rank pips were removed 2026-11-13) | |
 | 1.9 | Unit trained (leaves the building) | once | rally/exit point | proc (sparkle) | |
 | 1.10 | Unit stunned / launched (Shardbound Fury) | loop | unit | — | |
 | 1.11 | Unit slowed (any slow) | loop | unit | — | |

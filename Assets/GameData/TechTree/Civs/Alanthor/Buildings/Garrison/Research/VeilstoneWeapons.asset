@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Veilstone Weapons
   role: Military
   effect: 
-  desc: "Weapon tier 3: melee units deal a further +30% damage."
+  desc: "Weapon tier 3: all infantry deal a further +4 damage."
   researchAt: Barracks
   minBuildingLevel: 2
   researchTime: 45
@@ -37,5 +37,5 @@ MonoBehaviour:
   effectsList:
   - Target: "type:Melee"
     Stat: Damage
-    Op: Pct
-    Value: 30
+    Op: Add
+    Value: 4

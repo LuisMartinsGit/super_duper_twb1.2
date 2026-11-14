@@ -1109,36 +1109,6 @@ namespace TheWaningBorder.Core.Commands
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // UNIT PROMOTION
-        // ═══════════════════════════════════════════════════════════════
-
-        public static void IssueUnitPromote(EntityManager em, Entity unit,
-            CommandSource source = CommandSource.LocalPlayer)
-        {
-            if (unit == Entity.Null || !em.Exists(unit)) return;
-
-            if (ShouldQueueForLockstep(source))
-            {
-                int networkId = GetNetworkId(em, unit);
-                if (networkId <= 0)
-                {
-                    UnitRankCommandHelper.Execute(em, unit);
-                    return;
-                }
-
-                LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
-                {
-                    Type = LockstepCommandType.UnitPromote,
-                    EntityNetworkId = networkId
-                });
-            }
-            else
-            {
-                UnitRankCommandHelper.Execute(em, unit);
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════
         // SHIFT-QUEUED WAYPOINTS
         // ═══════════════════════════════════════════════════════════════
 

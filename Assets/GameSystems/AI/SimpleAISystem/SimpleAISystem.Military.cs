@@ -1202,7 +1202,7 @@ namespace TheWaningBorder.AI
         /// <summary>Two mission timeouts. Long enough that the army fights
         /// somewhere else first, short enough that a real base does not become
         /// permanently invisible to the target scorer.</summary>
-        private const float WaveBlockSeconds = 960f;
+        private static float WaveBlockSeconds => Cfg.waveBlockSeconds;
 
         /// <summary>40 m cell — a base is bigger than one building, so
         /// blocking a single position would just pick its neighbour.</summary>

@@ -530,12 +530,11 @@ namespace TheWaningBorder.UI.Data
                     // Only show buildings the player can actually place
                     if (!BuildableBuildings.Contains(building.id)) continue;
 
-                    // ONE MINE BUTTON (2026-09-29): the Veilstone Mine rides the
-                    // "Mine" button, which raises whichever the node under the
-                    // cursor needs (TerritoryOwnership.ResolveExtractorAt).
-                    if (building.id == "VeilstoneMine") continue;
-                    // ...and so does the Runai Sanctuary (Age_1_Runai.md §5.1).
-                    if (building.id == "Runai_Sanctuary") continue;
+                    // EVERY EXTRACTOR IS LISTED (2026-11-13): the Gatherer's
+                    // Hut, Mine, Veilstone Mine and Runai Sanctuary are built
+                    // from the button over their node, which reads its price,
+                    // tooltip and locks from this list; the palette itself
+                    // leaves them out (ActionsPanelPrefabBinder.RenderBuilder).
 
                     // Choice building exclusion: if one is built, hide the other two
                     if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
@@ -669,11 +668,7 @@ namespace TheWaningBorder.UI.Data
                     string tooltip = BuildTooltip(
                         building.id == "Alanthor_Wall"
                             ? WallTiers.DisplayName(WallTiers.LevelFor(em, faction)) : buildingName,
-                        building.id == "Mine"
-                            ? Loc.T("Built on a resource node — an iron deposit raises an Iron Mine, a " +
-                                    "veilstone outcropping a Veilstone Mine. Its first extractor locks " +
-                                    "the territory.")
-                            : building.role,
+                        building.role,
                         cost,
                         available,
                         requirement: requirement

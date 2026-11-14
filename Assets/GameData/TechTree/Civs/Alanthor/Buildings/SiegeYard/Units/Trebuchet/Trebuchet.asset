@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Trebuchet
   unitClass: machinery_siege
   hp: 200
-  speed: 2.4
+  speed: 1.2
   trainingTime: 120
   damage: 60
   damageType: siege
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 12
-  attackRange: 38
-  minAttackRange: 12
-  lineOfSight: 30
+  attackRange: 19
+  minAttackRange: 6
+  lineOfSight: 15
   aimTime: 1
-  radius: 1
+  radius: 0.5
   trajectory: high
   projectileSpeed: 9.8
   cost:
@@ -46,7 +46,7 @@ MonoBehaviour:
   healRange: 0
   siegeRange: 0
   siegeCooldown: 0
-  aoeRadius: 6
+  aoeRadius: 3
   tags:
   - Ranged
   - Siege

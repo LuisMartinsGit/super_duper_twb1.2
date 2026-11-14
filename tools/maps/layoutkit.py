@@ -53,10 +53,26 @@ NODE_SPACING = 9.0           # TerritoryResources: m between a territory's nodes
 BORDER_BAND = 10.0           # m a node's footprint keeps clear of another territory
 BORDER_INSET = 8.0           # m a node's centre keeps from impassable ground
 MARGIN_SHARE = 0.35          # ComputeMargins cap: share of the shorter half-width
-START_CLEAR = 26.0           # StartClearing.asset radiusCells 13 x 2 m
-HOME_OFFSET = 38.0           # TerritoryResources.asset homeNodeMinOffset
+START_CLEAR = 14.0           # StartClearing.asset radiusCells 7 x 2 m (13 before the 2026-11-14 half-size maps)
+HOME_OFFSET = 24.0           # TerritoryResources.asset homeNodeMinOffset (38 before 2026-11-14)
 FOOT = 2.0                   # half a node's 4 m footprint
-HOME_LEGAL_MIN = 1000        # m2 of legal node ground a home needs to be safe in game
+HOME_LEGAL_MIN = 400         # m2 of legal node ground a home needs to be safe in game
+
+# ── The BUILDING-ROOM PROBE (2026-11-14). Units were halved; the 2 m grid and
+# every building footprint were NOT, so a smaller map must still prove that
+# its territories hold real buildings. Footprints mirror the building SOs
+# (footprintCells x BuildGrid 2 m); the Farm's disc is its 2 x 2 cell
+# footprint plus Farm.asset cropRingMeters, its field. Square sides in metres.
+ROOM_GAP = 2.0               # one grid cell kept clear round every building
+ROOM_SLOPE = 0.2679          # BuildCommandHelper.TerrainPointOk: tan 15 deg
+FARM_FIELD_R = 2.0 + 10.0    # Farm footprint half + cropRingMeters
+NODE_KEEP = 4.0              # an extractor's footprint on its node
+FORTRESS_SIDE = 10.0         # Fortress footprintCells 5
+# what each kind of territory must hold beside its nodes: (farm fields, squares)
+ROOM_HOME = (2, [8.0, 8.0, 8.0, 8.0, 8.0, 6.0] + [4.0] * 8)  # 4 trainers, Temple, Market, 8 Houses
+ROOM_OTHER = (1, [4.0, 4.0])                                 # a Farm with its field, 2 Houses
+ROOM_DRAWS = 6               # independent node draws the room must survive (a match deals its own)
+ROOM_PACKS = 8               # packings tried per draw before the room is called short
 FORD_LEVEL = len(LEVEL_H)    # exported level of a waded ford (its height: FORD_H)
 
 RICH = ("NormalVeilstone", "IronRich", "VeilstoneRich", "Sanctum")
@@ -194,6 +210,20 @@ def NOT(f):
     return lambda X, Z, E: ~f(X, Z, E)
 
 
+class _ScaledDraw:
+    """An ImageDraw whose coordinates are map metres, drawn k px a metre."""
+    def __init__(self, d, k):
+        self.d, self.k = d, k
+
+    def _p(self, xy):
+        return tuple(v * self.k for v in xy)
+
+    def text(self, xy, *a, **kw): self.d.text(self._p(xy), *a, **kw)
+    def rectangle(self, xy, **kw): self.d.rectangle(self._p(xy), **kw)
+    def ellipse(self, xy, **kw): self.d.ellipse(self._p(xy), **kw)
+    def line(self, xy, **kw): self.d.line(self._p(xy), **kw)
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 def _mtn_ground(ground, mtn, iters=300):
     """The ground a mountain stands on, inside the mass: equal to the real
@@ -242,6 +272,20 @@ class Plan:
         # mirrored on both axes: there TerritoryResources re-deals the curse to
         # RANDOM territories, which is unfair between seats.
         self.pin_curse = False
+        # HEDGEROWS (2026-11-14, the v2 maps): broken copses of trees along the
+        # territory borders, inside each territory's outer `width` metres —
+        # where a building would sit last — away from ramps, fords and the
+        # home camps. None = off (the original maps). The room probe runs
+        # after them, so a map with hedgerows still proves its room.
+        self.hedgerows = None        # e.g. dict(width=3.0, cover=0.55)
+        self.fringe_depth = 7.0      # m into a mountain the rock/tree scatter reaches (fringe.png)
+        # BANK TREES: trees standing in the shallow margin of deep water (a
+        # moat's or a pond's edge, never a ford). Water is impassable and
+        # unbuildable already, so they cost no room. None = off.
+        self.bank_trees = None       # e.g. dict(width=2.5, cover=0.6)
+        # SOFT RAMPS (v2 maps): a ramp's dirt fades in through bare.png with a
+        # noisy edge instead of a hard dirt.png patch (a rectangle on screen).
+        self.soft_ramps = False
 
     # ── symmetry helpers ────────────────────────────────────────────────────
     def _mult_table(self):
@@ -668,9 +712,53 @@ class Plan:
                 sizes = ndimage.sum(f, lab, range(1, n + 1))
                 f = np.isin(lab, 1 + np.nonzero(sizes >= 180)[0])
             f = self._fold_field(f.astype(np.float32), 0) > 0.5
+            if self.hedgerows:
+                f = f | self._hedges(walk0, d_ramp, d_wade, d_start)
+            if self.bank_trees:
+                f = f | self._bank_trees(d_wade)
             if not self._unreachable(self._walk(f)): break
             print("forest at", thr, "cuts off", self._unreachable(self._walk(f))[:6], "- thinning")
         self.forest = f
+
+    def _hedges(self, walk0, d_ramp, d_wade, d_start):
+        """Copses along the borders: the outer band of every land territory
+        (bordering another territory, water or rock), broken into clumps by
+        noise, kept off ramps, fords and every home's camp."""
+        hw = float(self.hedgerows.get("width", 3.0))
+        cover = float(self.hedgerows.get("cover", 0.55))     # share of the band kept
+        reg = self.region
+        edge = np.zeros(reg.shape, bool)
+        edge[:, 1:] |= reg[:, 1:] != reg[:, :-1]
+        edge[:, :-1] |= reg[:, 1:] != reg[:, :-1]
+        edge[1:, :] |= reg[1:, :] != reg[:-1, :]
+        edge[:-1, :] |= reg[1:, :] != reg[:-1, :]
+        band = (ndimage.distance_transform_edt(~edge) <= hw) & self.land & walk0
+        band &= (d_ramp > 10) & (d_wade > 10) & (d_start > START_CLEAR + 16)
+        skip = set(self.hedgerows.get("skip_types", ("Start", "Sanctum", "VeilstoneRich", "NormalVeilstone")))   # the tight ones: a home, a node-less mound, four nodes
+        for rec in self.R:
+            if rec["type"] in skip or rec["kind"] == "ford":
+                band &= reg != rec["id"]
+        clump = self.noise(9, 61) * 0.7 + self.noise(4, 62) * 0.3
+        clump /= clump.std() + 1e-9
+        thr = np.quantile(clump[band], 1.0 - cover) if band.any() else 99
+        h = band & (clump > thr)
+        lab, n = ndimage.label(h)
+        if n:
+            sizes = ndimage.sum(h, lab, range(1, n + 1))
+            h = np.isin(lab, 1 + np.nonzero(sizes >= 10)[0])     # no lone trees
+        return self._fold_field(h.astype(np.float32), 0) > 0.5
+
+    def _bank_trees(self, d_wade):
+        """Trees in deep water's shallow margin, away from the fords."""
+        w = float(self.bank_trees.get("width", 2.5))
+        cover = float(self.bank_trees.get("cover", 0.6))
+        deep = self.water & ~self.wade
+        d_land = ndimage.distance_transform_edt(deep)        # metres into the water
+        band = deep & (d_land <= w) & (d_wade > 8)
+        clump = self.noise(7, 63) * 0.7 + self.noise(3, 64) * 0.3
+        clump /= clump.std() + 1e-9
+        thr = np.quantile(clump[band], 1.0 - cover) if band.any() else 99
+        return self._fold_field((band & (clump > thr)).astype(np.float32), 0) > 0.5
 
     def world_starts(self):
         out = []
@@ -728,6 +816,7 @@ class Plan:
         self.area = {rec["id"]: int((reg == rec["id"]).sum()) for rec in self.R}
         self._distances()
         self._node_probe()
+        self._room_probe()
         # cliffs the slope rule does not block (a leak), ramps it does (a wall)
         blk = self.slope > 1.0
         cl = self.cliff & ~ndimage.binary_dilation(self.ramp_mask, iterations=3)
@@ -782,24 +871,16 @@ class Plan:
             if rid in home_of:
                 hr, hc = self.img(*home_of[rid])
                 ok &= np.maximum(np.abs(self.rows[y0:y1, x0:x1] - hr), np.abs(self.cols[y0:y1, x0:x1] - hc)) >= HOME_OFFSET
-            if rec["type"] in ("NormalVeilstone", "VeilstoneRich"):
-                # an outcrop needs its four Trading Outpost side slots (4 m
-                # posts flush N/E/S/W): a 12 m square of its own buildable
-                # ground round its centre (TerritoryResources _needPostRoom)
-                mine_ok = (m & self.land & self.walk)[y0:y1, x0:x1]
-                ok &= ndimage.binary_erosion(mine_ok, structure=np.ones((13, 13), bool))
-            if rec["type"] == "Start":
-                # the home's one outcrop needs its four post slots as well
-                mine_ok = (m & self.land & self.walk)[y0:y1, x0:x1]
-                post_ok = ok & ndimage.binary_erosion(mine_ok, structure=np.ones((13, 13), bool))
-                if not post_ok.any():
-                    self.nodes[rid] = (need - 1, need, []); continue
+            # (an outcrop's N/E/S/W Trading Outpost slots are no longer kept:
+            # the posts were retired, decision 55, and TerritoryResources
+            # stopped reserving their room)
             self.legal = getattr(self, "legal", {}); self.legal[rid] = int(ok.sum())
             cy, cx = np.nonzero(ok)
             # a few random orders, best kept: the runtime retries its random
             # tries too, so one unlucky greedy order is not a real shortfall
             placed = []
-            for _try in range(4):
+            draws = []
+            for _try in range(ROOM_DRAWS):
                 order = rng.permutation(len(cy))
                 got_ = []
                 for j in order:
@@ -808,7 +889,9 @@ class Plan:
                         got_.append(p)
                         if len(got_) >= need: break
                 if len(got_) > len(placed): placed = got_
-                if len(placed) >= need: break
+                draws.append(got_)
+            self.node_draws = getattr(self, "node_draws", {})
+            self.node_draws[rid] = draws
             if rec["type"] == "Start" and ok.sum() < HOME_LEGAL_MIN:
                 # the runtime lays nodes by random tries in the bounding box:
                 # a home whose legal ground is a thin band can come up short
@@ -817,6 +900,126 @@ class Plan:
                 self.nodes[rid] = (min(len(placed), need - 1), need, placed); continue
             self.nodes[rid] = (len(placed), need, placed)
         self.node_short = [(self.R[r]["code"], got, need) for r, (got, need, _) in self.nodes.items() if got < need]
+
+
+    def _room_probe(self):
+        """Replay building placement in every territory, on the probe's own
+        nodes: the 2 m grid's footprints on buildable ground (walkable, no
+        steeper than the game's 15 deg build rule, inside the territory),
+        a cell of gap round each, Farms with their whole field inside the
+        territory. Greedy and edge-hugging: a pass means the room exists."""
+        reg = self.region
+        flat = self.walk & self.land & (self.slope <= ROOM_SLOPE)
+        fieldable = self.walk & self.land
+        home_of = {rid: p for rid, p in self.homes()}
+        self.room = {}            # rid -> (farm centres, squares, ok, spare farms, draws passed, draws) — the WORST draw
+        self.room_short = []
+        draws_of = getattr(self, "node_draws", {})
+        for rec in self.R:
+            rid = rec["id"]
+            m = reg == rid
+            if rec["kind"] == "ford" or not m.any():
+                continue
+            sets = draws_of.get(rid) or [[]]
+            results = [self._room_one(rec, m, flat, fieldable, home_of, ns) for ns in sets]
+            passed = sum(1 for r_ in results if r_[2])
+            worst = min(results, key=lambda r_: (r_[2], len(r_[0]) + r_[3]))
+            self.room[rid] = (worst[0], worst[1], passed == len(results), worst[3], passed, len(results))
+            if passed < len(results):
+                self.room_short.append(rec["code"])
+
+    def _room_one(self, rec, m, flat, fieldable, home_of, node_set):
+        """One node draw: the required set packs if ANY of ROOM_PACKS packings
+        does (a player picks where to build; one greedy order can miss room a
+        mirrored copy of the same ground has). The first packing is plain
+        edge-hugging greedy, the rest pick at random among the near-edge spots."""
+        best = None
+        rng = np.random.default_rng(zlib.crc32(rec["code"].encode()) + len(node_set))
+        for attempt in range(ROOM_PACKS):
+            res = self._room_pack(rec, m, flat, fieldable, home_of, node_set, None if attempt == 0 else rng)
+            if best is None or (res[2], len(res[0]) + res[3]) > (best[2], len(best[0]) + best[3]):
+                best = res
+            if res[2]:
+                return res
+        return best
+
+    def _room_pack(self, rec, m, flat, fieldable, home_of, node_set, rng):
+        if True:
+            rid = rec["id"]
+            yy, xx = np.nonzero(m)
+            y0, y1 = max(yy.min() - 2, 0), min(yy.max() + 3, self.NZ)
+            x0, x1 = max(xx.min() - 2, 0), min(xx.max() + 3, self.NX)
+            mw = m[y0:y1, x0:x1]
+            B = mw & flat[y0:y1, x0:x1]
+            F = mw & fieldable[y0:y1, x0:x1]
+            RR, CC = np.mgrid[y0:y1, x0:x1]
+
+            def pick(cy, cx, score):
+                if rng is None:
+                    return int(np.argmin(score))
+                k = max(1, len(score) // 12)
+                low = np.argpartition(score, k - 1)[:k]
+                return int(rng.choice(low))
+
+            def take_square(cy, cx, side):
+                h = side / 2.0 + ROOM_GAP
+                blk = (np.abs(RR - cy) <= h) & (np.abs(CC - cx) <= h)
+                B[blk] = False
+                F[blk] = False
+
+            for (r, c) in node_set:
+                take_square(r, c, NODE_KEEP)
+            farms_need, squares = ROOM_HOME if rid in home_of else ROOM_OTHER
+            ok = True
+            farms, sq = [], []
+            if rid in home_of:
+                hr, hc = self.img(*home_of[rid])
+                h = FORTRESS_SIDE / 2.0
+                blk = (np.abs(RR - hr) <= h) & (np.abs(CC - hc) <= h)
+                if not blk.any() or (blk & ~B).any():
+                    ok = False
+                take_square(hr, hc, FORTRESS_SIDE)
+                sq.append((hr, hc, FORTRESS_SIDE))
+
+            def place_farm():
+                dF = ndimage.distance_transform_edt(np.pad(F, 1))[1:-1, 1:-1]
+                core = ndimage.binary_erosion(B, structure=np.ones((5, 5), bool))
+                cand = (dF >= FARM_FIELD_R + 0.5) & core
+                if not cand.any():
+                    return None
+                cy, cx = np.nonzero(cand)
+                j = pick(cy, cx, dF[cy, cx])
+                r, c = int(cy[j] + y0), int(cx[j] + x0)
+                disc_ = (RR - r) ** 2 + (CC - c) ** 2 <= (FARM_FIELD_R + ROOM_GAP) ** 2
+                B[disc_] = False
+                F[disc_] = False
+                return (r, c)
+
+            for _ in range(farms_need):
+                p_ = place_farm()
+                if p_ is None:
+                    ok = False
+                    break
+                farms.append(p_)
+            for side in sorted(squares, reverse=True):
+                n_ = int(round(side)) + 1
+                core = ndimage.binary_erosion(B, structure=np.ones((n_, n_), bool))
+                if not core.any():
+                    ok = False
+                    break
+                dB = ndimage.distance_transform_edt(np.pad(B, 1))[1:-1, 1:-1]
+                cy, cx = np.nonzero(core)
+                j = pick(cy, cx, dB[cy, cx])
+                r, c = int(cy[j] + y0), int(cx[j] + x0)
+                take_square(r, c, side)
+                sq.append((r, c, side))
+            spare = 0
+            while ok and spare < 12:
+                p_ = place_farm()
+                if p_ is None:
+                    break
+                spare += 1
+            return (farms, sq, ok, spare)
 
     # ── report ──────────────────────────────────────────────────────────────
     def report(self):
@@ -831,6 +1034,13 @@ class Plan:
                   f" -> new min {r_.min():.1f} median {np.median(r_):.1f} max {r_.max():.1f} m"
                   f" (median ratio {np.median(r_ / np.maximum(o_, 1e-3)):.3f})")
         print("node shortfalls:", self.node_short or "none")
+        print("building-room shortfalls:", self.room_short or "none")
+        hid = dict(self.homes())
+        hf = [self.room[r][3] + len(self.room[r][0]) for r in hid if r in self.room]
+        of = [v[3] + len(v[0]) for r, v in self.room.items() if r not in hid]
+        if hf:
+            print(f"farm fields that fit beside the required set: home {min(hf)}-{max(hf)},"
+                  f" other territories median {int(np.median(of)) if of else 0} min {min(of) if of else 0}")
         for i, row in self.dist.items(): print(f"  seat {i + 1}:", row)
         if "--table" in sys.argv:
             for rec in self.R:
@@ -838,7 +1048,9 @@ class Plan:
                 got, need, _ = self.nodes[rec["id"]]
                 yy, xx = np.nonzero(self.region == rec["id"])
                 cen = f"({xx.mean() - self.sx / 2:6.0f},{self.sz / 2 - yy.mean():6.0f})" if len(xx) else "-"
-                print(f"    {rec['code']:12} L{rec['level']} {rec['type']:16} {self.area[rec['id']]:6} m2 nodes {got}/{need} legal {getattr(self, 'legal', {}).get(rec['id'], 0):5} at {cen}")
+                rm = self.room.get(rec["id"])
+                rtxt = "-" if rm is None else (("ok" if rm[2] else "SHORT") + f" {rm[4]}/{rm[5]} farms {len(rm[0]) + rm[3]}")
+                print(f"    {rec['code']:12} L{rec['level']} {rec['type']:16} {self.area[rec['id']]:6} m2 nodes {got}/{need} legal {getattr(self, 'legal', {}).get(rec['id'], 0):5} room {rtxt:14} at {cen}")
         by = {}
         for rec in self.R:
             by.setdefault(rec["type"], []).append(self.area[rec["id"]])
@@ -940,10 +1152,13 @@ class Plan:
         plan[dash] = (250, 250, 240)
         plan = np.clip(plan, 0, 255).astype(np.uint8)
         PAD = 420
-        H = max(self.NZ, 860)
-        canvas = Image.new("RGB", (self.NX + PAD, H), (236, 232, 222))
-        canvas.paste(Image.fromarray(plan), (0, 0))
+        k = max(1, 900 // max(self.NX, self.NZ))    # small maps drawn 2-3 px a metre, readable
+        self._pk = k
+        H = max(self.NZ * k, 860)
+        canvas = Image.new("RGB", (self.NX * k + PAD, H), (236, 232, 222))
+        canvas.paste(Image.fromarray(plan).resize((self.NX * k, self.NZ * k), Image.NEAREST), (0, 0))
         d = ImageDraw.Draw(canvas)
+        dm = _ScaledDraw(d, k)                       # map coordinates (1 m) -> canvas pixels
         # labels at each territory's deepest point
         for rec in self.R:
             m = reg == rec["id"]
@@ -952,25 +1167,34 @@ class Plan:
             r, c = np.unravel_index(np.argmax(dt), dt.shape)
             tag = self.labels.get(rec["canon"]) or TYPE_STYLE[rec["type"]][1]
             got, need, _ = self.nodes[rec["id"]]
-            txt2 = f"{self.area[rec['id']] / 1000:.1f}k" + ("" if got >= need else f" !{got}/{need}")
+            txt2 = f"{self.area[rec['id']] / 1000:.1f}k" + ("" if got >= need else f" !{got}/{need}") \
+                + (" !room" if rec["code"] in self.room_short else "")
             for t_, dy, f_ in ((tag, -6, bold), (txt2, 7, small)):
-                d.text((c + 1, r + dy + 1), t_, fill=(0, 0, 0), font=f_, anchor="mm")
-                d.text((c, r + dy), t_, fill=(255, 255, 255) if "!" not in t_ else (255, 120, 120), font=f_, anchor="mm")
+                dm.text((c + 1, r + dy + 1), t_, fill=(0, 0, 0), font=f_, anchor="mm")
+                dm.text((c, r + dy), t_, fill=(255, 255, 255) if "!" not in t_ else (255, 120, 120), font=f_, anchor="mm")
         for i, (rid, (x, z)) in enumerate(homes):
             r, c = self.img(x, z)
-            d.rectangle((c - 6, r - 6, c + 6, r + 6), fill=PLAYER[i % 8], outline=(0, 0, 0), width=2)
-            d.text((c, r - 18), str(i + 1), fill=(255, 255, 255), font=big, anchor="mm", stroke_width=2, stroke_fill=(0, 0, 0))
+            dm.rectangle((c - 6, r - 6, c + 6, r + 6), fill=PLAYER[i % 8], outline=(0, 0, 0), width=2)
+            dm.text((c, r - 18), str(i + 1), fill=(255, 255, 255), font=big, anchor="mm", stroke_width=2, stroke_fill=(0, 0, 0))
+        # the room probe's required set: farm fields (circles), buildings (squares)
+        for rid, (farms, sq, ok_, *_r) in self.room.items():
+            colr = (255, 236, 150) if ok_ else (255, 90, 90)
+            for (r, c) in farms:
+                dm.ellipse((c - FARM_FIELD_R, r - FARM_FIELD_R, c + FARM_FIELD_R, r + FARM_FIELD_R), outline=colr, width=1)
+            for (r, c, side) in sq:
+                h = side / 2.0
+                dm.rectangle((c - h, r - h, c + h, r + h), outline=colr, width=1)
         # nodes the probe could lay (dots), to show room
         for rid, (_, _, pl) in self.nodes.items():
             for (r, c) in pl:
-                d.ellipse((c - 1.5, r - 1.5, c + 1.5, r + 1.5), fill=(255, 255, 255))
+                dm.ellipse((c - 1.5, r - 1.5, c + 1.5, r + 1.5), fill=(255, 255, 255))
         # 50 m scale bar
         x0, y0 = 14, self.NZ - 18
-        d.rectangle((x0 - 4, y0 - 14, x0 + 50 + 34, y0 + 8), fill=(0, 0, 0))
-        d.line((x0, y0, x0 + 50, y0), fill=(255, 255, 255), width=3)
-        d.text((x0 + 56, y0), "50 m", fill=(255, 255, 255), font=font, anchor="lm")
+        d.rectangle((x0 * k - 4, y0 * k - 14, x0 * k + 50 * k + 34, y0 * k + 8), fill=(0, 0, 0))
+        d.line((x0 * k, y0 * k, x0 * k + 50 * k, y0 * k), fill=(255, 255, 255), width=3)
+        d.text((x0 * k + 50 * k + 6, y0 * k), "50 m", fill=(255, 255, 255), font=font, anchor="lm")
 
-        lx, y = self.NX + 16, 14
+        lx, y = self.NX * k + 16, 14
         d.text((lx, y), self.title, fill=(0, 0, 0), font=big); y += 30
         d.text((lx, y), f"{len(homes)} players, {self.sx} x {self.sz} m, {len(self.R)} territories", fill=(0, 0, 0), font=font); y += 24
         counts = {}
@@ -990,7 +1214,9 @@ class Plan:
         y += 6
         d.text((lx, y), "Strong tint = rich (veilstone, iron, curse, sanctum);", fill=(0, 0, 0), font=small); y += 15
         d.text((lx, y), "faint = poor. Label: type, area. Dots = nodes the", fill=(0, 0, 0), font=small); y += 15
-        d.text((lx, y), "probe could lay; !a/b = short of room.", fill=(0, 0, 0), font=small); y += 22
+        d.text((lx, y), "probe could lay; !a/b = short of room.", fill=(0, 0, 0), font=small); y += 15
+        d.text((lx, y), "Circles / squares = Farm fields and buildings the", fill=(0, 0, 0), font=small); y += 15
+        d.text((lx, y), "room probe fitted (red, !room = they do not fit).", fill=(0, 0, 0), font=small); y += 22
         for line in notes:
             d.text((lx, y), line, fill=(0, 0, 0), font=font); y += 17
         y += 8
@@ -1004,9 +1230,10 @@ class Plan:
         if self.lonely: probs.append(f"isolated {self.lonely[:4]}")
         if self.unclaimable: probs.append(f"outside claim graph {self.unclaimable[:4]}")
         if self.node_short: probs.append(f"{len(self.node_short)} short of node room")
+        if self.room_short: probs.append(f"{len(self.room_short)} short of building room {self.room_short[:3]}")
         if self.cliff_leaks > 40: probs.append(f"{self.cliff_leaks} cliff leaks")
         ok = not probs
-        for line in (["All territories reachable, connected, room for nodes"] if ok else probs):
+        for line in (["All territories reachable, connected, room for nodes and buildings"] if ok else probs):
             d.text((lx, y), line, fill=(0, 120, 0) if ok else (200, 0, 0), font=font); y += 17
         canvas.save(os.path.join(self.here, "preview.png"))
 
@@ -1028,8 +1255,9 @@ class Plan:
         save("nowalk.png", (self.mtn | self.forest).astype(float))
         save("forest.png", self.forest.astype(float))
         bankish = ndimage.binary_dilation(self.water, iterations=3) & ~ndimage.binary_erosion(self.water, iterations=8)
-        save("dirt.png", (self.ramp_mask | bankish | (ndimage.binary_dilation(self.wade, iterations=6) & self.water)).astype(float))
-        save("fringe.png", (self.mtn & (self.d_mtn_in < 7)).astype(float))
+        ramp_dirt = np.zeros_like(self.ramp_mask) if self.soft_ramps else self.ramp_mask
+        save("dirt.png", (ramp_dirt | bankish | (ndimage.binary_dilation(self.wade, iterations=6) & self.water)).astype(float))
+        save("fringe.png", (self.mtn & (self.d_mtn_in < self.fringe_depth)).astype(float))
         d_forest = ndimage.distance_transform_edt(~self.forest)
         hollow = np.clip((0.5 - self.roll) * 2.4, 0, 1)
         moss = np.maximum(hollow, np.clip(1 - d_forest / 14.0, 0, 1) * 0.8)
@@ -1037,6 +1265,10 @@ class Plan:
         moss = moss * (1 - np.clip(self.noise(6, 97) * 0.25 + 0.1, 0, 0.45)) * self.land
         bare = np.clip(self.noise(26, 98) * 0.75 - 0.6, 0, 0.6) * self.land * (ndimage.distance_transform_edt(~self.ramp_mask) > 14)
         save("meadow.png", ndimage.gaussian_filter(moss, 1.5))
+        if self.soft_ramps:
+            soft = ndimage.gaussian_filter(self.ramp_mask.astype(np.float32), 2.5)
+            soft = np.clip(soft * 1.4 + self.noise(5, 99) * 0.18 - 0.15, 0, 0.75)
+            bare = np.maximum(bare, soft * self.land)
         save("bare.png", ndimage.gaussian_filter(bare, 1.5))
         home_pt = {rid: p for rid, p in self.homes()}
         regions_out = []
