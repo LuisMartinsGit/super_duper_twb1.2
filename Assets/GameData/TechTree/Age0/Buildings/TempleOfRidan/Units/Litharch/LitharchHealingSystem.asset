@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3c7e9a41d5b24f08a6e2c1b9d4f70a11, type: 3}
   m_Name: LitharchHealingSystem
   m_EditorClassIdentifier:
-  autoSearchRange: 8
+  autoSearchRange: 16
   standOffMargin: 2
   meleeContactRadius: 3
   threatRadius: 5

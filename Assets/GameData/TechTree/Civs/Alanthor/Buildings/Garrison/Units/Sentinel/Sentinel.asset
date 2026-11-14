@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Sentinel
   unitClass: human_melee
   hp: 210
-  speed: 2.5
+  speed: 5
   trainingTime: 16.8
   damage: 12
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.8
   attackRange: 1.7
   minAttackRange: 0
-  lineOfSight: 9
-  radius: 0.25
+  lineOfSight: 18
+  radius: 0.5
   cost:
     Supplies: 270
     Iron: 50

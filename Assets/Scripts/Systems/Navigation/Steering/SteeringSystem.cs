@@ -180,8 +180,8 @@ namespace TheWaningBorder.Systems.Navigation
         // tail, not by separation alone.
         // Halved with the units on 2026-11-13 (UnitWorldScale 0.5, unit radius
         // 0.25 m, formation slots 1.0 m): were 1.5 m and 2.5 m.
-        private const float SeparationRadius  = 0.75f;
-        private const float UnitAvoidanceRadius = 1.25f;
+        private const float SeparationRadius  = 1.5f;
+        private const float UnitAvoidanceRadius = 2.5f;
         private const float CohesionRadius      = 4.0f;
 
         // Look-ahead distance for obstacle-avoidance. We sample the cost
@@ -213,7 +213,7 @@ namespace TheWaningBorder.Systems.Navigation
         // at WallClearanceRadius and push inward off a blocked side. Weight is
         // below FlowWeight (3.0) so it only nudges -- it bends the path off the
         // wall without stalling forward progress.
-        private const float WallClearanceRadius = 0.8f;   // halved with the units, 2026-11-13 (UnitWorldScale)
+        private const float WallClearanceRadius = 1.6f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
 
         // A FORMATION MEMBER holds a spot the formation gave it, so it needs no
         // slack from the wall beyond not standing in the edge cell. At the full
@@ -223,7 +223,7 @@ namespace TheWaningBorder.Systems.Navigation
         // on Yiel Lymwerra averaged under half its speed (developer,
         // 2026-11-13: "moving a formation near rock, cliffs or buildings
         // dramatically slows it down").
-        private const float FormationWallClearanceRadius = 0.3f;
+        private const float FormationWallClearanceRadius = 0.6f;
         private const float WallClearanceWeight = 1.5f;
 
         /// <summary>

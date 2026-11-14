@@ -12,12 +12,10 @@ build always name the same number.
 ## [0.0.86] — 2026-11-14
 
 ### Five new maps: the v2 maps
-- **Moatwatch v2, Highfold v2, Broken Oath v2, Trine Hollow v2 and Fiendstone Pass v2.** Each is its map's idea on half the ground, with the players much closer — redrawn, not shrunk, so every territory still has room for its resources, a Farm with its whole field and a few Houses, and every home for a full base. The original maps stay in the list beside them.
+- **Moatwatch v2, Highfold v2, Broken Oath v2, Trine Hollow v2 and Fiendstone Pass v2.** Each is its map's idea on half the ground, with the players much closer (units, their speed, reach and sight and the camera are the size they were in 0.0.85) — redrawn, not shrunk, so every territory still has room for its resources, a Farm with its whole field and a few Houses, and every home for a full base. The original maps stay in the list beside them.
 - **Each v2 map has its own look**: a wetland fen, alpine highlands, a red-rock canyon, mossy boulder woods and an autumn valley, with trees along the borders, rocks on the heights and woods along the water.
 
 ### Units
-- **Units are half their old size**, and move at half their old speed; buildings and the build grid are unchanged.
-- **Bows, siege, healing and sight follow them**: every ranged attack, siege range, splash, heal range and line of sight is halved, buildings' sight included (never less than just past their own walls), and towers shoot half as far.
 - **The Swordsman and the Archer have new models**, and every unit on foot is drawn at the Spearman's size.
 - **Trained units walk out of their building** instead of appearing beside it.
 - **Unit ranks are gone** — only heroes level up. Each Garrison unit has passives of its own (the Swordsman's Parry, among them).

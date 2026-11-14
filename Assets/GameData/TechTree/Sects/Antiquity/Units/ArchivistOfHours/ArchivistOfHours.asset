@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Archivist of Hours
   unitClass: ranged
   hp: 680
-  speed: 3
+  speed: 6
   trainingTime: 45
   damage: 52
   damageType: magic
@@ -27,10 +27,10 @@ MonoBehaviour:
     siege: 0
     magic: 6
   attackCooldown: 1.5
-  attackRange: 6
+  attackRange: 12
   minAttackRange: 0
-  lineOfSight: 15
-  radius: 0.275
+  lineOfSight: 30
+  radius: 0.55
   aimTime: 0.6
   trajectory: 
   projectileSpeed: 0

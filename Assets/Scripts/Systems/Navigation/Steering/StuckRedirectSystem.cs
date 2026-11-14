@@ -110,7 +110,7 @@ namespace TheWaningBorder.Systems.Navigation
         private const float EvalInterval = 0.5f;
         /// <summary>A unit must beat its best distance by this much for the
         /// step to count as progress (orbiting oscillates less than this).</summary>
-        private const float MinProgress = 0.3f;   // halved with the units, 2026-11-13 (UnitWorldScale)
+        private const float MinProgress = 0.6f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
         /// <summary>No-progress time that declares the unit stuck.</summary>
         private const float StuckSeconds = 5f;
         /// <summary>Within this range no-progress is judged on the short

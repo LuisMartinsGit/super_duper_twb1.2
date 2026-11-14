@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Ledger
   unitClass: melee
   hp: 760
-  speed: 2.8
+  speed: 5.6
   trainingTime: 45
   damage: 38
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.4
   attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 13
+  lineOfSight: 26
   aimTime: 0
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

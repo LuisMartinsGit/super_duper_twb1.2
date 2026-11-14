@@ -391,7 +391,7 @@ namespace TheWaningBorder.Systems.Navigation
     [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.High)]
     internal partial struct IntegrateUnitsJob : IJobEntity
     {
-        private const float StopDistance = 0.25f;   // halved with the units, 2026-11-13
+        private const float StopDistance = 0.5f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
 
         /// <summary>Arrival window for a unit settling into a FORMATION SLOT.
         /// Tighter than the loose-unit window because the slot is a designed
@@ -399,8 +399,8 @@ namespace TheWaningBorder.Systems.Navigation
         /// parked anywhere in a 0.5 m disc do not read as a formation. Matches
         /// FormationGroupSystem.InPlaceDistance so the marching shape and the
         /// stopped shape are the same shape.</summary>
-        private const float FormationStopDistance = 0.075f;   // halved with the units, 2026-11-13 (UnitWorldScale)
-        private const float DefaultMoveSpeed = 1.75f;   // halved with the units, 2026-11-13 (UnitWorldScale)
+        private const float FormationStopDistance = 0.15f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
+        private const float DefaultMoveSpeed = 3.5f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
         // 8 -> 6 rad/s (~460 -> ~344 deg/s). At 460 deg/s a unit changing
         // heading completed the turn inside a couple of frames, which reads
         // as the model snapping between facings rather than turning. Still
@@ -413,7 +413,7 @@ namespace TheWaningBorder.Systems.Navigation
         // closer than this, which is the whole reason for the crowded-arrival
         // rule below: with a 0.5 m StopDistance and a 1.5 m separation ring,
         // two units sent to the SAME point can never both satisfy arrival.
-        private const float SeparationClearance = 0.75f;   // mirror of SteeringSystem.SeparationRadius
+        private const float SeparationClearance = 1.5f;   // mirror of SteeringSystem.SeparationRadius
         /// <summary>Arrival window when the ordered point is already occupied
         /// by someone who got there first.</summary>
         private const float CrowdStopDistance = StopDistance + SeparationClearance;
@@ -434,7 +434,7 @@ namespace TheWaningBorder.Systems.Navigation
         // to a fifth of the speed read as a two-second crawl into every stop;
         // the last three quarters of a metre at half speed or better is a
         // quarter of a second.
-        private const float ArriveSlowRadius = 0.375f;   // halved with the units, 2026-11-13 (UnitWorldScale)
+        private const float ArriveSlowRadius = 0.75f;   // doubled back with the units (2026-11-14); was tuned to 0.375 at the half scale
         private const float MinArriveSpeedScale = 0.5f;
         // Per-step terrain backstop: the PassabilityGrid cell mask is the
         // single authority (see the TERRAIN CHECK in the step loop) — no

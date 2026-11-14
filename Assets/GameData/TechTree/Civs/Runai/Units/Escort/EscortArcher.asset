@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Escort Archer
   unitClass: human_ranged
   hp: 90
-  speed: 3.2
+  speed: 6.4
   trainingTime: 0
   damage: 10
   damageType: ranged
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 1.4
-  attackRange: 5.5
+  attackRange: 11
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 20
   aimTime: 0.4
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

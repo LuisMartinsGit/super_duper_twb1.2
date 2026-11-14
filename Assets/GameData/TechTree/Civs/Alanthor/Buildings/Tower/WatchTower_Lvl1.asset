@@ -32,11 +32,11 @@ MonoBehaviour:
     enabled: 1
     damage: 10
     damageType: ranged
-    range: 12
+    range: 24
     cooldown: 1.8
     maxTargets: 1
     siegeShotDamage: 0
   firePoints:
   - {x: 0.000012069093, y: 5.4053283, z: -0.000031454867}
-  lineOfSight: 14
+  lineOfSight: 28
   prefab: {fileID: 7646223963695624410, guid: 0c14458a8df5b6d44a1f3ca31d02ffa1, type: 3}

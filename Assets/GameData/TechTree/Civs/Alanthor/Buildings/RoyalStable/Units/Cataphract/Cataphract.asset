@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: 'Cataphract'
   unitClass: 'human_cavalry'
   hp: 160
-  speed: 3.3
+  speed: 6.6
   trainingTime: 28
   damage: 18
   damageType: 'melee'
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.6
   attackRange: 1.6
   minAttackRange: 0
-  lineOfSight: 10
-  radius: 0.3
+  lineOfSight: 20
+  radius: 0.6
   cost:
     Supplies: 435
     Iron: 170

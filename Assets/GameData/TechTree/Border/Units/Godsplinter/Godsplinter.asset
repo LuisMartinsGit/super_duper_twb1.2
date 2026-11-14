@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: 'Godsplinter'
   unitClass: 'siege'
   hp: 420
-  speed: 0.9
+  speed: 1.8
   trainingTime: 30
   damage: 34
   damageType: 'siege'
@@ -27,10 +27,10 @@ MonoBehaviour:
     siege: 5
     magic: 5
   attackCooldown: 5
-  attackRange: 13
+  attackRange: 26
   minAttackRange: 0
-  lineOfSight: 15
-  radius: 0.75
+  lineOfSight: 30
+  radius: 1.5
   cost:
     Supplies: 0
     Iron: 0
@@ -41,9 +41,9 @@ MonoBehaviour:
   gatheringSpeed: 0
   carryCapacity: 0
   healsPerSecond: 0
-  siegeRange: 2
+  siegeRange: 4
   siegeCooldown: 3
-  aoeRadius: 3
+  aoeRadius: 6
   tags:
   - 'Siege'
   bonusVsTags:

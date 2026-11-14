@@ -16,7 +16,7 @@ MonoBehaviour:
   keepStateOnDisable: 1
   onscreenPollInterval: 0.1
   offscreenPollInterval: 0.5
-  moveClipReferenceSpeed: 2
+  moveClipReferenceSpeed: 4
   moveAnimSpeedMin: 0.4
   moveAnimSpeedMax: 2.5
   visibilityPad: 8

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Artificer
   unitClass: ranged
   hp: 230
-  speed: 2.4
+  speed: 4.8
   trainingTime: 24
   damage: 52
   damageType: ranged
@@ -27,10 +27,10 @@ MonoBehaviour:
     siege: 0
     magic: 3
   attackCooldown: 3.0
-  attackRange: 8
+  attackRange: 16
   minAttackRange: 0
-  lineOfSight: 11
-  radius: 0.25
+  lineOfSight: 22
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

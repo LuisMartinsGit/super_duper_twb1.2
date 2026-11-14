@@ -26,7 +26,7 @@ MonoBehaviour:
     siege: 0
     magic: 2
   radius: 1.5
-  lineOfSight: 7
+  lineOfSight: 14
   footprintCells: {x: 3, y: 3}
   buildTime: 40
   populationProvided: 0

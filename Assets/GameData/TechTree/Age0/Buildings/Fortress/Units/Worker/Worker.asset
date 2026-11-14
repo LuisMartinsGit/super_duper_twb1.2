@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Worker
   unitClass: human_support
   hp: 70
-  speed: 3
+  speed: 6
   trainingTime: 22.4
   damage: 2
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 0
   attackRange: 1
   minAttackRange: 0
-  lineOfSight: 7
+  lineOfSight: 14
   aimTime: 0
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

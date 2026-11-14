@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Archer
   unitClass: human_ranged
   hp: 60
-  speed: 2.6
+  speed: 5.2
   trainingTime: 14
   damage: 8
   damageType: ranged
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 1.5
-  attackRange: 5
+  attackRange: 10
   minAttackRange: 0
-  lineOfSight: 5
+  lineOfSight: 10
   aimTime: 0.5
-  radius: 0.25
+  radius: 0.5
   trajectory: low
   projectileSpeed: 0
   cost:

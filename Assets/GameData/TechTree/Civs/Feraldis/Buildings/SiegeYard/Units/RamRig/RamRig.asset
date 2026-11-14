@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Ram Rig
   unitClass: siege
   hp: 150
-  speed: 2.6
+  speed: 5.2
   trainingTime: 22
   damage: 5
   damageType: siege
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 2
   attackRange: 1
   minAttackRange: 0
-  lineOfSight: 9
+  lineOfSight: 18
   aimTime: 0
-  radius: 0.45
+  radius: 0.9
   trajectory: 
   projectileSpeed: 0
   cost:

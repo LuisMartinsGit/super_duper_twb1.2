@@ -45,7 +45,7 @@ namespace TheWaningBorder.Core.Commands.Types
     {
         /// <summary>Base spacing between unit centers (m). Halved with the
         /// units on 2026-11-13 (UnitWorldScale 0.5: unit radius 0.25 m).</summary>
-        public const float Spacing = 1.0f;
+        public const float Spacing = 2.0f;
 
         /// <summary>
         /// Distance between two TYPE BLOCKS, in row pitches. 2 means the bow
@@ -258,7 +258,7 @@ namespace TheWaningBorder.Core.Commands.Types
         /// that has never formed up — which must snap, or it would wheel away
         /// from the destination before setting off.
         /// </summary>
-        private const float PoseFitTolerance = 1.0f;   // halved with the units, 2026-11-13 (UnitWorldScale)
+        private const float PoseFitTolerance = 2.0f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
 
         /// <summary>
         /// Execute a formation move (or attack-move) directly. Creates the

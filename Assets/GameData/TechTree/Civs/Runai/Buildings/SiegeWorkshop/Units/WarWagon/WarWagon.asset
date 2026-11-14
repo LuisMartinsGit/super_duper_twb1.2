@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: War Wagon
   unitClass: machinery_siege
   hp: 700
-  speed: 2.25
+  speed: 4.5
   trainingTime: 40
   damage: 14
   damageType: ranged
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 1
     magic: 0
   attackCooldown: 1.5
-  attackRange: 6
+  attackRange: 12
   minAttackRange: 0
-  lineOfSight: 11
+  lineOfSight: 22
   aimTime: 0.3
-  radius: 0.65
+  radius: 1.3
   trajectory: flat
   projectileSpeed: 21
   cost:

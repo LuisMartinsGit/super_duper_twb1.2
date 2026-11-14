@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Ashblade
   unitClass: melee
   hp: 260
-  speed: 3.2
+  speed: 6.4
   trainingTime: 21
   damage: 26
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.1
   attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 9
+  lineOfSight: 18
   aimTime: 0
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

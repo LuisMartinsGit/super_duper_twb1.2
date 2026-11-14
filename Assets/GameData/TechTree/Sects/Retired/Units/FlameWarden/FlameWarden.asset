@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Flame Warden
   unitClass: melee
   hp: 150
-  speed: 1.9
+  speed: 3.8
   trainingTime: 21
   damage: 15
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.2
   attackRange: 0
   minAttackRange: 0
-  lineOfSight: 5
-  radius: 0.25
+  lineOfSight: 10
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

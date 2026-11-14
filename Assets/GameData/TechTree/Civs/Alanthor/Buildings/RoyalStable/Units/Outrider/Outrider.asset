@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: 'Outrider'
   unitClass: 'human_cavalry'
   hp: 95
-  speed: 4.1
+  speed: 8.2
   trainingTime: 15.4
   damage: 12
   damageType: 'melee'
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.4
   attackRange: 1.6
   minAttackRange: 0
-  lineOfSight: 17
-  radius: 0.275
+  lineOfSight: 34
+  radius: 0.55
   cost:
     Supplies: 250
     Iron: 100

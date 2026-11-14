@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Runai_Acolyte
   unitClass: human_magic
   hp: 90
-  speed: 1.5
+  speed: 3
   trainingTime: 21
   damage: 10
   damageType: magic
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 0
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 7
-  radius: 0.25
+  lineOfSight: 14
+  radius: 0.5
   cost:
     Supplies: 0
     Iron: 0

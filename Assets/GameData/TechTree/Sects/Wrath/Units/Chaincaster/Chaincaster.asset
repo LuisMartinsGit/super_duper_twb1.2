@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Chaincaster
   unitClass: magic
   hp: 220
-  speed: 2.5
+  speed: 5
   trainingTime: 21
   damage: 34
   damageType: magic
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 3
   attackCooldown: 1.5
-  attackRange: 7
+  attackRange: 14
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 20
   aimTime: 0.5
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

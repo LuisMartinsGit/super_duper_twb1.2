@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Catapult
   unitClass: machinery_siege
   hp: 200
-  speed: 1.7
+  speed: 3.4
   trainingTime: 30
   damage: 36
   damageType: siege
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 2
     magic: 0
   attackCooldown: 5
-  attackRange: 10
-  minAttackRange: 2.75
-  lineOfSight: 12
+  attackRange: 20
+  minAttackRange: 5.5
+  lineOfSight: 24
   aimTime: 1
-  radius: 0.6
+  radius: 1.2
   trajectory: high
   projectileSpeed: 12.6
   cost:
@@ -46,7 +46,7 @@ MonoBehaviour:
   healRange: 0
   siegeRange: 0
   siegeCooldown: 0
-  aoeRadius: 1.5
+  aoeRadius: 3
   tags:
   - Siege
   - Heavy

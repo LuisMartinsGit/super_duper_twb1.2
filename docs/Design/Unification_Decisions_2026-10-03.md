@@ -9,7 +9,13 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
-58. **Half-size units: reach, sight and the v2 maps (2026-11-14, developer).** (a) Units are half
+58. **Half-size units: reach, sight and the v2 maps (2026-11-14, developer).** **(a) and (b)
+    REVERTED the same day (developer: "revert the unit scaling, including speed, LOS, range;
+    revert the camera position"): unit speed, radius, reach and sight are their 0.0.85 values
+    again, `UnitWorldScale.asset` is 1, the formation / steering / animation distances that were
+    halved with the units and the camera distances (`CameraController.asset`) are restored, and so
+    are the AI ranged-line, stance and Litharch distances. (c) and (d) stand: the v2 maps, the
+    building-room probe, the node-spacing cuts and the MirrorPartners fixes.** (a) Units are half
     size and half speed (unit SO `radius` and `speed`); **the 2 m build grid and every building
     footprint are unchanged, on purpose.** (b) **Reach and sight follow the units**, halved on the
     SOs: every unit's `lineOfSight`; a ranged or siege unit's `attackRange` and `minAttackRange`

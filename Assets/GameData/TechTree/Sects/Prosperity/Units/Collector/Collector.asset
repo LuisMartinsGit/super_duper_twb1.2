@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Bounty Hunter
   unitClass: melee
   hp: 240
-  speed: 3.2
+  speed: 6.4
   trainingTime: 18
   damage: 22
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.0
   attackRange: 1.0
   minAttackRange: 0
-  lineOfSight: 9
-  radius: 0.225
+  lineOfSight: 18
+  radius: 0.45
   aimTime: 0
   trajectory: 
   projectileSpeed: 0

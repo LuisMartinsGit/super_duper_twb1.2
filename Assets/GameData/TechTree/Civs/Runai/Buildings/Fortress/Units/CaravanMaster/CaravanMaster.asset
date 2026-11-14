@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Caravan Master
   unitClass: human_melee
   hp: 220
-  speed: 3.25
+  speed: 6.5
   trainingTime: 30
   damage: 8
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.5
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 11
+  lineOfSight: 22
   aimTime: 0
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

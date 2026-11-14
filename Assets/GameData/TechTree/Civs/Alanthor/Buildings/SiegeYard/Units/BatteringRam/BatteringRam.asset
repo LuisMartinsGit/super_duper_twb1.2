@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Battering Ram
   unitClass: machinery_siege
   hp: 340
-  speed: 1.5
+  speed: 3
   trainingTime: 25.2
   damage: 36
   damageType: siege
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 3
   attackRange: 1
   minAttackRange: 0
-  lineOfSight: 9
-  radius: 0.5
+  lineOfSight: 18
+  radius: 1
   trajectory:
   projectileSpeed: 0
   cost:

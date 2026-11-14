@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Overseer
   unitClass: human_melee
   hp: 220
-  speed: 2.75
+  speed: 5.5
   trainingTime: 30
   damage: 8
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.4
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 9
+  lineOfSight: 18
   aimTime: 0
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

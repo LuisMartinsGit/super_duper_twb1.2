@@ -54,7 +54,7 @@ namespace TheWaningBorder.Systems.Navigation
         private const float EnemyVetoRadius = 40f;
         /// <summary>A member this far off its guard point has drifted — the
         /// cluster re-forms even with no new faces.</summary>
-        private const float DriftTolerance = 2f;   // halved with the units, 2026-11-13 (UnitWorldScale)
+        private const float DriftTolerance = 4f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
 
         private SimCadence.Periodic _acc;
 

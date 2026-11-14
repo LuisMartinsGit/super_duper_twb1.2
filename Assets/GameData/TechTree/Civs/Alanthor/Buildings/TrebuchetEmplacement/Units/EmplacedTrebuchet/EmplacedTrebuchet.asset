@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 8
-  attackRange: 24
-  minAttackRange: 7
-  lineOfSight: 26
+  attackRange: 48
+  minAttackRange: 14
+  lineOfSight: 52
   aimTime: 1.5
-  radius: 0.7
+  radius: 1.4
   trajectory: high
   projectileSpeed: 22.4
   cost:
@@ -46,7 +46,7 @@ MonoBehaviour:
   healRange: 0
   siegeRange: 0
   siegeCooldown: 0
-  aoeRadius: 2
+  aoeRadius: 4
   tags:
   - Ranged
   - Siege

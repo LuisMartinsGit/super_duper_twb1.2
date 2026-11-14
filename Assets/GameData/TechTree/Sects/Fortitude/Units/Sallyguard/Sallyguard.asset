@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Sallyguard
   unitClass: melee
   hp: 300
-  speed: 2.5
+  speed: 5
   trainingTime: 22
   damage: 24
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.5
   attackRange: 1.2
   minAttackRange: 0
-  lineOfSight: 9
-  radius: 0.25
+  lineOfSight: 18
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

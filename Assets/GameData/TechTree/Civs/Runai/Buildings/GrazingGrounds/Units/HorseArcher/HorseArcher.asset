@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Horse Archer
   unitClass: human_cavalry
   hp: 140
-  speed: 3.5
+  speed: 7
   trainingTime: 26
   damage: 12
   damageType: ranged
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 1.6
-  attackRange: 5
+  attackRange: 10
   minAttackRange: 0
-  lineOfSight: 11
+  lineOfSight: 22
   aimTime: 0.3
-  radius: 0.3
+  radius: 0.6
   trajectory: flat
   projectileSpeed: 21
   cost:

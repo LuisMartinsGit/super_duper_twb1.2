@@ -173,7 +173,7 @@ public struct FormationGroup : IComponentData
     /// formed squad began every order 2 m out of position and the leader
     /// stalled while it "formed up" on ground it was already standing on.
     /// </summary>
-    public const float LeaderTetherDistance = 1.5f;   // halved with the units, 2026-11-13 (UnitWorldScale)
+    public const float LeaderTetherDistance = 3f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
     /// <summary>Ticks the leader may ease with NO improvement in the worst
     /// member offset before that member is dropped from the group. The
     /// improvement that counts is FormationGroupSystem.asset
@@ -192,10 +192,10 @@ public struct FormationGroup : IComponentData
     public const float CatchUpMultiplier = 1.6f;   // 1.4 until 2026-10-17: more flank budget, a faster honest wheel
     /// <summary>How far behind its spot a member must be before the
     /// catch-up bonus kicks in.</summary>
-    public const float CatchUpTriggerDistance = 0.75f;   // halved with the units, 2026-11-13 (UnitWorldScale)
+    public const float CatchUpTriggerDistance = 1.5f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
     /// <summary>Leader arrival radius (matches the integrator's
     /// StopDistance so members settle exactly once).</summary>
-    public const float ArriveDistance = 0.25f;   // halved with the units, 2026-11-13 (UnitWorldScale)
+    public const float ArriveDistance = 0.5f;   // the 0.0.85 value: the half-size units were reverted (2026-11-14)
 }
 
 /// <summary>

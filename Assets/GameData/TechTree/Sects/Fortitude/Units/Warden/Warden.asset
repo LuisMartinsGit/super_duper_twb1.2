@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Warden
   unitClass: melee
   hp: 860
-  speed: 2.6
+  speed: 5.2
   trainingTime: 45
   damage: 36
   damageType: melee
@@ -29,8 +29,8 @@ MonoBehaviour:
   attackCooldown: 1.5
   attackRange: 1.2
   minAttackRange: 0
-  lineOfSight: 13
-  radius: 0.3
+  lineOfSight: 26
+  radius: 0.6
   aimTime: 0
   trajectory: 
   projectileSpeed: 0

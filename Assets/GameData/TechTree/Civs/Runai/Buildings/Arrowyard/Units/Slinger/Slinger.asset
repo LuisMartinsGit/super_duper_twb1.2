@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Slinger
   unitClass: human_ranged
   hp: 100
-  speed: 3.2
+  speed: 6.4
   trainingTime: 20
   damage: 16
   damageType: ranged
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 0
     magic: 0
   attackCooldown: 1.1
-  attackRange: 7
+  attackRange: 14
   minAttackRange: 0
-  lineOfSight: 11
+  lineOfSight: 22
   aimTime: 0.3
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

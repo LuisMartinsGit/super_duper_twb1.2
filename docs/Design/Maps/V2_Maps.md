@@ -6,6 +6,11 @@ every march twice as long and the players too far apart. Each map therefore
 gets a **v2**: the same concept on half the ground, players closer. The
 originals stay in the project beside them; Yiel Lymwérra needs no v2.
 
+**Units back at full size (later the same day).** The developer reverted the
+unit halving — speed, radius, reach, sight and the camera are the 0.0.85
+values again (decision 58). The v2 maps stay as drawn: smaller maps with the
+players closer, every territory still proven to hold its buildings.
+
 A v2 is a **redesign, not the old map scaled**. A building does not shrink, so
 a half-size map cannot keep its old territory count: every v2 territory is
 drawn big enough for what it must hold, and the layout tool proves it (below).

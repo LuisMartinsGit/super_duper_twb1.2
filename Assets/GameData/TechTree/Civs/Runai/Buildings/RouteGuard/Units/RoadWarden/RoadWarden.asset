@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Road Warden
   unitClass: human_melee
   hp: 180
-  speed: 2.7
+  speed: 5.4
   trainingTime: 22
   damage: 13
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 1.6
   attackRange: 1.6
   minAttackRange: 0
-  lineOfSight: 9
+  lineOfSight: 18
   aimTime: 0
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:

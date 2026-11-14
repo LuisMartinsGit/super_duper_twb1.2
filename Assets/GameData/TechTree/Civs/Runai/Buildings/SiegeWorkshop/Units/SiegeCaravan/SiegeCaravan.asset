@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Siege Caravan
   unitClass: machinery_siege
   hp: 260
-  speed: 1.5
+  speed: 3
   trainingTime: 45
   damage: 80
   damageType: siege
@@ -27,11 +27,11 @@ MonoBehaviour:
     siege: 2
     magic: 0
   attackCooldown: 7
-  attackRange: 15
-  minAttackRange: 4
-  lineOfSight: 13
+  attackRange: 30
+  minAttackRange: 8
+  lineOfSight: 26
   aimTime: 1.5
-  radius: 0.7
+  radius: 1.4
   trajectory: high
   projectileSpeed: 14
   cost:
@@ -46,7 +46,7 @@ MonoBehaviour:
   healRange: 0
   siegeRange: 0
   siegeCooldown: 0
-  aoeRadius: 1
+  aoeRadius: 2
   tags:
   - Siege
   - Heavy

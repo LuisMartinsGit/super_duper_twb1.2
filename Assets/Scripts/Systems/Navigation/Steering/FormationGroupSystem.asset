@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: FormationGroupSystem
   m_EditorClassIdentifier:
   settleTimeoutSeconds: 2
-  tetherProgressEpsilon: 0.05
+  tetherProgressEpsilon: 0.1
   engagedHoldFraction: 0.34
   stallHeadingToleranceRadians: 0.35
   splitLinkRadius: 14

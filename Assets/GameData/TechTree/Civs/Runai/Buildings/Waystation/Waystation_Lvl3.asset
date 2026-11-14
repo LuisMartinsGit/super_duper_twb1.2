@@ -32,7 +32,7 @@ MonoBehaviour:
     enabled: 1
     damage: 14
     damageType: ranged
-    range: 11
+    range: 22
     cooldown: 1.4
     maxTargets: 2
     siegeShotDamage: 0

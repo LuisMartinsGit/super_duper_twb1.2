@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Runai_Spearman
   unitClass: human_melee
   hp: 130
-  speed: 2.8
+  speed: 5.6
   trainingTime: 18.9
   damage: 12
   damageType: melee
@@ -29,9 +29,9 @@ MonoBehaviour:
   attackCooldown: 0
   attackRange: 1.5
   minAttackRange: 0
-  lineOfSight: 9
+  lineOfSight: 18
   aimTime: 0
-  radius: 0.25
+  radius: 0.5
   trajectory: 
   projectileSpeed: 0
   cost:
