@@ -9,6 +9,31 @@ build always name the same number.
 
 ---
 
+## [0.0.87] — 2026-11-15
+
+### Iron in the late game
+- **A Mine whose iron runs out stays standing** and keeps paying a quarter of what it paid before, so held ground never stops making iron. It shows as "(Depleted)".
+- **Iron nodes hold more**, and **every territory you hold pays more iron**.
+- **You are warned** when an iron node in your ground is running low, and when one runs dry you are told how many are left.
+
+### The Market
+- **New panel: one column per resource**, with large buttons — plus, the resource with its rate, minus. Clicking the resource stops buying it. Shift moves five steps, Ctrl twenty, and each step is larger.
+- **Surplus to iron**: a third column keeps a supply reserve; switch it on and every supply above the reserve is turned into iron each second.
+
+### The Vault of Almiérra
+- **Each bar now belongs to one resource**: bars 1 and 2 take supplies, bar 3 iron, bar 4 veilstone. Each raises the income of its own resource; there is nothing to choose, and the Accounts research is gone.
+- **Levelling the Vault up** raises what a full bar gives (5%, then 7%, then 10%) and what each bar holds.
+- **New panel, in two squares**: the buttons on a 4 x 4 grid (a deposit button over each resource, Withdraw All beside them, then "unlock the next bar" and the level-up), and the four bars in a square of their own beside it.
+
+### Religion menu
+- **Every purchase takes one click**: adopting a sect, unlocking a power, raising a chapel level, the Tithe. The confirm step is gone.
+
+### Bounty
+- **Bounty no longer wipes out an army.** It deals 40% of each enemy unit's health in a smaller circle, with a longer cooldown, and every struck unit that dies within 10 seconds pays **you** half its cost.
+- **The Bounty Hunter** strikes for 60% of its target's health every 30 seconds instead of killing it. **The Guildmaster's Bounty** strikes like the power.
+
+---
+
 ## [0.0.86] — 2026-11-14
 
 ### Five new maps: the v2 maps

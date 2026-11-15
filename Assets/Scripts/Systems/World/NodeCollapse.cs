@@ -11,7 +11,9 @@
 //                           Trading Post) stays standing (2026-10-19), marked
 //                           DepletedHutTag — it works no node any more, but
 //                           keeps its level and hosts its research
-//   * an iron node       -> the Mine on it
+//   * an iron node       -> the Mine on it stays standing (decision 59,
+//                           2026-11-15), marked DepletedMine — it works no
+//                           node and pays a quarter of its old rate
 //   * a veilstone outcrop-> the Veilstone Mine or Runai Sanctuary on it
 //
 // "On it" is the income rule's own: within TerritoryIncomeSystem's
@@ -47,8 +49,14 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>Buildings collapsed so far (any owner), for the log line.</summary>
         private static int _killed;
-        /// <summary>Huts marked depleted so far (any owner), for the log line.</summary>
+        /// <summary>Huts and Mines marked depleted so far (any owner), for the log line.</summary>
         private static int _depleted;
+
+        /// <summary>Iron nodes whose holder has been told they are running
+        /// low (presentation only; cleared each match).</summary>
+        private static readonly System.Collections.Generic.HashSet<Entity> _warnedLow =
+            new System.Collections.Generic.HashSet<Entity>();
+        private static int _warnEpoch = -1;
 
         private static string KindName(int kind)
             => kind == KindSupply ? "supply" : kind == KindIron ? "iron" : "veilstone";
@@ -70,6 +78,7 @@ namespace TheWaningBorder.Systems.World
         /// <summary>Collapse every node whose reserve is spent, with what works it.</summary>
         public static void CollapseSpent(EntityManager em)
         {
+            WarnLowIron(em);
             for (int kind = 0; kind < 3; kind++)
             {
                 var q = QC_Nodes[kind].Get(em, QT_Nodes[kind]);
@@ -89,11 +98,13 @@ namespace TheWaningBorder.Systems.World
                     int before = _killed, beforeDepleted = _depleted;
                     int collapsed = kind == KindSupply
                         ? DepleteHuts(em, p, xfs, res)
-                        : CollapseWorkers(em, kind, p, xfs);
+                        : kind == KindIron
+                            ? DepleteMines(em, ents[i], p, xfs, res)
+                            : CollapseWorkers(em, kind, p, xfs);
                     UnityEngine.Debug.Log($"[NodeCollapse] {KindName(kind)} node at ({p.x:0},{p.z:0}) ran dry — " +
                                           $"{_killed - before} building(s) collapsed, " +
-                                          $"{_depleted - beforeDepleted} hut(s) depleted");
-                    Notify(kind, p, collapsed);
+                                          $"{_depleted - beforeDepleted} building(s) depleted");
+                    Notify(em, kind, p, collapsed, ents[i]);
                     PassabilityGrid.Instance?.UnblockObstacle(p, BuildGrid.ResourceNodeBlockRadius);
                     em.DestroyEntity(ents[i]);
                 }
@@ -106,8 +117,7 @@ namespace TheWaningBorder.Systems.World
         private static int CollapseWorkers(EntityManager em, int kind, float3 p, NativeArray<LocalTransform> nodeXfs)
         {
             int mine = 0;
-            if (kind == KindIron) mine += CollapseNear(em, QC_Mines.Get(em, QT_Mines), p, nodeXfs);
-            else if (kind == KindVeilstone)
+            if (kind == KindVeilstone)
             {
                 mine += CollapseNear(em, QC_VeilMines.Get(em, QT_VeilMines), p, nodeXfs);
                 mine += CollapseNear(em, QC_Sanctuaries.Get(em, QT_Sanctuaries), p, nodeXfs);
@@ -188,6 +198,107 @@ namespace TheWaningBorder.Systems.World
             return mine;
         }
 
+        /// <summary>
+        /// A spent IRON node does not take its Mine with it (decision 59,
+        /// 2026-11-15, developer): every Mine within WorkRange whose nearest
+        /// iron node this was, and that reaches no other live iron node, is
+        /// marked <see cref="DepletedMine"/> (with the node's purity) and
+        /// stands on at a quarter of its rate. A Mine that still reaches a live
+        /// node keeps working that one. The local player's count is returned.
+        /// </summary>
+        private static int DepleteMines(EntityManager em, Entity node, float3 p,
+            NativeArray<LocalTransform> nodeXfs, NativeArray<NodeReserve> nodeRes)
+        {
+            var q = QC_Mines.Get(em, QT_Mines);
+            if (q.IsEmptyIgnoreFilter) return 0;
+            float purity = TerritoryResources.PurityMultiplier(em, node);
+            int mine = 0;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            float r2 = WorkRange * WorkRange;
+            var mark = new NativeList<Entity>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (em.HasComponent<DepletedMine>(ents[i])) continue;
+                float3 b = xfs[i].Position;
+                float d2 = math.distancesq(b.xz, p.xz);
+                if (d2 > r2) continue;
+                bool nearest = true, otherLive = false;
+                for (int n = 0; n < nodeXfs.Length; n++)
+                {
+                    float3 o = nodeXfs[n].Position;
+                    if (o.x == p.x && o.z == p.z) continue;
+                    float od2 = math.distancesq(b.xz, o.xz);
+                    if (od2 < d2) nearest = false;
+                    bool spent = nodeRes[n].Initial > 0f && nodeRes[n].Remaining <= 0f;
+                    if (!spent && od2 <= r2) otherLive = true;
+                }
+                if (nearest && !otherLive) mark.Add(ents[i]);
+            }
+            for (int i = 0; i < mark.Length; i++)
+            {
+                var e = mark[i];
+                em.AddComponentData(e, new DepletedMine { Purity = purity });
+                _depleted++;
+                if (!GameSettings.IsSpectating
+                    && em.GetComponentData<FactionTag>(e).Value == GameSettings.LocalPlayerFaction)
+                    mine++;
+            }
+            mark.Dispose();
+            return mine;
+        }
+
+        /// <summary>
+        /// Tell the local player once when an iron node in their ground falls
+        /// below TerritoryIncomeSystem's lowIronNodeWarnShare of its reserve
+        /// (decision 59). Presentation only: it changes nothing in the world.
+        /// </summary>
+        private static void WarnLowIron(EntityManager em)
+        {
+            if (_warnEpoch != SimCadence.Epoch) { _warnEpoch = SimCadence.Epoch; _warnedLow.Clear(); }
+            if (GameSettings.IsSpectating || !RegionMap.Ready || !TerritoryOwnership.Ready) return;
+            float share = TerritoryIncomeSystemConfig.I.lowIronNodeWarnShare;
+            if (share <= 0f) return;
+            var q = QC_Nodes[KindIron].Get(em, QT_Nodes[KindIron]);
+            if (q.IsEmptyIgnoreFilter) return;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var res = q.ToComponentDataArray<NodeReserve>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+            {
+                var r = res[i];
+                if (r.Initial <= 0f || r.Remaining <= 0f || r.Remaining > r.Initial * share) continue;
+                if (_warnedLow.Contains(ents[i])) continue;
+                float3 p = xfs[i].Position;
+                int t = RegionMap.RegionAt(p.x, p.z);
+                if (t < 0 || TerritoryOwnership.OwnerOf(t) != (int)GameSettings.LocalPlayerFaction) continue;
+                _warnedLow.Add(ents[i]);
+                var L = (System.Func<string, string>)TheWaningBorder.Core.Localization.Loc.T;
+                SimSignals.Notify(string.Format(L("An iron node in {0} is running low: {1} iron left"),
+                    RegionMap.NameOf(t), (int)r.Remaining));
+            }
+        }
+
+        /// <summary>Live iron nodes in the local player's ground, the spent
+        /// one excluded (for the "N left" line).</summary>
+        private static int LocalIronNodesLeft(EntityManager em, Entity spent)
+        {
+            if (!RegionMap.Ready || !TerritoryOwnership.Ready) return 0;
+            var q = QC_Nodes[KindIron].Get(em, QT_Nodes[KindIron]);
+            if (q.IsEmptyIgnoreFilter) return 0;
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            using var res = q.ToComponentDataArray<NodeReserve>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            int n = 0;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (ents[i] == spent || res[i].Remaining <= 0f) continue;
+                int t = RegionMap.RegionAt(xfs[i].Position.x, xfs[i].Position.z);
+                if (t >= 0 && TerritoryOwnership.OwnerOf(t) == (int)GameSettings.LocalPlayerFaction) n++;
+            }
+            return n;
+        }
+
         private static int Kill(EntityManager em, Entity e)
         {
             var hp = em.GetComponentData<Health>(e);
@@ -202,7 +313,7 @@ namespace TheWaningBorder.Systems.World
 
         /// <summary>Tell the local player when a node in their ground runs dry.
         /// Presentation only.</summary>
-        private static void Notify(int kind, float3 p, int localCollapsed)
+        private static void Notify(EntityManager em, int kind, float3 p, int localCollapsed, Entity node)
         {
             int t = RegionMap.Ready ? RegionMap.RegionAt(p.x, p.z) : -1;
             bool ours = !GameSettings.IsSpectating && t >= 0
@@ -212,11 +323,21 @@ namespace TheWaningBorder.Systems.World
             var L = (System.Func<string, string>)TheWaningBorder.Core.Localization.Loc.T;
             string what = kind == KindSupply ? L("A supply node") : kind == KindIron ? L("An iron node") : L("A veilstone outcrop");
             string where = t >= 0 ? RegionMap.NameOf(t) : L("the wilds");
-            SimSignals.Notify(localCollapsed > 0
+            string text = localCollapsed > 0
                 ? kind == KindSupply
                     ? string.Format(L("{0} in {1} ran dry — the building working it is depleted"), what, where)
-                    : string.Format(L("{0} in {1} ran dry — the buildings working it collapsed"), what, where)
-                : string.Format(L("{0} in {1} ran dry"), what, where));
+                    : kind == KindIron
+                        ? string.Format(L("{0} in {1} ran dry — its Mine stands on at a quarter of its rate"), what, where)
+                        : string.Format(L("{0} in {1} ran dry — the buildings working it collapsed"), what, where)
+                : string.Format(L("{0} in {1} ran dry"), what, where);
+            // Iron: how many are left in the player's ground (decision 59).
+            if (kind == KindIron && !GameSettings.IsSpectating)
+            {
+                int left = LocalIronNodesLeft(em, node);
+                text += left == 1 ? L(". 1 iron node left in your ground")
+                                  : string.Format(L(". {0} iron nodes left in your ground"), left);
+            }
+            SimSignals.Notify(text);
         }
     }
 }

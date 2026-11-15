@@ -62,7 +62,10 @@ namespace TheWaningBorder.Core.Save
         //   components are gone, so a format-7 snapshot holding them cannot
         //   load. (NodeReserve and DepletedHutTag are back: decision 56
         //   restored finite nodes.)
-        public const int SaveFormatVersion = 8;
+        // 9 (2026-11-15, decision 59): DepletedMine (a spent iron Mine stays
+        //   standing) and MarketRates' surplus mode (ReserveSupplies,
+        //   AutoIron) — a format-8 snapshot has neither.
+        public const int SaveFormatVersion = 9;
 
         /// <summary>Same value; kept for existing callers.</summary>
         public const int CurrentFormat = SaveFormatVersion;

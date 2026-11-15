@@ -321,31 +321,22 @@ namespace TheWaningBorder.AI
                 var pers = PersonalityOf(faction);
                 float share = profile.VaultDepositShare * (pers != null ? UnityEngine.Mathf.Max(0f, pers.vaultAppetite) : 1f);
                 if (share <= 0f) continue;
-                int room = TheWaningBorder.Systems.Economy.VaultBars.Room(store, faction, out _);
-                if (room <= 0) continue;
                 if (!PickVaultDeposit(em, faction, share, out int type, out int amt)) continue;
+                // Each bar takes one resource (decision 60): the room is the
+                // open bars of the resource being paid in.
+                int room = TheWaningBorder.Systems.Economy.VaultBars.Room(store, faction,
+                    TheWaningBorder.Systems.Economy.VaultBars.LevelOf(em, vault), type);
+                if (room <= 0) continue;
                 amt = System.Math.Min(amt, room);
-                int boost = PickVaultBoost(faction);
                 TheWaningBorder.Core.Commands.CommandRouter.IssueVaultTransfer(
-                    em, vault, type, amt, deposit: true, boost, TheWaningBorder.Core.Commands.CommandSource.AI);
+                    em, vault, type, amt, deposit: true, 1, TheWaningBorder.Core.Commands.CommandSource.AI);
                 InvalidateThinkMemo();
-                AILogger.Log(faction, "VAULT", $"deposit {amt} {ResName(type)} (a new bar boosts {ResName(boost)})");
+                AILogger.Log(faction, "VAULT", $"deposit {amt} {ResName(type)}");
             }
         }
 
         private static string ResName(int type)
             => type >= 0 && type < VaultResourceNames.Length ? VaultResourceNames[type] : "?";
-
-        /// <summary>The resource a starting bar should boost: the one the army
-        /// is short of, among those the Vault's Accounts research opened;
-        /// supplies otherwise.</summary>
-        private static int PickVaultBoost(Faction faction)
-        {
-            for (int t = 3; t >= 2; t--)
-                if (TheWaningBorder.Systems.Economy.VaultBars.MayBoost(faction, t)
-                    && AIBudget.IsMilitaryShort(faction, t - 1)) return t;
-            return 1;
-        }
 
         /// <summary>THE EMERGENCY (2026-11-10, developer: "withdraw it if it is
         /// an emergency"), on every tier: why the paid-in money must come out

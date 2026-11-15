@@ -57,9 +57,10 @@ Top to bottom:
 
 ## 3. Buying
 
-- Every purchase (adopt, unlock B or ★, raise a level, Tithe, recruit) uses an
-  **inline confirm** on the clicked control — never a modal. Adopt and unlock
-  confirms say **"Final, cannot be undone"**.
+- **Every purchase is ONE click** (2026-11-15, developer: "most actions require 2 clicks and
+  should require only one"): adopt, unlock B or ★, raise a level, Tithe and recruit happen on the
+  click, with no confirm step. The price, and "Final" where it applies, are on the control's
+  hover text; a purchase that cannot be made says why. (Until then each used an inline confirm.)
 - **The sect picker** opens to the left of the menu: three culture columns of
   four sects, each with its price. The player's own culture shows the
   affinity price and "yours"; before age-up every sect shows the full price

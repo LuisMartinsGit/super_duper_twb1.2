@@ -25,22 +25,16 @@ public struct VaultStorage : IComponentData
     /// <summary>The resource each bar boosts (1 supplies, 2 iron, 3 veilstone;
     /// 0 = the bar has not started). Chosen when the bar starts filling,
     /// fixed until a withdrawal empties it.</summary>
-    public byte Boost0, Boost1, Boost2, Boost3;
     /// <summary>What a withdrawal pays back, by the resource it was paid in.</summary>
     public int PaidSupplies, PaidIron, PaidVeilstone;
 
     public int Fill(int i) => i switch { 0 => Fill0, 1 => Fill1, 2 => Fill2, _ => Fill3 };
-    public byte Boost(int i) => i switch { 0 => Boost0, 1 => Boost1, 2 => Boost2, _ => Boost3 };
 
     public void SetFill(int i, int v)
     {
         switch (i) { case 0: Fill0 = v; break; case 1: Fill1 = v; break; case 2: Fill2 = v; break; default: Fill3 = v; break; }
     }
 
-    public void SetBoost(int i, byte v)
-    {
-        switch (i) { case 0: Boost0 = v; break; case 1: Boost1 = v; break; case 2: Boost2 = v; break; default: Boost3 = v; break; }
-    }
 
     public int Paid => PaidSupplies + PaidIron + PaidVeilstone;
 }

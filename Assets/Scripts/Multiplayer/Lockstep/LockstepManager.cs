@@ -1743,6 +1743,14 @@ namespace TheWaningBorder.Multiplayer
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetMarketRate from player {cmd.PlayerIndex}");
                     break;
 
+                case LockstepCommandType.SetMarketSurplus:
+                    // EntityNetworkId: the Market. TargetEntityId: the supplies
+                    // it keeps. SecondaryTargetId: surplus mode (decision 59).
+                    if (entity != Entity.Null)
+                        CommandRouter.SetMarketSurplusDirect(em, entity, cmd.TargetEntityId, cmd.SecondaryTargetId != 0);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetMarketSurplus from player {cmd.PlayerIndex}");
+                    break;
+
                 case LockstepCommandType.RetiredSetExtractorStopped:
                     // Stop Extracting was removed (decision 45, 2026-11-10); an
                     // older replay may still carry the order. It does nothing.

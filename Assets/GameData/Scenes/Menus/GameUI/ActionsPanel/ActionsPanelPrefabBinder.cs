@@ -178,6 +178,11 @@ namespace TheWaningBorder.UI.Ingame
             public string ActionId;
             public string[] ChainIds;       // techs collapsed into this slot
             public CanvasGroup Group;       // BlankSlot: active but invisible
+            /// <summary>A short number over the bottom of the cell, under the
+            /// icon (the Market's rates, the Vault's bonuses; 2026-11-15).
+            /// Hidden unless SetBadge shows it.</summary>
+            public GameObject BadgeRoot;
+            public TMP_Text Badge;
         }
 
         private Slot[] _slots;
@@ -449,6 +454,26 @@ namespace TheWaningBorder.UI.Ingame
             caption.rectTransform.offsetMax = new Vector2(-5f, -5f);
             slot.Caption = caption;
             caption.gameObject.SetActive(false);
+
+            // The badge: a dark strip across the bottom of the cell with a
+            // number on it (SetBadge). Never takes input.
+            var badgeBg = GameUIKit.Image(root, "badge", new Color(0f, 0f, 0f, 0.62f));
+            var br = badgeBg.rectTransform;
+            br.anchorMin = new Vector2(0.06f, 0.05f);
+            br.anchorMax = new Vector2(0.94f, 0.32f);
+            br.offsetMin = br.offsetMax = Vector2.zero;
+            var badge = GameUIKit.Text(br, "text", "", 15f, GameUIKit.TextMain,
+                TextAlignmentOptions.Center, wrap: false);
+            badge.enableAutoSizing = true;
+            badge.fontSizeMin = 7f;
+            badge.fontSizeMax = 16f;
+            badge.raycastTarget = false;
+            GameUIKit.Stretch(badge.rectTransform);
+            badge.rectTransform.offsetMin = new Vector2(2f, 0f);
+            badge.rectTransform.offsetMax = new Vector2(-2f, 0f);
+            slot.BadgeRoot = badgeBg.gameObject;
+            slot.Badge = badge;
+            slot.BadgeRoot.SetActive(false);
 
             return slot;
         }

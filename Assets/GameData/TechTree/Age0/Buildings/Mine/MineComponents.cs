@@ -41,3 +41,16 @@ public struct MineState : IComponentData
     /// MineIncomeSystem now says which, once, per Mine.</summary>
     public byte Reported;
 }
+
+/// <summary>
+/// A Mine whose iron node ran dry (decision 59, 2026-11-15; Territory_Claims.md
+/// § 11.3): it stays standing instead of collapsing, works no node, and pays
+/// TerritoryIncomeSystem's depletedMineShare of the rate it earned there,
+/// drawn from no reserve. <see cref="Purity"/> is the spent node's purity
+/// multiplier, kept because the node itself is gone. A spent Mine still holds
+/// its ground like any building, but no longer locks it.
+/// </summary>
+public struct DepletedMine : IComponentData
+{
+    public float Purity;
+}

@@ -134,10 +134,12 @@ namespace TheWaningBorder.Systems.Sect
 
         /// <summary>Strike the hostile unit nearest the cast point and mark it:
         /// if it dies inside <paramref name="window"/>, its cost is paid.</summary>
-        /// <summary>Bounty (decision 47): every hostile unit in the circle dies
-        /// at once and its owner is paid its cost.</summary>
+        /// <summary>Bounty (decision 59): every hostile unit in the circle takes
+        /// 40% of its maximum health and is marked; a marked unit that dies
+        /// within 10 s pays the caster half its cost.</summary>
         private static void ApplyBounty(EntityManager em, Faction faction, float3 center, float radius)
-            => ProsperityBounty.KillInRadius(em, faction, center, math.max(radius, SectRadii.Small));
+            => ProsperityBounty.StrikeInRadius(em, faction, center, math.max(radius, 1f),
+                ProsperityBounty.StrikeShare);
 
         /// <summary>Overtime (decision 47): every one of the caster's buildings in
         /// the circle works faster.</summary>

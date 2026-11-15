@@ -63,6 +63,23 @@ namespace TheWaningBorder.UI.Ingame
             }
 
             if (slot.CooldownFill != null) slot.CooldownFill.fillAmount = 0f;
+            HideBadge(slot);
+        }
+
+        /// <summary>Show <paramref name="text"/> on the cell's badge strip.</summary>
+        private static void SetBadge(Slot slot, string text, Color color)
+        {
+            if (slot.BadgeRoot == null) return;
+            bool on = !string.IsNullOrEmpty(text);
+            if (slot.BadgeRoot.activeSelf != on) slot.BadgeRoot.SetActive(on);
+            if (!on) return;
+            slot.Badge.text = text;
+            slot.Badge.color = color;
+        }
+
+        private static void HideBadge(Slot slot)
+        {
+            if (slot.BadgeRoot != null && slot.BadgeRoot.activeSelf) slot.BadgeRoot.SetActive(false);
         }
 
         private void ClearSlot(Slot slot)
@@ -71,6 +88,7 @@ namespace TheWaningBorder.UI.Ingame
             slot.ChainIds = null;
             slot.Click = null;
             slot.Tooltip = null;
+            HideBadge(slot);
             if (slot.Root.activeSelf) slot.Root.SetActive(false);
         }
 
@@ -89,6 +107,7 @@ namespace TheWaningBorder.UI.Ingame
             slot.Tooltip = null;
             if (slot.Caption != null && slot.Caption.gameObject.activeSelf)
                 slot.Caption.gameObject.SetActive(false);
+            HideBadge(slot);
             if (!slot.Root.activeSelf) slot.Root.SetActive(true);
             SetGroupVisible(slot, false);
         }

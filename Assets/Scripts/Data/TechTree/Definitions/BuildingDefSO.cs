@@ -40,12 +40,15 @@ namespace TheWaningBorder.Data
         public int[] vaultBarCapacity;
         public float vaultBarBonus;
         public int vaultSubBars;
+        public int[] vaultBarResource;
         public int maxPerFaction;
         public float cropRingMeters;
         public int suppliesPerIron;
         public int suppliesPerVeilstone;
         public int maxRatePerMinute;
         public int rateStep;
+        public int marketReserveDefault;
+        public int marketReserveStep;
         public int minWallLevel;
         public int garrisonSlots;
         public int garrisonArrowsPerOccupant;
@@ -137,6 +140,7 @@ namespace TheWaningBorder.Data
             def.vaultBarCapacity = vaultBarCapacity;
             def.vaultBarBonus    = vaultBarBonus;
             def.vaultSubBars     = vaultSubBars;
+            def.vaultBarResource = vaultBarResource;
             def.minWallLevel       = minWallLevel;
             def.garrisonSlots      = garrisonSlots;
             def.garrisonArrowsPerOccupant = garrisonArrowsPerOccupant;
@@ -146,6 +150,8 @@ namespace TheWaningBorder.Data
             def.suppliesPerVeilstone = suppliesPerVeilstone;
             def.maxRatePerMinute     = maxRatePerMinute;
             def.rateStep             = rateStep;
+            def.marketReserveDefault = marketReserveDefault;
+            def.marketReserveStep    = marketReserveStep;
             def.maxIron            = maxIron;
             def.maxVeilstone       = maxVeilstone;
             def.segmentHp          = segmentHp;
@@ -184,6 +190,7 @@ namespace TheWaningBorder.Data
             vaultBarCapacity = def.vaultBarCapacity;
             vaultBarBonus    = def.vaultBarBonus;
             vaultSubBars     = def.vaultSubBars;
+            vaultBarResource = def.vaultBarResource;
             minWallLevel       = def.minWallLevel;
             garrisonSlots      = def.garrisonSlots;
             garrisonArrowsPerOccupant = def.garrisonArrowsPerOccupant;
@@ -193,6 +200,8 @@ namespace TheWaningBorder.Data
             suppliesPerVeilstone = def.suppliesPerVeilstone;
             maxRatePerMinute     = def.maxRatePerMinute;
             rateStep             = def.rateStep;
+            marketReserveDefault = def.marketReserveDefault;
+            marketReserveStep    = def.marketReserveStep;
             maxIron            = def.maxIron;
             maxVeilstone       = def.maxVeilstone;
             segmentHp          = def.segmentHp;

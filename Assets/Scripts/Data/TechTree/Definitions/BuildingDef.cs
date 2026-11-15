@@ -59,6 +59,9 @@ namespace TheWaningBorder.Data
         /// <summary>Sub-bars per bar: each filled sub-bar pays its share of
         /// vaultBarBonus at once, so a bar pays early (2026-11-10).</summary>
         public int vaultSubBars;
+        /// <summary>The resource each Vault bar takes and boosts: 1 supplies, 2 iron,
+        /// 3 veilstone (decision 60).</summary>
+        public int[] vaultBarResource;
         /// <summary>The stone-wall level (WallTiers) a wall must stand at for
         /// this building to be mounted on it. The emplacements only.</summary>
         public int minWallLevel;
@@ -87,6 +90,10 @@ namespace TheWaningBorder.Data
         public int maxRatePerMinute;
         /// <summary>One click of a Market rate button, a minute.</summary>
         public int rateStep;
+        /// <summary>The supplies a new Market's surplus mode keeps in the bank (decision 59).</summary>
+        public int marketReserveDefault;
+        /// <summary>One click of the Market's reserve buttons, supplies (decision 59).</summary>
+        public int marketReserveStep;
 
         // ==================== Storage ====================
         public int maxIron;

@@ -14,7 +14,7 @@ namespace TheWaningBorder.Entities
         public const int PresentationID = 371;
         public const string UnitId = "Sect_Collector";
         /// <summary>Bounty: seconds between the hunter's casts.</summary>
-        public const float BountyIntervalSeconds = 20f;
+        public const float BountyIntervalSeconds = 30f;   // 20 -> 30 with the strike rework (decision 59)
         /// <summary>Bounty: how far from the hunter its target may stand.</summary>
         public const float BountyRange = 10f;
 

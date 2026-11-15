@@ -26,6 +26,8 @@
 // every building working it (NodeCollapse, run after each paying tick); there
 // is no grace window and no node held by trade. What draws on no node, and is
 // paid here:
+//   * spent iron Mines (decision 59, 2026-11-15) — a Mine whose node ran dry
+//     stands on (DepletedMine) and pays depletedMineShare of its old rate
 //   * the Guild surveys — every Alanthor Guild pays a flat amount per
 //     completed survey tier, scaled by its level, drawn from no node
 //   * territory claims — every held territory pays a flat rate once its
@@ -446,6 +448,14 @@ namespace TheWaningBorder.Systems.World
                                   * TerritoryResources.PurityMultiplier(em, supplyNode);
                 }
             }
+            else if (em.HasComponent<MineTag>(building) && em.HasComponent<DepletedMine>(building))
+            {
+                // A spent Mine (decision 59): its share of the old rate.
+                y.Iron += LadderFor(MineId, culture).At(level) * IronYieldMultiplier
+                          * em.GetComponentData<DepletedMine>(building).Purity
+                          * MineTechMultiplier(owner) * Census.CrewOf(em, building)
+                          * Cfg.depletedMineShare;
+            }
             else if (em.HasComponent<MineTag>(building))
             {
                 y.Iron += NodeLevelYield(em, c.Ore[0], p, r2, level, LadderFor(MineId, culture))
@@ -744,8 +754,22 @@ namespace TheWaningBorder.Systems.World
 
             // Ore slots. The surveys no longer scale the
             // Mines (2026-10-08): they are the Guild's own income, below.
-            y.Iron = OreSlotYield(em, c.Ore[0], territory, drainMinutes, LadderFor(MineId, culture),
+            var mineLadder = LadderFor(MineId, culture);
+            y.Iron = OreSlotYield(em, c.Ore[0], territory, drainMinutes, mineLadder,
                                   IronYieldMultiplier, false, MineTechMultiplier(owner), split, 1);
+            // Spent iron Mines (decision 59): a share of the rate they earned
+            // on the node, drawn from no reserve.
+            float share = Cfg.depletedMineShare;
+            if (share > 0f)
+                for (int i = 0; i < c.SpentMineRegion.Count; i++)
+                {
+                    if (c.SpentMineRegion[i] != territory || c.SpentMineFaction[i] != owner) continue;
+                    float rate = mineLadder.At(c.SpentMineLevel[i]) * IronYieldMultiplier
+                                 * c.SpentMinePurity[i] * MineTechMultiplier(owner)
+                                 * c.SpentMineCrew[i] * share;
+                    y.Iron += rate;
+                    if (split != null) split[PartExtractor * ResCount + 1] += rate;
+                }
             float veilMult = culture == Cultures.Feraldis ? FeraldisVeilstoneMultiplier : 1f;
             // The Mine research (Deep Shafts / Rich Seams) raises Veilstone Mines
             // exactly as it raises iron Mines (2026-11-09).
@@ -800,14 +824,17 @@ namespace TheWaningBorder.Systems.World
         static readonly ComponentType[] QT_Hall = { ComponentType.ReadOnly<HallTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Iron = { ComponentType.ReadOnly<IronMineTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_Veilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>() };
-        static readonly ComponentType[] QT_Mine = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<LocalTransform>() };
+        // A spent Mine works no node (decision 59): it is left out of the ore
+        // census and paid from its own list.
+        static readonly ComponentType[] QT_Mine = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<DepletedMine>() };
+        static readonly ComponentType[] QT_SpentMine = { ComponentType.ReadOnly<MineTag>(), ComponentType.ReadOnly<DepletedMine>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.ReadOnly<FactionTag>() };
         static readonly ComponentType[] QT_VeilstoneMine = { ComponentType.ReadOnly<VeilstoneMineTag>(), ComponentType.ReadOnly<LocalTransform>() };
         static readonly ComponentType[] QT_MissingSupply = { ComponentType.ReadOnly<SupplyNodeTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
         static CachedEntityQuery QC_MissingSupply;
         static readonly ComponentType[] QT_MissingIron = { ComponentType.ReadOnly<IronMineTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
         static readonly ComponentType[] QT_MissingVeilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.Exclude<NodeReserve>() };
         static CachedEntityQuery QC_Supply, QC_Hut, QC_Hall, QC_Iron, QC_Veilstone,
-                                 QC_Mine, QC_VeilstoneMine,
+                                 QC_Mine, QC_VeilstoneMine, QC_SpentMine,
                                  QC_MissingIron, QC_MissingVeilstone;
 
         // Nodes and buildings never move, so each one's territory is asked
@@ -870,6 +897,13 @@ namespace TheWaningBorder.Systems.World
             public readonly List<int> GuildRegion = new List<int>();
             public readonly List<Faction> GuildFaction = new List<Faction>();
             public readonly List<int> GuildLevel = new List<int>();
+            /// <summary>Every finished spent iron Mine (decision 59): its
+            /// territory, owner, level, crew and the spent node's purity.</summary>
+            public readonly List<int> SpentMineRegion = new List<int>();
+            public readonly List<Faction> SpentMineFaction = new List<Faction>();
+            public readonly List<int> SpentMineLevel = new List<int>();
+            public readonly List<float> SpentMineCrew = new List<float>();
+            public readonly List<float> SpentMinePurity = new List<float>();
             public readonly OreCensus[] Ore = { new OreCensus(), new OreCensus() };
             private readonly List<Vector3> _built = new List<Vector3>();   // x, z, level
             private readonly List<Entity> _builtEntity = new List<Entity>();
@@ -893,6 +927,8 @@ namespace TheWaningBorder.Systems.World
                 SupplyRegion.Clear(); SupplyHutLevel.Clear(); SupplyPurity.Clear(); SupplyNode.Clear(); SupplyCrew.Clear();
                 HallRegion.Clear(); HallLevel.Clear(); HallFaction.Clear(); HallSuppliesPerMinute.Clear();
                 GuildRegion.Clear(); GuildFaction.Clear(); GuildLevel.Clear();
+                SpentMineRegion.Clear(); SpentMineFaction.Clear(); SpentMineLevel.Clear();
+                SpentMineCrew.Clear(); SpentMinePurity.Clear();
 
                 // Gatherer's Huts, built, not Raider Camps (converted huts that
                 // KEEP GathererHutTag — AgeUpSystem adds RaiderCampTag to the
@@ -952,6 +988,23 @@ namespace TheWaningBorder.Systems.World
                 }
 
                 BuildOre(em, Ore[0], QC_Iron.Get(em, QT_Iron), QC_Mine.Get(em, QT_Mine));
+                {
+                    var q = QC_SpentMine.Get(em, QT_SpentMine);
+                    if (!q.IsEmptyIgnoreFilter)
+                    {
+                        using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+                        for (int i = 0; i < ents.Length; i++)
+                        {
+                            if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                            var p = em.GetComponentData<LocalTransform>(ents[i]).Position;
+                            SpentMineRegion.Add(RegionOfStatic(ents[i], p.x, p.z));
+                            SpentMineFaction.Add(em.GetComponentData<FactionTag>(ents[i]).Value);
+                            SpentMineLevel.Add(LevelOf(em, ents[i]));
+                            SpentMineCrew.Add(CrewOf(em, ents[i]));
+                            SpentMinePurity.Add(em.GetComponentData<DepletedMine>(ents[i]).Purity);
+                        }
+                    }
+                }
                 BuildOre(em, Ore[1], QC_Veilstone.Get(em, QT_Veilstone), QC_VeilstoneMine.Get(em, QT_VeilstoneMine));
             }
 
@@ -1003,12 +1056,18 @@ namespace TheWaningBorder.Systems.World
                     // Overtime, the Treasury) and the Guildmaster's Stake
                     // scale what an extractor earns.
                     // A building on cursed ground works slower (Territory_Claims.md §6.9.9).
-                    _builtCrew.Add(TheWaningBorder.Feraldis.FeraldisEconomy.IncomeMultiplier(em, ents[i])
-                                   * TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ExtractorMultiplier(em, ents[i])
-                                   * TheWaningBorder.Systems.Sect.SectHeroAbilities.StakeMultiplier(em, ents[i])
-                                   * TheWaningBorder.Systems.Border.CursedGroundDecay.WorkSpeed(em, ents[i]));
+                    _builtCrew.Add(CrewOf(em, ents[i]));
                 }
             }
+
+            /// <summary>What scales one extractor's earnings: slave crews
+            /// (Feraldis), the Alanthor sects (Embargo, Overtime, the
+            /// Treasury), the Guildmaster's Stake, cursed ground.</summary>
+            public static float CrewOf(EntityManager em, Entity e)
+                => TheWaningBorder.Feraldis.FeraldisEconomy.IncomeMultiplier(em, e)
+                   * TheWaningBorder.Systems.Sect.AlanthorSectEconomy.ExtractorMultiplier(em, e)
+                   * TheWaningBorder.Systems.Sect.SectHeroAbilities.StakeMultiplier(em, e)
+                   * TheWaningBorder.Systems.Border.CursedGroundDecay.WorkSpeed(em, e);
         }
 
         /// <summary>Built and never upgraded is level 1, not level 0.</summary>

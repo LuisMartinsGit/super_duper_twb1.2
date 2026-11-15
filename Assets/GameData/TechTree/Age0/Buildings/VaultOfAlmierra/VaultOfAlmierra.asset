@@ -35,11 +35,16 @@ MonoBehaviour:
   slotIncomePerMinute: []
   vaultBarCapacity:
   - 1500
-  - 3500
-  - 6000
-  - 10000
+  - 2500
+  - 2500
+  - 2500
   vaultBarBonus: 0.05
   vaultSubBars: 5
+  vaultBarResource:
+  - 1
+  - 1
+  - 2
+  - 3
   maxPerFaction: 1
   minWallLevel: 0
   garrisonSlots: 0
@@ -53,8 +58,6 @@ MonoBehaviour:
   - SecondCoffer
   - ThirdCoffer
   - FourthCoffer
-  - IronAccounts
-  - VeilstoneAccounts
   minEra: 0
   cost:
     Supplies: 600

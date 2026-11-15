@@ -9,6 +9,10 @@
 // bought, and its due units are dropped rather than owed. Iron is bought
 // before veilstone.
 //
+// SURPLUS MODE (decision 59, 2026-11-15): a Market with AutoIron on then turns
+// every supply the bank holds above its ReserveSupplies into iron, at the same
+// fixed price, the same second. The set rates are bought first.
+//
 // Lockstep: SimCadence clock, integer arithmetic, the carries on the Market
 // entity, Markets in entity-index order.
 
@@ -54,7 +58,7 @@ namespace TheWaningBorder.Systems.Economy
                 if (!em.Exists(m) || !em.HasComponent<FactionTag>(m)) continue;
                 if (em.HasComponent<Health>(m) && em.GetComponentData<Health>(m).Value <= 0) continue;
                 var r = em.GetComponentData<MarketRates>(m);
-                if (r.IronPerMinute <= 0 && r.VeilstonePerMinute <= 0) continue;
+                if (r.IronPerMinute <= 0 && r.VeilstonePerMinute <= 0 && r.AutoIron == 0) continue;
                 var faction = em.GetComponentData<FactionTag>(m).Value;
 
                 r.IronSixtieths += r.IronPerMinute;
@@ -69,6 +73,15 @@ namespace TheWaningBorder.Systems.Economy
 
                 if (iron > 0) Buy(em, faction, Cost.Of(iron: iron), iron * perIron);
                 if (veil > 0) Buy(em, faction, Cost.Of(veilstone: veil), veil * perVeil);
+
+                // Surplus mode: everything above the reserve becomes iron.
+                if (r.AutoIron != 0 && perIron > 0
+                    && FactionEconomy.TryGetResources(em, faction, out var bank))
+                {
+                    int surplus = bank.Supplies - r.ReserveSupplies;
+                    int auto = surplus > 0 ? surplus / perIron : 0;
+                    if (auto > 0) Buy(em, faction, Cost.Of(iron: auto), auto * perIron);
+                }
             }
         }
 

@@ -9,6 +9,56 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+60. **The Vault's bars belong to resources; its levels raise them; two panels; one-click religion
+    (2026-11-15, developer).** (a) **Each Vault bar takes and boosts one resource**
+    (`vaultBarResource` on the Vault SO): bars 1 and 2 supplies, bar 3 iron, bar 4 veilstone. A
+    deposit of a resource goes only to its own open bars; the player no longer chooses a boost,
+    and **Iron Accounts and Veilstone Accounts are deleted**. (b) **Bars open in order** through
+    the Coffer chain, as before. (c) **The Vault's two level-ups raise the bonus of a full bar and
+    the capacity of every bar** (`vaultBarCapacity`, `vaultBarBonus` on
+    `VaultOfAlmierra_Lvl1..3`): the developer set the first and last capacities and the bonus
+    steps; the middle level's capacities are halfway between, and bar 2's final capacity was
+    read as double its first (the note said "1000"). A bar that was full is part-filled after a
+    level-up. Sub-bars still pay as they fill. (d) **The Vault is two square panels**: the
+    actions panel on the 4 x 4 grid, and a second square beside it for the four bars
+    (Age_0.md § Vault of Almiérra). The Market uses the same 4 x 4 grid. (e) **Every religion
+    purchase is one click** (Religion_Menu.md §3); the inline confirm is gone. `VaultStorage`
+    lost its boost fields (save format 9, same bump as decision 59).
+59. **Late-game iron, the Market and Vault panels, and Bounty (2026-11-15, developer).** From
+    the review of a 55-minute Fiendstone Pass v2 game: every iron node on the map ran dry
+    between minutes 20 and 55, the player's home iron by minute 33, and from then the player sat
+    on the supply cap with no iron to rebuild an army. The developer approved all six fixes and
+    asked for both panels to be reworked ("buggy and impede proper play").
+    (a) **The Market's rate step is larger** (`rateStep` on `Market.asset`); a click moves one
+    step, Shift five, Ctrl twenty. (b) **Surplus to iron:** the Market has a second setting, a
+    supply **reserve** (`marketReserveDefault`, stepped by `marketReserveStep`) and an on/off
+    switch. While it is on, every second, after the set rates are bought, every supply above the
+    reserve is turned into iron at the fixed price. A lockstep command, `SetMarketSurplus`; the
+    state rides `MarketRates`. (c) **Territory claims pay more iron** (`claimIronPerMinute` on
+    `TerritoryIncomeSystem.asset`). (d) **Iron warnings:** the holder is told once when an iron
+    node in their ground falls below `lowIronNodeWarnShare` of its reserve, and every "ran dry"
+    notice for iron says how many iron nodes are left in their ground. Presentation only.
+    (e) **A spent iron Mine stays standing** (partly reverses decision 56 for iron, as the
+    Gatherer's Hut line already did for supplies): it is marked `DepletedMine` (keeping the
+    spent node's purity), works no node, pays `depletedMineShare` of the rate it earned there
+    (its level's rung, purity, the Mine research, its crew), drawn from no reserve, shows as
+    "(Depleted)", and holds but no longer locks its territory. A Mine that still reaches another
+    live iron node keeps working that one. Veilstone Mines and Runai Sanctuaries still collapse.
+    (f) **Iron nodes hold more** (`ironNodeReserve`). (g) **The Market panel is one column per
+    resource** — plus, the resource icon with its rate, minus — and a third column for the
+    surplus mode (plus / minus move the reserve, the supplies icon turns it on and off).
+    (h) **The Vault panel is one column per resource too** — a deposit plus over the resource
+    icon that chooses what the next bar boosts — with Withdraw All beside them, its research on
+    the third row, and its four bars in the large grid's free fourth row, where they no longer
+    cover the buttons (they were placed for the old authored grid). (i) **Bounty no longer kills
+    outright** (developer: "instantly wiping out an army is not fun"; "units that die pay YOU
+    half their cost, not the owner"): every hostile unit it reaches takes a share of its maximum
+    health and is marked for a few seconds; a marked unit that dies, to anything, pays the
+    **caster** half its cost. The sect power's circles are smaller than the sect ladder's and its
+    cooldown longer; the Bounty Hunter strikes harder but less often; the Guildmaster's L1
+    Bounty strikes like the power. The shares, the mark window, the circles and the hunter's
+    interval are `ProsperityBounty` / `Collector` constants beside the other sect-power numbers,
+    which still live in code (`SectLeverEffects`), not on an SO. Save format 9.
 58. **Half-size units: reach, sight and the v2 maps (2026-11-14, developer).** **(a) and (b)
     REVERTED the same day (developer: "revert the unit scaling, including speed, LOS, range;
     revert the camera position"): unit speed, radius, reach and sight are their 0.0.85 values

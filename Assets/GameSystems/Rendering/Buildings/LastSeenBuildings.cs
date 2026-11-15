@@ -132,7 +132,7 @@ namespace TheWaningBorder.Rendering
                 Owner = owner,
                 Level = level,
                 Culture = culture,
-                Depleted = em.HasComponent<DepletedHutTag>(e),
+                Depleted = em.HasComponent<DepletedHutTag>(e) || em.HasComponent<DepletedMine>(e),
             };
         }
 

@@ -27,6 +27,12 @@ MonoBehaviour:
   maxTargets: 0
   populationProvided: 0
   slotIncomePerMinute: 0
+  vaultBarCapacity:
+  - 3000
+  - 5000
+  - 5000
+  - 5000
+  vaultBarBonus: 0.1
   tradeRateMultiplier: 0
   attack:
     enabled: 0

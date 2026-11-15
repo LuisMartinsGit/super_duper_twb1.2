@@ -81,5 +81,21 @@ namespace TheWaningBorder.Systems.World
         public float claimSuppliesPerMinute;
         public float claimIronPerMinute;
         public float claimVeilstonePerMinute;
+
+        // ── spent iron Mines (decision 59, 2026-11-15) ────────────────────
+
+        /// <summary>
+        /// A Mine whose iron node ran dry stays standing (DepletedMine) and
+        /// pays this share of the rate it earned on the node: its level's
+        /// rung, its purity, the Mine research and its crew, drawn from no
+        /// node. The slow iron floor of the late game.
+        /// </summary>
+        public float depletedMineShare;
+
+        /// <summary>
+        /// The share of an iron node's reserve left when its holder is told
+        /// it is running low (presentation only: a notice, never a rule).
+        /// </summary>
+        public float lowIronNodeWarnShare;
     }
 }

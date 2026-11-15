@@ -130,7 +130,7 @@ namespace TheWaningBorder.Abilities
         // 56 was HeroBuyOut (Guildmaster L10), replaced by HeroWindfall (2026-11-10).
         CleansePulse = 50,         // one burst: the aimed Radius circle is cleared and a CleanseFalloff band thinned; no ward is left (2026-11-06)
         // The Guildmaster's 2026-11-10 kit (docs/Design/Sects.md § Sect of Prosperity, decision 47).
-        SectBounty = 57,           // every hostile non-hero unit in the aimed circle dies, its owner refunded; circle = Radius + Value m per hero level above 1 (Guildmaster L1)
+        SectBounty = 57,           // every hostile non-hero unit in the aimed circle takes 40% of its max HP and is marked (its death within 10 s pays the caster half its cost, decision 59); circle = Radius + Value m per hero level above 1 (Guildmaster L1)
         HeroWindfall = 58,         // for the duration, every death within Radius of the caster pays his player Value% of its cost (Guildmaster L10)
     }
 

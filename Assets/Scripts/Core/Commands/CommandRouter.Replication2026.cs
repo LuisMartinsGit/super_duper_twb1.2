@@ -875,15 +875,16 @@ namespace TheWaningBorder.Core.Commands
                 if (amount <= 0) return;
                 // Paid in: supplies, iron or veilstone (1..3), one for one.
                 if (resourceType < 1 || resourceType > 3) return;
-                // The boost a starting bar takes must be open to this faction.
-                if (boost < 1 || boost > 3 || !TheWaningBorder.Systems.Economy.VaultBars.MayBoost(faction, boost)) boost = 1;
-                // Only what the open bars can hold is taken.
+                // Each bar takes one resource (decision 60): only what the open
+                // bars of THIS resource can hold is taken. (boost is unused:
+                // a bar's resource is fixed.)
+                int level = TheWaningBorder.Systems.Economy.VaultBars.LevelOf(em, vaultEntity);
                 int take = System.Math.Min(amount,
-                    TheWaningBorder.Systems.Economy.VaultBars.Room(vault, faction, out _));
+                    TheWaningBorder.Systems.Economy.VaultBars.Room(vault, faction, level, resourceType));
                 if (take <= 0) return;
                 if (!TheWaningBorder.Economy.FactionEconomy.Spend(
                         em, faction, VaultTransferCost(resourceType, take), TheWaningBorder.Economy.SpendCategory.Vault)) return;
-                TheWaningBorder.Systems.Economy.VaultBars.Pour(ref vault, faction, take, boost);
+                TheWaningBorder.Systems.Economy.VaultBars.Pour(ref vault, faction, level, resourceType, take);
                 if (resourceType == 1) vault.PaidSupplies += take;
                 else if (resourceType == 2) vault.PaidIron += take;
                 else vault.PaidVeilstone += take;

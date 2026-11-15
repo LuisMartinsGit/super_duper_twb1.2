@@ -472,6 +472,13 @@ namespace TheWaningBorder.UI.Data
                 info.Description += (info.Description.Length > 0 ? "\n" : "")
                     + Loc.T("Depleted — its supply node ran dry. It pays nothing.");
             }
+            // A spent Mine (decision 59, 2026-11-15): it stands on at a share of its rate.
+            if (em.HasComponent<DepletedMine>(entity) && em.HasComponent<FactionTag>(entity))
+            {
+                info.Description += (info.Description.Length > 0 ? "\n" : "")
+                    + string.Format(Loc.T("Depleted — its iron node ran dry. It still pays {0}% of its old rate."),
+                        UnityEngine.Mathf.RoundToInt(TheWaningBorder.Systems.World.TerritoryIncomeSystemConfig.I.depletedMineShare * 100f));
+            }
 
             // Self-destruct timer
             if (em.HasComponent<SelfDestructTimer>(entity))

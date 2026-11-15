@@ -31,6 +31,9 @@ namespace TheWaningBorder.UI.Ingame
         private readonly TMP_Text[] _pickerLabels = new TMP_Text[SectConfig.SectCount];
         private readonly TMP_Text[] _pickerPrice = new TMP_Text[3];
 
+        /// <summary>Purchases happen on the first click, with no confirm step.</summary>
+        private const bool OneClickPurchases = true;
+
         private RectTransform _confirm;
         private TMP_Text _confirmText;
         private System.Action _confirmAction;
@@ -258,6 +261,16 @@ namespace TheWaningBorder.UI.Ingame
 
         private void ShowConfirm(string text, RectTransform anchor, System.Action action, bool keepPicker)
         {
+            // ONE CLICK (2026-11-15, developer: "most actions require 2 clicks
+            // and should require only one"): the purchase is made at once. The
+            // price and "Final" are on the button's own hover text; the
+            // executor re-validates, and a refused purchase says why.
+            if (OneClickPurchases)
+            {
+                ClosePopups();
+                action?.Invoke();
+                return;
+            }
             if (!keepPicker && _picker != null) _picker.gameObject.SetActive(false);
             _confirmText.text = text;
             _confirmAction = action;

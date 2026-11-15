@@ -289,14 +289,16 @@ namespace TheWaningBorder.Systems.Sect
         // ── Guildmaster ─────────────────────────────────────────────────────
 
         /// <summary>L1 Bounty: every hostile non-hero unit in a circle round
-        /// the aim point dies and its owner is refunded its cost
-        /// (ProsperityBounty). The circle is the card's Radius at level 1 and
+        /// the aim point takes 40% of its maximum health and is marked; each
+        /// that dies within 10 s pays the caster half its cost (decision 59,
+        /// ProsperityBounty). The circle is the card's Radius at level 1 and
         /// grows <paramref name="perLevel"/> m with each hero level above it.</summary>
         public static void Bounty(EntityManager em, Entity caster, AbilityCard card, float perLevel)
         {
             float radius = BountyRadius(em, caster, card, perLevel);
             if (radius <= 0f) return;
-            ProsperityBounty.KillInRadius(em, FactionOf(em, caster), AimOf(em, caster), radius);
+            ProsperityBounty.StrikeInRadius(em, FactionOf(em, caster), AimOf(em, caster), radius,
+                ProsperityBounty.StrikeShare);
         }
 
         /// <summary>Bounty's circle for this caster's current hero level.</summary>

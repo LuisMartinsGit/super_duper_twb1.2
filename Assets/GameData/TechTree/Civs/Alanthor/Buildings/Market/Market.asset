@@ -38,7 +38,9 @@ MonoBehaviour:
   suppliesPerIron: 4
   suppliesPerVeilstone: 8
   maxRatePerMinute: 0
-  rateStep: 10
+  rateStep: 50
+  marketReserveDefault: 2000
+  marketReserveStep: 500
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0

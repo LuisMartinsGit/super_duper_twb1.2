@@ -173,14 +173,13 @@ namespace TheWaningBorder.Systems.Sect
             {
                 var e = deadE[i];
 
-                // Bounty: paid once, then cleared so the corpse cannot pay twice.
+                // Bounty: paid once, then cleared so the corpse cannot pay
+                // twice — half the unit's cost, to the caster (decision 59).
                 if (TransientState.Active<BountyMarked>(em, e))
                 {
                     var mark = em.GetComponentData<BountyMarked>(e);
-                    var def = TechCatalog.Unit(deadId[i].Value.ToString());
-                    if (def != null && def.cost != null)
-                        FactionEconomy.Add(em, mark.ByFaction, Cost.Of(def.cost.Supplies, def.cost.Iron,
-                            def.cost.Veilstone), IncomeSource.Loot);
+                    var pay = ProsperityBounty.Payout(TechCatalog.Unit(deadId[i].Value.ToString()));
+                    if (!pay.IsZero) FactionEconomy.Add(em, mark.ByFaction, pay, IncomeSource.Loot);
                     TransientState.Clear<BountyMarked>(em, e);
                 }
 

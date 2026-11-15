@@ -41,7 +41,7 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(em, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(em, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(em, entity, default(MarketTag));
-            EntityBuild.Add(em, entity, default(MarketRates));
+            EntityBuild.Add(em, entity, new MarketRates { ReserveSupplies = ReserveDefault });
             EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return EntityBuild.Done(entity);
         }
@@ -60,7 +60,7 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(ecb, entity, new Radius { Value = BuildingSizeConfig.GetLegacyRadius(gridSize) });
             EntityBuild.Add(ecb, entity, new BuildingSize { Width = gridSize.x, Height = gridSize.y });
             EntityBuild.Add(ecb, entity, default(MarketTag));
-            EntityBuild.Add(ecb, entity, default(MarketRates));
+            EntityBuild.Add(ecb, entity, new MarketRates { ReserveSupplies = ReserveDefault });
             EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             return EntityBuild.Done(entity);
         }
@@ -84,6 +84,36 @@ namespace TheWaningBorder.Entities
             int step = RateStep;
             int r = math.clamp(perMinute, 0, MaxRate);
             return r / step * step;
+        }
+
+        /// <summary>The supplies a new Market's surplus mode keeps (Market.asset).</summary>
+        public static int ReserveDefault => math.max(0, Def.marketReserveDefault);
+        /// <summary>One click of a reserve button, supplies (Market.asset).</summary>
+        public static int ReserveStep => math.max(1, Def.marketReserveStep);
+        /// <summary>The highest reserve, so it fits the command's integer
+        /// field and the bank's own cap. Not tuning.</summary>
+        public const int MaxReserve = 1000000;
+
+        /// <summary>A requested reserve made legal: 0..MaxReserve, on the step.</summary>
+        public static int ClampReserve(int supplies)
+        {
+            int step = ReserveStep;
+            int r = math.clamp(supplies, 0, MaxReserve);
+            return r / step * step;
+        }
+
+        /// <summary>
+        /// The executor of the surplus setting (decision 59; every peer runs
+        /// it off the wire, CommandRouter.SetMarketSurplusDirect): stores the
+        /// reserve, clamped to its step, and whether surplus mode is on.
+        /// </summary>
+        public static void SetSurplus(EntityManager em, Entity market, int reserveSupplies, bool autoIron)
+        {
+            if (market == Entity.Null || !em.Exists(market) || !em.HasComponent<MarketRates>(market)) return;
+            var r = em.GetComponentData<MarketRates>(market);
+            r.ReserveSupplies = ClampReserve(reserveSupplies);
+            r.AutoIron = (byte)(autoIron ? 1 : 0);
+            em.SetComponentData(market, r);
         }
 
         /// <summary>Supplies a minute the rates cost at the fixed prices.</summary>

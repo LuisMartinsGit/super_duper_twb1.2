@@ -328,14 +328,18 @@ run faster inside a workshop.
 > capturable Counting House; the Collector is the Bounty Hunter; the Treasury
 > pays less; the Guildmaster's kit is new. The text below is the rule.
 
-**Bounty (the sect's signature).** Every hostile **unit** it reaches dies at
-once, and its **owner is paid back what it cost**: the victim loses time and
-presence on the field, never resources. Heroes are immune; a ward or an
-invulnerability that would stop the damage stops it; curse units die and
-nobody is paid (`ProsperityBounty`).
+**Bounty (the sect's signature; reworked 2026-11-15, [decision 59](Unification_Decisions_2026-10-03.md)).**
+Developer: "instantly wiping out an army is not fun"; "units that die pay YOU half
+their cost, not the owner". Every hostile **unit** it reaches takes **40 %** of its
+maximum health as true damage and is **marked for 10 s**; a marked unit that dies
+in that window — to the strike or to anything after it — pays **the caster half its
+cost**. Nothing dies outright unless the strike finishes it. Heroes are immune; a
+ward or an invulnerability that would stop the damage stops it; curse units have no
+cost and pay nothing (`ProsperityBounty`, whose constants hold the shares and the
+window).
 
-**[A] Bounty** — Bounty in an area: Small / Medium / Large by chapel level.
-The damage-power cooldown.
+**[A] Bounty** — Bounty in a circle of **8 / 12 / 15 m** by chapel level (smaller than
+the sect ladder's Small / Medium / Large), cooldown **90 s**.
 
 **[B] Overtime** — every one of your buildings in an area (Small / Medium /
 Large by chapel level) trains, researches and produces **50 % / 75 % / 100 %**
@@ -359,14 +363,15 @@ Placed like a building, exactly on its ghost — never moved to a nearby spot:
 **[RESEARCH] Charter of Works** — extractors cost less to build and to level.
 
 **[UNIT] Bounty Hunter** (id `Sect_Collector`, renamed from the Collector) —
-fast melee, the fastest Alanthor infantry. **Bounty:** every few seconds it
+fast melee, the fastest Alanthor infantry. **Bounty:** every **30 s** it
 casts Bounty on one hostile unit near it **with less HP than the hunter has**
-(`BountyHunterTrait`). Weak to heavy infantry. Pairs with the Artificer and
+(`BountyHunterTrait`) — a single strike of **60 %** of that unit's maximum health,
+marked like the power's (decision 59). Weak to heavy infantry. Pairs with the Artificer and
 the Guildmaster.
 
 **[HERO] Guildmaster**
-- **L1 Bounty** — Bounty in a small area round an aimed point; the area grows
-  with the hero's level.
+- **L1 Bounty** — Bounty (40 %, marked) in a small area round an aimed point; the
+  area grows with the hero's level.
 - **L3 Stake** — on the extractor under him: it pays **5 % more until the
   building takes damage** (he need not stay). 90 s cooldown.
 - **L6 Liquidate** — demolish one of your buildings at once for 50 % of

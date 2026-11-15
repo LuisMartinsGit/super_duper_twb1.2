@@ -428,6 +428,14 @@ public static class TechCatalog
                 Warn("building 'VaultOfAlmierra' has vaultSubBars 0 — a bar pays nothing until full");
             if (vault.vaultBarBonus <= 0f)
                 Warn("building 'VaultOfAlmierra' has vaultBarBonus 0 — a full bar raises nothing");
+            if (vault.vaultBarResource == null || vault.vaultBarResource.Length < 4
+                || System.Array.Exists(vault.vaultBarResource, r => r < 1 || r > 3))
+                Warn("building 'VaultOfAlmierra' needs four vaultBarResource entries of 1 (supplies), 2 (iron) or 3 (veilstone) — a bar without one takes nothing");
+            for (int l = 1; l <= 3; l++)
+                if (TryGetBuildingLevel(Cultures.Alanthor, "VaultOfAlmierra", l, out var vl)
+                    && (vl.vaultBarCapacity == null || vl.vaultBarCapacity.Length < 4
+                        || System.Array.Exists(vl.vaultBarCapacity, c => c <= 0) || vl.vaultBarBonus <= 0f))
+                    Warn($"VaultOfAlmierra_Lvl{l} needs four positive vaultBarCapacity entries and a vaultBarBonus — the Vault's bars read them at that level");
         }
         foreach (var lvl in _buildingLevels.Values)
         {

@@ -384,15 +384,19 @@ attack and SAVES for its landmark:
 
 ### Vault of Almiérra — the Alanthor landmark
 
-**Four bars of income (2026-11-10, [Unification decision 46](Unification_Decisions_2026-10-03.md);
-replaces the capped simple interest of decision 41).** The Vault holds **four bars**.
-Resources paid in fill them **in order**, **any resource one for one** (supplies, iron or
-veilstone all count the same), up to the Vault SO's `vaultBarCapacity` for that bar. **Each bar
-is harder to fill than the last** (2026-11-10, developer).
+**Four bars, one resource each (2026-11-15, [Unification decision 60](Unification_Decisions_2026-10-03.md);
+developer. It replaces "any resource fills any bar, the player picks the boost" of decision 46.)**
 
-- **Each bar boosts one resource**, chosen by the player when the bar **starts** filling, and
-  fixed until a withdrawal empties it. Supplies may always be chosen; iron and veilstone open
-  with research (below).
+- **Each bar belongs to one resource** (the Vault SO's `vaultBarResource`): **bars 1 and 2 take
+  supplies, bar 3 iron, bar 4 veilstone.** A bar is filled only with its own resource and raises
+  only that resource's income. There is nothing to choose.
+- **Bars open in order**, by research: bar 1 with the Vault, then Second / Third / Fourth Coffer.
+- **The Vault's level sets the stakes** (its level SOs' `vaultBarCapacity` and `vaultBarBonus`):
+  each of its two level-ups **raises what a full bar gives** and **raises what every bar holds**,
+  so a bar that was full is part-filled again after a level-up until it is topped up.
+
+*The four bullets below are decision 46's and still hold, except that a bar's resource is fixed.*
+
 - **Every bar pays as it fills** (2026-11-10, developer): it is cut into `vaultSubBars`
   sub-bars, and each filled sub-bar at once adds its share of the Vault SO's `vaultBarBonus` to
   the **income** of the resource the bar boosts — a full bar gives the whole bonus. Bars stack:
@@ -405,13 +409,22 @@ is harder to fill than the last** (2026-11-10, developer).
   withdrawal and no lock timer.
 - **A lost Vault loses what was in it**, and its bonus ends at once.
 
+**The panel (2026-11-15, decision 60): two squares side by side.** The first is the actions
+panel on a 4 x 4 grid: one column per resource with a **+** (deposit a step of that resource)
+over the resource's icon (deposit all that fits; its badge is the income bonus that resource has
+now), **Withdraw All** in the fourth column, then the Coffer research (one cell: it unlocks the
+next bar) and the level-up. The second square, in the same frame, holds the four bars: each row
+names its resource, shows the bar cut into its sub-bars, stored / capacity and what it pays now;
+a locked bar is dim and names the Coffer that opens it.
+
 **One Vault per faction (2026-10-19).** A faction may own only one Vault of
 Almiérra at a time — standing, under construction or planned all count
 (`maxPerFaction` on the Vault SO, enforced in the build menu, the placement
 executor and the AI like every per-faction cap). A lost Vault may be rebuilt.
 
-**Levels** (`Civs/Alanthor/Buildings/VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) raise its HP
-only; the bars are opened by research, not levels. The bar capacity and bonus are on
+**Levels** (`Civs/Alanthor/Buildings/VaultOfAlmierra/VaultOfAlmierra_Lvl1..3`) raise its HP,
+the bonus of a full bar and the capacity of every bar (decision 60); the bars are opened by
+research, not levels. Iron Accounts and Veilstone Accounts are removed. The bar capacity and bonus are on
 `Age0/Buildings/VaultOfAlmierra/VaultOfAlmierra.asset`; every price is on the tech SOs.
 
 > Why bars: the interest Vault paid a small, safe return on idle money and asked nothing.
@@ -428,8 +441,6 @@ Vault stands.
 | **Second Coffer** | none | opens bar 2 |
 | **Third Coffer** | Second Coffer | opens bar 3 |
 | **Fourth Coffer** | Third Coffer | opens bar 4 |
-| **Iron Accounts** | none | a bar may boost **iron** |
-| **Veilstone Accounts** | Iron Accounts | a bar may boost **veilstone** |
 
 ---
 

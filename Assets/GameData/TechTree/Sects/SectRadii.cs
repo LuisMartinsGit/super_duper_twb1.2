@@ -45,6 +45,14 @@ namespace TheWaningBorder.Economy
             _                 => "Single Target",
         };
 
+        /// <summary>A power's reach as the player reads it: its size class,
+        /// or its own metres when the power sets a circle of its own (Bounty,
+        /// decision 59). English, translated by the caller.</summary>
+        public static string Label(in SectActivePowerSpec s)
+            => System.Math.Abs(s.Radius - Metres(s.Reach)) > 0.01f && s.Radius > 0f
+                ? s.Radius.ToString("0") + "m"
+                : Label(s.Reach);
+
         /// <summary>
         /// Snap an arbitrary metre value to the nearest legal radius. Used only
         /// by the eight sects still on the pre-canon table — new powers must

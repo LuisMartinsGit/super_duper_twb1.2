@@ -1131,10 +1131,17 @@ normal and for every 10 poor."
 >   double what it was** (`TerritoryIncomeSystem.asset`: `supplyNodeReserve`,
 >   `ironNodeReserve`, `veilstoneNodeReserve`; purity scales it by the
 >   `pure/normal/poorReserveMultiplier` fields). Each node shows its remaining bar.
-> - **A spent node collapses with its extractor** (Mine, Veilstone Mine, Runai Sanctuary).
+> - **A spent node collapses with its extractor** (Veilstone Mine, Runai Sanctuary).
 >   **The Gatherer's Hut line (Guild / Work Camp / Trading Post) stays standing as Depleted**
 >   (`DepletedHutTag`): it works no node, pays nothing, no longer locks its territory and
 >   takes no Feraldis crew, but keeps its level.
+> - **A spent iron Mine stays standing as Depleted too** ([decision 59](Unification_Decisions_2026-10-03.md),
+>   2026-11-15, `DepletedMine`): it works no node and no longer locks its territory, but it
+>   still pays `depletedMineShare` (`TerritoryIncomeSystem.asset`) of the rate it earned on
+>   the node — its level, the node's purity, the Mine research and its crew — drawn from no
+>   reserve. A Mine that still reaches another live iron node works that one instead. The
+>   holder is told when an iron node in their ground runs low (`lowIronNodeWarnShare`) and,
+>   when one runs dry, how many are left.
 > - **No grace window and no node held by trade**: the Trading Outpost stays retired
 >   (decision 55 b), with Trade Charters, Trade Ledgers and Merchant Houses. Node placement
 >   keeps no side room for posts.

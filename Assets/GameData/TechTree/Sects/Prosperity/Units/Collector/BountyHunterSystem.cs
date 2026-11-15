@@ -106,7 +106,7 @@ namespace TheWaningBorder.Systems.Sect
                             bestD = d;
                             best = v;
                         }
-                        if (best != Entity.Null) ProsperityBounty.Kill(em, me, best);
+                        if (best != Entity.Null) ProsperityBounty.Strike(em, me, best, ProsperityBounty.HunterShare);
                     }
                     t.Timer = best != Entity.Null ? math.max(RetrySeconds, t.Interval) : RetrySeconds;
                 }

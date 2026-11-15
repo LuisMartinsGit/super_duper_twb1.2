@@ -21,4 +21,10 @@ public struct MarketRates : IComponentData
     public int VeilstonePerMinute;
     public int IronSixtieths;
     public int VeilstoneSixtieths;
+    /// <summary>Surplus mode (decision 59, 2026-11-15): while AutoIron is 1,
+    /// every second the Market also turns every supply above ReserveSupplies
+    /// into iron at its fixed price, after the set rates are bought. Set by
+    /// the SetMarketSurplus lockstep command (Market.SetSurplus).</summary>
+    public int ReserveSupplies;
+    public byte AutoIron;
 }

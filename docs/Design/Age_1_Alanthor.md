@@ -677,9 +677,17 @@ on `Civs/Alanthor/Buildings/Market/Market.asset`.
 - **One per player** (`maxPerFaction`), built by Workers on owned ground.
 - **The player sets two rates:** how much **iron** and how much **veilstone**
   it buys a minute, with **no ceiling** (decision 56: the bank is the only limit), in steps of
-  `rateStep` (the selected Market's **−** / **+** buttons; Shift moves five
-  steps; clicking the rate itself stops buying that resource). A new Market
-  buys nothing until a rate is set.
+  `rateStep`. A new Market buys nothing until a rate is set.
+- **Surplus to iron (decision 59, 2026-11-15):** the player may also set a supply
+  **reserve** (a new Market starts at `marketReserveDefault`, moved in steps of
+  `marketReserveStep`) and switch the surplus mode on. While it is on, every second,
+  after the set rates are bought, every supply above the reserve is turned into iron at
+  the same fixed price. Off by default.
+- **The panel (decision 59):** one column per resource — **+** on top, the resource's
+  icon with its rate under it (click it to stop buying), **−** below — for iron and
+  veilstone, and a third column for the surplus mode (**+** / **−** move the reserve;
+  the supplies icon, labelled On / Off and the reserve, switches it). A click moves one
+  step, Shift five, Ctrl twenty. The level-up takes the last cell.
 - **Fixed prices:** it pays `suppliesPerIron` supplies for each iron and
   `suppliesPerVeilstone` for each veilstone. The price never changes with the
   nodes a player holds, the Market's age, or anything else.
@@ -688,8 +696,8 @@ on `Civs/Alanthor/Buildings/Market/Market.asset`.
 - **Intent (decision 55 (e)):** Farms and the Market let a player live with no
   node at all, but nodes stay by far the richer income — a Mine's iron costs
   several full Farms' worth of supplies at the Market.
-- The rates are a lockstep command (`SetMarketRate`) and live on the Market
-  (`MarketRates`), so they ride saves and replays. Purchases are booked as
+- The rates and the surplus setting are lockstep commands (`SetMarketRate`,
+  `SetMarketSurplus`) and live on the Market (`MarketRates`), so they ride saves and replays. Purchases are booked as
   `IncomeSource.Market` (the **Market** line of the Economy panel shows what
   it buys and the supplies it spends) and are never raised by the Vault.
 - Code: `Market.cs`, `MarketComponents.cs`, `MarketSystem.cs` in that folder,

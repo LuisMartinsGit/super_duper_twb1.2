@@ -344,7 +344,7 @@ namespace TheWaningBorder.UI.Ingame
                     if (spec.Name == null) return Loc.T("Not authored yet for this sect.");
                     string pairs = PairsLine(spec.Name);
                     return "<b>" + Loc.T(spec.Name) + "</b>\n" + (spec.Description != null ? Loc.T(spec.Description) : "")
-                        + "\n<color=#A8A38F>" + Loc.T("Reach") + ": " + SectRadii.Label(spec.Reach) + "   " + Loc.T("Cooldown") + ": "
+                        + "\n<color=#A8A38F>" + Loc.T("Reach") + ": " + SectRadii.Label(spec) + "   " + Loc.T("Cooldown") + ": "
                         + Mathf.RoundToInt(spec.Cooldown) + "s</color>" + pairs;
                 }
                 case "level": return string.Format(Loc.T("Chapel level {0}: every unlocked power of the sect is cast at this level."), n.Arg == 2 ? "II" : "III");
@@ -411,6 +411,8 @@ namespace TheWaningBorder.UI.Ingame
 
         private void AskTree(string text, System.Action action)
         {
+            // One click, as in the quick menu (ShowConfirm).
+            if (OneClickPurchases) { HideTreeBar(); action?.Invoke(); return; }
             _treeBar.text = text;
             _treeAction = action;
             _treeBar.transform.parent.gameObject.SetActive(true);

@@ -948,7 +948,8 @@ namespace TheWaningBorder.Systems.World
             // a depleted hut works no node any more (§ 11.3, 2026-10-19): it
             // still HOLDS the ground like any building, but no longer locks it
             || (em.HasComponent<GathererHutTag>(e) && !em.HasComponent<DepletedHutTag>(e))
-            || em.HasComponent<MineTag>(e)
+            // so does a spent Mine (decision 59, 2026-11-15)
+            || (em.HasComponent<MineTag>(e) && !em.HasComponent<DepletedMine>(e))
             || em.HasComponent<VeilstoneMineTag>(e)
             || em.HasComponent<RunaiSanctuaryTag>(e)   // the Runai node building (Age_1_Runai.md §5.1)
             || em.HasComponent<SmallNodeTag>(e);

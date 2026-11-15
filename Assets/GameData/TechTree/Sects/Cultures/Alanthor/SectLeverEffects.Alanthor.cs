@@ -198,14 +198,20 @@ namespace TheWaningBorder.Economy
             // Reworked 2026-11-10 (Sects.md Sect of Prosperity, decision 47).
             switch (slot)
             {
-                // Bounty — a buy-out: every hostile unit in the area dies at
-                // once and its owner is paid its cost (ProsperityBounty).
+                // Bounty — a price on a fight (decision 59, 2026-11-15): every
+                // hostile unit in the area takes 40% of its maximum health and
+                // is marked; a marked unit that dies within 10 s pays the
+                // CASTER half its cost (ProsperityBounty). Its own circles,
+                // 8 / 12 / 15 m, smaller than the sect ladder's.
                 case 1:
                 {
                     var reach = Grow(level);
-                    return Spec(SectActivePowerKind.Bounty, reach, "Bounty",
-                        $"Every enemy unit in a {SectRadii.Label(reach)} area dies at once; its owner is paid back its cost. Heroes are immune.",
-                        cooldown: SpellLadder.SectDamageCooldown);
+                    float r = TheWaningBorder.Systems.Sect.ProsperityBounty.PowerRadius(level);
+                    var spec = Spec(SectActivePowerKind.Bounty, reach, "Bounty",
+                        $"Every enemy unit in a {r:0}m circle takes {TheWaningBorder.Systems.Sect.ProsperityBounty.StrikeShare * 100f:0}% of its health and is marked for {TheWaningBorder.Systems.Sect.ProsperityBounty.MarkSeconds:0}s; each marked unit that dies pays you {TheWaningBorder.Systems.Sect.ProsperityBounty.PayShare * 100f:0}% of its cost. Heroes are immune.",
+                        cooldown: 90f);
+                    spec.Radius = r;
+                    return spec;
                 }
 
                 // Overtime — every one of your buildings in the area works faster.

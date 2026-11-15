@@ -48,13 +48,11 @@ namespace TheWaningBorder.UI.Ingame
             int cell = 0, used = 0;
             Entity entity = _entity;
 
+            // The Vault lays its own 4 x 4 grid out whole (Vault.cs).
             if (info.Type == ActionType.VaultManagement)
-            {
-                cell = RenderVaultControls(em);
-                used += cell;
-                _vaultWanted = true;
-            }
-            else if (info.Type == ActionType.GathererHutAgeUpChoice
+                return RenderVault(em, info);
+
+            if (info.Type == ActionType.GathererHutAgeUpChoice
                      && em.HasComponent<GathererHutConverting>(entity)
                      && (info.Actions == null || info.Actions.Count == 0))
             {

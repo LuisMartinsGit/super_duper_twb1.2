@@ -57,6 +57,12 @@ namespace TheWaningBorder.Data
         /// culture (Alanthor's Guild 70/100/200, its Mines 140/200/400). Read
         /// only for the extractors; 0 on every other ladder.</summary>
         public float slotIncomePerMinute;
+
+        /// <summary>The Vault of Almiérra at this level (decision 60): what each of
+        /// its four bars holds, and the income bonus one full bar gives. Empty / 0
+        /// on every other building.</summary>
+        public int[] vaultBarCapacity;
+        public float vaultBarBonus;
         /// <summary>Supplies a minute each Worker inside pays at this level,
         /// before the crop ring's free share scales it — the Alanthor Farm
         /// only (Farm_Lvl1..3, decision 57); 0 on every other ladder.</summary>

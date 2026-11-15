@@ -957,7 +957,7 @@ namespace TheWaningBorder.UI.Ingame
               .Append(slot == 1 ? "A" : slot == 2 ? "B" : "★").Append(" · ").Append(SectInfo.ShortName(sectId))
               .Append(" · ").Append(Loc.T("Level")).Append(' ').Append(SectInfo.Roman(level)).Append("</color>\n");
             if (spec.Description != null) sb.Append(Loc.T(spec.Description)).Append('\n');
-            sb.Append("<color=#A8A38F>").Append(Loc.T("Reach")).Append(": ").Append(SectRadii.Label(spec.Reach))
+            sb.Append("<color=#A8A38F>").Append(Loc.T("Reach")).Append(": ").Append(SectRadii.Label(spec))
               .Append("   ").Append(Loc.T("Cooldown")).Append(": ")
               .Append(Mathf.RoundToInt(SectActivePowerHelper.EffectiveCooldown(_em, _faction, sectId, spec.Cooldown))).Append("s   ")
               .Append(Loc.T("Cast")).Append(": ").Append(SectActivePowerHelper.WindupFor(spec.Kind).ToString("0.#")).Append("s</color>");

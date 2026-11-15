@@ -306,9 +306,12 @@ namespace TheWaningBorder.UI.Ingame
             // "building menu should use the same menu as the builder"): the
             // same large cells filling the frame, no separator. Its own cells
             // stay within the first three rows; the fourth is left empty.
-            SetWorkerRows(true);
-            HideWorkerOnlyRow();
             var info = EntityActionExtractor.GetActionInfo(_entity, em);
+            // The Vault takes the builder's square 4 x 4 grid (decision 60).
+            // So does the Market: both are three columns of large cells.
+            SetGrid(info.Type == ActionType.VaultManagement || em.HasComponent<MarketRates>(_entity)
+                ? GridMode.Palette : GridMode.Large);
+            HideWorkerOnlyRow();
             bool hasLayout = BuildingActionLayouts.TryResolve(_entity, em, out var layoutSlots);
 
             // Walls, gates, manned towers, the hut's age-up choice, the
