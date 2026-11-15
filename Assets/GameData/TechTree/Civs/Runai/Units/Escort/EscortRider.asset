@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_EscortRider
   displayName: Escort Rider
   unitClass: human_cavalry
-  hp: 150
+  hp: 240
   speed: 7.2
   trainingTime: 0
   damage: 14

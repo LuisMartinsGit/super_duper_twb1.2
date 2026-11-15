@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Judicator
   displayName: Judicator
   unitClass: melee
-  hp: 300
+  hp: 480
   speed: 5.2
   trainingTime: 21
   damage: 26

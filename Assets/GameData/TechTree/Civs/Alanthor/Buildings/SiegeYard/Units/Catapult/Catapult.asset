@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Catapult
   displayName: Catapult
   unitClass: machinery_siege
-  hp: 220
+  hp: 350
   speed: 3.2
   trainingTime: 90
   damage: 40

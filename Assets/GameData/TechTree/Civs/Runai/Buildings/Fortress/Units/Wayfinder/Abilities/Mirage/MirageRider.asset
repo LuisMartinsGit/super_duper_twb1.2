@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_MirageRider
   displayName: Mirage Rider
   unitClass: human_cavalry
-  hp: 60
+  hp: 95
   speed: 7.6
   trainingTime: 0
   damage: 0

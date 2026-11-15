@@ -9,6 +9,14 @@ build always name the same number.
 
 ---
 
+## [0.0.88] — 2026-11-15
+
+### Combat pace
+- **Soldiers no longer tear buildings down.** Swords and arrows do only a fraction of their damage to buildings, and a mass of archers can no longer add up to a tower. Siege engines are unchanged: bring them. The curse's creatures hit buildings as hard as before.
+- **Every unit has more health**, so fights last longer and there is time to answer an attack. Damage is unchanged: archers hit as hard as before, but ranged units gained less health than the rest, so reaching them still pays.
+
+---
+
 ## [0.0.87] — 2026-11-15
 
 ### Iron in the late game

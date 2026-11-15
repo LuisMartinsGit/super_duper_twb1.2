@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_WarChariot
   displayName: War Chariot
   unitClass: human_cavalry
-  hp: 180
+  hp: 290
   speed: 7
   trainingTime: 14
   damage: 16

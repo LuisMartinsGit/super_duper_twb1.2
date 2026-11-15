@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Nobleman
   displayName: Nobleman
   unitClass: human_melee
-  hp: 175
+  hp: 280
   speed: 5.7
   trainingTime: 19.6
   damage: 18

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_ScarGuard
   displayName: Scar Guard
   unitClass: melee
-  hp: 320
+  hp: 510
   speed: 5.5
   trainingTime: 22
   damage: 26

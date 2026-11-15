@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Trebuchet
   displayName: Trebuchet
   unitClass: machinery_siege
-  hp: 200
+  hp: 320
   speed: 2.4
   trainingTime: 120
   damage: 60

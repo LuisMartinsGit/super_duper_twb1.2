@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Spearman
   displayName: Spearman
   unitClass: human_melee
-  hp: 100
+  hp: 160
   speed: 5.5
   trainingTime: 4.9
   damage: 13

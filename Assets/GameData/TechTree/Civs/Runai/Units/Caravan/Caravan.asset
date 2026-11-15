@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Caravan
   displayName: Caravan
   unitClass: civilian_trade
-  hp: 200
+  hp: 320
   speed: 5.6
   trainingTime: 0
   damage: 0

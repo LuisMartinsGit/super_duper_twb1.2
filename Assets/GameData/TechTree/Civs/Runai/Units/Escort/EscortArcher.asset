@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_EscortArcher
   displayName: Escort Archer
   unitClass: human_ranged
-  hp: 90
+  hp: 115
   speed: 6.4
   trainingTime: 0
   damage: 10

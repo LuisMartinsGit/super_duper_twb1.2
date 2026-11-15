@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_HarkonFiend
   displayName: Harkon Fiend
   unitClass: human_melee
-  hp: 700
+  hp: 1120
   speed: 6.5
   trainingTime: 63
   damage: 34

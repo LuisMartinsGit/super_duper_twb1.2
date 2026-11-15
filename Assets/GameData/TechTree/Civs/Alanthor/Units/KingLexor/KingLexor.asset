@@ -15,7 +15,7 @@ MonoBehaviour:
   id: King Lexor
   displayName: King Lexor
   unitClass: melee
-  hp: 720
+  hp: 1150
   speed: 7
   trainingTime: 45
   damage: 46

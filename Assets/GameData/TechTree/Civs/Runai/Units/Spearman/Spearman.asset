@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Spearman
   displayName: Runai_Spearman
   unitClass: human_melee
-  hp: 130
+  hp: 210
   speed: 5.6
   trainingTime: 18.9
   damage: 12

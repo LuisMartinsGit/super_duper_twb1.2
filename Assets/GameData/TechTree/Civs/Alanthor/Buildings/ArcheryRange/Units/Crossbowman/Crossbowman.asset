@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Crossbowman
   displayName: Crossbowman
   unitClass: human_ranged
-  hp: 70
+  hp: 90
   speed: 5
   trainingTime: 15.4
   damage: 18

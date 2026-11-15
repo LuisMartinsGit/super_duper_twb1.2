@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Surgeon
   displayName: Surgeon
   unitClass: melee
-  hp: 700
+  hp: 1120
   speed: 6.2
   trainingTime: 45
   damage: 40

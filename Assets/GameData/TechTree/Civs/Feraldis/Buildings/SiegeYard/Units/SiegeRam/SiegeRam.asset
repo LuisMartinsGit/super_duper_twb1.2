@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_SiegeRam
   displayName: Feraldis_SiegeRam
   unitClass: machinery_siege
-  hp: 300
+  hp: 480
   speed: 3
   trainingTime: 37.8
   damage: 34

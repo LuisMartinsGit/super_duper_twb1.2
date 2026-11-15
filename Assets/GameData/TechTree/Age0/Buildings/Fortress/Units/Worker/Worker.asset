@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Worker
   displayName: Worker
   unitClass: human_support
-  hp: 70
+  hp: 110
   speed: 6
   trainingTime: 22.4
   damage: 2

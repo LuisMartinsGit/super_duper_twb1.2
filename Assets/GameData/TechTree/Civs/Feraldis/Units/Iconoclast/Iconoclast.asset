@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Iconoclast
   displayName: Feraldis_Iconoclast
   unitClass: human_magic
-  hp: 280
+  hp: 450
   speed: 3.2
   trainingTime: 47.6
   damage: 10

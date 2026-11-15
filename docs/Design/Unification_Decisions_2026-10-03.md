@@ -9,6 +9,26 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+62. **Soldiers chip buildings; they do not take them down (2026-11-15, developer: "most melee
+    and ranged units are dealing too much damage to structures. A squad of 15 archers is taking
+    down towers").** A melee or ranged (non-siege) hit on any building lands only a **share** of
+    its damage: `meleeVsBuilding` and `rangedVsBuilding` on `MeleeCombatSystem.asset`. The
+    **"every hit does at least 1" floor no longer applies to buildings** - it was what let a bow
+    line add up - and the fraction of a point left over is carried on the building to the next
+    hit (`BuildingDamageState.ChipCarry`), so the share is exact. Siege, magic and true damage
+    are untouched, and **the curse's units are not scaled** (its pressure on a base is its
+    design). `CombatDamageHelper.ScaleVsBuilding`, called by `MeleeCombatSystem` and
+    `ProjectileSystem` (which held a code constant and the floor). Save format 10.
+61. **Every unit has more health; fights last longer (2026-11-15, developer: "overall HP must be
+    raised. I want archers to hurt, but give enough time for a counter").** The 0.0.87 balance
+    batch (six AI matches) had a typical soldier dead two minutes after it was trained and the
+    Archer returning over three times its price. Rule: **no damage value changes** (archers hurt
+    as much as before); every unit SO's `hp` is raised by one factor, and **ranged line units by
+    a smaller one**, so an archer line that is reached still breaks quickly while whatever
+    walks into its fire lives long enough to arrive. Heroes, siege engines, workers and the
+    curse's units take the full factor. Buildings are unchanged. The values are on the unit
+    SOs only. Heals, spell damage bands and building weapons were NOT rescaled and are
+    therefore relatively weaker; revisit after the next batch.
 60. **The Vault's bars belong to resources; its levels raise them; two panels; one-click religion
     (2026-11-15, developer).** (a) **Each Vault bar takes and boosts one resource**
     (`vaultBarResource` on the Vault SO): bars 1 and 2 supplies, bar 3 iron, bar 4 veilstone. A

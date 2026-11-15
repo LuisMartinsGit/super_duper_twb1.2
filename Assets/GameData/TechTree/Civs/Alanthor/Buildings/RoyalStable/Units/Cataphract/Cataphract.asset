@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_Cataphract'
   displayName: 'Cataphract'
   unitClass: 'human_cavalry'
-  hp: 160
+  hp: 255
   speed: 6.6
   trainingTime: 28
   damage: 18

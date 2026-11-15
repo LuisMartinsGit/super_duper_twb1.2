@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Feraldis_WarboarRider'
   displayName: 'Feraldis_WarboarRider'
   unitClass: 'human_cavalry'
-  hp: 160
+  hp: 255
   speed: 7
   trainingTime: 28
   damage: 16

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Ashblade
   displayName: Ashblade
   unitClass: melee
-  hp: 260
+  hp: 415
   speed: 6.4
   trainingTime: 21
   damage: 26

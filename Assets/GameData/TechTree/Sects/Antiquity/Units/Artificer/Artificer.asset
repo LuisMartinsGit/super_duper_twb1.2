@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Artificer
   displayName: Artificer
   unitClass: ranged
-  hp: 230
+  hp: 300
   speed: 4.8
   trainingTime: 24
   damage: 52

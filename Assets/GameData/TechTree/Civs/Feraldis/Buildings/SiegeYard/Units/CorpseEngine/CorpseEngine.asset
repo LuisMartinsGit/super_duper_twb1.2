@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_CorpseEngine
   displayName: Corpse Engine
   unitClass: siege
-  hp: 230
+  hp: 370
   speed: 4.2
   trainingTime: 27
   damage: 45

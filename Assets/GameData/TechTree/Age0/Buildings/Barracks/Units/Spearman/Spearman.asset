@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Spearman
   displayName: Militia
   unitClass: human_melee
-  hp: 120
+  hp: 190
   speed: 5
   trainingTime: 15.4
   damage: 10

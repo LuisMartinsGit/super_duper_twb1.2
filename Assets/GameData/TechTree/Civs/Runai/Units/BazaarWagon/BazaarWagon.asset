@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_BazaarWagon
   displayName: Bazaar Wagon
   unitClass: economy
-  hp: 600
+  hp: 960
   speed: 3
   trainingTime: 0
   damage: 0

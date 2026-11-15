@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Alanthor_Outrider'
   displayName: 'Outrider'
   unitClass: 'human_cavalry'
-  hp: 95
+  hp: 150
   speed: 8.2
   trainingTime: 15.4
   damage: 12

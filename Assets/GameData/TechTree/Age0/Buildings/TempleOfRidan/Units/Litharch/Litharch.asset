@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Litharch
   displayName: Litharch
   unitClass: human_support
-  hp: 120
+  hp: 155
   speed: 5.5
   trainingTime: 16.8
   damage: 0

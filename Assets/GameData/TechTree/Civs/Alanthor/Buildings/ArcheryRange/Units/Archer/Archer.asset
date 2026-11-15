@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Archer
   displayName: Archer
   unitClass: human_ranged
-  hp: 60
+  hp: 80
   speed: 5.2
   trainingTime: 14
   damage: 8

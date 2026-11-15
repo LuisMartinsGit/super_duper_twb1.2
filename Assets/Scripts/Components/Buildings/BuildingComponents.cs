@@ -71,6 +71,11 @@ public struct BuildingDamageState : IComponentData
     /// <summary>Seconds-since-world-start when this building was last damaged.
     /// Matches <c>SystemAPI.Time.ElapsedTime</c>.</summary>
     public double LastDamagedAt;
+
+    /// <summary>The fraction of a hit point left over from scaled non-siege
+    /// hits (CombatDamageHelper.ScaleVsBuilding), carried to the next hit so
+    /// a share below one point still lands in full over many hits.</summary>
+    public float ChipCarry;
 }
 
 /// <summary>

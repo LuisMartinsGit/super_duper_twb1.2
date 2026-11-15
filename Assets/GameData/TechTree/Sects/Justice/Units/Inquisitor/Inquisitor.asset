@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Inquisitor
   displayName: Inquisitor
   unitClass: support
-  hp: 110
+  hp: 145
   speed: 3.2
   trainingTime: 21
   damage: 0

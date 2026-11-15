@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_WarWagon
   displayName: War Wagon
   unitClass: machinery_siege
-  hp: 700
+  hp: 1120
   speed: 4.5
   trainingTime: 40
   damage: 14

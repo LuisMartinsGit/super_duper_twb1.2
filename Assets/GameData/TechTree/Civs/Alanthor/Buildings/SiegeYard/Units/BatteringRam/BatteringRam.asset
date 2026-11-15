@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_BatteringRam
   displayName: Battering Ram
   unitClass: machinery_siege
-  hp: 340
+  hp: 545
   speed: 3
   trainingTime: 25.2
   damage: 36

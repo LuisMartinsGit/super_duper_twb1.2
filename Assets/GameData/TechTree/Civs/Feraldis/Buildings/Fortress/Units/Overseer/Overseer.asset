@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Overseer
   displayName: Overseer
   unitClass: human_melee
-  hp: 220
+  hp: 350
   speed: 5.5
   trainingTime: 30
   damage: 8

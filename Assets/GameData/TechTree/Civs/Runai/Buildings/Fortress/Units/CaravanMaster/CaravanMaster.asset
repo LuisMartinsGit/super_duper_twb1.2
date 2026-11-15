@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_CaravanMaster
   displayName: Caravan Master
   unitClass: human_melee
-  hp: 220
+  hp: 350
   speed: 6.5
   trainingTime: 30
   damage: 8

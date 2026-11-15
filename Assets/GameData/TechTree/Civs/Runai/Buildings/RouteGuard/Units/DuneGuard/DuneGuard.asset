@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_DuneGuard
   displayName: Dune Guard
   unitClass: human_melee
-  hp: 140
+  hp: 225
   speed: 5.8
   trainingTime: 18
   damage: 14

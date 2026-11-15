@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Slave
   displayName: Slave
   unitClass: human_support
-  hp: 80
+  hp: 130
   speed: 6
   trainingTime: 20
   damage: 2

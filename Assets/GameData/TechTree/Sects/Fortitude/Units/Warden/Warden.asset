@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Warden
   displayName: Warden
   unitClass: melee
-  hp: 860
+  hp: 1375
   speed: 5.2
   trainingTime: 45
   damage: 36

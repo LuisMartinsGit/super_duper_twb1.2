@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_SiegeCaravan
   displayName: Siege Caravan
   unitClass: machinery_siege
-  hp: 260
+  hp: 415
   speed: 3
   trainingTime: 45
   damage: 80

@@ -35,5 +35,14 @@ namespace TheWaningBorder.Systems.Combat
         /// attack cooldown). The presentation plays one attack clip over the
         /// same window.</summary>
         public float swingCommitSeconds;
+
+        /// <summary>Share of a MELEE hit that lands on a building
+        /// (CombatDamageHelper.ScaleVsBuilding; decision 62). Siege, magic,
+        /// true damage and the curse's units are not scaled.</summary>
+        public float meleeVsBuilding;
+
+        /// <summary>Share of a RANGED (non-siege) hit that lands on a
+        /// building. Read by ProjectileSystem through the same helper.</summary>
+        public float rangedVsBuilding;
     }
 }

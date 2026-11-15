@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_SkyBarge
   displayName: Sky Barge
   unitClass: machinery_siege
-  hp: 260
+  hp: 415
   speed: 4.2
   trainingTime: 35
   damage: 40

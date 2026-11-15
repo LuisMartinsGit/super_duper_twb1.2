@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Sentinel
   displayName: Sentinel
   unitClass: human_melee
-  hp: 210
+  hp: 335
   speed: 5
   trainingTime: 16.8
   damage: 12

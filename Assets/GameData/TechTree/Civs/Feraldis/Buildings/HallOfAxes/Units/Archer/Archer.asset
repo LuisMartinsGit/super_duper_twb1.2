@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Archer
   displayName: Archer
   unitClass: human_ranged
-  hp: 90
+  hp: 115
   speed: 5.2
   trainingTime: 14
   damage: 7

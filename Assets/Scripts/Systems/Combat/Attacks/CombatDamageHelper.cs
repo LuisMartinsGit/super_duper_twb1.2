@@ -898,12 +898,51 @@ namespace TheWaningBorder.Systems.Combat
             // Building-only damage timestamp for the out-of-combat repair window.
             if (elapsedTime > 0 && em.HasComponent<BuildingTag>(target))
             {
-                var stamp = new BuildingDamageState { LastDamagedAt = elapsedTime };
                 if (em.HasComponent<BuildingDamageState>(target))
+                {
+                    // Keep the chip carry: only the time is stamped.
+                    var stamp = em.GetComponentData<BuildingDamageState>(target);
+                    stamp.LastDamagedAt = elapsedTime;
                     em.SetComponentData(target, stamp);
+                }
                 else
-                    ecb.AddComponent(target, stamp);
+                    ecb.AddComponent(target, new BuildingDamageState { LastDamagedAt = elapsedTime });
             }
+        }
+
+        /// <summary>
+        /// SOLDIERS CHIP BUILDINGS, SIEGE DEMOLISHES THEM (decision 62,
+        /// 2026-11-15; docs/Design/Combat_Pacing.md § Buildings). A melee or
+        /// ranged hit that lands on a building does only a share of its
+        /// damage (MeleeCombatSystem.asset: meleeVsBuilding, rangedVsBuilding).
+        /// The share is exact over time: the fraction of a point left over is
+        /// carried on the building to the next hit, so there is no "always at
+        /// least 1" floor for a bow line to add up. Siege, magic and true
+        /// damage pass through, and so do the curse's units: its pressure on a
+        /// base is part of the curse's design, not a soldier's.
+        /// Returns the damage to subtract (0 is a legitimate result).
+        /// </summary>
+        public static int ScaleVsBuilding(EntityManager em, Entity attacker, Entity target,
+            int damage, DamageType type)
+        {
+            if (damage <= 0) return damage;
+            if (type != DamageType.Melee && type != DamageType.Ranged) return damage;
+            if (!em.HasComponent<BuildingTag>(target)) return damage;
+            if (attacker != Entity.Null && em.Exists(attacker) && em.HasComponent<BorderUnitTag>(attacker))
+                return damage;
+
+            var cfg = MeleeCombatSystemConfig.I;
+            float share = type == DamageType.Ranged ? cfg.rangedVsBuilding : cfg.meleeVsBuilding;
+            bool has = em.HasComponent<BuildingDamageState>(target);
+            var st = has ? em.GetComponentData<BuildingDamageState>(target) : default;
+            float total = damage * share + st.ChipCarry;
+            int whole = (int)total;
+            if (has)
+            {
+                st.ChipCarry = total - whole;
+                em.SetComponentData(target, st);
+            }
+            return whole;
         }
     }
 }

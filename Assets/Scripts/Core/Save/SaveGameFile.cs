@@ -65,7 +65,7 @@ namespace TheWaningBorder.Core.Save
         // 9 (2026-11-15, decision 59): DepletedMine (a spent iron Mine stays
         //   standing) and MarketRates' surplus mode (ReserveSupplies,
         //   AutoIron) — a format-8 snapshot has neither.
-        public const int SaveFormatVersion = 9;
+        public const int SaveFormatVersion = 10;
 
         /// <summary>Same value; kept for existing callers.</summary>
         public const int CurrentFormat = SaveFormatVersion;

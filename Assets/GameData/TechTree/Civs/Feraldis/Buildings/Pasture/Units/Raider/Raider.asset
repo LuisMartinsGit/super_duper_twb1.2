@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Raider
   displayName: Raider
   unitClass: human_cavalry
-  hp: 110
+  hp: 175
   speed: 7.5
   trainingTime: 7
   damage: 10

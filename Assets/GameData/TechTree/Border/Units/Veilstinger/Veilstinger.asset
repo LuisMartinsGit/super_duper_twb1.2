@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Veilstinger
   displayName: Veilstinger
   unitClass: ranged
-  hp: 35
+  hp: 45
   speed: 4
   trainingTime: 35
   damage: 18

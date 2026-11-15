@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Skirmisher
   displayName: Skirmisher
   unitClass: human_ranged
-  hp: 95
+  hp: 125
   speed: 6.2
   trainingTime: 18
   damage: 13

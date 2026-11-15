@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Bloodletter
   displayName: Bloodletter
   unitClass: human_melee
-  hp: 90
+  hp: 145
   speed: 6.8
   trainingTime: 6.3
   damage: 6

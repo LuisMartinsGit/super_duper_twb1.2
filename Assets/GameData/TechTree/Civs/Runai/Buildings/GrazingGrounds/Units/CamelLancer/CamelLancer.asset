@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_CamelLancer
   displayName: Camel Lancer
   unitClass: human_cavalry
-  hp: 260
+  hp: 415
   speed: 6.6
   trainingTime: 30
   damage: 20

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Suicidal
   displayName: Suicidal
   unitClass: human_melee
-  hp: 220
+  hp: 350
   speed: 6.5
   trainingTime: 8.4
   damage: 0

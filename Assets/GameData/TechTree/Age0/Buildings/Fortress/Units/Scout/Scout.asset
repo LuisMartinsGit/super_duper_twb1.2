@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Scout
   displayName: Scout
   unitClass: human_scout
-  hp: 60
+  hp: 95
   speed: 6
   trainingTime: 18.2
   damage: 0

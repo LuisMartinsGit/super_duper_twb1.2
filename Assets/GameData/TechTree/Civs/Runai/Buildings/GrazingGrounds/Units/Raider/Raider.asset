@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Raider
   displayName: Raider
   unitClass: human_cavalry
-  hp: 150
+  hp: 240
   speed: 7.6
   trainingTime: 22
   damage: 16

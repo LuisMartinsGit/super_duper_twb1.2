@@ -562,17 +562,12 @@ namespace TheWaningBorder.Systems.Combat
             // via Ranged×Structure = 0.15 but is no longer applied, so ranged
             // was hitting buildings at near-full damage.) Melee and siege are
             // untouched.
-            const float RangedVsBuildingDamage = 0.3f;
-            if (dmgType == DamageType.Ranged && em.HasComponent<BuildingTag>(targetEntity))
-            {
-                int chip = (int)(impactDamage * RangedVsBuildingDamage);
-                // The "always chip for at least 1" floor is for REAL hits only.
-                // ApplyBonusDamageOnHit above returns 0 when shooter and target
-                // are allied, and an unconditional floor turned that 0 straight
-                // back into 1 — arrows quietly demolished a teammate's
-                // buildings. Zero stays zero. docs/Design/Teams.md
-                impactDamage = (impactDamage > 0 && chip < 1) ? 1 : chip;
-            }
+            // Decision 62 (2026-11-15): the share is on MeleeCombatSystem.asset
+            // and there is no "at least 1" floor any more - fifteen archers
+            // each landing the floor took a tower down. The leftover fraction
+            // is carried on the building instead. A 0 from an allied shot
+            // stays 0. docs/Design/Combat_Pacing.md § Buildings
+            impactDamage = CombatDamageHelper.ScaleVsBuilding(em, shooter, targetEntity, impactDamage, dmgType);
 
             // Ability: scale total incoming damage (Liquid Courage 90% DR) before HP.
             int appliedDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, targetEntity, impactDamage, shooter);
@@ -623,11 +618,14 @@ namespace TheWaningBorder.Systems.Combat
             // (Renewal Lv I auto-repair). (task-063 phase 2c)
             if (elapsed > 0 && em.HasComponent<BuildingTag>(targetEntity))
             {
-                var stamp = new BuildingDamageState { LastDamagedAt = elapsed };
                 if (em.HasComponent<BuildingDamageState>(targetEntity))
+                {
+                    var stamp = em.GetComponentData<BuildingDamageState>(targetEntity);
+                    stamp.LastDamagedAt = elapsed;
                     em.SetComponentData(targetEntity, stamp);
+                }
                 else
-                    ecb.AddComponent(targetEntity, stamp);
+                    ecb.AddComponent(targetEntity, new BuildingDamageState { LastDamagedAt = elapsed });
             }
         }
 

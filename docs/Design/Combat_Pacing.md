@@ -243,8 +243,16 @@ what makes the Siege Yard a necessary building rather than an optional one.
 Siege armor stays 0 everywhere, so a siege engine's damage and its bonus vs
 Building land in full.
 
-Infantry keeps a slow path in on purpose: a Swordsman takes a Barracks down in
-dozens of swings. Possible, never efficient — the AoE relationship.
+Infantry keeps a slow path in on purpose: a Swordsman can take a Barracks down,
+in a great many swings. Possible, never efficient — the AoE relationship.
+
+**The share rule (2026-11-15, [Unification decision 62](Unification_Decisions_2026-10-03.md)).**
+On top of a building's armour, a melee or ranged (non-siege) hit on a building lands only a
+share of its damage (`meleeVsBuilding`, `rangedVsBuilding` on `MeleeCombatSystem.asset`), and
+**the "at least 1 per hit" floor does not apply to buildings**: the leftover fraction is
+carried on the building to the next hit. A bow line therefore cannot add up to a tower, and
+a line of swords takes long enough that the defender can answer. Siege, magic and true damage
+land in full. The curse's units are not scaled.
 
 ---
 

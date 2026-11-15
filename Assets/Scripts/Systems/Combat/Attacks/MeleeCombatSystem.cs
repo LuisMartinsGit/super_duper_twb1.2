@@ -266,6 +266,9 @@ namespace TheWaningBorder.Systems.Combat
 
             finalDamage = math.max(1, finalDamage);
 
+            // Soldiers chip buildings; siege demolishes them (decision 62).
+            finalDamage = CombatDamageHelper.ScaleVsBuilding(em, entity, tgt.Value, finalDamage, dmgType);
+
             // Ability: scale total incoming damage by the target's
             // damage-taken multiplier (Liquid Courage 90% DR) before HP.
             finalDamage = TheWaningBorder.Abilities.AbilityDamageHooks.ScaleIncoming(em, tgt.Value, finalDamage, entity);

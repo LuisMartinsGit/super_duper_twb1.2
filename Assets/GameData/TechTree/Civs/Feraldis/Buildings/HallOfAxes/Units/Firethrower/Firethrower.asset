@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Firethrower
   displayName: Firethrower
   unitClass: human_ranged
-  hp: 100
+  hp: 130
   speed: 5
   trainingTime: 12.6
   damage: 14

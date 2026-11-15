@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Longbowman
   displayName: Longbowman
   unitClass: human_ranged
-  hp: 55
+  hp: 70
   speed: 4
   trainingTime: 15.4
   damage: 25
