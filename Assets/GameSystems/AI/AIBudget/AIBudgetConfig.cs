@@ -76,5 +76,11 @@ namespace TheWaningBorder.AI
 
         /// <summary>Seconds between "ARMYFIRST: ... yields" lines per faction.</summary>
         public float armyFirstLogInterval;
+
+        /// <summary>THE SAVINGS POT (2026-11-15): a savings goal nobody has
+        /// renewed for this many seconds lapses and the pot returns to the
+        /// wallets. (The share of income it takes is the tier's:
+        /// AIDifficultyProfileSO.savingsIncomeShare.)</summary>
+        public float savingsGoalSeconds;
     }
 }

@@ -1,5 +1,28 @@
 # The Religion Menu
 
+> **2026-11-15 ([Unification decision 66](Unification_Decisions_2026-10-03.md)): THE POWER
+> RESERVES. This block replaces the row layout of §2 below.** The menu reads top to bottom as
+> liquid running down:
+>
+> - **The font** fills toward the next religion point. Beside it are the balance to spend
+>   (a star and a number) and the Tithe button.
+> - **Pipes** run from the font to six **vessels**, one per sect slot; a drip runs in the pipe
+>   of every vessel that is still filling. A full vessel's pipe is dry and its rim is bright.
+> - **A sect's three powers stand beside its vessel at the height that unlocks them** (the step
+>   sizes are data, `sectStepRp`), and marks **II** and **III** on the vessel are the levels.
+>   A power the liquid has reached is gold and is its cast button, with its hotkey; the power
+>   that comes next has a gold border and a percentage; the rest are dim.
+> - **Under each vessel**: the sect's emblem and name, the sect building button and the hero
+>   button (dim until level II). The first empty vessel carries the adopt button.
+> - **Footer**: the set bonus and how many of its sects are adopted.
+>
+> **Colour says what a thing is**: gold is faith, the liquid and whatever it has lit; a pale
+> outline is something to click and place or pay for; teal is a building that stands.
+> **Every button is a pictogram**; names, descriptions, states and prices are in the tooltips.
+> **The panel hangs from the top of the right edge and never reaches the minimap.**
+> Code: `ReligionPanelBinder.cs` (layout and refresh), `ReligionPanelBinder.Icons.cs` (the
+> pictograms, drawn by the menu until the powers have art).
+
 > **2026-11-15 ([Unification decision 63](Unification_Decisions_2026-10-03.md)): nothing is bought
 > in this menu except the Tithe.** Powers and levels unlock by themselves (Religion.md, top
 > block). A locked power cell is dim; **the power that comes next shows its progress as a

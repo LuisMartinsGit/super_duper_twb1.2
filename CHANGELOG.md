@@ -9,6 +9,18 @@ build always name the same number.
 
 ---
 
+## [0.0.90] — 2026-11-15
+
+### Religion menu
+- **The religion menu is now a set of power reserves.** A font at the top fills as you earn and pours into one vessel per sect. Each sect's powers sit beside its vessel at the height that unlocks them and light up when the liquid reaches them; the marks II and III are the levels.
+- **Every button is a picture.** Names, descriptions and prices are in the tooltips.
+- **The menu no longer reaches the minimap.**
+
+### AI
+- **The AI saves for its upgrades.** It now puts part of its income aside for its capital's next level and for its production buildings' levels, so its armies get their tiers and it fields Trebuchets. Before, most AI capitals never left level 1.
+- **Easier AIs save slower and sometimes save for the wrong thing** (a House, Watch Tower or Vault level).
+- **Battering Rams no longer chase soldiers.** A ram can only hit buildings; the AI now keeps its rams behind the army until there is a building to work.
+
 ## [0.0.89] — 2026-11-15
 
 ### Sect powers

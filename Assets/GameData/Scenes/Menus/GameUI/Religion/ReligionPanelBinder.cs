@@ -42,10 +42,21 @@ namespace TheWaningBorder.UI.Ingame
     public sealed partial class ReligionPanelBinder : MonoBehaviour
     {
         // ── Layout (canvas units: the HUD canvas references 3840x2160) ─────
-        private const float Width = 720f;
-        private const float Pad = 24f;
-        private const float Cell = 84f;
-        private const float RowHeight = 124f;
+        // THE POWER RESERVES (2026-11-15, Religion_Menu.md § 0): a font at the
+        // top fills as points are earned and pours into one VESSEL per sect;
+        // each vessel's three powers sit beside it at the height that unlocks
+        // them, and light up when the liquid reaches them.
+        private const float Width = 860f;
+        private const float Pad = 30f;
+        private const float Cell = 76f;
+        private const float TubeW = 44f;
+        private const float TubeH = 520f;
+        private const float DropH = 44f;
+        private const float ColPitch = (Width - 2f * Pad) / 6f;
+        private const float RowsTop = 276f;          // top of the vessels
+        private const float ColHeight = 816f;        // drop + vessel + emblem + two buttons
+        private const float RowHeight = 0f;          // (the old row pitch; the picker still names it)
+        private const float TopMargin = 150f;        // below the score lines, clear of the minimap
         private const float RefreshInterval = 0.25f;
         private const float SlideSpeed = 4200f;
 
@@ -56,6 +67,20 @@ namespace TheWaningBorder.UI.Ingame
         private static readonly Color DimCell = new Color(0.07f, 0.10f, 0.16f, 0.95f);
         private static readonly Color BuyCell = new Color(0.09f, 0.13f, 0.23f, 0.95f);
         private static readonly Color Danger = new Color(0.45f, 0.10f, 0.08f, 0.85f);
+        // Faith is gold: the liquid and whatever it has lit.
+        private static readonly Color Faith = new Color(0.914f, 0.706f, 0.298f, 1f);
+        private static readonly Color FaithBright = new Color(1f, 0.96f, 0.82f, 1f);
+        private static readonly Color FaithInk = new Color(0.11f, 0.08f, 0f, 1f);
+        private static readonly Color Pipe = new Color(0.54f, 0.45f, 0.21f, 1f);
+        private static readonly Color PipeDry = new Color(0.11f, 0.28f, 0.31f, 1f);
+        private static readonly Color VesselBg = new Color(0.03f, 0.13f, 0.16f, 1f);
+        private static readonly Color LockedCell = new Color(0.04f, 0.16f, 0.20f, 1f);
+        private static readonly Color LockedEdge = new Color(0.14f, 0.31f, 0.35f, 1f);
+        private static readonly Color LockedInk = new Color(0.44f, 0.59f, 0.61f, 1f);
+        private static readonly Color NextCell = new Color(0.06f, 0.22f, 0.27f, 1f);
+        private static readonly Color NextInk = new Color(0.85f, 0.70f, 0.35f, 1f);
+        private static readonly Color Pale = new Color(0.93f, 0.96f, 0.95f, 1f);
+        private static readonly Color Teal = new Color(0.12f, 0.48f, 0.49f, 1f);
         private static readonly Color[] ClusterColor =
         {
             new Color(0.56f, 0.75f, 0.60f, 1f),   // Alanthor
@@ -83,11 +108,10 @@ namespace TheWaningBorder.UI.Ingame
         private RectTransform _tab;
         private TMP_Text _tabText;
 
-        private TMP_Text _rp, _rpProgress, _slotsText;
-        private Image _rpBar;
+        private TMP_Text _rp, _fontText, _noSects;
+        private Image _fontFill;
         private Button _tithe;
-        private TMP_Text _titheText;
-        private readonly Image[] _slotDots = new Image[SectConfig.MaxAdoptedSects];
+        private RectTransform _footer;
         private readonly TMP_Text[] _setText = new TMP_Text[4];
         private readonly Image[] _setRing = new Image[4];
         private RectTransform _banner;
@@ -104,27 +128,33 @@ namespace TheWaningBorder.UI.Ingame
         private readonly string[] _rowSect = new string[SectConfig.MaxAdoptedSects];
         private readonly HashSet<string> _hadBuilding = new HashSet<string>();
 
+        /// <summary>One vessel: the pipe that feeds it, the tube, its three
+        /// powers, the sect's emblem and its building and hero buttons.</summary>
         private sealed class Row
         {
             public RectTransform Root;
+            public Image Drop, Drip, TubeBg, TubeFill;
+            public readonly Image[] TubeEdges = new Image[3];
             public Button EmptyButton;
             public RectTransform Filled;
             public Image SectImage;
             public TMP_Text SectText;
-            public Button LevelButton;
-            public Image[] Bars = new Image[3];
-            public TMP_Text LevelBadge;
+            public TMP_Text Mark2, Mark3;
+            public Image Mark2Line, Mark3Line;
             public Power[] Powers = new Power[3];
             public Button BuildingChip, HeroChip;
-            public Image BuildingImage, HeroImage;
+            public Image BuildingImage, HeroImage, BuildingIcon, HeroIcon;
+            public EdgeFrame BuildingEdge, HeroEdge;
             public TMP_Text BuildingText, HeroText;
-            public TMP_Text Caption;
+            public bool Feeding;
         }
 
         private sealed class Power
         {
             public Button Button;
             public Image Background;
+            public EdgeFrame Edge;
+            public Image Icon;
             public Image Sweep;
             public TMP_Text Label, Badge, Key, Seconds;
             public Image NoCast;
@@ -138,9 +168,11 @@ namespace TheWaningBorder.UI.Ingame
             // The authored nodes belong to the old panel; the menu is built below.
             foreach (Transform child in transform) child.gameObject.SetActive(false);
 
-            _root.anchorMin = _root.anchorMax = new Vector2(1f, 0.5f);
-            _root.pivot = new Vector2(1f, 0.5f);
-            _root.anchoredPosition = new Vector2(-30f, 0f);
+            // Hung from the TOP of the right edge, under the score lines, so
+            // that however tall it grows it never reaches the minimap below.
+            _root.anchorMin = _root.anchorMax = new Vector2(1f, 1f);
+            _root.pivot = new Vector2(1f, 1f);
+            _root.anchoredPosition = new Vector2(-30f, -TopMargin);
             _root.sizeDelta = new Vector2(Width, 400f);
 
             _body = GameUIKit.Rect(_root, "Body");
@@ -165,6 +197,7 @@ namespace TheWaningBorder.UI.Ingame
             HandleHotkeys();
             AnimateSlide();
             UpdateCooldownSweeps();
+            AnimateDrips();
             _timer += Time.unscaledDeltaTime;
             if (_timer < RefreshInterval) return;
             _timer = 0f;
@@ -202,66 +235,132 @@ namespace TheWaningBorder.UI.Ingame
             return b;
         }
 
+        /// <summary>A button's border: four thin bars. (The Outline effect
+        /// repeats the whole quad, so on a see-through button it reads as a
+        /// solid pale fill.)</summary>
+        private sealed class EdgeFrame
+        {
+            public readonly Image[] Bars = new Image[4];
+            public Color effectColor { set { for (int i = 0; i < 4; i++) Bars[i].color = value; } }
+        }
+
+        private static EdgeFrame Edge(Image img, Color color, float width = 3f)
+        {
+            var f = new EdgeFrame();
+            for (int i = 0; i < 4; i++)
+            {
+                var bar = GameUIKit.Image(img.transform, "Edge" + i, color);
+                var rt = bar.rectTransform;
+                bool vertical = i < 2;
+                rt.anchorMin = i == 1 ? new Vector2(1f, 0f) : i == 3 ? new Vector2(0f, 1f) : Vector2.zero;
+                rt.anchorMax = i == 0 ? new Vector2(0f, 1f) : i == 2 ? new Vector2(1f, 0f) : Vector2.one;
+                rt.pivot = new Vector2(i == 1 ? 1f : i == 0 ? 0f : 0.5f, i == 3 ? 1f : i == 2 ? 0f : 0.5f);
+                rt.anchoredPosition = Vector2.zero;
+                rt.sizeDelta = vertical ? new Vector2(width, 0f) : new Vector2(0f, width);
+                f.Bars[i] = bar;
+            }
+            return f;
+        }
+
         private void BuildHeader()
         {
             var title = GameUIKit.Text(_body, "Title", Loc.T("RELIGION"), 34f, GameUIKit.Gold);
-            Place(title.rectTransform, Pad, 20f, 300f, 56f);
+            Place(title.rectTransform, Pad, 22f, 300f, 56f);
 
-            // The religion tree is retired (decision 63): with nothing to buy
-            // it had nothing left to do. No header button, no hotkey.
-
-            var temple = MakeButton(_body, "TempleButton", out _, GoToTemple);
-            Place((RectTransform)temple.transform, Width - Pad - 56f - 12f - 56f, 18f, 56f, 56f);
-            Label(temple.transform, "Text", "⌂", 30f, GameUIKit.Gold, TextAlignmentOptions.Center);
+            var temple = MakeButton(_body, "TempleButton", out var tbg, GoToTemple);
+            tbg.color = new Color(0f, 0f, 0f, 0.2f);
+            Edge(tbg, LockedEdge);
+            Place((RectTransform)temple.transform, Width - Pad - Cell - 12f - Cell, 14f, Cell, Cell);
+            IconImage(temple.transform, "temple", 44f, GameUIKit.Gold);
             UITooltip.Bind(temple.gameObject, Loc.T("Go to the Temple of Ridan"));
 
             var hide = MakeButton(_body, "HideButton", out var hideBg, () => SetShown(false));
-            hideBg.color = new Color(0f, 0f, 0f, 0f);
-            Place((RectTransform)hide.transform, Width - Pad - 56f, 18f, 56f, 56f);
-            Label(hide.transform, "Text", "›", 34f, GameUIKit.TextMain, TextAlignmentOptions.Center);
+            hideBg.color = new Color(0f, 0f, 0f, 0.2f);
+            Edge(hideBg, LockedEdge);
+            Place((RectTransform)hide.transform, Width - Pad - Cell, 14f, Cell, Cell);
+            IconImage(hide.transform, "hide", 44f, GameUIKit.TextMain);
             UITooltip.Bind(hide.gameObject, Loc.T("Hide the religion menu (R)"));
 
-            // RP line
-            _rp = GameUIKit.Text(_body, "RP", "", 40f, GoldBadge);
-            Place(_rp.rectTransform, Pad, 94f, 170f, 60f);
-            _rpProgress = GameUIKit.Text(_body, "RPProgress", "", 24f, new Color(0.72f, 0.60f, 0.85f));
-            Place(_rpProgress.rectTransform, Pad + 180f, 92f, 300f, 34f);
-            var barBg = GameUIKit.Image(_body, "RPBarBg", new Color(0.12f, 0.10f, 0.16f, 0.9f));
-            Place(barBg.rectTransform, Pad + 180f, 130f, 300f, 12f);
-            _rpBar = GameUIKit.Image(barBg.transform, "Fill", new Color(0.72f, 0.60f, 0.85f));
-            _rpBar.rectTransform.anchorMin = Vector2.zero;
-            _rpBar.rectTransform.anchorMax = new Vector2(0f, 1f);
-            _rpBar.rectTransform.pivot = new Vector2(0f, 0.5f);
-            _rpBar.rectTransform.offsetMin = _rpBar.rectTransform.offsetMax = Vector2.zero;
-            UITooltip.Bind(barBg.gameObject, () => Loc.T("Kill curse creatures to earn Religion Points."));
-
-            _tithe = MakeButton(_body, "Tithe", out _, () => Confirm(Loc.T("Tithe"),
-                TitheLine(), ReligionPurchaseKind.Tithe, null, (RectTransform)_tithe.transform, finalWarning: false));
-            Place((RectTransform)_tithe.transform, Width - Pad - 170f, 88f, 170f, 76f);
-            _titheText = Label(_tithe.transform, "Text", "", 22f, GameUIKit.Gold, TextAlignmentOptions.Center);
-            _titheText.textWrappingMode = TextWrappingModes.Normal;
-            UITooltip.Bind(_tithe.gameObject, () => Loc.T("Tithe: buy one Religion Point with resources. The price rises each time. Needs a standing Temple."));
-
-            // Slots
-            for (int i = 0; i < _slotDots.Length; i++)
+            // ── The font: fills toward the next point ──
+            float fontW = Width - 2f * Pad - 220f;
+            var font = GameUIKit.Image(_body, "Font", VesselBg, raycast: true);
+            Place(font.rectTransform, Pad, 104f, fontW, 96f);
+            _fontFill = GameUIKit.Image(font.transform, "Fill", Faith);
+            _fontFill.rectTransform.anchorMin = Vector2.zero;
+            _fontFill.rectTransform.anchorMax = new Vector2(1f, 0f);
+            _fontFill.rectTransform.offsetMin = _fontFill.rectTransform.offsetMax = Vector2.zero;
+            var fontTop = GameUIKit.Image(_fontFill.transform, "Surface", FaithBright);
+            fontTop.rectTransform.anchorMin = new Vector2(0f, 1f); fontTop.rectTransform.anchorMax = Vector2.one;
+            fontTop.rectTransform.pivot = new Vector2(0.5f, 1f);
+            fontTop.rectTransform.offsetMin = new Vector2(0f, -6f); fontTop.rectTransform.offsetMax = Vector2.zero;
+            for (int e = 0; e < 3; e++)
             {
-                _slotDots[i] = GameUIKit.Image(_body, "Dot" + i, GameUIKit.TextMain);
-                Place(_slotDots[i].rectTransform, Pad + i * 30f, 186f, 20f, 20f);
+                var edge = GameUIKit.Image(font.transform, "Edge" + e, Pipe);
+                var rt = edge.rectTransform;
+                if (e == 0) { rt.anchorMin = Vector2.zero; rt.anchorMax = new Vector2(0f, 1f); rt.pivot = new Vector2(0f, 0.5f); rt.sizeDelta = new Vector2(4f, 0f); }
+                else if (e == 1) { rt.anchorMin = new Vector2(1f, 0f); rt.anchorMax = Vector2.one; rt.pivot = new Vector2(1f, 0.5f); rt.sizeDelta = new Vector2(4f, 0f); }
+                else { rt.anchorMin = Vector2.zero; rt.anchorMax = new Vector2(1f, 0f); rt.pivot = new Vector2(0.5f, 0f); rt.sizeDelta = new Vector2(0f, 4f); }
+                rt.anchoredPosition = Vector2.zero;
             }
-            _slotsText = GameUIKit.Text(_body, "SlotsText", "", 24f, GameUIKit.TextDim);
-            Place(_slotsText.rectTransform, Pad + 190f, 176f, 480f, 40f);
+            var plate = GameUIKit.Image(font.transform, "Plate", new Color(0f, 0f, 0f, 0.55f));
+            plate.rectTransform.anchorMin = plate.rectTransform.anchorMax = plate.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            plate.rectTransform.anchoredPosition = Vector2.zero;
+            plate.rectTransform.sizeDelta = new Vector2(290f, 42f);
+            _fontText = Label(plate.transform, "Text", "", 24f, Color.white, TextAlignmentOptions.Center);
+            _fontText.fontStyle = FontStyles.Bold;
+            UITooltip.Bind(font.gameObject, () => Loc.T("The font fills as you earn: curse kills, sect units' damage, monuments and Sanctums. Each time it is full it pours one point, split equally between the sects still filling."));
+            var fontCaption = GameUIKit.Text(_body, "FontCaption", Loc.T("Each full font pours one point into your sects"),
+                20f, GameUIKit.TextDim, TextAlignmentOptions.Center, wrap: false);
+            Place(fontCaption.rectTransform, Pad, 204f, fontW, 30f);
 
-            // Set passives
+            // ── The balance: what there is to SPEND (units, heroes, the Temple) ──
+            float bx = Pad + fontW + 16f;
+            var star = GameUIKit.Image(_body, "Star", Faith, raycast: true);
+            Place(star.rectTransform, bx, 120f, 44f, 44f);
+            SetIcon(star, "star");
+            UITooltip.Bind(star.gameObject, () => Loc.T("Religion points to spend: sect units, heroes, and trades at the Temple. Spending never lowers a reserve."));
+            _rp = GameUIKit.Text(_body, "RP", "", 48f, Faith, TextAlignmentOptions.Left, wrap: false);
+            Place(_rp.rectTransform, bx + 50f, 108f, 76f, 64f);
+            _rp.fontStyle = FontStyles.Bold;
+            _tithe = MakeButton(_body, "Tithe", out var titheBg, () => Confirm(Loc.T("Tithe"),
+                TitheLine(), ReligionPurchaseKind.Tithe, null, (RectTransform)_tithe.transform, finalWarning: false));
+            titheBg.color = new Color(0f, 0f, 0f, 0.2f);
+            Edge(titheBg, Pale);
+            Place((RectTransform)_tithe.transform, Width - Pad - Cell, 104f, Cell, Cell);
+            IconImage(_tithe.transform, "tithe", 46f, Pale);
+            UITooltip.Bind(_tithe.gameObject, () => TitheLine() + "\n" + Loc.T("The price rises each time. Needs a standing Temple."));
+            var toSpend = GameUIKit.Text(_body, "ToSpend", Loc.T("to spend"), 20f, GameUIKit.TextDim, TextAlignmentOptions.Left, wrap: false);
+            Place(toSpend.rectTransform, bx, 172f, 130f, 28f);
+
+            // ── The pipes: one stem down from the font, one manifold across ──
+            var stem = GameUIKit.Image(_body, "Stem", Pipe);
+            Place(stem.rectTransform, Pad + fontW * 0.5f - 5f, 200f, 10f, 66f);
+            // (drawn under the caption: it is a 10-unit line)
+            stem.transform.SetSiblingIndex(fontCaption.transform.GetSiblingIndex());
+            var manifold = GameUIKit.Image(_body, "Manifold", Pipe);
+            Place(manifold.rectTransform, Pad + TubeW * 0.5f - 5f, RowsTop - 10f, 5f * ColPitch + 10f, 10f);
+
+            // ── Nothing adopted yet ──
+            _noSects = GameUIKit.Text(_body, "NoSects",
+                Loc.T("Adopt a sect and the font starts filling its reserve.\nIts powers light up as the reserve rises."),
+                24f, GameUIKit.TextDim, TextAlignmentOptions.Center);
+            Place(_noSects.rectTransform, Pad, RowsTop + DropH + TubeH + 30f, Width - 2f * Pad, 80f);
+
+            // ── Footer: the set bonus ──
+            _footer = GameUIKit.Rect(_body, "Footer");
+            var rule = GameUIKit.Image(_footer, "Rule", LockedEdge);
+            Place(rule.rectTransform, 0f, 0f, Width - 2f * Pad, 2f);
             // Only the sets this edition can complete (Alpha_Build.md §4).
-            int ringSlot = 0;
+            int ringSlot = 0, rings = 0;
+            for (int i = 0; i < 4; i++) if (SetPassives.InEdition((SectSet)(i + 1))) rings++;
+            float ringW = (Width - 2f * Pad - (rings - 1) * 12f) / Mathf.Max(1, rings);
             for (int i = 0; i < 4; i++)
             {
                 var set = (SectSet)(i + 1);
                 if (!SetPassives.InEdition(set)) continue;
-                _setRing[i] = GameUIKit.Image(_body, "Set" + i, DimCell, raycast: true);
-                Place(_setRing[i].rectTransform, Pad + ringSlot++ * 170f, 224f, 158f, 74f);
+                _setRing[i] = GameUIKit.Image(_footer, "Set" + i, new Color(0f, 0f, 0f, 0f), raycast: true);
+                Place(_setRing[i].rectTransform, ringSlot++ * (ringW + 12f), 10f, ringW, 56f);
                 _setText[i] = Label(_setRing[i].transform, "Text", "", 22f, GameUIKit.TextMain, TextAlignmentOptions.Center);
-                _setText[i].textWrappingMode = TextWrappingModes.Normal;
                 UITooltip.Bind(_setRing[i].gameObject, () => Loc.T(SetPassives.Name(set)) + "\n" + Loc.T(SetPassives.Description(set)));
             }
 
@@ -283,50 +382,77 @@ namespace TheWaningBorder.UI.Ingame
             _banner.gameObject.SetActive(false);
         }
 
-        private const float RowsTop = 320f;
+        /// <summary>Top of a power button inside its column: the height on the
+        /// vessel where <paramref name="fraction"/> of the reserve is reached.</summary>
+        private static float PowerY(float fraction)
+            => DropH + TubeH * (1f - Mathf.Clamp01(fraction)) - Cell * 0.5f;
 
         private void BuildRows()
         {
+            float px = TubeW + 8f;   // powers and buttons stand to the right of the tube
             for (int i = 0; i < SectConfig.MaxAdoptedSects; i++)
             {
                 int rowIndex = i;
-                var row = new Row { Root = GameUIKit.Rect(_body, "Row" + i) };
-                Place(row.Root, Pad, RowsTop + i * RowHeight, Width - 2f * Pad, RowHeight - 10f);
+                var row = new Row { Root = GameUIKit.Rect(_body, "Vessel" + i) };
+                Place(row.Root, Pad + i * ColPitch, RowsTop, ColPitch, ColHeight);
 
+                // The pipe down from the manifold, and the drip that runs in it.
+                row.Drop = GameUIKit.Image(row.Root, "Drop", PipeDry);
+                Place(row.Drop.rectTransform, TubeW * 0.5f - 5f, 0f, 10f, DropH);
+                row.Drip = GameUIKit.Image(row.Drop.transform, "Drip", FaithBright);
+                Place(row.Drip.rectTransform, 0f, 0f, 10f, 16f);
+
+                // The vessel.
+                row.TubeBg = GameUIKit.Image(row.Root, "Tube", VesselBg, raycast: true);
+                Place(row.TubeBg.rectTransform, 0f, DropH, TubeW, TubeH);
+                UITooltip.Bind(row.TubeBg.gameObject, () => VesselTooltip(rowIndex));
+                row.TubeFill = GameUIKit.Image(row.TubeBg.transform, "Fill", Faith);
+                row.TubeFill.rectTransform.anchorMin = Vector2.zero;
+                row.TubeFill.rectTransform.anchorMax = new Vector2(1f, 0f);
+                row.TubeFill.rectTransform.offsetMin = row.TubeFill.rectTransform.offsetMax = Vector2.zero;
+                var surface = GameUIKit.Image(row.TubeFill.transform, "Surface", FaithBright);
+                surface.rectTransform.anchorMin = new Vector2(0f, 1f); surface.rectTransform.anchorMax = Vector2.one;
+                surface.rectTransform.pivot = new Vector2(0.5f, 1f);
+                surface.rectTransform.offsetMin = new Vector2(0f, -6f); surface.rectTransform.offsetMax = Vector2.zero;
+                for (int e = 0; e < 3; e++)
+                {
+                    var edge = GameUIKit.Image(row.TubeBg.transform, "Edge" + e, Pipe);
+                    var rt = edge.rectTransform;
+                    if (e == 0) { rt.anchorMin = Vector2.zero; rt.anchorMax = new Vector2(0f, 1f); rt.pivot = new Vector2(0f, 0.5f); rt.sizeDelta = new Vector2(4f, 0f); }
+                    else if (e == 1) { rt.anchorMin = new Vector2(1f, 0f); rt.anchorMax = Vector2.one; rt.pivot = new Vector2(1f, 0.5f); rt.sizeDelta = new Vector2(4f, 0f); }
+                    else { rt.anchorMin = Vector2.zero; rt.anchorMax = new Vector2(1f, 0f); rt.pivot = new Vector2(0.5f, 0f); rt.sizeDelta = new Vector2(0f, 4f); }
+                    rt.anchoredPosition = Vector2.zero;
+                    row.TubeEdges[e] = edge;
+                }
+
+                // An empty vessel: the first one carries the adopt button.
                 row.EmptyButton = MakeButton(row.Root, "Adopt", out var ebg, () => OpenPicker(rowIndex));
-                ebg.color = new Color(0f, 0f, 0f, 0.25f);
-                Place((RectTransform)row.EmptyButton.transform, 0f, 8f, Width - 2f * Pad, 84f);
-                Label(row.EmptyButton.transform, "Text", "+  " + Loc.T("Adopt a sect"), 26f, GameUIKit.TextDim,
-                    TextAlignmentOptions.Center);
+                ebg.color = new Color(0f, 0f, 0f, 0.2f);
+                Edge(ebg, Pale);
+                Place((RectTransform)row.EmptyButton.transform, px, DropH + TubeH - Cell, Cell, Cell);
+                IconImage(row.EmptyButton.transform, "plus", 44f, Pale);
+                UITooltip.Bind(row.EmptyButton.gameObject, Loc.T("Adopt a sect. Free; a sect cannot be given up."));
 
                 row.Filled = GameUIKit.Rect(row.Root, "Filled");
-                Place(row.Filled, 0f, 0f, Width - 2f * Pad, RowHeight - 10f);
+                Place(row.Filled, 0f, 0f, ColPitch, ColHeight);
 
-                var sect = MakeButton(row.Filled, "Sect", out row.SectImage, () => FocusSectBuilding(rowIndex));
-                Place((RectTransform)sect.transform, 0f, 0f, Cell, Cell);
-                row.SectText = Label(sect.transform, "Text", "", 22f, GameUIKit.TextMain, TextAlignmentOptions.Center);
-                UITooltip.Bind(sect.gameObject, () => SectTooltip(rowIndex));
-
-                row.LevelButton = MakeButton(row.Filled, "Level", out var lbg, () => ClickLevel(rowIndex));
-                lbg.color = new Color(0f, 0f, 0f, 0f);
-                Place((RectTransform)row.LevelButton.transform, Cell + 8f, 0f, 44f, Cell);
-                for (int b = 0; b < 3; b++)
-                {
-                    row.Bars[b] = GameUIKit.Image(row.LevelButton.transform, "Bar" + b, GameUIKit.BarGold);
-                    Place(row.Bars[b].rectTransform, 14f, 52f - b * 22f, 14f, 18f);
-                }
-                row.LevelBadge = GameUIKit.Text(row.LevelButton.transform, "Badge", "", 20f, GoldBadge,
-                    TextAlignmentOptions.Center);
-                Place(row.LevelBadge.rectTransform, 0f, 74f, 44f, 26f);
-                UITooltip.Bind(row.LevelButton.gameObject, () => LevelTooltip(rowIndex));
+                // The level marks on the vessel.
+                row.Mark2Line = GameUIKit.Image(row.Filled, "Mark2Line", LockedEdge);
+                row.Mark2 = GameUIKit.Text(row.Filled, "Mark2", "II", 22f, LockedInk, TextAlignmentOptions.Left, wrap: false);
+                row.Mark3Line = GameUIKit.Image(row.Filled, "Mark3Line", LockedEdge);
+                row.Mark3 = GameUIKit.Text(row.Filled, "Mark3", "III", 22f, LockedInk, TextAlignmentOptions.Left, wrap: false);
+                row.Mark2.fontStyle = row.Mark3.fontStyle = FontStyles.Bold;
 
                 for (int p = 0; p < 3; p++)
                 {
                     int slot = p + 1;
                     var pw = new Power();
                     pw.Button = MakeButton(row.Filled, "Power" + slot, out pw.Background, () => ClickPower(rowIndex, slot));
-                    Place((RectTransform)pw.Button.transform, Cell + 60f + p * (Cell + 12f), 0f, Cell, Cell);
-                    pw.Label = Label(pw.Button.transform, "Label", "", 18f, GameUIKit.TextMain, TextAlignmentOptions.Center);
+                    Place((RectTransform)pw.Button.transform, px, PowerY(p == 0 ? 0.1f : p == 1 ? 0.3f : 0.7f), Cell, Cell);
+                    pw.Edge = Edge(pw.Background, LockedEdge);
+                    pw.Icon = IconImage(pw.Button.transform, null, 48f, LockedInk);
+                    pw.Icon.rectTransform.anchoredPosition = new Vector2(0f, 6f);
+                    pw.Label = Label(pw.Button.transform, "Label", "", 16f, GameUIKit.TextMain, TextAlignmentOptions.Center);
                     pw.Label.textWrappingMode = TextWrappingModes.Normal;
                     pw.Sweep = GameUIKit.Image(pw.Button.transform, "Sweep", new Color(0f, 0f, 0f, 0.6f));
                     GameUIKit.Stretch(pw.Sweep.rectTransform);
@@ -336,10 +462,11 @@ namespace TheWaningBorder.UI.Ingame
                     pw.Sweep.fillClockwise = false;
                     pw.Sweep.fillAmount = 0f;
                     pw.Seconds = Label(pw.Button.transform, "Secs", "", 26f, Color.white, TextAlignmentOptions.Center);
-                    pw.Key = GameUIKit.Text(pw.Button.transform, "Key", "", 16f, Cyan);
-                    Place(pw.Key.rectTransform, 4f, Cell - 22f, Cell, 20f);
-                    pw.Badge = GameUIKit.Text(pw.Button.transform, "Badge", "", 22f, GoldBadge, TextAlignmentOptions.Right);
-                    Place(pw.Badge.rectTransform, 0f, Cell - 26f, Cell - 4f, 26f);
+                    pw.Key = GameUIKit.Text(pw.Button.transform, "Key", "", 15f, FaithInk, TextAlignmentOptions.Center, wrap: false);
+                    Place(pw.Key.rectTransform, 0f, Cell - 20f, Cell, 18f);
+                    pw.Key.fontStyle = FontStyles.Bold;
+                    pw.Badge = GameUIKit.Text(pw.Button.transform, "Badge", "", 17f, NextInk, TextAlignmentOptions.Center, wrap: false);
+                    Place(pw.Badge.rectTransform, 0f, Cell - 22f, Cell, 20f);
                     pw.NoCast = GameUIKit.Image(pw.Button.transform, "NoCast", new Color(1f, 0.35f, 0.35f, 0.9f));
                     pw.NoCast.rectTransform.anchorMin = pw.NoCast.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
                     pw.NoCast.rectTransform.sizeDelta = new Vector2(6f, Cell * 1.2f);
@@ -348,34 +475,59 @@ namespace TheWaningBorder.UI.Ingame
                     row.Powers[p] = pw;
                 }
 
-                float chipX = Cell + 60f + 3f * (Cell + 12f) + 4f;
+                // Under the vessel: the sect, its building, its hero.
+                float below = DropH + TubeH + 10f;
+                float cx = (ColPitch - Cell) * 0.5f;
+                var sect = MakeButton(row.Filled, "Sect", out var sbg, () => FocusSectBuilding(rowIndex));
+                sbg.color = new Color(0f, 0f, 0f, 0f);
+                Place((RectTransform)sect.transform, 0f, below, ColPitch - 6f, 76f);
+                row.SectImage = GameUIKit.Image(sect.transform, "Emblem", Faith);
+                Place(row.SectImage.rectTransform, (ColPitch - 6f - 44f) * 0.5f, 0f, 44f, 44f);
+                row.SectText = GameUIKit.Text(sect.transform, "Text", "", 19f, GameUIKit.TextMain, TextAlignmentOptions.Center, wrap: false);
+                Place(row.SectText.rectTransform, -6f, 46f, ColPitch + 6f, 28f);
+                row.SectText.overflowMode = TextOverflowModes.Ellipsis;
+                UITooltip.Bind(sect.gameObject, () => SectTooltip(rowIndex));
+
                 row.BuildingChip = MakeButton(row.Filled, "Building", out row.BuildingImage, () => ClickBuilding(rowIndex));
-                Place((RectTransform)row.BuildingChip.transform, chipX, 12f, 60f, 60f);
-                row.BuildingText = Label(row.BuildingChip.transform, "Text", "", 22f, GameUIKit.TextMain, TextAlignmentOptions.Center);
+                Place((RectTransform)row.BuildingChip.transform, cx, below + 84f, Cell, Cell);
+                row.BuildingEdge = Edge(row.BuildingImage, Pale);
+                row.BuildingIcon = IconImage(row.BuildingChip.transform, "building", 44f, Pale);
+                row.BuildingText = Label(row.BuildingChip.transform, "Text", "", 24f, Color.white, TextAlignmentOptions.Center);
+                row.BuildingText.fontStyle = FontStyles.Bold;
                 UITooltip.Bind(row.BuildingChip.gameObject, () => BuildingTooltip(rowIndex));
 
                 row.HeroChip = MakeButton(row.Filled, "Hero", out row.HeroImage, () => ClickHero(rowIndex));
-                Place((RectTransform)row.HeroChip.transform, chipX + 68f, 12f, 60f, 60f);
-                row.HeroText = Label(row.HeroChip.transform, "Text", "", 24f, GoldBadge, TextAlignmentOptions.Center);
+                Place((RectTransform)row.HeroChip.transform, cx, below + 84f + Cell + 10f, Cell, Cell);
+                row.HeroEdge = Edge(row.HeroImage, Pale);
+                row.HeroIcon = IconImage(row.HeroChip.transform, "hero", 44f, Pale);
+                row.HeroText = Label(row.HeroChip.transform, "Text", "", 26f, GoldBadge, TextAlignmentOptions.Center);
+                row.HeroText.fontStyle = FontStyles.Bold;
                 UITooltip.Bind(row.HeroChip.gameObject, () => HeroTooltip(rowIndex));
-
-                row.Caption = GameUIKit.Text(row.Filled, "Caption", "", 20f, GameUIKit.TextDim);
-                Place(row.Caption.rectTransform, 0f, Cell + 4f, Width - 2f * Pad, 28f);
-                row.Caption.overflowMode = TextOverflowModes.Ellipsis;
 
                 _rows.Add(row);
             }
         }
 
-        private void Layout(int rowsShown)
+        private void Layout(int unused)
         {
-            float h = RowsTop + rowsShown * RowHeight + 20f;
-            if (_banner.gameObject.activeSelf) h += 104f;
-            _root.sizeDelta = new Vector2(Width, h);
-            float bannerShift = _banner.gameObject.activeSelf ? 104f : 0f;
-            if (_banner.gameObject.activeSelf) Place(_banner, Pad, RowsTop, Width - 2f * Pad, 92f);
+            float y = RowsTop + ColHeight + 12f;
+            bool banner = _banner.gameObject.activeSelf;
+            if (banner) { Place(_banner, Pad, y, Width - 2f * Pad, 92f); y += 104f; }
+            Place(_footer, Pad, y, Width - 2f * Pad, 70f);
+            _root.sizeDelta = new Vector2(Width, y + 70f + 16f);
+        }
+
+        /// <summary>The drip in each feeding pipe (unscaled time: it runs while paused menus are up).</summary>
+        private void AnimateDrips()
+        {
+            if (!_unlocked || _slide >= 1f) return;
+            float t = Mathf.Repeat(Time.unscaledTime, 1.6f) / 1.6f;
             for (int i = 0; i < _rows.Count; i++)
-                Place(_rows[i].Root, Pad, RowsTop + bannerShift + i * RowHeight, Width - 2f * Pad, RowHeight - 10f);
+            {
+                var row = _rows[i];
+                if (!row.Feeding) continue;
+                row.Drip.rectTransform.anchoredPosition = new Vector2(0f, -(t * (DropH + 16f) - 16f));
+            }
         }
 
         // ── Slide tab (R) ──────────────────────────────────────────────────
@@ -405,7 +557,7 @@ namespace TheWaningBorder.UI.Ingame
             float target = _shown ? 0f : 1f;
             if (Mathf.Approximately(_slide, target)) return;
             _slide = Mathf.MoveTowards(_slide, target, Time.unscaledDeltaTime * SlideSpeed / Width);
-            _root.anchoredPosition = new Vector2(-30f + _slide * (Width + 30f), 0f);
+            _root.anchoredPosition = new Vector2(-30f + _slide * (Width + 30f), -TopMargin);
         }
 
         // ── Refresh ────────────────────────────────────────────────────────
@@ -448,28 +600,19 @@ namespace TheWaningBorder.UI.Ingame
 
             _rpBalance = FactionReligionPointsHelper.GetBalance(_em, _faction);
 
-            // Header
-            _rp.text = _rpBalance + " <size=60%>" + Loc.T("RP") + "</size>";
+            // Header: the balance to spend, and the font toward the next point.
+            _rp.text = _rpBalance.ToString();
             var (have, need) = FactionReligionPointsHelper.PtsProgress(_em, _faction);
-            bool feraldis = CultureConfig.GetCompletedCulture(_em, _faction) == Cultures.Feraldis;
-            _rpProgress.text = string.Format(feraldis ? Loc.T("blood {0}/{1} to next RP") : Loc.T("curse {0}/{1} to next RP"), have, need);
-            _rpBar.rectTransform.anchorMax = new Vector2(need > 0 ? Mathf.Clamp01((float)have / need) : 0f, 1f);
-            var titheCost = FactionReligionPointsHelper.TitheCost(_em, _faction);
-            _titheText.text = Loc.T("Tithe") + "\n<size=80%><color=#A8A38F>" + CostShort(titheCost) + "</color></size>";
+            float toPoint = need > 0 ? Mathf.Clamp01((float)have / need) : 0f;
+            _fontFill.rectTransform.anchorMax = new Vector2(1f, toPoint);
+            _fontFill.gameObject.SetActive(toPoint > 0.005f);
+            _fontText.text = string.Format(Loc.T("Next point {0}%"), Mathf.FloorToInt(toPoint * 100f));
             _tithe.interactable = ReligionPurchases.CanBuy(_em, _faction, ReligionPurchaseKind.Tithe, null, out _);
             _tabText.text = "‹\n" + _rpBalance + "\n<size=70%><color=#A8A38F>R</color></size>";
 
-            // Slots and sets
-            int used = 0;
+            // Sets
             var counts = default(int3);
-            if (_hasState)
-            {
-                counts = SetPassives.ClusterCounts(_state);
-                used = counts.x + counts.y + counts.z;
-            }
-            for (int i = 0; i < _slotDots.Length; i++)
-                _slotDots[i].color = i < used ? GameUIKit.TextMain : new Color(0.42f, 0.49f, 0.64f, 0.5f);
-            _slotsText.text = string.Format(Loc.T("{0} of {1} sects · choices are final"), used, SectConfig.MaxAdoptedSects);
+            if (_hasState) counts = SetPassives.ClusterCounts(_state);
             var active = SetOf(counts);
             for (int i = 0; i < 4; i++)
             {
@@ -482,32 +625,31 @@ namespace TheWaningBorder.UI.Ingame
                     : (set == SectSet.Alanthor ? counts.x : set == SectSet.Runai ? counts.y : counts.z) + "/4";
                 string name = Loc.T(SetPassives.Name(set));
                 _setText[i].text = done
-                    ? "<color=#F5C451><b>" + name + "</b></color>\n" + progress
-                    : reachable ? name + "\n<b>" + progress + "</b>"
-                                : "<color=#6E7A93><s>" + name + "</s>\n" + progress + "</color>";
-                _setRing[i].color = done ? new Color(0.96f, 0.77f, 0.32f, 0.25f) : DimCell;
+                    ? "<color=#F5C451><b>" + name + "</b></color>   " + progress
+                    : reachable ? name + "   <b>" + progress + "</b>"
+                                : "<color=#6E7A93><s>" + name + "</s>   " + progress + "</color>";
+                _setRing[i].color = done ? new Color(0.96f, 0.77f, 0.32f, 0.25f) : new Color(0f, 0f, 0f, 0f);
             }
 
             // Temple state: unlocked without a standing Temple = it was lost.
             _banner.gameObject.SetActive(!_templeStanding);
 
-            // Rows: adopted sects in fixed sect order, then one empty row.
+            // Vessels: adopted sects in fixed sect order; the first empty one
+            // carries the adopt button, the rest stand dry.
             int r = 0;
             for (int i = 0; i < SectConfig.SectCount && _hasState; i++)
                 if (_state.Get(i).IsAdopted && r < _rowSect.Length) _rowSect[r++] = SectConfig.IdAt(i);
             int adoptedRows = r;
             for (; r < _rowSect.Length; r++) _rowSect[r] = null;
 
-            int shown = math.min(SectConfig.MaxAdoptedSects, adoptedRows + (adoptedRows < SectConfig.MaxAdoptedSects ? 1 : 0));
             for (int i = 0; i < _rows.Count; i++)
             {
-                bool visible = i < shown;
-                _rows[i].Root.gameObject.SetActive(visible);
-                if (!visible) continue;
-                if (_rowSect[i] == null) RefreshEmptyRow(_rows[i]);
+                _rows[i].Root.gameObject.SetActive(true);
+                if (_rowSect[i] == null) RefreshEmptyRow(_rows[i], i == adoptedRows);
                 else RefreshRow(_rows[i], i, _rowSect[i]);
             }
-            Layout(shown);
+            _noSects.gameObject.SetActive(adoptedRows == 0);
+            Layout(0);
             RefreshPopups();
             RefreshTree();
         }
@@ -516,11 +658,16 @@ namespace TheWaningBorder.UI.Ingame
 
         private static SectSet SetOf(int3 counts) => SetPassives.SetOf(counts);
 
-        private void RefreshEmptyRow(Row row)
+        private void RefreshEmptyRow(Row row, bool first)
         {
-            row.EmptyButton.gameObject.SetActive(true);
-            row.Filled.gameObject.SetActive(false);
+            row.EmptyButton.gameObject.SetActive(first);
             row.EmptyButton.interactable = _templeStanding;
+            row.Filled.gameObject.SetActive(false);
+            row.Feeding = false;
+            row.Drip.enabled = false;
+            row.Drop.color = PipeDry;
+            row.TubeFill.gameObject.SetActive(false);
+            for (int e = 0; e < 3; e++) row.TubeEdges[e].color = LockedEdge;
         }
 
         private void RefreshRow(Row row, int rowIndex, string sectId)
@@ -529,36 +676,66 @@ namespace TheWaningBorder.UI.Ingame
             row.Filled.gameObject.SetActive(true);
             int idx = SectConfig.IndexOf(sectId);
             var sect = _state.Get(idx);
-            var color = ClusterColor[(int)SectConfig.ClusterOf(sectId)];
 
-            row.SectImage.color = new Color(color.r * 0.25f, color.g * 0.25f, color.b * 0.25f, 0.95f);
-            row.SectText.text = "<color=#" + ColorUtility.ToHtmlStringRGB(color) + ">" + Short(SectInfo.ShortName(sectId)) + "</color>";
+            // The reserve.
+            float total = SectProgression.Threshold(SectProgression.Steps);
+            float frac = total > 0f ? Mathf.Clamp01(sect.Progress / total) : 0f;
+            bool finished = SectProgression.IsFinished(sect);
+            row.Feeding = !finished;
+            row.Drip.enabled = !finished;
+            row.Drop.color = finished ? PipeDry : Pipe;
+            row.TubeFill.rectTransform.anchorMax = new Vector2(1f, frac);
+            row.TubeFill.gameObject.SetActive(frac > 0.002f);
+            for (int e = 0; e < 3; e++) row.TubeEdges[e].color = finished ? FaithBright : Pipe;
 
+            // Where each step sits on the vessel (the step sizes are data).
+            float At(int step) => total > 0f ? SectProgression.Threshold(step) / total : 0f;
+            float px = TubeW + 8f;
+            Place((RectTransform)row.Powers[0].Button.transform, px, PowerY(At(1)), Cell, Cell);
+            Place((RectTransform)row.Powers[1].Button.transform, px, PowerY(At(2)), Cell, Cell);
+            Place((RectTransform)row.Powers[2].Button.transform, px, PowerY(At(4)), Cell, Cell);
             int level = sect.PowerLevel < 1 ? 1 : sect.PowerLevel;
-            for (int b = 0; b < 3; b++)
-                row.Bars[b].color = b < level ? GameUIKit.BarGold : new Color(0.2f, 0.26f, 0.37f, 1f);
-            // Nothing is bought (decision 63): the badge is how far the sect
-            // is toward its next LEVEL step, when a level is what comes next.
-            float toNext = SectProgression.StepProgress(sect, out int nextStep);
-            bool levelNext = nextStep == 3 || nextStep == 5;
-            row.LevelBadge.text = levelNext ? Mathf.FloorToInt(toNext * 100f) + "%" : "";
-            row.LevelBadge.color = GoldBadge;
+            PlaceMark(row.Mark2Line, row.Mark2, At(3), level >= 2);
+            PlaceMark(row.Mark3Line, row.Mark3, At(5), level >= 3);
+
+            if (!SetIcon(row.SectImage, SectEmblemKey(sectId))) row.SectImage.enabled = false;
+            row.SectText.text = SectInfo.ShortName(sectId);
 
             for (int p = 0; p < 3; p++) RefreshPower(row.Powers[p], rowIndex, sectId, p + 1, sect);
             RefreshBuildingChip(row, sectId);
             RefreshHeroChip(row, sectId);
         }
 
+        private static string SectEmblemKey(string sectId)
+        {
+            const string p = "Sect_";
+            return sectId != null && sectId.StartsWith(p) ? sectId.Substring(p.Length) : sectId;
+        }
+
+        private static void PlaceMark(Image line, TMP_Text text, float fraction, bool lit)
+        {
+            float y = DropH + TubeH * (1f - Mathf.Clamp01(fraction));
+            Place(line.rectTransform, 0f, y - 1.5f, TubeW + 4f, 3f);
+            Place(text.rectTransform, TubeW + 10f, y - 6f, 60f, 28f);
+            line.color = lit ? Color.white : LockedEdge;
+            text.color = lit ? Faith : LockedInk;
+        }
+
         private void RefreshPower(Power pw, int rowIndex, string sectId, int slot, PerSectState sect)
         {
             var spec = SectActivePowerHelper.CurrentSpec(_em, _faction, sectId, slot, out _);
-            pw.Label.text = spec.Name != null ? Loc.T(spec.Name) : "—";
+            // A pictogram where one is drawn; the name in text otherwise.
+            bool drawn = SetIcon(pw.Icon, spec.Name);
+            pw.Label.text = drawn ? "" : (spec.Name != null ? Loc.T(spec.Name) : "—");
             bool owned = sect.IsSlotUnlocked(slot);
             pw.NoCast.gameObject.SetActive(owned && !_templeStanding);
             if (owned)
             {
-                pw.Background.color = CyanFill;
-                pw.Label.color = Cyan;
+                // Lit by the reserve: this is its cast button.
+                pw.Background.color = Faith;
+                pw.Edge.effectColor = FaithBright;
+                pw.Icon.color = FaithInk;
+                pw.Label.color = FaithInk;
                 pw.Badge.text = "";
                 pw.Key.text = HotkeyLabel(rowIndex, slot);
             }
@@ -569,10 +746,11 @@ namespace TheWaningBorder.UI.Ingame
                 float toNext = SectProgression.StepProgress(sect, out int nextStep);
                 int nextSlot = nextStep == 1 ? 1 : nextStep == 2 ? 2 : nextStep == 4 ? 3 : 0;
                 bool next = nextSlot == slot;
-                pw.Background.color = next ? BuyCell : DimCell;
+                pw.Background.color = next ? NextCell : LockedCell;
+                pw.Edge.effectColor = next ? Faith : LockedEdge;
+                pw.Icon.color = next ? NextInk : LockedInk;
                 pw.Label.color = next ? GameUIKit.TextMain : GameUIKit.TextDim;
                 pw.Badge.text = next ? Mathf.FloorToInt(toNext * 100f) + "%" : "";
-                pw.Badge.color = GoldBadge;
                 pw.Key.text = "";
                 pw.Sweep.fillAmount = 0f;
                 pw.Seconds.text = "";
@@ -664,17 +842,27 @@ namespace TheWaningBorder.UI.Ingame
             var st = BuildingState(sectId, out _, out float progress);
             bool needsTemple = !_templeStanding && (st == SiteState.None || st == SiteState.Destroyed);
             row.BuildingChip.gameObject.SetActive(SectConfig.BuildingIdFor(sectId) != null);
+            // Pale outline = something to click and place; teal = it stands.
+            Color fill = new Color(0f, 0f, 0f, 0.2f), ink = Pale, edge = Pale;
+            string text = "";
             switch (st)
             {
-                case SiteState.Standing: row.BuildingImage.color = CyanFill; row.BuildingText.text = "⌂"; break;
-                case SiteState.Building: row.BuildingImage.color = BuyCell; row.BuildingText.text = Mathf.RoundToInt(progress * 100f) + "%"; break;
-                case SiteState.Planned: row.BuildingImage.color = BuyCell; row.BuildingText.text = "…"; break;
-                case SiteState.Destroyed: row.BuildingImage.color = Danger; row.BuildingText.text = "!"; break;
-                default: row.BuildingImage.color = DimCell; row.BuildingText.text = "+"; break;
+                case SiteState.Standing: fill = Teal; edge = Teal; ink = Color.white; break;
+                case SiteState.Building: text = Mathf.RoundToInt(progress * 100f) + "%"; ink = new Color(1f, 1f, 1f, 0.25f); break;
+                case SiteState.Planned: text = "…"; ink = new Color(1f, 1f, 1f, 0.25f); break;
+                case SiteState.Destroyed: fill = Danger; edge = RedBadge; text = "!"; ink = new Color(1f, 1f, 1f, 0.25f); break;
             }
+            row.BuildingImage.color = fill;
+            row.BuildingEdge.effectColor = edge;
+            row.BuildingIcon.color = ink;
+            row.BuildingText.text = text;
             row.BuildingChip.interactable = !needsTemple;
+        }
 
-            // Unit count and research for the caption.
+        /// <summary>The sect building's state, its unit count and its research, in one line (tooltip).</summary>
+        private string BuildingCaption(string sectId)
+        {
+            var st = BuildingState(sectId, out _, out float progress);
             string unit = SectConfig.UnitIdFor(sectId);
             int units = unit != null ? SectHeroes.CountLiveOrQueued(_em, _faction, unit, 999) : 0;
             string unitName = unit != null && TechCatalog.TryGetUnit(unit, out var ud) ? ud.name : "?";
@@ -691,7 +879,7 @@ namespace TheWaningBorder.UI.Ingame
                 _ => bName != null ? bName + " " + Loc.T("not built") : null,
             };
             string limitText = SectHeroes.SectIdForLimitedUnit(unit) != null ? units + "/" + SectConfig.SectUnitLimit : units.ToString();
-            row.Caption.text = (stateWord != null ? stateWord + " · " : "") + unitName + " " + limitText
+            return (stateWord != null ? stateWord + " · " : "") + unitName + " " + limitText
                 + (research != null ? " · " + ResearchName(research) + (researched ? " ✓" : " –") : "");
         }
 
@@ -703,23 +891,40 @@ namespace TheWaningBorder.UI.Ingame
             var live = FindHero(hero, out int level);
             int idx = SectConfig.IndexOf(sectId);
             bool recruitedOnce = _state.Get(idx).HeroRecruited != 0;
+            bool open = _state.Get(idx).PowerLevel >= 2;   // the hero comes at level II
+            Color fill = new Color(0f, 0f, 0f, 0.2f), ink = Pale, edge = Pale;
+            string text = "";
             if (live != Entity.Null)
             {
-                row.HeroImage.color = new Color(0.16f, 0.14f, 0.06f, 0.95f);
-                row.HeroText.text = level.ToString();
+                fill = new Color(0.16f, 0.14f, 0.06f, 0.95f); edge = Faith;
+                ink = new Color(1f, 1f, 1f, 0.2f);
+                text = level.ToString();
             }
             else if (SectHeroes.HasLiveOrQueued(_em, _faction, hero))
             {
-                row.HeroImage.color = BuyCell;
-                row.HeroText.text = "…";
+                ink = new Color(1f, 1f, 1f, 0.25f);
+                text = "…";
             }
-            else
-            {
-                row.HeroImage.color = recruitedOnce ? Danger : DimCell;
-                row.HeroText.text = recruitedOnce ? "✕" : "+";
-            }
+            else if (recruitedOnce) { fill = Danger; edge = RedBadge; }
+            else if (!open) { fill = LockedCell; edge = LockedEdge; ink = LockedInk; }
+            row.HeroImage.color = fill;
+            row.HeroEdge.effectColor = edge;
+            row.HeroIcon.color = ink;
+            row.HeroText.text = text;
         }
 
+        private string VesselTooltip(int rowIndex)
+        {
+            string sectId = _rowSect[rowIndex];
+            if (sectId == null || !_hasState) return Loc.T("An empty reserve. Adopt a sect to start filling it.");
+            var sect = _state.Get(SectConfig.IndexOf(sectId));
+            if (SectProgression.IsFinished(sect))
+                return string.Format(Loc.T("{0}: the reserve is full. Every power is lit, at level III."), SectInfo.ShortName(sectId));
+            float toNext = SectProgression.StepProgress(sect, out int step);
+            string what = step == 3 ? Loc.T("level II") : step == 5 ? Loc.T("level III") : Loc.T("the next power");
+            return string.Format(Loc.T("{0}: {1}% of the way to {2}. It fills by itself as the font pours."),
+                SectInfo.ShortName(sectId), Mathf.FloorToInt(toNext * 100f), what);
+        }
         private Entity FindHero(string heroId, out int level)
         {
             level = 0;
@@ -935,7 +1140,6 @@ namespace TheWaningBorder.UI.Ingame
             string s = string.Format(Loc.T("Chapel level {0}. Every unlocked power of the sect is cast at this level."), SectInfo.Roman(level));
             if (SetPassives.ActiveSet(_em, _faction) == SectSet.Concord)
                 s += "\n" + Loc.T("Concord: cast one level higher, up to III.");
-            if (level < 3) s += "\n<color=#F5C451>" + Loc.T("Click to raise it.") + "</color>";
             return s;
         }
 
@@ -954,7 +1158,7 @@ namespace TheWaningBorder.UI.Ingame
               .Append(Mathf.RoundToInt(SectActivePowerHelper.EffectiveCooldown(_em, _faction, sectId, spec.Cooldown))).Append("s   ")
               .Append(Loc.T("Cast")).Append(": ").Append(SectActivePowerHelper.WindupFor(spec.Kind).ToString("0.#")).Append("s</color>");
             if (!SectActivePowerHelper.IsSlotUnlocked(_em, _faction, sectId, slot))
-                sb.Append("\n<color=#F5C451>").Append(Loc.T("Click to unlock.")).Append("</color>");
+                sb.Append("\n<color=#F5C451>").Append(Loc.T("Locked. Lights up by itself when this reserve reaches it.")).Append("</color>");
             else
                 sb.Append("\n<color=#8FE8F2>").Append(HotkeyLabel(rowIndex, slot)).Append("</color>");
             return sb.ToString();
@@ -969,6 +1173,7 @@ namespace TheWaningBorder.UI.Ingame
             string research = SectInfo.ResearchText(sectId);
             if (unit != null) s += "\n\n" + unit;
             if (research != null) s += "\n" + research;
+            if (TryWorld()) s += "\n\n<color=#A8A38F>" + BuildingCaption(sectId) + "</color>";
             if (!_templeStanding) s += "\n<color=#FF9E8C>" + Loc.T("Needs a standing Temple to build or rebuild.") + "</color>";
             return s;
         }
@@ -979,6 +1184,8 @@ namespace TheWaningBorder.UI.Ingame
             if (sectId == null) return "";
             string text = SectInfo.HeroText(sectId) ?? "";
             int rp = TryWorld() ? SectHeroes.RpDue(_em, _faction, sectId) : 0;
+            if (_hasState && _state.Get(SectConfig.IndexOf(sectId)).PowerLevel < 2)
+                text += "\n<color=#F5C451>" + Loc.T("The hero comes when this reserve reaches level II.") + "</color>";
             return text + "\n<color=#A8A38F>" + (rp > 0
                 ? string.Format(Loc.T("Recruit at the sect building: {0} RP + resources. Unique."), rp)
                 : Loc.T("Revive at the sect building for its resources. Unique.")) + "</color>";

@@ -80,6 +80,15 @@ namespace TheWaningBorder.AI
             public float MilVeilCredit;
             public bool MilVeilClaim;
 
+            /// <summary>THE SAVINGS POT (see SetSavingsGoal): what is put
+            /// aside, the price it is growing toward, who asked and until
+            /// when the goal stands.</summary>
+            public readonly float[] Saved = new float[Resources];
+            public readonly float[] SaveGoal = new float[Resources];
+            public string SaveKey;
+            public float SaveUntil;
+            public float SaveShare;
+
             /// <summary>ARMY FIRST (see SetArmyStatus): the army floor's
             /// last reading, stamped in simulated time.</summary>
             public int ArmyAlive, ArmyDesired;
@@ -201,6 +210,16 @@ namespace TheWaningBorder.AI
                         : b.IncomeEma[r] * 0.9f + perSecond * 0.1f;
                 }
 
+                // 0. THE SAVINGS POT takes its share first (SetSavingsGoal).
+                if (b.SaveKey == null || now >= b.SaveUntil) { b.SaveKey = null; b.Saved[r] = 0f; }
+                else if (b.Saved[r] < b.SaveGoal[r])
+                {
+                    float put = System.Math.Min(gross * b.SaveShare, b.SaveGoal[r] - b.Saved[r]);
+                    if (put > 0f) { b.Saved[r] += put; gross -= put; }
+                }
+                if (b.Saved[r] > b.SaveGoal[r]) b.Saved[r] = b.SaveGoal[r];
+                if (b.Saved[r] > bank[r]) b.Saved[r] = System.Math.Max(0, bank[r]);
+
                 // 1. Split this window's income by the weights.
                 for (int c = 0; c < Categories; c++)
                     b.Wallets[c, r] += gross * weights[c];
@@ -244,7 +263,8 @@ namespace TheWaningBorder.AI
                 float sum = 0f;
                 for (int c = 0; c < Categories; c++) sum += b.Wallets[c, r];
 
-                float actual = bank[r];
+                // The wallets partition what is NOT in the savings pot.
+                float actual = bank[r] - b.Saved[r];
                 if (actual <= 0f)
                 {
                     for (int c = 0; c < Categories; c++) b.Wallets[c, r] = 0f;
@@ -269,9 +289,72 @@ namespace TheWaningBorder.AI
                 AILogger.Log(faction, "BUDGET",
                     $"w(adv/mil/eco)=({adv:0.00}/{mil:0.00}/{eco:0.00}) " +
                     $"S[{W(b, 0)} | {W(b, 1)} | {W(b, 2)}] " +
-                    $"emaS={b.IncomeEma[0]:0.0}/s emaI={b.IncomeEma[1]:0.0}/s");
+                    $"emaS={b.IncomeEma[0]:0.0}/s emaI={b.IncomeEma[1]:0.0}/s" +
+                    (b.SaveKey != null
+                        ? $" pot[{b.SaveKey}]={(int)b.Saved[0]}/{(int)b.SaveGoal[0]}s,{(int)b.Saved[1]}/{(int)b.SaveGoal[1]}i,{(int)b.Saved[2]}/{(int)b.SaveGoal[2]}v"
+                        : ""));
             }
         }
+
+        // ─────────────────────────────────────────────────────────────
+        // THE SAVINGS POT (2026-11-15)
+        // ─────────────────────────────────────────────────────────────
+        // A hold asks every spender to wait, and a bank the army drains as
+        // fast as it fills never forms a price that way: on Broken Oath v2
+        // (0.0.89) three of four Hard capitals never left L1 in 52 minutes
+        // and no production building levelled. The pot is the other way
+        // round: a share of the income is taken off the top and is in no
+        // wallet, so nothing has to agree to leave it alone. The saver pays
+        // the bank directly once the bank holds the price.
+
+        /// <summary>Save toward <paramref name="price"/>. Renew it every
+        /// think; it lapses after savingsGoalSeconds. A different key takes
+        /// the pot over and keeps what is already in it.</summary>
+        /// <param name="incomeShare">The share of income put aside (the
+        /// tier's savingsIncomeShare).</param>
+        public static void SetSavingsGoal(Faction faction, string key, Cost price, float incomeShare)
+        {
+            var b = GetBrain(faction);
+            b.SaveKey = key;
+            b.SaveShare = incomeShare < 0f ? 0f : incomeShare > 1f ? 1f : incomeShare;
+            b.SaveGoal[0] = price.Supplies;
+            b.SaveGoal[1] = price.Iron;
+            b.SaveGoal[2] = price.Veilstone;
+            b.SaveUntil = SimClock.Now + Cfg.savingsGoalSeconds;
+        }
+
+        /// <summary>The purchase happened (or the goal is gone): the pot
+        /// returns to the wallets. Only the owner of the goal may end it.</summary>
+        public static void ClearSavingsGoal(Faction faction, string key)
+        {
+            var b = GetBrain(faction);
+            if (b.SaveKey != key) return;
+            b.SaveKey = null;
+            for (int r = 0; r < Resources; r++) { b.Saved[r] = 0f; b.SaveGoal[r] = 0f; }
+        }
+
+        /// <summary>Who the pot is saving for (null: nobody).</summary>
+        public static string SavingsKey(Faction faction)
+        {
+            var b = GetBrain(faction);
+            return b.SaveKey != null && SimClock.Now < b.SaveUntil ? b.SaveKey : null;
+        }
+
+        /// <summary>Can the bank pay <paramref name="cost"/> and leave the
+        /// pot whole? For spenders that pay the bank directly (building
+        /// levels) and are not what the pot is saving for.</summary>
+        public static bool LeavesSavings(EntityManager em, Faction faction, Cost cost)
+        {
+            var b = GetBrain(faction);
+            if (!b.Seeded || SavingsKey(faction) == null) return true;
+            if (!FactionEconomy.TryGetResources(em, faction, out var res)) return true;
+            return (cost.Supplies  <= 0 || res.Supplies  - b.Saved[0] >= cost.Supplies)
+                && (cost.Iron      <= 0 || res.Iron      - b.Saved[1] >= cost.Iron)
+                && (cost.Veilstone <= 0 || res.Veilstone - b.Saved[2] >= cost.Veilstone);
+        }
+
+        /// <summary>Supplies in the pot, for logs.</summary>
+        public static int SavedSupplies(Faction faction) => (int)GetBrain(faction).Saved[0];
 
         private static string W(BrainBudget b, int c)
             => $"{(int)b.Wallets[c, 0]}s,{(int)b.Wallets[c, 1]}i,{(int)b.Wallets[c, 2]}v";

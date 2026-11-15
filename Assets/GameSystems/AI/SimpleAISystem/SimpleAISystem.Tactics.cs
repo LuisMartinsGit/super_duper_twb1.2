@@ -208,6 +208,7 @@ namespace TheWaningBorder.AI
                 // a kiting shooter is mid-step and is left alone.
                 var body = _tacticsBody; body.Clear();
                 var strays = _tacticsStrays; strays.Clear();
+                var engines = _tacticsEngines; engines.Clear();
                 float cohesionSq = Cfg.armyCohesionRadius * Cfg.armyCohesionRadius;
                 for (int i = 0; i < mission.Members.Count; i++)
                 {
@@ -216,6 +217,11 @@ namespace TheWaningBorder.AI
                     bool flanker = mission.FlankPhase != 0 && mission.Flankers.Contains(u);
                     if (flanker && mission.FlankPhase == 1) continue;
                     if (AITactics.IsKiting(em, u)) continue;
+                    // AN ENGINE THAT CANNOT HIT UNITS IS NOT IN THE BODY
+                    // (2026-11-15). The focus orders below name hostile UNITS,
+                    // and a Battering Ram given one walks after it and never
+                    // swings (BuildingsOnlyAttacker). It is handled apart.
+                    if (em.HasComponent<BuildingsOnlyAttacker>(u)) { engines.Add(u); continue; }
                     float3 p = em.GetComponentData<LocalTransform>(u).Position;
                     float dx = p.x - centroid.x, dz = p.z - centroid.z;
                     if (!flanker && dx * dx + dz * dz > cohesionSq) strays.Add(u);
@@ -256,6 +262,9 @@ namespace TheWaningBorder.AI
                         myPower, enemyPower, now, in skill))
                     continue;
 
+                // ── ENGINES. ──
+                HoldEngines(em, engines, centroid, enemyCentroid);
+
                 // ── FLANK. ──
                 TickFlank(em, faction, mission, body, centroid, enemyCentroid, enemyCount, now, in skill);
 
@@ -293,6 +302,45 @@ namespace TheWaningBorder.AI
             new System.Collections.Generic.List<Entity>(32);
         private readonly System.Collections.Generic.List<Entity> _tacticsStrays =
             new System.Collections.Generic.List<Entity>(16);
+        private readonly System.Collections.Generic.List<Entity> _tacticsEngines =
+            new System.Collections.Generic.List<Entity>(8);
+
+        /// <summary>The buildings-only engines of an army in a fight. One that
+        /// is on a building is left to it. The rest wait behind the body, away
+        /// from the enemy, on an ATTACK-move: they take any hostile building
+        /// that comes into their reach by themselves (the targeting system
+        /// offers them nothing else) and are never sent after a unit.</summary>
+        private static void HoldEngines(EntityManager em, System.Collections.Generic.List<Entity> engines,
+            float3 centroid, float3 enemyCentroid)
+        {
+            if (engines.Count == 0) return;
+            var tc = AITactics.Cfg;
+            float2 axis = math.normalizesafe(enemyCentroid.xz - centroid.xz);
+            float2 spot = centroid.xz - axis * tc.rangedStandoff;
+            for (int i = 0; i < engines.Count; i++)
+            {
+                var u = engines[i];
+                Entity on = TransientState.Active<AttackCommand>(em, u)
+                    ? em.GetComponentData<AttackCommand>(u).Target
+                    : em.HasComponent<Target>(u) ? em.GetComponentData<Target>(u).Value : Entity.Null;
+                if (on != Entity.Null && em.Exists(on))
+                {
+                    if (em.HasComponent<BuildingTag>(on)) continue;      // working a building
+                }
+                else if (!TransientState.Active<AttackCommand>(em, u))
+                {
+                    float3 up = em.GetComponentData<LocalTransform>(u).Position;
+                    if (math.distance(up.xz, spot) <= tc.rangedLineTolerance) continue;
+                    if (em.HasComponent<DesiredDestination>(u))
+                    {
+                        var dd = em.GetComponentData<DesiredDestination>(u);
+                        if (dd.Has != 0 && math.distance(dd.Position.xz, spot) <= tc.rangedLineTolerance) continue;
+                    }
+                }
+                float y = em.GetComponentData<LocalTransform>(u).Position.y;
+                CommandRouter.IssueAttackMove(em, u, new float3(spot.x, y, spot.y), CommandSource.AI);
+            }
+        }
         private readonly System.Collections.Generic.List<Entity> _tacticsScratch =
             new System.Collections.Generic.List<Entity>(64);
 

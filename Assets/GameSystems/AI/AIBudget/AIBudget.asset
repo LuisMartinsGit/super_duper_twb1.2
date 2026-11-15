@@ -25,3 +25,4 @@ MonoBehaviour:
   armyFirstReserveUnits: 5
   armyFirstStatusMaxAge: 30
   armyFirstLogInterval: 60
+  savingsGoalSeconds: 180

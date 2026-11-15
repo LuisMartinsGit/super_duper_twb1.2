@@ -88,6 +88,8 @@ namespace TheWaningBorder.AI
 
         /// <summary>Economic drive (Game_AI.md § 5h) — see the SO fields.</summary>
         public bool ReserveForCapitalLevel;
+        public float SavingsIncomeShare;
+        public float SavingsWrongObjectiveChance;
         public int EconomyUpgradesPerThink;
         public int ProductionQueueDepth;
         public bool ProtectAgeUpSavings;
@@ -200,6 +202,8 @@ namespace TheWaningBorder.AI
                 BasicsShareScale = so.basicsShareScale,
                 ExpansionDrive = so.expansionDrive,
                 ReserveForCapitalLevel = so.reserveForCapitalLevel,
+                SavingsIncomeShare = so.savingsIncomeShare,
+                SavingsWrongObjectiveChance = so.savingsWrongObjectiveChance,
                 EconomyUpgradesPerThink = so.economyUpgradesPerThink,
                 ProductionQueueDepth = so.productionQueueDepth,
                 ProtectAgeUpSavings = so.protectAgeUpSavings,

@@ -62,6 +62,8 @@ MonoBehaviour:
   basicsShareScale: 0.92
   expansionDrive: 1.15
   reserveForCapitalLevel: 1
+  savingsIncomeShare: 0.3
+  savingsWrongObjectiveChance: 0
   economyUpgradesPerThink: 1
   productionQueueDepth: 2
   protectAgeUpSavings: 0

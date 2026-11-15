@@ -131,7 +131,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!TryWorld()) return;
             if (!_templeStanding) { PlayerNotificationSystem.NotifyError(Loc.T("Build a Temple of Ridan to adopt sects")); return; }
             ClosePopups();
-            _picker.anchoredPosition = new Vector2(-24f, -math.max(RowsTop - 200f, RowsTop + rowIndex * RowHeight - 300f));
+            _picker.anchoredPosition = new Vector2(-24f, -RowsTop);
             _picker.gameObject.SetActive(true);
             RefreshPopups();
         }

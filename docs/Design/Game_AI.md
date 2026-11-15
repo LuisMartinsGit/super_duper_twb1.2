@@ -3814,6 +3814,32 @@ raider economy, so the Feraldis AI (`AIFeraldisEndgameSystem`, partial
   switch knows the Hall of Axes, Rig Yard, Engine Works and Great Forge.
 - The Corruptor verb is retired (wells are gone).
 
+## 6ad. Saving for objectives (2026-11-15)
+
+Unification decision 65. The AI used to "save" with a hold: a pending price that every
+spender was asked to respect. On Broken Oath v2 (0.0.89) the army floor, huts, walls and
+research spent through it, any raid suspended it, and three of four Hard capitals sat at
+level 1 for 52 minutes with no production level and no Trebuchet.
+
+- **The pot** (`AIBudget.SetSavingsGoal` / `ClearSavingsGoal` / `LeavesSavings`). While a
+  goal stands, a share of each resource's income is put aside before the wallets are fed, and
+  the wallets partition only what is not in the pot. Nothing has to agree to leave it alone.
+  A goal nobody renews lapses (`savingsGoalSeconds` on `AIBudget.asset`). The saver pays the
+  bank directly once the bank holds the price; other level-ups must leave the pot whole.
+- **Who saves for what** (`AIBuildingUpgradeSystem`). The capital's next level first; then one
+  production line's level at a time, the line keeping the pot until it is bought. A line whose
+  next levels unlock a unit takes the pot from one that unlocks none.
+- **The tiers** (the four `AIDifficultyProfileSO` assets). `savingsIncomeShare` is how fast a
+  tier saves. `savingsWrongObjectiveChance` is rolled each time the pot is free and a sound
+  objective asks for it; on a miss the sound objectives are turned away and the first poor one
+  that cannot be paid for (a House, Watch Tower or Vault level) takes the pot and keeps it
+  until it is bought. The roll is a hash of the faction and its roll count, so a seed replays.
+- **Distress** (§ 5i) no longer counts a raid on the economy: savings pause for a collapsed
+  income, an extractor owed a rebuild, or the Defend posture.
+- **Engines in a fight** (`SimpleAISystem.Tactics.cs`, `HoldEngines`). A unit that can only hit
+  buildings is left out of the army's unit-focus orders; it waits behind the body on an
+  attack-move, where the targeting system offers it buildings only.
+
 ## 8. Tech / age / culture
 
 - Age-up is a utility request (§5). Culture choice remains **Alanthor for

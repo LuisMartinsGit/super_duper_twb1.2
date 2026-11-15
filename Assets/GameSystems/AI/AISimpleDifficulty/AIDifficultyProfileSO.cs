@@ -97,6 +97,18 @@ namespace TheWaningBorder.AI
         /// A capital level multiplies every slot of the home territory.</summary>
         public bool reserveForCapitalLevel;
 
+        /// <summary>THE SAVINGS POT (2026-11-15, AIBudget.SetSavingsGoal):
+        /// every tier saves for its objectives. This is the share of income
+        /// put aside while one is being saved for -- a lower tier saves
+        /// slower.</summary>
+        public float savingsIncomeShare;
+
+        /// <summary>Chance, each time the pot is free and a sound objective
+        /// asks for it (the capital's level, a production line's level), that
+        /// the tier saves for a poor one instead (a House, Watch Tower or
+        /// Vault level). 0 on the tiers that choose well.</summary>
+        public float savingsWrongObjectiveChance;
+
         /// <summary>Economy levels (Gatherer's Hut, Mine, Veilstone Mine) queued
         /// per upgrade think AHEAD of the rotation and without yielding to
         /// the army. 0 = only the rotation and the surplus pass.</summary>

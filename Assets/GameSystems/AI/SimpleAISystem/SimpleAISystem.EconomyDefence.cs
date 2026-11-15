@@ -698,7 +698,14 @@ namespace TheWaningBorder.AI
                 || (_econLastAttackAt.TryGetValue(key, out float lastAttack)
                     && now - lastAttack <= Cfg.economyAttackLingerSeconds);
             bool rebuilding = TryGetRebuildOwed(faction, now, out int owedKind);
-            bool distressed = collapsed || underAttack || rebuilding;
+            // A RAID DOES NOT STOP THE SAVING (2026-11-15). "Under attack" used
+            // to pause every savings goal for as long as any economy response
+            // was out, and in a four-way war that is nearly always: Broken Oath
+            // v2 (0.0.89) had savings paused for most of minutes 20 to 52 on
+            // every seat, three capitals never left L1 and no production
+            // building levelled. Savings now pause for a collapsed income, an
+            // extractor owed a rebuild, or a base that is being defended.
+            bool distressed = collapsed || rebuilding || posture == AIPosture.Defend;
 
             bool was = AIPivotalReserve.IsSuspended(faction);
             AIPivotalReserve.SetSuspended(faction, distressed);

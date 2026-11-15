@@ -9,6 +9,41 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+66. **The religion menu is a set of power reserves (2026-11-15, developer: "I need it all to
+    look like you are filling up a power reserve"; "all buttons should be pictographic"; "must
+    not cross the minimap").** Decision 63 made progress automatic; the menu now shows it as
+    liquid. A **font** at the top fills toward the next point and pours into one **vessel** per
+    sect; a sect's three powers stand beside its vessel at the height that unlocks them and
+    light up when the liquid reaches them, and marks II and III on the vessel are the levels.
+    Gold is faith (the liquid and whatever it has lit); pale outlines are things to click and
+    place (Tithe, adopt, sect building, hero). Every button is a pictogram; the words are in
+    the tooltips. The panel hangs from the top of the right edge so it never reaches the
+    minimap. The pictograms are drawn by the menu itself (`ReligionPanelBinder.Icons.cs`) and
+    are stand-ins until the powers have art. Religion_Menu.md, top block.
+65. **The AI saves for its objectives (2026-11-15, developer: "The AI should save for the
+    upgrades!!!"; "all tiers should save for objectives. easier tiers should take longer to
+    save and save for the wrong objectives sometimes").** Measured on Broken Oath v2 (0.0.89,
+    four Hard AIs, 52 minutes): three capitals never left level 1, no production building
+    levelled, so no army got a tier and no Trebuchet (Siege Yard level 3) was ever trainable.
+    The old saving was a HOLD that asked every spender to wait; the army, huts, walls and
+    research drained the bank regardless, and any raid paused it. (a) **A savings pot**
+    (`AIBudget.SetSavingsGoal`): while an objective is being saved for, a share of every
+    resource's income is taken off the top and is in no wallet, until the pot holds the price.
+    (b) **The objectives**: the capital's next level, then one production line's level at a
+    time (`AIBuildingUpgradeSystem.SaveForLevel`); a line keeps the pot until it is bought.
+    (c) **Every tier saves**, at its own `savingsIncomeShare` (the four difficulty profiles):
+    a lower tier saves slower. (d) **A lower tier sometimes saves for the wrong thing**: each
+    time the pot is free and a sound objective asks for it, the tier's
+    `savingsWrongObjectiveChance` is rolled; on a miss a House, Watch Tower or Vault level
+    takes the pot instead. Hard and Expert never miss. (e) **A raid no longer pauses savings**:
+    only a collapsed income, an extractor owed a rebuild, or a base being defended does.
+    (f) **Battering Rams are not sent after units**: a ram can only hit buildings, and the
+    army's focus orders named enemy units for every member; rams now wait behind the army on
+    an attack-move and take any building in reach (`SimpleAISystem.Tactics.cs`). Six Hard
+    matches after: 21 of 24 capitals reached level 2 (typically minute 10 to 20), 20 of 24 AIs
+    levelled a production building, and trebuchets were fielded in four of six. Not addressed:
+    matches still seldom close inside 52 minutes, and the Siege Yard is saved for after the
+    Range and Stable. Game_AI.md § 6ad.
 64. **Iron keeps pace with supplies (2026-11-15, developer: "I am more concerned about the iron
     deficit"; "AI is breaking down due to iron shortages even when it has the whole map
     controlled").** Measured over six 0.0.88 AI matches: from minute 20 a faction's supply

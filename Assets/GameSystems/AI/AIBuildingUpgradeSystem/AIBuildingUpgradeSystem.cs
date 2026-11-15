@@ -608,6 +608,7 @@ namespace TheWaningBorder.AI
                     AIBudget.NoteEconomyDeferred(faction, "upgrade " + id, deferred);
                     return false;
                 }
+                if (!AIBudget.LeavesSavings(em, faction, cost)) continue;   // the pot is not this level's
                 if (UpgradeBuildingCommandHelper.Execute(em, best,
                         TheWaningBorder.Core.Commands.CommandSource.AI) != UpgradeBuildingResult.Ok) continue;
                 AIPacing.NoteLevelUp(em, faction);
@@ -801,6 +802,23 @@ namespace TheWaningBorder.AI
             }
             int fk = (int)faction;
             var verdict = TryUpgradeCapitalCore(em, faction, surplus, out var home);
+            // THE POT (2026-11-15, AIBudget.SetSavingsGoal): the price is put
+            // aside from the income whatever the posture. The hold below only
+            // asked the spenders to wait, and they did not.
+            // EVERY TIER SAVES; a lower one slower (its savingsIncomeShare)
+            // and, sometimes, for the wrong thing (SoundObjectiveMayTakePot).
+            if (verdict == CapitalUpgrade.Saving
+                && UpgradeBuildingCommandHelper.TryGetNextCost(em, home, out var potPrice, out _))
+            {
+                if (AIBudget.SavingsKey(faction) == CapitalReserveKey
+                    || SoundObjectiveMayTakePot(faction, profile))
+                    AIBudget.SetSavingsGoal(faction, CapitalReserveKey, potPrice, profile.SavingsIncomeShare);
+                // Saving for something else: the capital does not hold the
+                // rotation up meanwhile.
+                else verdict = CapitalUpgrade.NotNeeded;
+            }
+            else if (verdict == CapitalUpgrade.Queued)
+                AIBudget.ClearSavingsGoal(faction, CapitalReserveKey);
             // THE CAPITAL'S PRICE IS A SAVINGS GOAL (Game_AI.md 5h). A rusher
             // spent every supply on units as it arrived and its capital sat at
             // L1 all match: the price never formed, and the +25 % / +50 % on the
@@ -1043,9 +1061,12 @@ namespace TheWaningBorder.AI
             // time reached the L3 survey gate — is moot: every building of a
             // type stands at the faction's level, and a new one is built at it.
             Entity best = PickHost(em, faction, query);
-            if (best == Entity.Null) return false;
+            if (best == Entity.Null) { DropLevelSaving(faction, buildingId); return false; }
             if (!UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var price, out byte nextLevel))
+            {
+                DropLevelSaving(faction, buildingId);
                 return false;
+            }
             int bestLevel = nextLevel - 1;
 
             // Army first: never spend the military line's iron on levels.
@@ -1054,6 +1075,14 @@ namespace TheWaningBorder.AI
             // what allows the army to grow faster"): this iron floor, the
             // ArmyFirstYield below and the army's veilstone earmark.
             bool feedsArmy = RaisesUnitOutput(buildingId);
+            // ...and its price is saved for (the pot, below) from the moment
+            // the bank cannot pay it.
+            if (!FactionEconomy.CanAfford(em, faction, price)
+                && (feedsArmy || IsPoorObjective(buildingId)))
+                SaveForLevel(em, faction, buildingId, price, bestLevel, sound: feedsArmy);
+            // The level being saved for passes the army-first gates below as
+            // a production level does: the pot is its money, not the army's.
+            if (SavedLevelLine(faction) == buildingId) feedsArmy = true;
 
             // MORE BUILDINGS, A LEVEL WORTH MORE (2026-10-19): the price
             // against soldiers, scaled by how many buildings it raises. The
@@ -1128,7 +1157,12 @@ namespace TheWaningBorder.AI
             if (!supplyEngine
                 && UpgradeBuildingCommandHelper.TryGetNextCost(em, best, out var gateCost, out _))
             {
-                if (AIPivotalReserve.ShouldHold(em, faction, gateCost)) return false;
+                // The level being saved for is not held by its own savings
+                // goal; a strict goal (the age-up landmark, a lost trainer)
+                // still comes first.
+                bool savedForThis = SavedLevelLine(faction) == buildingId
+                    && !AIPivotalReserve.StrictHold(em, faction);
+                if (!savedForThis && AIPivotalReserve.ShouldHold(em, faction, gateCost)) return false;
                 if (!feedsArmy && !housingCritical)
                 {
                     string why = AIBudget.ArmyFirstYield(em, faction, gateCost);
@@ -1149,6 +1183,10 @@ namespace TheWaningBorder.AI
 
             if (outsideGap ? !AIPacing.LevelPhaseOpen(em, faction, (byte)(bestLevel + 1))
                            : !AIPacing.LevelAllowed(em, faction, (byte)(bestLevel + 1))) return false;
+            // A level the pot is not saving for leaves the pot alone.
+            if (!(SavedLevelLine(faction) == buildingId && AIBudget.SavingsKey(faction) == LevelReserveKey)
+                && !AIBudget.LeavesSavings(em, faction, price))
+                return false;
             var result = UpgradeBuildingCommandHelper.Execute(em, best,
                 TheWaningBorder.Core.Commands.CommandSource.AI);
             if (result == UpgradeBuildingResult.Ok)
@@ -1157,7 +1195,148 @@ namespace TheWaningBorder.AI
                 AILogger.Log(faction, "BUILDING",
                     $"Upgrading {buildingId} to L{bestLevel + 1}");
                 if (surplus) AILogger.Log(faction, "SURPLUS", $"upgrade {buildingId} to L{bestLevel + 1}");
+                DropLevelSaving(faction, buildingId);
                 return true;
+            }
+            return false;
+        }
+
+        // ── SAVING FOR A PRODUCTION LEVEL (2026-11-15) ──────────────────
+        // Only the capital's level was a savings goal. A production line's
+        // level was bought when the bank happened to hold its price, and a
+        // bank the army drains never does: on Broken Oath v2 (0.0.89) no AI
+        // levelled a Barracks, Range, Stable or Siege Yard in 52 minutes, so
+        // no army got a weapon tier and no Trebuchet (Siege Yard L3) was ever
+        // trainable. One production level at a time is now a savings goal:
+        // the line keeps the goal until it is bought, and a line whose next
+        // levels unlock a unit takes the goal from one that unlocks none.
+
+        /// <summary>AIPivotalReserve key of the production level being saved for.</summary>
+        private const string LevelReserveKey = "ProductionLevel";
+
+        private static int _levelSavingEpoch = -1;
+        private static readonly System.Collections.Generic.Dictionary<int, string> _levelSavingLine
+            = new System.Collections.Generic.Dictionary<int, string>();
+
+        private static string SavedLevelLine(Faction faction)
+        {
+            if (_levelSavingEpoch != SimCadence.Epoch)
+            {
+                _levelSavingEpoch = SimCadence.Epoch;
+                _levelSavingLine.Clear();
+                _poorChoiceUntil.Clear();
+                _objectiveRolls.Clear();
+            }
+            return _levelSavingLine.TryGetValue((int)faction, out var id) ? id : null;
+        }
+
+        private static void DropLevelSaving(Faction faction, string buildingId)
+        {
+            if (SavedLevelLine(faction) != buildingId) return;
+            _levelSavingLine.Remove((int)faction);
+            AIPivotalReserve.Clear(faction, LevelReserveKey);
+            AIBudget.ClearSavingsGoal(faction, LevelReserveKey);
+        }
+
+        private static void SaveForLevel(EntityManager em, Faction faction, string buildingId, in Cost price,
+            int level, bool sound)
+        {
+            var tier = SimpleAISystem.TierOf(faction);
+            string saved = SavedLevelLine(faction);
+            if (saved != buildingId)
+            {
+                // The capital's price keeps the pot while it is being saved for.
+                if (AIBudget.SavingsKey(faction) == CapitalReserveKey) return;
+                if (saved != null)
+                {
+                    // A line keeps its goal until it is bought; only a sound
+                    // line that unlocks a unit takes it from a sound one that
+                    // unlocks none. A poor objective is never taken over.
+                    if (!sound || IsPoorObjective(saved)) return;
+                    if (!(LevelUnlocksUnit(em, faction, buildingId, level)
+                          && !SavedLineUnlocksUnit(em, faction, saved))) return;
+                }
+                else if (sound ? !SoundObjectiveMayTakePot(faction, tier) : !PoorObjectiveWanted(faction))
+                    return;
+            }
+            _levelSavingLine[(int)faction] = buildingId;
+            _poorChoiceUntil.Remove((int)faction);
+            AIBudget.SetSavingsGoal(faction, LevelReserveKey, price, tier.SavingsIncomeShare);
+            if (saved != buildingId)
+                AILogger.Log(faction, "ECON",
+                    $"saving for {buildingId} L{level + 1} ({price.Supplies}s {price.Iron}i {price.Veilstone}v)");
+        }
+
+        // ── THE WRONG OBJECTIVE (2026-11-15) ────────────────────────────
+        // "Easier tiers should take longer to save and save for the wrong
+        // objectives sometimes." Each time the pot is free and a sound
+        // objective asks for it, the tier's savingsWrongObjectiveChance is
+        // rolled once; on a miss the sound objectives are turned away for
+        // savingsGoalSeconds and the first poor one that cannot be paid for
+        // (a House, Watch Tower or Vault level) takes the pot instead, and
+        // keeps it until it is bought.
+
+        /// <summary>Levels that win nothing: what a weak tier saves for by
+        /// mistake. A roster of SO ids, not tuning.</summary>
+        private static readonly string[] PoorObjectiveIds = { "Hut", "Alanthor_Tower", "VaultOfAlmierra" };
+
+        private static bool IsPoorObjective(string buildingId)
+            => System.Array.IndexOf(PoorObjectiveIds, buildingId) >= 0;
+
+        private static readonly System.Collections.Generic.Dictionary<int, float> _poorChoiceUntil
+            = new System.Collections.Generic.Dictionary<int, float>();
+        private static readonly System.Collections.Generic.Dictionary<int, int> _objectiveRolls
+            = new System.Collections.Generic.Dictionary<int, int>();
+
+        /// <summary>The tier has just chosen badly: a poor objective may take the pot.</summary>
+        private static bool PoorObjectiveWanted(Faction faction)
+        {
+            SavedLevelLine(faction);   // per-match reset
+            return _poorChoiceUntil.TryGetValue((int)faction, out float until)
+                && TheWaningBorder.Core.SimClock.Now < until;
+        }
+
+        /// <summary>May a sound objective take the free pot? Rolls the tier's
+        /// chance of a wrong choice once per free pot; deterministic (a hash
+        /// of the faction and its roll count), so a seed replays the same.</summary>
+        private static bool SoundObjectiveMayTakePot(Faction faction, in AIDifficultyProfile tier)
+        {
+            int key = (int)faction;
+            string saved = SavedLevelLine(faction);   // also the per-match reset
+            if (saved != null && IsPoorObjective(saved)) return false;   // a poor goal is being saved for
+            if (PoorObjectiveWanted(faction)) return false;
+            if (tier.SavingsWrongObjectiveChance <= 0f) return true;
+            _objectiveRolls.TryGetValue(key, out int n);
+            _objectiveRolls[key] = n + 1;
+            uint h = Unity.Mathematics.math.hash(new Unity.Mathematics.int3(key, n, SimCadence.Epoch));
+            if ((h & 0xFFFF) / 65536f >= tier.SavingsWrongObjectiveChance) return true;
+            _poorChoiceUntil[key] = TheWaningBorder.Core.SimClock.Now + AIBudgetConfig.I.savingsGoalSeconds;
+            AILogger.Log(faction, "ECON", "saving: a poor objective this time (the tier's wrong choice)");
+            return false;
+        }
+
+        private static bool SavedLineUnlocksUnit(EntityManager em, Faction faction, string buildingId)
+            => LevelUnlocksUnit(em, faction, buildingId,
+                TheWaningBorder.Systems.Buildings.FactionBuildingLevels.Get(em, faction, buildingId));
+
+        /// <summary>A unit this building trains for this faction's culture
+        /// needs a higher level than <paramref name="level"/> (the unit SO's
+        /// minBuildingLevel).</summary>
+        private static bool LevelUnlocksUnit(EntityManager em, Faction faction, string buildingId, int level)
+        {
+            var def = TechCatalog.Building(buildingId);
+            if (def?.trains == null) return false;
+            byte culture = CultureConfig.GetCompletedCulture(em, faction);
+            for (int i = 0; i < def.trains.Length; i++)
+            {
+                string id = def.trains[i];
+                if (string.IsNullOrEmpty(id)) continue;
+                // Another culture's unit on a shared roster (the Barracks lists them all).
+                byte of = id.StartsWith("Alanthor_") ? Cultures.Alanthor
+                        : id.StartsWith("Feraldis_") ? Cultures.Feraldis
+                        : id.StartsWith("Runai_") ? Cultures.Runai : Cultures.None;
+                if (of != Cultures.None && of != culture) continue;
+                if (TechCatalog.TryGetUnit(id, out var u) && u != null && u.minBuildingLevel > level) return true;
             }
             return false;
         }
