@@ -233,6 +233,12 @@ namespace TheWaningBorder.Systems.Combat
                     {
                         TransientState.Set(ecb, dead, new DeathAnimationState { Timer = DeathAnimationDuration });
 
+                        // The Revive log (docs/Design/Sects.md, Sect of Renewal):
+                        // written here, where every unit dies exactly once
+                        // whatever killed it. See NoteUnitDeath.
+                        TheWaningBorder.Systems.Sect.AlanthorSectPowerSystem.NoteUnitDeath(
+                            state.EntityManager, dead, SystemAPI.Time.ElapsedTime);
+
                         // Cancel movement immediately on death so the corpse
                         // doesn't slide while the death animation plays. The
                         // integrator already excludes DeathAnimationState, but

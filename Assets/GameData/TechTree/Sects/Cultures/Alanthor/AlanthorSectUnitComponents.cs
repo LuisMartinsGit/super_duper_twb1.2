@@ -127,19 +127,22 @@ public struct OvertimeBoost : IComponentData, IEnableableComponent
     public float TimeRemaining;
 }
 
-/// <summary>Ward Discharge (Fortitude A): an armed charge on one of the
-/// caster's structures. Waits up to Lifetime; when a hostile unit enters
-/// TriggerRadius it fires its pulses, Interval apart, each Damage to every
-/// hostile unit in range. Unspent pulses stay armed. Building transient.</summary>
+/// <summary>Ward Discharge (Fortitude, 2026-11-15): the ward on one of the
+/// caster's buildings. It lasts Lifetime seconds and holds ChargesLeft
+/// charges. Each time a hostile unit is within TriggerRadius one charge
+/// detonates, dealing Damage to every hostile unit within TriggerRadius;
+/// Timer is the wait before the next charge may go
+/// (SectLeverEffects.WardDetonationGap). Charges left when Lifetime runs out
+/// vanish. The presentation draws one wisp per ChargesLeft (WardDischargeVfx,
+/// read only). Building transient (pre-added disabled by
+/// BuildingTransientSeedSystem).</summary>
 public struct WardDischargeCharge : IComponentData, IEnableableComponent
 {
     public float Damage;
     public float TriggerRadius;
-    public float Interval;
-    public int PulsesLeft;
+    public int ChargesLeft;
     public float Lifetime;
     public float Timer;
-    public byte Firing;
 }
 
 /// <summary>One recent death, for Revive (Renewal wildcard). Kept on the

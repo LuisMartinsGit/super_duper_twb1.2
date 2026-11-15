@@ -78,23 +78,14 @@ namespace TheWaningBorder.Systems.Sect
                     return int.TryParse(sectId, out int territory)
                         && TheWaningBorder.Entities.Monument.CanExplore(em, faction, territory);
 
+                // RETIRED (decision 63, 2026-11-15): powers and levels are no
+                // longer bought. They unlock by themselves as points are
+                // earned (SectProgression). The kinds stay so an old replay's
+                // command still parses; it buys nothing.
                 case ReligionPurchaseKind.UnlockB:
                 case ReligionPurchaseKind.UnlockWildcard:
-                {
-                    if (!TryGetSect(em, faction, sectId, out _, out _, out var sect)) return false;
-                    if (sect.IsSlotUnlocked(SlotOf(kind))) return false;
-                    rpCost = kind == ReligionPurchaseKind.UnlockB ? cfg.unlockSecondRp : cfg.unlockWildcardRp;
-                    return FactionReligionPointsHelper.CanAfford(em, faction, rpCost);
-                }
-
                 case ReligionPurchaseKind.ChapelLevel:
-                {
-                    if (!TryGetSect(em, faction, sectId, out _, out _, out var sect)) return false;
-                    int level = sect.PowerLevel < 1 ? 1 : sect.PowerLevel;
-                    if (level >= 3) return false;
-                    rpCost = level == 1 ? cfg.chapelLevel2Rp : cfg.chapelLevel3Rp;
-                    return FactionReligionPointsHelper.CanAfford(em, faction, rpCost);
-                }
+                    return false;
             }
             return false;
         }

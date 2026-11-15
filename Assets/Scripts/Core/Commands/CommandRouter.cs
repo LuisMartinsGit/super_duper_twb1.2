@@ -1727,6 +1727,12 @@ namespace TheWaningBorder.Core.Commands
                     if (notifyLocal) SimSignals.NotifyError(Loc.T("Adopt this sect first"));
                     return;
                 }
+                // The hero comes with the sect's level II (decision 63).
+                if (TheWaningBorder.Economy.SectQuery.PowerLevelOf(em, heroFaction, heroSect) < 2)
+                {
+                    if (notifyLocal) SimSignals.NotifyError(Loc.T("This sect's hero answers once its powers reach level II"));
+                    return;
+                }
                 if (TheWaningBorder.Systems.Sect.SectHeroes.HasLiveOrQueued(em, heroFaction, unitId))
                 {
                     if (notifyLocal)

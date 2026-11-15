@@ -58,7 +58,7 @@ namespace TheWaningBorder.Systems.Border
             {
                 var killer = secondaryKillers[i];
                 if (killer == Faction.Border) continue;  // unattributed kills don't reward RP
-                FactionReligionPointsHelper.Refund(em, killer, 1);
+                FactionReligionPointsHelper.Grant(em, killer, 1);
                 TWBLog.Log($"[BorderDeathDropSystem] secondary border node destroyed by {killer} — +1 RP");
             }
 

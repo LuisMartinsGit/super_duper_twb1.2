@@ -114,7 +114,7 @@ namespace TheWaningBorder.Systems.Economy
                 if (!TerritoryResources.IsSanctum(t)) continue;
                 int owner = TerritoryOwnership.OwnerOf(t);
                 if (owner < 0 || owner >= 8) continue;   // natural ground or the curse
-                FactionReligionPointsHelper.Refund(em, (Faction)owner, 1);
+                FactionReligionPointsHelper.Grant(em, (Faction)owner, 1);
                 if ((Faction)owner == GameSettings.LocalPlayerFaction)
                     SimSignals.Notify(string.Format(Loc.T("+1 Religion Point — {0} (Sanctum)"), RegionMap.NameOf(t)));
             }

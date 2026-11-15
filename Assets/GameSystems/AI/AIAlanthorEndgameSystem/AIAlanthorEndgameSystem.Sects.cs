@@ -426,10 +426,22 @@ namespace TheWaningBorder.AI
                 // Aim at your own ground. Bulwark wants the base, not the field
                 // army: it buffs buildings — and only while the base is
                 // actually under attack. Cleanse is base-defensive too.
+                // Ward Discharge wards the keep itself while the base is
+                // threatened - unless the keep still holds charges: a second
+                // cast only refreshes the ward, it never stacks.
+                case SectActivePowerKind.WardCharge:
+                    target = hallPos;
+                    if (WardStandsAt(em, faction, hallPos)) { why = "keep already warded"; return false; }
+                    if (baseThreat)
+                    {
+                        caught = CountPlayerEnemiesNear(em, faction, hallPos, AITactics.Cfg.baseThreatRadius);
+                        return true;
+                    }
+                    why = "base not under attack";
+                    return false;
+
                 case SectActivePowerKind.BuildingHpBuff:
                 case SectActivePowerKind.InfluenceBurst:
-                // Ward Discharge arms the keep itself while the base is threatened.
-                case SectActivePowerKind.WardCharge:
                     target = hallPos;
                     if (baseThreat)
                     {
@@ -623,6 +635,33 @@ namespace TheWaningBorder.AI
             }
             target = best;
             return true;
+        }
+
+        static readonly ComponentType[] QT_Wards =
+        {
+            ComponentType.ReadOnly<WardDischargeCharge>(),
+            ComponentType.ReadOnly<LocalTransform>(),
+            ComponentType.ReadOnly<FactionTag>(),
+        };
+        static CachedEntityQuery QC_Wards;
+
+        /// <summary>True when one of the faction's buildings within the Ward
+        /// Discharge pick radius of <paramref name="pos"/> is warded and still
+        /// holds a charge (the component is enableable: only live wards match).</summary>
+        private static bool WardStandsAt(EntityManager em, Faction faction, float3 pos)
+        {
+            var q = QC_Wards.Get(em, QT_Wards);
+            if (q.IsEmpty) return false;
+            using var wards = q.ToComponentDataArray<WardDischargeCharge>(Allocator.Temp);
+            using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            float r2 = SectLeverEffects.WardPickRadius * SectLeverEffects.WardPickRadius;
+            for (int i = 0; i < wards.Length; i++)
+            {
+                if (facs[i].Value != faction || wards[i].ChargesLeft <= 0) continue;
+                if (math.distancesq(xfs[i].Position.xz, pos.xz) <= r2) return true;
+            }
+            return false;
         }
 
         /// <summary>Nearest live resource node to the Hall, for Harvest the

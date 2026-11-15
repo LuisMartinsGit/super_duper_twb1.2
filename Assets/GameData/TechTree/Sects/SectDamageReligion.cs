@@ -43,12 +43,15 @@ namespace TheWaningBorder.Systems.Sect
             if (per <= 0) return;
             var rp = em.GetComponentData<FactionReligionPoints>(bank);
             rp.SectDamage += damage;
+            int earned = 0;
             while (rp.SectDamage >= per)
             {
                 rp.SectDamage -= per;
                 rp.Balance++;
+                earned++;
             }
             em.SetComponentData(bank, rp);
+            SectProgression.OnEarned(em, faction, earned);
         }
     }
 }

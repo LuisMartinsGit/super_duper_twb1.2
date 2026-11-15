@@ -1,5 +1,13 @@
 # The Religion Menu
 
+> **2026-11-15 ([Unification decision 63](Unification_Decisions_2026-10-03.md)): nothing is bought
+> in this menu except the Tithe.** Powers and levels unlock by themselves (Religion.md, top
+> block). A locked power cell is dim; **the power that comes next shows its progress as a
+> percentage**, and the chapel-level badge shows the percentage when a level is what comes
+> next. Clicking a locked cell or the level bars only says that it unlocks by itself. Adopting
+> shows no price. **The religion tree (T, §6) is retired**: no button, no hotkey. A row's
+> power cells are in UNLOCK order (Sects.md § Unlock order); F / Shift+F / Ctrl+F follow it.
+
 > **Doc version 2026-10-15.** Canon for the in-match religion UI: the quick
 > menu on the right edge and the full religion tree behind **T**. The rules it
 > shows are [Religion.md](Religion.md) and [Sects.md](Sects.md); this doc says

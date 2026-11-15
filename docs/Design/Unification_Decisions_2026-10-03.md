@@ -9,6 +9,43 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+64. **Iron keeps pace with supplies (2026-11-15, developer: "I am more concerned about the iron
+    deficit"; "AI is breaking down due to iron shortages even when it has the whole map
+    controlled").** Measured over six 0.0.88 AI matches: from minute 20 a faction's supply
+    income keeps growing while its iron income is flat, at about 3.3 supplies for each iron,
+    and an army costs about 2.2 for each iron. So the median bank climbs to 4,000 supplies
+    while the median iron falls to 200, and four factions in ten sit under 100 iron by minute
+    40. (a) **Mines yield more** (`ironYieldMultiplier` on `TerritoryIncomeSystem.asset`), and
+    **iron nodes hold more by the same share**, so they last as long as before. (b) **Held
+    territory pays more iron** (`claimIronPerMinute`). (c) **The AI uses the Market's surplus
+    mode** (decision 59): while its iron is below `marketIronShort` and its army is not waiting
+    on supplies, everything above `marketSurplusReserve` supplies becomes iron
+    (`SimpleAISystem.Farms.cs`). The Market's price is unchanged. (d) **The AI works all its
+    iron** (developer: "is the AI upgrading the iron extractors? Is it building more in the
+    terrains it conquers?" - it was not): the difficulty tiers' node share
+    (`extractorShare`, 56 % for Normal) no longer applies to iron Mines, which have a share of
+    their own (`mineShare` on the four profiles: all of them except Easy at three quarters);
+    and the Mine level-up is judged on a payback window of its own
+    (`mineLevelPaybackMinutes`), the Farm's window having refused it nearly every time. Not addressed: the AI builds
+    its Market late (the Market costs iron) and has no use for a veilstone glut.
+63. **Religion progresses by itself; powers reordered; the tree is gone (2026-11-15,
+    developer: "the player only selects the sect and things unlock by themselves as points
+    roll in"; "gaining points drives progress, but the points are not spent on progress. They
+    are rather spent on sect units / heroes or traded for resources or armies at the
+    Temple").** (a) Adoption is free and gives nothing on the spot. (b) Every religion point a
+    faction EARNS is shared equally between its unfinished adopted sects; each sect's ladder
+    (`sectStepRp`: first power, second power, level II + hero, third power, level III) is
+    derived from what it has received (`PerSectState.Progress`, `SectProgression`). A refund
+    is not an earning (`FactionReligionPointsHelper.Grant` vs `Refund`). (c) The balance stays
+    a currency: **sect line units cost a point again** (`sectUnitRp` back to 1, reversing
+    2026-11-14), heroes `heroRp`, plus the Temple's trades and armies. (d) The unlock /
+    chapel-level purchases are retired (their command kinds parse and buy nothing). (e)
+    **Unlock order**: a sect's first power is never a damage power (Sects.md §3a): Embargo,
+    Overtime and Emergency Repairs come first; Trespass, Bounty and Ward Discharge second.
+    (f) The religion tree (T) is removed; the quick menu shows progress percentages.
+    (g) **Ward Discharge** is reworked (wisps as charges, Sects.md § Fortitude) and
+    **Revive** repaired. Save format 11. The AI still adopts by its old pacing and no longer
+    buys unlocks; how many sects it should hold under the equal split is untuned.
 62. **Soldiers chip buildings; they do not take them down (2026-11-15, developer: "most melee
     and ranged units are dealing too much damage to structures. A squad of 15 archers is taking
     down towers").** A melee or ranged (non-siege) hit on any building lands only a **share** of

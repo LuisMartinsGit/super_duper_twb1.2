@@ -30,7 +30,13 @@ MonoBehaviour:
   chapelLevel2Rp: 2
   chapelLevel3Rp: 3
   heroRp: 1
-  sectUnitRp: 0
+  sectStepRp:
+  - 1
+  - 2
+  - 2
+  - 2
+  - 3
+  sectUnitRp: 1
   aiSectUnitRpReserve: 0
   sectDamagePerRp: 3000
   supportSupplies: 250

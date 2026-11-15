@@ -275,6 +275,13 @@ namespace TheWaningBorder.AI
         /// income lands at that share of Expert's. What an extractor pays is never cut.</summary>
         public float extractorShare;
 
+        /// <summary>The same share for IRON MINES alone (2026-11-15, decision 64). Iron is what an
+        /// army is made of and what every tier ran out of: at the general share a Normal AI worked
+        /// 4 of its 7 iron nodes and sat on thousands of supplies it could not turn into soldiers.
+        /// So every tier but the lowest works all its iron; the tiers stay apart on supplies,
+        /// veilstone, tempo and army size.</summary>
+        public float mineShare;
+
         /// <summary>No building level-ups before this match time. (2026-11-04, Game_AI.md § 2)</summary>
         public float levelUpsFromSeconds;
 

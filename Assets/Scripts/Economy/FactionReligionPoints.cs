@@ -91,6 +91,7 @@ namespace TheWaningBorder.Economy
                 gained++;
             }
             em.SetComponentData(bank, rp);
+            SectProgression.OnEarned(em, faction, gained);
             return gained;
         }
 
@@ -130,6 +131,7 @@ namespace TheWaningBorder.Economy
             rp.Balance++;
             rp.TithesBought++;
             em.SetComponentData(bank, rp);
+            SectProgression.OnEarned(em, faction, 1);
             return true;
         }
         /// <summary>
@@ -191,6 +193,19 @@ namespace TheWaningBorder.Economy
         }
 
         /// <summary>Read-only balance lookup. Returns 0 if no bank or no RP component.</summary>
+        /// <summary>
+        /// A faction EARNED <paramref name="amount"/> religion points: they
+        /// join the balance AND advance its sects (SectProgression, decision
+        /// 63). Use this for every source of points; <see cref="Refund"/> is
+        /// for giving back points that were spent, which advances nothing.
+        /// </summary>
+        public static void Grant(EntityManager em, Faction faction, int amount)
+        {
+            if (amount <= 0) return;
+            Refund(em, faction, amount);
+            SectProgression.OnEarned(em, faction, amount);
+        }
+
         public static int GetBalance(EntityManager em, Faction faction)
         {
             if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return 0;

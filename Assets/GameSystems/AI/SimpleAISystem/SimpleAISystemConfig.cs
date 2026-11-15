@@ -1796,6 +1796,9 @@ namespace TheWaningBorder.AI
         /// <summary>Minutes over which the surplus above the floor is spent at
         /// the Market (smaller = converts a glut faster).</summary>
         public float marketSpendMinutes;
+        /// <summary>Supplies the AI keeps while the Market's surplus-to-iron
+        /// mode is on (it is on while iron is below marketIronShort).</summary>
+        public int marketSurplusReserve;
         /// <summary>Banked veilstone above which veilstone counts as hoarded: the
         /// army leans on veilstone units and the first Siege Yard comes early.
         /// (Mines are never stopped by a hoard -- only by their node running dry.)</summary>

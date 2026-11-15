@@ -111,7 +111,7 @@ namespace TheWaningBorder.Systems.Buildings
 
                 case KeepWingType.Temple:
                     if (em.HasComponent<FactionTag>(keep))
-                        FactionReligionPointsHelper.Refund(em, em.GetComponentData<FactionTag>(keep).Value, 1);
+                        FactionReligionPointsHelper.Grant(em, em.GetComponentData<FactionTag>(keep).Value, 1);
                     EnsureTrainingCapability(em, keep);
                     break;
 

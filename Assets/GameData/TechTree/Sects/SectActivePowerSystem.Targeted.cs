@@ -205,16 +205,16 @@ namespace TheWaningBorder.Systems.Sect
                     return true;
 
                 case SectActivePowerKind.WardCharge:
-                    // Radius is the TRIGGER range of the armed structure.
+                    // Radius is the TRIGGER (and blast) range of the warded
+                    // building; duration its lifetime, secondary its charges.
+                    // A warded building is refreshed, never stacked.
                     TransientState.Set(em, target, new WardDischargeCharge
                     {
                         Damage = magnitude,
                         TriggerRadius = radius,
-                        Interval = math.max(0.25f, duration),
-                        PulsesLeft = math.max(1, (int)secondary),
-                        Lifetime = SectLeverEffects.WardChargeLifetime,
+                        ChargesLeft = math.max(1, (int)secondary),
+                        Lifetime = duration,
                         Timer = 0f,
-                        Firing = 0,
                     });
                     return true;
 

@@ -1,5 +1,27 @@
 # Religion
 
+> **2026-11-15 ([Unification decision 63](Unification_Decisions_2026-10-03.md)): RELIGION
+> PROGRESSES BY ITSELF. This block is the rule; where §3, §3.1 or §4 below disagree, this wins.**
+>
+> - **The player only adopts.** Adopting a sect is **free**, instant and final; it needs a
+>   standing Temple and a free slot (six). Adoption gives **nothing on the spot**.
+> - **Earning religion points drives progress; points are not spent on it.** Every point a
+>   faction EARNS (curse kills, the Temple's trickle, the Tithe, monuments, Sanctums, sect-unit
+>   damage, a destroyed curse node...) is **shared equally between its adopted sects that have
+>   not finished their ladder**. A refund is not an earning.
+> - **The ladder, the same for every sect** (step sizes: `sectStepRp` on
+>   `FactionReligionPoints.asset`): 1 the first power (level I) - 2 the second power - 3 every
+>   power to level II, and the sect's hero may be recruited - 4 the third power (the wildcard) -
+>   5 every power to level III.
+> - **The balance is still spent**, on sect units (`sectUnitRp`) and heroes (`heroRp`) and on
+>   the Temple's trades and the Petriarchy's Army. Spending never slows a sect.
+> - **Deep or wide is chosen by adopting**: one sect climbs at full speed, three at a third.
+> - Powers B / the wildcard and chapel levels are **no longer bought**; `unlockSecondRp`,
+>   `unlockWildcardRp`, `chapelLevel2Rp`, `chapelLevel3Rp` and the adoption prices are unused.
+>   Points earned while no sect is unfinished (none adopted, or all complete) advance nothing.
+> - Code: `SectProgression` (in `Sects/SectAdoptionState.cs`), fed by
+>   `FactionReligionPointsHelper.Grant` and the kill / Tithe / damage paths.
+
 > **2026-10-15:** adoption is instant and final, the chapel is decoration, each
 > sect has a separate **sect building** (built by Workers, needs a standing
 > Temple), B and ★ unlock independently, a sect has a trainable **unit

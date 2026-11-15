@@ -259,6 +259,26 @@ namespace TheWaningBorder.AI
             if (em.HasComponent<UnderConstruction>(market) || !em.HasComponent<MarketRates>(market)) return;
 
             var r = em.GetComponentData<MarketRates>(market);
+
+            // SURPLUS TO IRON (decision 59; AI use added 2026-11-15). The set
+            // rates top out at a few hundred supplies a minute, and an AI
+            // holding the whole map sat on 4,000 supplies and 7,000 veilstone
+            // with 50 iron, training nothing (developer's Trine Hollow match,
+            // 0.0.88). While it is short of iron and its army is not waiting
+            // on supplies, everything above a small reserve becomes iron each
+            // second; once iron is back above the target the mode is switched
+            // off so the bank can build up for buildings again.
+            bool wantAuto = bank.Iron < Cfg.marketIronShort
+                            && !AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies);
+            int reserve = Market.ClampReserve(Cfg.marketSurplusReserve);
+            if ((r.AutoIron != 0) != wantAuto || (wantAuto && r.ReserveSupplies != reserve))
+            {
+                CommandRouter.IssueSetMarketSurplus(em, market, reserve, wantAuto, CommandSource.AI);
+                AILogger.Log(faction, "MARKET",
+                    $"surplus to iron {(wantAuto ? "ON" : "off")}, keeping {reserve} supplies " +
+                    $"(bank {bank.Supplies}s {bank.Iron}i {bank.Veilstone}v)");
+            }
+
             float surplus = math.max(0f, bank.Supplies - Cfg.marketSupplyFloor);
             // Never while the army waits on supplies (iteration 9: Hard Defensive
             // spent 16,000 supplies on 2,000 veilstone with its army starved).

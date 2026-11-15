@@ -26,12 +26,25 @@ namespace TheWaningBorder.Economy
         private static SectRadius Grow(int level)
             => level <= 1 ? SectRadius.Small : level == 2 ? SectRadius.Medium : SectRadius.Large;
 
+        /// <summary>
+        /// THE UNLOCK ORDER (decision 63, 2026-11-15; Sects.md § Unlock order).
+        /// A sect's powers unlock in slot order - slot 1 first, the wildcard
+        /// last - and a sect's first power is never a damage power. In the
+        /// three sects whose damage power is written below as "case 1", the
+        /// first two slots trade places: slot 1 is the buff / debuff, slot 2
+        /// the damage. Renewal (a heal first) is not swapped. The case labels
+        /// in those three functions are therefore the PAIR (1 = damage,
+        /// 2 = buff or debuff), not the slot.
+        /// </summary>
+        private static int DamageSecond(int slot) => slot == 1 ? 2 : slot == 2 ? 1 : slot;
+
         // ═══════════════════════════════════════════════════════════════════
         // SECT OF ANTIQUITY — the Registry.
         // ═══════════════════════════════════════════════════════════════════
         private static SectActivePowerSpec Antiquity(int slot, int level)
         {
-            switch (slot)
+            // Unlock order: Embargo, Trespass, Friendly Fire.
+            switch (DamageSecond(slot))
             {
                 // Trespass — full damage to enemies inside the caster's
                 // territory, half outside. Reach grows, so the band holds.
@@ -130,8 +143,11 @@ namespace TheWaningBorder.Economy
         // SECT OF FORTITUDE — the Wardens.
         // ═══════════════════════════════════════════════════════════════════
 
-        /// <summary>Ward Discharge: how long an unspent charge waits.</summary>
-        public const float WardChargeLifetime = 300f;
+        /// <summary>Ward Discharge: the shortest time between two detonations
+        /// of one ward, so a ward's charges never all go off in one tick on
+        /// one unit. The ward's duration and charge count are per level, in
+        /// the spec below.</summary>
+        public const float WardDetonationGap = 1.5f;
 
         /// <summary>Ward Discharge: how far from the cast point the armed
         /// structure may stand (the pick, not the trigger).</summary>
@@ -139,19 +155,23 @@ namespace TheWaningBorder.Economy
 
         private static SectActivePowerSpec Fortitude(int slot, int level)
         {
-            switch (slot)
+            // Unlock order: Emergency Repairs, Ward Discharge, Fortify.
+            switch (DamageSecond(slot))
             {
-                // Ward Discharge — Radius is the TRIGGER range of the armed
-                // structure; each pulse is the Small band.
+                // Ward Discharge (2026-11-15) — the building is warded for
+                // Duration seconds and holds Secondary charges, each one
+                // detonation. Radius is both the TRIGGER range and the blast
+                // radius, measured from the building; each detonation is the
+                // Small band.
                 case 1:
                 {
                     var reach = Grow(level);
-                    float pulses = level <= 1 ? 1f : level == 2 ? 4f : 8f;
-                    float interval = level <= 1 ? 3f : level == 2 ? 2f : 1f;
+                    float minutes = level <= 1 ? 5f : level == 2 ? 8f : 12f;
+                    float charges = level <= 1 ? 1f : level == 2 ? 3f : 8f;
                     float dmg = SpellLadder.Damage(SectRadius.Small, 1);
                     return Spec(SectActivePowerKind.WardCharge, reach, "Ward Discharge",
-                        $"Arm one of your structures for 5 min. When an enemy comes within {SectRadii.Metres(reach):0} m it fires {pulses:0} pulse(s), {interval:0}s apart, each {dmg:0} damage to every enemy in range.",
-                        magnitude: dmg, duration: interval, secondary: pulses,
+                        $"Ward one of your buildings for {minutes:0} min with {charges:0} charge(s), seen as wisps circling it. Each time an enemy unit comes within {SectRadii.Metres(reach):0} m, one charge detonates for {dmg:0} damage to every enemy unit in range. Unused charges vanish when the time runs out.",
+                        magnitude: dmg, duration: minutes * 60f, secondary: charges,
                         cooldown: SpellLadder.DeployableCooldown);
                 }
 
@@ -196,7 +216,8 @@ namespace TheWaningBorder.Economy
         private static SectActivePowerSpec Prosperity(int slot, int level)
         {
             // Reworked 2026-11-10 (Sects.md Sect of Prosperity, decision 47).
-            switch (slot)
+            // Unlock order: Overtime, Bounty, Plenty.
+            switch (DamageSecond(slot))
             {
                 // Bounty — a price on a fight (decision 59, 2026-11-15): every
                 // hostile unit in the area takes 40% of its maximum health and

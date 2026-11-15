@@ -95,13 +95,9 @@ namespace TheWaningBorder.Economy
             // No standing Temple, no adoption (Religion.md §2).
             if (!SectQuery.HasStandingTemple(em, faction)) return SectAdoptionResult.TempleMissing;
 
-            byte culture = LookupCulture(em, faction);
-            cost = SectConfig.AdoptionCost(sectId, culture);
-            if (cost < 0) return SectAdoptionResult.UnknownSect;
-
-            if (!FactionReligionPointsHelper.CanAfford(em, faction, cost))
-                return SectAdoptionResult.NotEnoughRP;
-
+            // Adoption is FREE (decision 63, 2026-11-15): what it costs is a
+            // share of every point earned from then on (SectProgression).
+            cost = 0;
             return SectAdoptionResult.Ok;
         }
 
@@ -232,11 +228,11 @@ namespace TheWaningBorder.Economy
             var sect = new PerSectState
             {
                 AdoptedAtAge = currentAge,
-                // A new sect is level I with power A unlocked
-                // (docs/Design/Religion.md §3). B, the wildcard and levels
-                // II / III are bought with RP, B and the wildcard in either order.
+                // A new sect is level I with NOTHING unlocked (decision 63):
+                // its powers and levels arrive as the points it is given
+                // fill its ladder (SectProgression).
                 PowerLevel = 1,
-                UnlockMask = 1,
+                UnlockMask = 0,
                 PassiveLevel = startLevel,
                 BuildingLevel = startLevel,
                 UnitLevel = startLevel,

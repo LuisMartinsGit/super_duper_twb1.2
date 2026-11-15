@@ -255,7 +255,7 @@ namespace TheWaningBorder.Systems.Border
                 bool isSecondary = em.HasComponent<SecondaryBorderLocationTag>(node);
                 if (isSecondary)
                 {
-                    FactionReligionPointsHelper.Refund(em, newOwner, 1);
+                    FactionReligionPointsHelper.Grant(em, newOwner, 1);
                 }
                 else
                 {

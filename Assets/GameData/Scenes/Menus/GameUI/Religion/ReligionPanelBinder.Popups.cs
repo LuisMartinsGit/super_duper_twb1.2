@@ -147,9 +147,9 @@ namespace TheWaningBorder.UI.Ingame
                 string sample = null;
                 for (int i = 0; i < SectConfig.SectCount; i++)
                     if (SectConfig.ClusterOf(SectConfig.IdAt(i)) == cluster) { sample = SectConfig.IdAt(i); break; }
-                int price = SectConfig.AdoptionCost(sample, culture);
+                // Adoption is free (decision 63); the column only says whose it is.
                 bool yours = culture != Cultures.None && SectConfig.ClusterFromCulture(culture) == cluster;
-                _pickerPrice[c].text = price + " " + Loc.T("RP") + (yours ? " · " + Loc.T("yours") : "");
+                _pickerPrice[c].text = yours ? Loc.T("yours") : "";
                 _pickerPrice[c].color = yours ? GoldBadge : GameUIKit.TextDim;
             }
 
@@ -212,10 +212,9 @@ namespace TheWaningBorder.UI.Ingame
         private void ConfirmAdopt(string sectId)
         {
             if (!TryWorld()) return;
-            SectAdoption.CanAdopt(_em, _faction, sectId, out int cost);
             var anchor = _pickerButtons[SectConfig.IndexOf(sectId)].transform as RectTransform;
-            ShowConfirm(string.Format("<b>{0}</b> <color=#F5C451>· {1} RP</color>\n<size=85%><color=#A8A38F>{2}</color></size>",
-                    Loc.T("Adopt") + " " + SectInfo.ShortName(sectId), cost, Loc.T("Final, cannot be undone")),
+            ShowConfirm(string.Format("<b>{0}</b>\n<size=85%><color=#A8A38F>{1}</color></size>",
+                    Loc.T("Adopt") + " " + SectInfo.ShortName(sectId), Loc.T("Final, cannot be undone")),
                 anchor, () =>
                 {
                     if (!TryWorld() || !TryGetTemple(out var temple)) return;

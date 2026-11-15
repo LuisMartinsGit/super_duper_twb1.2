@@ -9,6 +9,29 @@ build always name the same number.
 
 ---
 
+## [0.0.89] — 2026-11-15
+
+### Sect powers
+- **Fortify buildings are the right size**: they were drawn far larger than their ground. They now stand on a 4 x 4 footprint and fit it.
+- **Ward Discharge reworked**: a warded building carries 1 / 3 / 8 charges for 5 / 8 / 12 minutes, shown as wisps circling it. Each time an enemy comes near, one wisp detonates and damages every enemy around the building.
+- **Revive repaired**: it now finds every unit that fell, the returned units keep your research, and it tells you how many came back.
+
+### Iron
+- **Mines yield more iron and iron nodes hold more**, and every territory you hold pays more iron, so iron keeps pace with supplies in a long match.
+
+### AI
+- **The AI mines all the iron it holds and levels its Mines up.** Below Expert it used to leave almost half its iron nodes unworked and almost never upgraded a Mine.
+- **The AI no longer starves for iron on a full bank.** It now uses the Market's surplus mode: while it is short of iron, every supply above a small reserve is turned into iron.
+
+### Religion runs itself
+- **You only choose your sects.** Adopting a sect is free. Its powers and levels then unlock by themselves as you earn religion points: first power, second power, level II, third power, level III.
+- **Points you earn are shared between your unfinished sects**, so one sect grows fast and several grow slower.
+- **Your point balance is still yours to spend**, on sect units (one point each again), heroes (from level II) and the Temple's trades and armies. Spending never slows a sect.
+- **New unlock order**: no sect starts with a damage power. Antiquity opens with Embargo, Fortitude with Emergency Repairs, Prosperity with Overtime.
+- **The religion menu** shows how far the next unlock is, and has nothing left to buy but the Tithe. The religion tree (T) is gone.
+
+---
+
 ## [0.0.88] — 2026-11-15
 
 ### Combat pace

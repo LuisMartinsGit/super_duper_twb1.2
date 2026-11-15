@@ -339,7 +339,7 @@ namespace TheWaningBorder.Systems.Border
                 // income (WellHoldIncomeSystem).
                 if (em.HasComponent<SecondaryBorderLocationTag>(node))
                 {
-                    FactionReligionPointsHelper.Refund(em, completeFactions[i], 1);
+                    FactionReligionPointsHelper.Grant(em, completeFactions[i], 1);
                     TWBLog.Log($"[Purification] secondary node cleansed by {completeFactions[i]} — +1 RP");
                 }
                 else

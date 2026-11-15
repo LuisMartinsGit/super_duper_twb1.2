@@ -458,7 +458,7 @@ namespace TheWaningBorder.AI
             out bool judged)
         {
             judged = false;
-            if (Cfg.farmLevelPaybackMinutes <= 0f) return false;
+            if (Cfg.mineLevelPaybackMinutes <= 0f) return false;
             byte culture = CultureConfig.GetCompletedCulture(em, faction);
             var nextDef = BuildingUpgradeConfig.LevelDef(culture, "Mine", nextLevel);
             var nowDef = BuildingUpgradeConfig.LevelDef(culture, "Mine", (byte)(nextLevel - 1));
@@ -474,10 +474,10 @@ namespace TheWaningBorder.AI
                 if (facs[i].Value == faction && !em.HasComponent<UnderConstruction>(mines[i])) owned++;
             float gain = owned * step;
             float priceSum = price.Supplies + price.Iron + price.Veilstone;
-            if (gain * Cfg.farmLevelPaybackMinutes >= priceSum) return true;
+            if (gain * Cfg.mineLevelPaybackMinutes >= priceSum) return true;
             if (AILogger.Enabled)
                 AIBudget.NoteEconomyDeferred(faction, "upgrade Mine",
-                    $"+{gain:F0} ore/min x {Cfg.farmLevelPaybackMinutes:F0} min < price {priceSum:F0}");
+                    $"+{gain:F0} ore/min x {Cfg.mineLevelPaybackMinutes:F0} min < price {priceSum:F0}");
             return false;
         }
 

@@ -155,7 +155,7 @@ namespace TheWaningBorder.Systems.Economy
                     s.ReligionSeconds = 0;
                     // Religion POINTS (RP), not kill points: the Refund helper
                     // credits the RP balance directly.
-                    FactionReligionPointsHelper.Refund(em, s.Holder, 1);
+                    FactionReligionPointsHelper.Grant(em, s.Holder, 1);
                 }
             }
             em.SetComponentData(house, s);

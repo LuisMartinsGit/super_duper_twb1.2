@@ -2,7 +2,7 @@
 // The timed state the 2026-10-15 Alanthor powers leave behind
 // (docs/Design/Sects.md §4):
 //
-//   Ward Discharge  the armed charge waits, fires its pulses at enemies in range
+//   Ward Discharge  the ward waits; each hostile approach detonates one charge
 //   Overtime        the building boost runs out
 //   Bounty          a marked unit that dies inside the window pays its cost
 //   Revive          every unit death is logged briefly so it can be undone
@@ -183,25 +183,8 @@ namespace TheWaningBorder.Systems.Sect
                     TransientState.Clear<BountyMarked>(em, e);
                 }
 
-                // Revive log: units only, never heroes.
-                if (logEntity == Entity.Null) continue;
-                if (em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(e)) continue;
-                if (em.HasComponent<SectHeroTag>(e)) continue;
-                var log = em.GetBuffer<RecentDeath>(logEntity);
-                var pos = deadTr[i].Position;
-                // A unit seen dying twice (still at <= 0 next tick) logs once.
-                bool seen = false;
-                for (int j = log.Length - 1; j >= 0 && j >= log.Length - 64; j--)
-                    if (log[j].Time == Now && log[j].UnitId == deadId[i].Value
-                        && math.all(log[j].Position == pos)) { seen = true; break; }
-                if (seen) continue;
-                log.Add(new RecentDeath
-                {
-                    UnitId = deadId[i].Value,
-                    Position = pos,
-                    Time = Now,
-                    Faction = deadFac[i].Value,
-                });
+                // The Revive log is NOT written here any more: DeathSystem
+                // calls NoteUnitDeath for every unit it actually kills.
             }
 
             deadE.Dispose(); deadId.Dispose(); deadFac.Dispose(); deadTr.Dispose();
@@ -214,6 +197,42 @@ namespace TheWaningBorder.Systems.Sect
         {
             foreach (var (_, e) in SystemAPI.Query<RefRO<DeathLogTag>>().WithEntityAccess())
             { TrimLog(em, e); return; }
+        }
+
+        static readonly ComponentType[] QT_ReviveLog =
+        {
+            ComponentType.ReadOnly<DeathLogTag>(),
+            ComponentType.ReadWrite<RecentDeath>(),
+        };
+        static CachedEntityQuery QC_ReviveLog;
+
+        /// <summary>
+        /// Record one unit death for Revive (and The Great Rewind). Called by
+        /// DeathSystem for every unit it kills, at the one point that is after
+        /// EVERY damage source in the tick. This system's own scan used to
+        /// write the log, but it only carries [UpdateBefore(DeathSystem)]: a
+        /// unit killed by anything sorted between the two (a sect strike, a
+        /// burn, a bleed, cursed ground) was a corpse before the next scan and
+        /// was never logged, and a unit held at 1 HP by an interceptor was
+        /// logged although it lived. Units only, never heroes.
+        /// <paramref name="time"/> is the simulation clock of the tick.
+        /// </summary>
+        public static void NoteUnitDeath(EntityManager em, Entity dead, double time)
+        {
+            if (!em.HasComponent<UnitTag>(dead) || !em.HasComponent<UnitTypeId>(dead)
+                || !em.HasComponent<FactionTag>(dead) || !em.HasComponent<LocalTransform>(dead)) return;
+            if (em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(dead)) return;
+            if (em.HasComponent<SectHeroTag>(dead)) return;
+            var q = QC_ReviveLog.Get(em, QT_ReviveLog);
+            if (q.IsEmptyIgnoreFilter) return;
+            var log = em.GetBuffer<RecentDeath>(q.GetSingletonEntity());
+            log.Add(new RecentDeath
+            {
+                UnitId = em.GetComponentData<UnitTypeId>(dead).Value,
+                Position = em.GetComponentData<LocalTransform>(dead).Position,
+                Time = time,
+                Faction = em.GetComponentData<FactionTag>(dead).Value,
+            });
         }
 
         private static void TrimLog(EntityManager em, Entity logEntity)
@@ -261,12 +280,15 @@ namespace TheWaningBorder.Systems.Sect
                          .WithEntityAccess())
             {
                 ward.ValueRW.Lifetime -= dt;
-                if (ward.ValueRO.Lifetime <= 0f || ward.ValueRO.PulsesLeft <= 0)
+                if (ward.ValueRO.Timer > 0f) ward.ValueRW.Timer -= dt;
+                // Out of time (unused charges vanish) or out of charges.
+                if (ward.ValueRO.Lifetime <= 0f || ward.ValueRO.ChargesLeft <= 0)
                 {
-                    fire.Add(Entity.Null);   // placeholder keeps indices aligned
                     ecb.SetComponentEnabled<WardDischargeCharge>(e, false);
                     continue;
                 }
+                // The gap after a detonation runs whether or not anyone is near.
+                if (ward.ValueRO.Timer > 0f) continue;
                 if (!loaded)
                 {
                     units = hq.ToEntityArray(Allocator.Temp);
@@ -281,16 +303,14 @@ namespace TheWaningBorder.Systems.Sect
                     enemyNear = uhp[i].Value > 0 && Alliances.AreHostile(fac.ValueRO.Value, ufa[i].Value)
                                 && math.distancesq(utr[i].Position.xz, tr.ValueRO.Position.xz) <= r2;
 
-                if (!enemyNear) { ward.ValueRW.Firing = 0; ward.ValueRW.Timer = 0f; continue; }
-                if (ward.ValueRO.Firing == 0) { ward.ValueRW.Firing = 1; ward.ValueRW.Timer = 0f; }
-                ward.ValueRW.Timer -= dt;
-                if (ward.ValueRO.Timer > 0f) continue;
-                ward.ValueRW.Timer = ward.ValueRO.Interval;
-                ward.ValueRW.PulsesLeft--;
+                if (!enemyNear) continue;
+                // One charge, one detonation.
+                ward.ValueRW.ChargesLeft--;
+                ward.ValueRW.Timer = SectLeverEffects.WardDetonationGap;
                 fire.Add(e);
             }
 
-            // Pulses after the query: SpellDamage writes other entities.
+            // Detonations after the query: SpellDamage writes other entities.
             bool pulsed = false;
             for (int f = 0; f < fire.Length; f++)
             {

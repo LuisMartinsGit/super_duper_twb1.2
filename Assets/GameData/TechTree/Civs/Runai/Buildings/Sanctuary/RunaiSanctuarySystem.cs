@@ -170,7 +170,7 @@ namespace TheWaningBorder.Runai
             if (whole > 0)
             {
                 st.RpCarry -= whole;
-                FactionReligionPointsHelper.Refund(em, f, whole);
+                FactionReligionPointsHelper.Grant(em, f, whole);
             }
             em.SetComponentData(s, st);
         }

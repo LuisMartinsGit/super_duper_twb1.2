@@ -189,7 +189,7 @@ namespace TheWaningBorder.Systems.Economy
                 var killer = em.GetComponentData<LastDamagedByFaction>(e).Value;
                 if (killer == Faction.Border || (int)killer < 0 || (int)killer > 7) continue;
 
-                FactionReligionPointsHelper.Refund(em, killer, 1);
+                FactionReligionPointsHelper.Grant(em, killer, 1);
                 if (killer == GameSettings.LocalPlayerFaction)
                     SimSignals.Notify(TheWaningBorder.Core.Localization.Loc.T(
                         "+1 Religion Point — a curse node destroyed"));

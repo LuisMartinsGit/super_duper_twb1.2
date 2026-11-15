@@ -13,13 +13,13 @@ MonoBehaviour:
   m_Name: TerritoryIncomeSystem
   m_EditorClassIdentifier: 
   supplyNodeReserve: 9000
-  ironNodeReserve: 8000
+  ironNodeReserve: 10500
   veilstoneNodeReserve: 4000
   pureReserveMultiplier: 1.8
   normalReserveMultiplier: 1
   poorReserveMultiplier: 0.4
   emptySlotPerMinute: 10
-  ironYieldMultiplier: 1
+  ironYieldMultiplier: 1.3
   deepShaftsMultiplier: 1.2
   richSeamsMultiplier: 1.3
   feraldisVeilstoneMultiplier: 1.5
@@ -28,7 +28,7 @@ MonoBehaviour:
   - 1.25
   - 1.5
   claimSuppliesPerMinute: 40
-  claimIronPerMinute: 30
+  claimIronPerMinute: 45
   claimVeilstonePerMinute: 20
   depletedMineShare: 0.25
   lowIronNodeWarnShare: 0.2

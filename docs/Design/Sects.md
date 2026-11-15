@@ -107,6 +107,25 @@ level alone, because that would retroactively reward late adopters.
 
 ---
 
+## 3a. Unlock order (2026-11-15, [Unification decision 63](Unification_Decisions_2026-10-03.md))
+
+Developer: "some reordering is due, since some powers are too powerful to be a starting
+power". A sect's powers unlock one at a time as it earns its share of religion points
+(Religion.md, top block), **in slot order: slot 1, slot 2, then the wildcard**. The rule:
+**a sect's first power is never a damage power, and the wildcard is always last.** So slot 1
+is the pair-B power (buff or debuff) wherever pair A is damage, and stays the heal where pair
+A is a heal:
+
+| Sect | Slot 1 (first) | Slot 2 | Slot 3 (wildcard) |
+|---|---|---|---|
+| Antiquity | Embargo | Trespass | Friendly Fire |
+| Renewal | Heal | Lifeline | Revive |
+| Fortitude | Emergency Repairs | Ward Discharge | Fortify |
+| Prosperity | Overtime | Bounty | Plenty |
+
+The **[A] / [B] / [★]** labels in the kits below name the counterpart PAIR (§3b), not the
+slot. The casting hotkeys follow the slot. Runai and Feraldis sects are not reordered yet.
+
 ## 3b. The three actives are not three of anything — counterparts + a wildcard
 
 **Every sect's kit is one power from each counterpart pair, plus a wildcard.**
@@ -275,11 +294,23 @@ Lifeline.
 Keepers of walls, gates and watch-fires. Their walls are laced with
 veilsteel that stores glow and releases it.
 
-**[A] Ward Discharge** — arm **one of your structures**. When an enemy enters
-range (**S / M / L**) it fires **1 / 4 / 8** pulses, one every **3 / 2 / 1 s**,
-each the damage band to every enemy in range. Unspent pulses stay armed; the
-charge fades after **5 min**. Cooldown **300 s**. The armed structure glows
-(visible to the enemy).
+**[A] Ward Discharge** *(rule of 2026-11-15)* — "Upon cast on a building, this
+building is warded for 5/8/12 minutes and has 1/3/8 charges. These charges
+must be visible. I imagine them as wisps floating around the building. Every
+time an enemy unit approaches, one of the wards detonates and damages all
+enemy units in the vicinity. After the 5/8/12 minutes, the wards vanish."
+So, by level: the ward lasts **5 / 8 / 12 min** and holds **1 / 3 / 8**
+charges. Each time a hostile **unit** (never a building) comes within range
+of the warded building (**S / M / L**, measured from the building) **one**
+charge detonates, dealing the damage band to every hostile unit within that
+same range; a short fixed gap separates two detonations, so one unit cannot
+set off every charge at once. Charges not spent when the time runs out vanish.
+Casting it again on a warded building refreshes it to the new cast's charges
+and time — wards never stack. Cooldown **300 s**. The charges are **visible to
+everyone who can see the building**: one wisp per remaining charge circles it
+in the owner's colour, a wisp bursts as its charge detonates, and the rest
+vanish when the ward ends. This replaces the 1 / 4 / 8 pulses fired
+3 / 2 / 1 s apart with a 5-minute fade at every level.
 
 **[B] Emergency Repairs** — buildings gain **+100 % max HP** (current HP rises
 by the same amount) for 15 s; at III they reflect 20 % of melee damage.
@@ -287,7 +318,7 @@ by the same amount) for 15 s; at III they reflect 20 % of melee damage.
 
 **[★] Fortify** — raise a permanent, complete **Tower / Fortification /
 Fortress** at a point on legal build ground. Cooldown **120 / 300 / 600 s**
-(climbs with level to stop Fortress spam). Placed like a building — ghost,
+(climbs with level to stop Fortress spam). **2026-11-15 (developer: "Fortify buildings are HUGE! rescale, but keep a 4x4 footprint"): every level stands on a 4 x 4-cell (8 m) footprint, and the three prefabs carry a root scale that draws their 15 m kit plinth on exactly those 8 m (buildings are no longer scaled to their footprint at spawn, which is what left them at kit size). The 3 x 3 text below is superseded.** Placed like a building — ghost,
 grid, legality: [Build_Grid.md § Buildings raised by abilities](Build_Grid.md). **Every level stands on the same
 3 × 3-cell footprint (2026-11-11, developer: "Fortify should always have a
 3x3 footprint")** — the level buys height, walls and firepower, never ground:

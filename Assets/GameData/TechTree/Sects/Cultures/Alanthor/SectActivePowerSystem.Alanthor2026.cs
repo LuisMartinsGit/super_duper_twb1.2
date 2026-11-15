@@ -72,24 +72,49 @@ namespace TheWaningBorder.Systems.Sect
             // Copy the matches out first: creating units is a structural change.
             var picks = new NativeList<RecentDeath>(8, Allocator.Temp);
             var log = em.GetBuffer<RecentDeath>(logEntity);
-            for (int i = log.Length - 1; i >= 0 && picks.Length < (int)most; i--)
+            int logged = 0, eligible = 0;   // the caster's deaths: in the log / in the circle and window
+            for (int i = log.Length - 1; i >= 0; i--)
             {
                 var d = log[i];
-                if (d.Faction != faction || now - d.Time > window) continue;
+                if (d.Faction != faction) continue;
+                logged++;
+                if (now - d.Time > window) continue;
                 if (math.distancesq(d.Position.xz, center.xz) > r2) continue;
+                eligible++;
+                if (picks.Length >= (int)most) continue;
                 picks.Add(d);
                 log.RemoveAt(i);
             }
 
+            int returned = 0;
             for (int i = 0; i < picks.Length; i++)
             {
                 var unit = UnitFactory.Create(em, picks[i].UnitId.ToString(), picks[i].Position, faction);
                 if (unit == Entity.Null || !em.HasComponent<Health>(unit)) continue;
+                // The unit returns as its faction fields it now: the same
+                // research and spawn passives a trained unit gets
+                // (TrainingSystem). It used to come back a bare factory unit.
+                TheWaningBorder.Systems.Research.TechEffectSystem.ApplyCompletedTechEffects(em, unit, faction);
                 var hp = em.GetComponentData<Health>(unit);
                 hp.Value = math.max(1, (int)math.round(hp.Max * hpFraction));
                 em.SetComponentData(unit, hp);
+                returned++;
             }
             picks.Dispose();
+
+            // The caster is told what the cast did: a Revive that finds nobody
+            // (too late, too far, heroes only) otherwise looks like a dead button.
+            if (faction == GameSettings.LocalPlayerFaction)
+            {
+                if (returned > 0)
+                    SimSignals.Notify(string.Format(
+                        TheWaningBorder.Core.Localization.Loc.T("{0} of your fallen units return"), returned));
+                else
+                    SimSignals.NotifyError(
+                        TheWaningBorder.Core.Localization.Loc.T("No fallen units of yours to return there"));
+            }
+            UnityEngine.Debug.Log($"[Revive] {faction} at ({center.x:F0},{center.z:F0}) r={radius:F0} window={window:F0}s: " +
+                $"{returned} returned (most {(int)most}; {eligible} in the circle and window, {logged} of its deaths in the log)");
         }
 
         /// <summary>The Great Rewind's door to the same log (Heroes.md §3).</summary>
@@ -99,9 +124,11 @@ namespace TheWaningBorder.Systems.Sect
 
         // ── Fortitude: Ward Discharge ───────────────────────────────────────
 
-        /// <summary>Arm the caster's structure nearest the cast point.</summary>
+        /// <summary>Ward the caster's structure nearest the cast point. A
+        /// building already warded is refreshed to this cast's charges and
+        /// time (never stacked).</summary>
         private static void ApplyWardCharge(EntityManager em, Faction faction, float3 center,
-            float triggerRadius, float damagePerPulse, float interval, float pulses)
+            float triggerRadius, float damagePerCharge, float lifetime, float charges)
         {
             Entity best = Entity.Null;
             float bestD = SectLeverEffects.WardPickRadius * SectLeverEffects.WardPickRadius;
@@ -120,13 +147,11 @@ namespace TheWaningBorder.Systems.Sect
             if (best == Entity.Null) return;
             TransientState.Set(em, best, new WardDischargeCharge
             {
-                Damage = damagePerPulse,
+                Damage = damagePerCharge,
                 TriggerRadius = triggerRadius,
-                Interval = math.max(0.25f, interval),
-                PulsesLeft = math.max(1, (int)pulses),
-                Lifetime = SectLeverEffects.WardChargeLifetime,
+                ChargesLeft = math.max(1, (int)charges),
+                Lifetime = lifetime,
                 Timer = 0f,
-                Firing = 0,
             });
         }
 

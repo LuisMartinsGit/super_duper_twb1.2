@@ -72,6 +72,13 @@ namespace TheWaningBorder.AI
         /// <summary>The share of the workable nodes this faction's tier puts an
         /// extractor on: 1 for Expert, the profile's share below it, and the
         /// Beginner slot's own share (it plays the Easy profile).</summary>
+        private static float ExtractorShareOf(Faction faction, string buildingId)
+        {
+            float general = ExtractorShareOf(faction);
+            // Iron Mines have a share of their own (AIDifficultyProfileSO.mineShare).
+            return buildingId == "Mine" ? math.max(general, ProfileOf(faction).MineShare) : general;
+        }
+
         private static float ExtractorShareOf(Faction faction)
         {
             var slots = TheWaningBorder.Core.Config.LobbyConfig.Slots;
@@ -123,7 +130,7 @@ namespace TheWaningBorder.AI
             int freeNodes, out string why)
         {
             why = null;
-            float share = ExtractorShareOf(faction);
+            float share = ExtractorShareOf(faction, buildingId);
             if (share >= 1f) return int.MaxValue;            // Expert: everything
             if (buildingId != "GatherersHut" && buildingId != "Mine" && buildingId != "VeilstoneMine")
                 return int.MaxValue;

@@ -162,8 +162,29 @@ namespace TheWaningBorder.Bootstrap
             bool a1 = SectAdoption.TryAdopt(em, faction, SectConfig.Prosperity);
             bool a2 = SectAdoption.TryAdopt(em, faction, SectConfig.Antiquity);
             Debug.Log($"[PanelShots] adopted Prosperity={a1} Antiquity={a2}");
+            // Points earned after adopting advance both sects (decision 63).
+            FactionReligionPointsHelper.Grant(em, faction, 5);
             yield return new WaitForSecondsRealtime(1.5f);
             yield return Shot(em, Entity.Null, "03_religion.png");
+
+            // The three Fortify structures beside a Watch Tower and a House,
+            // for scale; the Watch Tower carries a full Ward Discharge.
+            var row = home + new float3(-6f, 0f, 30f);
+            var house = Hut.Create(em, row + new float3(-20f, 0f, 0f), faction);
+            var watch = WatchTower.Create(em, row + new float3(-12f, 0f, 0f), faction);
+            RenewalTower.Create(em, row, faction);
+            var bastion = RenewalFortification.Create(em, row + new float3(12f, 0f, 0f), faction);
+            RenewalFortress.Create(em, row + new float3(24f, 0f, 0f), faction);
+            yield return new WaitForSecondsRealtime(1f);
+            if (em.Exists(watch))
+                TransientState.Set(em, watch, new WardDischargeCharge
+                {
+                    Damage = 1f, TriggerRadius = 8f, ChargesLeft = 8, Lifetime = 720f, Timer = 0f,
+                });
+            yield return new WaitForSecondsRealtime(2f);
+            yield return Shot(em, bastion, "04_fortify.png");
+            yield return Shot(em, watch, "05_ward.png");
+            _ = house;
 
             Debug.Log("[PanelShots] done");
             File.WriteAllText(Path.Combine(_dir, "done.txt"), "ok");

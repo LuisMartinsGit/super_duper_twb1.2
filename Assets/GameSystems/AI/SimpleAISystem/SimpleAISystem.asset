@@ -558,6 +558,7 @@ MonoBehaviour:
   marketVeilstoneShort: 300
   marketSupplyFloor: 2000
   marketSpendMinutes: 3
+  marketSurplusReserve: 1000
   veilstoneHoardLine: 10000
   ironNoNewMinesAbove: 30000
   veilstoneNoNewMinesAbove: 30000

@@ -930,7 +930,7 @@ namespace TheWaningBorder.UI.Ingame
             if (!step.Grant.IsZero && FactionEconomy.Add(em, faction, step.Grant)) paid = true;
             if (step.RpGrant > 0)
             {
-                FactionReligionPointsHelper.Refund(em, faction, step.RpGrant);
+                FactionReligionPointsHelper.Grant(em, faction, step.RpGrant);
                 paid = true;
             }
             if (!paid) return;

@@ -207,11 +207,8 @@ namespace TheWaningBorder.UI.Ingame
             var title = GameUIKit.Text(_body, "Title", Loc.T("RELIGION"), 34f, GameUIKit.Gold);
             Place(title.rectTransform, Pad, 20f, 300f, 56f);
 
-            var tree = MakeButton(_body, "TreeButton", out _, () => SetTreeOpen(true));
-            Place((RectTransform)tree.transform, Width - Pad - 56f - 12f - 56f - 12f - 150f, 18f, 150f, 56f);
-            Label(tree.transform, "Text", Loc.T("Tree") + "  <color=#A8A38F>T</color>", 26f, GameUIKit.Gold,
-                TextAlignmentOptions.Center);
-            UITooltip.Bind(tree.gameObject, Loc.T("The religion tree: every sect, what unlocks what. Hotkey T."));
+            // The religion tree is retired (decision 63): with nothing to buy
+            // it had nothing left to do. No header button, no hotkey.
 
             var temple = MakeButton(_body, "TempleButton", out _, GoToTemple);
             Place((RectTransform)temple.transform, Width - Pad - 56f - 12f - 56f, 18f, 56f, 56f);
@@ -540,14 +537,12 @@ namespace TheWaningBorder.UI.Ingame
             int level = sect.PowerLevel < 1 ? 1 : sect.PowerLevel;
             for (int b = 0; b < 3; b++)
                 row.Bars[b].color = b < level ? GameUIKit.BarGold : new Color(0.2f, 0.26f, 0.37f, 1f);
-            if (level < 3)
-            {
-                bool can = ReligionPurchases.CanBuy(_em, _faction, ReligionPurchaseKind.ChapelLevel, sectId, out int cost);
-                if (cost <= 0) cost = level == 1 ? FactionReligionPointsHelper.Cfg.chapelLevel2Rp : FactionReligionPointsHelper.Cfg.chapelLevel3Rp;
-                row.LevelBadge.text = "+" + cost;
-                row.LevelBadge.color = can ? GoldBadge : RedBadge;
-            }
-            else row.LevelBadge.text = "";
+            // Nothing is bought (decision 63): the badge is how far the sect
+            // is toward its next LEVEL step, when a level is what comes next.
+            float toNext = SectProgression.StepProgress(sect, out int nextStep);
+            bool levelNext = nextStep == 3 || nextStep == 5;
+            row.LevelBadge.text = levelNext ? Mathf.FloorToInt(toNext * 100f) + "%" : "";
+            row.LevelBadge.color = GoldBadge;
 
             for (int p = 0; p < 3; p++) RefreshPower(row.Powers[p], rowIndex, sectId, p + 1, sect);
             RefreshBuildingChip(row, sectId);
@@ -569,13 +564,15 @@ namespace TheWaningBorder.UI.Ingame
             }
             else
             {
-                var kind = ReligionPurchases.UnlockKindFor(slot);
-                bool can = ReligionPurchases.CanBuy(_em, _faction, kind, sectId, out int cost);
-                if (cost <= 0) cost = slot == 2 ? FactionReligionPointsHelper.Cfg.unlockSecondRp : FactionReligionPointsHelper.Cfg.unlockWildcardRp;
-                pw.Background.color = can ? BuyCell : DimCell;
-                pw.Label.color = can ? GameUIKit.TextMain : GameUIKit.TextDim;
-                pw.Badge.text = cost.ToString();
-                pw.Badge.color = can ? GoldBadge : RedBadge;
+                // Locked: it unlocks by itself. The power that comes NEXT
+                // shows how far along it is (decision 63).
+                float toNext = SectProgression.StepProgress(sect, out int nextStep);
+                int nextSlot = nextStep == 1 ? 1 : nextStep == 2 ? 2 : nextStep == 4 ? 3 : 0;
+                bool next = nextSlot == slot;
+                pw.Background.color = next ? BuyCell : DimCell;
+                pw.Label.color = next ? GameUIKit.TextMain : GameUIKit.TextDim;
+                pw.Badge.text = next ? Mathf.FloorToInt(toNext * 100f) + "%" : "";
+                pw.Badge.color = GoldBadge;
                 pw.Key.text = "";
                 pw.Sweep.fillAmount = 0f;
                 pw.Seconds.text = "";
@@ -759,11 +756,8 @@ namespace TheWaningBorder.UI.Ingame
             if (sectId == null || !TryWorld()) return;
             if (!SectActivePowerHelper.IsSlotUnlocked(_em, _faction, sectId, slot))
             {
-                var spec0 = SectActivePowerHelper.CurrentSpec(_em, _faction, sectId, slot, out _);
-                Confirm(spec0.Name != null ? Loc.T(spec0.Name) : Loc.T("Power"),
-                    Loc.T("Unlock this power. Final, cannot be undone."),
-                    ReligionPurchases.UnlockKindFor(slot), sectId,
-                    (RectTransform)_rows[rowIndex].Powers[slot - 1].Button.transform, finalWarning: true);
+                // A locked power cannot be bought: it arrives as points come in.
+                SimSignals.Notify(Loc.T("This power unlocks by itself as you earn religion points"));
                 return;
             }
             BeginCast(sectId, slot);
@@ -844,8 +838,7 @@ namespace TheWaningBorder.UI.Ingame
             string sectId = _rowSect[rowIndex];
             if (sectId == null || !TryWorld()) return;
             if (SectQuery.PowerLevelOf(_em, _faction, sectId) >= 3) return;
-            Confirm(Loc.T("Raise chapel level"), Loc.T("Every unlocked power of this sect is cast one level higher."),
-                ReligionPurchaseKind.ChapelLevel, sectId, (RectTransform)_rows[rowIndex].LevelButton.transform, finalWarning: true);
+            SimSignals.Notify(Loc.T("A sect's level rises by itself as you earn religion points"));
         }
 
         private void ClickBuilding(int rowIndex)
@@ -910,7 +903,6 @@ namespace TheWaningBorder.UI.Ingame
                 && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject.GetComponent<TMP_InputField>() != null)
                 return;
             if (TheWaningBorder.Input.KeyBindings.Down(TheWaningBorder.Input.KeyAction.ReligionMenu)) SetShown(!_shown);
-            if (TheWaningBorder.Input.KeyBindings.Down(TheWaningBorder.Input.KeyAction.ReligionTree)) SetTreeOpen(!_treeOpen);
             bool shift = UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
             bool ctrl = UnityEngine.Input.GetKey(KeyCode.LeftControl) || UnityEngine.Input.GetKey(KeyCode.RightControl);
             for (int i = 0; i < SectConfig.MaxAdoptedSects; i++)

@@ -101,5 +101,10 @@ namespace TheWaningBorder.AI
         /// share x the per-Worker gain of the next level - repay its price
         /// (supplies + iron) within this many minutes. 0 = never.</summary>
         public float farmLevelPaybackMinutes;
+        /// <summary>The same test for the MINE level, with a window of its own
+        /// (2026-11-15, decision 64): iron is the scarce resource, and at the
+        /// Farm's window a level that added 135 iron a minute for 850 was
+        /// refused every time it was looked at. 0 = never.</summary>
+        public float mineLevelPaybackMinutes;
     }
 }
