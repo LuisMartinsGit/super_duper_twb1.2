@@ -102,8 +102,14 @@ namespace TheWaningBorder.AI
                 var ua = em.GetComponentData<UnitAbilities>(h);
                 int wardSlot = SlotOf(ua, cleanse);
                 int pulseSlot = pulse >= 0 ? SlotOf(ua, pulse) : -1;
-                bool wardReady = wardSlot >= 0 && Ready(em, h, wardSlot);
-                bool pulseReady = pulseSlot >= 0 && Ready(em, h, pulseSlot);
+                // AbilityQuery.IsUnlocked is the player's gate too: Cleanse and
+                // Cleanse Pulse are locked in Age 0 (docs/Design/Age_0.md §
+                // Litharch), so the Litharch is not walked to a patch it may
+                // not cleanse.
+                bool wardReady = wardSlot >= 0 && Ready(em, h, wardSlot)
+                    && AbilityQuery.IsUnlocked(em, h, wardCard);
+                bool pulseReady = pulseSlot >= 0 && Ready(em, h, pulseSlot)
+                    && AbilityQuery.IsUnlocked(em, h, AbilityCatalog.Get(pulse));
                 if (!wardReady && !pulseReady) continue;
 
                 float3 p = em.GetComponentData<LocalTransform>(h).Position;

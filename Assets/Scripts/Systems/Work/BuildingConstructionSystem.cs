@@ -27,15 +27,28 @@ namespace TheWaningBorder.Systems.Work
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct BuildingConstructionSystem : ISystem
     {
-        private const float BuildRange = 4.0f;
-        private const float BuildRatePerWorker = 1.0f; // Progress per second per worker
+        // Reach and stand rules: BuildingConstructionSystem.asset, through
+        // BuilderStand (2026-11-18). The old flat 4 m BuildRange let a worker
+        // build from 4 m away - and from INSIDE the footprint, which measures
+        // as distance 0.
+
+        /// <summary>
+        /// Each of <paramref name="crew"/> workers' share of its own rate on
+        /// one site, so the crew's total is (n + 2) / 3 of one worker's — n
+        /// workers take 3T / (n + 2) (Age of Empires II). One worker: 1. Used
+        /// by construction and repair alike.
+        /// </summary>
+        public static float CrewShare(int crew)
+            => crew <= 1 ? 1f : (crew + 2f) / (3f * crew);
 
         // Cached EntityQueries — initialized in OnCreate()
         private EntityQuery _unfinishedBuildingQuery;
         private EntityQuery _activeOrders;
+        private EntityQuery _footprints;
 
         public void OnCreate(ref SystemState state)
         {
+            _footprints = BuilderStand.FootprintQuery(ref state);
             // BuildOrder is enableable and pre-added DISABLED on every Worker
             // (2026-10-15). RequireForUpdate ignores enable bits (it tests
             // IsEmptyIgnoreFilter), so it now passes whenever a Worker exists;
@@ -63,13 +76,10 @@ namespace TheWaningBorder.Systems.Work
         public void OnUpdate(ref SystemState state)
         {
             if (_activeOrders.IsEmpty) return;   // see OnCreate
+            var cfg = BuildingConstructionSystemConfig.I;
+            if (cfg == null) return;   // Require has logged the data bug
             float dt = SystemAPI.Time.DeltaTime;
             var em = state.EntityManager;
-
-            // Snapshot all workers with orders
-            var workerQuery = SystemAPI.QueryBuilder()
-                .WithAll<CanBuild, LocalTransform, BuildOrder>()
-                .Build();
 
             var workers = new NativeList<Entity>(Allocator.Temp);
             var workerPositions = new NativeList<float3>(Allocator.Temp);
@@ -84,6 +94,30 @@ namespace TheWaningBorder.Systems.Work
                 workerPositions.Add(transform.ValueRO.Position);
                 workerOrders.Add(order.ValueRO);
             }
+
+            // THE CREW RULE (2026-11-17, developer: "Do points 1-4"): builders
+            // on one site add up with diminishing returns, as in Age of
+            // Empires II — n builders finish in 3T / (n + 2), so 1 takes T, 4
+            // take T/2, 8 take 0.3 T. Counted first: every builder in reach of
+            // its site this tick (the same reach test the loop below uses).
+            var crew = new NativeHashMap<Entity, int>(16, Allocator.Temp);
+            // Every spot already held round each site, so a new builder takes
+            // a free one (BuilderStand).
+            var claimed = new NativeHashSet<int4>(16, Allocator.Temp);
+            for (int i = 0; i < workers.Length; i++)
+            {
+                Entity s0 = workerOrders[i].Site;
+                if (!em.Exists(s0) || !em.HasComponent<UnderConstruction>(s0)) continue;
+                BuilderStand.Claim(claimed, s0, workerOrders[i].Stand);
+                if (!BuilderStand.InReach(TargetGeometry.Extent(em, s0), workerPositions[i],
+                        BuilderStand.RadiusOf(em, workers[i]), cfg)) continue;
+                crew.TryGetValue(s0, out int c0);
+                crew[s0] = c0 + 1;
+            }
+            var footprints = new BuilderStand.Footprints(_footprints);
+            // Builders of a Farm finished this tick, and the Farm (decision 83).
+            var stepInWorkers = new NativeList<Entity>(Allocator.Temp);
+            var stepInFarms = new NativeList<Entity>(Allocator.Temp);
 
             // Process each worker
             for (int i = 0; i < workers.Length; i++)
@@ -105,44 +139,34 @@ namespace TheWaningBorder.Systems.Work
                 {
                     // Already finished - clear order
                     TransientState.Clear<BuildOrder>(em, worker);
+                    // A crewmate finished the Farm this worker was building:
+                    // it goes in too (decision 83), after the loop.
+                    if (em.HasComponent<FarmTag>(site)) { stepInWorkers.Add(worker); stepInFarms.Add(site); }
                     continue;
                 }
 
                 // Get site position
                 float3 sitePos = em.GetComponentData<LocalTransform>(site).Position;
-                // Measure to the building's edge, not its centre, so workers can
-                // construct large footprints (e.g. the 9 m wall hub, which blocks the
-                // navmesh well beyond BuildRange of the centre). Sized buildings use
-                // their exact rect rather than the inscribed legacy Radius, which
-                // under-measures at corners.
+                // Measured to the building's edge, not its centre (the 9 m wall
+                // hub), and the worker must stand OUTSIDE it: BuilderStand walks
+                // a worker that is inside, overlapping, or too far to its own
+                // latched spot on a ring just beyond the edge, and says Work
+                // only within reach of the edge (2026-11-18).
                 var extent = TargetGeometry.Extent(em, site);
-                float dist = extent.SurfaceDistXZ(bPos);
+                var order = workerOrders[i];
+                var stand = BuilderStand.Tick(em, worker, bPos, site, extent, ref order.Stand,
+                    claimed, ref footprints, cfg, dt);
+                if (!BuilderStand.SameStand(order.Stand, workerOrders[i].Stand))
+                    em.SetComponentData(worker, order);
 
-                if (dist > BuildRange)
+                if (stand == BuilderStand.Step.GiveUp)
                 {
-                    // Walk to a point on the footprint's edge, a half-step back so
-                    // the destination is walkable ground rather than a cell inside
-                    // the site itself.
-                    float3 approach = extent.ApproachPoint(bPos, BuildRange * 0.5f);
-                    approach.y = sitePos.y;
-
-                    if (em.HasComponent<DesiredDestination>(worker))
-                    {
-                        em.SetComponentData(worker, new DesiredDestination
-                        {
-                            Position = approach,
-                            Has = 1
-                        });
-                    }
-                    else
-                    {
-                        em.AddComponentData(worker, new DesiredDestination
-                        {
-                            Position = approach,
-                            Has = 1
-                        });
-                    }
+                    // Every spot round the site was tried and none could be
+                    // reached: stop here rather than orbit the site for ever.
+                    BuilderStand.StandDown<BuildOrder>(em, worker, bPos);
+                    continue;
                 }
+                if (stand == BuilderStand.Step.Walk) continue;
                 else
                 {
                     // In range - plant, face the site, and contribute to construction
@@ -150,14 +174,20 @@ namespace TheWaningBorder.Systems.Work
 
                     // Add build progress
                     var uc = em.GetComponentData<UnderConstruction>(site);
-                    float buildRate = BuildRatePerWorker;
+                    // The builder's own rate, from its unit SO (Worker.asset
+                    // buildSpeed, copied onto CanBuild by the factory).
+                    float workerRate = em.HasComponent<CanBuild>(worker)
+                        ? em.GetComponentData<CanBuild>(worker).BuildRate : 0f;
+                    crew.TryGetValue(site, out int crewSize);
+                    float buildRate = workerRate * CrewShare(crewSize);
 
-                    // Self-constructing sites (choice buildings, wall extensions)
+                    // Self-constructing sites (wall extensions; the landmarks no
+                    // longer self-build, 2026-11-17)
                     // already tick at 1.0/s via AutoConstructionSystem; workers
                     // only ACCELERATE them, each adding +25 % of the base rate
                     // (design: 4 workers halve the 90 s choice-building timer).
                     if (em.HasComponent<AutoConstructTag>(site))
-                        buildRate = BuildRatePerWorker * 0.25f;
+                        buildRate = workerRate * CrewShare(crewSize) * 0.25f;
 
                     // Deep Foundations (Fortitude) speeds construction of
                     // defensive structures. It is the only sect research that
@@ -183,6 +213,18 @@ namespace TheWaningBorder.Systems.Work
                         // Construction complete!
                         CompleteConstruction(em, site);
                         TransientState.Clear<BuildOrder>(em, worker);
+
+                        // THE FARM TAKES ITS BUILDER (decision 83): unless it
+                        // has something queued, the worker goes inside the
+                        // Farm it finished (after the loop: structural)
+                        // instead of chaining to the next site.
+                        if (em.HasComponent<FarmTag>(site)
+                            && !TheWaningBorder.Entities.Farm.HasQueuedAction(em, worker))
+                        {
+                            stepInWorkers.Add(worker);
+                            stepInFarms.Add(site);
+                            continue;
+                        }
 
                         // Auto-build nearby unfinished structures within LOS
                         Entity nextSite = FindNearbyUnfinishedBuilding(em, worker, bPos);
@@ -231,9 +273,17 @@ namespace TheWaningBorder.Systems.Work
                 }
             }
 
+            if (stepInWorkers.Length > 0)
+                TheWaningBorder.Entities.Farm.StepInBuilders(em, stepInWorkers, stepInFarms);
+            stepInWorkers.Dispose();
+            stepInFarms.Dispose();
+
             workers.Dispose();
             workerPositions.Dispose();
             workerOrders.Dispose();
+            crew.Dispose();
+            claimed.Dispose();
+            footprints.Dispose();
 
             AdoptAbandonedSites(ref state, em);
         }
@@ -501,7 +551,7 @@ namespace TheWaningBorder.Systems.Work
     [UpdateBefore(typeof(BuildingConstructionSystem))]
     public partial struct BuildCommandSystem : ISystem
     {
-        private const float BuildRange = 4f;
+        // The hand-over reach is BuildingConstructionSystem.asset handoverRange.
 
         // Cached EntityQuery — initialized in OnCreate()
         private EntityQuery _underConstructionQuery;
@@ -525,6 +575,9 @@ namespace TheWaningBorder.Systems.Work
             var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
             var em = state.EntityManager;
             float dt = SystemAPI.Time.DeltaTime;
+            var cfg = BuildingConstructionSystemConfig.I;
+            if (cfg == null) return;   // Require has logged the data bug
+            float handover = cfg.handoverRange;
 
             foreach (var (transform, buildCmd, entity) in SystemAPI
                 .Query<RefRO<LocalTransform>, RefRO<BuildCommand>>()
@@ -535,21 +588,29 @@ namespace TheWaningBorder.Systems.Work
                 var targetPos = buildCmd.ValueRO.Position;
                 var targetBuilding = buildCmd.ValueRO.TargetBuilding;
                 // Reach to the building edge so large footprints (9 m wall hub) are
-                // buildable from where the navmesh lets a worker stand. Falls back
-                // to plain centre distance for a bare ground position (no target
-                // entity yet — the site hasn't been placed).
-                float dist = targetBuilding != Entity.Null && em.Exists(targetBuilding)
-                    ? TargetGeometry.SurfaceDistXZ(em, myPos, targetBuilding)
-                    : DistXZ(myPos, targetPos);
+                // buildable from where the navmesh lets a worker stand. A bare
+                // ground position (no target entity yet — the site hasn't been
+                // placed) measures to the footprint that building WILL have.
+                bool hasTarget = targetBuilding != Entity.Null && em.Exists(targetBuilding);
+                var extent = hasTarget
+                    ? TargetGeometry.Extent(em, targetBuilding)
+                    : BuilderStand.ExtentAt(buildCmd.ValueRO.BuildingId, targetPos);
+                float dist = extent.SurfaceDistXZ(myPos);
 
-                // Move to build site if not in range
-                if (dist > BuildRange)
+                // Move to build site if not in range. Walk to the near side of
+                // the footprint, just outside its edge — never to its centre: a
+                // plan does not block, so a worker sent to the centre walked
+                // right onto the foundation and was standing inside the site
+                // when it broke ground (2026-11-18).
+                if (dist > handover)
                 {
+                    float3 dest = extent.ApproachPoint(myPos, BuilderStand.StandOff(em, entity, cfg));
+                    dest.y = targetPos.y;
                     if (!em.HasComponent<DesiredDestination>(entity))
                     {
                         ecb.AddComponent(entity, new DesiredDestination
                         {
-                            Position = targetPos,
+                            Position = dest,
                             Has = 1
                         });
                     }
@@ -557,15 +618,18 @@ namespace TheWaningBorder.Systems.Work
                     {
                         ecb.SetComponent(entity, new DesiredDestination
                         {
-                            Position = targetPos,
+                            Position = dest,
                             Has = 1
                         });
                     }
                 }
                 else
                 {
-                    // In range - plant and face the site
-                    TargetGeometry.StopAndFace(ecb, em, entity, targetPos, dt);
+                    // In hand-over range - face the site. Not planted: the
+                    // build order this becomes walks the worker on to its own
+                    // spot beside the footprint (BuilderStand), and a plan
+                    // breaks ground on this tick or a later one.
+                    TargetGeometry.Face(em, entity, targetPos, dt);
 
                     // Convert BuildCommand to BuildOrder if target building exists
                     if (targetBuilding != Entity.Null && em.Exists(targetBuilding))
@@ -599,7 +663,7 @@ namespace TheWaningBorder.Systems.Work
                         // Target building is null or destroyed — find nearest UnderConstruction
                         // building at the build position. This handles the multiplayer case where
                         // the building is created via lockstep AFTER the build command was issued.
-                        Entity nearest = FindNearestUnderConstruction(em, targetPos, BuildRange * 2f,
+                        Entity nearest = FindNearestUnderConstruction(em, targetPos, handover * 2f,
                             em.HasComponent<FactionTag>(entity)
                                 ? em.GetComponentData<FactionTag>(entity).Value : Faction.Border);
                         if (nearest != Entity.Null)
@@ -645,6 +709,325 @@ namespace TheWaningBorder.Systems.Work
             }
 
             return nearest;
+        }
+    }
+
+    /// <summary>
+    /// WHERE A BUILDER STANDS (2026-11-18, developer: "builders should move out
+    /// of the construction footprint before starting the construction. Also,
+    /// they should only be able to build when very close to the square
+    /// footprint of the building ... Some build and repair paths leave the
+    /// workers moving in circles without working."). docs/Design/Age_0.md
+    /// § Worker. Shared by construction and repair, numbers on
+    /// BuildingConstructionSystem.asset.
+    ///
+    /// * A worker works only while its centre is OUTSIDE the footprint and
+    ///   within reach of its edge: no nearer than Radius - bodyOverlapTolerance,
+    ///   no further than Radius + reachBeyondRadius. Inside reads as distance 0
+    ///   on TargetExtent.SurfaceDistXZ, which is why workers used to build from
+    ///   inside the site.
+    /// * Otherwise it walks to ITS OWN spot: one slot on a rounded ring
+    ///   Radius + standGap outside the edge, slotSpacing apart — the nearest
+    ///   slot no other builder on the site holds, on walkable ground and not
+    ///   inside another building. The spot is latched on the order, so the walk
+    ///   target never moves; the old target was recomputed from the worker's
+    ///   position every tick, and a goal that slides with the walker reads as a
+    ///   fresh order to StuckRedirectSystem every half second, so an orbit was
+    ///   never declared stuck.
+    /// * A worker within stallRadius of its spot that gets no closer for
+    ///   stallSeconds gives that slot up for the next; with every slot tried
+    ///   the job is dropped (Step.GiveUp) rather than orbited for ever.
+    ///
+    /// Deterministic: slots are enumerated in index order, ties go to the lower
+    /// index, claims are set membership only, and every input is sim state.
+    /// </summary>
+    public static class BuilderStand
+    {
+        public enum Step : byte { Work, Walk, GiveUp }
+
+        /// <summary>Slots per site — the width of <see cref="WorkStand.Tried"/>.</summary>
+        public const int MaxSlots = 64;
+        /// <summary>Fewest slots on any ring (one a side).</summary>
+        private const int MinSlots = 4;
+        /// <summary>Geometric epsilon: "outside" means strictly past the edge.</summary>
+        private const float MinOutside = 0.05f;
+
+        /// <summary>Every standing building with a footprint, for the "not
+        /// inside another building" spot test.</summary>
+        public static EntityQuery FootprintQuery(ref SystemState state)
+            => state.GetEntityQuery(
+                ComponentType.ReadOnly<BuildingTag>(),
+                ComponentType.ReadOnly<BuildingSize>(),
+                ComponentType.ReadOnly<LocalTransform>());
+
+        public static float RadiusOf(EntityManager em, Entity worker)
+            => em.HasComponent<Radius>(worker) ? em.GetComponentData<Radius>(worker).Value : 0f;
+
+        static float Inner(float radius, BuildingConstructionSystemConfig cfg)
+            => math.max(MinOutside, radius - cfg.bodyOverlapTolerance);
+
+        static float Outer(float radius, BuildingConstructionSystemConfig cfg)
+            => math.max(Inner(radius, cfg), radius + cfg.reachBeyondRadius);
+
+        /// <summary>Centre-to-edge distance of a worker's spot: its body plus
+        /// standGap, kept inside the reach band.</summary>
+        public static float StandOff(float radius, BuildingConstructionSystemConfig cfg)
+            => math.clamp(radius + cfg.standGap, Inner(radius, cfg), Outer(radius, cfg));
+
+        public static float StandOff(EntityManager em, Entity worker, BuildingConstructionSystemConfig cfg)
+            => StandOff(RadiusOf(em, worker), cfg);
+
+        /// <summary>May this worker build / repair from where it stands?</summary>
+        public static bool InReach(in TargetExtent ext, float3 pos, float radius,
+            BuildingConstructionSystemConfig cfg)
+        {
+            float d = ext.SurfaceDistXZ(pos);
+            return d >= Inner(radius, cfg) && d <= Outer(radius, cfg);
+        }
+
+        /// <summary>The footprint a building of this id will have at
+        /// <paramref name="centre"/> — for a Build order whose site does not
+        /// exist yet.</summary>
+        public static TargetExtent ExtentAt(FixedString64Bytes buildingId, float3 centre)
+        {
+            var e = new TargetExtent { Center = centre };
+            if (buildingId.Length == 0) return e;
+            int2 size = BuildingSizeConfig.GetSize(buildingId.ToString());
+            if (size.x <= 0 || size.y <= 0) return e;
+            e.IsBox = true;
+            e.HalfW = size.x * 0.5f;
+            e.HalfH = size.y * 0.5f;
+            return e;
+        }
+
+        static int4 Key(Entity site, int slot) => new int4(site.Index, site.Version, slot, 0);
+
+        /// <summary>Record a held spot, so no other builder picks it.</summary>
+        public static void Claim(NativeHashSet<int4> claimed, Entity site, in WorkStand stand)
+        {
+            if (stand.HasSpot != 0) claimed.Add(Key(site, stand.SlotIndex));
+        }
+
+        public static bool SameStand(in WorkStand a, in WorkStand b)
+            => a.HasSpot == b.HasSpot && a.SlotIndex == b.SlotIndex && a.Tried == b.Tried
+               && a.Stall == b.Stall && a.BestDist == b.BestDist && a.Spot.Equals(b.Spot);
+
+        /// <summary>
+        /// One tick of a builder's approach. Work: in reach, do the job (the
+        /// caller plants and faces). Walk: the destination is set to the spot.
+        /// GiveUp: no slot round the site can be reached.
+        /// </summary>
+        public static Step Tick(EntityManager em, Entity worker, float3 pos, Entity site,
+            in TargetExtent ext, ref WorkStand stand, NativeHashSet<int4> claimed,
+            ref Footprints footprints, BuildingConstructionSystemConfig cfg, float dt)
+        {
+            float radius = RadiusOf(em, worker);
+            if (InReach(ext, pos, radius, cfg))
+            {
+                stand.Stall = 0f;
+                return Step.Work;
+            }
+
+            if (stand.HasSpot == 0
+                && !Pick(ext, site, pos, radius, ref stand, claimed, ref footprints, cfg))
+                return Step.GiveUp;
+
+            float d = MathUtil.DistXZ(pos, stand.Spot);
+            if (d < stand.BestDist - cfg.stallMinProgress)
+            {
+                stand.BestDist = d;
+                stand.Stall = 0f;
+            }
+            else if (d <= cfg.stallRadius)
+            {
+                stand.Stall += dt;
+                if (stand.Stall >= cfg.stallSeconds)
+                {
+                    // This slot cannot be reached (or something stands on it):
+                    // the next one, never the same one again.
+                    if (stand.SlotIndex < MaxSlots) stand.Tried |= 1ul << stand.SlotIndex;
+                    stand.HasSpot = 0;
+                    if (!Pick(ext, site, pos, radius, ref stand, claimed, ref footprints, cfg))
+                        return Step.GiveUp;
+                }
+            }
+
+            SetDestination(em, worker, stand.Spot);
+            return Step.Walk;
+        }
+
+        /// <summary>Drop the job: clear the order, stop, and make where the
+        /// worker stands its guard point (as finishing a job does).</summary>
+        public static void StandDown<T>(EntityManager em, Entity worker, float3 pos)
+            where T : unmanaged, IComponentData, IEnableableComponent
+        {
+            TransientState.Clear<T>(em, worker);
+            if (em.HasComponent<DesiredDestination>(worker))
+                em.SetComponentData(worker, new DesiredDestination { Has = 0 });
+            if (TransientState.Active<GuardPoint>(em, worker))
+                em.SetComponentData(worker, new GuardPoint { Position = pos, Has = 1 });
+        }
+
+        static void SetDestination(EntityManager em, Entity worker, float3 spot)
+        {
+            if (em.HasComponent<DesiredDestination>(worker))
+            {
+                var dd = em.GetComponentData<DesiredDestination>(worker);
+                if (dd.Has != 0 && dd.Position.Equals(spot)) return;
+                em.SetComponentData(worker, new DesiredDestination { Position = spot, Has = 1 });
+            }
+            else
+            {
+                em.AddComponentData(worker, new DesiredDestination { Position = spot, Has = 1 });
+            }
+        }
+
+        /// <summary>The nearest usable slot: untried, unheld (held ones only
+        /// when every free one is unusable — a crew bigger than the ring),
+        /// walkable, and not inside another building.</summary>
+        static bool Pick(in TargetExtent ext, Entity site, float3 pos, float radius,
+            ref WorkStand stand, NativeHashSet<int4> claimed, ref Footprints footprints,
+            BuildingConstructionSystemConfig cfg)
+        {
+            float so = StandOff(radius, cfg);
+            float per = Perimeter(ext, so);
+            int n = SlotCount(per, cfg.slotSpacing);
+
+            for (int pass = 0; pass < 2; pass++)
+            {
+                int best = -1;
+                float bestD = float.MaxValue;
+                float3 bestP = default;
+                for (int k = 0; k < n; k++)
+                {
+                    if ((stand.Tried & (1ul << k)) != 0) continue;
+                    if (pass == 0 && claimed.Contains(Key(site, k))) continue;
+                    float3 p = SlotPoint(ext, so, per, k, n);
+                    float dx = p.x - pos.x, dz = p.z - pos.z;
+                    float dsq = dx * dx + dz * dz;
+                    if (dsq >= bestD) continue;
+                    if (!Usable(p, site, ref footprints)) continue;
+                    best = k; bestD = dsq; bestP = p;
+                }
+                if (best < 0) continue;
+
+                stand.Spot = bestP;
+                stand.HasSpot = 1;
+                stand.SlotIndex = (byte)best;
+                stand.BestDist = float.MaxValue;
+                stand.Stall = 0f;
+                claimed.Add(Key(site, best));
+                return true;
+            }
+            return false;
+        }
+
+        static bool Usable(float3 p, Entity site, ref Footprints footprints)
+        {
+            if (!TheWaningBorder.Systems.Navigation.NavGridQuery.IsWalkableAt(p.x, p.z, out _, out _))
+                return false;
+            return !footprints.Covers(p, site);
+        }
+
+        static int SlotCount(float perimeter, float spacing)
+            => math.clamp((int)math.floor(perimeter / math.max(0.1f, spacing)), MinSlots, MaxSlots);
+
+        /// <summary>Length of the ring <paramref name="so"/> outside the
+        /// footprint: a rounded rectangle for a box, a circle otherwise.</summary>
+        static float Perimeter(in TargetExtent ext, float so)
+            => ext.IsBox
+                ? 4f * (ext.HalfW + ext.HalfH) + 2f * math.PI * so
+                : 2f * math.PI * (ext.Radius + so);
+
+        /// <summary>Slot <paramref name="k"/> of <paramref name="n"/>, evenly
+        /// along the ring, every point exactly <paramref name="so"/> from the
+        /// footprint's edge.</summary>
+        static float3 SlotPoint(in TargetExtent ext, float so, float per, int k, int n)
+        {
+            float3 c = ext.Center;
+            float s = (k + 0.5f) * per / n;
+            if (!ext.IsBox)
+            {
+                float a = s / math.max(1e-4f, ext.Radius + so);
+                float r = ext.Radius + so;
+                return new float3(c.x + math.cos(a) * r, c.y, c.z + math.sin(a) * r);
+            }
+
+            float hw = ext.HalfW, hh = ext.HalfH;
+            float arc = 0.5f * math.PI * so;
+            // South edge (west to east), SE arc, east edge (south to north), NE
+            // arc, north edge (east to west), NW arc, west edge (north to
+            // south), SW arc.
+            float len = 2f * hw;
+            if (s < len) return new float3(c.x - hw + s, c.y, c.z - hh - so);
+            s -= len;
+            if (s < arc) return Corner(c, hw, -hh, -0.5f * math.PI + s / so, so);
+            s -= arc;
+            len = 2f * hh;
+            if (s < len) return new float3(c.x + hw + so, c.y, c.z - hh + s);
+            s -= len;
+            if (s < arc) return Corner(c, hw, hh, s / so, so);
+            s -= arc;
+            len = 2f * hw;
+            if (s < len) return new float3(c.x + hw - s, c.y, c.z + hh + so);
+            s -= len;
+            if (s < arc) return Corner(c, -hw, hh, 0.5f * math.PI + s / so, so);
+            s -= arc;
+            len = 2f * hh;
+            if (s < len) return new float3(c.x - hw - so, c.y, c.z + hh - s);
+            s -= len;
+            return Corner(c, -hw, -hh, math.PI + math.min(s, arc) / math.max(1e-4f, so), so);
+        }
+
+        static float3 Corner(float3 c, float ox, float oz, float angle, float so)
+            => new float3(c.x + ox + math.cos(angle) * so, c.y, c.z + oz + math.sin(angle) * so);
+
+        /// <summary>The footprints of standing buildings, read once a tick and
+        /// only when some worker needs a new spot.</summary>
+        public struct Footprints : System.IDisposable
+        {
+            EntityQuery _query;
+            bool _loaded;
+            NativeArray<Entity> _ents;
+            NativeArray<LocalTransform> _xfs;
+            NativeArray<BuildingSize> _sizes;
+
+            public Footprints(EntityQuery query)
+            {
+                _query = query;
+                _loaded = false;
+                _ents = default;
+                _xfs = default;
+                _sizes = default;
+            }
+
+            /// <summary>Is <paramref name="p"/> inside any building's
+            /// footprint other than <paramref name="except"/>?</summary>
+            public bool Covers(float3 p, Entity except)
+            {
+                if (!_loaded)
+                {
+                    _loaded = true;
+                    _ents = _query.ToEntityArray(Allocator.Temp);
+                    _xfs = _query.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                    _sizes = _query.ToComponentDataArray<BuildingSize>(Allocator.Temp);
+                }
+                for (int i = 0; i < _ents.Length; i++)
+                {
+                    if (_ents[i] == except) continue;
+                    float3 c = _xfs[i].Position;
+                    if (math.abs(p.x - c.x) < _sizes[i].Width * 0.5f
+                        && math.abs(p.z - c.z) < _sizes[i].Height * 0.5f) return true;
+                }
+                return false;
+            }
+
+            public void Dispose()
+            {
+                if (_ents.IsCreated) _ents.Dispose();
+                if (_xfs.IsCreated) _xfs.Dispose();
+                if (_sizes.IsCreated) _sizes.Dispose();
+            }
         }
     }
 }

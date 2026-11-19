@@ -16,27 +16,27 @@ MonoBehaviour:
   displayName: Archer
   unitClass: human_ranged
   hp: 80
-  speed: 5.2
+  speed: 4
   trainingTime: 14
-  damage: 8
+  damage: 6
   damageType: ranged
   armorType: ranged
   defense:
     melee: 0
-    ranged: 1
+    ranged: 0
     siege: 0
     magic: 0
-  attackCooldown: 1.5
+  attackCooldown: 1.6
   attackRange: 10
   minAttackRange: 0
-  lineOfSight: 10
+  lineOfSight: 16
   aimTime: 0.5
   radius: 0.5
   trajectory: low
   projectileSpeed: 0
   cost:
-    Supplies: 28
-    Iron: 14
+    Supplies: 35
+    Iron: 45
     Veilstone: 0
   populationCost: 1
   minBuildingLevel: 0
@@ -51,8 +51,8 @@ MonoBehaviour:
   - Ranged
   - Light
   bonusVsTags:
-  - vsTag: Infantry
-    amount: 10
+  - vsTag: Light+Infantry
+    amount: 6
   preferTargets: []
   abilities: []
   prefab: {fileID: 128967838436804, guid: ba392ed4d9a4500e0ac46ca62b0384bf, type: 3}

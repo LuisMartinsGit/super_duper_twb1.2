@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Spearman
   displayName: Spearman
   unitClass: human_melee
-  hp: 160
+  hp: 100
   speed: 5.5
   trainingTime: 4.9
   damage: 13
@@ -53,6 +53,7 @@ MonoBehaviour:
   bonusVsTags:
   - vsTag: Cavalry
     amount: 15
+  torchDamage: 10
   preferTargets: []
   abilities: []
   prefab: {fileID: 3873473751171306903, guid: cf1bba0ed29512f4bb970702518edd48, type: 3}

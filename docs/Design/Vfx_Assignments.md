@@ -62,8 +62,8 @@ circles / Resources/Spells), `—` = nothing.
 | 3.14 | War Horn (cavalry) | once | around caster | — | |
 | 3.15 | Full Gallop (cavalry sprint) | loop | each rider | — | |
 | 3.16 | Choreographed Volleys (ranged) | loop | each archer | — | |
-| 3.17 | Deploy Field Hospital (Litharch) | once | Litharch | Lana Regeneration_health_area | |
-| 3.18 | Field Hospital tent alive (120 s) | loop | tent | Lana Regeneration_health_area_loop | |
+| 3.17 | Healing Ward cast (Litharch) | once | Litharch | Lana Regeneration_health_area (`HealingWard_Effect.prefab`) | |
+| 3.18 | Healing Ward standing (until destroyed) | loop | ward | Lana Regeneration_health_area_loop (`HealingWard_Aura.prefab`) | |
 | 3.19 | Ability cast channel (any) | loop | caster | — (cast bar only) | |
 
 ## 4. Sect powers (landing + lasting state)

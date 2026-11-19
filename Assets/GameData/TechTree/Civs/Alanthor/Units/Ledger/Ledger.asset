@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Ledger
   displayName: Ledger
   unitClass: melee
-  hp: 1215
+  hp: 760
   speed: 5.6
   trainingTime: 45
   damage: 38
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Infantry
   - Heavy
   bonusVsTags: []
+  torchDamage: 25
   abilities:
   - Automate Facility
   - Iron Frame

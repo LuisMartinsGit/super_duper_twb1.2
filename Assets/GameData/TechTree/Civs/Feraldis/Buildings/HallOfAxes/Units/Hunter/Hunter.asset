@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Hunter
   displayName: Axe Thrower
   unitClass: human_ranged
-  hp: 115
+  hp: 90
   speed: 5.7
   trainingTime: 9.8
   damage: 20

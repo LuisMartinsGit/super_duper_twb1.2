@@ -112,9 +112,25 @@ namespace TheWaningBorder.Core.Commands
             return math.distancesq(g.Destination.xz, destination.xz) <= keep * keep;
         }
 
+        /// <summary>
+        /// A FORCED RE-PLAN (2026-11-18): the AI's order to fold loose members
+        /// back into a marching army. The repeat-order filter
+        /// (<see cref="AlreadyMarchingThere"/>) is skipped, so the WHOLE army
+        /// is re-planned as one formation; through the filter only the loose
+        /// units received the order and marched as a second formation of
+        /// their own beside the army. Rate-limited by the caller
+        /// (SimpleAISystem.RegroupStragglers / regroupInterval).
+        /// </summary>
+        public static void IssueFormationReplan(EntityManager em, IReadOnlyList<Entity> units,
+            float3 destination, bool attackMove, CommandSource source = CommandSource.AI)
+        {
+            IssueFormationOrder(em, units, destination, FormationShape.Box, attackMove,
+                float3.zero, 0, source, replan: true);
+        }
+
         private static void IssueFormationOrder(EntityManager em, IReadOnlyList<Entity> units,
             float3 destination, FormationShape shape, bool attackMove, float3 arriveFacing,
-            int columns, CommandSource source)
+            int columns, CommandSource source, bool replan = false)
         {
             columns = FormationMoveCommandHelper.ClampColumns(columns);
             // Quantise FIRST, whichever path runs the order: the wire can only
@@ -138,7 +154,7 @@ namespace TheWaningBorder.Core.Commands
                 // and soldiers flipped in and out of rank thousands of times a
                 // match. An AI order to about where a marching formation already
                 // goes leaves its members alone. A player's click always counts.
-                if (source == CommandSource.AI && AlreadyMarchingThere(em, u, destination, attackMove)) continue;
+                if (source == CommandSource.AI && !replan && AlreadyMarchingThere(em, u, destination, attackMove)) continue;
                 eligible.Add(u);
             }
 

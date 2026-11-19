@@ -1,6 +1,8 @@
 ﻿// ActionsPanelPrefabBinder.Render.cs
-// What the 3x5 grid shows for the current selection: worker palette,
-// unit formations, building actions, the upgrade slot and research rows.
+// What the grid shows for the current selection: the worker palette and
+// every building menu on the 4 x 4 grid (building actions, research rows,
+// paging, the level-up in the bottom-right cell), and the unit formations on
+// the authored 3 x 5.
 
 using System.Collections.Generic;
 using TMPro;
@@ -33,11 +35,15 @@ namespace TheWaningBorder.UI.Ingame
             // The palette is 4 x 4; the cells past it belong to other modes.
             int limit = Mathf.Min(_slots.Length, PaletteSlotCount);
 
-            // Four category rows (BuildOrder): each row starts on a grid row
-            // of its own, padded with blanks; a row longer than the grid is
-            // wide wraps and the next category starts after it.
+            // FOUR FIXED ROWS (BuildOrder; developer, 2026-11-18): Economy,
+            // Military, Defense, and the reserved fourth row - each category
+            // on its own grid row whatever the others hold, so a building
+            // never moves when another unlocks. The religion buildings go to
+            // the second panel (ReligionPanel.cs).
+            bool aged = CultureConfig.GetCompletedCulture(em, OwnFaction(em)) != Cultures.None;
             var rows = new List<ActionButton>[BuildOrder.Length];
             for (int r = 0; r < rows.Length; r++) rows[r] = new List<ActionButton>();
+            var religion = new List<ActionButton>();
             for (int i = 0; i < actions.Count; i++)
             {
                 var b = actions[i];
@@ -45,6 +51,31 @@ namespace TheWaningBorder.UI.Ingame
                 // Extractors are built from the button over their node
                 // (NodeButton.cs), never from the palette.
                 if (TheWaningBorder.World.Regions.TerritoryOwnership.IsExtractor(b.Id)) continue;
+                // ONE FORTRESS, EVER (decision 69): it is never placed from
+                // the palette. Any other keystone whose rubble lies (Temple,
+                // sect building) stays in its cell, greyed — it is rebuilt from
+                // the button over its rubble (NodeButton.cs) — so the grid
+                // does not reflow.
+                if (b.Id == TheWaningBorder.Entities.KeystoneRubbles.FortressId) continue;
+                if (TheWaningBorder.Entities.KeystoneRubbles.IsKeystone(b.Id)
+                    && TheWaningBorder.Entities.KeystoneRubbles.TryFind(em, OwnFaction(em), b.Id, out _, out _))
+                {
+                    b.Enabled = false;
+                    b.CanAfford = false;
+                    b.ShownWhenLocked = true;
+                    b.Tooltip = (b.Label ?? b.Id) + "\n<color=#C08040>"
+                        + Loc.T("Fallen - rebuild it from the button over its rubble (select Workers).") + "</color>";
+                }
+                if (IsReligionPanelBuilding(b.Id))
+                {
+                    // After the age-up the Temple stays in the second panel
+                    // only while religion is still locked: the panel then
+                    // shows the Temple alone (developer, 2026-11-18: "panel
+                    // 2 shows only a temple until it is built and religion
+                    // is unlocked"). RenderReligionPanel decides.
+                    religion.Add(b);
+                    continue;
+                }
                 rows[(int)BuildRowOf(b.Id)].Add(b);
             }
             for (int r = 0; r < rows.Length; r++)
@@ -60,50 +91,50 @@ namespace TheWaningBorder.UI.Ingame
                 for (int i = 0; i < list.Count; i++) list[i] = ranked[i].b;
             }
 
-            int used = 0, cell = 0;
-            for (int r = 0; r < rows.Length && cell < limit; r++)
+            // Row r is grid row r, always: its cells first, blanks after. A
+            // row with more than four entries is a data/layout bug - logged,
+            // the extra dropped - never wrapped into the next category's row.
+            int used = 0;
+            for (int r = 0; r < rows.Length; r++)
             {
+                int cell = r * PaletteCols, end = Mathf.Min(cell + PaletteCols, limit);
                 var list = rows[r];
-                if (list.Count == 0) continue;
-                for (int i = 0; i < list.Count && cell < limit; i++)
+                for (int i = 0; i < list.Count; i++)
                 {
-                    var b = list[i];
-                    string id = b.Id;
-                    FillSlot(_slots[cell++], b, BuildingCategory(id), null,
-                        placing || !b.Enabled ? null
-                                : (System.Action)(() => WorkerCommandPanel.TriggerBuildingPlacement(id)),
-                        em);
+                    if (cell >= end)
+                    {
+                        if (!_paletteOverflowLogged)
+                        {
+                            _paletteOverflowLogged = true;
+                            TWBLog.Log($"[GameUI] ActionsPanel: build palette row {r} has {list.Count} " +
+                                $"entries, {PaletteCols} fit — overflow dropped.");
+                        }
+                        break;
+                    }
+                    FillBuildCell(_slots[cell++], list[i], placing, em);
                     used++;
                 }
-                // Pad to the end of the grid row so the next category starts
-                // a fresh one (no padding after the last filled row).
-                bool more = false;
-                for (int q = r + 1; q < rows.Length && !more; q++) more = rows[q].Count > 0;
-                if (!more) break;
-                while (cell % PaletteCols != 0 && cell < limit) BlankSlot(_slots[cell++]);
+                while (cell < end) BlankSlot(_slots[cell++]);
             }
-            if (RowsOverflow(rows) && !_paletteOverflowLogged)
-            {
-                _paletteOverflowLogged = true;
-                TWBLog.Log($"[GameUI] ActionsPanel: the build palette needs more than " +
-                    $"{limit} cells — overflow dropped.");
-            }
-            for (int i = cell; i < _slots.Length; i++) ClearSlot(_slots[i]);
+            for (int i = limit; i < _slots.Length; i++) ClearSlot(_slots[i]);
+
+            used += RenderReligionPanel(em, religion, aged, placing);
+            _religionWanted = true;
             return used;
         }
 
         private bool _paletteOverflowLogged;
 
-        /// <summary>True when the padded rows need more cells than the grid has.</summary>
-        private bool RowsOverflow(List<ActionButton>[] rows)
+        /// <summary>One build-palette cell (either panel): the building's
+        /// button, a click that starts its placement unless it is locked or a
+        /// placement is already running.</summary>
+        private void FillBuildCell(Slot slot, ActionButton b, bool placing, EntityManager em)
         {
-            int cells = 0;
-            for (int r = 0; r < rows.Length; r++)
-            {
-                if (rows[r].Count == 0) continue;
-                cells = ((cells + PaletteCols - 1) / PaletteCols) * PaletteCols + rows[r].Count;
-            }
-            return cells > Mathf.Min(_slots.Length, PaletteSlotCount);
+            string id = b.Id;
+            FillSlot(slot, b, BuildingCategory(id), null,
+                placing || !b.Enabled ? null
+                        : (System.Action)(() => WorkerCommandPanel.TriggerBuildingPlacement(id)),
+                em);
         }
 
         /// <summary>
@@ -124,7 +155,7 @@ namespace TheWaningBorder.UI.Ingame
                     movable = em.Exists(sel[i]) && em.HasComponent<MoveSpeed>(sel[i]);
             if (!movable) return -1;
 
-            SetWorkerRows(false);
+            SetGrid(GridMode.Authored);
             HideWorkerOnlyRow();
             int current = (int)TheWaningBorder.Input.FormationInput.CurrentShape;
             int count = Mathf.Min(4, _slots.Length);
@@ -148,7 +179,11 @@ namespace TheWaningBorder.UI.Ingame
                 if (i == current)
                     foreach (var img in _slots[i].TintBg) img.color = GameUIKit.BarGold;
             }
-            for (int i = count; i < _slots.Length; i++) ClearSlot(_slots[i]);
+            // BlankSlot, not ClearSlot: a cleared cell is inactive and the
+            // GridLayoutGroup would slide the stances up beside the
+            // formations; blanks keep formations on the top row and the
+            // stances on the bottom one.
+            for (int i = count; i < _slots.Length; i++) BlankSlot(_slots[i]);
 
             RenderStances(em, sel);
             RenderEnshrine(em, sel);
@@ -157,8 +192,12 @@ namespace TheWaningBorder.UI.Ingame
 
         // ── Unit mode: enshrine the Shardroot (Curse_And_Shardroot.md § 3.1d) ──
 
-        /// <summary>First slot of row 2: the bearer's Enshrine button.</summary>
-        private const int EnshrineSlot = 2 * Cols;
+        /// <summary>First slot of the MIDDLE row (row 1): the bearer's Enshrine
+        /// button, Drop beside it. The top row is the formations and the
+        /// bottom row the stances (developer, 2026-11-18: "top row should be
+        /// for Formation, bottom row for stance"), so the Shardroot moved up
+        /// out of the bottom row.</summary>
+        private const int EnshrineSlot = Cols;
 
         /// <summary>With the Shardroot's bearer selected, one button sends it
         /// to the nearest own finished Temple of Ridan to enshrine the
@@ -216,21 +255,27 @@ namespace TheWaningBorder.UI.Ingame
 
         // ── Unit mode: stances (docs/Design/Stances.md §6) ─────────────────
 
-        /// <summary>First slot of the stance row: row 1 (research row in
-        /// building mode, unused in unit mode), so the formation row above
-        /// keeps its place.</summary>
-        private const int StanceFirstSlot = Cols;
+        /// <summary>First slot of the stance row: the BOTTOM row of the
+        /// authored 3 x 5 (developer, 2026-11-18: "top row should be for
+        /// Formation, bottom row for stance").</summary>
+        private const int StanceFirstSlot = 2 * Cols;
 
+        // DISPLAY NAMES ONLY (developer, 2026-11-18; Stances.md § 9): the
+        // enum's Defensive shows as "Standard" and its Hold as "Defensive".
+        // The enum, the command ids, the save / lockstep format and the
+        // hotkeys (G / D / H) are unchanged. The ids below keep the enum's
+        // names so nothing that keys on them moves.
         private static readonly UnitStanceMode[] StanceOrder =
             { UnitStanceMode.Aggressive, UnitStanceMode.Defensive, UnitStanceMode.Hold };
-        private static readonly string[] StanceLabels = { "Aggressive", "Defensive", "Hold" };
+        private static readonly string[] StanceIds = { "Aggressive", "Defensive", "Hold" };
+        private static readonly string[] StanceLabels = { "Aggressive", "Standard", "Defensive" };
         private static readonly string[] StanceTips =
         {
-            "<b>Aggressive</b>  [G]\nEngages any enemy it can see and pursues it (up to "
-                + "30 m from its post), then walks back.",
-            "<b>Defensive</b>  [D]\nReturns fire: fights back against whatever attacks it, "
-                + "if it can reach it from where it stands. Never pursues. The default.",
-            "<b>Hold Position</b>  [H]\nCompletely passive: does not return fire and never "
+            "<b>Aggressive</b>  [G]\nEngages any enemy it can see and pursues it, "
+                + "then walks back to its post.",
+            "<b>Standard</b>  [D]\nReturns fire: fights back against whatever attacks it, "
+                + "if it can reach it from where it stands. Never pursues.",
+            "<b>Defensive</b>  [H]\nCompletely passive: does not return fire and never "
                 + "moves on its own. Your orders still work.",
         };
 
@@ -266,7 +311,7 @@ namespace TheWaningBorder.UI.Ingame
                     tip += "\n<i>" + counts[k] + " / " + total + "</i>";
                 var b = new ActionButton
                 {
-                    Id = "Stance_" + StanceLabels[k],
+                    Id = "Stance_" + StanceIds[k],
                     Label = Loc.T(StanceLabels[k]),
                     Tooltip = tip,
                     Enabled = true,
@@ -290,75 +335,89 @@ namespace TheWaningBorder.UI.Ingame
             }
         }
 
-        /// <summary>The cloned fourth row belongs to the build palette alone;
-        /// every other mode hides it (its cells are outside SlotCount, so the
-        /// building and unit renders never clear them themselves).</summary>
+        /// <summary>The cloned cells past the authored fifteen belong to the
+        /// 4 x 4 modes (palette, building menus); the unit mode hides them
+        /// (its own render never reaches past SlotCount).</summary>
         private void HideWorkerOnlyRow()
         {
             for (int i = SlotCount; i < _slots.Length; i++) ClearSlot(_slots[i]);
         }
 
-        /// <summary>Row 0 = trainable units, rows 1-2 = research. Returns -1
-        /// when this selection is not one the authored panel owns.</summary>
+        // ── Building mode: the 4 x 4 grid (2026-11-18) ────────────────────
+
+        /// <summary>One cell of a building menu, before it is placed. A null
+        /// entry in a plan is a cell held blank (row padding, a spent chain).</summary>
+        private struct PlanCell
+        {
+            public ActionButton Button;
+            public Category Cat;
+            public string[] ChainIds;
+            public System.Action Click;
+        }
+
+        /// <summary>
+        /// EVERY BUILDING'S MENU IS THE SAME 4 x 4 GRID (developer, 2026-11-18:
+        /// "all buildings should preserve the 4x4 action grid"). Each path
+        /// below lays its cells into the sixteen; SealGrid then holds every
+        /// cell left empty in place, so the grid never shrinks, grows or
+        /// slides. Returns -1 when this selection is not one the panel
+        /// describes as a building.
+        /// </summary>
         private int RenderBuilding(EntityManager em)
         {
+            int used = RenderBuildingCells(em);
+            if (used >= 0) SealGrid();
+            return used;
+        }
+
+        private int RenderBuildingCells(EntityManager em)
+        {
+            var info = EntityActionExtractor.GetActionInfo(_entity, em);
+            bool hasLayout = BuildingActionLayouts.TryResolve(_entity, em, out var layoutSlots);
+            // Walls, gates, manned towers, the hut's age-up choice, the
+            // Bazaar wagon and the Vault (ActionsPanelPrefabBinder.Special.cs).
+            bool special = !hasLayout && IsSpecialType(info.Type);
+            // The Market's trade buttons (ActionsPanelPrefabBinder.Market.cs).
+            bool market = !special && em.HasComponent<MarketTag>(_entity);
+            bool roster = hasLayout
+                || info.Type == ActionType.UnitTraining
+                || info.Type == ActionType.UnitTrainingAndResearch
+                || info.Type == ActionType.TempleTraining;
+            // A building whose ONLY action is its level-up (the Watch Tower
+            // trains and researches nothing) gets the grid with just that.
+            bool upgradeOnly = !special && !market && !roster
+                && info.Type == ActionType.None
+                && BuildingUpgradeAction.Describe(em, _entity).Show;
+            if (!special && !market && !roster && !upgradeOnly)
+                return -1;   // not a building this panel describes
+
             // A building's menu is the builder's grid (developer, 2026-11-13:
             // "building menu should use the same menu as the builder"): the
-            // same large cells filling the frame, no separator. Its own cells
-            // stay within the first three rows; the fourth is left empty.
-            var info = EntityActionExtractor.GetActionInfo(_entity, em);
-            // The Vault takes the builder's square 4 x 4 grid (decision 60).
-            // So does the Market: both are three columns of large cells.
-            SetGrid(info.Type == ActionType.VaultManagement || em.HasComponent<MarketRates>(_entity)
-                ? GridMode.Palette : GridMode.Large);
-            HideWorkerOnlyRow();
-            bool hasLayout = BuildingActionLayouts.TryResolve(_entity, em, out var layoutSlots);
+            // same square cells filling the frame, no separator.
+            SetGrid(GridMode.Palette);
+            BlankGrid();
 
-            // Walls, gates, manned towers, the hut's age-up choice, the
-            // Bazaar wagon and the Vault: the same grid, their own cells
-            // first (ActionsPanelPrefabBinder.Special.cs).
-            if (!hasLayout && IsSpecialType(info.Type))
-                return RenderSpecial(em, info);
-            // The Market's rate buttons (ActionsPanelPrefabBinder.Market.cs).
-            if (em.HasComponent<MarketRates>(_entity)) return RenderMarket(em, info);
-
-            if (!hasLayout
-                && info.Type != ActionType.UnitTraining
-                && info.Type != ActionType.UnitTrainingAndResearch
-                && info.Type != ActionType.TempleTraining)
+            if (special) return RenderSpecial(em, info);
+            if (market) return RenderMarket(em, info);
+            if (upgradeOnly)
             {
-                // A building whose ONLY action is its level-up — the Watch
-                // Tower trains and researches nothing — used to fall through
-                // to the code-built panel, which hides for a building with no
-                // actions, so its upgrade had nowhere to appear. It gets the
-                // grid with just the upgrade slot.
-                if (info.Type == ActionType.None
-                    && BuildingUpgradeAction.Describe(em, _entity).Show)
-                {
-                    for (int i = 0; i < _slots.Length; i++) ClearSlot(_slots[i]);
-                    int only = RenderUpgradeSlot(em);
-                    RenderProgress(em, info);
-                    return only;
-                }
-                return -1;   // not a building this panel describes
+                int only = RenderUpgradeSlot(em);
+                RenderProgress(em, info);
+                return only;
             }
 
             int used = 0;
+            Entity entity = _entity;
             if (hasLayout)
             {
-                bool keepGrid = BuildingActionLayouts.KeepsGrid(
-                    EntityActionExtractor.GetBuildingIdPublic(_entity, em));
-                for (int i = 0; i < _slots.Length; i++)
+                // An authored layout places every cell itself (4 x 4,
+                // BuildingActionLayouts); its empty cells stay blank.
+                for (int i = 0; i < layoutSlots.Length && i < BuildingCells && i < _slots.Length; i++)
                 {
-                    if (i >= layoutSlots.Length || layoutSlots[i].Empty)
-                    {
-                        if (keepGrid && i < SlotCount) BlankSlot(_slots[i]); else ClearSlot(_slots[i]);
-                        continue;
-                    }
+                    if (layoutSlots[i].Empty) continue;
                     var resolved = layoutSlots[i];
                     var b = resolved.Button;
                     var cat = resolved.IsTrain ? UnitCategory(b.Id) : Category.Research;
-                    Entity entity = _entity;
                     bool isTrain = resolved.IsTrain;
                     FillSlot(_slots[i], b, cat, resolved.ChainIds,
                         b.Enabled ? (System.Action)(() => Execute(entity, b, isTrain)) : null, em);
@@ -367,26 +426,22 @@ namespace TheWaningBorder.UI.Ingame
             }
             else
             {
-                // Top row: trainable units (and the building's special action
-                // cells — bazaar pack, reliquary abilities — which ride the
-                // training list).
+                // Row 0: trainable units (and the building's own cells -
+                // Bazaar pack, Reliquary powers, Forge bays, chapel levers -
+                // which ride the training list). Research from the next row.
+                var top = new List<PlanCell?>();
                 var trains = info.Actions;
-                int t = 0;
-                for (int i = 0; trains != null && i < trains.Count && t < TrainSlots; i++, t++)
+                for (int i = 0; trains != null && i < trains.Count; i++)
                 {
                     var b = trains[i];
-                    Entity entity = _entity;
-                    FillSlot(_slots[t], b, UnitCategory(b.Id), null,
-                        b.Enabled ? (System.Action)(() => Execute(entity, b, isTrain: true)) : null, em);
-                    used++;
+                    top.Add(new PlanCell
+                    {
+                        Button = b,
+                        Cat = UnitCategory(b.Id),
+                        Click = b.Enabled ? (System.Action)(() => Execute(entity, b, isTrain: true)) : null,
+                    });
                 }
-                if (trains != null && trains.Count > TrainSlots)
-                    TWBLog.Log($"[GameUI] ActionsPanel: {trains.Count} training actions, " +
-                        $"only {TrainSlots} slots — overflow dropped.");
-                for (; t < TrainSlots && t < _slots.Length; t++) ClearSlot(_slots[t]);
-
-                // Research rows: chain-stable slots.
-                used += RenderResearchRows(em);
+                used += PaintSections(em, top, BuildResearchPlan(em));
             }
 
             used += RenderUpgradeSlot(em);
@@ -394,13 +449,128 @@ namespace TheWaningBorder.UI.Ingame
             return used;
         }
 
+        /// <summary>Every cell of the 4 x 4 held blank (in place, invisible),
+        /// every cloned cell past it hidden: the start of a building render.
+        /// Never deactivates a cell of the sixteen, so a cell that is filled
+        /// again this refresh keeps its button state.</summary>
+        private void BlankGrid()
+        {
+            for (int i = 0; i < _slots.Length; i++)
+            {
+                if (i < BuildingCells) BlankSlot(_slots[i]);
+                else ClearSlot(_slots[i]);
+            }
+        }
+
+        /// <summary>The end of a building render: any of the sixteen cells a
+        /// path cleared is held blank again, and nothing past them shows, so
+        /// every building menu is the full 4 x 4.</summary>
+        private void SealGrid()
+        {
+            for (int i = 0; i < _slots.Length; i++)
+            {
+                if (i >= BuildingCells) { ClearSlot(_slots[i]); continue; }
+                if (!_slots[i].Root.activeSelf) BlankSlot(_slots[i]);
+            }
+        }
+
         /// <summary>
-        /// "Upgrade to Lv N" in the LAST free slot of the grid — the building
-        /// level-up used to be a pill floating off the selection header, which
-        /// is what "not integrated" meant. Takes the last empty cell so it
-        /// never displaces a unit or a research chain; if the grid is
-        /// genuinely full the upgrade is skipped rather than shadowing an
-        /// action (logged once so it is not silent).
+        /// The generic building layout: <paramref name="top"/> from row 0 (at
+        /// least one row, blank when empty; more than four cells wrap), then
+        /// <paramref name="research"/> from the next whole row. Up to fifteen
+        /// cells fit beside the level-up; more are paged (PaintPaged).
+        /// Returns the cells filled.
+        /// </summary>
+        private int PaintSections(EntityManager em, List<PlanCell?> top, List<PlanCell?> research)
+        {
+            var flat = new List<PlanCell?>(BuildingCells);
+            if (top != null) flat.AddRange(top);
+            int rowEnd = Mathf.Max(BuildingCols,
+                (flat.Count + BuildingCols - 1) / BuildingCols * BuildingCols);
+            while (flat.Count < rowEnd) flat.Add(null);
+            if (research != null) flat.AddRange(research);
+            // Trailing blanks take no room (they would only force a page).
+            while (flat.Count > 0 && !flat[flat.Count - 1].HasValue) flat.RemoveAt(flat.Count - 1);
+            return PaintPaged(em, flat);
+        }
+
+        /// <summary>
+        /// Lays a row-padded plan onto the grid. Fifteen cells or fewer: one
+        /// page, cells 0-14, the level-up in 15. More: twelve cells a page
+        /// (rows 0-2, so a page keeps the plan's rows), the page button in
+        /// cell 12, the level-up still in 15. Every action stays reachable.
+        /// </summary>
+        private int PaintPaged(EntityManager em, List<PlanCell?> flat)
+        {
+            bool paged = flat.Count > UpgradeCell;
+            int perPage = paged ? PageCells : UpgradeCell;
+            int pages = paged ? (flat.Count + PageCells - 1) / PageCells : 1;
+            if (_pageEntity != _entity) { _pageEntity = _entity; _page = 0; }
+            if (_page >= pages || _page < 0) _page = 0;
+
+            int used = 0, start = _page * perPage;
+            for (int i = 0; i < perPage && i < _slots.Length; i++)
+            {
+                int k = start + i;
+                if (k >= flat.Count || !flat[k].HasValue) continue;   // held blank (BlankGrid)
+                var c = flat[k].Value;
+                FillSlot(_slots[i], c.Button, c.Cat, c.ChainIds, c.Click, em);
+                used++;
+            }
+            if (paged && PagerCell < _slots.Length) RenderPager(em, pages);
+            return used;
+        }
+
+        /// <summary>The page button: shows which page is up, a click turns to
+        /// the next (and from the last back to the first).</summary>
+        private void RenderPager(EntityManager em, int pages)
+        {
+            var b = new ActionButton
+            {
+                Id = "PanelPage",
+                Label = string.Format(Loc.T("Page {0}/{1}"), _page + 1, pages),
+                Tooltip = "<b>" + string.Format(Loc.T("Page {0} of {1}"), _page + 1, pages) + "</b>\n"
+                          + Loc.T("This building has more actions than one grid holds. Click for the next page."),
+                Enabled = true,
+                CanAfford = true,
+            };
+            int count = pages;
+            FillSlot(_slots[PagerCell], b, Category.Research, null, () =>
+            {
+                _page = (_page + 1) % count;
+                _timer = RefreshInterval;   // repaint now
+            }, em);
+        }
+
+        /// <summary>Lays <paramref name="cells"/> one after another from
+        /// <paramref name="first"/>, never past the level-up cell (the Vault's
+        /// research under its own two rows). Returns the cells filled.</summary>
+        private int PaintRun(EntityManager em, List<PlanCell?> cells, int first)
+        {
+            int used = 0;
+            for (int i = 0; i < cells.Count; i++)
+            {
+                int index = first + i;
+                if (index >= UpgradeCell || index >= _slots.Length)
+                {
+                    TWBLog.Log($"[GameUI] ActionsPanel: {cells.Count} cells from cell {first}, " +
+                        $"only {UpgradeCell - first} before the level-up — overflow dropped.");
+                    break;
+                }
+                if (!cells[i].HasValue) continue;
+                var c = cells[i].Value;
+                FillSlot(_slots[index], c.Button, c.Cat, c.ChainIds, c.Click, em);
+                used++;
+            }
+            return used;
+        }
+
+        /// <summary>
+        /// The building's level-up, ALWAYS in the bottom-right cell of the
+        /// 4 x 4 (cell 15) - one place for every building, so it is never
+        /// hunted for and never displaces a unit or a research chain. (It
+        /// used to take the last free cell, and the Garrison's top-left; the
+        /// level-up was a pill off the selection header before that.)
         /// </summary>
         private static int TrailingNumber(string text)
         {
@@ -416,23 +586,17 @@ namespace TheWaningBorder.UI.Ingame
         {
             var upgrade = BuildingUpgradeAction.Describe(em, _entity);
             if (!upgrade.Show) return 0;
+            if (UpgradeCell >= _slots.Length) return 0;
 
-            int index = -1;
-            // A layout may name the cell (the Garrison: top left).
-            int preferred = BuildingActionLayouts.UpgradeSlotIndex(
-                EntityActionExtractor.GetBuildingIdPublic(_entity, em));
-            if (preferred >= 0 && preferred < _slots.Length
-                && (!_slots[preferred].Root.activeSelf || _slots[preferred].ActionId == null))
-                index = preferred;
-            for (int i = Mathf.Min(_slots.Length, SlotCount) - 1; index < 0 && i >= 0; i--)
-                if (!_slots[i].Root.activeSelf) { index = i; break; }
-            if (index < 0)
+            var slot = _slots[UpgradeCell];
+            if (slot.ActionId != null)
             {
+                // A layout put something in the level-up's cell.
                 if (!_upgradeOverflowLogged)
                 {
                     _upgradeOverflowLogged = true;
-                    TWBLog.Log("[GameUI] ActionsPanel: no free slot for the building upgrade " +
-                        "action — the grid is full.");
+                    TWBLog.Log($"[GameUI] ActionsPanel: cell {UpgradeCell} is taken by " +
+                        $"'{slot.ActionId}' — it belongs to the building level-up.");
                 }
                 return 0;
             }
@@ -450,7 +614,6 @@ namespace TheWaningBorder.UI.Ingame
                 // ends in that number).
                 Icon = ActionIcons.Upgrade(TrailingNumber(upgrade.Label)),
             };
-            var slot = _slots[index];
             FillSlot(slot, button, Category.Research, null,
                 upgrade.Enabled
                     ? (System.Action)(() => UpgradeClicked(entity))
@@ -464,25 +627,26 @@ namespace TheWaningBorder.UI.Ingame
         }
 
         /// <summary>
-        /// Lay research out into slots 5-14 with STABLE positions: each tech
+        /// The building's research as a plan with STABLE positions: each tech
         /// chain (linked by prerequisites within this building's research
-        /// list) owns one slot and shows its first not-yet-started tier;
-        /// exhausted chains leave their slot blank so nothing shifts around.
+        /// list) owns one cell and shows its first not-yet-started tier;
+        /// exhausted chains keep their cell as a blank (null) so nothing
+        /// shifts around. A chain no tier of which this faction's culture may
+        /// research takes no cell at all (the Barracks lists every culture's
+        /// ladders; they used to hold blank cells for the others). Extra
+        /// actions that are not catalog research (Keep wings, chapel levers,
+        /// the Temple's Petriarchy buttons) follow, one cell each.
         /// </summary>
-        private int RenderResearchRows(EntityManager em, int firstSlot = TrainSlots)
+        private List<PlanCell?> BuildResearchPlan(EntityManager em)
         {
+            var plan = new List<PlanCell?>();
             var visible = EntityActionExtractor.GetResearchActions(_entity, em);
             var byId = new Dictionary<string, ActionButton>(visible.Count);
             foreach (var a in visible) byId[a.Id] = a;
 
-            // Ordered slot plan: one entry per chain (null = chain exhausted,
-            // keep the slot blank), then any extra actions that are not part
-            // of the catalog research list (Keep wings, chapel levers, ...).
-            // Each entry keeps its chain's ids, so the running tier's radial
-            // sweep lands on the slot its successor now occupies.
-            var plan = new List<ActionButton?>();
-            var chains = new List<string[]>();
             var claimed = new HashSet<string>();
+            Entity entity = _entity;
+            byte culture = CultureConfig.GetCompletedCulture(em, OwnFaction(em));
 
             string buildingId = EntityActionExtractor.GetBuildingIdPublic(_entity, em);
             if (buildingId != null && TechCatalog.IsReady
@@ -510,11 +674,15 @@ namespace TheWaningBorder.UI.Ingame
                     // tiers are absent from its list).
                     ActionButton? display = null;
                     var chain = new List<string>();
+                    bool cultureMay = false;
                     string cursor = rootId;
                     while (cursor != null)
                     {
                         claimed.Add(cursor);
                         chain.Add(cursor);
+                        if (!TechCatalog.TryGetTechnology(cursor, out var t)
+                            || TechCatalog.CultureAllows(t, culture))
+                            cultureMay = true;
                         if (display == null && byId.TryGetValue(cursor, out var b))
                             display = b;
                         string next = null;
@@ -522,33 +690,35 @@ namespace TheWaningBorder.UI.Ingame
                             if (parent[id] == cursor) { next = id; break; }
                         cursor = next;
                     }
-                    plan.Add(display);
-                    chains.Add(chain.ToArray());
+                    if (!cultureMay) continue;   // another culture's ladder
+
+                    if (display == null) { plan.Add(null); continue; }
+                    var shown = display.Value;
+                    plan.Add(new PlanCell
+                    {
+                        Button = shown,
+                        Cat = Category.Research,
+                        ChainIds = chain.ToArray(),
+                        Click = shown.Enabled
+                            ? (System.Action)(() => Execute(entity, shown, isTrain: false)) : null,
+                    });
                 }
             }
 
             foreach (var a in visible)
-                if (!claimed.Contains(a.Id)) { plan.Add(a); chains.Add(new[] { a.Id }); }
-
-            int slots = Mathf.Max(0, SlotCount - firstSlot);
-            if (plan.Count > slots)
-                TWBLog.Log($"[GameUI] ActionsPanel: {plan.Count} research slots needed, " +
-                    $"only {slots} available — overflow dropped.");
-
-            int used = 0;
-            for (int i = 0; i < slots; i++)
             {
-                int slotIndex = firstSlot + i;
-                if (slotIndex >= _slots.Length) break;
-                if (i >= plan.Count || plan[i] == null) { ClearSlot(_slots[slotIndex]); continue; }
-
-                var b = plan[i].Value;
-                Entity entity = _entity;
-                FillSlot(_slots[slotIndex], b, Category.Research, chains[i],
-                    b.Enabled ? (System.Action)(() => Execute(entity, b, isTrain: false)) : null, em);
-                used++;
+                if (claimed.Contains(a.Id)) continue;
+                var extra = a;
+                plan.Add(new PlanCell
+                {
+                    Button = extra,
+                    Cat = Category.Research,
+                    ChainIds = new[] { extra.Id },
+                    Click = extra.Enabled
+                        ? (System.Action)(() => Execute(entity, extra, isTrain: false)) : null,
+                });
             }
-            return used;
+            return plan;
         }
 
         /// <summary>In-progress training/research shown as a radial cooldown
@@ -565,8 +735,11 @@ namespace TheWaningBorder.UI.Ingame
                 && info.ProductionState.Value.CurrentKind == ProductionKind.Train)
             {
                 var t = info.ProductionState.Value;
-                for (int i = 0; i < _slots.Length && i < TrainSlots; i++)
-                    if (_slots[i].ActionId == t.CurrentId && _slots[i].CooldownFill != null)
+                // Any cell of the grid: a unit is not always in row 0 (the
+                // Garrison authors its units in rows 1 and 2).
+                for (int i = 0; i < _slots.Length && i < BuildingCells; i++)
+                    if (_slots[i].ActionId == t.CurrentId && _slots[i].ChainIds == null
+                        && _slots[i].CooldownFill != null)
                         _slots[i].CooldownFill.fillAmount = 1f - Mathf.Clamp01(t.Progress);
             }
             if (info.ProductionState.HasValue

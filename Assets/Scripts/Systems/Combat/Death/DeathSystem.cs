@@ -229,6 +229,12 @@ namespace TheWaningBorder.Systems.Combat
                             $"({lostAt.x:F0},{lostAt.z:F0})");
                     }
 
+                    // A FALLEN KEYSTONE LEAVES RUBBLE (decision 69): the
+                    // Fortress, the Temple and the landmark may be built again
+                    // only there. Spawn ignores every other building.
+                    if (isBuilding && !state.EntityManager.HasComponent<UnderConstruction>(dead))
+                        TheWaningBorder.Entities.KeystoneRubbles.Spawn(state.EntityManager, ecb, dead);
+
                     if (!isBuilding)
                     {
                         TransientState.Set(ecb, dead, new DeathAnimationState { Timer = DeathAnimationDuration });

@@ -16,16 +16,17 @@ MonoBehaviour:
   displayName: Counterweight Tuning
   role: Military
   effect: 
-  desc: "Retuned counterweights: Trebuchet range 38 to 44."
-  researchAt: Alanthor_SiegeYard
+  desc: "+1 tile (2 m) range for the Catapult and the Trebuchet."
+  researchAt: SiegeYard
   minBuildingLevel: 3
-  researchTime: 45
-  prerequisites: []
+  researchTime: 50
+  prerequisites:
+  - TorsionArms
   culture: Alanthor
   cost:
-    Supplies: 320
-    Iron: 160
-    Veilstone: 0
+    Supplies: 250
+    Iron: 150
+    Veilstone: 100
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -34,7 +35,11 @@ MonoBehaviour:
     rangedDamageAdd: 0
     archerRangeMult: 0
   effectsList:
+  - Target: "unit:Alanthor_Catapult"
+    Stat: AttackRange
+    Op: Add
+    Value: 2
   - Target: "unit:Alanthor_Trebuchet"
     Stat: AttackRange
     Op: Add
-    Value: 6
+    Value: 2

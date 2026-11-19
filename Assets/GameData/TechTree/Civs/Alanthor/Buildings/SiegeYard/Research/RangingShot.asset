@@ -17,14 +17,14 @@ MonoBehaviour:
   role: Military
   effect: 
   desc: "Unlocks the Ranging Shot active for Alanthor siege engines: after standing still for 3 s the next shot deals +100% damage. 60 s cooldown."
-  researchAt: Alanthor_SiegeYard
+  researchAt: SiegeYard
   minBuildingLevel: 2
   researchTime: 40
   prerequisites: []
   culture: Alanthor
   cost:
     Supplies: 220
-    Iron: 90
+    Iron: 140
     Veilstone: 0
   effects:
     gatherSpeedMult: 0

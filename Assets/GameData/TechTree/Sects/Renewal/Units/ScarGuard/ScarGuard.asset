@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_ScarGuard
   displayName: Scar Guard
   unitClass: melee
-  hp: 510
+  hp: 320
   speed: 5.5
   trainingTime: 22
   damage: 26
@@ -49,6 +49,7 @@ MonoBehaviour:
   - 'Infantry'
   - 'Heavy'
   bonusVsTags: []
+  torchDamage: 21
   abilities: []
   prefab: {fileID: 32314801045755, guid: 05f7000860a9b9893ac91fd3aeb3f944, type: 3}
   presentationId: 370

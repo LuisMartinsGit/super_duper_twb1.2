@@ -37,7 +37,7 @@ namespace TheWaningBorder.Economy
         public const float FriendlyFireCooldown = 150f;
         /// <summary>Map-wide power (Blood Rain, Nowhere to Hide).</summary>
         public const float MapWideCooldown = 150f;
-        /// <summary>Deployable structure (Deploy Field Hospital).</summary>
+        /// <summary>Deployable structure (the Healing Ward, shared by every Litharch).</summary>
         public const float DeployableCooldown = 300f;
 
         // ── Damage bands: per victim at level I, by reach ─────────────────

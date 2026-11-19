@@ -140,18 +140,19 @@ namespace TheWaningBorder.Abilities
                 },
                 Aftermath = null,
             },
-            // 10 — Deploy Field Hospital (Litharch; unlocked by the Sect of
-            // Renewal's "Field Hospital" research, bought at the Mending Hall).
-            // Raises a temporary building that heals nearby allies and tears
-            // itself down after two minutes.
+            // 10 — Healing Ward (Litharch; unlocked by the Sect of Renewal's
+            // research, bought at the Mending Hall; was Deploy Field Hospital).
+            // Plants a one-cell ward that stands until destroyed and pulses
+            // heals over nearby allies (HealingWardSystem). The cooldown is
+            // SHARED by every Litharch of the faction (docs/Design/Sects.md).
             new AbilityCard {
-                Name = "Deploy Field Hospital", Activation = AbilityActivation.Active,
+                Name = "Healing Ward", Activation = AbilityActivation.Active,
                 // Placed like a building within the card's reach (2026-11-11,
                 // Build_Grid.md § Buildings raised by abilities).
                 Targeting = AbilityTargeting.Area, Affects = AbilityAffects.Self, AimedAtPoint = true,
                 CastTime = 3f, Duration = 0f, Cooldown = 300f, Radius = 15f, Range = 12f,
                 Effects = new[] {
-                    new AbilityEffect(AbilityEffectKind.DeployFieldHospital, 1f),
+                    new AbilityEffect(AbilityEffectKind.DeployHealingWard, 1f),
                 },
                 Aftermath = null,
             },

@@ -1009,37 +1009,12 @@ namespace TheWaningBorder.Bootstrap
                 PlaceShowcaseBuilding(em, age0[i], Faction.Blue,
                     new float3(-150f, 0f, TopZ - i * Row), level: 0);
 
-            // Temple of Ridan + the 6 chapel statues docked in its ring.
-            // Spawned directly (the slot-driven path routes through the sect
-            // adoption economy and would destroy an uncredited chapel). Two
-            // sects per culture cluster so the statue variety reads.
+            // Temple of Ridan, beside the Age 0 row.
             float3 templePos = new float3(-150f, 0f, TopZ - 7.5f * Row);
             templePos = TerrainUtility.SnapToTerrain(templePos);
             BuildingFactory.Create(em, "TempleOfRidan", templePos, Faction.Blue);
 
-            string[] statueSects = { SectConfig.Antiquity, SectConfig.Renewal,
-                                     SectConfig.Silence,   SectConfig.Justice,
-                                     SectConfig.War,       SectConfig.Ash };
-            for (int i = 0; i < statueSects.Length; i++)
-            {
-                float3 slotPos = templePos + TempleChapelRing.WorldOffset(i);
-                slotPos = TerrainUtility.SnapToTerrain(slotPos);
-                var chapel = BuildingFactory.Create(
-                    em, SectConfig.ChapelIdFor(statueSects[i]), slotPos, Faction.Blue);
-
-                // BFME2 docking, same as TempleChapelBuildSystem: the statue's
-                // back sits flush against its temple face, door facing outward.
-                if (chapel != Entity.Null && em.HasComponent<LocalTransform>(chapel))
-                {
-                    float3 outward = slotPos - templePos;
-                    outward.y = 0f;
-                    var lt = em.GetComponentData<LocalTransform>(chapel);
-                    lt.Rotation = quaternion.LookRotationSafe(outward, math.up());
-                    em.SetComponentData(chapel, lt);
-                }
-            }
-
-            // The size-reference Worker, beside the temple ring.
+            // The size-reference Worker, beside the Temple.
             float3 workerPos = new float3(-134f, 0f, templePos.z + 10f);
             workerPos = TerrainUtility.SnapToTerrain(workerPos);
             UnitFactory.Create(em, "Worker", workerPos, Faction.Blue);
@@ -2141,8 +2116,6 @@ namespace TheWaningBorder.Bootstrap
                  "Iron-tipped", "blue trail, no hit", new Color(0.86f, 0.88f, 0.92f)),
                 (Faction.Green,  "VeilstoneTippedArrows",
                  "Veilstone-tipped", "dark-magic tip + hit", new Color(0.45f, 0.72f, 1.00f)),
-                (Faction.Yellow, "ShardTippedArrows",
-                 "Shard-tipped", "electric tip + hit", new Color(1.00f, 0.85f, 0.40f)),
             };
 
             // Shooters together, dummies opposite. Alliances.AreHostile is the

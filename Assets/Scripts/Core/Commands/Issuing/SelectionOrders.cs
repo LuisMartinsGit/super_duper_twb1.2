@@ -482,8 +482,8 @@ namespace TheWaningBorder.Core.Commands.Issuing
 
         /// <summary>
         /// A rally point only means something on a building that sends units
-        /// out: one that TRAINS them (its SO's trains list; a Chapel's sect
-        /// unit; a Fiendstone Keep's wings) or GARRISONS them (a wall). A
+        /// out: one that TRAINS them (its SO's trains list; a
+        /// Fiendstone Keep's wings) or GARRISONS them (a wall). A
         /// house, mine or outpost has no rally (2026-10-16) — right-clicking
         /// with one selected used to create a rally on it, because the sim
         /// adds the component on demand.
@@ -491,7 +491,6 @@ namespace TheWaningBorder.Core.Commands.Issuing
         public static bool CanHoldRally(EntityManager em, Entity building)
         {
             if (em.HasComponent<RallyPoint>(building)) return true;   // authored at spawn
-            if (em.HasComponent<ChapelTag>(building)) return true;
             if (em.HasComponent<KeepWings>(building)) return true;
             if (em.HasBuffer<WallGarrisonSlot>(building)) return true;
 

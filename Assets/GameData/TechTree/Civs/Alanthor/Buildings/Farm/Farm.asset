@@ -15,16 +15,16 @@ MonoBehaviour:
   id: Alanthor_Farm
   displayName: Farm
   role: Supplies from the Workers inside it - up to five, nothing when empty
-  description: Built on your own ground, never on a resource node, at most six per
+  description: Built on your own ground, never on a resource node, at most four per
     player. Right-click it with Workers selected to put them to work inside; each
     Worker pays supplies every minute, scaled by how much of the crop ring around
     the Farm is free of buildings, rough ground and other Farms' fields. Empty
     sends them back out, and a destroyed Farm sets them down beside it alive.
-  hp: 400
+  hp: 800
   armorType: structure_human
   defense:
-    melee: 3
-    ranged: 9
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 1
   radius: 1.5
@@ -44,6 +44,7 @@ MonoBehaviour:
   minWallLevel: 0
   garrisonSlots: 5
   garrisonArrowsPerOccupant: 0
+  garrisonWorkerSeconds: 60
   maxIron: 0
   maxVeilstone: 0
   segmentHp: 0

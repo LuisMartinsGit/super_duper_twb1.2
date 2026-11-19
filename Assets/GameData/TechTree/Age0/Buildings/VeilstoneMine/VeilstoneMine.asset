@@ -17,11 +17,11 @@ MonoBehaviour:
   role: Veilstone extraction - built on a veilstone outcropping
   description: Cuts veilstone from the outcropping it stands on, adding to the territory
     yield. Upgrading draws more per minute - and empties the seam sooner.
-  hp: 700
+  hp: 1200
   armorType: structure_human
   defense:
-    melee: 1
-    ranged: 1
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 0
   radius: 1.5
@@ -35,7 +35,22 @@ MonoBehaviour:
   - 100
   - 150
   - 250
+  vaultBarCapacity: 
+  vaultBarBonus: 0
+  vaultSubBars: 0
+  vaultBarResource: 
   maxPerFaction: 0
+  cropRingMeters: 0
+  marketSuppliesLot: 0
+  marketIronLot: 0
+  marketSuppliesLotPrice: 0
+  marketIronLotPrice: 0
+  marketPriceStepPermille: 0
+  marketSellPercent: 0
+  marketPriceFloorPercent: 0
+  marketPriceCeilingPercent: 0
+  marketDriftSeconds: 0
+  marketDriftPermille: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
@@ -60,12 +75,11 @@ MonoBehaviour:
     cooldown: 1.5
     maxTargets: 1
     siegeShotDamage: 0
+  firePoints: []
   levels: []
   unitUpgrades: []
   prefab: {fileID: 3396850927273225354, guid: 6c207a18a35d789449de99dbd512a73a, type: 3}
-  culturePrefabs:
-  - culture: Feraldis
-    prefab: {fileID: 8279015982744956637, guid: 98ee64e6bdcb5c44abf4b7678b51f150, type: 3}
+  culturePrefabs: []
   presentationId: 566
   prefabPath: 
   canUpgradeTo: []

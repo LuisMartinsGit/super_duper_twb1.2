@@ -15,31 +15,31 @@ MonoBehaviour:
   id: Alanthor_Catapult
   displayName: Catapult
   unitClass: machinery_siege
-  hp: 350
-  speed: 3.2
+  hp: 250
+  speed: 2.4
   trainingTime: 90
-  damage: 40
+  damage: 30
   damageType: siege
   armorType: ranged
   defense:
     melee: 0
-    ranged: 6
+    ranged: 4
     siege: 0
     magic: 0
-  attackCooldown: 8
-  attackRange: 30
-  minAttackRange: 10
-  lineOfSight: 20
+  attackCooldown: 6
+  attackRange: 20
+  minAttackRange: 4
+  lineOfSight: 24
   aimTime: 1.2
   radius: 0.8
   trajectory: high
   projectileSpeed: 18.2
   cost:
-    Supplies: 30
-    Iron: 99
-    Veilstone: 350
+    Supplies: 0
+    Iron: 400
+    Veilstone: 150
   populationCost: 5
-  minBuildingLevel: 1
+  minBuildingLevel: 2
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
@@ -48,14 +48,11 @@ MonoBehaviour:
   siegeCooldown: 0
   aoeRadius: 3
   tags:
-  - Ranged
   - Siege
   - Heavy
   bonusVsTags:
   - vsTag: Building
-    amount: 30
-  - vsTag: Infantry
-    amount: 20
+    amount: 10
   preferTargets:
   - Massed
   abilities: []

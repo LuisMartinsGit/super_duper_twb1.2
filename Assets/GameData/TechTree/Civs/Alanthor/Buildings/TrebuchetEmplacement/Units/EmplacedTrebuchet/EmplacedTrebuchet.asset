@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_EmplacedTrebuchet
   displayName: Emplaced Trebuchet
   unitClass: machinery_siege
-  hp: 510
+  hp: 320
   speed: 0
   trainingTime: 14
   damage: 120

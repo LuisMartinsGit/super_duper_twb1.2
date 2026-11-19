@@ -83,7 +83,8 @@ Only your own. The tooltip says which of these the current selection gets.
   `BreakGround`, `Cancel`, and tag→id counts so the AI's building counts include
   plans.
 - `CommandRouter.PlaceBuildingDirect` spends, then creates a plan for every
-  worker-raised building (landmarks still self-construct as sites);
+  worker-raised building (landmarks are still placed as sites directly, and
+  Workers build them — none builds itself since 2026-11-17);
   `CreateConstructionSite` is the shared site tail.
 - `PlannedBuildingSystem` — breaks ground when a worker is in range; resumes
   an idle worker's build queue; the ownership sweep of §6.

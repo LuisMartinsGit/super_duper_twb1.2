@@ -20,3 +20,8 @@ MonoBehaviour:
   splitMergeRadius: 60
   splitMaxFormations: 8
   repeatOrderKeepRadius: 20
+  columnLagMetres: 12
+  columnWaitFraction: 0
+  columnWaitSpeed: 0
+  openGroundShare: 0.9
+  convoyGapMetres: 25

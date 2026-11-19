@@ -1109,8 +1109,7 @@ namespace TheWaningBorder.Core.Commands
         /// the RP spend and the adoption stamp happen in
         /// SectAdoptionCommandDirect on EVERY peer
         /// (docs/Multiplayer_LAN_Readiness.md). <paramref name="temple"/>
-        /// carries the faction; its chapel decoration follows from the bank
-        /// state (TempleChapelBuildSystem).
+        /// carries the faction.
         /// </summary>
         public static void IssueSectAdoption(EntityManager em, Entity temple, string sectId,
             CommandSource source = CommandSource.LocalPlayer)
@@ -1171,6 +1170,19 @@ namespace TheWaningBorder.Core.Commands
                 // refuses the same command.
                 var research = TheWaningBorder.Economy.FactionResearchState.Instance;
                 if (research != null && research.HasResearched(faction, techId)) return;
+                // THE TEMPLE'S TIERS (decision 77): its research unlocks with
+                // the highest adopted sect level — refused before the spend.
+                if (em.HasComponent<TempleOfRidanTag>(building)
+                    && TechCatalog.TryGetTechnology(techId, out var templeTech) && templeTech != null
+                    && templeTech.minBuildingLevel > TheWaningBorder.Entities.ResearchHostLevel.Of(em, building))
+                    return;
+                // WHAT THE TEMPLE OFFERS (2026-11-18, Age_0.md § Temple of
+                // Ridan): a Temple tech it does not offer at this age is
+                // refused for everyone — the panel hides it, and neither a
+                // stale click nor the AI may buy it.
+                if (em.HasComponent<TempleOfRidanTag>(building)
+                    && !TheWaningBorder.Entities.TempleOffer.OffersResearch(em, faction, techId))
+                    return;
                 if (IsResearchQueued(em, faction, techId, out _, out _)) return;
                 // A building level grants it (decision 53): never bought.
                 if (TechCatalog.IsGrantedByLevel(techId)) return;
@@ -1639,6 +1651,22 @@ namespace TheWaningBorder.Core.Commands
             bool notifyLocal = em.HasComponent<FactionTag>(building)
                 && em.GetComponentData<FactionTag>(building).Value == GameSettings.LocalPlayerFaction;
 
+            // THE ROSTER IS THE RULE (2026-11-17): a building trains only what
+            // its SO's trains[] lists, on every peer — taking an id off the
+            // list disables the unit for every command source (the Ledger,
+            // developer: "Disable the ledger until further notice").
+            {
+                string trainerId = TheWaningBorder.Entities.BuildingIds.Of(building, em);
+                if (!string.IsNullOrEmpty(trainerId) && TechCatalog.TryGetBuilding(trainerId, out var trainerDef)
+                    && trainerDef?.trains != null && trainerDef.trains.Length > 0
+                    && System.Array.IndexOf(trainerDef.trains, unitId) < 0)
+                {
+                    TWBLog.Log($"[CommandRouter] TRAIN '{unitId}' REFUSED - not on {trainerId}'s roster.");
+                    if (notifyLocal) SimSignals.Notify(Loc.T("That unit is not available"));
+                    return;
+                }
+            }
+
             // Belt-and-suspenders: IssueTrain already filters above, but
             // direct callers (post-lockstep apply, scripted spawns) hit
             // this path bypass-style. Silent drop on level mismatch since
@@ -1688,6 +1716,13 @@ namespace TheWaningBorder.Core.Commands
             // SECT UNITS (docs/Design/Religion.md §4): only for an adopted
             // sect, at most SectConfig.SectUnitLimit live and queued.
             string limitedSect = TheWaningBorder.Systems.Sect.SectHeroes.SectIdForLimitedUnit(unitId);
+            // Sect units and heroes OFF (FactionReligionPoints.asset sectUnitsEnabled).
+            if (!TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg.sectUnitsEnabled
+                && (limitedSect != null || TheWaningBorder.Systems.Sect.SectHeroes.SectIdForUnit(unitId) != null))
+            {
+                if (notifyLocal) SimSignals.Notify(Loc.T("Sect units are not available in this build"));
+                return;
+            }
             if (limitedSect != null && em.HasComponent<FactionTag>(building))
             {
                 var unitFaction = em.GetComponentData<FactionTag>(building).Value;
@@ -1941,6 +1976,16 @@ namespace TheWaningBorder.Core.Commands
             if (!CanPlaceBuilding(em, buildingId, faction))
                 return TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
 
+            // ONE KEYSTONE OF EACH, EVER (decision 69): a second Fortress,
+            // Temple or landmark is refused, and a fallen one is built again
+            // only on its rubble — whoever holds the ground there, so the
+            // territory gate below does not apply to it.
+            float rubbleYaw = 0f;
+            if (!TheWaningBorder.Entities.KeystoneRubbles.Gate(em, faction, buildingId,
+                    ref position, ref rubbleYaw, out bool keystoneRebuild))
+                return TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
+            if (keystoneRebuild) return Ok;
+
             // TERRITORY GATE (docs/Design/Regions.md §2 + §6). You build in the
             // ground you hold; a claim structure is the one thing that may go
             // on Natural ground, because planting it is how ground is taken —
@@ -2119,6 +2164,7 @@ namespace TheWaningBorder.Core.Commands
         /// first so every peer answers from the same live Halls rather than
         /// from whenever its own income tick last ran.
         /// </summary>
+
         private static TheWaningBorder.World.Regions.PlacementRefusal CheckClaimAtExecution(
             EntityManager em, string buildingId, float3 position, Faction faction, Entity worker)
         {
@@ -2127,6 +2173,10 @@ namespace TheWaningBorder.Core.Commands
             // meter between issue and execution, and on a remote peer the
             // issue gates never ran — a building must never land on ground
             // its faction lost in the meantime.
+            // A keystone rebuilt on its rubble (decision 69) stands whoever
+            // holds the ground.
+            if (TheWaningBorder.Entities.KeystoneRubbles.IsRebuild(em, faction, buildingId, position))
+                return TheWaningBorder.World.Regions.PlacementRefusal.None;
             if (TheWaningBorder.World.Regions.RegionMap.Ready)
                 TheWaningBorder.World.Regions.TerritoryOwnership.Recompute(em);
             var r = TheWaningBorder.World.Regions.TerritoryOwnership.TerritoryRefusal(
@@ -2212,6 +2262,17 @@ namespace TheWaningBorder.Core.Commands
             // the spend, like the collision check below.
             if (IsWallMountOnlyBuilding(buildingId)) return Entity.Null;
 
+            // ONE KEYSTONE OF EACH, EVER (decision 69), re-checked at
+            // execution on every peer: refused while one stands (or is a site
+            // or a plan); a fallen one goes back on its rubble with its old
+            // facing — and a landmark rebuilt there skips the landmark gate.
+            if (!TheWaningBorder.Entities.KeystoneRubbles.Gate(em, faction, buildingId,
+                    ref position, ref yawDegrees, out bool keystoneRebuild))
+            {
+                LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
+                return Entity.Null;
+            }
+
             // Another culture's building never places, on any peer, before
             // the spend (CultureGate.CanFactionBuild, 2026-10-13).
             if (CultureRefusesBuilding(em, buildingId, faction))
@@ -2241,6 +2302,7 @@ namespace TheWaningBorder.Core.Commands
             // that already has a culture never builds another, and a landmark
             // whose culture the build does not ship is refused outright.
             if (TheWaningBorder.Entities.BuildingFactory.IsChoiceBuilding(buildingId)
+                && !keystoneRebuild
                 && LandmarkRefused(em, buildingId, faction))
             {
                 LastPlacementRefusal = TheWaningBorder.World.Regions.PlacementRefusal.CapReached;
@@ -2390,19 +2452,19 @@ namespace TheWaningBorder.Core.Commands
                 em.SetComponentData(building, lt);
             }
 
-            // The site markers — PaidBuildCost, UnderConstruction and (for a
-            // landmark) AutoConstructTag — land in ONE structural change
-            // (2026-10-15); one add each left two empty archetypes per
-            // building type behind. Values are the same as before.
+            // The site markers — PaidBuildCost and UnderConstruction — land in
+            // ONE structural change (2026-10-15); one add each left two empty
+            // archetypes per building type behind. NO landmark builds itself
+            // any more (2026-11-17, developer: "Completely remove the auto
+            // build from the vault"): Workers raise it like any building — a
+            // self-building free Vault rebuilt on its rubble kept a faction
+            // with nothing else alive for 100 minutes (decision 69).
             bool siteExists = building != Entity.Null && em.Exists(building);
-            bool selfBuilds = TheWaningBorder.Entities.BuildingFactory.IsChoiceBuilding(buildingId);
             var siteTypes = new Unity.Collections.FixedList128Bytes<ComponentType>();
             if (siteExists && !em.HasComponent<PaidBuildCost>(building))
                 siteTypes.Add(ComponentType.ReadWrite<PaidBuildCost>());
             if (!em.HasComponent<UnderConstruction>(building))
                 siteTypes.Add(ComponentType.ReadWrite<UnderConstruction>());
-            if (selfBuilds && !em.HasComponent<AutoConstructTag>(building))
-                siteTypes.Add(ComponentType.ReadWrite<AutoConstructTag>());
             if (siteTypes.Length > 0)
                 em.AddComponent(building, new ComponentTypeSet(siteTypes));
 
@@ -2417,20 +2479,12 @@ namespace TheWaningBorder.Core.Commands
 
             // Set HP to 1 during construction; the site completes to the def's
             // own Max. No sect research scales building HP any more - Renewal
-            // sells Field Hospital where Mason's Charter used to sit.
+            // sells the Healing Ward where Mason's Charter used to sit.
             if (em.HasComponent<Health>(building))
             {
                 var hp = em.GetComponentData<Health>(building);
                 em.SetComponentData(building, new Health { Value = 1, Max = hp.Max });
             }
-
-            // Landmarks (Vault / Keep) self-construct with no
-            // worker over 90 s (design: Age_0.md § Special buildings).
-            // Workers can still be sent to accelerate — each contributes
-            // +25 % build rate in BuildingConstructionSystem, so 4 workers
-            // halve the time. Deterministic across lockstep peers (this
-            // method runs on every client). AutoConstructTag itself was
-            // added with the other site markers above.
 
             // A worker-placed Fortress (one per territory, Territory_Claims.md
             // §4) inherits the faction's current culture so culture-driven

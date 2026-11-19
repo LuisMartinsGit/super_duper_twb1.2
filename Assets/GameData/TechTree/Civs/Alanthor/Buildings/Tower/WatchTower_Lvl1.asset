@@ -15,7 +15,7 @@ MonoBehaviour:
   buildingId: Alanthor_Tower
   culture: Alanthor
   level: 1
-  displayName: Watch Tower
+  displayName: Battle Tower
   upgradeCost:
     Supplies: 0
     Iron: 0

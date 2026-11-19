@@ -105,6 +105,9 @@ namespace TheWaningBorder.AI
         public int ProvinceProductionPerTerritory;
         public float ProductionSaturationThreshold;
         public float ProductionSaturationSeconds;
+        public int SecureProvincesFirst;
+        public float UnitRateAt10Min;
+        public float UnitRateFrom20Min;
 
         /// <summary>Economy defence (Game_AI.md § 5i) — see the SO fields.</summary>
         public float EconomyDefenceDelaySeconds;
@@ -217,6 +220,9 @@ namespace TheWaningBorder.AI
                 ProvinceProductionPerTerritory = so.provinceProductionPerTerritory,
                 ProductionSaturationThreshold = so.productionSaturationThreshold,
                 ProductionSaturationSeconds = so.productionSaturationSeconds,
+                SecureProvincesFirst = so.secureProvincesFirst,
+                UnitRateAt10Min = so.unitRateAt10Min,
+                UnitRateFrom20Min = so.unitRateFrom20Min,
                 EconomyDefenceDelaySeconds = so.economyDefenceDelaySeconds,
                 EconomyDefenceMargin = so.economyDefenceMargin,
                 StandingArmyFloorFraction = so.standingArmyFloorFraction,

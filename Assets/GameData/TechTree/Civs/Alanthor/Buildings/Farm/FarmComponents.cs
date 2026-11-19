@@ -23,6 +23,18 @@ public struct FarmPay : IComponentData
 }
 
 /// <summary>
+/// A Farm's own hands (decision 83): whole seconds it has spent with a free
+/// slot toward its next Worker (Farm.asset garrisonWorkerSeconds). FarmSystem
+/// counts it up while the Farm is finished and not full, holds it at the mark
+/// while its owner's population is full, and sets it back to 0 when a Worker is
+/// born or the Farm is full. On the entity, so it rides a save snapshot.
+/// </summary>
+public struct FarmWorkerClock : IComponentData
+{
+    public int Seconds;
+}
+
+/// <summary>
 /// A Farm's crop field (decision 57, FarmRing): the per-mille of its crop
 /// ring's sample lattice that is free of obstacles. FarmSystem recomputes it
 /// on a fixed cadence (FarmRing.FreePermille) and pays with it; the UI reads

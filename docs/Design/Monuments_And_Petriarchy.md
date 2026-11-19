@@ -88,6 +88,12 @@ for instead of a counter that fills by itself.
 
 ## 5. Petriarchy support (the Temple)
 
+> **2026-11-18: hidden.** The Temple shows only the Litharch (and, from Age 1,
+> Warrior Priests) — [Age_0.md § Temple of Ridan](Age_0.md). Support (§5) and
+> the Army (§6) are not offered and `ReligionPurchases.CanBuy` refuses them for
+> every faction, AI included (`TempleOffer.asset`, `petriarchy`). The rules
+> below are kept for when they find a new home.
+
 A standing Temple has **one button per resource**: supplies, iron, veilstone,
 veilsteel. Each spends one RP and pays that resource's amount from
 `FactionReligionPoints.asset`, with no cooldown. In the fiction the player asks

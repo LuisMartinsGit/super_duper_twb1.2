@@ -17,16 +17,15 @@ MonoBehaviour:
   role: Military
   effect: 
   desc: "Unlocks the Siege Screens passive for Alanthor siege engines: +50% ranged defense while stationary; lost the moment the engine moves."
-  researchAt: Alanthor_SiegeYard
-  minBuildingLevel: 3
-  researchTime: 50
-  prerequisites:
-  - RangingShot
+  researchAt: SiegeYard
+  minBuildingLevel: 1
+  researchTime: 30
+  prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 130
-    Veilstone: 480
+    Supplies: 120
+    Iron: 60
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

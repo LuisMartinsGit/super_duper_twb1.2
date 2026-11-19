@@ -98,9 +98,7 @@ namespace TheWaningBorder.AI
                 if (!hunting)
                 {
                     _wars[(int)faction] = new War { Victim = prey, Since = now };
-                    AILogger.Log(faction, "WAR", FinishingVictim(faction, out var fv) && fv == prey
-                        ? $"war on {prey} — finish it: it is beaten (§ 6u)"
-                        : $"war on {prey} — the hunt: it holds next to nothing");
+                    AILogger.Log(faction, "WAR", $"war on {prey} — {PreyReason(faction, prey) ?? "the doctrine's pick"}");
                 }
                 return prey;
             }

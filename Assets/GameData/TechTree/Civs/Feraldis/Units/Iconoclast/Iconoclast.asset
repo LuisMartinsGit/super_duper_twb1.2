@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Iconoclast
   displayName: Feraldis_Iconoclast
   unitClass: human_magic
-  hp: 450
+  hp: 280
   speed: 3.2
   trainingTime: 47.6
   damage: 10
@@ -45,6 +45,7 @@ MonoBehaviour:
   - Infantry
   - Heavy
   bonusVsTags: []
+  torchDamage: 13
   prefab: {fileID: 7535181925236253230, guid: 276de28bfbdf0da4c8741e5e96bee8d1, type: 3}
   presentationId: 386
   animatorController: {fileID: 9100000, guid: f68580242e880d94eb2ddad558ca563c, type: 2}

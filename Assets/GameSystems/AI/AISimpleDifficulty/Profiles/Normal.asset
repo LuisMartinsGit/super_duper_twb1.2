@@ -77,12 +77,15 @@ MonoBehaviour:
   provinceProductionPerTerritory: 2
   productionSaturationThreshold: 0.8
   productionSaturationSeconds: 60
+  secureProvincesFirst: 0
+  unitRateAt10Min: 0
+  unitRateFrom20Min: 0
   economyDefenceDelaySeconds: 6
   economyDefenceMargin: 1.5
   tactics:
     counterTargetWeight: 0.5
     focusFireWeight: 0.6
-    kiting: 0
+    kiting: 1
     flankFraction: 0
     retreatRatio: 1.8
     reengageRatio: 0.8
@@ -91,3 +94,6 @@ MonoBehaviour:
     aoeMinEnemies: 3
     healMinMissingFraction: 0.25
     pivotalRatio: 1.4
+    actionsPerMinute: 40
+    actionBurst: 4
+    reactionSeconds: 1.2

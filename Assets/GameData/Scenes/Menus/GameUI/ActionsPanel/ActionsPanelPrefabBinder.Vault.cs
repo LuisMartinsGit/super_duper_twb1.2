@@ -6,23 +6,24 @@
 //
 // PANEL 1 — the actions panel, on the builder's square 4 x 4 grid:
 //
-//            col 0 Supplies   col 1 Iron      col 2 Veilstone   col 3
-//   row 0    [+ deposit]      [+ deposit]     [+ deposit]       [- withdraw all]
-//   row 1    [supplies +x%]   [iron +x%]      [veil +x%]
-//   row 2    [unlock the next bar]  [level up]
-//   row 3    (free)
+//            col 0 Iron       col 1 Veilstone   col 2 Supplies   col 3
+//   row 0    [+ deposit]      [+ deposit]       [+ deposit]      [- withdraw all]
+//   row 1    [iron +N/min]    [veil +N/min]     [sup +N/min]
+//   row 2    [unlock the next bar]
+//   row 3                                                 [level up]
 //
-// A plus deposits that resource into ITS bars (up to VaultDepositStep a
-// click); the resource icon under it deposits all that fits and shows the
-// income bonus that resource has now. Row 2 is the Vault's research (the
-// Coffer chain, one cell: it unlocks the next bar) and its level-up (each
-// level raises what a full bar gives and what a bar holds).
+// DECISION 85 (2026-11-19): the Vault stores iron or veilstone in any bar
+// and supplies in the last bar only; a bar keeps the resource first paid into it, and a FULL bar pays
+// its own trickle of that resource a minute (the level SOs'
+// vaultBarIncomePerMinute). A plus deposits a step of that resource; the
+// resource icon under it deposits all that fits and shows what that
+// resource's full bars pay a minute now. Row 2 is the Coffer chain (it opens
+// the next bar); the level-up raises what a full bar pays.
 //
 // PANEL 2 — a second square beside the first, the same frame: the four bars.
-// Bars 1 and 2 take supplies, bar 3 iron, bar 4 veilstone (the Vault SO's
-// vaultBarResource). Each row: the resource, the bar cut into sub-bars,
-// stored / capacity, and what it pays now of what it pays full. A locked bar
-// is dim and names the research that opens it.
+// Each row: the resource it holds (or "iron or veilstone" while empty), the
+// bar cut into sub-bars, stored / capacity, and what it pays a minute when
+// full. A locked bar is dim and names the research that opens it.
 //
 // Deposits and withdrawals go through CommandRouter.IssueVaultTransfer.
 // Read-only on the simulation: VaultStorage, VaultBars and the bank.
@@ -99,7 +100,7 @@ namespace TheWaningBorder.UI.Ingame
         {
             int used = RenderVaultControls(em);
             if (used == 0) return 0;
-            used += RenderResearchRows(em, VaultControlCells);
+            used += PaintRun(em, BuildResearchPlan(em), VaultControlCells);
             used += RenderUpgradeSlot(em);
             RenderProgress(em, info);
             _vaultWanted = true;
@@ -119,12 +120,11 @@ namespace TheWaningBorder.UI.Ingame
             for (int i = 0; i < VaultControlCells && i < _slots.Length; i++) BlankSlot(_slots[i]);
 
             FactionEconomy.TryGetResources(em, faction, out var bank);
-            int subs = VaultBars.SubBars;
-            float perBar = VaultBars.BonusPerBar(level) * 100f;
 
-            for (int res = 1; res <= 3; res++)
+            // Iron, veilstone, supplies (the last bar only).
+            for (int col = 0; col < 3; col++)
             {
-                int col = res - 1;
+                int res = col == 0 ? 2 : col == 1 ? 3 : 1;
                 string name = VaultResName(res);
                 string key = VaultBars.ResourceNames[res];
                 int have = res == 1 ? bank.Supplies : res == 2 ? bank.Iron : bank.Veilstone;
@@ -134,9 +134,7 @@ namespace TheWaningBorder.UI.Ingame
                 int pay = res;
                 string why = room > 0 ? (have > 0 ? null : string.Format(Loc.T("You have no {0}."), name))
                                       : VaultNoRoomReason(faction, res, open);
-                string rule = string.Format(
-                    Loc.T("{0} fills the {0} bars only. Each full bar adds {1:0.#}% to {0} income, a share at a time as it fills ({2} steps). A withdrawal gives everything back and empties every bar."),
-                    name, perBar, subs);
+                string rule = Loc.T("A bar stores iron or veilstone, whichever is first paid into it. A FULL bar pays its own amount of that resource every minute; a bar that is not full pays nothing. Only the last bar also takes supplies. A withdrawal gives everything back and empties every bar.");
 
                 // [+ deposit a step]
                 var dep = _slots[col];
@@ -152,8 +150,8 @@ namespace TheWaningBorder.UI.Ingame
                     amt > 0 ? (System.Action)(() => VaultDeposit(entity, pay, all: false)) : null, em);
                 SetBadge(dep, amt > 0 ? "+" + amt : "", GameUIKit.TextMain);
 
-                // [resource  +x%]: deposit all that fits
-                float bonus = VaultBars.BonusOf(faction, res) * 100f;
+                // [resource  +N/min]: deposit all that fits
+                int perMin = VaultBars.IncomePerMinute(vault, level, res);
                 var fill = _slots[PaletteCols + col];
                 FillSlot(fill, new ActionButton
                 {
@@ -161,12 +159,12 @@ namespace TheWaningBorder.UI.Ingame
                     Label = name,
                     Icon = ActionIcons.Resource(key),
                     Tooltip = "<b>" + (why ?? string.Format(Loc.T("Deposit all the {0} that fits ({1})"), name, all)) + "</b>\n"
-                              + string.Format(Loc.T("The Vault raises {0} income by {1:0.#}% now."), name, bonus) + "\n" + rule,
+                              + string.Format(Loc.T("The Vault's full {0} bars pay {1} {0} a minute now."), name, perMin) + "\n" + rule,
                     Enabled = all > 0,
                     CanAfford = true,
                 }, Category.Economy, null,
                     all > 0 ? (System.Action)(() => VaultDeposit(entity, pay, all: true)) : null, em);
-                SetBadge(fill, string.Format("+{0:0.#}%", bonus), bonus > 0f ? BadgeOn : GameUIKit.TextDim);
+                SetBadge(fill, "+" + perMin + "/m", perMin > 0 ? BadgeOn : GameUIKit.TextDim);
             }
 
             // [- withdraw all]
@@ -177,7 +175,7 @@ namespace TheWaningBorder.UI.Ingame
                 Label = "-",
                 Icon = ActionIcons.Minus(),
                 Tooltip = "<b>" + string.Format(Loc.T("Withdraw All ({0})"), vault.Paid) + "</b>\n"
-                          + Loc.T("Gives back everything paid in. Every bar empties: the bonus and the progress are lost."),
+                          + Loc.T("Gives back everything paid in. Every bar empties and stops paying."),
                 Enabled = vault.Paid > 0,
                 CanAfford = true,
             }, Category.Economy, null,
@@ -188,14 +186,19 @@ namespace TheWaningBorder.UI.Ingame
             return VaultControlCells;
         }
 
-        /// <summary>Why a resource's bars take nothing: full, or still locked.</summary>
+        /// <summary>Why a resource takes nothing: its bars and the empty ones
+        /// are full, or the next bar is still locked.</summary>
         private static string VaultNoRoomReason(Faction faction, int res, int open)
         {
-            for (int i = 0; i < VaultStorage.Bars; i++)
-                if (VaultBars.ResourceOf(i) == res && i >= open)
-                    return string.Format(Loc.T("Bar {0} ({1}) is locked: research {2}"), i + 1, VaultResName(res),
-                        VaultTechName(VaultBarTech[Mathf.Min(i, VaultBarTech.Length - 1)]));
-            return string.Format(Loc.T("The {0} bars are full"), VaultResName(res));
+            if (res == 1)
+                return open < VaultStorage.Bars
+                    ? string.Format(Loc.T("Only bar {0} takes supplies. It is locked: research {1}"), VaultStorage.Bars,
+                        VaultTechName(VaultBarTech[VaultBarTech.Length - 1]))
+                    : string.Format(Loc.T("Bar {0} holds another resource, or is full"), VaultStorage.Bars);
+            if (open < VaultStorage.Bars)
+                return string.Format(Loc.T("No open bar takes {0}. Bar {1} is locked: research {2}"), VaultResName(res), open + 1,
+                    VaultTechName(VaultBarTech[Mathf.Min(open, VaultBarTech.Length - 1)]));
+            return string.Format(Loc.T("No bar takes more {0}"), VaultResName(res));
         }
 
         private static Cost VaultCost(int type, int amount) => type switch
@@ -248,20 +251,18 @@ namespace TheWaningBorder.UI.Ingame
             PlaceVaultPanel();
 
             int subs = VaultBars.SubBars;
-            float perBar = VaultBars.BonusPerBar(level) * 100f;
-            float perSub = perBar / subs;
 
             _vaultTitle.text = "<b>" + Loc.T("Vault of Almiérra") + "</b>"
                 + "<size=75%><color=#BFB59A>   " + string.Format(Loc.T("Level {0}"), level) + "</color></size>";
-            _vaultPerBar.text = string.Format(Loc.T("A full bar adds {0:0.#}% to the income of its resource."), perBar);
+            _vaultPerBar.text = Loc.T("A full bar pays its amount a minute of what it holds: iron or veilstone, or supplies in the last bar.");
 
             var sb = new System.Text.StringBuilder();
-            for (int r = 1; r <= 3; r++)
+            foreach (int r in new[] { 2, 3, 1 })
             {
                 if (sb.Length > 0) sb.Append("    ");
-                float b = VaultBars.BonusOf(faction, r) * 100f;
-                sb.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(b > 0f ? VaultResColors[r] : GameUIKit.TextDim)).Append('>')
-                  .Append(string.Format(Loc.T("{0} +{1:0.#}%"), VaultResName(r), b)).Append("</color>");
+                int b = VaultBars.IncomePerMinute(vault, level, r);
+                sb.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(b > 0 ? VaultResColors[r] : GameUIKit.TextDim)).Append('>')
+                  .Append(string.Format(Loc.T("{0} +{1}/min"), VaultResName(r), b)).Append("</color>");
             }
             _vaultTotals.text = sb.ToString();
 
@@ -270,13 +271,15 @@ namespace TheWaningBorder.UI.Ingame
                 var row = _vaultRows[i];
                 if (row.SegFill.Length != subs) BuildSegments(row, subs);
 
-                int res = VaultBars.ResourceOf(i);
+                int res = VaultBars.ResourceOf(vault, i);
                 int cap = VaultBars.CapacityOf(i, level);
+                int pays = VaultBars.IncomeOf(i, level);
                 bool locked = i >= open;
                 int fill = locked ? 0 : vault.Fill(i);
                 int filledSubs = locked ? 0 : VaultBars.FilledSubBars(vault, i, level);
                 Color col = VaultResColors[res];
-                string name = VaultResName(res);
+                string name = res != 0 ? VaultResName(res)
+                    : i == VaultStorage.Bars - 1 ? Loc.T("Any resource") : Loc.T("Iron or veilstone");
 
                 var tex = ActionIcons.Resource(VaultBars.ResourceNames[res]);
                 row.Icon.texture = tex;
@@ -293,22 +296,26 @@ namespace TheWaningBorder.UI.Ingame
                     row.Value.text = string.Format(Loc.T("Locked: {0}"), tech);
                     row.Value.color = GameUIKit.TextLocked;
                     row.Bonus.text = "";
-                    row.Tooltip = string.Format(Loc.T("Bar {0} is locked. Research {1} at the Vault to open it. It takes {2} {3}."),
-                        i + 1, tech, cap, name);
+                    row.Tooltip = string.Format(Loc.T("Bar {0} is locked. Research {1} at the Vault to open it. It holds {2} iron or veilstone and pays {3} a minute when full."),
+                        i + 1, tech, cap, pays);
                 }
                 else
                 {
                     row.Value.text = fill + " / " + cap;
                     row.Value.color = fill >= cap ? GameUIKit.Gold : GameUIKit.TextMain;
-                    row.Bonus.text = string.Format("+{0:0.#}%", filledSubs * perSub);
-                    row.Bonus.color = filledSubs > 0 ? BadgeOn : GameUIKit.TextDim;
-                    row.Tooltip = string.Format(Loc.T("Bar {0} takes {1}: {2} / {3} stored, {4} of {5} steps filled.\nIt adds {6:0.#}% to {1} income now, {7:0.#}% when full."),
-                        i + 1, name, fill, cap, filledSubs, subs, filledSubs * perSub, perBar);
+                    bool full = fill >= cap;
+                    row.Bonus.text = "+" + pays + "/m";
+                    row.Bonus.color = full ? BadgeOn : GameUIKit.TextDim;
+                    row.Tooltip = res == 0
+                        ? string.Format(Loc.T("Bar {0} is empty: it takes {1}, whichever is paid in first, up to {2}.\nFull, it pays {3} of it a minute."), i + 1,
+                            i == VaultStorage.Bars - 1 ? Loc.T("supplies, iron or veilstone") : Loc.T("iron or veilstone"), cap, pays)
+                        : string.Format(Loc.T("Bar {0} holds {1}: {2} / {3} stored.\nIt pays {4} {1} a minute when full{5}."),
+                            i + 1, name, fill, cap, pays, full ? Loc.T(" (paying now)") : Loc.T(" (not full: nothing yet)"));
                 }
 
-                // Each segment is one sub-bar: full ones in the resource's
-                // colour, the one still filling at half strength (it pays
-                // nothing until it is full), the rest empty.
+                // Each segment is one sub-bar: filled ones in the resource's
+                // colour (full strength once the whole bar is full and pays),
+                // the rest empty.
                 float step = (float)cap / subs;
                 for (int k = 0; k < subs; k++)
                 {
@@ -317,7 +324,7 @@ namespace TheWaningBorder.UI.Ingame
                     f.rectTransform.anchorMax = new Vector2(part, 1f);
                     f.enabled = part > 0f;
                     var c = col;
-                    if (k >= filledSubs) c.a = 0.5f;
+                    if (fill < cap) c.a = 0.55f;
                     f.color = c;
                     row.SegBg[k].color = locked ? GameUIKit.ButtonBgLocked : GameUIKit.BarBg;
                 }

@@ -154,6 +154,31 @@ namespace TheWaningBorder.AI
         /// squads alone must leave a response alone too, or the next wave or
         /// reclaim pulls it off the fight it was sent to (Game_AI.md § 5i).
         /// Curse-clearing sorties are claim squads, so they are covered.</remarks>
+        /// <summary>
+        /// Decision 84: a Rush or Aggressive AI whose wave is short releases
+        /// its claim squads into the army, as the all-in does (§ 6n). Returns
+        /// the units freed (0 when there were none).
+        /// </summary>
+        private int ReleaseClaimSquadsForWave(Faction faction, int shortBy, string why)
+        {
+            var squads = ClaimSquadsOf((int)faction);
+            if (squads.Count == 0) return 0;
+            // Only when they make up the shortfall: a wave still short after
+            // them would just strip the expansion for nothing.
+            int held = 0;
+            for (int i = 0; i < squads.Count; i++) held += squads[i].Members.Count;
+            if (held < shortBy) return 0;
+            int freed = 0;
+            for (int i = 0; i < squads.Count; i++)
+            {
+                freed += squads[i].Members.Count;
+                ReleaseClaimSquad(squads[i]);
+            }
+            AILogger.Log(faction, "WAVE", $"{squads.Count} claim squad(s) released into the army ({freed} unit(s)) — {why}");
+            squads.Clear();
+            return freed;
+        }
+
         private bool IsClaimSquadMember(Entity e) => _claimSquadMembers.Contains(e) || IsSanctumGuard(e) || IsEconResponder(e)
             || IsWallPosted(e);   // a tower or wall post (SimpleAISystem.WallDefence.cs)
 
@@ -1263,6 +1288,11 @@ namespace TheWaningBorder.AI
         private void EnsureFortressExpansion(EntityManager em, Faction faction, float now)
         {
             if (!RegionMap.Ready || !TerritoryOwnership.Ready) return;
+            // ONE FORTRESS, EVER (decision 69): there is no expansion Fortress
+            // to raise. A fallen one is rebuilt by TryRebuildKeystones.
+            if (TheWaningBorder.Entities.BuildingFactory.AtFactionCap(em, faction, "Fortress")
+                || TheWaningBorder.Entities.KeystoneRubbles.TryFind(em, faction,
+                       TheWaningBorder.Entities.KeystoneRubbles.FortressId, out _, out _)) return;
 
             if (_fortressEpoch != SimCadence.Epoch)
             {

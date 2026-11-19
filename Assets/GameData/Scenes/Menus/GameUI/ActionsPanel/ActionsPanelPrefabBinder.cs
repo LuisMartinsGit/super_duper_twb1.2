@@ -13,13 +13,31 @@
 //   age are visible (era-locked entries are hidden outright, not greyed);
 //   visible entries grey out when resources are missing. Special/choice
 //   buildings never appear here (they come pre-filtered from
-//   EntityActionExtractor.GetBuildingActions).
-// - BUILDING: top row (slots 0-4) = trainable units; the two lower rows
-//   (slots 5-14) = research. Tiered research occupies ONE fixed slot per
-//   chain and advances to the next tier the moment the current tier STARTS
-//   researching (queued techs vanish from the extractor's list, so the
-//   successor takes the same slot; cancelling brings the tier back).
-//   The building level-up takes the last free cell (RenderUpgradeSlot).
+//   EntityActionExtractor.GetBuildingActions). Since 2026-11-18 the palette
+//   is four FIXED category rows, and the religion buildings (landmarks,
+//   Temple, sect buildings) are drawn in a second 3 x 4 panel beside it
+//   (ActionsPanelPrefabBinder.ReligionPanel.cs).
+// - BUILDING: EVERY building's menu is the same 4 x 4 grid (2026-11-18,
+//   developer: "all buildings should preserve the 4x4 action grid"): the
+//   builder's square cells, all sixteen held in place (an empty cell is a
+//   BlankSlot, never a ClearSlot, so nothing slides along). Rows:
+//     row 0     what the building makes or does: its trainable units, or its
+//               own commands (wall / gate / hut conversions, Forge bays,
+//               Reliquary powers, the Market's buy row, the Vault's deposits);
+//               blank when it has none. More than four wrap onto row 1.
+//     rows 1-2  research, from the first row after row 0's content. Tiered
+//               research occupies ONE fixed cell per chain and advances to
+//               the next tier the moment the current tier STARTS researching
+//               (queued techs vanish from the extractor's list, so the
+//               successor takes the same cell; cancelling brings the tier
+//               back); an exhausted chain leaves its cell blank.
+//     row 3     overflow of the rows above; its LAST cell (15) is always the
+//               building's level-up (RenderUpgradeSlot).
+//   A building with more than fifteen cells is PAGED: rows 0-2 show twelve
+//   cells a page, row 3 starts with a page button (cycles the pages) and
+//   still ends in the level-up. Authored layouts (BuildingActionLayouts),
+//   the Market and the Vault place their cells themselves within the same
+//   sixteen.
 //
 // Button tint follows the category color scheme:
 //   green = economy, blue = defenses, brown = research,
@@ -50,19 +68,18 @@ namespace TheWaningBorder.UI.Ingame
     public sealed partial class ActionsPanelPrefabBinder : MonoBehaviour
     {
         private const float RefreshInterval = 0.15f;
+        /// <summary>The AUTHORED prefab grid: 3 x 5. Only the unit mode
+        /// (formations, stances, the Shardroot) still lays out on it.</summary>
         private const int Cols = 5;
         private const int SlotCount = 15;
-        private const int TrainSlots = 5;      // row 0
-        private const int ResearchSlots = 10;  // rows 1-2
 
         /// <summary>
         /// THE BUILD PALETTE IS FOUR CATEGORY ROWS (2026-10-22): Economy /
         /// Training / Special / Defense, one row each (BuildRowOf, BuildOrder).
-        /// The prefab authors three rows, so the palette clones a fourth from
-        /// the last authored button at bind time; building and unit modes
-        /// never touch it (they stay within SlotCount). In worker mode the
-        /// grid and its separator slide up one row pitch so the fourth row
-        /// keeps inside the frame (SetWorkerRows).
+        /// The prefab authors three rows, so the panel clones the missing
+        /// cells from the last authored button at bind time. The palette and
+        /// every building menu use them (the 4 x 4 grid, GridMode.Palette);
+        /// the unit mode stays within the authored SlotCount.
         /// </summary>
         private const int WorkerRows = 4;
         private const int WorkerSlotCount = WorkerRows * Cols;
@@ -94,6 +111,7 @@ namespace TheWaningBorder.UI.Ingame
         private static readonly HashSet<string> DefenseBuildings = new()
         {
             "Palisade", "Alanthor_Wall", "Alanthor_Tower", "Feraldis_Tower", "Fortress",
+            "Lookout",
         };
 
         // ── The build palette's four rows (2026-10-22) ────────────────────
@@ -115,16 +133,25 @@ namespace TheWaningBorder.UI.Ingame
             // Guild, Mine, Veilstone Mine - are not palette entries: they are
             // built from the button over their node (NodeButton.cs).
             new[] { "Alanthor_Farm", "Hut", "Alanthor_Market", "Feraldis_GreatForge" },
-            // Training: Barracks, Archery Range, Royal Stables, Siege Yard
+            // Military: Garrison (Barracks), Archery Range, Royal Stable, Siege Yard
             new[] { "Barracks", "ArcheryRange", "Alanthor_RoyalStable", "Alanthor_SiegeYard",
                     "Feraldis_HallOfAxes", "Feraldis_Pasture", "Feraldis_SiegeYard",
                     "Runai_GrazingGrounds", "Runai_Arrowyard", "Runai_SiegeWorkshop" },
-            // Defense: tower, wall, Fortress - then the Temple in the fourth cell
-            new[] { "Alanthor_Tower", "Feraldis_Tower", "Palisade", "Alanthor_Wall", "Fortress",
-                    "TempleOfRidan" },
-            // Special: the sect buildings
-            new[] { "Sect_Reliquary", "Sect_MendingHall", "Sect_Stonehold",
-                    "Sect_Treasury", "Sect_MusterYard", "Feraldis_WarTotem" },
+            // Defense (developer, 2026-11-18): Palisade, Watch Tower (the
+            // Lookout id), Wall, Battle Tower (the Alanthor_Tower id). The
+            // Fortress is never placed from here (decision 69). The Temple
+            // left this row for the religion panel.
+            new[] { "Palisade", "Lookout", "Alanthor_Wall", "Alanthor_Tower", "Feraldis_Tower",
+                    "Fortress" },
+            // Row 4, RESERVED for research buildings (developer, 2026-11-18:
+            // "maybe a building with super advanced expensive tech, and a
+            // blacksmith" - not decided). Empty for Alanthor; when buildings
+            // land here they take the purple of the scheme. It holds only
+            // what fits nowhere else today: the Feraldis War Totem, and the
+            // Temple after an age-up that never raised one (RenderBuilder).
+            // The landmarks, the Temple and the sect buildings are drawn in
+            // the worker's second panel (ReligionPanel.cs), never here.
+            new[] { "Feraldis_WarTotem", "TempleOfRidan" },
         };
         /// <summary>Columns of the build palette (the action grid keeps Cols).</summary>
         // 4 x 4 since 2026-11-13 (developer): a perfect square. The palette
@@ -133,6 +160,20 @@ namespace TheWaningBorder.UI.Ingame
         private const int PaletteCols = 4;
         /// <summary>Cells the build palette may use.</summary>
         private const int PaletteSlotCount = PaletteCols * WorkerRows;
+
+        // ── Every building menu's 4 x 4 grid (2026-11-18) ────────────────
+        // The same square as the build palette.
+        /// <summary>Columns of a building's menu.</summary>
+        private const int BuildingCols = PaletteCols;
+        /// <summary>Cells of a building's menu: 4 x 4.</summary>
+        private const int BuildingCells = PaletteSlotCount;
+        /// <summary>The bottom-right cell: always the building's level-up.</summary>
+        private const int UpgradeCell = BuildingCells - 1;
+        /// <summary>Cells a page shows when a building needs more than the
+        /// fifteen before the level-up: rows 0-2, so pages keep their rows.</summary>
+        private const int PageCells = 3 * BuildingCols;
+        /// <summary>The page button: the first cell of row 3.</summary>
+        private const int PagerCell = PageCells;
 
         private static BuildRow BuildRowOf(string id)
         {
@@ -189,7 +230,7 @@ namespace TheWaningBorder.UI.Ingame
         private CanvasGroup _group;
 
         // The authored grid / separator rects and their authored positions,
-        // for the one-row slide the worker palette applies (SetWorkerRows).
+        // restored when the grid goes back to GridMode.Authored (SetGrid).
         private RectTransform _gridRect;
         private RectTransform _separatorRect;
         private GridLayoutGroup _gridLayout;
@@ -200,19 +241,20 @@ namespace TheWaningBorder.UI.Ingame
         private int _constraintCountAuthored;
 
         /// <summary>How the grid is laid out: as authored (3 x 5 with the
-        /// separator), the large five-column grid every building menu uses,
-        /// or the builder's square palette.</summary>
-        private enum GridMode { Authored, Large, Palette }
+        /// separator; the unit mode), or the square 4 x 4 the builder's
+        /// palette and every building menu use. (A five-column "Large" mode
+        /// for building menus existed until 2026-11-18; it is gone with the
+        /// 4 x 4 rule.)</summary>
+        private enum GridMode { Authored, Palette }
         private GridMode _gridMode = GridMode.Authored;
 
         /// <summary>
-        /// THE BUILD PALETTE FILLS THE PANEL (2026-11-02). In worker mode the
-        /// separator is hidden and the grid takes the frame's whole interior:
-        /// the panel's content square minus this inset on each side, square
-        /// cells sized so the mode's columns span that width - four for the
-        /// builder's palette, which makes it a square of 4 x 4; five for a
-        /// building's menu. The authored grid, cells and separator come back
-        /// in GridMode.Authored.
+        /// THE BUILD PALETTE FILLS THE PANEL (2026-11-02). In the palette mode
+        /// the separator is hidden and the grid takes the frame's whole
+        /// interior: the panel's content square minus this inset on each side,
+        /// square cells sized so four columns span it, which makes a square of
+        /// 4 x 4. The authored grid, cells and separator come back in
+        /// GridMode.Authored.
         /// </summary>
         private const float WorkerGridInset = 40f;
         private const float WorkerCellSpacing = 8f;
@@ -224,6 +266,10 @@ namespace TheWaningBorder.UI.Ingame
         private float _timer;
         private Entity _entity;
         private bool _upgradeOverflowLogged;
+        /// <summary>The page a paged building menu shows, and the building it
+        /// belongs to (a new selection starts on page one).</summary>
+        private int _page;
+        private Entity _pageEntity;
 
         /// <param name="nodeButtonTemplate">The hexagonal age-up button the
         /// node button copies (NodeButton.cs); null falls back to a round
@@ -275,6 +321,9 @@ namespace TheWaningBorder.UI.Ingame
                 // One more for the button that pops over a resource node
                 // (NodeButton.cs); it leaves the grid before any slot is bound.
                 nodeClone = Instantiate(template, grid).transform;
+                // The worker's second build panel (ReligionPanel.cs): its
+                // twelve cells are pristine copies too, made before any bind.
+                CreateReligionPanel(template);
             }
             // Kept inactive (the grid skips it) until Init builds the node
             // button from it or from the hexagonal template.
@@ -291,6 +340,7 @@ namespace TheWaningBorder.UI.Ingame
             // happened to clear them: five blank "buttons" after the Garrison's
             // real actions.
             for (int i = 0; i < total; i++) ClearSlot(_slots[i]);
+            BindReligionSlots();
 
             _gridRect = grid as RectTransform;
             _separatorRect = GameUIKit.FindDeep(transform, "Separator") as RectTransform;
@@ -323,14 +373,6 @@ namespace TheWaningBorder.UI.Ingame
             DestroyNodeButton();
         }
 
-        /// <summary>
-        /// Worker mode shows four rows: the grid's top edge and the separator
-        /// move up one row pitch (the bottom edge stays), so the cloned fourth
-        /// row lands where the authored third row sat. Every other mode gets
-        /// the authored rects back.
-        /// </summary>
-        private void SetWorkerRows(bool on) => SetGrid(on ? GridMode.Large : GridMode.Authored);
-
         private void SetGrid(GridMode mode)
         {
             if (_gridMode == mode) return;
@@ -352,10 +394,9 @@ namespace TheWaningBorder.UI.Ingame
                 }
                 return;
             }
-            // The builder's palette is a square: as many columns as rows, so
-            // its cells are larger than a building menu's five-column ones
-            // and the grid is as tall as it is wide.
-            int cols = mode == GridMode.Palette ? PaletteCols : Cols;
+            // The palette is a square: as many columns as rows, so the grid
+            // is as tall as it is wide.
+            int cols = PaletteCols;
             var content = _gridRect.parent as RectTransform;
             float avail = (content != null ? content.rect.width : _gridSizeAuthored.x) - 2f * WorkerGridInset;
             if (mode == GridMode.Palette && content != null && content.rect.height > 0f)
@@ -520,6 +561,8 @@ namespace TheWaningBorder.UI.Ingame
             if (!ok || GameSettings.IsSpectating) { SetShown(false); return; }
 
             _vaultWanted = false;
+            // The religion panel shows only while the builder palette does.
+            _religionWanted = false;
             // Only the builder branch below sets it again.
             _builderActions = null;
             _nodeDirty = true;
@@ -558,6 +601,8 @@ namespace TheWaningBorder.UI.Ingame
             // The Vault's bars ride the same panel; they show only while a
             // Vault is the selection this refresh rendered.
             ShowVaultSection(shown && _vaultWanted);
+            // The worker's second build panel (ReligionPanel.cs).
+            ShowReligionPanel(shown && _religionWanted);
             // No tooltip teardown needed: UITooltip polls the pointer, and a
             // panel with blocksRaycasts off simply stops being hit.
         }

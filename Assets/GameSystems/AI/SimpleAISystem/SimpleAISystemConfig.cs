@@ -699,11 +699,7 @@ namespace TheWaningBorder.AI
         /// <summary>A replacement army's size, as a share of the population cap.</summary>
         public float waveReplacePopShare;
 
-        /// <summary>Once a rival reads as beaten, seconds it stays so at least.</summary>
-        public float finishHoldSeconds;
 
-        /// <summary>Share of the army left at home while finishing a beaten rival.</summary>
-        public float finishGuardShare;
 
         /// <summary>A wave splits off side armies only at this size or more.</summary>
         public int sisterMinWaveUnits;
@@ -832,6 +828,12 @@ namespace TheWaningBorder.AI
         /// still adds up). 0 = engage anything.</summary>
         public float engageMinThreatFraction;
 
+        /// <summary>An army not already fighting ALWAYS engages when at least
+        /// this many hostile combat units are in reach, whatever the strength
+        /// ratio — a defending army is never marched past (2026-11-18,
+        /// Game_AI.md § 6e). 0 = off.</summary>
+        public int engageFloorUnits;
+
         /// <summary>
         /// Once engaged, the army stays engaged while a target is anywhere
         /// inside this. Wider than <see cref="FocusRadius"/> on purpose: with
@@ -949,6 +951,14 @@ namespace TheWaningBorder.AI
         /// role it is short of; nothing lets another basic through.</summary>
         public float basicsMinShare;
         public float basicsMaxShare;
+
+        /// <summary>SIEGE IS A SUPPORT ARM (decision 73, 2026-11-18): every
+        /// siege-class role together (Ram, Catapult, Trebuchet, Ballista) may
+        /// hold at most this share of the army plan after normalisation and
+        /// the basics clamp; the excess goes to the other lines. The siege
+        /// program's engine floor obeys the same share of the army.
+        /// 0 = no cap.</summary>
+        public float siegeMaxArmyShare;
 
         /// <summary>SURPLUS (Game_AI.md 5e). While the bank is veilstone-held
         /// and overflowing (AIBudget surplusSupplies / surplusIron), each
@@ -1495,6 +1505,8 @@ namespace TheWaningBorder.AI
         /// personality's ratio) before it launches short of it (2026-11-02,
         /// § 6n). 0 = any strength under allInMaxEnemyRatio goes.</summary>
         public float allInStrengthFloor;
+        // iteration 2 (2026-11-17): against a hostile ascension or dominion countdown the all-in goes under any floor
+        public bool allInCountdownIgnoresFloor;
         /// <summary>Under the all-in, both retreat tests use at least this
         /// enemy/own power ratio (a tier that never retreats still never does).</summary>
         public float allInRetreatRatio;
@@ -1504,40 +1516,13 @@ namespace TheWaningBorder.AI
         /// <summary>Match seconds from which a stalled faction is prey
         /// (0 = never). Before the all-in, a hunter goes all-in on it.</summary>
         public float preyAfterSeconds;
-        /// <summary>A hostile holding at most this many territories is prey.</summary>
-        public int preyMaxTerritories;
-        /// <summary>Only a faction holding at least this many territories hunts.</summary>
-        public int preyHunterMinTerritories;
-        /// <summary>A hostile is also prey when it holds at most this share
-        /// of the hunter's territories (0 = only the absolute bar).</summary>
-        public float preyMaxShareOfHunter;
+        /// <summary>THE WEAKER THRESHOLD (decision 84): a hostile whose board
+        /// score, as this faction knows it, is at most this share of its own
+        /// is prey (0.7 = 70 %).</summary>
+        public float preyScoreShare;
 
         // ── Finish the beaten (Game_AI.md § 6u, 2026-10-25) ──
 
-        /// <summary>Match seconds from which a beaten faction is finished
-        /// (0 = never).</summary>
-        public float finishAfterSeconds;
-        /// <summary>Only an army of at least this many units finishes anyone.</summary>
-        public int finishMinArmy;
-        /// <summary>Beaten: the victim holds at most this share of our
-        /// territories (divided by the tier's strengthWaveRatioScale).</summary>
-        public float finishTerritoryShare;
-        /// <summary>Beaten: the victim's soldiers SEEN in the intel window sum
-        /// to at most this share of our army's strength (divided by the tier's
-        /// strengthWaveRatioScale).</summary>
-        public float finishArmyShare;
-        /// <summary>The intel window: the known army is the soldiers seen in
-        /// the last this-many seconds, and something of the victim must have
-        /// been seen in it.</summary>
-        public float finishIntelMaxAgeSeconds;
-        /// <summary>While finishing, the next wave is never further away.</summary>
-        public float finishWaveIntervalSeconds;
-        /// <summary>While finishing, both retreat tests use at least this
-        /// enemy/own power ratio.</summary>
-        public float finishRetreatRatio;
-        /// <summary>A finishing attack that times out with at least this many
-        /// alive presses on to the victim's capital instead of walking home.</summary>
-        public int finishPressMinUnits;
         /// <summary>A war abandoned after warMaxFailures failed attacks shelves
         /// its victim for this many seconds: the hunt, the finish and a
         /// yielding Shardroot siege do not re-pick it (0 = no shelf).</summary>
@@ -1617,18 +1602,107 @@ namespace TheWaningBorder.AI
         public int wallSentryPiecesPerSentry;
         public int wallSentryMax;
 
-        // ── The Sanctum army (Game_AI.md § 6t, 2026-10-20) ──
-        /// <summary>Raise dedicated armies that take and hold Sanctums.</summary>
+        // ── Sanctums (Game_AI.md § 6t, 2026-10-20; reworked by decision 68) ──
+        /// <summary>Waves take Sanctums and held Sanctums keep a garrison.</summary>
         public bool sanctumArmyEnabled;
-        /// <summary>Soldiers per Sanctum army, at least the claim's head
-        /// count (TerritoryOwnership.asset sanctumClaimUnits).</summary>
-        public int sanctumArmyMinSize;
+        /// <summary>Waves grow with the game (decision 68 f): a wave's POPULATION
+        /// must reach waveMinPopBase + waveMinPopPerMinute x the minutes played,
+        /// unless the faction has waveFullPopSlack free population or less (then
+        /// everything drafted goes). waveMinPopPerMinute 0 = off.</summary>
+        public int waveMinPopBase;
+        public float waveMinPopPerMinute;
+        public int waveFullPopSlack;
+        /// <summary>The standing army floor's scale while the home stands
+        /// defended — its Watch Towers and Wall Towers at towersPerTerritory or
+        /// more (decision 81, StandingFloorScale).</summary>
+        /// <summary>Decision 84: the army a Rush or Aggressive AI may raise
+        /// before its age-up (everyone else keeps a garrison of 8).</summary>
+        public int age0ArmyCapForward;
+        /// <summary>Decision 86, the rate governor: the window the unit rate is
+        /// measured over (seconds), the share of the target below which the
+        /// faction is behind, and the military budget weight while behind.</summary>
+        public float rateWindowSeconds;
+        /// <summary>Decision 86, the attack: a war holds until its victim falls
+        /// (only the attacker beating us, a game-ending threat or the Shardroot
+        /// holder interrupts it), and while it is on no Sanctum wave detours.</summary>
+        public bool warHoldsUntilFall;
+        /// <summary>Decision 91: false = a wave that has its size is never held
+        /// at home for reading weaker than the defence it marches on.</summary>
+        public bool waveStrengthHolds;
+        /// <summary>Decision 88 (developer: "Send all of the army to attack"):
+        /// no standing home guard, and the claim squads join the wave.</summary>
+        public bool sendWholeArmy;
+        /// <summary>Decision 88 (developer: "marching armies escort the siege
+        /// engines and attack anything that comes close to them"): a hostile
+        /// within this many metres of one of the army's engines is fought at
+        /// once, whatever its strength. 0 = off.</summary>
+        public float siegeEscortRadius;
+        /// <summary>Decision 89: a mustering or staging army fights only enemy
+        /// soldiers (and what comes at its engines), never a lone worker,
+        /// scout or building on its way.</summary>
+        public bool marchFightsSoldiersOnly;
+        /// <summary>Decision 86: a war wave marches on the victim's capital and
+        /// religion buildings (Fortress, Temple, landmark, sect buildings) as
+        /// soon as one is known, before its outlying holdings.</summary>
+        public bool warTargetsKeystones;
+        /// <summary>Decision 86: engines the siege program keeps while at war;
+        /// every idle engine marches with the war wave (the wave never waits
+        /// for them).</summary>
+        public int keystoneSiegeMin;
+        /// <summary>Decision 86: a war army falls back only past this enemy /
+        /// own power ratio, and never while it besieges inside the victim's
+        /// ground with engines.</summary>
+        public float warRetreatRatio;
+        /// <summary>Decision 86: a mission still fighting does not time out.</summary>
+        public bool noTimeoutWhileFighting;
+        public float rateBehindShare;
+        public float rateDeficitMilWeight;
+        /// <summary>Decision 84: veilstone (or iron) banked at or above this
+        /// places the Market whatever the supplies (0 = off).</summary>
+        public int marketBuildVeilstone;
+        public int marketBuildIron;
+        /// <summary>Decision 84: a Rush / Aggressive AI's first attack may
+        /// launch at this share of the tier's firstAttackEarliestSeconds
+        /// (1 = the tier's own time), so a lower tier stays slower.</summary>
+        public float rushFirstAttackShare;
+        public float aggressiveFirstAttackShare;
+        /// <summary>Decision 84: until this match second a Rush AI's wave
+        /// launches without the growing-wave population rule.</summary>
+        public float rushWaveGrowthFromSeconds;
+        public float standingFloorDefendedScale;
+        /// <summary>The standing army floor's scale while the faction is at its
+        /// population cap (within waveFullPopSlack) or banks
+        /// standingFloorRichSupplies (decision 81). Multiplies the defended
+        /// scale.</summary>
+        public float standingFloorFullScale;
+        /// <summary>Banked supplies from which the standing floor takes
+        /// standingFloorFullScale. 0 = off.</summary>
+        public int standingFloorRichSupplies;
+        /// <summary>Enemy strength (TacticalQuery units, about 55 a soldier) in the
+        /// Hall ring or round an attacked building near home before the AI enters
+        /// Defend, which disbands every mission and recalls the army (decision 68).
+        /// The larger of this and half of AISettings.defendThreatThreshold.</summary>
+        public int defendRecallMinStrength;
+        /// <summary>Soldiers left behind to hold a Sanctum the wave has taken
+        /// (decision 68). The wave that takes it must still bring the claim's
+        /// head count (TerritoryOwnership.asset sanctumClaimUnits).</summary>
+        public int sanctumGarrisonSize;
+        // iteration 2 (2026-11-17): a Sanctum-road wave grows to the claim head count plus this margin
+        public int sanctumWaveMargin;
+        /// <summary>On the Mixed road a wave picks a Sanctum over the base it
+        /// was going to strike when the Sanctum is no more than this many metres
+        /// farther from home (on the Sanctum road it always does).</summary>
+        public float sanctumObjectivePreferMeters;
+        /// <summary>A held Sanctum lost to a rival is the first objective of
+        /// the next wave for this long (seconds).</summary>
+        public float sanctumRetakeSeconds;
         /// <summary>Seconds between Sanctum-army thinks.</summary>
         public float sanctumThinkInterval;
         /// <summary>At most this many Sanctum armies (0 = one per Sanctum).</summary>
         public int sanctumMaxArmies;
-        /// <summary>The army goes when its power is the known threat at the
-        /// Sanctum times this.</summary>
+        /// <summary>A held Sanctum is THREATENED (the next wave goes to it)
+        /// when the hostile strength in it exceeds its garrison's power over
+        /// this.</summary>
         public float sanctumLaunchMargin;
         /// <summary>Metres round the crystal the threat is read in.</summary>
         public float sanctumThreatRadius;
@@ -1642,15 +1716,12 @@ namespace TheWaningBorder.AI
         /// <summary>Metres the garrison's goal (the nearest hostile soldier) must
         /// move before the garrison is re-ordered at once.</summary>
         public float sanctumRegoalMeters;
-        /// <summary>An army that has not taken its Sanctum disbands below this.</summary>
+        /// <summary>The garrison of a Sanctum it no longer holds falls back
+        /// below this many soldiers.</summary>
         public int sanctumDisbandBelow;
-        /// <summary>...and that Sanctum waits this long before another try.</summary>
+        /// <summary>A Sanctum a wave was sent at is not picked again for this
+        /// long (seconds), so one bad target does not eat every wave.</summary>
         public float sanctumRetrySeconds;
-        /// <summary>A Sanctum army mustering at home (its soldiers reserved
-        /// from every other draft, production filling the rest) gives up after
-        /// this long without launching, and that Sanctum waits
-        /// sanctumRetrySeconds (2026-11-02, § 6t). 0 = never gives up.</summary>
-        public float sanctumMusterMaxSeconds;
         /// <summary>Towers the workers raise at a held Sanctum.</summary>
         public int sanctumFortTowers;
         /// <summary>Seconds between fortification checks.</summary>
@@ -1668,6 +1739,38 @@ namespace TheWaningBorder.AI
         /// finds no wall to breach re-paths to its objective once, after this
         /// many seconds stalled.</summary>
         public float stallRepathSeconds;
+
+        // ── 2026-11-18, Game_AI.md § 6ab (muster on open ground, stage
+        //    outside the guns, siege behind the body, an army before a building) ──
+        /// <summary>A MUSTER ON OPEN GROUND: the muster point needs this many
+        /// metres of standable ground round it, plus musterOpenPerUnit x the
+        /// square root of the army's head count.</summary>
+        public float musterOpenRadius;
+        /// <summary>...metres of open radius per square-root unit of the army.</summary>
+        public float musterOpenPerUnit;
+        /// <summary>...and no building (any owner) within the open radius plus
+        /// this many metres, so the army never forms up inside the base's
+        /// building ring.</summary>
+        public float musterBuildingClearance;
+        /// <summary>...probed from musterDistance outward along the bearing to
+        /// the objective (and fanned either side of it) in steps of this.</summary>
+        public float musterProbeStepMeters;
+        /// <summary>...up to this far from the Hall, on own ground only; then
+        /// the old point.</summary>
+        public float musterProbeMaxMeters;
+        /// <summary>The stage point stands at least this many metres beyond
+        /// the range of every hostile shooting building the faction has seen.</summary>
+        public float stageTowerMargin;
+        /// <summary>Siege engines are ordered onto a building by name only once
+        /// the army's centroid is within this many metres of the building's
+        /// edge; until then they stay in the formation's attack-move.</summary>
+        public float siegeAimArmyRadius;
+        /// <summary>Before pressing on to the next building, a visible hostile
+        /// army within this many metres of our army or of that building
+        /// becomes the objective instead.</summary>
+        public float pressOnArmyRadius;
+        /// <summary>...counted as an army from this many hostile units.</summary>
+        public int pressOnArmyMinUnits;
         /// <summary>A FIRST TRAINER IN EVERY PROVINCE: from this match second a
         /// held province with no production building gets one before its
         /// towers, when the bank holds provinceTrainerBankSupplies.</summary>
@@ -1683,6 +1786,11 @@ namespace TheWaningBorder.AI
         public int threatMinTerritories;
         /// <summary>No threat refocus before this match second.</summary>
         public float threatAfterSeconds;
+        /// <summary>THE STRONGER THRESHOLD (decision 84): a rival is a threat
+        /// by size only when its board score, as this faction knows it, is at
+        /// least this multiple of its own (1.3 = 130 %); that alone is a case.
+        /// Countdowns and a Shardbound King need no threshold. 0 = off.</summary>
+        public float threatScoreRatio;
         /// <summary>A LOSING PLAYER: pressure (kills x1, razes x4) taken from
         /// one faction over this window...</summary>
         public float losingPressureWindowSeconds;
@@ -1787,18 +1895,28 @@ namespace TheWaningBorder.AI
         public int farmRingKeepClear;
         /// <summary>The Market is raised once the bank holds this many supplies.</summary>
         public int marketBuildMinSupplies;
-        /// <summary>The bank amount of each resource the Market buys toward: the
-        /// further below it, the larger that resource's share of the spend.</summary>
+        /// <summary>Below this much of a resource in the bank the AI counts as
+        /// SHORT of it and buys it at the Market (decision 67).</summary>
+        public int marketSuppliesShort;
         public int marketIronShort;
+        /// <summary>Veilstone the AI never spends at the Market; only the bank
+        /// above it buys lots.</summary>
         public int marketVeilstoneShort;
-        /// <summary>Supplies the Market never spends: only the bank above this is surplus.</summary>
-        public int marketSupplyFloor;
-        /// <summary>Minutes over which the surplus above the floor is spent at
-        /// the Market (smaller = converts a glut faster).</summary>
-        public float marketSpendMinutes;
-        /// <summary>Supplies the AI keeps while the Market's surplus-to-iron
-        /// mode is on (it is on while iron is below marketIronShort).</summary>
-        public int marketSurplusReserve;
+        /// <summary>Above this much of a resource the AI holds a GLUT and sells it
+        /// down to this level; buying a cheap resource stops at half of it.</summary>
+        public int marketSuppliesGlut;
+        public int marketIronGlut;
+        /// <summary>Most lots of one resource the AI trades in one think.</summary>
+        public int marketLotsPerThink;
+        /// <summary>The AI does not buy a resource it is short of while its shared
+        /// price is above this percent of the starting price.</summary>
+        public int marketBuyMaxPercent;
+        /// <summary>At or below this percent of the starting price a resource is
+        /// CHEAP (somebody dumped it): the AI buys it with spare veilstone.</summary>
+        public int marketCheapPercent;
+        /// <summary>At or above this percent a resource is DEAR (somebody bought
+        /// it up): the AI sells its stock above twice the short level.</summary>
+        public int marketDearPercent;
         /// <summary>Banked veilstone above which veilstone counts as hoarded: the
         /// army leans on veilstone units and the first Siege Yard comes early.
         /// (Mines are never stopped by a hoard -- only by their node running dry.)</summary>

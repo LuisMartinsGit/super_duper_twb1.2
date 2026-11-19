@@ -75,9 +75,7 @@ namespace TheWaningBorder.Entities
 
         /// <summary>
         /// Single source of truth: id -> (EM ctor, ECB ctor, presentation id).
-        /// Chapel ids (task-063: Chapel_Sect_*) are handled separately in
-        /// Create/GetPresentationId because they parameterize one shared creator
-        /// by sect id. Unknown ids fall back to CreateDefault / PID 100.
+        /// Unknown ids fall back to CreateDefault / PID 100.
         /// </summary>
         private static readonly Dictionary<string, BuildingRecipe> Recipes = BuildRecipes();
 
@@ -98,6 +96,9 @@ namespace TheWaningBorder.Entities
                 // The palisade: its own building since 2026-10-02 (Age_0.md
                 // § Palisade), on the same hub/segment machinery.
                 ["Palisade"]        = new BuildingRecipe(AlanthorWall.CreatePalisadeHub, null, AlanthorWall.HubPresentationID),
+                // The Lookout (2026-11-18, Age_0.md § Lookout): sight only,
+                // every culture, every age, never converted at age-up.
+                [Lookout.BuildingId] = new BuildingRecipe(Lookout.Create, Lookout.Create, Lookout.PresentationID),
 
                 // Runai culture buildings
                 ["Runai_Outpost"]      = new BuildingRecipe(RunaiOutpost.Create, RunaiOutpost.Create, 350),
@@ -129,7 +130,7 @@ namespace TheWaningBorder.Entities
                 [Market.BuildingId]        = new BuildingRecipe(Market.Create, Market.Create, Market.PresentationID),
 
                 // Feraldis culture buildings
-                ["Feraldis_HuntingLodge"]   = new BuildingRecipe(HuntingLodge.Create, HuntingLodge.Create, 580), // 358 is the Field Hospital
+                ["Feraldis_HuntingLodge"]   = new BuildingRecipe(HuntingLodge.Create, HuntingLodge.Create, 580), // 358 is the Healing Ward
                 ["Feraldis_LoggingStation"] = new BuildingRecipe(LoggingStation.Create, LoggingStation.Create, 359),
                 ["Feraldis_Longhouse"]      = new BuildingRecipe(Longhouse.Create, Longhouse.Create, 360),
                 ["Feraldis_Tower"]          = new BuildingRecipe(TotemTower.Create, TotemTower.Create, 361),
@@ -194,12 +195,6 @@ namespace TheWaningBorder.Entities
             Entity entity;
             if (Recipes.TryGetValue(buildingId, out var recipe))
                 entity = recipe.CreateEm(em, position, faction);
-            // task-063 phase 2a: 12 chapel building IDs (Chapel_Sect_Antiquity
-            // .. Chapel_Sect_Wrath) all dispatch to a single uniform creator
-            // that stamps ChapelTag.SectId from the chapel-id suffix. Visual
-            // differentiation per sect lands in a Phase 5 polish pass.
-            else if (SectConfig.IsChapelId(buildingId))
-                entity = Chapel.Create(em, position, faction, SectConfig.SectIdFromChapelId(buildingId));
             else
                 entity = CreateDefault(em, buildingId, position, faction);
 
@@ -212,14 +207,38 @@ namespace TheWaningBorder.Entities
 
             EntityBuild.Add(em, entity, MakeDisplayName(buildingId));
 
+            if (TryDefenseFor(buildingId, out var defense))
+                EntityBuild.Add(em, entity, defense);
+
             return entity;
+        }
+
+        /// <summary>
+        /// A building's armour, from its SO (decision 79). Stamped here, the
+        /// one choke point every building spawn goes through, because all but
+        /// a handful of the per-building factories never set a Defense at all
+        /// — the armour on their SOs was data nothing read, and they fought
+        /// at 0.
+        /// </summary>
+        private static bool TryDefenseFor(string buildingId, out Defense defense)
+        {
+            defense = default;
+            if (!TechCatalog.TryGetBuilding(buildingId, out var def) || def == null || def.defense == null)
+                return false;
+            defense = new Defense
+            {
+                Melee = def.defense.melee,
+                Ranged = def.defense.ranged,
+                Siege = def.defense.siege,
+                Magic = def.defense.magic,
+            };
+            return true;
         }
 
         /// <summary>
         /// Record the exact name of what was asked for. The selection UI used to
         /// re-derive this from a tag-component ladder, which several buildings
-        /// never appear in — all 12 chapels share one ChapelTag, for one — so
-        /// they displayed as bare "Building". The id the caller passed is unambiguous.
+        /// never appear in, so they displayed as bare "Building". The id the caller passed is unambiguous.
         /// </summary>
         private static DisplayName MakeDisplayName(string buildingId)
             => new DisplayName { Value = TheWaningBorder.Core.DisplayNames.ForBuildingFixed(buildingId) };
@@ -237,10 +256,6 @@ namespace TheWaningBorder.Entities
             Entity entity;
             if (Recipes.TryGetValue(buildingId, out var recipe) && recipe.CreateEcb != null)
                 entity = recipe.CreateEcb(ecb, position, faction);
-            // task-063 phase 2a: chapels dispatch to a single uniform ECB creator
-            // (parameterised by sect id parsed from the chapel building id).
-            else if (SectConfig.IsChapelId(buildingId))
-                entity = Chapel.Create(ecb, position, faction, SectConfig.SectIdFromChapelId(buildingId));
             else
                 entity = CreateDefault(ecb, buildingId, position, faction);
 
@@ -253,6 +268,9 @@ namespace TheWaningBorder.Entities
 
             EntityBuild.Add(ecb, entity, MakeDisplayName(buildingId));
 
+            if (TryDefenseFor(buildingId, out var defense))
+                EntityBuild.Add(ecb, entity, defense);
+
             return entity;
         }
 
@@ -262,12 +280,6 @@ namespace TheWaningBorder.Entities
         public static int GetPresentationId(string buildingId)
         {
             if (Recipes.TryGetValue(buildingId, out var recipe)) return recipe.PresentationId;
-            // task-063 phase 5 (2026-08-02): per-sect chapel visuals — pid by
-            // sect index (390-399 for indices 0-9; 400-403 are taken by other
-            // entries, so Ruin/Wrath sit at 410/411).
-            // Phase 5 polish will introduce per-sect visual variation.
-            if (SectConfig.IsChapelId(buildingId))
-                return Chapel.PidForSect(SectConfig.SectIdFromChapelId(buildingId));
             return 100;
         }
 
@@ -287,8 +299,6 @@ namespace TheWaningBorder.Entities
                 "Alanthor_SiegeYard" => true,
                 "Feraldis_Longhouse" => true,
                 "Feraldis_SiegeYard" => true,
-                // task-063 phase 1: old Chapel_Sect_<OldSectId> entries removed.
-                // Phase 2 reintroduces chapel-trains-unique-unit per new sect.
                 _ => false
             };
         }
@@ -421,6 +431,8 @@ namespace TheWaningBorder.Entities
                 // Six Farms and one Market a player (decision 55).
                 case Farm.BuildingId: built = GetFactionBuildingCount<FarmTag>(em, faction); break;
                 case Market.BuildingId: built = GetFactionBuildingCount<MarketTag>(em, faction); break;
+                // One Fortress per player, ever (decision 69).
+                case "Fortress": built = GetFactionBuildingCount<HallTag>(em, faction); break;
                 default:
                     if (_uncountedCapWarned.Add(buildingId))
                         UnityEngine.Debug.LogError(
@@ -490,8 +502,7 @@ namespace TheWaningBorder.Entities
 
         // SECT BUILDINGS (task-063) live in their own branch beside the
         // cultures: Assets/GameData/TechTree/Buildings/Sects/<Building>/.
-        // Shipped so far: Chapel (the 12 adoption markers) and Reliquary
-        // (Antiquity). The old roster's 24 creators are long deleted; the
+        // The Temple's chapels were removed 2026-11-18 (decision 80). The old roster's 24 creators are long deleted; the
         // remaining eleven sect-unique buildings (Workshop Eternal /
         // Oath-Stone / Crucible / Sepulchre / Tribunal / Sanctified Pyre /
         // Spire of Witness / War Forge / Furnace / Desecrator / Hollow Altar)

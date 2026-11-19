@@ -24,6 +24,7 @@ MonoBehaviour:
   defenseSiege: 0
   defenseMagic: 2
   wardPrefab: {fileID: 4593680148556353695, guid: 84c5629e71ee45540820727eee44ba59, type: 3}
-  pulsePrefab: {fileID: 1475618779179179817, guid: 9fa9336674d402d4886ce65eb2389ac2, type: 3}
-  pulseAuthoredRadius: 2
+  auraPrefab: {fileID: 4369787680043664565, guid: d1f72a2825d14a75bc69e5ff0d39288f, type: 3}
+  auraAuthoredRadius: 4
+  auraFadeSeconds: 1.5
   pollSeconds: 0.1

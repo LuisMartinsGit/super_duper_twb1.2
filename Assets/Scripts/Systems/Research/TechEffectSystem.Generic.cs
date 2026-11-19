@@ -90,6 +90,10 @@ namespace TheWaningBorder.Systems.Research
             {
                 switch (target.Substring(5))
                 {
+                    // Every unit of the faction (the army-wide armour lines,
+                    // decision 71: Brigandine = +ranged armour for all units).
+                    case "All":
+                        return em.HasComponent<UnitTag>(unit);
                     case "Melee":
                         return em.HasComponent<UnitTag>(unit)
                             && em.HasComponent<DamageTypeData>(unit)
@@ -214,6 +218,26 @@ namespace TheWaningBorder.Systems.Research
                     em.SetComponentData(unit, def);
                     return;
                 }
+                case "DefenseMelee":
+                case "DefenseRanged":
+                {
+                    if (!em.HasComponent<Defense>(unit)) return;
+                    var def = em.GetComponentData<Defense>(unit);
+                    if (stat == "DefenseMelee") def.Melee = pct ? Mathf.RoundToInt(def.Melee * mult) : def.Melee + (int)v;
+                    else def.Ranged = pct ? Mathf.RoundToInt(def.Ranged * mult) : def.Ranged + (int)v;
+                    em.SetComponentData(unit, def);
+                    return;
+                }
+                case "BonusDamage":
+                {
+                    // Flat only: every bonus-vs-tag amount the unit has grows
+                    // (decision 71, the building level-ups).
+                    if (!em.HasComponent<BonusVsTags>(unit)) return;
+                    var b = em.GetComponentData<BonusVsTags>(unit);
+                    b.AddToAll((int)v);
+                    em.SetComponentData(unit, b);
+                    return;
+                }
                 case "AttackRange":
                 {
                     // Only entities with ArcherState carry an explicit range
@@ -235,6 +259,33 @@ namespace TheWaningBorder.Systems.Research
                     cd.Cooldown = set ? v : pct ? cd.Cooldown * mult : cd.Cooldown + v;
                     if (cd.Cooldown < MinAttackCooldown) cd.Cooldown = MinAttackCooldown;
                     em.SetComponentData(unit, cd);
+                    return;
+                }
+                case "HealRate":
+                case "HealRange":
+                {
+                    // A healer's heal per second / reach (CanHeal; the
+                    // Litharch's research ladder, decision 77).
+                    if (!em.HasComponent<CanHeal>(unit)) return;
+                    var ch = em.GetComponentData<CanHeal>(unit);
+                    if (stat == "HealRate") ch.HealRate = pct ? ch.HealRate * mult : ch.HealRate + v;
+                    else ch.HealRange = pct ? ch.HealRange * mult : ch.HealRange + v;
+                    em.SetComponentData(unit, ch);
+                    return;
+                }
+                case "AbilityCooldown":
+                {
+                    // Pct only (NEGATIVE v shortens): every ability cooldown
+                    // this unit is charged is scaled (AbilityCooldownScale,
+                    // read by AbilityLifecycleSystem). Swift Rites, decision 77.
+                    if (!em.HasComponent<UnitTag>(unit)) return;
+                    float m = em.HasComponent<AbilityCooldownScale>(unit)
+                        ? em.GetComponentData<AbilityCooldownScale>(unit).Mult : 1f;
+                    m = pct ? m * mult : m;
+                    if (m < 0.1f) m = 0.1f;
+                    if (em.HasComponent<AbilityCooldownScale>(unit))
+                        em.SetComponentData(unit, new AbilityCooldownScale { Mult = m });
+                    else em.AddComponentData(unit, new AbilityCooldownScale { Mult = m });
                     return;
                 }
                 case "LineOfSight":

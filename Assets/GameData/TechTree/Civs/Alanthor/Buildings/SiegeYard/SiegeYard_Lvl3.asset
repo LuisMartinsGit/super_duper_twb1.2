@@ -38,7 +38,5 @@ MonoBehaviour:
     siegeShotDamage: 0
   lineOfSight: 0
   grantsTechs:
-  - ShardInfusedShot
-  - ShardPlating
   - EliteCrews
   prefab: {fileID: 6287696073539617556, guid: d04f84a32c136fa47a64f83095803c42, type: 3}

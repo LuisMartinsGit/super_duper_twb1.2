@@ -361,6 +361,9 @@ namespace TheWaningBorder.AI
                         hubEntities, hubPositions))
                     return;
 
+                // Gates before towers and emplacements (decision 81): both
+                // take a clear run of modules a gate still needs.
+                if (_gateOwed) return;
                 if (TryConvertPlannedTower(faction, em, slots)) return;
                 TryMountPlannedEmplacement(faction, em, slots);
             }
@@ -1124,9 +1127,14 @@ namespace TheWaningBorder.AI
 
         /// <summary>Cut the ring's gates. One conversion per think; true when
         /// one was issued.</summary>
+        /// <summary>Set by <see cref="TryEnsureRingGates"/> each think: the
+        /// ring is still owed a gate it can get, so no tower converts.</summary>
+        private static bool _gateOwed;
+
         private static bool TryEnsureRingGates(Faction faction, EntityManager em,
             Entity brainEntity, float3 hallPos)
         {
+            _gateOwed = false;
             if (!em.HasComponent<AIWallPlan>(brainEntity) || !em.HasBuffer<AIWallPlanSlot>(brainEntity))
                 return false;
             byte mode = em.GetComponentData<AIWallPlan>(brainEntity).Mode;
@@ -1260,7 +1268,35 @@ namespace TheWaningBorder.AI
 
                 int have = gates.Length;
                 int min = math.max(0, wp.minGatesPerRing);
+                // A CHOKEPOINT WALL WANTS THE GATES IT PLANNED (decision 81).
+                // Its line is not a ring: a gate stretch too short for a
+                // gatehouse is left open by the planner (EmitChokeLine), and
+                // the ring minimum then converted spur pieces running into
+                // the rock — gates to nowhere.
+                if (mode == AIWallPlanner.ModeChokepoints)
+                {
+                    int planned = 0;
+                    for (int i = 0; i < slots.Length; i++)
+                        if ((slots[i].Flags & AIWallPlanner.FlagGateAfter) != 0
+                            && (slots[i].Flags & AIWallPlanner.FlagDead) == 0) planned++;
+                    min = math.min(min, planned);
+                }
                 int want = math.clamp(sites.Count, min, math.max(min, wp.maxGatesPerRing));
+
+                // GATES BEFORE TOWERS (decision 81). A tower takes a clear
+                // run of modules; on a short gate stretch the two shoulder
+                // towers took the run the gate needed, before the gate was
+                // cut. While a gate is still owed and the ring still has a
+                // piece rising or able to take one, the towers wait.
+                if (have < min)
+                {
+                    // (a piece whose gate order was already refused does not
+                    // count, or a refusal would hold the towers forever)
+                    for (int i = 0; i < instEnts.Length && !_gateOwed; i++)
+                        _gateOwed = !_gateTried.ContainsKey(instEnts[i])
+                                    && (em.HasComponent<UnderConstruction>(instEnts[i])
+                                        || AlanthorWall.CanConvertToGate(em, instEnts[i]));
+                }
 
                 // ── The closed-ring report, once per closing. ──
                 int fk = (int)faction;

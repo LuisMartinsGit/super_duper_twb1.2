@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Berserker
   displayName: Feraldis_Berserker
   unitClass: human_melee
-  hp: 240
+  hp: 150
   speed: 5.8
   trainingTime: 18.2
   damage: 14
@@ -45,6 +45,7 @@ MonoBehaviour:
   - Infantry
   - Heavy
   bonusVsTags: []
+  torchDamage: 13
   prefab: {fileID: 5969496067041804577, guid: 06fc4e5265cba794dbdc4dccc49ecd99, type: 3}
   presentationId: 210
   animatorController: {fileID: 9100000, guid: 8c147979bc3e0ac41b69806f513226c0, type: 2}

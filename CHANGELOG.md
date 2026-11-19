@@ -9,6 +9,125 @@ build always name the same number.
 
 ---
 
+## [Unreleased] — 2026-11-16
+
+### Computer opponents press an attack home (decision 91, 2026-11-19)
+- **One army, kept supplied**: fresh soldiers leave home in formed groups and join the army in the field, instead of each wave starting again from scratch.
+- **They take your outlying territories first**, building by building, then come for the capital; Hard and Expert opponents put towers on new ground before anything else.
+
+### Computer opponents attack with everything (decision 88, 2026-11-19)
+- **They send their whole army** instead of keeping a home guard, and **their armies protect their siege engines**, turning on anything that comes near them.
+- **A marching army no longer turns back to chase a stray worker or scout** (decision 89); it stops only for enemy soldiers.
+- **They know where every player started** (decision 90), so a war goes for the enemy's capital even before they have scouted it.
+
+### No more "finishing" a player who looks weak (decision 87, 2026-11-19)
+- Computer opponents no longer decide you are "beaten" because they see few soldiers and little land; that mode sent their armies at you in a stream of small groups. A weaker neighbour is simply a target like any other.
+
+### Expert opponents overwhelm (decision 86, 2026-11-19)
+- **Expert opponents keep their production running** toward a rising rate of units a minute, putting units before upgrades, research and the Vault, and building more barracks when they fall behind.
+- **An opponent finishes its war**: it stays on one enemy until that enemy falls, goes for the capital, the Temple, the landmark and the sect buildings, brings its siege engines, and no longer turns back at the first setback.
+
+### The Vault pays a trickle (decision 85, 2026-11-19)
+- **A full Vault bar now pays its own income every minute** of the iron or veilstone stored in it, instead of raising your income by a percentage. Bars take iron or veilstone, and the last bar supplies too; each bar takes whichever resource you pay into it first. The Coffer research that opens bars 2-4 is much cheaper, and computer opponents now research it. Vault levels raise what a full bar pays. Saved games from earlier versions cannot be loaded.
+
+### Computer opponents rush and pick on the weak (decision 84, 2026-11-19)
+- **Rush and Aggressive opponents attack early**, with a bigger army before the age-up, and Expert's first attack comes sooner.
+- **An opponent goes after a player much weaker than itself** before ganging up on one much stronger; a countdown, a Shardbound King or the Shardroot still comes first.
+- **Every barracks, range, stable and siege yard keeps training**, and the capital's savings no longer starve a small army.
+- **Farms and the Market come earlier**, and Farm upgrades are bought.
+
+### Farms fill themselves (decision 83, 2026-11-19)
+- **A Farm that is not full produces a Worker about once a minute**, free, already working inside it (it needs population room).
+- **The Workers who build a Farm step inside when it is finished**, unless you gave them another order with Shift.
+
+### Sect powers on the left (2026-11-19)
+- **Every lit sect power has a button on the left edge of the screen**, always visible: one row per sect, its F-key on the button. A power cooling down shows the time left in large numbers; when it is ready again it flashes twice. The religion menu on the right now tracks progress; casting is from the column.
+
+### Soldiers throw their torches (decision 82, 2026-11-19)
+- **A raid burns a building fast.** Melee soldiers now throw their torch at a building from two tiles away instead of crowding against its wall, so the whole group burns it at once rather than the dozen who fit around it. Rams still walk up to the wall.
+- **You see the torches fly**: a burning torch with a red-orange streak and its own light, and a flash where it lands.
+- **Torches burn harder**, on the Age of Empires IV scale; Workers and Scouts still burn least and heroes most.
+
+### Computer opponents spend, expand and attack (decision 81, 2026-11-19)
+- **No more idle barracks.** When an AI cannot afford the unit it wants, it trains the next unit of the same kind instead (an Archer for a Crossbowman, a Ram for a Trebuchet) rather than waiting.
+- **The Market never refuses a sale at the floor price.** A seller just gets less per lot. The AI now turns its surplus supplies and iron into veilstone at any price.
+- **AIs build towers and production in every territory they hold**, not only at home.
+- **An AI no longer walls itself in.** A ramp too narrow for a gatehouse is left open between its towers, and gates are cut before towers.
+- **Bigger attacks:** an AI with its home defended, its population full or a large bank keeps fewer soldiers at home, and splits off side armies only from large waves.
+
+### The Temple has no chapels (decision 80, 2026-11-18)
+- **Adopting a sect no longer puts a chapel on the Temple.** Adoption, sect levels and powers work exactly as before; the chapel statues and the Temple's six slots are gone.
+- The religion menu now says **Sect level** where it said Chapel level.
+
+### Buildings and siege (decision 79, 2026-11-18)
+- **Soldiers burn buildings with torches.** A melee hit on a building now does a small torch value set by the unit's role (heavier soldiers and heroes burn faster), not its full weapon damage. Heavy cavalry no longer flattens a Barracks as fast as Rams do.
+- **Arrows barely scratch buildings**: one point a hit. Siege is what takes a base.
+- **Buildings have more health**: the Fortress, Temple and landmarks are far sturdier; the Barracks, Archery Range, Royal Stable and Siege Yard are now equally tough.
+- **Fixed:** building armour was never applied, so every building took full damage whatever its armour said.
+
+### Interface pass (decision 78, 2026-11-18)
+- **Resource panel**: each income rate now always sits under its amount in the same size (the expand toggle is gone) (hover a row for "per minute" and where the income comes from). Religion shows its rate when a Temple, monument or Sanctum is paying. Expanding no longer pushes the selection header or the other panels.
+- **The Religion menu unlocks in Age 1.**
+- **Two build panels for Workers**: the usual grid (Economy, Military, Defense rows) and a religion panel beside it: the age-up landmarks and the Temple in Age 0, then every sect building by culture.
+- **New Watch Tower** in Age 0: cheap, sees far, cannot attack, stays buildable all game. The Alanthor stone tower is now the **Battle Tower**. Alanthor keep the Palisade after age-up.
+- **The Temple only trains Litharchs** (and offers Warrior Priests from Age 1). Its other research and the Petriarchy purchases are switched off for now.
+- **Litharchs have no spells in Age 0.** The ability bar no longer appears for Scouts or over the build menu.
+- **Units**: formations on the top row, stances on the bottom; stances are now Aggressive / Standard / Defensive.
+
+### Litharch upgrades (decision 77, 2026-11-18)
+- **Litharchs have an upgrade ladder at the Temple**, opened by your sects: adopting a sect opens tier I, and your highest sect level opens tiers II and III. Faster healing (Prayer Beads, Litany, Psalter), armour (Linen, Wool and Blessed Vestments), more health (Veteran and Elite Litharchs), and three skills: Swift Rites (abilities recharge faster), Long Reach (heal from further) and Twin Blessing (every heal also mends a second wounded ally).
+
+### Litharchs and the actions panel (decision 76, 2026-11-18)
+- **Cleanse looks calmer:** the Cleansing Ward and Cleanse Pulse now show a soft blue aura instead of bursting rings.
+- **The Field Hospital is now the Healing Ward** (Sect of Renewal): a small one-tile shrine planted where the Litharch aims it, healing nearby allies slowly in pulses until it is destroyed — and a single blow destroys it. At most four per team, never close enough to overlap. The Sect of Renewal research now says plainly that it teaches your Litharchs to cast it. Each Litharch has its own cooldown.
+- **Every building's action buttons sit on the same 4 × 4 grid**, with units on top, research below and the level-up always in the bottom-right corner; a building with more actions than fit gets a page button.
+
+### Battering Rams (decision 75, 2026-11-18)
+- **AIs no longer flood the field with Rams.** When a unit the AI wanted could not be trained, the spare demand went to whatever building had room, and the Siege Yard nearly always did; one AI fielded 62 Rams against a plan of one. Every line now stops at its share of the army, and siege at the siege cap.
+- **AI armies ignore a Ram that is not attacking a building**, instead of piling their soldiers onto it in a field fight.
+- **The Ram is open to swords.** It has less health, and the Siege Yard's platings now strengthen it against arrows only (other siege engines keep both).
+- **Field Repair works:** siege engines repair themselves over time once it is researched.
+
+### The AI's hands and siege (decision 74, 2026-11-18)
+- **The AI micros at a human pace.** Its in-fight orders — pulling archers back, casting unit abilities, switching targets, moving the firing line, sending a flank — come out of a per-difficulty budget of actions a minute, one action per group order, and it reacts to a melee attack only after a short delay. Ordinary orders (march, attack, retreat) are unaffected.
+- **AI archers no longer flee every melee unit one by one.** A threatened group of shooters is pulled back together behind its own melee line, so fights stay in one place instead of spreading outwards. Normal AIs now do this too, slowly.
+- **Catapults and Trebuchets stop backing away.** An enemy inside an engine's minimum range is no longer chased off: the engine shoots something further away, or waits for its escort to deal with it. This applies to every player.
+
+### Victory (decisions 69 and 70, 2026-11-17)
+- **A player falls with its keystones: the Fortress, the Temple and the landmark (the Vault).** Every player has one of each, ever. When one falls it leaves rubble; it can be built again only there, whoever holds the ground, for free, from a button over the rubble (select Workers and point at it), never from the build menu. A player whose three keystones are all down for five minutes is out of the match; any one standing stops the clock. Other buildings, Workers and armies no longer keep a player alive.
+- **The Fortress is nearly unkillable without siege.** Siege engines do full damage to it and every engine counts; melee soldiers burn it slowly and arrows barely scratch it, as in Age of Empires IV.
+- **Dominion needs all Sanctums but one** on a map with three or more; a map with one or two still needs them all.
+
+### Units and upgrades (decision 71, 2026-11-17)
+- **Units are reworked after Age of Empires IV:** new costs, HP, damage, bonus damage, attack speed, range and movement speed for the Spearman, Swordsman, Archer, Crossbowman, Longbowman, Outrider, Cataphract, Battering Ram, Catapult and Trebuchet. Speeds keep AoE IV's proportions, with the Spearman at 4 m/s (2 tiles a second).
+- **Upgrades are small flat numbers that never compound**: +1 damage, +1 armour or +1 tile of range a tier, three tiers, one per building level. The Shard tier is gone; it is reserved for sect units.
+- **Armour is army-wide**: the Archery Range's brigandines protect every unit against arrows, the Garrison's armour every unit against blades.
+- **Each building level-up** gives its units +10 HP and +2 bonus damage (level 2), +15 HP and +3 bonus damage (level 3).
+- **Units unlock with the building's level**, and the Longbowman and Catapult are back.
+
+### AI (Expert tuning, 2026-11-17)
+- **Rivals answer a countdown together.** While someone is ascending or holding the Sanctums, every rival's army goes, raiding parties stay home, and waves press on to the enshrining Temple. Merely carrying the Shardroot no longer turns the whole table on its holder.
+- **The AI reads its real income**, so a Shardroot holder now saves for the Temple instead of believing it is rich in veilstone.
+- **The Sanctum road is finished, not abandoned:** an AI one Sanctum short keeps going for it, clears the curse off a cursed Sanctum, and waits until its wave is big enough to claim one.
+- **The AI rebuilds a fallen Fortress, Temple or Vault at once**, sending every Worker to the rubble; while all three are down it sends no attack and pulls every army back to guard the rebuild.
+
+### The Market (decision 67)
+- **Veilstone is the Market's money.** Supplies and iron are bought with veilstone and sold for veilstone, one lot a click (Shift five, Ctrl twenty). The per-minute rates and the surplus-to-iron mode are gone.
+- **Prices are shared by every player.** Each lot bought raises that resource's price and each lot sold lowers it; a sale pays less than a purchase costs. Prices stay between a floor and a ceiling and drift back to where they started. Supplies another player dumped are cheap for you.
+- **The AI watches the prices:** it sells a glut or into a spike, buys only what its army is blocked on, and buys what someone else dumped cheap. It never sells below 60% of the starting price to fund a purchase or buys above 150%.
+
+### Economy (decision 68)
+- **Supply nodes hold half as much.**
+- **At most four Farms per player** (was six).
+
+### AI (decision 68)
+- **No dedicated Sanctum army.** A Sanctum is an objective the main wave can choose; the wave holds on it until the claim lands, leaves a garrison and moves on. A held Sanctum under threat, or one just lost, is the next wave's first objective.
+- **Defend is for a real attack.** One raider hitting a hut no longer recalls the whole army; it takes about nine soldiers' worth of enemy in the base.
+- **Waves grow with the game.** A wave is measured in population (a Trebuchet counts five) and must reach a minimum that rises every minute, with no cap but free population: once the AI has none left to grow into, everything drafted goes. The all-in obeys it too (it used to send a wave a minute as soon as twelve soldiers were idle).
+- **The all-in takes the Sanctum garrisons with it.**
+
+---
+
 ## [0.0.90] — 2026-11-15
 
 ### Religion menu

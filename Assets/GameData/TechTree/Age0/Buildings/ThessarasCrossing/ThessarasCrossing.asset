@@ -17,11 +17,11 @@ MonoBehaviour:
   role: Runai landmark - ages the faction into Runai; the grand caravan market
   description: The Runai age-up landmark. Caravans that sell here are paid the Crossing
     premium; the trade research is studied here.
-  hp: 1600
+  hp: 3000
   armorType: structure_human
   defense:
-    melee: 3
-    ranged: 6
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 2
   radius: 1.8

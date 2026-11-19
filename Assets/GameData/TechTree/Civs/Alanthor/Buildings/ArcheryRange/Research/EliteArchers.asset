@@ -13,20 +13,20 @@ MonoBehaviour:
   m_Name: EliteArchers
   m_EditorClassIdentifier: 
   id: EliteArchers
-  displayName: Elite Archers
+  displayName: Archery Range Level 3
   role: Military
   effect: 
-  desc: "+50 HP, +2 damage, +5 line of sight, +3 attack range to all Archery Range archers."
+  desc: "Every archer: +15 HP, +3 bonus damage. Granted by the level."
   researchAt: ArcheryRange
   minBuildingLevel: 3
-  researchTime: 40
+  researchTime: 50
   prerequisites:
   - VeteranArchers
   culture: Alanthor
   cost:
     Supplies: 0
     Iron: 0
-    Veilstone: 290
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -35,51 +35,27 @@ MonoBehaviour:
     rangedDamageAdd: 0
     archerRangeMult: 0
   effectsList:
-  - Target: "unit:Archer"
+  - Target: "unit:Alanthor_Archer"
     Stat: Hp
     Op: Add
-    Value: 50
-  - Target: "unit:Archer"
-    Stat: Damage
+    Value: 15
+  - Target: "unit:Alanthor_Crossbowman"
+    Stat: Hp
     Op: Add
-    Value: 2
-  - Target: "unit:Archer"
-    Stat: LineOfSight
+    Value: 15
+  - Target: "unit:Alanthor_Longbowman"
+    Stat: Hp
     Op: Add
-    Value: 5
-  - Target: "unit:Archer"
-    Stat: AttackRange
+    Value: 15
+  - Target: "unit:Alanthor_Archer"
+    Stat: BonusDamage
     Op: Add
     Value: 3
   - Target: "unit:Alanthor_Crossbowman"
-    Stat: Hp
-    Op: Add
-    Value: 50
-  - Target: "unit:Alanthor_Crossbowman"
-    Stat: Damage
-    Op: Add
-    Value: 2
-  - Target: "unit:Alanthor_Crossbowman"
-    Stat: LineOfSight
-    Op: Add
-    Value: 5
-  - Target: "unit:Alanthor_Crossbowman"
-    Stat: AttackRange
+    Stat: BonusDamage
     Op: Add
     Value: 3
   - Target: "unit:Alanthor_Longbowman"
-    Stat: Hp
-    Op: Add
-    Value: 50
-  - Target: "unit:Alanthor_Longbowman"
-    Stat: Damage
-    Op: Add
-    Value: 2
-  - Target: "unit:Alanthor_Longbowman"
-    Stat: LineOfSight
-    Op: Add
-    Value: 5
-  - Target: "unit:Alanthor_Longbowman"
-    Stat: AttackRange
+    Stat: BonusDamage
     Op: Add
     Value: 3

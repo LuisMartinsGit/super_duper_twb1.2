@@ -15,14 +15,14 @@ namespace TheWaningBorder.Rendering
         public GameObject regenTailPrefab;
         /// <summary>Looping on a unit while Second Wind's death ward holds it up.</summary>
         public GameObject deathWardPrefab;
-        /// <summary>Looping on a deployed Field Hospital for its whole life.</summary>
-        public GameObject fieldHospitalAuraPrefab;
+        /// <summary>Looping on a standing Healing Ward for its whole life
+        /// (HealingWard_Aura.prefab).</summary>
+        public GameObject healingWardAuraPrefab;
         /// <summary>Unit effect scale per metre of unit height.</summary>
         public float unitScalePerMetre;
-        /// <summary>Field Hospital aura: metres of heal radius the prefab is
-        /// authored at (the hospital heals out to 15 m).</summary>
-        public float hospitalAuthoredRadius;
-        public float hospitalHealRadius;
+        /// <summary>Healing Ward aura: metres of radius the prefab is authored
+        /// at; it is scaled to the Healing Ward card's Radius.</summary>
+        public float healingWardAuthoredRadius;
         public float fadeSeconds;
         public float pollSeconds;
     }

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_CaravanMaster
   displayName: Caravan Master
   unitClass: human_melee
-  hp: 350
+  hp: 220
   speed: 6.5
   trainingTime: 30
   damage: 8
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Infantry
   - Light
   bonusVsTags: []
+  torchDamage: 10
   preferTargets: []
   abilities:
   - Scatter

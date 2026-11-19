@@ -1,9 +1,15 @@
 // BuildingActionLayouts.cs
-// Fixed 3x5 ACTIONS-panel layouts for buildings that want an authored grid
-// (Fortress, Hut/House, Gatherer's Hut/Guild — Alanthor). Each building
-// gets 15 slots (3 rows x 5 cols, row-major), matching the authored
-// ActionsPanel prefab. The top row is EXCLUSIVELY the training row; rows 2-3
-// hold research (a building that trains no units leaves the top row blank).
+// Fixed 4x4 ACTIONS-panel layouts for buildings that want an authored grid
+// (Fortress, Hut/House, Gatherer's Hut/Guild, Barracks/Garrison — Alanthor).
+// EVERY building's menu is the same 4 x 4 grid (2026-11-18, developer: "all
+// buildings should preserve the 4x4 action grid"; ActionsPanelPrefabBinder),
+// so each layout is 16 slots, row-major, 4 per row:
+//   row 0      the training row (a building that trains no units leaves it
+//              blank) - except where a layout authors its units in rows of
+//              their own (the Garrison: AuthoredTraining)
+//   rows 1-2   research
+//   row 3      free; its LAST cell (slot 15) is the building's level-up,
+//              drawn by the panel - a layout leaves slot 15 empty.
 //
 // THE TRAINING ROW IS NOT AUTHORED HERE (2026-10-03). It is the building
 // SO's trains[], culture-gated by CultureGate and level-gated by each unit's
@@ -34,7 +40,8 @@
 // a queued tech un-consumes it, so the button returns.
 //
 // Layouts apply to Alanthor culture (and culture-None pre-culture, where only
-// the Age-0 slots show). Other cultures fall back to the classic panel.
+// the Age-0 slots show). Other cultures fall back to the panel's generic
+// layout (units in row 0, research from row 1) - on the same 4 x 4 grid.
 
 using System.Collections.Generic;
 using Unity.Entities;
@@ -83,22 +90,25 @@ namespace TheWaningBorder.UI.Data
 
     public static class BuildingActionLayouts
     {
-        public const int Cols = 5;
-        public const int Rows = 3;
+        public const int Cols = 4;
+        public const int Rows = 4;
         public const int SlotCount = Cols * Rows;
 
         // ── Authored layouts (keyed by GetBuildingId) ──────────────────────
-        // Row-major 3x5: slots 0-4 = training row, 5-14 = research rows.
+        // Row-major 4x4: slots 0-3 = training row, 4-11 = research rows,
+        // 12-14 free, 15 = the level-up (drawn by the panel; keep it Empty).
         private static readonly Dictionary<string, ActionSlot[]> _layouts = new()
         {
             // FORTRESS — the capital (the Shelter in Age 0).
-            //  Age 0: Stone-tools chain, Armed Scouts
-            //  Alanthor (culture-gated on the SOs): the upper tool tiers,
-            //  Scouting Celestarii, Mason Guild
+            //  Age 0: Stone Tools, Armed Scouts
+            //  Alanthor (culture-gated on the SOs): Scouting Celestarii,
+            //  Mason Guild
+            //  Every culture, Fortress L3: Field Intelligence (Territory_Claims
+            //  §7.4) - it had no cell in the 3 x 5 layout.
             //  Training row: from the Fortress SO (see the header).
             ["Fortress"] = new[]
             {
-                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
 
                 // Only Stone Tools is researched: the upper tool tiers are
                 // granted by the Fortress's levels (decision 53, grantsTechs).
@@ -109,59 +119,70 @@ namespace TheWaningBorder.UI.Data
                 // (No wall tech here: Battlements and Shielded Ramparts are
                 // researched AT THE WALL HUB. Trade Charters is retired with
                 // the Trading Outpost, decision 55.)
-                ActionSlot.Empty,
 
-                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Tech("FieldIntelligence"),
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty,   // slot 15: the level-up
             },
 
             // HUT -> House (Alanthor) — trains nothing and researches nothing
-            // (population is its product); the grid stays blank.
+            // (population is its product); the grid stays blank but for the
+            // level-up in slot 15.
             ["Hut"] = new[]
             {
-                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
-                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
-                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty,   // slot 15: the level-up
             },
 
-            // GATHERER'S HUT -> Guild (Alanthor) — three research chains + one
-            // single, all Alanthor-gated on their SOs (the hut has no research
-            // in Age 0).
+            // GATHERER'S HUT -> Guild (Alanthor) — one research chain,
+            // Alanthor-gated on its SOs (the hut has no research in Age 0).
             ["GatherersHut"] = new[]
             {
-                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
-                ActionSlot.Empty,
-                ActionSlot.Empty,
-                ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
                 ActionSlot.ChainOf("IronReinforcements", "VeilstoneWalls", "VeilsteelPylons"),
-                ActionSlot.Empty,
-                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.Empty,   // slot 15: the level-up
             },
 
             // BARRACKS -> Garrison (Alanthor), 2026-11-13. One row per thing:
-            //  row 1  the building: its level-up (slot 0, drawn by the panel's
-            //         upgrade cell - UpgradeSlotIndex), Conscription, and the
-            //         four weapon tiers in ONE slot
-            //  row 2  the Spearman and his passives (Charge Lv 2, Shield Wall Lv 3)
-            //  row 3  the Swordsman and his (Parry, Counter, Reckless Attack)
+            //  row 0  the building: Conscription and the three decision-71
+            //         ladders (weapons, melee armour - army-wide -, speed),
+            //         each ladder in ONE cell
+            //  row 1  the Spearman and his skills
+            //  row 2  the Swordsman and his
+            //  row 3  free; the level-up in its last cell (slot 15) like every
+            //         building (it sat in slot 0 of the 3 x 5 grid)
             // The units are authored in their rows, so this grid does not take
             // its top row from trains[] (AuthoredTraining).
             ["Barracks"] = new[]
             {
-                ActionSlot.Empty,
+                // row 0: Conscription, then the three ladders
                 ActionSlot.Tech("Conscription"),
-                ActionSlot.ChainOf("StoneWeapons", "IronWeapons", "VeilstoneWeapons", "ShardInfusedWeapons"),
-                ActionSlot.Empty, ActionSlot.Empty,
+                ActionSlot.ChainOf("StoneWeapons", "IronWeapons", "VeilstoneWeapons"),
+                ActionSlot.ChainOf("PaddedGambeson", "MailHauberk", "PlateHarness"),
+                ActionSlot.ChainOf("Drill", "ForcedMarch", "VeteranStride"),
 
+                // row 1: the Spearman (L1) and his three skills
                 ActionSlot.Train("Spearman", 0),
-                ActionSlot.Empty,
-                ActionSlot.Tech("Charge"),
                 ActionSlot.Tech("ShieldWall"),
+                ActionSlot.Tech("Charge"),
+                ActionSlot.Tech("Brace"),
+
+                // row 2: the Swordsman (L2) and his two
+                ActionSlot.Train("Alanthor_Swordsman", 2),
+                ActionSlot.Tech("Parry"),
+                ActionSlot.Tech("RecklessAttack"),
                 ActionSlot.Empty,
 
-                ActionSlot.Train("Alanthor_Swordsman", 1),
-                ActionSlot.Tech("Parry"),
-                ActionSlot.Tech("Counter"),
-                ActionSlot.Tech("RecklessAttack"),
+                // row 3: free, then the level-up (slot 15)
+                ActionSlot.Empty, ActionSlot.Empty, ActionSlot.Empty,
                 ActionSlot.Empty,
             },
         };
@@ -169,15 +190,6 @@ namespace TheWaningBorder.UI.Data
         /// <summary>Layouts whose Train slots are authored in the grid: their
         /// top row is not filled from the building SO's trains[].</summary>
         private static readonly HashSet<string> AuthoredTraining = new HashSet<string> { "Barracks" };
-
-        /// <summary>The cell a building's level-up button takes, or -1 for the
-        /// panel's default (the last free cell).</summary>
-        public static int UpgradeSlotIndex(string buildingId) => buildingId == "Barracks" ? 0 : -1;
-
-        /// <summary>A grid whose rows mean something (a unit and its skills):
-        /// its empty cells keep their place, so nothing slides along.</summary>
-        public static bool KeepsGrid(string buildingId) =>
-            buildingId != null && AuthoredTraining.Contains(buildingId);
 
         public static bool HasLayout(string buildingId) =>
             buildingId != null && _layouts.ContainsKey(buildingId);
@@ -189,7 +201,7 @@ namespace TheWaningBorder.UI.Data
             System.Math.Max(0, System.Math.Min(3, EntityInfoExtractor.GetFactionEra(em, faction) - 1));
 
         /// <summary>
-        /// Resolve a building's authored layout into 15 render-ready slots.
+        /// Resolve a building's authored layout into 16 render-ready slots.
         /// Returns false (caller falls back to the classic panel) when the
         /// building has no layout or its culture isn't Alanthor / None.
         /// </summary>
@@ -207,14 +219,15 @@ namespace TheWaningBorder.UI.Data
             byte culture = GetFactionCulture(em, faction);
             if (culture != Cultures.None && culture != Cultures.Alanthor) return false;
 
-            int buildingLevel = 1;
-            if (em.HasComponent<BuildingUpgradeState>(entity))
-                buildingLevel = System.Math.Max(1, (int)em.GetComponentData<BuildingUpgradeState>(entity).Level);
+            // The Temple's research level is the highest adopted sect level
+            // (decision 77); every other host's is its own level.
+            int buildingLevel = TheWaningBorder.Entities.ResearchHostLevel.Of(em, entity);
 
             var research = FactionResearchState.Instance;
             Cost available = EntityActionExtractor.GetFactionResourcesAsCostPublic(em, faction);
 
             resolved = new ResolvedSlot[SlotCount];
+            for (int i = 0; i < SlotCount; i++) resolved[i] = Blank;
             for (int i = 0; i < SlotCount && i < slots.Length; i++)
                 resolved[i] = ResolveSlot(slots[i], entity, em, faction, culture, buildingLevel,
                     research, available);

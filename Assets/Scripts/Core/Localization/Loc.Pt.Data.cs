@@ -89,6 +89,12 @@ namespace TheWaningBorder.Core.Localization
             t["Wall Tower"] = "Torre de Muralha";
             t["Wall Gate"] = "Portão de Muralha";
             t["Watch Tower"] = "Torre de Vigia";
+            // 2026-11-18: "Watch Tower" is the Lookout (id Lookout); the
+            // Alanthor_Tower is displayed "Battle Tower".
+            t["Battle Tower"] = "Torre de Batalha";
+            t["Sees far, does not fight"] = "Vê longe, não combate";
+            t["A cheap timber lookout every culture can raise in any age. It gives a wide line of sight and nothing else - no attack, no garrison, no levels, and it is not converted at age-up."] =
+                "Uma vigia de madeira barata que qualquer cultura pode erguer em qualquer era. Dá uma ampla linha de visão e nada mais - sem ataque, sem guarnição, sem níveis, e não é convertida na subida de era.";
             t["Forge"] = "Forja";
             t["Royal Stable"] = "Estrebaria Real";
             // Decision 55 (2026-11-11): the Farm and the Market (Farm.asset, Market.asset).
@@ -147,7 +153,7 @@ namespace TheWaningBorder.Core.Localization
             t["Iron Plating"] = "Blindagem de Ferro";
             t["Veilstone Plating"] = "Blindagem de Veilstone";
             t["Shard Plating"] = "Blindagem de Fragmentos";
-            t["Field Hospital"] = "Hospital de Campanha";
+            t["Healing Ward"] = "Guarda Curativa";
 
             // ============================================================
             // Tech-tree SOs (originally TechTree.json, deleted 2026-10-03) — roles (shared with the building SO assets
@@ -271,7 +277,7 @@ namespace TheWaningBorder.Core.Localization
             t["Siege armour tier 1: +1 defense to all siege engines."] = "Armadura de cerco de nível 1: +1 de defesa para todas as máquinas de cerco.";
             t["Siege armour tier 2: +2 defense to all siege engines."] = "Armadura de cerco de nível 2: +2 de defesa para todas as máquinas de cerco.";
             t["Siege armour tier 3: +3 defense to all siege engines."] = "Armadura de cerco de nível 3: +3 de defesa para todas as máquinas de cerco.";
-            t["Sect of Renewal. Unlocks the Deploy Field Hospital ability for Litharchs: a temporary building that heals nearby allied units, then destroys itself after 2 minutes. 300 s cooldown."] = "Seita da Renovação. Desbloqueia a capacidade Montar Hospital de Campanha para os Litharchs: um edifício temporário que cura unidades aliadas próximas e se destrói passados 2 minutos. Recarga de 300 s.";
+            t["Sect of Renewal. Your Litharchs learn to cast the Healing Ward spell: the Litharch plants a small ward that slowly heals nearby allied units until it is destroyed. The ward is fragile: a single blow breaks it. Each Litharch recharges it on its own."] = "Seita da Renovação. Os teus Litarcas aprendem a lançar o feitiço Guarda Curativa: o Litarca planta uma pequena guarda que cura lentamente as unidades aliadas próximas até ser destruída. A guarda é frágil: um único golpe quebra-a. Cada Litarca recarrega-a por si.";
 
             // ============================================================
             // Tech-tree SOs (originally TechTree.json, deleted 2026-10-03) — effects, description, note
@@ -284,7 +290,6 @@ namespace TheWaningBorder.Core.Localization
             t["Killing non-military units grants +15 Supplies and +1 Iron per kill to the attacker's owner."] = "Matar unidades não militares concede +15 de Mantimentos e +1 de Ferro por morte ao dono do atacante.";
             t["Each closed wall compartment yields +8 Supplies per 10u² area per minute."] = "Cada compartimento de muralha fechado rende +8 de Mantimentos por 10u² de área por minuto.";
             t["+15% building HP, +20% repair rate."] = "+15% de HP dos edifícios, +20% de velocidade de reparação.";
-            t["Grants 1 Sect Point and provides a single chapel slot."] = "Concede 1 Ponto de Seita e fornece uma única vaga de capela.";
             t["Choose exactly one culture. Existing buildings re-skin to chosen culture."] = "Escolhe exatamente uma cultura. Os edifícios existentes mudam de aparência para a cultura escolhida.";
 
             // ============================================================
@@ -367,7 +372,7 @@ namespace TheWaningBorder.Core.Localization
             t["The Alanthor culture uses Walls as their gatherer income. Build them to enclose population."] = "A cultura Alanthor usa as Muralhas como rendimento de recoleção. Constrói-as para cercar população.";
             t["Runaii caravans travel along trade lanes that you can re-route by placing new outposts."] = "As caravanas Runaii percorrem rotas comerciais que podes redirecionar colocando novos postos avançados.";
             t["Feraldis trains units in batches of five — line up the iron before queueing."] = "Os Feraldis treinam unidades em lotes de cinco — garante o ferro antes de pôr na fila.";
-            t["Hold Position (H) keeps a unit still even while enemies provoke it. Useful for kiting screens."] = "Manter Posição (H) mantém uma unidade parada mesmo quando os inimigos a provocam. Útil para cortinas de proteção contra kiting.";
+            t["The Defensive stance (H) keeps a unit still even while enemies provoke it. Useful for kiting screens."] = "A postura Defensiva (H) mantém uma unidade parada mesmo quando os inimigos a provocam. Útil para cortinas de proteção contra kiting.";
             t["Cliffs are impassable. Use them as walls against melee armies if a chokepoint isn't an option."] = "As falésias são intransponíveis. Usa-as como muralhas contra exércitos corpo a corpo se um estrangulamento não for opção.";
             t["Mountains are off-limits to pathing entirely — they make natural map borders, not obstacles to climb."] = "As montanhas estão totalmente vedadas ao movimento — formam fronteiras naturais do mapa, não obstáculos a escalar.";
             t["Place a Hut on a cell with smoothed ground — uneven terrain refuses building placement."] = "Coloca uma Cabana numa célula de terreno aplanado — o terreno irregular recusa a colocação de edifícios.";

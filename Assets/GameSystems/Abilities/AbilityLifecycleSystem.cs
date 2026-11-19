@@ -357,6 +357,9 @@ namespace TheWaningBorder.Abilities
 
         private static void SetCooldown(EntityManager em, Entity e, int slot, float cd)
         {
+            // A researched cooldown cut on this unit (Swift Rites, decision 77).
+            if (em.HasComponent<AbilityCooldownScale>(e))
+                cd *= em.GetComponentData<AbilityCooldownScale>(e).Mult;
             var c = em.HasComponent<AbilityCooldowns>(e) ? em.GetComponentData<AbilityCooldowns>(e) : default;
             c.Set(slot, cd);
             AddOrSet(em, e, c);

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_ArchivistOfHours
   displayName: Archivist of Hours
   unitClass: ranged
-  hp: 1090
+  hp: 680
   speed: 6
   trainingTime: 45
   damage: 52

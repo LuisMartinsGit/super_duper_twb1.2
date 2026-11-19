@@ -24,9 +24,9 @@ MonoBehaviour:
   - SecondCoffer
   culture: 
   cost:
-    Supplies: 2500
-    Iron: 900
-    Veilstone: 300
+    Supplies: 900
+    Iron: 400
+    Veilstone: 100
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

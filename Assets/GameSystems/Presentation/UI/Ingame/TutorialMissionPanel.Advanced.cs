@@ -33,7 +33,7 @@ namespace TheWaningBorder.UI.Ingame
                     Mathf.Min(TutorialMissionState.Ranges, 1), 1),
                 () => TutorialMissionState.Ranges >= 1);
             AddRow(root, () => Open(AdvancedStage.Defense),
-                () => string.Format(Loc.T("4a - Build a Watch Tower ({0}/{1})"),
+                () => string.Format(Loc.T("4a - Build a Battle Tower ({0}/{1})"),
                     Mathf.Min(TutorialMissionState.Towers, 1), 1),
                 () => TutorialMissionState.Towers >= 1);
             AddRow(root, () => Open(AdvancedStage.Defense),
@@ -95,7 +95,7 @@ namespace TheWaningBorder.UI.Ingame
                     break;
                 case AdvancedStage.Defense:
                     title = Loc.T("Defend and expand");
-                    body = Loc.T("The waves keep coming. <b>Stone Walls</b> close the way and <b>Watch Towers</b> shoot "
+                    body = Loc.T("The waves keep coming. <b>Stone Walls</b> close the way and <b>Battle Towers</b> shoot "
                         + "whatever comes near. To take new ground, stand soldiers in a territory that borders yours "
                         + "until its meter fills, then build there to hold it.");
                     break;

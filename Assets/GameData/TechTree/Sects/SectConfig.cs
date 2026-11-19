@@ -68,26 +68,20 @@ namespace TheWaningBorder.Economy
 
         /// <summary>
         /// Playable-sect gate. FULLY OPEN since 2026-08-11: every sect ships
-        /// a complete thin-slice kit — chapel, passive lever
+        /// a complete thin-slice kit — passive lever
         /// (SectLeverEffects.UnitOf), active power (ActiveOf covers all 12)
-        /// and a chapel-trained unique unit (UnitIdFor below) — so the
+        /// and a unique unit (UnitIdFor below) — so the
         /// rollout gate that limited adoption to Justice/Renewal/War is
         /// retired. The method stays as the single choke point should a
         /// future sect land data-first again.
         /// </summary>
         public static bool IsImplemented(string sectId) => IsKnownSect(sectId);
 
-        // ─── Chapel building IDs ────────────────────────────────────────────
-        // Adoption mechanism: building a chapel inside the Temple's 6-slot
-        // system grants the matching sect. One chapel id per sect.
-        // BuildingFactory registers each as "Chapel_<SectId>".
-
-        public static string ChapelIdFor(string sectId) => "Chapel_" + sectId;
-
         /// <summary>The sect's trainable UNIT id (build limit 20, Religion.md
-        /// §4). Trained at the sect's building; for a sect that has no sect
-        /// building yet (the Runai and Feraldis clusters, until their pass),
-        /// at its chapel. The file tree follows this mapping.</summary>
+        /// §4). Trained at the sect's building; a sect that has no sect
+        /// building yet (the Runai and Feraldis clusters, until their pass)
+        /// has no trainer (the Temple's chapels were removed, decision 80).
+        /// The file tree follows this mapping.</summary>
         public static string UnitIdFor(string sectId) => sectId switch
         {
             // Alanthor cluster
@@ -144,21 +138,6 @@ namespace TheWaningBorder.Economy
         /// <summary>Build limit of every sect unit (Religion.md §4).</summary>
         public const int SectUnitLimit = 20;
 
-        /// <summary>True if the building id is one of the 12 sect chapels.</summary>
-        public static bool IsChapelId(string buildingId)
-        {
-            if (string.IsNullOrEmpty(buildingId)) return false;
-            if (!buildingId.StartsWith("Chapel_")) return false;
-            return IsKnownSect(buildingId.Substring("Chapel_".Length));
-        }
-
-        /// <summary>Inverse — extracts the sect id from a chapel building id, or null.</summary>
-        public static string SectIdFromChapelId(string chapelBuildingId)
-        {
-            if (!IsChapelId(chapelBuildingId)) return null;
-            return chapelBuildingId.Substring("Chapel_".Length);
-        }
-
         /// <summary>
         /// Stable index → string-id table. Sizes <c>SectAdoptionState</c> arrays.
         /// Order is locked: Alanthor first, then Runaii, then Feraldis,
@@ -201,8 +180,7 @@ namespace TheWaningBorder.Economy
         public const int UpgradeCostLv2ToLv3 = 3;
 
         /// <summary>
-        /// Hard cap on adopted sects per faction. Enforced naturally by the
-        /// Temple's 6 chapel slots — each chapel = one adopted sect.
+        /// Hard cap on adopted sects per faction.
         /// </summary>
         public const int MaxAdoptedSects = 6;
 
@@ -291,7 +269,7 @@ namespace TheWaningBorder.Economy
         {
             int idx = IndexOf(sectId);
             if (idx < 0) return -1;
-            // No culture yet, no affinity: every chapel is the full price
+            // No culture yet, no affinity: every sect is the full price
             // before age-up (docs/Design/Religion.md §3).
             if (factionCulture == Cultures.None) return AdoptCostCrossCulture;
             var sectCluster = ClusterByIndex[idx];

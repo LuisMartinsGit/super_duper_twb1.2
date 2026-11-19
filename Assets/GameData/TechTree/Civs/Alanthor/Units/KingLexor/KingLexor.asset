@@ -15,7 +15,7 @@ MonoBehaviour:
   id: King Lexor
   displayName: King Lexor
   unitClass: melee
-  hp: 1150
+  hp: 720
   speed: 7
   trainingTime: 45
   damage: 46
@@ -44,6 +44,7 @@ MonoBehaviour:
   - Cavalry
   - Heavy
   bonusVsTags: []
+  torchDamage: 25
   abilities:
   - King's Call
   - Liquid Courage

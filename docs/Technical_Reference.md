@@ -1520,7 +1520,7 @@ Effects apply to existing units on tech completion. Newly spawned units get effe
 
 | Parameter | Value |
 |-----------|-------|
-| RepairRange | 4.0 units (XZ distance) |
+| Reach | the construction rule: `BuildingConstructionSystem.asset` via `BuilderStand` (Age_0.md § Worker) |
 | RepairRatePerWorker | 15 HP/second |
 | RepairCostMultiplier | 1.2x (20% surcharge) |
 

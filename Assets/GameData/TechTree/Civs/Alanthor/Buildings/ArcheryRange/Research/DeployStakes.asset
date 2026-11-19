@@ -16,15 +16,15 @@ MonoBehaviour:
   displayName: Deploy Stakes
   role: Military
   effect: 
-  desc: "Planted stakes: the first cavalry charge against an archer lands at half damage and pays 50% of what it dealt straight back into the horse. Re-plants after 20 s."
+  desc: "Crossbowman skill: the first cavalry charge against him lands at half damage and pays 50% of what it dealt back into the horse. Re-plants after 20 s."
   researchAt: ArcheryRange
-  minBuildingLevel: 3
+  minBuildingLevel: 2
   researchTime: 40
   prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 150
-    Iron: 50
+    Supplies: 220
+    Iron: 140
     Veilstone: 0
   effects:
     gatherSpeedMult: 0

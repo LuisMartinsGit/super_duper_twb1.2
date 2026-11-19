@@ -16,11 +16,11 @@ MonoBehaviour:
   displayName: Renewal Fortress
   role: Raise Anew III - a permanent keep that anchors a position
   description: 
-  hp: 2600
+  hp: 3600
   armorType: structure_human
   defense:
-    melee: 12
-    ranged: 20
+    melee: 0
+    ranged: 50
     siege: 4
     magic: 7
   radius: 4

@@ -212,10 +212,6 @@ namespace TheWaningBorder.Economy
         // what a spec says is what a player without the Shardroot waits
         // (docs/Design/Spells.md sections 5 and 8.2).
 
-        /// <summary>Cooldown scale with the Shardroot enshrined for the sect:
-        /// "all sect power cooldowns reduced by 30%"
-        /// (docs/Design/Curse_And_Shardroot.md).</summary>
-        public const float ShardrootCooldownScale = 0.7f;
 
         /// <summary>
         /// Canon active for one (sect, slot, level). Slot is 1-based to match

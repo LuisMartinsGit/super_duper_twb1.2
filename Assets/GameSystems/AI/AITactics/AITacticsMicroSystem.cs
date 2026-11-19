@@ -78,7 +78,6 @@ namespace TheWaningBorder.AI
         private readonly bool[] _kiteDue = new bool[MaxF];
         private readonly bool[] _abilityDue = new bool[MaxF];
         private readonly AITacticsSkill[] _skills = new AITacticsSkill[MaxF];
-        private readonly int[] _issued = new int[MaxF];
         private int _epoch = -1;
 
         // Host scratch (main thread only).
@@ -140,6 +139,8 @@ namespace TheWaningBorder.AI
                 _recentArea.Clear();
                 _heldNext.Clear();
                 _sectHeldNext.Clear();
+                _threatSince.Clear();
+                _ready.Clear();
                 _kitePass = _abilityPass = false;
                 for (int f = 0; f < MaxF; f++)
                 {
@@ -166,7 +167,6 @@ namespace TheWaningBorder.AI
                 {
                     _kitePass = true;
                     _kiteCursor = 0;
-                    System.Array.Clear(_issued, 0, MaxF);
                 }
             }
             if (!_abilityPass)
@@ -211,13 +211,37 @@ namespace TheWaningBorder.AI
         // KITING
         // ─────────────────────────────────────────────────────────────────
 
+        /// <summary>A shooter found under melee attack this pass, past its
+        /// tier's reaction delay.</summary>
+        private struct KiteReady
+        {
+            public Entity E;
+            public int F;
+            public float3 Pos, ThreatPos;
+            public float Speed;
+        }
+
+        private readonly List<KiteReady> _ready = new List<KiteReady>(64);
+        private readonly List<int> _cluster = new List<int>(32);
+        private bool[] _taken = new bool[64];
+        /// <summary>Per shooter: x = when it first came under melee attack,
+        /// y = when it was last seen so (the reaction delay's clock).</summary>
+        private readonly Dictionary<Entity, double2> _threatSince = new Dictionary<Entity, double2>();
+        private readonly List<Entity> _threatPrune = new List<Entity>();
+
         /// <summary>
-        /// A ranged unit that has just loosed (reloading) with hostile melee
-        /// inside kiteTriggerDistance, and the legs to open the gap, takes ONE
-        /// step straight away from it; once the step is walked it re-acquires
-        /// (or the army tactics re-issue its focus) and fires again. Bounded
-        /// by kiteMaxDrift from where it started kiting in this fight, so the
-        /// stance leash and the army's cohesion still own the big picture.
+        /// KITING, AS A PLAYER DOES IT (docs/Design/Game_AI.md § 6e,
+        /// 2026-11-18). A ranged unit with hostile melee inside
+        /// kiteTriggerDistance, and the legs to open the gap, is under attack;
+        /// once its tier's reactionSeconds have passed, the shooters under
+        /// attack within kiteGroupRadius of each other are pulled back by ONE
+        /// order (one action from the budget) to a spot kiteBehindLine behind
+        /// their own melee line — or, with none near, toward their own army —
+        /// never straight away from the attacker, at most kiteMaxStep and
+        /// kiteMaxDrift from where this fight's kiting began. The reaction
+        /// clock restarts after each pull-back. Per-unit kiting (every archer
+        /// stepping away from its own attacker on every reload) is superhuman
+        /// and pulled the fight apart; it is gone.
         /// </summary>
         /// <summary>One slice of the kiting pass; true when the pass is done
         /// (false = out of time, resumes at <see cref="_kiteCursor"/>).</summary>
@@ -226,13 +250,10 @@ namespace TheWaningBorder.AI
             var q = QC_Shooters.Get(em, QT_Shooters);
             using var ents = q.ToEntityArray(Allocator.Temp);
             using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            // Bulk columns (2026-10-15 perf): the two tests that reject almost
-            // every shooter — dead, or not reloading — read from arrays BEFORE
-            // the EntityManager tag tests. All of them are side-effect-free
-            // filters joined by AND, so the order changes no answer.
             using var hps = q.ToComponentDataArray<Health>(Allocator.Temp);
-            using var archers = q.ToComponentDataArray<ArcherState>(Allocator.Temp);
             using var xfs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+
+            if (_kiteCursor == 0) _ready.Clear();
 
             // Resumed by index: the query order can shift between frames, so
             // a resumed pass may skip or revisit a few shooters — harmless
@@ -241,9 +262,7 @@ namespace TheWaningBorder.AI
             {
                 int fi = (int)facs[i].Value;
                 if (fi < 0 || fi >= MaxF || !_kiteDue[fi]) continue;
-                if (_issued[fi] >= Cfg.kiteMaxPerTick) continue;
                 if (hps[i].Value <= 0) continue;
-                if (archers[i].CooldownTimer < Cfg.kiteMinReloadSeconds) continue;
                 var e = ents[i];
 
                 // Siege and emplaced engines do not dance; a channelling
@@ -256,12 +275,9 @@ namespace TheWaningBorder.AI
                 if (SliceSpent()) { _kiteCursor = i; return false; }
 
                 float3 myPos = xfs[i].Position;
-                var faction0 = facs[i].Value;
-                // Nobody hostile in the trigger band at all (snapshot): no
-                // per-candidate live reads.
-                if (!AIStrengthMap.AnyHostileUnitCandidate(em, faction0, myPos, Cfg.kiteTriggerDistance)) continue;
-                float myRadius = AITactics.RadiusOf(em, e);
                 var faction = facs[i].Value;
+                if (!AIStrengthMap.AnyHostileUnitCandidate(em, faction, myPos, Cfg.kiteTriggerDistance)) continue;
+                float myRadius = AITactics.RadiusOf(em, e);
 
                 // Nearest hostile MELEE body inside the trigger band.
                 AIStrengthMap.HostileUnitCandidates(em, faction, myPos, Cfg.kiteTriggerDistance, _cand);
@@ -291,26 +307,140 @@ namespace TheWaningBorder.AI
                 float3 anchor = AITactics.KiteAnchor(em, e, myPos);
                 if (math.distance(anchor.xz, myPos.xz) > Cfg.kiteMaxDrift) continue;
 
-                float2 away = math.normalizesafe(myPos.xz - threatPos.xz);
-                if (math.lengthsq(away) < 1e-4f) continue;
-                float3 dest = new float3(myPos.x + away.x * Cfg.kiteStepDistance, myPos.y,
-                                         myPos.z + away.y * Cfg.kiteStepDistance);
+                // The reaction delay: the AI notices before it acts.
+                if (!_threatSince.TryGetValue(e, out var since)) since = new double2(now, now);
+                since.y = now;
+                _threatSince[e] = since;
+                if (now - since.x < _skills[fi].reactionSeconds) continue;
 
-                CommandRouter.IssueMove(em, e, dest, CommandSource.AI);
-                AITactics.MarkKiting(em, e, faction, now + Cfg.kiteStepDistance / mySpeed);
-                _issued[fi]++;
+                _ready.Add(new KiteReady { E = e, F = fi, Pos = myPos, ThreatPos = threatPos, Speed = mySpeed });
             }
+
+            IssuePullBacks(em, now);
+
+            // A shooter not under attack for a moment has to notice afresh.
+            _threatPrune.Clear();
+            foreach (var kv in _threatSince)
+                if (now - kv.Value.y > Cfg.microInterval * 3f) _threatPrune.Add(kv.Key);
+            for (int i = 0; i < _threatPrune.Count; i++) _threatSince.Remove(_threatPrune[i]);
 
             for (int f = 0; f < MaxF; f++)
             {
                 if (!_kiteDue[f]) continue;
                 if (!AITactics.LogDue(em, (Faction)f, "kite", Cfg.logIntervalSeconds)) continue;
                 int n = AITactics.TakeKiteCount((Faction)f);
-                if (n > 0)
+                int refused = AITactics.TakeRefusedActions((Faction)f);
+                if (n > 0 || refused > 0)
                     AILogger.Log((Faction)f, "TACTICS",
-                        $"kite {n} units (last {Cfg.logIntervalSeconds:F0}s)");
+                        $"kite {n} units, {refused} micro orders refused for want of actions " +
+                        $"(last {Cfg.logIntervalSeconds:F0}s)");
             }
             return true;
+        }
+
+        /// <summary>Group the ready shooters per faction and pull each group
+        /// back with one order. Deterministic: groups are seeded in entity
+        /// index order.</summary>
+        private void IssuePullBacks(EntityManager em, double now)
+        {
+            if (_ready.Count == 0) return;
+            _ready.Sort((a, b) => a.F != b.F ? a.F.CompareTo(b.F) : a.E.Index.CompareTo(b.E.Index));
+            if (_taken.Length < _ready.Count) _taken = new bool[_ready.Count * 2];
+            System.Array.Clear(_taken, 0, _ready.Count);
+            float group2 = Cfg.kiteGroupRadius * Cfg.kiteGroupRadius;
+
+            for (int s = 0; s < _ready.Count; s++)
+            {
+                if (_taken[s]) continue;
+                var seed = _ready[s];
+                var faction = (Faction)seed.F;
+                _cluster.Clear();
+                for (int j = s; j < _ready.Count && _ready[j].F == seed.F; j++)
+                {
+                    if (_taken[j]) continue;
+                    if (math.distancesq(_ready[j].Pos.xz, seed.Pos.xz) > group2) continue;
+                    _taken[j] = true;
+                    _cluster.Add(j);
+                }
+
+                // Members may have died since the scan slice that found them.
+                float3 c = float3.zero, t = float3.zero;
+                int live = 0;
+                float slowest = float.MaxValue;
+                for (int k = 0; k < _cluster.Count; k++)
+                {
+                    var r = _ready[_cluster[k]];
+                    if (!em.Exists(r.E) || !em.HasComponent<Health>(r.E)
+                        || em.GetComponentData<Health>(r.E).Value <= 0) continue;
+                    c += r.Pos; t += r.ThreatPos; live++;
+                    slowest = math.min(slowest, r.Speed);
+                }
+                if (live == 0) continue;
+                c /= live; t /= live;
+
+                float2 away = math.normalizesafe(c.xz - t.xz);
+                if (math.lengthsq(away) < 1e-4f) continue;
+                float2 dest = PullBackSpot(em, faction, c, t, away);
+
+                if (!AITactics.TrySpendAction(em, faction)) continue;   // the hands are busy
+
+                float stepLen = math.distance(dest, c.xz);
+                for (int k = 0; k < _cluster.Count; k++)
+                {
+                    var r = _ready[_cluster[k]];
+                    if (!em.Exists(r.E) || !em.HasComponent<Health>(r.E)
+                        || em.GetComponentData<Health>(r.E).Value <= 0) continue;
+                    // The group keeps its shape: each member moves by the
+                    // same offset, as a group move does.
+                    float2 to = dest + (r.Pos.xz - c.xz);
+                    CommandRouter.IssueMove(em, r.E, new float3(to.x, r.Pos.y, to.y), CommandSource.AI);
+                    AITactics.MarkKiting(em, r.E, faction, now + stepLen / math.max(0.1f, slowest));
+                    _threatSince.Remove(r.E);   // it reacts afresh next time
+                }
+            }
+        }
+
+        /// <summary>Where a pulled-back group goes: kiteBehindLine behind its
+        /// own melee line within kiteLineSearchRadius, else toward its own
+        /// army there, else kiteStepDistance straight back. Never toward the
+        /// threat, never further than kiteMaxStep.</summary>
+        private float2 PullBackSpot(EntityManager em, Faction faction, float3 c, float3 t, float2 away)
+        {
+            AIStrengthMap.FriendlyUnitCandidates(em, faction, c, Cfg.kiteLineSearchRadius, _allies);
+            float2 melee = float2.zero, army = float2.zero;
+            int meleeN = 0, armyN = 0;
+            for (int i = 0; i < _allies.Count; i++)
+            {
+                var a = _allies[i];
+                if (!em.Exists(a) || !em.HasComponent<Health>(a) || em.GetComponentData<Health>(a).Value <= 0) continue;
+                if (!em.HasComponent<LocalTransform>(a) || !em.HasComponent<Damage>(a)) continue;
+                if (em.HasComponent<WorkerTag>(a)) continue;
+                float2 ap = em.GetComponentData<LocalTransform>(a).Position.xz;
+                if (math.distancesq(ap, c.xz) > Cfg.kiteLineSearchRadius * Cfg.kiteLineSearchRadius) continue;
+                army += ap; armyN++;
+                if (AITactics.IsMelee(em, a)) { melee += ap; meleeN++; }
+            }
+
+            float2 dest;
+            if (meleeN > 0)
+            {
+                float2 line = melee / meleeN;
+                float2 back = math.normalizesafe(line - t.xz);
+                if (math.lengthsq(back) < 1e-4f) back = away;
+                dest = line + back * Cfg.kiteBehindLine;
+            }
+            else if (armyN > 0 && math.distance(army / armyN, c.xz) > 1f)
+                dest = army / armyN;
+            else
+                dest = c.xz + away * Cfg.kiteStepDistance;
+
+            float2 step = dest - c.xz;
+            // Our line is on the far side of the enemy: no pull-back through
+            // it — straight back instead.
+            if (math.dot(step, away) <= 0f) step = away * Cfg.kiteStepDistance;
+            float len = math.length(step);
+            if (len > Cfg.kiteMaxStep) step *= Cfg.kiteMaxStep / len;
+            return c.xz + step;
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -572,14 +702,19 @@ namespace TheWaningBorder.AI
                         Entity caster = e;
                         var hc = card;
                         if (!TheWaningBorder.Entities.AbilityBuildingSite.TryNearest(pos,
-                                TheWaningBorder.Entities.FieldHospital.SizeMeters, math.max(0f, card.Range),
-                                p => TheWaningBorder.Entities.FieldHospital.SiteRefusal(em, caster, hc, p),
+                                TheWaningBorder.Entities.HealingWard.SizeMeters, math.max(0f, card.Range),
+                                p => TheWaningBorder.Entities.HealingWard.SiteRefusal(em, caster, hc, p),
                                 out float3 site))
                         {
-                            LogHeld(fi, faction, card.Name, "no legal ground for the hospital in reach");
+                            LogHeld(fi, faction, card.Name, "no legal ground for the Healing Ward in reach");
                             continue;
                         }
                         aim = site;
+                    }
+                    if (!AITactics.TrySpendAction(em, faction))
+                    {
+                        LogHeld(fi, faction, card.Name, "no action to spare");
+                        continue;
                     }
                     if (CommandRouter.IssueUnitAbilitySlot(em, e, slot, pick, aim, CommandSource.AI))
                     {
@@ -616,6 +751,7 @@ namespace TheWaningBorder.AI
                 ReadContext(em, e, faction);
                 if (_cand.Count < Cfg.heroUltimateMinEnemies) return false;
             }
+            if (!AITactics.TrySpendAction(em, faction)) return false;
             return CommandRouter.IssueUnitAbilitySlot(em, e, slot, Entity.Null, aim, CommandSource.AI);
         }
 
@@ -649,7 +785,7 @@ namespace TheWaningBorder.AI
         /// "it is off cooldown":
         ///   * area damage / control  — at least aoeMinEnemies inside its radius;
         ///   * ultimates (Honour thy Pledge) — only when the fight is pivotal;
-        ///   * heals (Field Hospital) — enough of the allied pool is missing;
+        ///   * heals (Healing Ward) — enough of the allied pool is missing;
         ///   * ally buffs (War Horn, Volleys, attack / armour) — enough allies
         ///     affected AND an enemy inside the radius or about to be;
         ///   * self-defence (Liquid Courage) — in combat and hurt or outnumbered;
@@ -682,10 +818,10 @@ namespace TheWaningBorder.AI
                 return card.TargetKind == CastTargetKind.EnemyUnit
                        || card.TargetKind == CastTargetKind.EnemyUnitOrBuilding
                     ? CardKind.TargetEnemy : CardKind.Ignore;
-            // The Field Hospital is placed like a building (aimed, since
+            // The Healing Ward is placed like a building (aimed, since
             // 2026-11-11); its rule is the heal, so it is classed before the
             // aimed cards this system leaves alone.
-            if (card.HasEffect(AbilityEffectKind.DeployFieldHospital)) return CardKind.Hospital;
+            if (card.HasEffect(AbilityEffectKind.DeployHealingWard)) return CardKind.Hospital;
             if (card.IsAimed
                 || card.HasEffect(AbilityEffectKind.RevealFog)
                 || card.HasEffect(AbilityEffectKind.ResourceYieldPct)
@@ -698,7 +834,7 @@ namespace TheWaningBorder.AI
             // Returning the escorts is left to the Call running out.
             if (card.HasEffect(AbilityEffectKind.RunaiReturnToWagons)) return CardKind.Ignore;
             if (card.HasEffect(AbilityEffectKind.RunaiTheCall)) return CardKind.Call;
-            if (card.HasEffect(AbilityEffectKind.DeployFieldHospital)) return CardKind.Hospital;
+            if (card.HasEffect(AbilityEffectKind.DeployHealingWard)) return CardKind.Hospital;
             if (card.HasEffect(AbilityEffectKind.MoveSpeedPct)
                 && card.EffectValue(AbilityEffectKind.MoveSpeedPct) > 0f
                 && card.HasEffect(AbilityEffectKind.DisarmWhileBuffed))
@@ -724,7 +860,7 @@ namespace TheWaningBorder.AI
         ///   * area damage / control  — at least aoeMinEnemies inside its radius;
         ///   * ultimates (Honour thy Pledge) — only when the fight is pivotal;
         ///   * The Call — a pivotal fight AND enough escorts to call;
-        ///   * heals (Field Hospital) — enough of the allied pool is missing;
+        ///   * heals (Healing Ward) — enough of the allied pool is missing;
         ///   * ally buffs (War Horn, Volleys, attack / armour) — enough allies
         ///     affected AND an enemy inside the radius or about to be;
         ///   * self-defence (Liquid Courage) — in combat and hurt or outnumbered;
@@ -777,9 +913,9 @@ namespace TheWaningBorder.AI
 
                 case CardKind.Hospital:
                 {
-                    // The team's cap and spacing (FieldHospitalSystem.asset): a
+                    // The team's cap and spacing (HealingWardSystem.asset): a
                     // cast the engine would refuse is never attempted.
-                    if (!TheWaningBorder.Entities.FieldHospital.CanDeploy(em, faction, ctx.Pos, out string hospWhy))
+                    if (!TheWaningBorder.Entities.HealingWard.CanDeploy(em, faction, ctx.Pos, out string hospWhy))
                     {
                         if (wantWhy) why = hospWhy;
                         return Verdict.Hold;
@@ -961,6 +1097,7 @@ namespace TheWaningBorder.AI
                 }
 
                 if (!cast) { LogSectHeld(fi, faction, ab.Id, why); continue; }
+                if (!AITactics.TrySpendAction(em, faction)) { LogSectHeld(fi, faction, ab.Id, "no action to spare"); continue; }
                 CommandRouter.IssueAbility(em, e, target, CommandSource.AI);
                 MarkCast(e);
                 AILogger.Log(faction, "ABILITY",

@@ -106,8 +106,12 @@ is no territory limit for the levels to raise (Territory_Claims.md §10,
 Internally the building id is `Fortress` in both ages (`HallTag` survives as
 an internal component only).
 
-**It is buildable, one per territory** ([Territory_Claims.md](Territory_Claims.md)
-§4), and it **locks** the territory it stands in. Cost, HP, defence,
+**A player has one, ever** (decision 69, 2026-11-17 — it was buildable, one per
+territory): when it falls it leaves rubble, it can be built again only there, for
+a share of its price, and
+a player whose keystones — Fortress, Temple, landmark and sect buildings, each of
+which leaves rubble and rebuilds the same way — are all down for the rebuild grace is out
+([Territory_Claims.md](Territory_Claims.md) § 7), and it **locks** the territory it stands in. Cost, HP, defence,
 population, footprint and income live on the `Fortress` SO
 (`Age0/Buildings/Fortress/Fortress.asset`).
 
@@ -275,12 +279,16 @@ At age-up the per-culture behaviour splits three ways (see
 > whole life, and the Stone Wall is a different building Alanthor gains at
 > age-up ([Age_1_Alanthor.md § The stone wall](Age_1_Alanthor.md)).
 
-Every culture can draw a palisade from the first minute. **At age-up, Alanthor
-and Runai lose it** — the build button is gone, and nothing new can be added
+Every culture can draw a palisade from the first minute. **At age-up, Runai
+lose it** — the build button is gone, and nothing new can be added
 to a palisade they already own (no Build Wall from a palisade hub, no Convert to
 Hub on a palisade section). What they built **stays timber**: it keeps its HP,
 it can still be turned into a gate, and it can be deleted. **Feraldis keep
-building palisades for the whole game** — they never leave timber.
+building palisades for the whole game** — they never leave timber. **Alanthor
+keep building it too (2026-11-18)**: the developer's Age 1 Alanthor builder
+layout puts the Palisade first in the Defense row, beside the Stone Wall
+([Overview.md § The actions panel](Overview.md)); it stays the Age 0 timber
+fence, with no levels.
 
 **Feraldis: the Wooden Wall (2026-10-13).** At a Feraldis age-up every
 palisade the faction owns is raised **automatically** to the Feraldis
@@ -297,7 +305,7 @@ engine ([Age_1_Feraldis.md § Walls](Age_1_Feraldis.md)).
 | Property | Rule |
 |------|-------|
 | Id | `Palisade` (hub, `Age0/Buildings/Palisade/Palisade.asset`). Its curtain sections, gates and seals are the shared wall pieces, carrying `PalisadeTag` |
-| Who | **every culture in Age 0; Feraldis only after age-up** |
+| Who | **every culture in Age 0; Feraldis and Alanthor (2026-11-18) after age-up — not Runai** |
 | Cost | a price **per hub plus a price per curtain module** (`PalisadeSegment.asset`), charged for the whole length when the fence is laid — supplies only. The gate conversion costs the same as the stone wall's gate (decision 36) |
 | HP | hub and module HP on their SOs; never scaled for Alanthor / Runai (their palisade has no levels). **Feraldis**: scaled once by the Wooden Wall level SO at age-up (above) |
 | Footprint | the hub's footprint is its SO's, **not grid-snapped** (the wall hubs are the buildings exempt from the build grid, [Build_Grid.md § 5](Build_Grid.md)). The curtain is freeform and **thin** |
@@ -306,6 +314,24 @@ engine ([Age_1_Feraldis.md § Walls](Age_1_Feraldis.md)).
 | Conversions | **Gate and Hub only.** No tower and no mounted engine. No placeholder cards. **Feraldis Wooden Wall: Gate, wall Tower and Hub** — still no mounted engine |
 | Joins | **palisade to palisade only.** A palisade never snaps to, auto-connects with, or is branched from a stone wall, and the reverse — they are different buildings |
 | Placement | drawn, exactly as [Age_1_Alanthor.md § Drawing walls](Age_1_Alanthor.md) describes |
+
+---
+
+### Watch Tower (id `Lookout`) — Age 0, every culture, every age (2026-11-18)
+
+Developer: "a tower that provides LOS but no attack, does not evolve to a
+tower on age up. cheap." A small timber tower that only **sees**: it gives a
+wide line of sight over its ground and does nothing else.
+
+| Property | Rule |
+|------|-------|
+| Id | `Lookout` (`Age0/Buildings/Lookout/Lookout.asset`), displayed **Watch Tower**. The Alanthor tower that shoots (id `Alanthor_Tower`) is displayed **Battle Tower** since the same day |
+| Who | every culture, in Age 0 and after; built by Workers from the Defense row of the build palette ([Overview.md § The actions panel](Overview.md)) |
+| Does | line of sight only — **no attack, no garrison, no levels, no research**. Hit points low, line of sight wide, footprint small, price cheap and supplies-only: the numbers are on the SO |
+| Where | **any ground** — inside or outside your territory, the curse's and rivals' included (developer, 2026-11-18); the only building exempt from the owned-ground rule (`TerritoryOwnership.TerritoryRefusal`) |
+| Age-up | **nothing**: it is not converted, renamed or levelled at age-up and stays a Watch Tower all match |
+| Look | the Age 0 timber tower form already authored for the Battle Tower (`Civs/Alanthor/Buildings/Tower/Art/Alanthor_Tower_Age_0.prefab`), referenced from the SO |
+| AI | the AI does not build it |
 
 ---
 
@@ -325,6 +351,25 @@ heal aura (`TempleHealSystem`). The Shrine of Ridan is gone (2026-10-02).
   veilsteel, per the Age 0 cost rule.
 - **Warrior Priests** gives the Litharch an attack; the Litharch has none
   without it.
+- **The Temple's research LEVEL is the highest level among the faction's
+  adopted sects** (decision 77, 2026-11-18, developer: "Litharch tiers unlock
+  with the max level of sects adopted") — 0 until a sect is adopted. It is
+  what `minBuildingLevel` on a Temple tech is checked against
+  (`ResearchHostLevel`), by the panel, the AI and the research command alike.
+  The Masses ladder and Warrior Priests keep `minBuildingLevel` 0.
+- **What the Temple shows (2026-11-18, developer: "most actions should be
+  invisible").** **Age 0: the Litharch and nothing else. From Age 1: the
+  Litharch and Warrior Priests, and nothing else.** Everything else the Temple
+  used to offer is HIDDEN, not greyed — the Masses ladder (so its heal aura
+  never switches on), the Litharch upgrade ladder below, the Petriarchy's
+  Support and Army purchases ([Monuments_And_Petriarchy.md](Monuments_And_Petriarchy.md)
+  §5-§6) and the adopted sects' units. Their SOs and code stay; they are
+  simply not offered. The lists are on `TempleOffer.asset`
+  (`TempleOfRidan/TempleOffer.cs`), and the one rule is read by the panel, the
+  AI research sweep, the research command (refused for everyone) and
+  `ReligionPurchases.CanBuy` (the Petriarchy purchases), so the AI cannot buy
+  what the player cannot reach. *Where the hidden features should live is an
+  open question.*
 
 ---
 
@@ -341,12 +386,20 @@ and no culture-choice dialog: the landmark you build decides the culture.
 
 **The demo is 100 % Alanthor** — every player, AI included.
 
+- **Where they are placed.** All three show, in this order, on the fourth row of
+  the Worker's build palette in Age 0 (2026-11-17), one the edition does not
+  ship greyed with the reason; they leave the palette once one is placed. The
+  palette is the only place: the top-of-screen landmark buttons and age-up pill
+  were removed the same day.
+
 - **Cost** is the landmark SO's, paid on placement. Every start territory
   carries veilstone (Regions.md node quotas), so the price is reachable on
   every map.
-- **Progress = construction.** The landmark self-builds over its SO build
-  time; each worker on the site adds build rate (intended: workers buy a
-  faster age-up). On completion the faction ages up to that culture.
+- **Progress = construction.** Workers build the landmark like any other
+  building (2026-11-17, developer: "Completely remove the auto build from the
+  vault" — it used to build itself over its SO build time, and a free,
+  self-building rebuilt Vault kept a beaten faction alive); more Workers, a
+  faster age-up. On completion the faction ages up to that culture.
 - **One landmark per faction.** Placing one disables the other buttons for the
   rest of the match.
 - **Destroyed before completion:** progress resets and **everything spent is
@@ -384,6 +437,29 @@ attack and SAVES for its landmark:
 
 ### Vault of Almiérra — the Alanthor landmark
 
+> **2026-11-19, [Unification decision 85](Unification_Decisions_2026-10-03.md): THE BARS PAY A
+> TRICKLE.** Developer: "Instead of being a 5% multiplier, it acts as a trickle income of
+> whatever resource is stored, and it can't store supplies. No resource type locked behind
+> research." This block replaces the bonus model below wherever they disagree.
+>
+> - **A bar stores iron or veilstone; only the last bar also takes supplies** (developer: "The
+>   last bar can be filled with supplies"). A bar takes whichever is first paid into it and keeps
+>   that resource until a withdrawal empties it. Bars are not tied to a
+>   resource in advance (`vaultBarResource` is deleted).
+> - **A full bar pays its own amount of that resource every minute** (the level SOs'
+>   `vaultBarIncomePerMinute`, one entry per bar, raised by each Vault level). A bar that is not
+>   full pays nothing; sub-bars only draw its progress. Nothing is multiplied any more
+>   (`vaultBarBonus` is deleted); the trickle is its own income line (`IncomeSource.VaultBar`).
+> - **What a bar holds** is the level SOs' `vaultBarCapacity` (the same at every level).
+> - **Bars still open in order** by the Coffer research; the research opens bars, never a
+>   resource. A withdrawal still returns everything as paid in and empties every bar.
+> - **The Coffers are priced to repay themselves** (developer: "Don't make it prohibitively
+>   expensive"; prices on the tech SOs), and the AI researches them on its economy ladder.
+> - The panel: an iron, a veilstone and a supplies column (deposit a step / all that fits; the badge is what
+>   that resource's full bars pay a minute), Withdraw All, the Coffers, the level-up; the bars
+>   square shows each bar's resource (or "iron or veilstone" while empty), stored / capacity and
+>   what it pays a minute when full.
+
 **Four bars, one resource each (2026-11-15, [Unification decision 60](Unification_Decisions_2026-10-03.md);
 developer. It replaces "any resource fills any bar, the player picks the boost" of decision 46.)**
 
@@ -413,7 +489,8 @@ developer. It replaces "any resource fills any bar, the player picks the boost" 
 panel on a 4 x 4 grid: one column per resource with a **+** (deposit a step of that resource)
 over the resource's icon (deposit all that fits; its badge is the income bonus that resource has
 now), **Withdraw All** in the fourth column, then the Coffer research (one cell: it unlocks the
-next bar) and the level-up. The second square, in the same frame, holds the four bars: each row
+next bar) and the level-up in the bottom-right cell (as on every building, Overview.md § The
+actions panel). The second square, in the same frame, holds the four bars: each row
 names its resource, shows the bar cut into its sub-bars, stored / capacity and what it pays now;
 a locked bar is dim and names the Coffer that opens it.
 
@@ -488,7 +565,39 @@ The one Age 0 economy unit, and **the only builder** (decision: the Miner and
 the Builder are gone; nobody gathers — income is territory, slots and
 extractors). AI workers find building sites on their own; player workers need
 an order, except that they auto-chain to nearby unfinished structures within
-line of sight. SO: `Age0/Buildings/Fortress/Units/Worker/Worker.asset`.
+line of sight. SO: `Age0/Buildings/Fortress/Units/Worker/Worker.asset`, which
+also holds its work rates (2026-11-17, developer: "Make a worker SO"): how fast
+it builds (`buildSpeed`, seconds of build time per second; several Workers add
+up, with diminishing returns — Unification decision 72) and repairs
+(`repairSpeed`, HP per second, paid as the HP goes in; it stops when the bank
+cannot pay). They used to be constants in the construction and repair systems.
+
+**Where a Worker stands to build or repair** (2026-11-18, developer: "builders
+should move out of the construction footprint before starting the
+construction. Also, they should only be able to build when very close to the
+square footprint of the building"). One rule for construction and repair,
+numbers on `Scripts/Systems/Work/BuildingConstructionSystem.asset`:
+
+- A Worker works **only from outside the footprint, right at its edge**: its
+  centre no further from the edge than its own radius plus `reachBeyondRadius`,
+  and no nearer than its radius minus `bodyOverlapTolerance`. A Worker inside
+  the footprint, or overlapping it, first **walks out**; one further away
+  walks in. It never builds from inside the site or from across the yard.
+- Each Worker on a site walks to **its own spot**: one slot on a ring
+  `standGap` beyond its body all round the footprint, slots `slotSpacing`
+  apart — the nearest slot no other Worker on that site holds, on walkable
+  ground and not inside another building. The spot is kept for the job, so
+  the Worker heads for a fixed point, and a crew spreads round the building
+  instead of crowding one side. Only a crew bigger than the ring shares slots.
+- A Worker within `stallRadius` of its spot that gets no closer for
+  `stallSeconds` gives that slot up for the next one; when every slot has been
+  tried the job is dropped and the Worker stops where it is — it never circles
+  a building it cannot reach.
+- Walking to a Build order, the Worker heads for the near edge of the
+  footprint, never its centre; within `handoverRange` of the edge the plan
+  breaks ground and the order becomes the build itself, after which the rules
+  above place the Worker.
+- In reach, the Worker stops and faces the building while it works.
 
 ### Scout
 
@@ -525,6 +634,31 @@ fight: it only returns fire on an attacker in reach and never chases
 ([Stances.md § 1b](Stances.md#1b-support-units)). Single-target right-click
 heal (`healRange` on `Litharch.asset`); the Temple's aura heal is separate.
 
+**No abilities in Age 0 (2026-11-18, developer: "no abilities on age 0, only
+its default heal power").** While its faction is in Age 0 the Litharch cannot
+cast Cleanse or Cleanse Pulse and shows no ability bar; from the age-up they
+work as before. The gate is data — `requiresAgeUp` on the two ability SOs —
+read in one place (`AbilityQuery.IsUnlocked`), so the bar, the cast command
+and the AI's cleanse errands obey the same rule. (The tutorial's Mission 1
+does not use Cleanse: its node falls to the army.)
+
+**Litharch upgrades (decision 77, 2026-11-18)** — *hidden from the Temple
+since 2026-11-18 (Temple of Ridan, above); kept as data.* Built in the same shape every other
+trainer gives its units, in three tiers that open with the Temple's research
+level (the highest adopted sect level, above). Researched at the Temple; every
+number is on the tech SO (`TempleOfRidan/Research/`):
+
+| Tier | Heal | Armour (melee + ranged) | Health | Skills |
+|------|------|-------------------------|--------|--------|
+| I    | Prayer Beads | Linen Vestments | | (Warrior Priests, open from the start) |
+| II   | Litany | Wool Vestments | Veteran Litharchs | Swift Rites (the Litharch's abilities recharge faster), Long Reach (heals from further) |
+| III  | Psalter | Blessed Vestments | Elite Litharchs | Twin Blessing (each heal also mends the most-wounded other ally in reach, `TwinBlessing.cs`) |
+
+Each heal / armour / health line is a ladder (each tier needs the one below)
+and takes one cell of the Temple's panel. New research stats behind them:
+`HealRate`, `HealRange` (the unit's `CanHeal`) and `AbilityCooldown`
+(`AbilityCooldownScale`, read when an ability's cooldown is charged).
+
 **Healer positioning:** walks to a stand-off point inside heal range on the
 patient-to-Litharch line (never onto the patient); prefers wounded allies
 **not in melee contact**; **steps away** from any armed enemy that comes
@@ -549,7 +683,7 @@ only the rename map so the Age 0 build order can be planned forward.
 | Gatherer's Hut | **Guild** (levels + the Guild research lines) | **Trading Post** — a supply depot; its output is hauled by caravan ([Age_1_Runai.md §3](Age_1_Runai.md)) | persists — can be upgraded to **Hunting Lodge** or **Logging Station** |
 | Mine | Mine (Alanthor levels) | Mine | Mine |
 | Veilstone Mine | Veilstone Mine (Alanthor keep it since decision 42; the Trading Outpost is retired, decision 55) | **Sanctuary**, in place (the Runai never mine it either) | Veilstone Mine |
-| Palisade | stays timber; no new palisade | stays timber; no new palisade | **Wooden Wall** — raised automatically to its one cultured level; keeps building it |
+| Palisade | stays timber; **keeps building it** (2026-11-18) | stays timber; no new palisade | **Wooden Wall** — raised automatically to its one cultured level; keeps building it |
 
 > **The capital (2026-10-03).** The Shelter becomes the **Fortress** for every
 > culture, automatically at age-up; there are no per-culture capital names.

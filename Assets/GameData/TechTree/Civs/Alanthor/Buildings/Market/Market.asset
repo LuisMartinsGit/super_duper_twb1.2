@@ -14,15 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Alanthor_Market
   displayName: Market
-  role: Buys iron and veilstone with supplies, at fixed prices
-  description: One per player. Set how much iron and how much veilstone it buys a
-    minute; it pays supplies for them at a fixed price that never changes with
-    the nodes you hold. When the bank cannot pay, nothing is bought that moment.
-  hp: 800
+  role: Buys and sells supplies and iron for veilstone, at prices every player shares
+  description: One per player. Buy or sell supplies and iron by the lot, for veilstone.
+    Buying raises a price and selling lowers it, and every player trades at the
+    same prices. Prices drift back to where they started.
+  hp: 1200
   armorType: structure_human
   defense:
-    melee: 4
-    ranged: 10
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 2
   radius: 1.5
@@ -35,12 +35,16 @@ MonoBehaviour:
   slotIncomePerMinute: []
   maxPerFaction: 1
   suppliesPerWorkerPerMinute: 0
-  suppliesPerIron: 4
-  suppliesPerVeilstone: 8
-  maxRatePerMinute: 0
-  rateStep: 50
-  marketReserveDefault: 2000
-  marketReserveStep: 500
+  marketSuppliesLot: 200
+  marketIronLot: 100
+  marketSuppliesLotPrice: 2500
+  marketIronLotPrice: 5000
+  marketPriceStepPermille: 20
+  marketSellPercent: 85
+  marketPriceFloorPercent: 40
+  marketPriceCeilingPercent: 300
+  marketDriftSeconds: 5
+  marketDriftPermille: 20
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0

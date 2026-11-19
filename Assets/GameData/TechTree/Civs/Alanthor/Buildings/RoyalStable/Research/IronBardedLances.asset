@@ -13,20 +13,20 @@ MonoBehaviour:
   m_Name: IronBardedLances
   m_EditorClassIdentifier: 
   id: IronBardedLances
-  displayName: Iron-Barded Lances
+  displayName: Iron Lances
   role: Military Offense
   effect: 
-  desc: "Weapon tier 2: cavalry deal +15% damage."
-  researchAt: Alanthor_RoyalStable
-  minBuildingLevel: 1
+  desc: "+1 damage for every rider."
+  researchAt: RoyalStable
+  minBuildingLevel: 2
   researchTime: 40
   prerequisites:
   - StoneBardedLances
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 200
-    Veilstone: 225
+    Supplies: 150
+    Iron: 100
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -37,5 +37,5 @@ MonoBehaviour:
   effectsList:
   - Target: "type:Cavalry"
     Stat: Damage
-    Op: Pct
-    Value: 15
+    Op: Add
+    Value: 1

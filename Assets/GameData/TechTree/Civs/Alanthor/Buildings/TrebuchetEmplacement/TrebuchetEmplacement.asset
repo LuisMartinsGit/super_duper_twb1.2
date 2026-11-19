@@ -16,11 +16,11 @@ MonoBehaviour:
   displayName: Trebuchet Emplacement
   role: Fixed siege battery
   description: 
-  hp: 700
+  hp: 1400
   armorType: structure_human
   defense:
-    melee: 8
-    ranged: 12
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 4
   radius: 3

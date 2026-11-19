@@ -14,8 +14,14 @@
 // Every purchase and cast goes through CommandRouter, which re-validates on
 // every lockstep peer; the menu only decides what to offer and what to say.
 //
-// The whole menu (panel, side tab, hotkeys) appears only once the player
-// has FINISHED a Temple of Ridan, and stays once a sect is adopted.
+// The whole menu (panel, side tab, hotkeys) is LOCKED IN AGE 0 (2026-11-18):
+// while the player's faction has no culture the side tab stands dimmed with
+// an "unlocks in Age 1" tooltip, and neither the tab nor R opens anything.
+// From Age 1 it appears once the player has FINISHED a Temple of Ridan, and
+// stays once a sect is adopted.
+//
+// THE SPLIT (2026-11-19): this menu TRACKS progress; powers are CAST from the
+// always-visible column on the left edge (ReligionPanelBinder.CastBar.cs).
 //
 // Hotkeys: R shows / hides the menu, T opens the tree, F1-F6 cast power A of
 // that row, Shift+F1-F6 power B, Ctrl+F1-F6 the wildcard (digits are control
@@ -107,6 +113,15 @@ namespace TheWaningBorder.UI.Ingame
         private float _slide;            // 0 = on screen, 1 = slid away
         private RectTransform _tab;
         private TMP_Text _tabText;
+        private Image _tabBg;
+        private Color _tabColor;
+        /// <summary>The faction is still in Age 0: the tab shows, locked.</summary>
+        private bool _ageLocked;
+        /// <summary>Age 1 or later, but no standing Temple and no sect
+        /// adopted: the tab stands locked too (developer, 2026-11-18).</summary>
+        private bool _templeLocked;
+        /// <summary>Slide the menu open the first time it unlocks after Age 0.</summary>
+        private bool _openOnUnlock;
 
         private TMP_Text _rp, _fontText, _noSects;
         private Image _fontFill;
@@ -184,6 +199,7 @@ namespace TheWaningBorder.UI.Ingame
             BuildPopups();
             BuildSlideTab();
             BuildTree();
+            BuildCastBar();
             Layout(6);
 
             // Hidden until the first Refresh finds a finished Temple, so the
@@ -197,6 +213,7 @@ namespace TheWaningBorder.UI.Ingame
             HandleHotkeys();
             AnimateSlide();
             UpdateCooldownSweeps();
+            UpdateCastBar();
             AnimateDrips();
             _timer += Time.unscaledDeltaTime;
             if (_timer < RefreshInterval) return;
@@ -373,13 +390,33 @@ namespace TheWaningBorder.UI.Ingame
                 22f, GameUIKit.TextMain);
             bt.rectTransform.anchorMin = Vector2.zero; bt.rectTransform.anchorMax = Vector2.one;
             bt.rectTransform.offsetMin = new Vector2(16f, 6f); bt.rectTransform.offsetMax = new Vector2(-180f, -6f);
-            var rebuild = MakeButton(_banner, "Rebuild", out var rbg, () => WorkerCommandPanel.TriggerBuildingPlacement("TempleOfRidan"));
+            var rebuild = MakeButton(_banner, "Rebuild", out var rbg, RebuildTemple);
             rbg.color = GoldBadge;
             var rrt = (RectTransform)rebuild.transform;
             rrt.anchorMin = rrt.anchorMax = new Vector2(1f, 0.5f); rrt.pivot = new Vector2(1f, 0.5f);
             rrt.anchoredPosition = new Vector2(-12f, 0f); rrt.sizeDelta = new Vector2(150f, 60f);
             Label(rebuild.transform, "Text", Loc.T("Rebuild"), 24f, new Color(0.1f, 0.08f, 0.02f), TextAlignmentOptions.Center);
             _banner.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// The banner's Rebuild: a fallen Temple is built again only on its
+        /// rubble, from the button over it (decision 69) — so the camera goes
+        /// there and the player is told how. With no rubble (none ever
+        /// finished), the ordinary placement.
+        /// </summary>
+        private void RebuildTemple()
+        {
+            var w = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (w != null && w.IsCreated
+                && TheWaningBorder.Entities.KeystoneRubbles.TryFind(w.EntityManager, _faction,
+                       TheWaningBorder.Entities.KeystoneRubbles.TempleId, out float3 at, out _))
+            {
+                TheWaningBorder.CameraRig.CameraController.FocusOn(at);
+                PlayerNotificationSystem.Notify(Loc.T("Select Workers and use the button over the Temple's rubble to rebuild it."));
+                return;
+            }
+            WorkerCommandPanel.TriggerBuildingPlacement("TempleOfRidan");
         }
 
         /// <summary>Top of a power button inside its column: the height on the
@@ -534,8 +571,11 @@ namespace TheWaningBorder.UI.Ingame
 
         private void BuildSlideTab()
         {
-            var tab = MakeButton(_root, "Tab", out var bg, () => SetShown(!_shown));
+            // Locked in Age 0: the tab answers with its tooltip only.
+            var tab = MakeButton(_root, "Tab", out var bg, () => { if (_unlocked) SetShown(!_shown); });
             bg.color = new Color(0.02f, 0.21f, 0.24f, 0.96f);
+            _tabBg = bg;
+            _tabColor = bg.color;
             _tab = (RectTransform)tab.transform;
             _tab.anchorMin = _tab.anchorMax = new Vector2(0f, 0.5f);
             _tab.pivot = new Vector2(1f, 0.5f);
@@ -543,7 +583,11 @@ namespace TheWaningBorder.UI.Ingame
             _tab.sizeDelta = new Vector2(64f, 220f);
             _tabText = Label(tab.transform, "Text", "", 26f, GoldBadge, TextAlignmentOptions.Center);
             _tabText.textWrappingMode = TextWrappingModes.Normal;
-            UITooltip.Bind(tab.gameObject, Loc.T("Religion (R)"));
+            UITooltip.Bind(tab.gameObject, () => _ageLocked
+                ? Loc.T("Religion (R)") + "\n" + Loc.T("Unlocks in Age 1.")
+                : _templeLocked
+                    ? Loc.T("Religion (R)") + "\n" + Loc.T("Build a Temple of Ridan to unlock it.")
+                    : Loc.T("Religion (R)"));
         }
 
         private void SetShown(bool shown)
@@ -586,15 +630,37 @@ namespace TheWaningBorder.UI.Ingame
             // construction does not count) — or once a sect is adopted, so
             // losing the Temple later keeps the menu and shows the Rebuild
             // banner instead of taking the adopted sects' powers away.
-            _unlocked = live && (_templeStanding || AnyAdopted());
+            // LOCKED UNTIL AGE 1 (2026-11-18, Religion_Menu.md § Unlocking):
+            // in Age 0 the menu cannot open at all — the tab stands dimmed at
+            // the screen edge, saying when it unlocks; a Temple built in Age 0
+            // still pays its points, they wait for the menu.
+            _ageLocked = live && CultureConfig.GetCompletedCulture(_em, _faction) == Cultures.None;
+            _unlocked = live && !_ageLocked && (_templeStanding || AnyAdopted());
+            _templeLocked = live && !_ageLocked && !_unlocked;
             if (!_unlocked)
             {
                 _body.gameObject.SetActive(false);
-                _tab.gameObject.SetActive(false);
                 if (_treeOpen) SetTreeOpen(false);
                 ClosePopups();
+                if (_ageLocked || _templeLocked)
+                {
+                    // Slid away, only the locked tab showing; it slides open
+                    // by itself the first time the menu unlocks.
+                    _shown = false;
+                    _openOnUnlock = true;
+                    _slide = 1f;
+                    _root.anchoredPosition = new Vector2(-30f + Width + 30f, -TopMargin);
+                    _tabBg.color = new Color(_tabColor.r * 0.45f, _tabColor.g * 0.45f, _tabColor.b * 0.45f, _tabColor.a);
+                    _tabText.text = "<color=#6E7A93>R\n<size=70%>"
+                        + (_ageLocked ? Loc.T("Age 1") : Loc.T("Temple")) + "</size></color>";
+                    _tab.gameObject.SetActive(true);
+                }
+                else _tab.gameObject.SetActive(false);
+                HideCastBar();
                 return;
             }
+            if (_openOnUnlock) { _openOnUnlock = false; _shown = true; }
+            _tabBg.color = _tabColor;
             _body.gameObject.SetActive(true);
             _tab.gameObject.SetActive(true);
 
@@ -652,6 +718,7 @@ namespace TheWaningBorder.UI.Ingame
             Layout(0);
             RefreshPopups();
             RefreshTree();
+            RefreshCastBar();
         }
 
         private bool AnyAdopted() => _hasState && _state.AdoptedCount() > 0;
@@ -737,7 +804,8 @@ namespace TheWaningBorder.UI.Ingame
                 pw.Icon.color = FaithInk;
                 pw.Label.color = FaithInk;
                 pw.Badge.text = "";
-                pw.Key.text = HotkeyLabel(rowIndex, slot);
+                // Cast from the column on the left (CastBar); this menu tracks.
+                pw.Key.text = "";
             }
             else
             {
@@ -965,7 +1033,9 @@ namespace TheWaningBorder.UI.Ingame
                 SimSignals.Notify(Loc.T("This power unlocks by itself as you earn religion points"));
                 return;
             }
-            BeginCast(sectId, slot);
+            // This menu TRACKS (2026-11-19): a lit power is cast from the
+            // column on the left, so point at it there.
+            PointAtCastButton(rowIndex, slot);
         }
 
         private void BeginCast(string sectId, int slot)
@@ -1102,11 +1172,20 @@ namespace TheWaningBorder.UI.Ingame
 
         private void HandleHotkeys()
         {
-            if (GameSettings.IsSpectating || !_unlocked) return;
+            if (GameSettings.IsSpectating) return;
             if (UnityEngine.EventSystems.EventSystem.current != null
                 && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != null
                 && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject.GetComponent<TMP_InputField>() != null)
                 return;
+            if (!_unlocked)
+            {
+                // R in Age 0 says why nothing opens.
+                if ((_ageLocked || _templeLocked) && TheWaningBorder.Input.KeyBindings.Down(TheWaningBorder.Input.KeyAction.ReligionMenu))
+                    PlayerNotificationSystem.Notify(_ageLocked
+                        ? Loc.T("Religion unlocks in Age 1.")
+                        : Loc.T("Build a Temple of Ridan to unlock religion."));
+                return;
+            }
             if (TheWaningBorder.Input.KeyBindings.Down(TheWaningBorder.Input.KeyAction.ReligionMenu)) SetShown(!_shown);
             bool shift = UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift);
             bool ctrl = UnityEngine.Input.GetKey(KeyCode.LeftControl) || UnityEngine.Input.GetKey(KeyCode.RightControl);
@@ -1137,7 +1216,7 @@ namespace TheWaningBorder.UI.Ingame
             string sectId = _rowSect[rowIndex];
             if (sectId == null || !TryWorld()) return "";
             int level = SectQuery.PowerLevelOf(_em, _faction, sectId);
-            string s = string.Format(Loc.T("Chapel level {0}. Every unlocked power of the sect is cast at this level."), SectInfo.Roman(level));
+            string s = string.Format(Loc.T("Sect level {0}. Every unlocked power of the sect is cast at this level."), SectInfo.Roman(level));
             if (SetPassives.ActiveSet(_em, _faction) == SectSet.Concord)
                 s += "\n" + Loc.T("Concord: cast one level higher, up to III.");
             return s;
@@ -1160,7 +1239,8 @@ namespace TheWaningBorder.UI.Ingame
             if (!SectActivePowerHelper.IsSlotUnlocked(_em, _faction, sectId, slot))
                 sb.Append("\n<color=#F5C451>").Append(Loc.T("Locked. Lights up by itself when this reserve reaches it.")).Append("</color>");
             else
-                sb.Append("\n<color=#8FE8F2>").Append(HotkeyLabel(rowIndex, slot)).Append("</color>");
+                sb.Append("\n<color=#8FE8F2>").Append(HotkeyLabel(rowIndex, slot)).Append("</color>  <color=#A8A38F>")
+                  .Append(Loc.T("cast from the column on the left")).Append("</color>");
             return sb.ToString();
         }
 

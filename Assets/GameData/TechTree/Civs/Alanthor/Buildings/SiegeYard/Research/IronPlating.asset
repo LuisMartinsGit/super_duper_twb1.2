@@ -16,15 +16,15 @@ MonoBehaviour:
   displayName: Iron Plating
   role: Military
   effect: 
-  desc: "Siege armour tier 1: +1 defense to all siege engines."
-  researchAt: Alanthor_SiegeYard
+  desc: "+1 melee and +1 ranged armour for every siege engine."
+  researchAt: SiegeYard
   minBuildingLevel: 1
-  researchTime: 35
+  researchTime: 30
   prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 120
-    Iron: 150
+    Supplies: 75
+    Iron: 30
     Veilstone: 0
   effects:
     gatherSpeedMult: 0
@@ -34,7 +34,27 @@ MonoBehaviour:
     rangedDamageAdd: 0
     archerRangeMult: 0
   effectsList:
+  - Target: "unit:Alanthor_Ballista"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "unit:Alanthor_Catapult"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "unit:Alanthor_Trebuchet"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "unit:Alanthor_EmplacedBallista"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "unit:Alanthor_EmplacedTrebuchet"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
   - Target: "type:Siege"
-    Stat: DefenseAll
+    Stat: DefenseRanged
     Op: Add
     Value: 1

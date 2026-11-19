@@ -347,7 +347,7 @@ namespace TheWaningBorder.UI.Ingame
                         + "\n<color=#A8A38F>" + Loc.T("Reach") + ": " + SectRadii.Label(spec) + "   " + Loc.T("Cooldown") + ": "
                         + Mathf.RoundToInt(spec.Cooldown) + "s</color>" + pairs;
                 }
-                case "level": return string.Format(Loc.T("Chapel level {0}: every unlocked power of the sect is cast at this level."), n.Arg == 2 ? "II" : "III");
+                case "level": return string.Format(Loc.T("Sect level {0}: every unlocked power of the sect is cast at this level."), n.Arg == 2 ? "II" : "III");
                 case "building": return SectInfo.BuildingDescription(n.SectId);
                 case "unit": return (SectInfo.SectUnitText(n.SectId) ?? Loc.T("Not authored yet for this sect.")) + PairsLine(n.Key);
                 case "research": return SectInfo.ResearchText(n.SectId) ?? SectInfo.TechnologyDescription(n.SectId);
@@ -383,7 +383,7 @@ namespace TheWaningBorder.UI.Ingame
                     break;
                 case "level":
                     if (SectQuery.PowerLevelOf(_em, _faction, n.SectId) != n.Arg - 1) return;
-                    AskPurchase(ReligionPurchaseKind.ChapelLevel, n.SectId, Loc.T("Chapel level") + " " + (n.Arg == 2 ? "II" : "III"));
+                    AskPurchase(ReligionPurchaseKind.ChapelLevel, n.SectId, Loc.T("Sect level") + " " + (n.Arg == 2 ? "II" : "III"));
                     break;
                 case "building":
                     if (!SectQuery.IsAdopted(_em, _faction, n.SectId)) return;

@@ -180,7 +180,7 @@ namespace TheWaningBorder.AI
             // Age 0 fields exactly one combat unit, so supplies past a
             // garrison buy a longer identical spear age instead of the age-up
             // that ends it. Leaving it at 8 is the point, not an oversight.
-            if (!aged) militaryFloor = math.min(militaryFloor, 8);
+            if (!aged) militaryFloor = math.min(militaryFloor, Age0ArmyCap(brain.Personality));
             // SAVING FOR THE AGE-UP (2026-10-02, Age_0.md § The AI and the
             // age-up): an AI that does not attack in Age 0 — every personality
             // but Aggressive / Rush, and those two once their one wave has
@@ -577,6 +577,14 @@ namespace TheWaningBorder.AI
                 return em.GetComponentData<FactionEra>(bank).Value;
             return 1;
         }
+
+        /// <summary>The army an AI keeps before its age-up: a garrison of 8,
+        /// but Rush and Aggressive raise their Age 0 wave first
+        /// (age0ArmyCapForward, decision 84 — "8 minutes is too late for
+        /// Expert").</summary>
+        private static int Age0ArmyCap(AIPersonality p)
+            => (p == AIPersonality.Rush || p == AIPersonality.Aggressive) && Cfg.age0ArmyCapForward > 0
+                ? Cfg.age0ArmyCapForward : 8;
 
         /// <summary>Has this faction aged up (era 2+)?</summary>
         private static bool HasAgedUp(EntityManager em, Faction faction) => FactionEra(em, faction) >= 2;

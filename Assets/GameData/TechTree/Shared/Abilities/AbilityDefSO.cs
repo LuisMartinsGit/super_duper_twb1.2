@@ -40,6 +40,10 @@ namespace TheWaningBorder.Abilities
         /// docs/Design/Heroes.md §2.</summary>
         public int unlocksAtLevel = 1;
 
+        /// <summary>Not castable (and not shown) while the caster's faction is
+        /// in Age 0. docs/Design/Age_0.md § Litharch.</summary>
+        public bool requiresAgeUp;
+
         /// <summary>Damage per victim (0 = deals none) and the armor column it
         /// is measured against. docs/Design/Spells.md.</summary>
         public float damage;
@@ -74,6 +78,7 @@ namespace TheWaningBorder.Abilities
                 Effects = fx,
                 Aftermath = (aftermath != null && aftermath.Length > 0) ? aftermath : null,
                 UnlocksAtLevel = unlocksAtLevel < 1 ? 1 : unlocksAtLevel,
+                RequiresAgeUp = requiresAgeUp,
                 Damage = damage,
                 DamageType = damageType,
                 AimedAtPoint = aimedAtPoint,

@@ -261,7 +261,7 @@ namespace TheWaningBorder.Economy
                 case SectConfig.Renewal:
                     return Loc.T("Mending Hall — an open-sided infirmary. Damaged units inside heal; " +
                            "while it stands your buildings repair themselves out of combat. One per " +
-                           "faction. Trains the Scar Guard, recruits the Surgeon, researches Field Hospital.");
+                           "faction. Trains the Scar Guard, recruits the Surgeon, researches Healing Ward.");
                 case SectConfig.Fortitude:
                     return Loc.T("Stonehold — a windowless blockhouse that blocks paths. While it " +
                            "stands your garrisoned walls and towers gain range and damage. One per " +
@@ -391,7 +391,7 @@ namespace TheWaningBorder.Economy
         public static string ResearchText(string sectId) => sectId switch
         {
             SectConfig.Antiquity  => Loc.T("Cartography — every territory you hold is fully visible."),
-            SectConfig.Renewal    => Loc.T("Field Hospital — your Litharchs can raise a temporary infirmary in the field."),
+            SectConfig.Renewal    => Loc.T("Healing Ward — your Litharchs can cast the Healing Ward spell: a fragile ward that slowly heals nearby allies until it is destroyed."),
             SectConfig.Fortitude  => Loc.T("Deep Foundations — walls, towers and gates cost less and build faster."),
             SectConfig.Prosperity => Loc.T("Charter of Works — extractors cost less to build and to level up."),
             _ => null,

@@ -24,9 +24,9 @@ MonoBehaviour:
   - ThirdCoffer
   culture: 
   cost:
-    Supplies: 4000
-    Iron: 1400
-    Veilstone: 500
+    Supplies: 1500
+    Iron: 600
+    Veilstone: 200
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

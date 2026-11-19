@@ -280,6 +280,9 @@ namespace TheWaningBorder.Entities
             var pref = UnitTagParse.Preference(def.preferTargets);
             if (!pref.IsEmpty)
                 EntityBuild.Add(em, entity, pref);
+
+            // The torch (decision 79): what its melee hits do to a building.
+            EntityBuild.Add(em, entity, new TorchDamage { Value = (int)def.torchDamage });
         }
 
         /// <summary>
@@ -341,6 +344,8 @@ namespace TheWaningBorder.Entities
                 var pref = UnitTagParse.Preference(def.preferTargets);
                 if (!pref.IsEmpty)
                     EntityBuild.Add(ecb, entity, pref);
+
+                EntityBuild.Add(ecb, entity, new TorchDamage { Value = (int)def.torchDamage });
             }
 
             // Same transient pre-add as the EM path — see TransientState.cs.

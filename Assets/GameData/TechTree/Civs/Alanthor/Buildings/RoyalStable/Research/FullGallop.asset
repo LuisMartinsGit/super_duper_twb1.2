@@ -17,16 +17,16 @@ MonoBehaviour:
   role: Military
   effect: 
   desc: "Alanthor cavalry that keep moving for 4 s gallop: they take 30% less damage, deal 20% more, ride through enemy units trampling them, and strike in passing without stopping. Also unlocks the Full Gallop active: allied cavalry within 15 m gain +40% move speed for 8 s but cannot attack during the burst. 60 s cooldown."
-  researchAt: Alanthor_RoyalStable
+  researchAt: RoyalStable
   minBuildingLevel: 3
-  researchTime: 45
+  researchTime: 50
   prerequisites:
-  - WarHorn
+  - CavalryCharge
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 100
-    Veilstone: 410
+    Supplies: 300
+    Iron: 200
+    Veilstone: 150
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

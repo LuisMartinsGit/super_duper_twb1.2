@@ -50,6 +50,7 @@ namespace TheWaningBorder.Data
         public int minBuildingLevel;
 
         public float buildSpeed;
+        public float repairSpeed;
         public float gatheringSpeed;
         public float healsPerSecond;
         public float healRange;
@@ -60,6 +61,10 @@ namespace TheWaningBorder.Data
 
         public string[] tags;
         public List<DamageBonus> bonusVsTags = new List<DamageBonus>();
+
+        /// <summary>Melee damage per hit against a building (the torch,
+        /// decision 79). See UnitDef.torchDamage.</summary>
+        public float torchDamage;
 
         /// <summary>What this unit would rather shoot when it picks its own
         /// target (Combat_Pacing.md § Target preference): "Cavalry+Heavy",
@@ -109,11 +114,13 @@ namespace TheWaningBorder.Data
             def.populationCost = populationCost;
             def.minBuildingLevel = minBuildingLevel;
             def.buildSpeed     = buildSpeed;
+            def.repairSpeed    = repairSpeed;
             def.gatheringSpeed = gatheringSpeed;
             def.healsPerSecond = healsPerSecond;
             def.healRange      = healRange;
             def.tags           = tags == null ? System.Array.Empty<string>() : (string[])tags.Clone();
             def.bonusVsTags    = bonusVsTags;   // read-only at runtime -> reference copy
+            def.torchDamage    = torchDamage;
             def.preferTargets  = preferTargets == null ? System.Array.Empty<string>() : (string[])preferTargets.Clone();
             def.abilities      = abilities == null ? System.Array.Empty<string>() : (string[])abilities.Clone();
             def.siegeRange     = siegeRange;
@@ -146,11 +153,13 @@ namespace TheWaningBorder.Data
             populationCost = def.populationCost;
             minBuildingLevel = def.minBuildingLevel;
             buildSpeed     = def.buildSpeed;
+            repairSpeed    = def.repairSpeed;
             gatheringSpeed = def.gatheringSpeed;
             healsPerSecond = def.healsPerSecond;
             healRange      = def.healRange;
             tags           = def.tags == null ? System.Array.Empty<string>() : (string[])def.tags.Clone();
             bonusVsTags    = def.bonusVsTags ?? new List<DamageBonus>();
+            torchDamage    = def.torchDamage;
             preferTargets  = def.preferTargets == null ? System.Array.Empty<string>() : (string[])def.preferTargets.Clone();
             abilities      = def.abilities == null ? System.Array.Empty<string>() : (string[])def.abilities.Clone();
             siegeRange     = def.siegeRange;

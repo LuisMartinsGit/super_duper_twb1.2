@@ -11,6 +11,12 @@
 > which the melee and ranged chase branches ask),
 > `Core/Commands/CommandTypes/StanceCommand.cs` (the order). Tunables:
 > `Scripts/Systems/Combat/Stance/UnitStanceSystem.asset`.
+>
+> **Display names (2026-11-18, [§9](#9-display-names-2026-11-18)):** the
+> player sees **Aggressive / Standard / Defensive**. In this document the
+> stances keep their rule / code names: **Defensive** below is the stance the
+> player sees as **Standard**, and **Hold** / **Hold Position** below is the
+> one the player sees as **Defensive**.
 
 ## 1. The three stances
 
@@ -50,9 +56,9 @@ the player picks another stance.
   Setting Hold also stops the unit and makes where it stands its guard
   point. Hold is the pre-existing **H** key; `HoldPositionTag` is its
   marker.
-- The UI keeps the name **Defensive** (the user's working name was
-  "Normal"): it matches the **D** hotkey and the stance id, and "returns
-  fire, never pursues" is what defensive means.
+- ~~The UI keeps the name **Defensive** (the user's working name was
+  "Normal")~~ — superseded 2026-11-18: the player sees this stance as
+  **Standard** and Hold as **Defensive** (§9).
 
 ### 1a. Fixed mounts (independent of stance)
 
@@ -199,8 +205,9 @@ tow a defending army into the enemy base. That is the bug the leash closes.
   an ordered target out of its reach is dropped.
 - After an ordered fight a Hold unit stays where the fight left it (Hold
   never walks home); other stances walk back to their guard point.
-- A **plain move** does not auto-engage en route (unchanged). On arrival the
-  stance takes over.
+- A **plain move** does not auto-engage en route — **except that a unit
+  attacked on the move fights back** ([§5a](#5a-retaliation-on-the-move)).
+  On arrival the stance takes over.
 - **Stop** clears orders, not the stance.
 - **Attack-move in formation** holds rank until **20 m** from its
   destination, then fights; a member **hit within the last 2.5 s** fights
@@ -211,17 +218,63 @@ tow a defending army into the enemy base. That is the bug the leash closes.
   moves to the approach stand point, then to the spot the channel starts
   on, so it is not walked home when the rite ends.
 
+### 5a. Retaliation on the move
+
+> **Added 2026-11-18 (developer decision).** A column on a plain move — a
+> player's move, an AI army's formation march — used to walk on while it was
+> cut down from the side, because a move switched acquisition off entirely.
+> The AI marched its armies straight past a defending army that way.
+
+A unit on a **plain move** (a player's or the AI's move or formation move, or
+a walk back to its guard point) that was **hit within `retaliationWindow`**
+turns on **whoever is attacking it** — the same "attacking it" as §1 (its
+`LastAttackerEntity`, or an enemy whose target is this unit) — by its
+stance's **return-fire** reach:
+
+| Stance | Turns on its attacker when it is inside | Then |
+|---|---|---|
+| **Aggressive** | its line of sight | pursues it like any auto engagement (the Aggressive leash, measured from where it was hit) |
+| **Defensive** / support units (§1b) | its attack reach | fights it there, never pursues |
+| **Hold Position** | — never (Hold is completely passive, §1) | keeps moving |
+
+- **The move ends there.** The unit leaves its formation and drops the move
+  and its destination; **its guard point becomes the spot where it was
+  hit**, so once the attacker is dead it holds that ground by its stance
+  (§2, §3) instead of walking on. A player who wants the unit to keep going
+  orders the move again.
+- **Only attackers.** Enemies that are merely in sight are still ignored on
+  the move; an untouched column walks past them as before.
+- **Not covered:** a queued route step (the queue keeps its waypoints; a
+  route that fights is an attack-move step), fixed mounts (§1a, they never
+  move), galloping riders, scouts, workers, economy and zero-damage units, and
+  the curse's units (their wave logic drives them, §4). A buildings-only
+  engine (the Battering Ram) can only turn on a building.
+- The AI's tactics layer treats an army whose members are fighting back as
+  **engaged** ([Game_AI.md § 6e.1](Game_AI.md)) and takes the fight over.
+
+Implementation: `TargetingSystem.Jobs.cs` (`AcquirePlanJob.PlanRetaliation`,
+a ThreatsOnly scan as a non-scanner) and the apply pass in
+`TargetingSystem.Acquire.cs`, on the unit's acquisition stagger tick — the
+same deterministic, peer-stable path as every other acquisition.
+
 ## 6. Controls
 
-| Key | Stance |
-|---|---|
-| **G** | Aggressive |
-| **D** | Defensive |
-| **H** | Hold Position |
+| Key | Stance (rule name) | Shown to the player as |
+|---|---|---|
+| **G** | Aggressive | Aggressive |
+| **D** | Defensive | **Standard** |
+| **H** | Hold Position | **Defensive** |
 
-The unit actions panel shows the three stances on its second row. The
-stance the whole selection shares is lit gold; with a mixed selection every
-stance present is lit dimmer and the tooltip says how many units hold it.
+The keys did not change with the 2026-11-18 rename (they can be rebound in
+the options). **D** now opens the stance shown as Standard and **H** the one
+shown as Defensive.
+
+The unit actions panel shows the three stances on its **bottom row**, under
+the formations on the top row (developer, 2026-11-18: "top row should be for
+Formation, bottom row for stance"; [Overview.md § The actions
+panel](Overview.md)). The stance the whole selection shares is lit gold; with
+a mixed selection every stance present is lit dimmer and the tooltip says how
+many units hold it.
 
 ## 7. Multiplayer
 
@@ -243,3 +296,14 @@ miss it).
 The Defensive-only `defensiveLeash`, `defensiveAcquireMargin` and
 `defensiveAssistRadius` were removed with the 2026-09-26 rework.
 Litharch positioning: `LitharchHealingSystem.asset`.
+
+## 9. Display names (2026-11-18)
+
+Developer: the three stances become **Aggressive / Standard / Defensive**,
+where **Standard** is the stance this document calls Defensive (returns fire,
+never pursues) and **Defensive** is the one it calls Hold Position
+(completely passive). **Display only**: the rules above, the
+`UnitStanceMode` values, the `SetStance` / `HoldPosition` commands, the save
+and replay formats and the key bindings are unchanged. Everything the player
+reads — the actions-panel buttons and tooltips, the key-binding labels, the
+tutorial, the loading tips, the manual — uses the new names.

@@ -13,20 +13,19 @@ MonoBehaviour:
   m_Name: VeteranCavalry
   m_EditorClassIdentifier: 
   id: VeteranCavalry
-  displayName: Veteran Cavalry
+  displayName: Royal Stable Level 2
   role: Military
   effect: 
-  desc: "+30 HP, +10% speed, +1 damage, +1 defense to Outriders and Cataphracts."
-  researchAt: Alanthor_RoyalStable
+  desc: "Every rider: +10 HP, +2 bonus damage. Granted by the level."
+  researchAt: RoyalStable
   minBuildingLevel: 2
-  researchTime: 38
-  prerequisites:
-  - SeasonedCavalry
+  researchTime: 40
+  prerequisites: []
   culture: Alanthor
   cost:
     Supplies: 0
-    Iron: 90
-    Veilstone: 320
+    Iron: 0
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -38,32 +37,16 @@ MonoBehaviour:
   - Target: "unit:Alanthor_Outrider"
     Stat: Hp
     Op: Add
-    Value: 30
-  - Target: "unit:Alanthor_Outrider"
-    Stat: Speed
-    Op: Pct
     Value: 10
-  - Target: "unit:Alanthor_Outrider"
-    Stat: Damage
-    Op: Add
-    Value: 1
-  - Target: "unit:Alanthor_Outrider"
-    Stat: DefenseAll
-    Op: Add
-    Value: 1
   - Target: "unit:Alanthor_Cataphract"
     Stat: Hp
     Op: Add
-    Value: 30
-  - Target: "unit:Alanthor_Cataphract"
-    Stat: Speed
-    Op: Pct
     Value: 10
-  - Target: "unit:Alanthor_Cataphract"
-    Stat: Damage
+  - Target: "unit:Alanthor_Outrider"
+    Stat: BonusDamage
     Op: Add
-    Value: 1
+    Value: 2
   - Target: "unit:Alanthor_Cataphract"
-    Stat: DefenseAll
+    Stat: BonusDamage
     Op: Add
-    Value: 1
+    Value: 2

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Warbreaker
   displayName: Warbreaker
   unitClass: melee
-  hp: 545
+  hp: 340
   speed: 5.5
   trainingTime: 21
   damage: 26
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Infantry
   - Heavy
   bonusVsTags: []
+  torchDamage: 21
   preferTargets: []
   abilities: []
   prefab: {fileID: 4325305643382385992, guid: 73ab373665048deb53186a73ec6755e5, type: 3}

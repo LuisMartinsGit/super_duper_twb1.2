@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_EmplacedBallista
   displayName: Emplaced Ballista
   unitClass: machinery_siege
-  hp: 415
+  hp: 260
   speed: 0
   trainingTime: 10.5
   damage: 46

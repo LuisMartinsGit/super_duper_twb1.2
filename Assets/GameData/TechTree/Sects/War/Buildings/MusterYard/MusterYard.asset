@@ -16,11 +16,11 @@ MonoBehaviour:
   displayName: Muster Yard
   role: War sect building. Trains the Warbreaker.
   description: 
-  hp: 1100
+  hp: 2200
   armorType: structure_human
   defense:
     melee: 0
-    ranged: 0
+    ranged: 50
     siege: 0
     magic: 0
   radius: 1.6

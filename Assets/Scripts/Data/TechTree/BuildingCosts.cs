@@ -99,6 +99,9 @@ namespace TheWaningBorder.Data
             // Alanthor Culture Buildings
             { "Alanthor_Wall",           Cost.Of(supplies: 50, iron: 20) },
             { "Palisade",                Cost.Of(supplies: 50) },   // supplies only since 2026-10-02
+            // The Lookout (2026-11-18): no placeholder figure - the row only
+            // makes the id known; SyncFromTechTree fills it from Lookout.asset.
+            { "Lookout",                 default },
             // Per CURTAIN MODULE (3 m), charged on the whole length when a
             // wall is laid; the SO's cost overrides these at load.
             { "Alanthor_WallSegment",    Cost.Of(supplies: 10, iron: 5) },
@@ -136,36 +139,11 @@ namespace TheWaningBorder.Data
             // it sells is gear.
             { "Sect_MusterYard",         Cost.Of(supplies: 250, iron: 150, veilstone: 30) },
 
-            // task-063 phase 2a: chapel resource cost. Adoption RP cost is
-            // separate — handled by SectAdoption.OnChapelCompleted, not here.
-            // The 12 Chapel_Sect_<id> entries are added programmatically below
-            // (one shared cost — Phase 5 polish may differentiate).
-
             // task-063 phase 1: 12 old Sect_<UniqueBuilding> cost entries
             // removed alongside their creators. Phase 2 reintroduces sect-
             // unique buildings (Reliquary / Workshop Eternal / Oath-Stone / etc.)
             // — costs will land here when those creators are written.
         };
-
-        /// <summary>
-        /// Per-chapel material cost (in addition to RP). Shared across all 12
-        /// chapels. Now demands Iron as well as Supplies + Veilstone so adoption
-        /// matters as an economic commitment, not just an RP spend.
-        /// </summary>
-        public static readonly Cost ChapelMaterialCost =
-            Cost.Of(supplies: 250, veilstone: 100, iron: 60);
-
-        // Inject the 12 chapel entries into the dictionary at static-init time
-        // so callers can use the same TryGet path as for any other building.
-        static BuildCosts()
-        {
-            for (int i = 0; i < TheWaningBorder.Economy.SectConfig.SectCount; i++)
-            {
-                string sectId   = TheWaningBorder.Economy.SectConfig.IdAt(i);
-                string chapelId = TheWaningBorder.Economy.SectConfig.ChapelIdFor(sectId);
-                _byId[chapelId] = ChapelMaterialCost;
-            }
-        }
 
         // ═══════════════════════════════════════════════════════════════════════
         // PUBLIC API
@@ -209,6 +187,19 @@ namespace TheWaningBorder.Data
         public static Cost For(EntityManager em, Faction faction, string id)
         {
             if (!_byId.TryGetValue(id, out var cost)) return default;
+
+            // A FALLEN KEYSTONE IS REBUILT FOR A SHARE OF ITS PRICE (decision
+            // 69; developer 2026-11-17: "landmarks also cost resources to
+            // rebuild" — every rebuild pays rubbleRebuildCostShare on
+            // FortressFallSystem.asset). While its rubble lies, the only one
+            // the faction may place is the rebuild (the router snaps it onto
+            // the rubble), so the position is not needed here.
+            if (TheWaningBorder.Entities.KeystoneRubbles.IsKeystone(id)
+                && TheWaningBorder.Entities.KeystoneRubbles.TryFind(em, faction, id, out _, out _))
+            {
+                var fall = TheWaningBorder.Systems.Combat.FortressFallSystemConfig.I;
+                cost = Scale(cost, fall != null ? fall.rubbleRebuildCostShare : 1f);
+            }
 
             if (TheWaningBorder.World.Regions.TerritoryOwnership.IsClaimStructure(id))
             {
@@ -331,6 +322,7 @@ namespace TheWaningBorder.Data
                        && em.GetComponentData<EmplacementCrew>(entity).EngineId == TheWaningBorder.Entities.EmplacedTrebuchet.Id
                     ? "Alanthor_TrebuchetEmplacement" : "Alanthor_BallistaEmplacement";
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
+            if (em.HasComponent<LookoutTag>(entity)) return "Lookout";
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
             if (em.HasComponent<FarmTag>(entity)) return "Alanthor_Farm";
             if (em.HasComponent<MarketTag>(entity)) return "Alanthor_Market";
@@ -357,13 +349,6 @@ namespace TheWaningBorder.Data
                 || em.HasComponent<WallHubTag>(entity)
                 || em.HasComponent<WallSegmentTag>(entity))
                 return em.HasComponent<PalisadeTag>(entity) ? "Palisade" : "Alanthor_Wall";
-
-            // Chapels: SectConfig owns their ids; resolve via ChapelTag.SectId.
-            if (em.HasComponent<ChapelTag>(entity))
-            {
-                var sectId = em.GetComponentData<ChapelTag>(entity).SectId.ToString();
-                return TheWaningBorder.Economy.SectConfig.ChapelIdFor(sectId);
-            }
 
             return null;
         }

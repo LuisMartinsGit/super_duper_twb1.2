@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Slave
   displayName: Slave
   unitClass: human_support
-  hp: 130
+  hp: 80
   speed: 6
   trainingTime: 20
   damage: 2
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Worker
   - Light
   bonusVsTags: []
+  torchDamage: 5
   preferTargets: []
   abilities: []
   prefab: {fileID: 4774944501067321997, guid: 29d5e7ceb4bed664c813abad2835b7bd, type: 3}

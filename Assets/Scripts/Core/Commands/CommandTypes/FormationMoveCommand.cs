@@ -415,6 +415,11 @@ namespace TheWaningBorder.Core.Commands.Types
                 if (c.Count >= 2) foreach (int i in c) whole.Member[i] = true;
             IssuePlanOrders(em, whole, attackMove, reattaches: true);
 
+            // Every formation of this order marches as one CONVOY
+            // (FormationGroup.Convoy): the front ones wait for the hindmost.
+            int formed = 0;
+            foreach (var c in live2) if (c.Count >= 2) formed++;
+            int convoy = formed > 1 ? ++s_convoySeq : 0;
             foreach (var c in live2)
             {
                 if (c.Count < 2) continue;
@@ -433,13 +438,19 @@ namespace TheWaningBorder.Core.Commands.Types
                     if (sp > 0f && sp < slowest) slowest = sp;
                 }
                 part.GroupSpeed = slowest == float.MaxValue ? part.GroupSpeed : slowest;
-                CreateGroup(em, part, shape);
+                CreateGroup(em, part, shape, convoy);
             }
             return true;
         }
 
         /// <summary>The group entity and its members' back-references.</summary>
-        private static void CreateGroup(EntityManager em, in FormationPlan plan, FormationShape shape)
+        /// <summary>Convoy numbers. Only compared for equality inside one
+        /// match: every peer executes the same orders in the same order, so the
+        /// same orders share a number on every peer whatever its starting value.</summary>
+        private static int s_convoySeq;
+
+        private static void CreateGroup(EntityManager em, in FormationPlan plan, FormationShape shape,
+            int convoy = 0)
         {
             // Create the group entity with its virtual leader at the
             // members' centroid.
@@ -459,6 +470,7 @@ namespace TheWaningBorder.Core.Commands.Types
                 Shape = shape,
                 State = FormationGroup.StateMoving,
                 BestLag = float.MaxValue,
+                Convoy = convoy,
             });
             var members = em.AddBuffer<FormationMember>(group);
             for (int i = 0; i < plan.Units.Count; i++)
@@ -857,13 +869,38 @@ namespace TheWaningBorder.Core.Commands.Types
             // trickled after the army one by one. Slots are now taken only
             // from the ground connected to the destination within the
             // formation's own reach.
-            var reach = ReachablePatch(destination, layoutRadius + SlotReachMargin);
+            //
+            // THE PATCH GROWS UNTIL IT HOLDS THE ARMY (2026-11-18). An AI
+            // muster point inside a base's building ring left a reachable
+            // patch far smaller than the formation, so every overflow slot
+            // fell back to ONE point; the marching offset re-derived from it
+            // was (0,0) and the overflow marched stacked on the leader. The
+            // patch now widens (bounded, SlotPatchGrowSteps) while any slot
+            // found no free ground of its own.
+            var resolvedSlots = new float3[count];
+            var slotFellBack = new bool[count];
+            float patchRadius = layoutRadius + SlotReachMargin;
+            for (int attempt = 0; ; attempt++)
+            {
+                var reach = ReachablePatch(destination, patchRadius);
+                claimedSlots.Clear();
+                int misses = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    float2 s0 = slotLocal[unitSlot[i]];
+                    float3 want0 = destination + right * s0.x + facing * s0.y;
+                    resolvedSlots[i] = ResolveSlot(want0, claimedSlots, reach, destination,
+                        out slotFellBack[i]);
+                    if (slotFellBack[i]) misses++;
+                }
+                if (misses == 0 || reach == null || attempt >= SlotPatchGrowSteps) break;
+                patchRadius += layoutRadius + SlotReachMargin;
+            }
 
             for (int i = 0; i < count; i++)
             {
                 float2 s = slotLocal[unitSlot[i]];
-                float3 want = destination + right * s.x + facing * s.y;
-                float3 resolved = ResolveSlot(want, claimedSlots, reach, destination);
+                float3 resolved = resolvedSlots[i];
 
                 // Re-derive the LEADER-LOCAL offset from where the slot
                 // actually ended up. FormationGroupSystem steers each member to
@@ -871,10 +908,19 @@ namespace TheWaningBorder.Core.Commands.Types
                 // here would aim the moving spot at the impassable ground we
                 // just moved the destination off — the unit would be steered
                 // one way and ordered another.
-                float3 delta = resolved - destination;
-                s = new float2(
-                    delta.x * right.x + delta.z * right.z,
-                    delta.x * facing.x + delta.z * facing.z);
+                //
+                // EXCEPT for a slot that found no ground of its own even in
+                // the grown patch: its final spot is crowded, but the MARCHING
+                // lattice must never be — it keeps its authored offset, so the
+                // overflow marches in its place in the shape and only the end
+                // point is shared.
+                if (!slotFellBack[i])
+                {
+                    float3 delta = resolved - destination;
+                    s = new float2(
+                        delta.x * right.x + delta.z * right.z,
+                        delta.x * facing.x + delta.z * facing.z);
+                }
 
                 slotOfUnit.Add(s);
                 slotWorld.Add(resolved);
@@ -1115,9 +1161,15 @@ namespace TheWaningBorder.Core.Commands.Types
             return seen;
         }
 
+        /// <summary>How many times BuildPlan widens the reachable patch (by the
+        /// formation's own radius + SlotReachMargin each time) while a slot
+        /// still finds no free ground. Loop bound, not a tunable.</summary>
+        private const int SlotPatchGrowSteps = 3;
+
         private static float3 ResolveSlot(float3 want, List<float2> claimed,
-            HashSet<int2> reach, float3 destination)
+            HashSet<int2> reach, float3 destination, out bool fellBack)
         {
+            fellBack = false;
             if (reach == null) return ResolveSlotStandable(want, claimed);
 
             int2 wc = NavGridQuery.WorldToCellInt2(want);
@@ -1134,6 +1186,11 @@ namespace TheWaningBorder.Core.Commands.Types
             bool have = false;
             float bestD2 = float.MaxValue;
             float3 best = destination;
+            // The closest reachable cell ignoring spacing, for a crowd larger
+            // than its ground — never one shared point for every overflow slot.
+            bool haveAny = reach.Contains(wc);
+            float anyD2 = haveAny ? 0f : float.MaxValue;
+            float3 anyBest = haveAny ? want : destination;
             int maxRing = 0;
             foreach (var c in reach)
             {
@@ -1150,14 +1207,22 @@ namespace TheWaningBorder.Core.Commands.Types
                     if (!reach.Contains(cc)) continue;
                     float3 cand = NavGridQuery.CellCenter(cc);
                     cand.y = want.y;
-                    if (TooClose(cand, claimed)) continue;
                     float ddx = cand.x - want.x, ddz = cand.z - want.z;
                     float d2 = ddx * ddx + ddz * ddz;
+                    if (d2 < anyD2) { anyD2 = d2; anyBest = cand; haveAny = true; }
+                    if (TooClose(cand, claimed)) continue;
                     if (d2 < bestD2) { bestD2 = d2; best = cand; have = true; }
                 }
             }
             // Nothing free in the whole patch (a crowd larger than its
-            // ground): the destination itself, never a cell in the rock.
+            // ground): the nearest reachable cell to the authored spot (never a
+            // cell in the rock), and the caller is told so it keeps the
+            // authored marching offset (BuildPlan).
+            if (!have)
+            {
+                fellBack = true;
+                best = anyBest;
+            }
             claimed.Add(new float2(best.x, best.z));
             return best;
         }

@@ -44,6 +44,11 @@ namespace TheWaningBorder.Bootstrap
 
         private string _dir;
 
+        /// <summary>2026-11-18 UI pass: "age0" starts in Age 0 and shoots the
+        /// Age 0 screens; "ui" starts in Age 1 Alanthor and shoots the Age 1
+        /// ones. Neither = the original Market / Vault / religion set.</summary>
+        private static bool _age0, _ui;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install()
         {
@@ -57,11 +62,16 @@ namespace TheWaningBorder.Bootstrap
                 string marker = Path.Combine(Directory.GetCurrentDirectory(), "Temp", "agent-bridge", "panelshots.txt");
                 if (File.Exists(marker))
                 {
-                    dir = File.ReadAllText(marker).Trim();
+                    var lines = File.ReadAllLines(marker);
+                    dir = lines.Length > 0 ? lines[0].Trim() : null;
+                    if (lines.Length > 1 && lines[1].Trim() == "age0") _age0 = true;
+                    if (lines.Length > 1 && lines[1].Trim() == "ui") _ui = true;
                     File.Delete(marker);
                 }
             }
             if (string.IsNullOrEmpty(dir)) return;
+            if (Array.IndexOf(args, "-twbPanelShotsAge0") >= 0) _age0 = true;
+            if (Array.IndexOf(args, "-twbPanelShotsUi") >= 0) _ui = true;
 
             var go = new GameObject("HeadlessPanelShots");
             DontDestroyOnLoad(go);
@@ -83,7 +93,7 @@ namespace TheWaningBorder.Bootstrap
             LobbyConfig.ApplyColorSelections();
             GameSettings.SpawnSeed = 20261115;
             GameSettings.IsObserver = false;
-            GameSettings.StartAge = SkirmishStartAge.Age1;
+            GameSettings.StartAge = _age0 ? SkirmishStartAge.Age0 : SkirmishStartAge.Age1;
             GameSettings.StartCulture = Cultures.Alanthor;
             GameSettings.SelectedMapScene = string.IsNullOrEmpty(map) ? "YielLymwerra" : map;
             TheWaningBorder.Core.Replay.ReplayRecorder.Suppressed = true;
@@ -136,15 +146,26 @@ namespace TheWaningBorder.Bootstrap
             var em = Unity.Entities.World.DefaultGameObjectInjectionWorld.EntityManager;
             var faction = GameSettings.LocalPlayerFaction;
 
+            if (_age0 || _ui)
+            {
+                yield return UiPass(em, faction, home);
+                Debug.Log("[PanelShots] done");
+                File.WriteAllText(Path.Combine(_dir, "done.txt"), "ok");
+                yield return new WaitForSecondsRealtime(1f);
+                Application.Quit(0);
+                yield break;
+            }
+
             FactionEconomy.Add(em, faction, Cost.Of(supplies: 20000, iron: 8000, veilstone: 4000), IncomeSource.Other);
             var market = Market.Create(em, home + new float3(16f, 0f, 8f), faction);
             var vault = VaultOfAlmierra.Create(em, home + new float3(-16f, 0f, 8f), faction);
             TempleOfRidan.Create(em, home + new float3(0f, 0f, -18f), faction);
 
-            // Something to look at: rates set, surplus on; two bars open,
-            // one full, one part filled, iron started.
-            Market.SetRates(em, market, 300, 100);
-            Market.SetSurplus(em, market, 2000, true);
+            // Something to look at: a few trades, so the shared prices have
+            // moved off their start; two bars open, one full, one part filled,
+            // iron started.
+            Market.Trade(em, market, Market.GoodSupplies, 8, false);
+            Market.Trade(em, market, Market.GoodIron, 5, true);
             var research = FactionResearchState.Instance;
             if (research != null)
             {
@@ -190,6 +211,82 @@ namespace TheWaningBorder.Bootstrap
             File.WriteAllText(Path.Combine(_dir, "done.txt"), "ok");
             yield return new WaitForSecondsRealtime(1f);
             Application.Quit(0);
+        }
+
+        // ── The 2026-11-18 UI pass ─────────────────────────────────────────
+
+        private IEnumerator UiPass(EntityManager em, Faction faction, float3 home)
+        {
+            string p = _age0 ? "a0_" : "a1_";
+            FactionEconomy.Add(em, faction, Cost.Of(supplies: 2000, iron: 800, veilstone: 300), IncomeSource.Other);
+            yield return new WaitForSecondsRealtime(1f);
+
+            var worker = FirstOwn<WorkerTag>(em, faction);
+            yield return Shot(em, worker, p + "01_worker.png");            // two build panels, resource panel, religion tab
+
+            var scout = FirstOwnClass(em, faction, UnitClass.Scout);
+            yield return Shot(em, scout, p + "02_scout.png");              // no ability bar
+
+            var soldiers = AllOwn<SpearmanTag>(em, faction);
+            yield return ShotMany(em, soldiers, p + "03_soldiers.png");    // formations top, stances bottom
+
+            var lith = Litharch.Create(em, home + new float3(6f, 0f, -8f), faction);
+            yield return new WaitForSecondsRealtime(0.5f);
+            yield return Shot(em, lith, p + "04_litharch.png");            // Age 0: no abilities
+
+            var temple = TempleOfRidan.Create(em, home + new float3(0f, 0f, -18f), faction);
+            yield return new WaitForSecondsRealtime(1f);
+            yield return Shot(em, temple, p + "05_temple.png");            // Age 0: Litharch only; Age 1: + Warrior Priests
+
+            yield return Shot(em, worker, p + "06_worker_after_temple.png"); // Age 1: the sect columns
+            yield return Shot(em, Entity.Null, p + "07_religion_tab.png");
+        }
+
+        private static Entity FirstOwn<T>(EntityManager em, Faction f) where T : unmanaged, IComponentData
+        {
+            var all = AllOwn<T>(em, f);
+            return all.Count > 0 ? all[0] : Entity.Null;
+        }
+
+        private static System.Collections.Generic.List<Entity> AllOwn<T>(EntityManager em, Faction f) where T : unmanaged, IComponentData
+        {
+            var list = new System.Collections.Generic.List<Entity>();
+            using var q = em.CreateEntityQuery(ComponentType.ReadOnly<T>(), ComponentType.ReadOnly<FactionTag>());   // one-off harness, disposed
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+                if (em.GetComponentData<FactionTag>(ents[i]).Value == f) list.Add(ents[i]);
+            return list;
+        }
+
+        private static Entity FirstOwnClass(EntityManager em, Faction f, UnitClass cls)
+        {
+            using var q = em.CreateEntityQuery(ComponentType.ReadOnly<UnitTag>(), ComponentType.ReadOnly<FactionTag>());   // one-off harness, disposed
+            using var ents = q.ToEntityArray(Allocator.Temp);
+            for (int i = 0; i < ents.Length; i++)
+                if (em.GetComponentData<FactionTag>(ents[i]).Value == f
+                    && em.GetComponentData<UnitTag>(ents[i]).Class == cls) return ents[i];
+            return Entity.Null;
+        }
+
+        private IEnumerator ShotMany(EntityManager em, System.Collections.Generic.List<Entity> all, string file)
+        {
+            SelectionSystem.ClearSelection();
+            foreach (var e in all) if (em.Exists(e)) SelectionSystem.AddToSelection(e);
+            Entity focus = all.Count > 0 ? all[0] : Entity.Null;
+            float until = Time.realtimeSinceStartup + PanelSeconds;
+            while (Time.realtimeSinceStartup < until)
+            {
+                if (focus != Entity.Null && em.Exists(focus))
+                {
+                    var p = em.GetComponentData<LocalTransform>(focus).Position;
+                    CameraController.FocusOn(new Vector3(p.x, p.y, p.z), instant: true);
+                }
+                yield return null;
+            }
+            string path = Path.Combine(_dir, file);
+            ScreenCapture.CaptureScreenshot(path);
+            Debug.Log("[PanelShots] " + path);
+            yield return new WaitForSecondsRealtime(0.5f);
         }
 
         private IEnumerator Shot(EntityManager em, Entity focus, string file)

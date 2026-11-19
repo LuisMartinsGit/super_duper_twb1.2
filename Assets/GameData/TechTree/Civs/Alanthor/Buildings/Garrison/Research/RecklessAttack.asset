@@ -19,13 +19,14 @@ MonoBehaviour:
   desc: "Swordsman: every fourth swing also hits all enemies within 2 m of him, and for 1 s afterwards he takes 30% more damage."
   researchAt: Barracks
   minBuildingLevel: 3
-  researchTime: 40
-  prerequisites: []
+  researchTime: 50
+  prerequisites:
+  - Parry
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 60
-    Veilstone: 200
+    Supplies: 300
+    Iron: 200
+    Veilstone: 150
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

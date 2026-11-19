@@ -16,17 +16,17 @@ MonoBehaviour:
   displayName: Veilstone Lances
   role: Military Offense
   effect: 
-  desc: "Weapon tier 3: cavalry deal a further +30% damage."
-  researchAt: Alanthor_RoyalStable
-  minBuildingLevel: 2
-  researchTime: 45
+  desc: "+1 damage for every rider."
+  researchAt: RoyalStable
+  minBuildingLevel: 3
+  researchTime: 50
   prerequisites:
   - IronBardedLances
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 0
-    Veilstone: 366
+    Supplies: 250
+    Iron: 150
+    Veilstone: 100
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -37,5 +37,5 @@ MonoBehaviour:
   effectsList:
   - Target: "type:Cavalry"
     Stat: Damage
-    Op: Pct
-    Value: 30
+    Op: Add
+    Value: 1

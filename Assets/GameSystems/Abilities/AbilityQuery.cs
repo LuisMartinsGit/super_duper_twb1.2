@@ -22,6 +22,14 @@ namespace TheWaningBorder.Abilities
         public static bool IsUnlocked(EntityManager em, Entity unit, AbilityCard card)
         {
             if (card == null) return false;
+            // The age gate (AbilityCard.RequiresAgeUp, docs/Design/Age_0.md §
+            // Litharch): locked while the caster's faction is in Age 0.
+            if (card.RequiresAgeUp)
+            {
+                if (!em.Exists(unit) || !em.HasComponent<FactionTag>(unit)) return false;
+                if (CultureConfig.GetCompletedCulture(em, em.GetComponentData<FactionTag>(unit).Value)
+                    == Cultures.None) return false;
+            }
             if (card.UnlocksAtLevel <= 1) return true;
             if (!em.HasComponent<HeroLevel>(unit)) return false;
             return em.GetComponentData<HeroLevel>(unit).Value >= card.UnlocksAtLevel;

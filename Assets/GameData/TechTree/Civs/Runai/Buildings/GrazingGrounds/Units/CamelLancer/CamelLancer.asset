@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_CamelLancer
   displayName: Camel Lancer
   unitClass: human_cavalry
-  hp: 415
+  hp: 260
   speed: 6.6
   trainingTime: 30
   damage: 20
@@ -53,6 +53,7 @@ MonoBehaviour:
   bonusVsTags:
   - vsTag: Cavalry
     amount: 12
+  torchDamage: 17
   preferTargets: []
   abilities: []
   prefab: {fileID: 3958872465679805044, guid: 0ac64b458f08ea041963b9e1136d4f25, type: 3}

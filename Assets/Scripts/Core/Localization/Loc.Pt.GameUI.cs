@@ -177,8 +177,8 @@ namespace TheWaningBorder.Core.Localization
             t["sight grows while standing still"] = "a visão aumenta enquanto estiver parado";
             t["% damage on the next charge"] = "% de dano na próxima carga";
             t["cannot attack while it lasts"] = "não pode atacar enquanto durar";
-            t["deploys a temporary field hospital"] =
-                "instala um hospital de campanha temporário";
+            t["plants a Healing Ward that slowly heals nearby allies until it is destroyed (one blow breaks it)"] =
+                "planta uma Guarda Curativa que cura lentamente os aliados próximos até ser destruída (um golpe quebra-a)";
             t["Radius"] = "Raio";
             t["Range"] = "Alcance";
             t["Lasts"] = "Dura";
@@ -313,6 +313,27 @@ namespace TheWaningBorder.Core.Localization
             t["<b>Stagger</b>\nOffset rows. Spreads the group out so area damage and siege hit fewer units at a time."] =
                 "<b>Escalonada</b>\nFilas desfasadas. Dispersa o grupo para que o dano de área e o cerco atinjam menos unidades de cada vez.";
 
+            // ── Stances (ActionsPanelPrefabBinder; display names since
+            //    2026-11-18: Aggressive / Standard / Defensive) ─────────────
+            t["Aggressive"] = "Agressiva";
+            t["Standard"] = "Padrão";
+            t["Defensive"] = "Defensiva";
+            t["<b>Aggressive</b>  [G]\nEngages any enemy it can see and pursues it, then walks back to its post."] =
+                "<b>Agressiva</b>  [G]\nAtaca qualquer inimigo que veja e persegue-o, depois volta ao seu posto.";
+            t["<b>Standard</b>  [D]\nReturns fire: fights back against whatever attacks it, if it can reach it from where it stands. Never pursues."] =
+                "<b>Padrão</b>  [D]\nResponde ao fogo: luta contra o que a ataca, se o alcançar de onde está. Nunca persegue.";
+            t["<b>Defensive</b>  [H]\nCompletely passive: does not return fire and never moves on its own. Your orders still work."] =
+                "<b>Defensiva</b>  [H]\nTotalmente passiva: não responde ao fogo e nunca se move por si. As tuas ordens continuam a funcionar.";
+            t["Aggressive stance"] = "Postura agressiva";
+            t["Standard stance"] = "Postura padrão";
+            t["Defensive stance"] = "Postura defensiva";
+
+            // ── The worker's religion build panel (2026-11-18) ────────────
+            t["Sect of {0}"] = "Seita de {0}";
+            t["This sect has no building yet."] = "Esta seita ainda não tem edifício.";
+            t["Not available."] = "Indisponível.";
+            t["Unavailable in this edition."] = "Indisponível nesta edição.";
+
             // ── WorkerPanelBinder ─────────────────────────────────────────
             t["Build Structure"] = "Construir Estrutura";
             t["Left-click to place, Right/Esc to cancel"] =
@@ -433,7 +454,13 @@ namespace TheWaningBorder.Core.Localization
             t["Temple Lv {0} - power tier {1}"] = "Templo Nv {0} - escalão de poder {1}";
             t["No slot"] = "Sem espaço";
             t["Adopt a sect"] = "Adotar uma seita";
-            t["{0} chapel - {1}%"] = "Capela de {0} - {1}%";
+            t["Sect level {0}. Every unlocked power of the sect is cast at this level."] =
+                "Nível da seita {0}. Todos os poderes desbloqueados da seita são lançados a este nível.";
+            t["Sect level {0}: every unlocked power of the sect is cast at this level."] =
+                "Nível da seita {0}: todos os poderes desbloqueados da seita são lançados a este nível.";
+            t["Sect level"] = "Nível da seita";
+            t["Spent on the Temple, sects, sect powers and sect heroes."] =
+                "Gastos no Templo, nas seitas, nos poderes e nos heróis de seita.";
             t["{0}  Tier {1}"] = "{0}  Escalão {1}";
             t["Cast: "] = "Lançar: ";
             t["Ready in {0}s"] = "Pronta em {0}s";
@@ -446,17 +473,9 @@ namespace TheWaningBorder.Core.Localization
                 "<i>Fulgor atribuído: recargas reduzidas para metade.</i>";
             t["<i>Right-click the slot to allocate Glow (halves cooldowns).</i>"] =
                 "<i>Clique direito no espaço para atribuir Fulgor (reduz as recargas para metade).</i>";
-            t["<b>Empty chapel slot</b>"] = "<b>Espaço de capela vazio</b>";
-            t["Click to open the sect roster. Adopting a sect spends Religion Points plus the chapel's materials and is permanent for the match."] =
-                "Clique para abrir a lista de seitas. Adotar uma seita gasta Pontos de Religião mais os materiais da capela e é permanente durante a partida.";
-            t["<b>{0} chapel</b>"] = "<b>Capela de {0}</b>";
-            t["Under construction. Its powers come online when the chapel finishes."] =
-                "Em construção. Os seus poderes ficam disponíveis quando a capela estiver concluída.";
             t["<i>Left-click: cast the highest ready active. Right-click: toggle Glow allocation (halves cooldowns).</i>"] =
                 "<i>Clique esquerdo: lança a ativa pronta mais alta. Clique direito: alterna a atribuição de Fulgor (reduz as recargas para metade).</i>";
             t["<b>No slot</b>"] = "<b>Sem espaço</b>";
-            t["Upgrade the Temple of Ridan to open more chapel slots."] =
-                "Melhore o Templo de Ridan para abrir mais espaços de capela.";
             t["<i>Coming soon.</i>"] = "<i>Disponível em breve.</i>";
             t["Passive"] = "Passiva";
             t["Active {0}"] = "Ativa {0}";
@@ -474,7 +493,6 @@ namespace TheWaningBorder.Core.Localization
             t["{0} - no free slot"] = "{0} - sem espaço livre";
             t["{0} - unavailable"] = "{0} - indisponível";
             t["Not enough Religion Points"] = "Pontos de Religião insuficientes";
-            t["All chapel slots are in use"] = "Todos os espaços de capela estão ocupados";
             t["Sect already adopted"] = "Seita já adotada";
             t["This sect is coming soon"] = "Esta seita estará disponível em breve";
             t["Cannot adopt this sect"] = "Não é possível adotar esta seita";
@@ -488,8 +506,21 @@ namespace TheWaningBorder.Core.Localization
             t["Cancel"] = "Cancelar";
             t["Idle"] = "Inativos";
             t["Idle builders: {0}"] = "Construtores inativos: {0}";
-            t["Show income per minute"] = "Mostrar rendimento por minuto";
-            t["Hide income per minute"] = "Ocultar rendimento por minuto";
+            // Resource panel rates and the religion breakdown (2026-11-18).
+            t["The coloured number under the amount is the income per minute."] =
+                "O número colorido por baixo da quantidade é o rendimento por minuto.";
+            t["{0} points/min"] = "{0} pontos/min";
+            t["{0} RP/min"] = "{0} PR/min";
+            t["Monuments held ({0})"] = "Monumentos detidos ({0})";
+            t["Sanctums held ({0})"] = "Santuários detidos ({0})";
+            // The religion menu is locked in Age 0 (2026-11-18).
+            t["Religion (R)"] = "Religião (R)";
+            t["Unlocks in Age 1."] = "Desbloqueia na Era 1.";
+            t["Age 1"] = "Era 1";
+            t["Religion unlocks in Age 1."] = "A religião desbloqueia na Era 1.";
+            t["Temple"] = "Templo";
+            t["Build a Temple of Ridan to unlock it."] = "Constrói um Templo de Ridan para o desbloquear.";
+            t["Build a Temple of Ridan to unlock religion."] = "Constrói um Templo de Ridan para desbloquear a religião.";
             t["OBJECTIVES"] = "OBJETIVOS";
             t["Choose a Culture to specialize in"] =
                 "Escolha uma Cultura em que se especializar";

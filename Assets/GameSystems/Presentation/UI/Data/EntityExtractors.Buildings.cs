@@ -104,10 +104,12 @@ namespace TheWaningBorder.UI.Data
             actions.Add(new ActionButton
             {
                 Id = "ConvertToWatchTower",
-                Label = Loc.T("Convert to Watch Tower"),
+                // The Alanthor_Tower is displayed "Battle Tower" since
+                // 2026-11-18 ("Watch Tower" is the Lookout now).
+                Label = Loc.T("Convert to Battle Tower"),
                 Tooltip = BuildTooltip(
-                    "Convert to Watch Tower",
-                    "Replaces the hut with a stand-alone Alanthor Watch Tower (ranged defense).",
+                    "Convert to Battle Tower",
+                    "Replaces the hut with a stand-alone Alanthor Battle Tower (ranged defense).",
                     cost,
                     available,
                     trainingTime: TheWaningBorder.Core.Commands.Types.ConvertHutCommandHelper.ConversionDuration
@@ -383,10 +385,9 @@ namespace TheWaningBorder.UI.Data
         //           and the static-ctor Debug.Assert guard below.
         private static readonly HashSet<string> BuildableBuildings = new()
         {
-            // Choice buildings (VaultOfAlmierra /
-            // FiendstoneKeep) are NOT worker-placeable: they are placed from
-            // the top-bar special-building buttons and self-construct
-            // (design: Age_0.md § Special buildings).
+            // The age-up landmarks are in the Age 0 palette too (2026-11-17),
+            // as well as the top bar; Workers build them.
+            "VaultOfAlmierra", "FiendstoneKeep", "ThessarasCrossing",
             "Hut", "GatherersHut", "Barracks", "ArcheryRange",
             // BOTH extractors. The Veilstone Mine was absent from this set
             // and so was never offered, despite having an asset, a factory
@@ -402,6 +403,9 @@ namespace TheWaningBorder.UI.Data
             // Stone Wall (Alanthor_Wall) is Alanthor's from the age-up.
             "Palisade",
             "Alanthor_Wall",
+            // The Lookout (2026-11-18, Age_0.md § Lookout): sight only, every
+            // culture, every age.
+            "Lookout",
             // Runai culture buildings
             // The 2026-10-13 redesign (docs/Design/Age_1_Runai.md §4): the
             // Grazing Grounds, the Wagonworks (Runai_SiegeWorkshop) and the
@@ -522,6 +526,7 @@ namespace TheWaningBorder.UI.Data
             int templeCount = !em.Equals(default(EntityManager))
                 ? BuildingFactory.GetFactionBuildingCount<TempleOfRidanTag>(em, faction) : 0;
             const int TempleCap = 1;
+            var landmarksListed = new List<string>(3);
 
             if (TechCatalog.IsReady)
             {
@@ -536,20 +541,27 @@ namespace TheWaningBorder.UI.Data
                     // tooltip and locks from this list; the palette itself
                     // leaves them out (ActionsPanelPrefabBinder.RenderBuilder).
 
-                    // Choice building exclusion: if one is built, hide the other two
-                    if (BuildingFactory.IsChoiceBuilding(building.id) && existingChoice != null)
-                        continue;
-                    // ...and a faction that has chosen only ever rebuilds its own:
-                    // its culture outlives the landmark (Overview.md § Culture is
-                    // permanent), so another culture's would buy nothing.
-                    if (BuildingFactory.IsChoiceBuilding(building.id) && factionCulture != Cultures.None
-                        && TheWaningBorder.Systems.Work.LandmarkAgeUp.CultureOf(building.id) != factionCulture)
-                        continue;
+                    // THE LANDMARKS ARE IN THE AGE 0 PALETTE (2026-11-17,
+                    // developer: "Add the vault and the other two age buildings
+                    // (disabled) to the builder age 0 UI"): all three show until
+                    // one is placed; one this build does not ship is greyed.
+                    // They, the Temple and the sect buildings are drawn in the
+                    // worker's SECOND build panel, the religion panel
+                    // (2026-11-18, ActionsPanelPrefabBinder.ReligionPanel.cs).
+                    // After the age-up none is offered here — a fallen one is
+                    // rebuilt from the button over its rubble (decision 69).
+                    bool isLandmark = BuildingFactory.IsChoiceBuilding(building.id);
+                    if (isLandmark)
+                    {
+                        if (existingChoice != null || factionCulture != Cultures.None) continue;
+                        landmarksListed.Add(building.id);
+                    }
 
                     // A LOCKED cell the palette still shows (2026-11-02: the
                     // build palette is a fixed 4 x 4 and must not reflow) -
                     // the reason goes to the tooltip, the button is greyed.
-                    string lockReason = null;
+                    string lockReason = isLandmark && !LandmarkAvailable(building.id)
+                        ? Loc.T("Unavailable in this edition.") : null;
 
                     // Temple of Ridan: one per faction.
                     if (building.id == "TempleOfRidan" && templeCount >= TempleCap)
@@ -570,10 +582,16 @@ namespace TheWaningBorder.UI.Data
                     {
                         if (em.Equals(default(EntityManager))) continue;
                         bool adopted = SectQuery.IsAdopted(em, faction, owningSect);
-                        bool ownCluster = SectConfig.IsInEdition(owningSect)
-                            && factionCulture != Cultures.None
-                            && SectConfig.ClusterOf(owningSect) == SectConfig.ClusterFromCulture(factionCulture);
-                        if (!adopted && !ownCluster) continue;
+                        // EVERY in-edition sect building after the age-up
+                        // (2026-11-18): the worker's religion panel is one
+                        // column per culture's sect cluster, so a sect not
+                        // yet adopted - any cluster's - shows locked with
+                        // its reason instead of being left out. A cluster
+                        // the edition strips is drawn by the panel as a
+                        // greyed placeholder (ActionsPanelPrefabBinder.ReligionPanel.cs).
+                        bool offered = SectConfig.IsInEdition(owningSect)
+                            && factionCulture != Cultures.None;
+                        if (!adopted && !offered) continue;
                         if (!adopted)
                             lockReason = string.Format(Loc.T("Adopt the Sect of {0} first (Religion menu, R)."),
                                 SectInfo.ShortName(owningSect));
@@ -597,7 +615,8 @@ namespace TheWaningBorder.UI.Data
                     // enforces (CultureGate.CanFactionBuild) — no Archery Range
                     // for a Feraldis slave, no Feraldis building for Alanthor,
                     // and no retired id (the stand-alone Longhouse).
-                    if (!TheWaningBorder.Data.CultureGate.CanFactionBuild(building.id, factionCulture))
+                    if (!isLandmark
+                        && !TheWaningBorder.Data.CultureGate.CanFactionBuild(building.id, factionCulture))
                         continue;
 
                     // Gatherer's Huts stay buildable for every culture, all game
@@ -697,8 +716,47 @@ namespace TheWaningBorder.UI.Data
                 }
             }
 
+            // A landmark this edition strips from the data (the demo ships no
+            // Feraldis or Runai content) is still shown, greyed, so the Age 0
+            // palette always shows the three choices.
+            if (existingChoice == null && factionCulture == Cultures.None)
+            {
+                foreach (var (id, name) in LandmarkSlots)
+                {
+                    if (landmarksListed.Contains(id)) continue;
+                    actions.Add(new ActionButton
+                    {
+                        Id = id,
+                        Label = Loc.T(name),
+                        Tooltip = BuildTooltip(Loc.T(name), null, default, available,
+                            requirement: Loc.T("Unavailable in this edition.")),
+                        Enabled = false,
+                        CanAfford = false,
+                        ShownWhenLocked = true,
+                        Icon = GetBuildingIcon(id, factionCulture, 0),
+                    });
+                }
+            }
+
             actions.RemoveAll(a => !TheWaningBorder.Tutorial.TutorialMissionState.AllowsBuilding(a.Id));
             return actions;
+        }
+
+        /// <summary>The three age-up landmarks, in palette order.</summary>
+        private static readonly (string id, string name)[] LandmarkSlots =
+        {
+            ("VaultOfAlmierra", "Vault of Almiérra"),
+            ("FiendstoneKeep", "Fiendstone Keep"),
+            ("ThessarasCrossing", "Thessara's Crossing"),
+        };
+
+        /// <summary>The landmark can be placed in this build: it ages up into
+        /// a culture this edition ships (the executor re-checks).</summary>
+        private static bool LandmarkAvailable(string id)
+        {
+            byte c = TheWaningBorder.Systems.Work.LandmarkAgeUp.CultureOf(id);
+            return c != Cultures.None && !CultureConfig.IsComingSoon(c)
+                && TheWaningBorder.Tutorial.TutorialMissionState.AllowsBuilding(id);
         }
 
     }

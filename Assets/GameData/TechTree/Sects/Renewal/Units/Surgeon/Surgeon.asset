@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Surgeon
   displayName: Surgeon
   unitClass: melee
-  hp: 1120
+  hp: 700
   speed: 6.2
   trainingTime: 45
   damage: 40
@@ -50,6 +50,7 @@ MonoBehaviour:
   - 'Infantry'
   - 'Hero'
   bonusVsTags: []
+  torchDamage: 25
   abilities:
   - Cauterize
   - Bloodletting

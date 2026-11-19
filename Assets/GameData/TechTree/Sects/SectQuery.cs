@@ -239,6 +239,27 @@ namespace TheWaningBorder.Economy
         }
 
         /// <summary>
+        /// The highest level (0-3) among the faction's ADOPTED sects — the
+        /// Temple's research level (decision 77): the Litharch's upgrade tiers
+        /// unlock with it. 0 = no sect adopted.
+        /// </summary>
+        public static byte MaxAdoptedLevel(EntityManager em, Faction faction)
+        {
+            if (!FactionEconomy.TryGetBank(em, faction, out var bank)) return 0;
+            if (!em.HasComponent<SectAdoptionState>(bank)) return 0;
+            var st = em.GetComponentData<SectAdoptionState>(bank);
+            byte best = 0;
+            for (int i = 0; i < 12; i++)
+            {
+                var s = st.Get(i);
+                if (!s.IsAdopted) continue;
+                byte lv = s.PowerLevel < 1 ? (byte)1 : s.PowerLevel > 3 ? (byte)3 : s.PowerLevel;
+                if (lv > best) best = lv;
+            }
+            return best;
+        }
+
+        /// <summary>
         /// The sect's POWER level (1/2/3) for this faction — what its three
         /// actives scale on. Earned by adoption timing, not bought: it counts
         /// the Temple upgrades that happened while the sect was already

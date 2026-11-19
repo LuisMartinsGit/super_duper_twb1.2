@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_BazaarWagon
   displayName: Bazaar Wagon
   unitClass: economy
-  hp: 960
+  hp: 600
   speed: 3
   trainingTime: 0
   damage: 0
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Siege
   - Light
   bonusVsTags: []
+  torchDamage: 0
   preferTargets: []
   abilities: []
   prefab: {fileID: 3127247417545642132, guid: 092428006b689a748a0be8f0e69df6b6, type: 3}

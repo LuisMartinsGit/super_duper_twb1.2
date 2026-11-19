@@ -15,15 +15,15 @@ MonoBehaviour:
   id: Alanthor_BatteringRam
   displayName: Battering Ram
   unitClass: machinery_siege
-  hp: 545
-  speed: 3
+  hp: 320
+  speed: 2.8
   trainingTime: 25.2
-  damage: 36
+  damage: 60
   damageType: siege
   armorType: ranged
   defense:
-    melee: 2
-    ranged: 8
+    melee: 0
+    ranged: 10
     siege: 0
     magic: 0
   attackCooldown: 3
@@ -34,11 +34,11 @@ MonoBehaviour:
   trajectory:
   projectileSpeed: 0
   cost:
-    Supplies: 60
-    Iron: 66
-    Veilstone: 138
+    Supplies: 100
+    Iron: 200
+    Veilstone: 0
   populationCost: 2
-  minBuildingLevel: 1
+  minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
@@ -48,9 +48,7 @@ MonoBehaviour:
   tags:
   - Siege
   - Heavy
-  bonusVsTags:
-  - vsTag: Building
-    amount: 80
+  bonusVsTags: []
   abilities: []
   prefab: {fileID: 102239162772584, guid: f66fca7de32d450a00764d3ac4687c47, type: 3}
   presentationId: 347

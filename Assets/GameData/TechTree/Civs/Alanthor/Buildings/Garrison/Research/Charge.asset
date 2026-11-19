@@ -19,12 +19,13 @@ MonoBehaviour:
   desc: "Spearman charge: after 5 s out of combat he closes at +50% speed for 2 s and his first blow in that window deals +30%. Miss the window and it resets."
   researchAt: Barracks
   minBuildingLevel: 2
-  researchTime: 33
-  prerequisites: []
+  researchTime: 40
+  prerequisites:
+  - ShieldWall
   culture: Alanthor
   cost:
-    Supplies: 160
-    Iron: 70
+    Supplies: 220
+    Iron: 140
     Veilstone: 0
   effects:
     gatherSpeedMult: 0

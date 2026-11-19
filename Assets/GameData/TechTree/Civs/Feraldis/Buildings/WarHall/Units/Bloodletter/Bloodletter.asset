@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Bloodletter
   displayName: Bloodletter
   unitClass: human_melee
-  hp: 145
+  hp: 90
   speed: 6.8
   trainingTime: 6.3
   damage: 6
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Infantry
   - Light
   bonusVsTags: []
+  torchDamage: 10
   preferTargets: []
   abilities: []
   prefab: {fileID: 6009937744705055930, guid: 6b6f0577402e83b49a43639638f19466, type: 3}

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Acolyte
   displayName: Runai_Acolyte
   unitClass: human_magic
-  hp: 115
+  hp: 90
   speed: 3
   trainingTime: 21
   damage: 10

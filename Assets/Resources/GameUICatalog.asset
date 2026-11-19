@@ -158,6 +158,8 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: ca4101569adef474aa64b06326aa5ec0, type: 3}
   - key: Watch Tower
     sprite: {fileID: 21300000, guid: ff938cfc0c57c4ab691882e46069196e, type: 3}
+  - key: Battle Tower
+    sprite: {fileID: 21300000, guid: ff938cfc0c57c4ab691882e46069196e, type: 3}
   - key: Siege Yard
     sprite: {fileID: 21300000, guid: d9a0c506ef6764fd2b3738574d8ebf1a, type: 3}
   - key: Royal Stable

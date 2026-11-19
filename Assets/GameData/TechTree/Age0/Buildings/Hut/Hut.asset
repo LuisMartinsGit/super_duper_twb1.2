@@ -17,11 +17,11 @@ MonoBehaviour:
   role: Provides population
   description: Population housing for Age 0 (the 'House'). Each one raises the population
     cap. Its post-age-up behavior splits per culture.
-  hp: 650
+  hp: 1000
   armorType: structure_human
   defense:
-    melee: 4
-    ranged: 10
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 2
   radius: 1.6

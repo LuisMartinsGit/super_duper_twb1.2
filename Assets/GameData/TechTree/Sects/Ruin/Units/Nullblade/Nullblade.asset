@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Nullblade
   displayName: Nullblade
   unitClass: melee
-  hp: 415
+  hp: 260
   speed: 5.8
   trainingTime: 21
   damage: 24
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Infantry
   - Light
   bonusVsTags: []
+  torchDamage: 21
   preferTargets: []
   abilities: []
   prefab: {fileID: 7919726324086886125, guid: bce303160a1df02247c38389815806fb, type: 3}

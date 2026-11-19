@@ -9,7 +9,7 @@
 //   Thessara's Crossing -> Runai
 //
 // Called from BOTH construction-completion paths (a worker's finishing tick
-// in BuildingConstructionSystem, the self-build tick in AutoConstructionSystem).
+// in BuildingConstructionSystem; landmarks no longer self-build, 2026-11-17).
 // Only one of them can fire per site — each removes UnderConstruction first.
 //
 // It does not run the age-up itself: it stamps a zero-length AgeUpState on the

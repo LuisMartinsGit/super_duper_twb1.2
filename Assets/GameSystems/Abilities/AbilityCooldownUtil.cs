@@ -1,7 +1,7 @@
 // AbilityCooldownUtil.cs
 // Give a cast its cooldown back. The lifecycle charges a card's cooldown the
 // moment the cast completes, BEFORE the effects run (AbilityLifecycleSystem),
-// so an effect that refuses to land — a Field Hospital past the team's cap
+// so an effect that refuses to land — a Healing Ward past the team's cap
 // or too close to another — would otherwise burn the cooldown for nothing.
 
 using Unity.Entities;

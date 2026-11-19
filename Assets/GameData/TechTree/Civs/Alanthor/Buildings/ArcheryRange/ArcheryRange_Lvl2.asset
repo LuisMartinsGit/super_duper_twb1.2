@@ -38,9 +38,5 @@ MonoBehaviour:
     siegeShotDamage: 0
   lineOfSight: 0
   grantsTechs:
-  - IronTippedArrows
-  - IronBrigandine
-  - VeilstoneTippedArrows
-  - VeilstoneBrigandine
   - VeteranArchers
   prefab: {fileID: 1201453078148912283, guid: 9c52cadbb9929cc4dbc9d405539dbea8, type: 3}

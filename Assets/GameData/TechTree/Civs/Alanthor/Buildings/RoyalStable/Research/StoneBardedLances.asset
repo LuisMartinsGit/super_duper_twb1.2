@@ -13,18 +13,18 @@ MonoBehaviour:
   m_Name: StoneBardedLances
   m_EditorClassIdentifier: 
   id: StoneBardedLances
-  displayName: Stone-Barded Lances
+  displayName: Stone Lances
   role: Military Offense
   effect: 
-  desc: "Weapon tier 1: cavalry gain +2 damage."
-  researchAt: Alanthor_RoyalStable
-  minBuildingLevel: 0
-  researchTime: 25
+  desc: "+1 damage for every rider."
+  researchAt: RoyalStable
+  minBuildingLevel: 1
+  researchTime: 30
   prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 80
-    Iron: 0
+    Supplies: 75
+    Iron: 30
     Veilstone: 0
   effects:
     gatherSpeedMult: 0
@@ -37,4 +37,4 @@ MonoBehaviour:
   - Target: "type:Cavalry"
     Stat: Damage
     Op: Add
-    Value: 2
+    Value: 1

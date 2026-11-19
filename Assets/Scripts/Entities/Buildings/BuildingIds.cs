@@ -53,6 +53,7 @@ namespace TheWaningBorder.Entities
                        && em.GetComponentData<EmplacementCrew>(entity).EngineId == TheWaningBorder.Entities.EmplacedTrebuchet.Id
                     ? "Alanthor_TrebuchetEmplacement" : "Alanthor_BallistaEmplacement";
             if (em.HasComponent<WatchTowerTag>(entity)) return "Alanthor_Tower";
+            if (em.HasComponent<LookoutTag>(entity)) return TheWaningBorder.Entities.Lookout.BuildingId;
             if (em.HasComponent<SiegeYardTag>(entity)) return "Alanthor_SiegeYard";
             if (em.HasComponent<RoyalStableTag>(entity)) return "Alanthor_RoyalStable";
             if (em.HasComponent<FarmTag>(entity)) return TheWaningBorder.Entities.Farm.BuildingId;
@@ -85,12 +86,6 @@ namespace TheWaningBorder.Entities
                 || em.HasComponent<WallHubTag>(entity)
                 || em.HasComponent<WallSegmentTag>(entity))
                 return em.HasComponent<PalisadeTag>(entity) ? "Palisade" : "Alanthor_Wall";
-            // Sect chapels — dynamic building ID based on sect
-            if (em.HasComponent<ChapelTag>(entity))
-            {
-                var chapelTag = em.GetComponentData<ChapelTag>(entity);
-                return "Chapel_" + chapelTag.SectId.ToString();
-            }
             return null;
         }
     }

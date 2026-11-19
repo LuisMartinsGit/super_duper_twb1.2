@@ -438,7 +438,11 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < farms.Length; i++)
             {
                 if (facs[i].Value != faction || em.HasComponent<UnderConstruction>(farms[i])) continue;
-                gain += Farm.SuppliesPerMinute(WallGarrison.OccupantCount(em, farms[i]), gainPerWorker,
+                // Valued FULL (decision 84): a Farm grows its own Workers
+                // (decision 83), so an empty one is a full one soon; valued by
+                // who was inside, the upgrade was "+0 supplies/min" and never
+                // bought.
+                gain += Farm.SuppliesPerMinute(WallGarrison.SlotCount(em, farms[i]), gainPerWorker,
                     FarmRing.CachedFreePermille(em, farms[i]));
             }
             float priceSum = price.Supplies + price.Iron + price.Veilstone;
@@ -802,6 +806,20 @@ namespace TheWaningBorder.AI
             }
             int fk = (int)faction;
             var verdict = TryUpgradeCapitalCore(em, faction, surplus, out var home);
+            // THE ARMY BEFORE THE POT (decision 84): while the live army is
+            // under capitalSavingsArmyShare of its target, the capital puts
+            // nothing aside — the batch-17 Rush set 1,075 supplies aside for
+            // its capital's level 2 from 5:50 to 11:48 while every unit it
+            // wanted was refused "Military budget short".
+            if (verdict == CapitalUpgrade.Saving && Cfg.capitalSavingsArmyShare > 0f
+                && AIBudget.TryGetArmyStatus(faction, out int armyAlive, out int armyWant)
+                && armyAlive < armyWant * Cfg.capitalSavingsArmyShare)
+            {
+                AIBudget.ClearSavingsGoal(faction, CapitalReserveKey);
+                AIPivotalReserve.Clear(faction, CapitalReserveKey);
+                _capitalHoldSince.Remove(fk);
+                return CapitalUpgrade.NotNeeded;
+            }
             // THE POT (2026-11-15, AIBudget.SetSavingsGoal): the price is put
             // aside from the income whatever the posture. The hold below only
             // asked the spenders to wait, and they did not.

@@ -69,7 +69,6 @@ namespace TheWaningBorder.EditorTools
             var levels = Load<BuildingLevelDefSO>();
             _log.AppendLine($"{buildings.Count} building SOs, {levels.Count} level SOs");
 
-            EnsureChapelArt();
             BindModels(buildings, levels);
             SplitVariants(buildings, levels);
             BindWalls(buildings, levels);
@@ -129,13 +128,6 @@ namespace TheWaningBorder.EditorTools
                     }
                     if (so.prefab != model) { so.prefab = model; EditorUtility.SetDirty(so); }
                     _log.AppendLine($"level {so.name} <- {name}");
-                }
-                else if (bm.Groups[1].Value.StartsWith("Chapel_"))
-                {
-                    // Chapels are not catalog buildings: their model goes on ChapelArt.asset.
-                    string sect = bm.Groups[1].Value.Substring("Chapel_".Length);
-                    SetChapel(sect, model);
-                    _log.AppendLine($"chapel {sect} <- {name}");
                 }
                 else
                 {
@@ -256,49 +248,6 @@ namespace TheWaningBorder.EditorTools
             _log.AppendLine("── audit: wall pieces without art ──");
             foreach (var (part, lv) in RequiredWallPieces())
                 if (Model(part, lv) == null) _log.AppendLine($"  WALL  {part} level {lv}");
-        }
-
-        // ── chapels ────────────────────────────────────────────────────
-
-        const string ChapelArtPath = "Assets/GameData/TechTree/Sects/Shared/Chapel/ChapelArt.asset";
-        const string LegacyChapels = "Assets/Resources/Prefabs/Buildings/Chapels/";
-        /// <summary>The chapel a sect showed before ChapelArt (the old presentation-id
-        /// table) — kept for the sects whose own model is not authored yet.</summary>
-        static readonly Dictionary<string, string> LegacyChapel = new Dictionary<string, string> {
-            { "Sect_Antiquity", "Chapel_Antiquity" }, { "Sect_Renewal", "Chapel_Renewal" },
-            { "Sect_Fortitude", "Chapel_Antiquity" }, { "Sect_Prosperity", "Chapel_Renewal" },
-            { "Sect_Silence", "Chapel_Silence" }, { "Sect_Justice", "Chapel_Justice" },
-            { "Sect_Veneration", "Chapel_Silence" }, { "Sect_Witness", "Chapel_Justice" },
-            { "Sect_War", "Chapel_War" }, { "Sect_Ash", "Chapel_Ash" },
-            { "Sect_Ruin", "Chapel_War" }, { "Sect_Wrath", "Chapel_Ash" } };
-
-        static TheWaningBorder.Rendering.ChapelArtConfig ChapelCfg()
-        {
-            var cfg = AssetDatabase.LoadAssetAtPath<TheWaningBorder.Rendering.ChapelArtConfig>(ChapelArtPath);
-            if (cfg == null)
-            {
-                cfg = ScriptableObject.CreateInstance<TheWaningBorder.Rendering.ChapelArtConfig>();
-                cfg.chapels = new List<TheWaningBorder.Rendering.ChapelArtConfig.Entry>();
-                AssetDatabase.CreateAsset(cfg, ChapelArtPath);
-            }
-            if (cfg.chapels == null) cfg.chapels = new List<TheWaningBorder.Rendering.ChapelArtConfig.Entry>();
-            return cfg;
-        }
-
-        static void EnsureChapelArt()
-        {
-            var cfg = ChapelCfg();
-            foreach (var kv in LegacyChapel)
-                if (!cfg.chapels.Any(e => e.sectId == kv.Key && e.prefab != null))
-                    SetChapel(kv.Key, AssetDatabase.LoadAssetAtPath<GameObject>(LegacyChapels + kv.Value + ".prefab"));
-        }
-
-        static void SetChapel(string sect, GameObject prefab)
-        {
-            var cfg = ChapelCfg();
-            cfg.chapels.RemoveAll(e => e.sectId == sect);
-            cfg.chapels.Add(new TheWaningBorder.Rendering.ChapelArtConfig.Entry { sectId = sect, prefab = prefab });
-            EditorUtility.SetDirty(cfg);
         }
 
         // ── 2. split ────────────────────────────────────────────────────

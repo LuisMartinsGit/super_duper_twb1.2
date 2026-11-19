@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d382254392e37abdaa41be769b9c36c, type: 3}
+  m_Name: BlessedVestments
+  m_EditorClassIdentifier:
+  id: BlessedVestments
+  displayName: Blessed Vestments
+  role: Religion
+  effect:
+  desc: "Litharchs gain melee and ranged armour."
+  researchAt: TempleOfRidan
+  minBuildingLevel: 3
+  researchTime: 50
+  prerequisites:
+  - WoolVestments
+  culture:
+  cost:
+    Supplies: 250
+    Iron: 150
+    Veilstone: 100
+  effects:
+    gatherSpeedMult: 0
+    meleeAttackSpeedMult: 0
+    meleeDefenseAdd: 0
+    meleeDamageAdd: 0
+    rangedDamageAdd: 0
+    archerRangeMult: 0
+  effectsList:
+  - Target: "unit:Litharch"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "unit:Litharch"
+    Stat: DefenseRanged
+    Op: Add
+    Value: 1

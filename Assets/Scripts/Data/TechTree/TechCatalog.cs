@@ -354,19 +354,19 @@ public static class TechCatalog
                 Warn($"unit '{u.id}' has a def but no UnitFactory recipe — trainable in UI, broken at spawn");
         }
 
-        // Sect chapel pipeline resolves end-to-end for all 12 sects.
+        // Every sect's unit resolves end-to-end for all 12 sects.
         foreach (var sectId in TheWaningBorder.Economy.SectConfig.AllSectIds)
         {
             string unitId = TheWaningBorder.Economy.SectConfig.UnitIdFor(sectId);
             if (unitId == null)
             {
-                Warn($"sect '{sectId}' has no chapel unit mapping");
+                Warn($"sect '{sectId}' has no sect unit mapping");
                 continue;
             }
             if (!_unitsById.ContainsKey(unitId))
-                Warn($"sect '{sectId}' chapel unit '{unitId}' has no unit def");
+                Warn($"sect '{sectId}' unit '{unitId}' has no unit def");
             if (!TheWaningBorder.Entities.UnitFactory.HasRecipe(unitId))
-                Warn($"sect '{sectId}' chapel unit '{unitId}' has no UnitFactory recipe");
+                Warn($"sect '{sectId}' unit '{unitId}' has no UnitFactory recipe");
         }
 
         // ── stat audit ────────────────────────────────────────────────────
@@ -425,17 +425,14 @@ public static class TechCatalog
                 || System.Array.Exists(vault.vaultBarCapacity, c => c <= 0))
                 Warn("building 'VaultOfAlmierra' needs four positive vaultBarCapacity entries — a bar without one can never fill");
             if (vault.vaultSubBars <= 0)
-                Warn("building 'VaultOfAlmierra' has vaultSubBars 0 — a bar pays nothing until full");
-            if (vault.vaultBarBonus <= 0f)
-                Warn("building 'VaultOfAlmierra' has vaultBarBonus 0 — a full bar raises nothing");
-            if (vault.vaultBarResource == null || vault.vaultBarResource.Length < 4
-                || System.Array.Exists(vault.vaultBarResource, r => r < 1 || r > 3))
-                Warn("building 'VaultOfAlmierra' needs four vaultBarResource entries of 1 (supplies), 2 (iron) or 3 (veilstone) — a bar without one takes nothing");
+                Warn("building 'VaultOfAlmierra' has vaultSubBars 0 — its bars draw as one block");
             for (int l = 1; l <= 3; l++)
                 if (TryGetBuildingLevel(Cultures.Alanthor, "VaultOfAlmierra", l, out var vl)
                     && (vl.vaultBarCapacity == null || vl.vaultBarCapacity.Length < 4
-                        || System.Array.Exists(vl.vaultBarCapacity, c => c <= 0) || vl.vaultBarBonus <= 0f))
-                    Warn($"VaultOfAlmierra_Lvl{l} needs four positive vaultBarCapacity entries and a vaultBarBonus — the Vault's bars read them at that level");
+                        || System.Array.Exists(vl.vaultBarCapacity, c => c <= 0)
+                        || vl.vaultBarIncomePerMinute == null || vl.vaultBarIncomePerMinute.Length < 4
+                        || System.Array.Exists(vl.vaultBarIncomePerMinute, c => c <= 0)))
+                    Warn($"VaultOfAlmierra_Lvl{l} needs four positive vaultBarCapacity and vaultBarIncomePerMinute entries — the Vault's bars read them at that level (decision 85)");
         }
         foreach (var lvl in _buildingLevels.Values)
         {

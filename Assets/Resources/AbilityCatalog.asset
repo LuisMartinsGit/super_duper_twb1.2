@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fc94a46c67609a34a8987b9ac33d9729, type: 3}
   m_Name: AbilityCatalog
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   abilities:
   - {fileID: 11400000, guid: 516cc4c98a57abbdb52e5a9973547453, type: 2}
   - {fileID: 11400000, guid: 5cd0637fdddbaea7127e7ce03198f752, type: 2}
@@ -50,18 +50,3 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 67a8abf1e18d4df79f50580b7fce98a8, type: 2}
   - {fileID: 11400000, guid: 441e1fefa2064763b4bc741273dc07e8, type: 2}
   - {fileID: 11400000, guid: da5e25c74d89474292add006e5530e5b, type: 2}
-  - {fileID: 11400000, guid: d2560b13a91f037f169b41d2d89f205f, type: 2}
-  - {fileID: 11400000, guid: 29d50023ad7dbd66d572adbdea09ecf8, type: 2}
-  - {fileID: 11400000, guid: 0f5964963ba00b689f0dba0bf03d9e36, type: 2}
-  - {fileID: 11400000, guid: bdcc9fd6062fbec37f7c16a16de6028d, type: 2}
-  - {fileID: 11400000, guid: 68a93819fc18ba3401a48480402931ee, type: 2}
-  - {fileID: 11400000, guid: a12205c92a9a79ccc60fb35a01c31878, type: 2}
-  - {fileID: 11400000, guid: 99bb7264440f7ff264894fe36fc74aaf, type: 2}
-  - {fileID: 11400000, guid: c0793beac09b7f2c323bf9b62edea875, type: 2}
-  - {fileID: 11400000, guid: 189e5714524bb1d3264b15ec66e9f7e0, type: 2}
-  - {fileID: 11400000, guid: b465adfa6b95ebed91147349ac476548, type: 2}
-  - {fileID: 11400000, guid: 14e173b5d09c59f3f426d6a681e6fb5f, type: 2}
-  - {fileID: 11400000, guid: 1766842fe3537dc26f1446046ee6e458, type: 2}
-  - {fileID: 11400000, guid: 71988371ab19327f41c9632e1b7339d1, type: 2}
-  - {fileID: 11400000, guid: 849c68f2cf7847ad050ed3c7cb2489f0, type: 2}
-  - {fileID: 11400000, guid: 7dee820a13a18eaff264e5be46be168e, type: 2}

@@ -15,15 +15,15 @@ MonoBehaviour:
   id: Alanthor_Swordsman
   displayName: Swordsman
   unitClass: human_melee
-  hp: 190
-  speed: 5.5
+  hp: 150
+  speed: 3.6
   trainingTime: 16.8
-  damage: 14
+  damage: 9
   damageType: melee
   armorType: infantry_heavy
   defense:
-    melee: 4
-    ranged: 2
+    melee: 3
+    ranged: 3
     siege: 0
     magic: 1
   attackCooldown: 1.4
@@ -35,11 +35,11 @@ MonoBehaviour:
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 160
-    Iron: 70
-    Veilstone: 0
+    Supplies: 100
+    Iron: 0
+    Veilstone: 20
   populationCost: 1
-  minBuildingLevel: 1
+  minBuildingLevel: 2
   buildSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
@@ -50,9 +50,8 @@ MonoBehaviour:
   tags:
   - Infantry
   - Heavy
-  bonusVsTags:
-  - vsTag: Siege
-    amount: 10
+  bonusVsTags: []
+  torchDamage: 13
   preferTargets: []
   abilities: []
   prefab: {fileID: 8293738258166481217, guid: c2d7af86fa435794aa3335fc44afbe55, type: 3}

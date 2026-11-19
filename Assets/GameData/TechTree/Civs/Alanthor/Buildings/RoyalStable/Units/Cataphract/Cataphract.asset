@@ -15,26 +15,26 @@ MonoBehaviour:
   id: 'Alanthor_Cataphract'
   displayName: 'Cataphract'
   unitClass: 'human_cavalry'
-  hp: 255
-  speed: 6.6
+  hp: 230
+  speed: 5.6
   trainingTime: 28
-  damage: 18
+  damage: 22
   damageType: 'melee'
-  armorType: 'cavalry'
+  armorType: cavalry
   defense:
-    melee: 5
+    melee: 4
     ranged: 4
     siege: 0
     magic: 1
-  attackCooldown: 1.6
+  attackCooldown: 1.5
   attackRange: 1.6
   minAttackRange: 0
   lineOfSight: 20
   radius: 0.6
   cost:
-    Supplies: 435
-    Iron: 170
-    Crystal: 65
+    Supplies: 140
+    Iron: 0
+    Veilstone: 100
   populationCost: 2
   minBuildingLevel: 3
   buildSpeed: 0
@@ -42,9 +42,8 @@ MonoBehaviour:
   carryCapacity: 0
   healsPerSecond: 0
   tags:
-  - 'Cavalry'
+  - Cavalry
   - Heavy
-  bonusVsTags:
-  - vsTag: 'Ranged'
-    amount: 20
+  bonusVsTags: []
+  torchDamage: 17
   presentationId: 336

@@ -18,11 +18,11 @@ MonoBehaviour:
   description: Primary melee training building. Produces Spearmen and researches
     melee upgrades. Becomes the culture's melee structure (Garrison / Route Guard
     / Longhouse) at age-up.
-  hp: 800
+  hp: 1600
   armorType: structure_human
   defense:
-    melee: 5
-    ranged: 11
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 2
   radius: 1.6

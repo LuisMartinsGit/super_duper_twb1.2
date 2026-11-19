@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Catapult
   displayName: Catapult
   unitClass: machinery_siege
-  hp: 320
+  hp: 200
   speed: 3.4
   trainingTime: 30
   damage: 36

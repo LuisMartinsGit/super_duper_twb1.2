@@ -18,11 +18,11 @@ MonoBehaviour:
   description: Early Age 0 supply generator. Emits a +Supplies aura over a small
     radius. At age-up it transforms into the culture's signature economy structure
     (wall anchor / trade wagon / Hunting or Logging station).
-  hp: 300
+  hp: 800
   armorType: structure_human
   defense:
-    melee: 3
-    ranged: 9
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 1
   radius: 0.5

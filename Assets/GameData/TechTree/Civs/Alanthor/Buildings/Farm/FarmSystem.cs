@@ -7,6 +7,9 @@
 // income line; the Vault's full bars raise it like any income). An
 // unfinished Farm, or one with nobody inside, pays nothing.
 //
+// ITS OWN HANDS (decision 83): the same tick grows each Farm's Workers
+// (GrowFarmhands) before it pays.
+//
 // THE FIELD: every FieldSeconds (and at once for a Farm never computed) each
 // Farm — sites included, so the UI can show theirs — recomputes its crop
 // ring's free share (FarmRing.FreePermille, a fixed lattice, integer
@@ -21,6 +24,8 @@ using Unity.Entities;
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
 using TheWaningBorder.Entities;
+using TheWaningBorder.Systems.Research;
+using TheWaningBorder.Systems.Training;
 
 namespace TheWaningBorder.Systems.Economy
 {
@@ -57,6 +62,8 @@ namespace TheWaningBorder.Systems.Economy
             if (_farms.Count == 0) return;
             _farms.Sort((a, b) => a.Index.CompareTo(b.Index));
 
+            GrowFarmhands(em);
+
             for (int i = 0; i < _farms.Count; i++)
             {
                 var farm = _farms[i];
@@ -75,6 +82,69 @@ namespace TheWaningBorder.Systems.Economy
                         Cost.Of(supplies: whole), IncomeSource.Farm);
             }
         }
+
+        /// <summary>
+        /// THE FARM'S OWN HANDS (decision 83, Age_1_Alanthor.md § The Farm):
+        /// every pay tick each finished, living Farm with a free slot counts a
+        /// second toward its next Worker; at Farm.asset garrisonWorkerSeconds
+        /// one is born straight into the slot, free, if its owner has
+        /// population room (else the clock waits at the mark). A full Farm's
+        /// clock is reset, so a slot that frees up takes the whole interval.
+        /// Structural (units created and absorbed): runs on the copied list.
+        /// </summary>
+        private void GrowFarmhands(EntityManager em)
+        {
+            int need = (int)System.Math.Ceiling(TechCatalog.Building(Farm.BuildingId).garrisonWorkerSeconds);
+            if (need <= 0) return;
+            _bornThisTick.Clear();
+            for (int i = 0; i < _farms.Count; i++)
+            {
+                var farm = _farms[i];
+                if (!em.Exists(farm) || !em.HasComponent<FactionTag>(farm)) continue;
+                if (em.HasComponent<Health>(farm) && em.GetComponentData<Health>(farm).Value <= 0) continue;
+                // A Farm from a save made before decision 83 has no clock yet.
+                if (!em.HasComponent<FarmWorkerClock>(farm)) em.AddComponentData(farm, default(FarmWorkerClock));
+                var clock = em.GetComponentData<FarmWorkerClock>(farm);
+                if (!WallGarrison.HasFreeSlot(em, farm))
+                {
+                    if (clock.Seconds != 0) em.SetComponentData(farm, new FarmWorkerClock());
+                    continue;
+                }
+                if (clock.Seconds < need) clock.Seconds++;
+                if (clock.Seconds >= need)
+                {
+                    var faction = em.GetComponentData<FactionTag>(farm).Value;
+                    _bornThisTick.TryGetValue(faction, out int born);
+                    int pop = WorkerPopulation();
+                    if (TrainingSystem.HasPopulationCapacity(em, faction, pop, born)
+                        && BearWorker(em, farm, faction))
+                    {
+                        _bornThisTick[faction] = born + pop;
+                        clock.Seconds = 0;
+                    }
+                }
+                em.SetComponentData(farm, clock);
+            }
+        }
+
+        private static int WorkerPopulation()
+            => System.Math.Max(1, TechCatalog.Unit("Worker").populationCost);
+
+        /// <summary>One Worker, made exactly as a trained one (the factory,
+        /// then the completed research and spawn passives), put in the Farm's
+        /// first free slot.</summary>
+        private static bool BearWorker(EntityManager em, Entity farm, Faction faction)
+        {
+            var at = em.GetComponentData<Unity.Transforms.LocalTransform>(farm).Position;
+            var worker = UnitFactory.Create(em, "Worker", at, faction);
+            if (worker == Entity.Null) return false;
+            TechEffectSystem.ApplyCompletedTechEffects(em, worker, faction);
+            TheWaningBorder.Abilities.AlanthorActiveHelper.ApplySpawnPassives(em, worker, faction, "Worker");
+            WallGarrison.Enter(em, worker, farm);
+            return true;
+        }
+
+        private readonly Dictionary<Faction, int> _bornThisTick = new Dictionary<Faction, int>();
 
         /// <summary>Recompute the crop fields: every Farm on the cadence, and
         /// any Farm whose field was never computed at once.</summary>

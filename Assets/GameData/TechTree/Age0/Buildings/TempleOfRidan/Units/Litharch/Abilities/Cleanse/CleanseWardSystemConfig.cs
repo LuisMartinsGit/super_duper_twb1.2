@@ -17,8 +17,8 @@ namespace TheWaningBorder.Systems.Border
         public static CleanseWardSystemConfig I
             => _i != null ? _i : (_i = ComponentConfig.Require<CleanseWardSystemConfig>());
 
-        /// <summary>Seconds between pulses: the aura burst and the ground
-        /// clearing happen together on each one.</summary>
+        /// <summary>Seconds between pulses: each one clears and grows the
+        /// ground circle (the aura grows with it).</summary>
         public float pulseSeconds;
 
         // ── How many, how close (2026-10-22, the Field Hospital's rule) ──
@@ -44,11 +44,17 @@ namespace TheWaningBorder.Systems.Border
         // ── Presentation ──
         /// <summary>The ward's model (Waning Border > Art > Build Cleansing Ward Prefab).</summary>
         public GameObject wardPrefab;
-        /// <summary>The one-shot aura played on every pulse, scaled to the
-        /// circle's radius over <see cref="pulseAuthoredRadius"/>.</summary>
-        public GameObject pulsePrefab;
-        public float pulseAuthoredRadius;
-        /// <summary>How often the presentation polls the wards for pulses.</summary>
+        /// <summary>The ward's calm blue aura (CleanseWard_Aura.prefab, a blue
+        /// copy of the Field Hospital's healing-area loop, 2026-11-18): kept
+        /// looping on every standing ward, scaled to its clean circle's radius
+        /// over <see cref="auraAuthoredRadius"/>, and played once where a
+        /// Cleanse Pulse lands. No burst on the ward's pulses.</summary>
+        public GameObject auraPrefab;
+        /// <summary>The radius (m) the aura prefab is authored at.</summary>
+        public float auraAuthoredRadius;
+        /// <summary>Seconds a ward's aura takes to fade once the ward is gone.</summary>
+        public float auraFadeSeconds;
+        /// <summary>How often the presentation polls the wards (aura on / off / resize).</summary>
         public float pollSeconds;
     }
 }

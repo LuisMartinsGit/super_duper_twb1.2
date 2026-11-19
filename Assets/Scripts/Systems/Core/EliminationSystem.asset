@@ -15,3 +15,4 @@ MonoBehaviour:
   checkIntervalSeconds: 2
   startGraceSeconds: 10
   noTerritoryGraceSeconds: 30
+  fortressRebuildGraceSeconds: 300

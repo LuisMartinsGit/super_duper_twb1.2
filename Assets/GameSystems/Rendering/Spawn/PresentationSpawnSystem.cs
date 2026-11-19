@@ -26,8 +26,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     private static readonly Dictionary<int, string> PrefabPaths = new()
     {
         // NO BUILDING ROWS (2026-10-20, Art_Direction.md § 13): every player
-        // building's model is on its SO (SpawnBuildingFromSO), chapels' on
-        // ChapelArt.asset. This table is units, creatures and the map only.
+        // building's model is on its SO (SpawnBuildingFromSO). This table is units, creatures and the map only.
 
         // Units
         { 200, "Prefabs/Units/SK_Character_Human_Peasant" }, // Worker (PresentationID 200) — single-character Humanoid peasant (auto-avatar, no duplicate bones)
@@ -649,7 +648,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
 
         // === PLAYER BUILDINGS: ONLY THROUGH THE SO (2026-10-20, Art_Direction.md § 13) ===
         // Base SO at level 0 / under construction / a plan; the culture's
-        // level SO at level N; ChapelArt for a chapel. Nothing else.
+        // level SO at level N. Nothing else.
         if (TryResolveBuildingVisual(_em, entity, out var soModel))
             return SpawnBuildingFromSO(entity, soModel, transform, pos);
 
@@ -663,7 +662,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         {
             GameObject authored = null;
             bool authoredIsBuilding = false;
-            bool spawnsFinished = false;   // Field Hospital raises pre-built
+            bool spawnsFinished = false;   // the Cleansing Ward raises pre-built
 
             // Real authored art SUPERSEDES the procedural placeholder. These
             // builders were written as stand-ins until a building had a model;

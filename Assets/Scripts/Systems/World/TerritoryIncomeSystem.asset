@@ -19,7 +19,7 @@ MonoBehaviour:
   normalReserveMultiplier: 1
   poorReserveMultiplier: 0.4
   emptySlotPerMinute: 10
-  ironYieldMultiplier: 1.3
+  ironYieldMultiplier: 1.15
   deepShaftsMultiplier: 1.2
   richSeamsMultiplier: 1.3
   feraldisVeilstoneMultiplier: 1.5
@@ -27,8 +27,8 @@ MonoBehaviour:
   - 1
   - 1.25
   - 1.5
-  claimSuppliesPerMinute: 40
-  claimIronPerMinute: 45
+  claimSuppliesPerMinute: 80
+  claimIronPerMinute: 10
   claimVeilstonePerMinute: 20
-  depletedMineShare: 0.25
+  depletedMineShare: 0.15
   lowIronNodeWarnShare: 0.2

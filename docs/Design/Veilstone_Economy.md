@@ -1,5 +1,19 @@
 # Veilstone Economy
 
+> **2026-11-16 ([decision 68](Unification_Decisions_2026-10-03.md)): supply nodes hold half
+> as much** (`supplyNodeReserve`, `TerritoryIncomeSystem.asset`) **and a player keeps at most
+> four Farms** (`Farm.asset`).
+
+> **2026-11-16 ([decision 67](Unification_Decisions_2026-10-03.md)): the Market trades for
+> veilstone.** Veilstone is the Market's money: supplies and iron are bought with it and
+> sold for it, by the lot, at prices **shared by every player** that rise with each
+> purchase, fall with each sale and drift back
+> ([Age_1_Alanthor.md § Market](Age_1_Alanthor.md), numbers on `Market.asset`). The
+> Market no longer makes veilstone out of supplies at a fixed price — where the notes
+> below say it "buys iron and veilstone for supplies", read this instead.
+> **Decision 81 (2026-11-19):** the floor price never stops a sale; a seller at the floor
+> sells more lots. Surplus supplies and iron always turn into veilstone, only at a worse rate.
+
 > **2026-11-11 ([decision 55](Unification_Decisions_2026-10-03.md)): Farms and the Market.**
 > Alanthor can earn without nodes: the **Farm** pays supplies per Worker inside it and the
 > **Market** buys iron and veilstone for supplies at fixed prices (the rules are

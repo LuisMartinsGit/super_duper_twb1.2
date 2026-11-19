@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Ballista
   displayName: Ballista
   unitClass: machinery_siege
-  hp: 350
+  hp: 220
   speed: 3.2
   trainingTime: 90
   damage: 40

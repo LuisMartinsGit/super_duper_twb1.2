@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Sallyguard
   displayName: Sallyguard
   unitClass: melee
-  hp: 480
+  hp: 300
   speed: 5
   trainingTime: 22
   damage: 24
@@ -50,6 +50,7 @@ MonoBehaviour:
   - 'Heavy'
   bonusVsTags:
   - 'Siege'
+  torchDamage: 21
   abilities: []
   prefab: {fileID: 12305725100316, guid: 9792701039fdde92073eb07449aaab68, type: 3}
   presentationId: 372

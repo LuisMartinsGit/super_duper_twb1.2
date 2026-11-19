@@ -43,15 +43,27 @@ namespace TheWaningBorder.AI
         // ── Kiting ───────────────────────────────────────────────────────
 
         /// <summary>A hostile melee unit this close (edge to edge) to a
-        /// reloading ranged unit makes it step back.</summary>
+        /// ranged unit puts it under melee attack.</summary>
         public float kiteTriggerDistance;
 
-        /// <summary>How far one kiting step backs off.</summary>
+        /// <summary>How far a pulled-back group steps away from the threat
+        /// when it has no friendly line or army to fall back to.</summary>
         public float kiteStepDistance;
 
-        /// <summary>Kite only with at least this much reload left — a shot
-        /// that is nearly ready is worth more than the step.</summary>
-        public float kiteMinReloadSeconds;
+        /// <summary>Threatened shooters this close to each other are pulled
+        /// back by ONE order (one action), as a player's box-select would.</summary>
+        public float kiteGroupRadius;
+
+        /// <summary>How far round a threatened group the AI looks for its own
+        /// melee line (or, without one, its own army) to fall back behind.</summary>
+        public float kiteLineSearchRadius;
+
+        /// <summary>How far behind its melee line (away from the threat) a
+        /// pulled-back group stands.</summary>
+        public float kiteBehindLine;
+
+        /// <summary>The longest one pull-back may be.</summary>
+        public float kiteMaxStep;
 
         /// <summary>Kite only when my speed is at least this multiple of the
         /// melee unit's — a slower shooter cannot open distance.</summary>
@@ -65,9 +77,6 @@ namespace TheWaningBorder.AI
         /// <summary>A unit whose last kiting step is older than this starts
         /// a fresh drift allowance (a new fight).</summary>
         public float kiteAnchorResetSeconds;
-
-        /// <summary>Most kiting orders one pass may issue (per faction).</summary>
-        public int kiteMaxPerTick;
 
         // ── Target priority (focus fire + counters) ─────────────────────
 

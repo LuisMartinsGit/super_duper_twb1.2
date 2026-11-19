@@ -22,7 +22,7 @@ numbers (Sects.md, Heroes.md, Age_1_Alanthor.md) must agree with §9.
 
 | Pipeline | Data | Runtime |
 |---|---|---|
-| **Ability cards**: King's Call, Liquid Courage (plus its aftermath), Automate Facility, Use Celestar, Scout Sight, War Horn, Full Gallop, Deploy Field Hospital, Honour thy Pledge, Choreographed Volleys, Shardbound Fury | one `AbilityDefSO` per ability, filed under its owner (`.../Abilities/<Ability>/`), and listed **in index order** in `Assets/Resources/AbilityCatalog.asset` | `AbilityLifecycleSystem` (cast, cooldown, aftermath), `AbilityEffectExecutor` (effects), `AbilityAuraSystem` (passives) |
+| **Ability cards**: King's Call, Liquid Courage (plus its aftermath), Automate Facility, Use Celestar, Scout Sight, War Horn, Full Gallop, Healing Ward, Honour thy Pledge, Choreographed Volleys, Shardbound Fury | one `AbilityDefSO` per ability, filed under its owner (`.../Abilities/<Ability>/`), and listed **in index order** in `Assets/Resources/AbilityCatalog.asset` | `AbilityLifecycleSystem` (cast, cooldown, aftermath), `AbilityEffectExecutor` (effects), `AbilityAuraSystem` (passives) |
 | **Sect active powers**: three per sect, levels I to III | `SectActivePowerSpec` rows in the `SectLeverEffects` tables | `SectActivePowerHelper.Fire` leads to a `PendingSectStrike` telegraph, then `DispatchEffect` |
 
 **The SOs are what runs.** `AbilityCatalog` builds its card table from
@@ -386,7 +386,7 @@ Shardroot sell, and a level that also shortened the cooldown sold it twice.
 | Hero ultimate | **120 s** | Honour thy Pledge, Shardbound Fury |
 | Sect wildcard | **120 s** | Immovable III, Raise Anew I (Sew Disorder / Friendly Fire has its own, longer cooldown since 2026-10-18 — `SpellLadder.FriendlyFireCooldown`) |
 | Map-wide | **150 s** | Blood Rain, Nowhere to Hide |
-| Deployable structure | **300 s** | Deploy Field Hospital |
+| Deployable structure | **300 s** | Healing Ward (2026-11-18: one cooldown SHARED by every Litharch of the faction — [Sects.md](Sects.md) Renewal; the value is `HealingWard.asset`'s) |
 | Economy card, auto | duration + 1 s | Automate Facility (its Under Automation lockout is the brake) |
 
 **The one-minute rhythm.** A big fight lasts 30-60 s, so a tactical power
@@ -492,7 +492,7 @@ separated by slashes. "-" = none.
 | Full Gallop (cavalry) | unit tactical | 75 -> **60** | - | 20 -> **15** | 8 | - |
 | Choreographed Volleys (ranged) | unit tactical | 120 -> **60** | - | 20 -> **15** | 5 | - |
 | Automate Facility (Ledger) | economy, auto | 31 | - | single | 30 (+60 lockout) | 6 s |
-| Deploy Field Hospital (Litharch) | deployable | 300 | heals 3 HP/s | 12 -> **15** | 120 | 3 s |
+| Healing Ward (Litharch; was Deploy Field Hospital) | deployable, cooldown shared by every Litharch | on the SO | heals `healPerPulse` every `pulseSeconds` (`HealingWardSystem.asset`) | on the SO | until destroyed | on the SO |
 | Ranging Shot (Siege Yard) | unit tactical | 45 -> **60** | next shot +100 % | faction | 10 window | - |
 | Reliquary: Scry | building active | 90 | - | 10 -> **8** | 10 | - |
 | Reliquary: Lockout | building active | 120 -> **90** | - | 8 | 6 | - |

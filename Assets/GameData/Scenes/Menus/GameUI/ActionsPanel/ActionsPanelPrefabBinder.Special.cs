@@ -8,12 +8,13 @@
 // hut's age-up choice, the Bazaar wagon and the Vault of Almiérra — are
 // laid out on this grid like any other building: their own actions first,
 // as ordinary cells, then the building's research rows, then its level-up
-// in the last free cell. The Vault adds its four bars above the grid
-// (ActionsPanelPrefabBinder.Vault.cs).
+// in the bottom-right cell of the 4 x 4 (2026-11-18). The Vault adds its four
+// bars in a second square beside the grid (ActionsPanelPrefabBinder.Vault.cs).
 //
 // What each action DOES did not change: every click still routes through
 // CommandRouter exactly as the old panel issued it.
 
+using System.Collections.Generic;
 using Unity.Entities;
 using UnityEngine;
 using TheWaningBorder.Core;
@@ -36,78 +37,76 @@ namespace TheWaningBorder.UI.Ingame
             || t == ActionType.VaultManagement;
 
         /// <summary>
-        /// The special selection on the standard grid: its own cells from slot
-        /// 0, research rows on the next whole row (never on wall pieces —
-        /// their one research, the wall level, is already one of their own
-        /// cells), the level-up in the last free cell. Returns cells used.
+        /// The special selection on the standard 4 x 4 grid: its own cells
+        /// from cell 0 (row 0, wrapping when there are more than four),
+        /// research from the next whole row (never on wall pieces — their one
+        /// research, the wall level, is already one of their own cells), the
+        /// level-up in the bottom-right cell; paged past fifteen cells
+        /// (PaintSections). Returns cells used.
         /// </summary>
         private int RenderSpecial(EntityManager em, in EntityActionInfo info)
         {
-            for (int i = 0; i < SlotCount && i < _slots.Length; i++) ClearSlot(_slots[i]);
-
-            int cell = 0, used = 0;
             Entity entity = _entity;
 
             // The Vault lays its own 4 x 4 grid out whole (Vault.cs).
             if (info.Type == ActionType.VaultManagement)
                 return RenderVault(em, info);
 
+            var top = new List<PlanCell?>();
+            float convertingLeft = -1f;
             if (info.Type == ActionType.GathererHutAgeUpChoice
                      && em.HasComponent<GathererHutConverting>(entity)
                      && (info.Actions == null || info.Actions.Count == 0))
             {
                 // Mid-conversion: one locked cell that sweeps with the timer.
                 var conv = em.GetComponentData<GathererHutConverting>(entity);
-                var b = new ActionButton
+                if (conv.Total > 0f) convertingLeft = Mathf.Clamp01(conv.Remaining / conv.Total);
+                top.Add(new PlanCell
                 {
-                    Id = "HutConverting",
-                    Label = Loc.T("Converting..."),
-                    Tooltip = Loc.T("Converting..."),
-                    Enabled = false,
-                    CanAfford = true,
-                };
-                var slot = _slots[cell++];
-                FillSlot(slot, b, Category.Defense, null, null, em);
-                if (slot.CooldownFill != null && conv.Total > 0f)
-                    slot.CooldownFill.fillAmount = Mathf.Clamp01(conv.Remaining / conv.Total);
-                used++;
+                    Button = new ActionButton
+                    {
+                        Id = "HutConverting",
+                        Label = Loc.T("Converting..."),
+                        Tooltip = Loc.T("Converting..."),
+                        Enabled = false,
+                        CanAfford = true,
+                    },
+                    Cat = Category.Defense,
+                });
             }
             else if (info.Actions != null)
             {
-                for (int i = 0; i < info.Actions.Count && cell < SlotCount; i++)
+                var actions = info.Actions;
+                for (int i = 0; i < actions.Count; i++)
                 {
-                    var b = info.Actions[i];
-                    var slot = _slots[cell++];
-                    FillSlot(slot, b, SpecialCategory(b.Id), null,
-                        b.Enabled ? (System.Action)(() => Execute(entity, b, isTrain: false)) : null, em);
-                    used++;
-
-                    // The wall level runs on whichever hub took it; the
-                    // extractor hands its progress over as ProductionState.
-                    if (b.Id == "WallLevelResearching" && slot.CooldownFill != null
-                        && info.ProductionState.HasValue && info.ProductionState.Value.IsBusy)
-                        slot.CooldownFill.fillAmount = 1f - Mathf.Clamp01(info.ProductionState.Value.Progress);
+                    var b = actions[i];
+                    top.Add(new PlanCell
+                    {
+                        Button = b,
+                        Cat = SpecialCategory(b.Id),
+                        Click = b.Enabled ? (System.Action)(() => Execute(entity, b, isTrain: false)) : null,
+                    });
                 }
-                if (info.Actions.Count > SlotCount)
-                    TWBLog.Log($"[GameUI] ActionsPanel: {info.Actions.Count} special actions, " +
-                        $"only {SlotCount} slots — overflow dropped.");
             }
 
-            // Research on the next whole row (row 1 at the earliest, so a
-            // building with one or two actions keeps the usual layout).
             bool wallPiece = em.HasComponent<WallTag>(entity);
-            if (!wallPiece && info.Type != ActionType.BazaarWagonUnpack)
+            var research = !wallPiece && info.Type != ActionType.BazaarWagonUnpack
+                ? BuildResearchPlan(em) : null;
+            int used = PaintSections(em, top, research);
+
+            // The cells that carry a sweep of their own: the hut's conversion
+            // timer, and the wall level (it runs on whichever hub took it; the
+            // extractor hands its progress over as ProductionState).
+            float wallLevelLeft = info.ProductionState.HasValue && info.ProductionState.Value.IsBusy
+                ? 1f - Mathf.Clamp01(info.ProductionState.Value.Progress) : -1f;
+            for (int i = 0; i < BuildingCells && i < _slots.Length; i++)
             {
-                int firstRow = Mathf.Max(1, (cell + Cols - 1) / Cols);
-                // The grid skips inactive cells, so the rest of the row is
-                // held with blanks or the research would slide up beside the
-                // building's own cells.
-                for (int i = cell; i < firstRow * Cols && i < SlotCount; i++) BlankSlot(_slots[i]);
-                int research = RenderResearchRows(em, firstRow * Cols);
-                // Nothing to research: no gap to hold.
-                if (research == 0)
-                    for (int i = cell; i < firstRow * Cols && i < SlotCount; i++) ClearSlot(_slots[i]);
-                used += research;
+                var slot = _slots[i];
+                if (slot.CooldownFill == null) continue;
+                if (slot.ActionId == "HutConverting" && convertingLeft >= 0f)
+                    slot.CooldownFill.fillAmount = convertingLeft;
+                else if (slot.ActionId == "WallLevelResearching" && wallLevelLeft >= 0f)
+                    slot.CooldownFill.fillAmount = wallLevelLeft;
             }
 
             used += RenderUpgradeSlot(em);

@@ -942,14 +942,10 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
                 PutAt(p, P_StatueHero, "Hero", new Vector3(0f, 0.28f, 2.3f), 0f, Vector3.one * 0.9f, _synAtlas);
                 AlFlag(p, "FlagW", new Vector3(-3.4f, 0.28f, -3.3f), 4.5f); AlFlag(p, "FlagE", new Vector3(3.4f, 0.28f, -3.3f), 4.5f);
             });
-            SectForm(SECTS + "Renewal/Abilities/DeployFieldHospital/", "FieldHospital", "Renewal_FieldHospital", 2f, (r, h) =>
-            {
-                var w = Group(r, "2_Tent"); var p = Group(r, "6_Props");
-                PutAt(w, Bld_TentSquare, "Tent", new Vector3(0f, 0.14f, 0.2f), 0f, Vector3.one * 0.55f, _synAtlas);
-                PutAt(p, P_Bath, "Cot", new Vector3(-1.3f, 0.14f, -1.2f), 90f, Vector3.one * 0.6f, _synAtlas);
-                PutAt(p, P_Candles, "Candles", new Vector3(1.3f, 0.14f, -1.3f), 0f, Vector3.one * 1.6f, _synAtlas);
-                AlFlag(p, "Flag", new Vector3(1.6f, 0.14f, 1.6f), 3.0f, 0.4f);
-            }, mud: true);
+            // The Field Hospital tent is gone (2026-11-18): the Healing Ward
+            // that replaced it is a one-cell plinth and crystal
+            // (Renewal/Abilities/HealingWard/Art/Renewal_HealingWard.prefab,
+            // a green copy of the Cleansing Ward), not authored here.
             // The three Fortify structures (Renewal_Tower / _Fortification /
             // _Fortress) are no longer built here: since 2026-11-11 they all
             // stand on one 3 x 3-cell footprint and FortifyKitAuthor.cs is
@@ -1197,7 +1193,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             foreach (var b in new[] { "ArcheryRange", "Fortress", "Garrison", "Guild", "Mine", "RoyalStable", "SiegeYard", "Tower", "VaultOfAlmierra" })
             { dirs.Add(ALA + b + "/Art"); dirs.Add(ALA + b); }
             dirs.AddRange(new[] { SECTS + "Antiquity/Buildings/Reliquary/Art", SECTS + "Fortitude/Buildings/Stonehold/Art", SECTS + "Prosperity/Buildings/Treasury/Art",
-                                  SECTS + "Renewal/Abilities/DeployFieldHospital/Art", SECTS + "Renewal/Abilities/RaiseAnew/Art", SECTS + "Renewal/Buildings/MendingHall/Art",
+                                  SECTS + "Renewal/Abilities/HealingWard/Art", SECTS + "Renewal/Abilities/RaiseAnew/Art", SECTS + "Renewal/Buildings/MendingHall/Art",
                                   SECTS + "War/Buildings/MusterYard/Art" });
             foreach (var d in dirs)
             {
@@ -1220,7 +1216,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
                 ("TempleAl", AGE0 + "TempleOfRidan/Art/alanthor_TempleOfRidan_lv1.prefab"),
                 ("Reliquary", SECTS + "Antiquity/Buildings/Reliquary/Art/Sect_Reliquary_Age_0.prefab"), ("Stonehold", SECTS + "Fortitude/Buildings/Stonehold/Art/Sect_Stonehold_Age_0.prefab"),
                 ("Treasury", SECTS + "Prosperity/Buildings/Treasury/Art/Sect_Treasury_Age_0.prefab"), ("MendingHall", SECTS + "Renewal/Buildings/MendingHall/Art/Sect_MendingHall_Age_0.prefab"),
-                ("MusterYard", SECTS + "War/Buildings/MusterYard/Art/Sect_MusterYard_Age_0.prefab"), ("FieldHospital", SECTS + "Renewal/Abilities/DeployFieldHospital/Art/Renewal_FieldHospital_Age_0.prefab"),
+                ("MusterYard", SECTS + "War/Buildings/MusterYard/Art/Sect_MusterYard_Age_0.prefab"), ("HealingWard", SECTS + "Renewal/Abilities/HealingWard/Art/Renewal_HealingWard.prefab"),
                 ("RenewalTower", SECTS + "Renewal/Abilities/RaiseAnew/Art/Renewal_Tower_Age_0.prefab"), ("RenewalFortification", SECTS + "Renewal/Abilities/RaiseAnew/Art/Renewal_Fortification_Age_0.prefab"),
                 ("RenewalFortress", SECTS + "Renewal/Abilities/RaiseAnew/Art/Renewal_Fortress_Age_0.prefab"),
                 ("Frame_Tower", ALA + "Tower/Art/Alanthor_Tower_Age_0.prefab"),

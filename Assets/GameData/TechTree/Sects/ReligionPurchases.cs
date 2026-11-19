@@ -63,6 +63,9 @@ namespace TheWaningBorder.Systems.Sect
                 case ReligionPurchaseKind.SupportIron:
                 case ReligionPurchaseKind.SupportVeilstone:
                     if (!SectQuery.HasStandingTemple(em, faction)) return false;
+                    // Sold only while the Temple offers it (TempleOffer.asset,
+                    // docs/Design/Age_0.md § Temple of Ridan, 2026-11-18).
+                    if (!TheWaningBorder.Entities.TempleOffer.OffersPetriarchy(em, faction)) return false;
                     rpCost = 1;
                     return FactionReligionPointsHelper.CanAfford(em, faction, rpCost);
 
@@ -70,6 +73,7 @@ namespace TheWaningBorder.Systems.Sect
                 case ReligionPurchaseKind.ArmyMedium:
                 case ReligionPurchaseKind.ArmyLarge:
                     if (!SectQuery.HasStandingTemple(em, faction)) return false;
+                    if (!TheWaningBorder.Entities.TempleOffer.OffersPetriarchy(em, faction)) return false;
                     if (PetriarchyArmy.Roster().Count == 0) return false;
                     rpCost = ArmyPrice(kind);
                     return FactionReligionPointsHelper.CanAfford(em, faction, rpCost);

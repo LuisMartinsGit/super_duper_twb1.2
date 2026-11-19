@@ -81,6 +81,22 @@ namespace TheWaningBorder.AI
         /// Called after UpdateMissions, which has already pruned the dead and
         /// disbanded anything finished — so every mission seen here is live.
         /// </summary>
+        /// <summary>Decision 88: the most pressing hostile within
+        /// siegeEscortRadius of any of this army's engines, or Entity.Null.</summary>
+        private static Entity EngineThreat(EntityManager em, Faction faction, Mission mission)
+        {
+            if (Cfg.siegeEscortRadius <= 0f) return Entity.Null;
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (!em.Exists(u) || !em.HasComponent<SiegeTag>(u) || !em.HasComponent<LocalTransform>(u)) continue;
+                var t = AIEngagement.PickPriorityTarget(em, faction,
+                    em.GetComponentData<LocalTransform>(u).Position, Cfg.siegeEscortRadius);
+                if (t != Entity.Null && em.Exists(t) && em.HasComponent<UnitTag>(t)) return t;
+            }
+            return Entity.Null;
+        }
+
         private void TickArmyTactics(EntityManager em, Faction faction, float now)
         {
             var missions = MissionsFor(faction);
@@ -137,7 +153,24 @@ namespace TheWaningBorder.AI
                 // from the centre out to the army's own spread, so an enemy on
                 // the rear rank counts as contact, not just one at the centroid.
                 reach += math.min(ArmySpread(em, mission, centroid), Cfg.contactRadius * 2f);
-                var focus = AIEngagement.PickPriorityTarget(em, faction, centroid, reach);
+                // ESCORT THE ENGINES (decision 88): a hostile close to one of
+                // the army's engines is the army's target, worth it or not.
+                Entity escortFocus = EngineThreat(em, faction, mission);
+                var focus = escortFocus != Entity.Null ? escortFocus
+                          : AIEngagement.PickPriorityTarget(em, faction, centroid, reach);
+                // ON THE WAY, ONLY SOLDIERS (decision 89, 2026-11-19): a
+                // mustering or staging army fights enemy soldiers (and whatever
+                // comes at its engines, above) — never a lone worker, scout or
+                // building. A 147-strong Expert army was recalled 137 strong to
+                // chase one Red worker 55 m off its march and never left home.
+                // The members beside such a target deal with it themselves.
+                bool soldiersOnly = marching && Cfg.marchFightsSoldiersOnly && escortFocus == Entity.Null;
+                if (soldiersOnly && focus != Entity.Null
+                    && !(em.HasComponent<UnitTag>(focus) && AITactics.IsCombatUnit(em, focus)))
+                {
+                    AITactics.LivePowerAround(em, faction, centroid, reach, _tacticsScratch, out _, out _, out _, out _);
+                    if (CombatUnitsAround(em, faction, centroid, reach, _tacticsScratch) == 0) focus = Entity.Null;
+                }
 
                 if (focus == Entity.Null)
                 {
@@ -176,23 +209,60 @@ namespace TheWaningBorder.AI
                 // strength, the same measure as the fall-back odds); below
                 // that it keeps its march. A body of armed scouts adds up and
                 // is fought.
-                if (!mission.Engaged && Cfg.engageMinThreatFraction > 0f)
+                //
+                // (2026-11-18) "The AI ignores the defending army to go
+                // attack buildings": the gate weighed 46 hostile soldiers
+                // against the WHOLE mission — stragglers, far reinforcements
+                // and thirty Battering Rams that cannot hurt a soldier — and
+                // marched on for 90 s while being cut down. Now:
+                //   * OWN strength counts only members within reach of the
+                //     fight (the focus), at their strength against an army
+                //     (a buildings-only engine counts 0);
+                //   * the FLOOR: engageFloorUnits hostile combat units in
+                //     reach are always fought, whatever the ratio;
+                //   * an army whose members are already FIGHTING (they
+                //     retaliate when hit on the move, Stances.md §5a) is in
+                //     an engagement, so the tactics layer takes it over
+                //     instead of the march pulling them back mid-fight.
+                if (!mission.Engaged && Cfg.engageMinThreatFraction > 0f && escortFocus == Entity.Null)
                 {
                     AITactics.LivePowerAround(em, faction, centroid, reach, _tacticsScratch,
                         out int threat, out _, out _, out int threatCount);
-                    int own = 0;
-                    for (int i = 0; i < mission.Members.Count; i++)
-                        own += AITactics.LiveStrength(em, mission.Members[i]);
-                    if (threat < own * Cfg.engageMinThreatFraction)
+                    int combatInReach = Cfg.engageFloorUnits > 0
+                        ? CombatUnitsAround(em, faction, centroid, reach, _tacticsScratch) : 0;
+                    bool floor = Cfg.engageFloorUnits > 0 && combatInReach >= Cfg.engageFloorUnits;
+                    bool fighting = !floor && AnyMemberFighting(em, faction, mission, soldiersOnly);
+                    if (!floor && !fighting)
                     {
-                        if (now >= mission.IgnoreLogAt)
+                        float3 fight = em.HasComponent<LocalTransform>(focus)
+                            ? em.GetComponentData<LocalTransform>(focus).Position : centroid;
+                        float fightR2 = reach * reach;
+                        int own = 0;
+                        for (int i = 0; i < mission.Members.Count; i++)
                         {
-                            mission.IgnoreLogAt = now + 30f;
-                            AILogger.Log(faction, "TACTICS",
-                                $"ignoring {threatCount} hostile(s) in reach (power {threat} vs {own}) — " +
-                                "not worth leaving the march for");
+                            var u = mission.Members[i];
+                            if (!em.HasComponent<LocalTransform>(u)) continue;
+                            float3 p = em.GetComponentData<LocalTransform>(u).Position;
+                            if (math.distancesq(p.xz, fight.xz) > fightR2) continue;
+                            own += AITactics.StrengthVsArmy(em, u);
                         }
-                        continue;
+                        if (threat < own * Cfg.engageMinThreatFraction)
+                        {
+                            if (now >= mission.IgnoreLogAt)
+                            {
+                                mission.IgnoreLogAt = now + 30f;
+                                AILogger.Log(faction, "TACTICS",
+                                    $"ignoring {threatCount} hostile(s) in reach ({combatInReach} combat; " +
+                                    $"power {threat} vs {own} near the fight) — not worth leaving the march for");
+                            }
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        AILogger.Log(faction, "TACTICS",
+                            floor ? $"engaging: {combatInReach} hostile combat unit(s) in reach (floor {Cfg.engageFloorUnits})"
+                                  : "engaging: members are already fighting back");
                     }
                 }
 
@@ -298,6 +368,8 @@ namespace TheWaningBorder.AI
             }
         }
 
+        private readonly System.Collections.Generic.HashSet<Entity> _paidTargets =
+            new System.Collections.Generic.HashSet<Entity>();
         private readonly System.Collections.Generic.List<Entity> _tacticsBody =
             new System.Collections.Generic.List<Entity>(32);
         private readonly System.Collections.Generic.List<Entity> _tacticsStrays =
@@ -357,6 +429,44 @@ namespace TheWaningBorder.AI
                 if (d > best) best = d;
             }
             return best;
+        }
+
+        /// <summary>Hostile COMBAT units (AITactics.IsCombatUnit) within
+        /// <paramref name="radius"/> of <paramref name="pos"/>, read from the
+        /// candidate list LivePowerAround just filled (the strength map's
+        /// grid order, so the count is the same on every peer).</summary>
+        private static int CombatUnitsAround(EntityManager em, Faction faction, float3 pos, float radius,
+            System.Collections.Generic.List<Entity> candidates)
+        {
+            float r2 = radius * radius;
+            int n = 0;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                var e = candidates[i];
+                if (!AITactics.IsLiveHostileUnit(em, faction, e)) continue;
+                float3 p = em.GetComponentData<LocalTransform>(e).Position;
+                if (math.distancesq(p.xz, pos.xz) > r2) continue;
+                if (AITactics.IsCombatUnit(em, e)) n++;
+            }
+            return n;
+        }
+
+        /// <summary>Is any member of the army already fighting a hostile
+        /// UNIT — a retaliation on the move (Stances.md §5a) or an
+        /// auto-acquired fight? Then the army is in an engagement whatever
+        /// the engage gate would say.</summary>
+        private static bool AnyMemberFighting(EntityManager em, Faction faction, Mission mission, bool soldiersOnly = false)
+        {
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (!em.HasComponent<Target>(u) || em.HasComponent<BuildingsOnlyAttacker>(u)) continue;
+                var t = em.GetComponentData<Target>(u).Value;
+                if (t == Entity.Null || !em.HasComponent<UnitTag>(t)) continue;
+                if (AITactics.IsLiveHostileUnit(em, faction, t)
+                    && (!soldiersOnly || AITactics.IsCombatUnit(em, t))) return true;
+            }
+            return false;
         }
 
         /// <summary>Mean position of a mission's living members.</summary>
@@ -448,6 +558,13 @@ namespace TheWaningBorder.AI
             float2 perp = new float2(-axis.y, axis.x);
             int rangedIndex = 0;
 
+            // THE ACTION BUDGET (Game_AI.md § 6e): a re-target is one action
+            // per TARGET (every unit sent at it in this pass is one click),
+            // the firing line one action per pass. Out of actions, a unit
+            // keeps what it is doing — the targeting system still fights.
+            _paidTargets.Clear();
+            byte linePaid = 0;   // 0 unpaid, 1 paid, 2 refused
+
             for (int i = 0; i < body.Count; i++)
             {
                 var u = body[i];
@@ -491,12 +608,19 @@ namespace TheWaningBorder.AI
                         var dd = em.GetComponentData<DesiredDestination>(u);
                         if (dd.Has != 0 && math.distance(dd.Position.xz, spot) <= tc.rangedLineTolerance) continue;
                     }
+                    if (linePaid == 0) linePaid = AITactics.TrySpendAction(em, faction) ? (byte)1 : (byte)2;
+                    if (linePaid != 1) continue;
                     CommandRouter.IssueMove(em, u, new float3(spot.x, up.y, spot.y), CommandSource.AI);
                     continue;
                 }
 
                 if (best == current) continue;
                 if (current != Entity.Null && curS > float.MinValue && bestS < curS + tc.switchMargin) continue;
+                if (!_paidTargets.Contains(best))
+                {
+                    if (!AITactics.TrySpendAction(em, faction)) continue;
+                    _paidTargets.Add(best);
+                }
                 CommandRouter.IssueAttack(em, u, best, CommandSource.AI);
             }
         }
@@ -607,6 +731,9 @@ namespace TheWaningBorder.AI
             }
             int want = (int)math.floor(body.Count * skill.flankFraction);
             if (want < tc.flankMinGroup || _flankPick.Count < tc.flankMinGroup) return;
+            // Sending a flank is one action (Game_AI.md § 6e); the strike
+            // that lands it is part of the same manoeuvre.
+            if (!AITactics.TrySpendAction(em, faction)) return;
             _flankPick.Sort((a, b) =>
             {
                 float sa = AITactics.SpeedOf(em, a), sb = AITactics.SpeedOf(em, b);
@@ -669,6 +796,7 @@ namespace TheWaningBorder.AI
             if (retreatRatio <= 0f) return false;
             if (mission.Members.Count < tc.fallbackMinArmy) return false;
             if (enemyPower <= 0 || enemyPower <= myPower * retreatRatio) return false;
+            if (mission.Type != MissionType.Raid && BesiegingVictim(em, faction, mission.Members, centroid)) return false;   // decision 86
 
             Entity hall = FindFactionBuilding<HallTag>(em, faction);
             bool hasHall = hall != Entity.Null && em.HasComponent<LocalTransform>(hall);

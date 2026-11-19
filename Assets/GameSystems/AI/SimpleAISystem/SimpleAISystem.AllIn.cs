@@ -21,10 +21,11 @@
 //
 // THE HUNT (2026-10-09, § 6o). Developer: "I need deaths to start occurring
 // from minute 15 or even earlier" — graduated pressure, ~45-minute matches.
-// From preyAfterSeconds a hostile holding at most preyMaxTerritories — or at
-// most preyMaxShareOfHunter of the hunter's own territories — is PREY;
-// a faction holding at least preyHunterMinTerritories that sees prey goes to
-// war on the nearest one and arms the doctrine early, against it alone.
+// From preyAfterSeconds a hostile whose board score is at most preyScoreShare
+// of the hunter's own is PREY (decision 84, the weaker threshold); the hunter
+// goes to war on the nearest one and arms the doctrine early, against it
+// alone. A rival at threatScoreRatio of the hunter's score or more is the
+// table's threat (the stronger threshold), and comes after the prey.
 //
 // Host-side AI state (AI acts only through CommandRouter), match-relative
 // clock, reset per match by SimCadence.Epoch.
@@ -88,8 +89,6 @@ namespace TheWaningBorder.AI
         /// <summary>Per faction: the prey it hunts this think, or -1.</summary>
         private static readonly int[] _prey = NewAllInGuard();
         /// <summary>Per faction: the BEATEN faction it is finishing (§ 6u), or -1.</summary>
-        private static readonly int[] _finish = NewAllInGuard();
-        private static readonly float[] _finishSince = new float[ProfileSlots];
         private static int _allInEpoch = -1;
 
         private static int[] NewAllInGuard()
@@ -104,7 +103,7 @@ namespace TheWaningBorder.AI
             if (_allInEpoch == SimCadence.Epoch) return;
             _allInEpoch = SimCadence.Epoch;
             for (int i = 0; i < ProfileSlots; i++)
-            { _allInGuard[i] = -1; _allInLogged[i] = false; _prey[i] = -1; _maxedLogged[i] = false; _finish[i] = -1;
+            { _allInGuard[i] = -1; _allInLogged[i] = false; _prey[i] = -1; _preyWhy[i] = null; _maxedLogged[i] = false;
               _threatMode[i] = false; _threatPrev[i] = -1; _fortify[i] = false; }
         }
 
@@ -129,22 +128,12 @@ namespace TheWaningBorder.AI
             int k = (int)faction;
             if (k < 0 || k >= ProfileSlots) return;
             _warClock = now;
-            // FINISH THE BEATEN (§ 6u, 2026-10-25): a hostile clearly beaten
-            // by what this faction has SEEN is finished — ahead of the hunt
-            // and the pile-on, and ahead of a Shardroot siege that has been
-            // beaten off (shelved, § 6i) unless an ascension clock runs.
-            bool beaten = TryFindBeaten(em, faction, now, out Faction beatenF, out string beatenWhy);
+            // (FINISH THE BEATEN, § 6u, is REMOVED — decision 87, 2026-11-19,
+            // developer: "remove this mechanic". It read a player who banked
+            // instead of fielding an army as "beaten" and sent every wave at it.
+            // A weak neighbour is now just the weaker target, decision 84.)
             // EVERYONE AGAINST THE HOLDER (§ 6p, 2026-10-09) outranks the hunt.
             int prey;
-            // A VERDICT HOLDS (2026-11-04): a victim that read as beaten stopped
-            // reading so whenever its last soldiers went out of sight, and the push
-            // stood down with it. It stays beaten for finishHoldSeconds at least.
-            if (!beaten && _finish[k] >= 0 && BoardScore(em, (Faction)_finish[k]) >= 0
-                && now - _finishSince[k] < Cfg.finishHoldSeconds)
-            {
-                beaten = true;
-                beatenF = (Faction)_finish[k];
-            }
             // THE LOSING PLAYER AND THE TABLE'S THREAT (2026-11-03, § 6x).
             // Developer: "losing players should always attack who is attacking
             // them and fortify"; everyone else turns on a faction that is
@@ -158,53 +147,73 @@ namespace TheWaningBorder.AI
                     ? $"under {attacker}'s attack (pressure {pressureOn:0} taken vs {pressureBack:0} dealt back) — every wave on {attacker}, fortifying"
                     : "no longer losing — fortification stands down");
             }
-            Faction threatF = faction; int threatCases = 0; string threatWhy = null;
-            bool threatFound = !losing && TryFindThreat(em, faction, now, out threatF, out threatCases, out threatWhy);
+            Faction threatF = faction; int threatCases = 0; string threatWhy = null; bool threatUrgent = false;
+            bool threatFound = !losing && TryFindThreat(em, faction, now, out threatF, out threatCases, out threatWhy, out threatUrgent);
             bool holderHeld = TryHostileShardrootHolder(em, faction, out var holder);
-            bool holderYields = holderHeld && beaten && holder != beatenF
-                && WarShelved(faction, holder, now) && !HolderAscending(em, holder);
+            // THE ORDER (decision 84, 2026-11-19, developer: "Add thresholds to
+            // the leader rule and the weaker rule. A player is weaker if it has
+            // 70% less score and stronger if it has 130% score"): the attacker
+            // that is beating us; a game-ending threat (a countdown, a
+            // Shardbound King); the Shardroot holder; a WEAKER
+            // player (board score at most preyScoreShare of ours); and only
+            // then a STRONGER one (at least threatScoreRatio of ours). Finishing
+            // the weak used to wait behind ganging up on the leader, so a
+            // player holding one territory was never attacked while three AIs
+            // fought over the leader.
+            // THE WAR HOLDS UNTIL IT FALLS (decision 86, developer: "The AI
+            // switches target too often and does not follow through"). Batch
+            // 18: 40 % of consecutive waves went at a different player. Only
+            // the attacker beating us, a game-ending threat or the Shardroot
+            // holder interrupts a war now.
+            Faction warHeld = faction;
+            bool holdWar = Cfg.warHoldsUntilFall && !losing && !(threatFound && threatUrgent)
+                && !holderHeld && TryGetWarVictim(em, faction, out warHeld);
+            bool preyFound = false; Faction preyF = faction;
+            if (!losing && !(threatFound && threatUrgent) && !holderHeld && !holdWar)
+                preyFound = TryFindPrey(em, faction, now, out preyF);
+            string why;
             if (losing)
             {
                 prey = (int)attacker;
+                why = $"it is beating us";
+            }
+            else if (threatFound && threatUrgent)
+            {
+                prey = (int)threatF;
+                why = $"it is winning the game: {threatWhy}";
+                if (prey != _prey[k])
+                    AILogger.Log(faction, "THREAT", $"{threatF} is winning the game — {threatCases} case(s): {threatWhy} — everyone against it");
+            }
+            else if (holderHeld)
+            {
+                prey = (int)holder;
+                why = "it holds the Shardroot";
+                if (prey != _prey[k])
+                    AILogger.Log(faction, "HUNT", $"{holder} holds the Shardroot — everyone against it, all-in");
+            }
+            else if (holdWar)
+            {
+                prey = (int)warHeld;
+                why = _prey[k] == prey && _preyWhy[k] != null ? _preyWhy[k] : "the war holds until it falls";
+            }
+            else if (preyFound)
+            {
+                prey = (int)preyF;
+                why = $"it is weaker: score {KnownBoardScore(em, faction, preyF)} vs our {KnownBoardScore(em, faction, faction)}";
+                if (prey != _prey[k])
+                    AILogger.Log(faction, "HUNT", $"{preyF} is weaker ({why.Substring(14)}) — all-in on it");
             }
             else if (threatFound)
             {
                 prey = (int)threatF;
+                why = $"it is stronger: {threatWhy}";
                 if (prey != _prey[k])
-                    AILogger.Log(faction, "THREAT", $"{threatF} is winning the game — {threatCases} case(s): {threatWhy} — everyone against it");
+                    AILogger.Log(faction, "THREAT", $"{threatF} is stronger and winning — {threatCases} case(s): {threatWhy} — everyone against it");
             }
-            else if (holderHeld && !holderYields)
-            {
-                prey = (int)holder;
-                if (prey != _prey[k])
-                    AILogger.Log(faction, "HUNT", $"{holder} holds the Shardroot — everyone against it, all-in");
-            }
-            else if (beaten)
-            {
-                prey = (int)beatenF;
-                if (prey != _finish[k])
-                {
-                    _finishSince[k] = now;
-                    AILogger.Log(faction, "FINISH",
-                        $"{beatenF} is beaten ({beatenWhy}) — every wave for its capital until it falls" +
-                        (holderYields ? $"; {holder}'s Shardroot siege is shelved" : ""));
-                }
-            }
-            else
-            {
-                prey = TryFindPrey(em, faction, now, out var p) ? (int)p : -1;
-                if (prey != _prey[k] && prey >= 0)
-                    AILogger.Log(faction, "HUNT",
-                        $"{p} holds {TerritoriesHeld(p)} territor{(TerritoriesHeld(p) == 1 ? "y" : "ies")} — " +
-                        $"we hold {TerritoriesHeld(faction)}: all-in on it");
-            }
+            else { prey = -1; why = null; }
+            _preyWhy[k] = why;
             _prey[k] = prey;
-            TrackThreatWar(em, faction, k, prey, losing || threatFound, now);
-            int finishWas = _finish[k];
-            _finish[k] = beaten && prey == (int)beatenF ? prey : -1;
-            if (finishWas >= 0 && _finish[k] != finishWas)
-                AILogger.Log(faction, "FINISH", $"finishing {(Faction)finishWas} stops" +
-                    (BoardScore(em, (Faction)finishWas) < 0 ? " — it is out of the game" : " — it no longer reads as beaten"));
+            TrackThreatWar(em, faction, k, prey, losing || (threatFound && prey == (int)threatF), now);
             bool lateGame = Cfg.allInAfterSeconds > 0f && now >= Cfg.allInAfterSeconds;
             // A FULL ARMY ATTACKS (§ 6q): near the population cap, or with a
             // bank far above what production can spend, the doctrine arms.
@@ -243,6 +252,31 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>The prey this faction hunts this think (§ 6o), if any.</summary>
+        /// <summary>Decision 86: an army with engines, standing in its war
+        /// victim's territory, holds its ground — it is besieging, and a siege
+        /// that turns back at the first sortie never takes a capital.</summary>
+        private static bool BesiegingVictim(EntityManager em, Faction faction, System.Collections.Generic.List<Entity> members, float3 centroid)
+        {
+            int k = (int)faction;
+            if (k < 0 || k >= ProfileSlots || _prey[k] < 0 || !TheWaningBorder.World.Regions.RegionMap.Ready) return false;
+            int t = TheWaningBorder.World.Regions.RegionMap.RegionAt(centroid.x, centroid.z);
+            if (t == TheWaningBorder.World.Regions.RegionMap.None
+                || TheWaningBorder.World.Regions.TerritoryOwnership.OwnerOf(t) != _prey[k]) return false;
+            for (int i = 0; i < members.Count; i++)
+                if (em.Exists(members[i]) && em.HasComponent<SiegeTag>(members[i])) return true;
+            return false;
+        }
+
+        /// <summary>Why the doctrine picked _prey (for the war and wave logs).</summary>
+        private static readonly string[] _preyWhy = new string[ProfileSlots];
+
+        /// <summary>The reason the doctrine gave for hunting
+        /// <paramref name="victim"/> this think, or null.</summary>
+        private static string PreyReason(Faction faction, Faction victim)
+        {
+            int k = (int)faction;
+            return k >= 0 && k < ProfileSlots && _prey[k] == (int)victim ? _preyWhy[k] : null;
+        }
         private static readonly bool[] _threatMode = new bool[ProfileSlots];
         private static readonly int[] _threatPrev = new int[ProfileSlots];
         private static readonly bool[] _fortify = new bool[ProfileSlots];
@@ -272,6 +306,17 @@ namespace TheWaningBorder.AI
             return on >= back * math.max(1f, Cfg.losingPressureRatio);
         }
 
+        /// <summary>Does a faction hostile to this one run the ascension or
+        /// the Sanctum dominion countdown right now?</summary>
+        private static bool HostileCountdownRunning(EntityManager em, Faction faction)
+        {
+            if (TheWaningBorder.Systems.Border.ShardrootSystem.TryAscensionCountdown(em, out var a, out _)
+                && a != faction && a != Faction.Border && Alliances.AreHostile(faction, a)) return true;
+            if (TheWaningBorder.Systems.Economy.SanctumSystem.TryCountdown(em, out var d, out _)
+                && d != faction && d != Faction.Border && Alliances.AreHostile(faction, d)) return true;
+            return false;
+        }
+
         private static readonly ComponentType[] QT_AscendedHeros =
         {
             ComponentType.ReadOnly<TheWaningBorder.Entities.AscendedHero>(),
@@ -287,9 +332,10 @@ namespace TheWaningBorder.AI
         /// Sanctum dominion countdown — and (5) the more cases, the sooner;
         /// ties go to the nearest.</summary>
         private bool TryFindThreat(EntityManager em, Faction faction, float now,
-            out Faction threat, out int cases, out string why)
+            out Faction threat, out int cases, out string why, out bool urgent)
         {
-            threat = faction; cases = 0; why = null;
+            threat = faction; cases = 0; why = null; urgent = false;
+            int myScore = KnownBoardScore(em, faction, faction);
             if (!Cfg.threatRefocusEnabled) return false;
             if (now < Cfg.threatAfterSeconds) return false;
             if (!TheWaningBorder.World.Regions.RegionMap.Ready) return false;
@@ -329,19 +375,31 @@ namespace TheWaningBorder.AI
                 if (v == faction || held[f] < 0 || !Alliances.AreHostile(faction, v)) continue;
                 int c = 0;
                 var sb = new System.Text.StringBuilder(96);
-                if (sd > 0f && held[f] >= math.max(1, Cfg.threatMinTerritories)
+                // THE STRONGER THRESHOLD (decision 84): size and kills make a
+                // rival a threat only when its board score (as we know it) is at
+                // least threatScoreRatio of ours. The game-ending cases below
+                // (countdowns, a Shardbound King) need no threshold.
+                int theirScore = KnownBoardScore(em, faction, v);
+                bool stronger = Cfg.threatScoreRatio <= 0f || theirScore >= myScore * Cfg.threatScoreRatio;
+                bool gameEnding = asc == v || dom == v || kings[f];
+                if (!stronger && !gameEnding) continue;
+                if (stronger && Cfg.threatScoreRatio > 0f)
+                { c++; sb.Append($"score {theirScore} vs our {myScore}"); }
+                if (stronger && sd > 0f && held[f] >= math.max(1, Cfg.threatMinTerritories)
                     && held[f] > mean + math.max(0f, Cfg.threatTerritorySigma) * sd)
-                { c++; sb.Append($"{held[f]} territories (table mean {mean:0.0} +{Cfg.threatTerritorySigma:0.#} sd {sd:0.0})"); }
+                { if (c > 0) sb.Append(", "); c++; sb.Append($"{held[f]} territories (table mean {mean:0.0} +{Cfg.threatTerritorySigma:0.#} sd {sd:0.0})"); }
                 int elim = TheWaningBorder.Core.Diagnostics.FactionPressureLedger.EliminationsBy(v);
-                if (elim > 0) { if (c > 0) sb.Append(", "); c++; sb.Append($"eliminated {elim} player(s)"); }
+                if (stronger && elim > 0) { if (c > 0) sb.Append(", "); c++; sb.Append($"eliminated {elim} player(s)"); }
                 if (asc == v) { if (c > 0) sb.Append(", "); c++; sb.Append("enshrinement countdown"); }
                 if (kings[f]) { if (c > 0) sb.Append(", "); c++; sb.Append("a Shardbound King"); }
                 if (dom == v) { if (c > 0) sb.Append(", "); c++; sb.Append("Sanctum dominion countdown"); }
                 if (c == 0) continue;
                 float d = TryVictimGround(em, v, home, new float3(float.MaxValue, 0f, float.MaxValue), out float3 at, out _)
                     ? math.distance(at.xz, home.xz) : float.MaxValue;
-                if (c > bestCases || (c == bestCases && d < bestD))
-                { bestCases = c; bestD = d; threat = v; cases = c; why = sb.ToString(); }
+                // A game-ending case outranks any count of the others.
+                int rank = c + (gameEnding ? 100 : 0);
+                if (rank > bestCases || (rank == bestCases && d < bestD))
+                { bestCases = rank; bestD = d; threat = v; cases = c; why = sb.ToString(); urgent = gameEnding; }
             }
             return bestCases > 0;
         }
@@ -381,21 +439,22 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// THE HUNT (§ 6o): past preyAfterSeconds, with this faction holding
-        /// at least preyHunterMinTerritories, the nearest hostile player (to
-        /// our capital, by its nearest held territory) holding at most
-        /// preyMaxTerritories. Territory ownership is public, so no sighting
-        /// is needed. Never the curse.
+        /// THE HUNT (§ 6o): past preyAfterSeconds, the nearest hostile player
+        /// (to our capital, by its nearest held territory) whose board score as
+        /// we know it is at most preyScoreShare of ours (decision 84). Never
+        /// the curse.
         /// </summary>
         private bool TryFindPrey(EntityManager em, Faction faction, float now, out Faction prey)
         {
             prey = faction;
             if (Cfg.preyAfterSeconds <= 0f || now < Cfg.preyAfterSeconds) return false;
             if (!TheWaningBorder.World.Regions.RegionMap.Ready) return false;
-            int mine = TerritoriesHeld(faction);
-            if (mine < math.max(1, Cfg.preyHunterMinTerritories)) return false;
-            int bar = math.max(Cfg.preyMaxTerritories,
-                (int)math.floor(mine * math.max(0f, Cfg.preyMaxShareOfHunter)));
+            // THE WEAKER THRESHOLD (decision 84): a rival whose board score (as
+            // we know it) is at most preyScoreShare of ours. It replaced the
+            // territory bars (preyMaxTerritories / preyMaxShareOfHunter /
+            // preyHunterMinTerritories), which never fired before minute 15.
+            int myScore = KnownBoardScore(em, faction, faction);
+            if (myScore <= 0) return false;
             Entity hall = FindFactionBuilding<HallTag>(em, faction);
             if (hall == Entity.Null || !em.HasComponent<Unity.Transforms.LocalTransform>(hall)) return false;
             float3 home = em.GetComponentData<Unity.Transforms.LocalTransform>(hall).Position;
@@ -418,8 +477,8 @@ namespace TheWaningBorder.AI
                 var v = (Faction)f;
                 if (v == faction || v == Faction.Border || !Alliances.AreHostile(faction, v)) continue;
                 if (BoardScore(em, v) < 0) continue;
-                int held = TerritoriesHeld(v);
-                if (held <= 0 || held > bar) continue;
+                int theirs = KnownBoardScore(em, faction, v);
+                if (theirs < 0 || theirs > myScore * Cfg.preyScoreShare) continue;
                 if (WarShelved(faction, v, now)) continue;   // beat off our last war (§ 6i)
                 if (!TryVictimGround(em, v, home, new float3(float.MaxValue, 0f, float.MaxValue),
                         out float3 at, out _)) continue;
@@ -430,96 +489,11 @@ namespace TheWaningBorder.AI
             return best < float.MaxValue;
         }
 
-        /// <summary>Is <paramref name="faction"/> finishing a beaten faction
-        /// (§ 6u)? Valid after <see cref="TickAllInDoctrine"/> ran this think.</summary>
-        private static bool FinishingVictim(Faction faction, out Faction victim)
-        {
-            int k = (int)faction;
-            victim = faction;
-            if (k < 0 || k >= ProfileSlots || _finish[k] < 0) return false;
-            victim = (Faction)_finish[k];
-            return true;
-        }
-
         /// <summary>An ascension countdown runs for <paramref name="holder"/>'s
         /// enshrining Temple (Curse_And_Shardroot.md § 3.1c): never shelved.</summary>
         private static bool HolderAscending(EntityManager em, Faction holder)
             => TheWaningBorder.Systems.Border.ShardrootSystem.TryAscensionCountdown(em, out var temple, out _)
                && temple == holder;
-
-        /// <summary>
-        /// FINISH THE BEATEN (§ 6u, 2026-10-25). Developer: "AI does not fully
-        /// pursue players. Both human players in this game had a terrible
-        /// performance and the AI never moved in to finish them off." Past
-        /// finishAfterSeconds, with an army of at least finishMinArmy, the
-        /// nearest hostile player that is beaten BY WHAT THIS FACTION KNOWS:
-        ///   * its territories (public) at most finishTerritoryShare of ours,
-        ///   * the summed strength of its soldiers SEEN in the last
-        ///     finishIntelMaxAgeSeconds at most finishArmyShare of our army's,
-        ///   * and something of it seen in that window (fresh contact — no
-        ///     verdict on a faction nobody has looked at lately).
-        /// Both shares are divided by the tier's strengthWaveRatioScale, so a
-        /// cautious tier waits for a weaker victim and Expert finishes sooner.
-        /// A faction that beat off our last war (shelved, § 6i) is skipped.
-        /// Never the curse; never an ally.
-        /// </summary>
-        private bool TryFindBeaten(EntityManager em, Faction faction, float now,
-            out Faction victim, out string why)
-        {
-            victim = faction; why = null;
-            if (ProfileOf(faction).SpareCapitals != 0) return false;   // Easy never goes for the kill
-            if (Cfg.finishAfterSeconds <= 0f || now < Cfg.finishAfterSeconds) return false;
-            if (!TheWaningBorder.World.Regions.RegionMap.Ready || !HasAgedUp(em, faction)) return false;
-            if (CountAliveMilitary(em, faction) < math.max(1, Cfg.finishMinArmy)) return false;
-            Entity hall = FindFactionBuilding<HallTag>(em, faction);
-            if (hall == Entity.Null || !em.HasComponent<Unity.Transforms.LocalTransform>(hall)) return false;
-            float3 home = em.GetComponentData<Unity.Transforms.LocalTransform>(hall).Position;
-            Entity brain = FindBrainEntity(em, faction);
-            if (brain == Entity.Null || !em.HasBuffer<EnemySightingRecord>(brain)) return false;
-
-            float scale = 1f / math.max(0.1f, ProfileOf(faction).StrengthWaveRatioScale);
-            int mineLand = TerritoriesHeld(faction);
-            int mineArmy = TacticalQuery.FactionStrengthInRadius(em, faction, float3.zero, 1e5f);
-            float landBar = mineLand * math.max(0f, Cfg.finishTerritoryShare) * scale;
-            float armyBar = mineArmy * math.max(0f, Cfg.finishArmyShare) * scale;
-            float maxAge = math.max(1f, Cfg.finishIntelMaxAgeSeconds);
-            float simNow = (float)TheWaningBorder.Core.SimClock.Now;
-            var buf = em.GetBuffer<EnemySightingRecord>(brain);
-
-            float best = float.MaxValue;
-            for (int f = 0; f < ProfileSlots; f++)
-            {
-                var v = (Faction)f;
-                if (v == faction || v == Faction.Border || !Alliances.AreHostile(faction, v)) continue;
-                if (BoardScore(em, v) < 0) continue;            // eliminated (announced)
-                if (WarShelved(faction, v, now)) continue;
-                int land = TerritoriesHeld(v);
-                if (land > landBar) continue;
-                bool fresh = false;
-                for (int i = 0; i < buf.Length && !fresh; i++)
-                    fresh = buf[i].OwnerFaction == v && simNow - buf[i].LastSeenTime <= maxAge;
-                if (!fresh) continue;
-                KnownArmyOf(em, brain, v, maxAge, out int seenUnits, out int seenPower);
-                if (seenPower > armyBar) continue;
-                // Nearest by its capital as last seen, else its start (public),
-                // else its nearest held territory (public).
-                float3 at;
-                if (!TryNearestHallSighting(em, brain, v, home, out at, out _, out _))
-                {
-                    Entity sh = FindEnemyStartHall(em, faction, home, v);
-                    if (sh != Entity.Null && em.HasComponent<Unity.Transforms.LocalTransform>(sh))
-                        at = em.GetComponentData<Unity.Transforms.LocalTransform>(sh).Position;
-                    else if (!TryVictimGround(em, v, home, new float3(float.MaxValue, 0f, float.MaxValue), out at, out _))
-                        continue;
-                }
-                float d = math.distancesq(at.xz, home.xz);
-                if (d >= best) continue;
-                best = d; victim = v;
-                why = $"{land} territor{(land == 1 ? "y" : "ies")} vs our {mineLand}, " +
-                      $"seen army {seenPower} ({seenUnits} unit(s)) vs our {mineArmy}";
-            }
-            return best < float.MaxValue;
-        }
 
         /// <summary>The retreat ratio a mission uses: under the all-in, at
         /// least allInRetreatRatio (a committed army falls back only when it
@@ -528,9 +502,11 @@ namespace TheWaningBorder.AI
         private static float AllInRetreatRatio(Faction faction, float ratio)
         {
             if (ratio <= 0f) return ratio;
-            // FINISHING (§ 6u): the army holds a winning fight, all-in or not.
-            if (FinishingVictim(faction, out _))
-                return math.max(ratio, math.max(Cfg.allInRetreatRatio, Cfg.finishRetreatRatio));
+            // AT WAR THE ARMY CRASHES (decision 86): it falls back only when
+            // badly outmatched.
+            int wk = (int)faction;
+            if (wk >= 0 && wk < ProfileSlots && _prey[wk] >= 0 && Cfg.warRetreatRatio > 0f)
+                ratio = math.max(ratio, Cfg.warRetreatRatio);
             if (!AllInArmed(faction)) return ratio;
             return math.max(ratio, Cfg.allInRetreatRatio);
         }

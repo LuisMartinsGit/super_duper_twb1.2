@@ -177,26 +177,29 @@ namespace TheWaningBorder.Abilities
                         }
                         break;
 
-                    case AbilityEffectKind.DeployFieldHospital:
+                    case AbilityEffectKind.DeployHealingWard:
                         {
+                            // The Healing Ward (docs/Design/Sects.md, Renewal).
                             // Placed like a building (Build_Grid.md § Buildings
                             // raised by abilities): at the aimed point (the
                             // caster's own spot when none was stamped), snapped
                             // to the grid, judged by the ghost's own test — the
-                            // ground, reach, and the team's cap and spacing
-                            // (docs/Design/Sects.md, FieldHospitalSystem.asset).
-                            // A refused cast costs nothing: the cooldown the
-                            // lifecycle just charged is given back. A cell of
-                            // slack on the reach, for the step the Litharch may
-                            // have taken during the channel.
+                            // ground, reach, the team's cap and spacing
+                            // (HealingWardSystem.asset) and the faction's shared
+                            // cooldown (another Litharch's ward may have landed
+                            // during this one's channel). A refused cast costs
+                            // nothing: the cooldown the lifecycle just charged
+                            // is given back. A cell of slack on the reach, for
+                            // the step the Litharch may have taken during the
+                            // channel.
                             float3 hpAim = em.HasComponent<AbilityAimPoint>(caster)
                                 ? em.GetComponentData<AbilityAimPoint>(caster).Position
                                 : em.HasComponent<LocalTransform>(caster)
                                     ? em.GetComponentData<LocalTransform>(caster).Position : float3.zero;
-                            float3 hpPos = TheWaningBorder.Entities.FieldHospital.SiteFor(hpAim);
+                            float3 hpPos = TheWaningBorder.Entities.HealingWard.SiteFor(hpAim);
                             Faction hpFac = em.HasComponent<FactionTag>(caster)
                                 ? em.GetComponentData<FactionTag>(caster).Value : default;
-                            string hpWhy = TheWaningBorder.Entities.FieldHospital.SiteRefusal(
+                            string hpWhy = TheWaningBorder.Entities.HealingWard.SiteRefusal(
                                 em, caster, card, hpPos, BuildGrid.CellSize);
                             if (hpWhy != null)
                             {
@@ -205,7 +208,7 @@ namespace TheWaningBorder.Abilities
                                     TheWaningBorder.Core.SimSignals.Notify(hpWhy);
                                 break;
                             }
-                            TheWaningBorder.Entities.FieldHospital.Create(em, hpPos, hpFac);
+                            TheWaningBorder.Entities.HealingWard.Create(em, hpPos, hpFac);
                         }
                         break;
 

@@ -13,20 +13,20 @@ MonoBehaviour:
   m_Name: VeilstoneBarding
   m_EditorClassIdentifier: 
   id: VeilstoneBarding
-  displayName: Veilstone Barding
+  displayName: Chain Barding
   role: Military
   effect: 
-  desc: "Cavalry armour tier 2: +2 defense to all cavalry."
-  researchAt: Alanthor_RoyalStable
+  desc: "+1 melee and +1 ranged armour for every rider."
+  researchAt: RoyalStable
   minBuildingLevel: 2
   researchTime: 40
   prerequisites:
   - IronBarding
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 150
-    Veilstone: 120
+    Supplies: 150
+    Iron: 100
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -36,6 +36,10 @@ MonoBehaviour:
     archerRangeMult: 0
   effectsList:
   - Target: "type:Cavalry"
-    Stat: DefenseAll
+    Stat: DefenseMelee
     Op: Add
-    Value: 2
+    Value: 1
+  - Target: "type:Cavalry"
+    Stat: DefenseRanged
+    Op: Add
+    Value: 1

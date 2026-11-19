@@ -23,7 +23,7 @@ and ordered like any soldier, one of each per faction.
 | Hero | Trained at | Niche |
 |---|---|---|
 | King Lexor | Fortress | Army general for decisive battles |
-| Ledger | Fortress | Armoured automaton that also drives the economy around it |
+| Ledger | Fortress — **disabled until further notice** (2026-11-17, Unification decision 72 (f): off the Fortress roster; its Foreclosure dominated the test matches) | Armoured automaton that also drives the economy around it |
 | Archivist of Hours | Reliquary | Ranged magic; shuts down enemy heroes and casters |
 | Surgeon | Mending Hall | Fights on cursed ground and through attrition |
 | Warden | Stonehold | Holds home ground, kills siege |

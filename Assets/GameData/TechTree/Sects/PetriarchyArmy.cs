@@ -33,6 +33,7 @@ namespace TheWaningBorder.Systems.Sect
         public static List<string> Roster()
         {
             var roster = new List<string>();
+            if (!FactionReligionPointsHelper.Cfg.sectUnitsEnabled) return roster;   // sect units off
             foreach (var sect in SectConfig.AllSectIds)
             {
                 string id = SectConfig.UnitIdFor(sect);

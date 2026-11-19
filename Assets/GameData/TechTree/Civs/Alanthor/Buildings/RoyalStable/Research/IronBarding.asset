@@ -16,15 +16,15 @@ MonoBehaviour:
   displayName: Iron Barding
   role: Military
   effect: 
-  desc: "Cavalry armour tier 1: +1 defense to all cavalry."
-  researchAt: Alanthor_RoyalStable
+  desc: "+1 melee and +1 ranged armour for every rider."
+  researchAt: RoyalStable
   minBuildingLevel: 1
-  researchTime: 35
+  researchTime: 30
   prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 120
-    Iron: 150
+    Supplies: 75
+    Iron: 30
     Veilstone: 0
   effects:
     gatherSpeedMult: 0
@@ -35,6 +35,10 @@ MonoBehaviour:
     archerRangeMult: 0
   effectsList:
   - Target: "type:Cavalry"
-    Stat: DefenseAll
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "type:Cavalry"
+    Stat: DefenseRanged
     Op: Add
     Value: 1

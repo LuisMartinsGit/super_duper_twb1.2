@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Guildmaster
   displayName: Guildmaster
   unitClass: melee
-  hp: 1025
+  hp: 640
   speed: 7
   trainingTime: 45
   damage: 34
@@ -50,6 +50,7 @@ MonoBehaviour:
   - 'Infantry'
   - 'Hero'
   bonusVsTags: []
+  torchDamage: 25
   abilities:
   - Bounty
   - Stake

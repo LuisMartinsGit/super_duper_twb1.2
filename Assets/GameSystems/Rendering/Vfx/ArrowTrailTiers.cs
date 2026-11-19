@@ -45,7 +45,6 @@ namespace TheWaningBorder.Rendering
         /// <summary>Highest first — the first one researched wins.</summary>
         private static readonly (string Tech, ArrowTrailTier Tier)[] Ladder =
         {
-            ("ShardTippedArrows",     ArrowTrailTier.Shard),
             ("VeilstoneTippedArrows", ArrowTrailTier.Veilstone),
             ("IronTippedArrows",      ArrowTrailTier.Iron),
             ("StoneTippedArrows",     ArrowTrailTier.Stone),

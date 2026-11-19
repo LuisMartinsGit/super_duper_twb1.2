@@ -38,9 +38,5 @@ MonoBehaviour:
     siegeShotDamage: 0
   lineOfSight: 0
   grantsTechs:
-  - IronBardedLances
-  - IronBarding
-  - VeilstoneLances
-  - VeilstoneBarding
   - VeteranCavalry
   prefab: {fileID: 4318664850858928862, guid: 052371f6a35a9b24693878e54e6160ab, type: 3}

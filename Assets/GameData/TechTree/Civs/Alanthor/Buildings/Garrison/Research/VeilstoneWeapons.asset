@@ -16,17 +16,17 @@ MonoBehaviour:
   displayName: Veilstone Weapons
   role: Military
   effect: 
-  desc: "Weapon tier 3: all infantry deal a further +4 damage."
+  desc: "+1 damage for every infantryman."
   researchAt: Barracks
-  minBuildingLevel: 2
-  researchTime: 45
+  minBuildingLevel: 3
+  researchTime: 50
   prerequisites:
   - IronWeapons
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 0
-    Veilstone: 366
+    Supplies: 250
+    Iron: 150
+    Veilstone: 100
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -35,7 +35,11 @@ MonoBehaviour:
     rangedDamageAdd: 0
     archerRangeMult: 0
   effectsList:
-  - Target: "type:Melee"
+  - Target: "unit:Spearman"
     Stat: Damage
     Op: Add
-    Value: 4
+    Value: 1
+  - Target: "unit:Alanthor_Swordsman"
+    Stat: Damage
+    Op: Add
+    Value: 1

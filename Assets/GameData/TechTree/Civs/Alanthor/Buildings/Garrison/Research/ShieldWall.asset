@@ -16,17 +16,16 @@ MonoBehaviour:
   displayName: Shield Wall
   role: Military
   effect: 
-  desc: "Unlocks Shield Wall for the Spearman: the first incoming attack while he stands still is reduced by 30%; recharges after 3 s."
+  desc: "Spearman skill: the first incoming attack while he stands still is reduced by 30%; recharges after 3 s."
   researchAt: Barracks
-  minBuildingLevel: 3
+  minBuildingLevel: 1
   researchTime: 30
-  prerequisites:
-  - Charge
+  prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 50
-    Veilstone: 180
+    Supplies: 120
+    Iron: 60
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

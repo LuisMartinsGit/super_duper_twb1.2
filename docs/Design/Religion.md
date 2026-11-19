@@ -107,8 +107,8 @@ purpose.
 | Limit | **one per faction** |
 | Levels | **none** — the Temple is never upgraded; chapel levels are bought with RP (§3.1). Any rule gated on a Temple level is void. |
 | Trains | **Litharch** |
-| Research | Tithe (§1.1), the heal ladder (Heightened → Pious → Fervored Masses) and Warrior Priests. The only level gate a tech has is its SO's `minBuildingLevel`; **Fervored Masses is priced in veilstone only** (no veilsteel in Age 0 costs). Prices on the tech SOs. |
-| Chapel sites | **six** — the six non-door faces of the seven-sided cathedral (Overview.md) |
+| Research | **2026-11-18: the panel shows only Warrior Priests, from Age 1** ([Age_0.md § Temple of Ridan](Age_0.md); the Masses ladder is hidden and refused; the Tithe is bought from the religion menu). Before that: Tithe (§1.1), the heal ladder (Heightened → Pious → Fervored Masses) and Warrior Priests. The only level gate a tech has is its SO's `minBuildingLevel`; **Fervored Masses is priced in veilstone only** (no veilsteel in Age 0 costs). Prices on the tech SOs. |
+| Chapel sites | **none** (decision 80, 2026-11-18). The cap on adopted sects stays |
 
 **Destroying a curse node pays a full Religion Point** (2026-09-29) to the
 faction that lands the last hit — straight to the balance, not through the
@@ -136,6 +136,11 @@ survive the Temple's fall and work again the moment it is rebuilt. Set
 passives (§3.3) and sect-building effects are untouched by it.
 
 ## 3. Chapels
+
+> **2026-11-18, [Unification decision 80](Unification_Decisions_2026-10-03.md): there are no
+> chapels.** Adopting a sect fills no slot and builds nothing on the Temple; the "chapel level"
+> below is the **sect level**, still bought with RP. Read "chapel" in this section as "the
+> adopted sect". The Temple has no chapel sites (§2).
 
 > **Rewritten 2026-10-15** (developer decisions, final): adoption is instant,
 > the chapel is decoration, and the sect building is a separate building.

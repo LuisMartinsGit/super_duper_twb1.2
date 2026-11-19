@@ -140,6 +140,21 @@ namespace TheWaningBorder.Systems.Economy
 
         // ── dominion ────────────────────────────────────────────────────
 
+        /// <summary>How many of <paramref name="total"/> Sanctums one side must
+        /// hold for the dominion countdown (decision 70, 2026-11-17): all but
+        /// one on a map with three or more, every one on a map with one or two.</summary>
+        public static int DominionNeeds(int total) => total >= 3 ? total - 1 : total;
+
+        /// <summary><see cref="DominionNeeds(int)"/> for the map being played.</summary>
+        public static int DominionNeeds()
+        {
+            if (!RegionMap.Ready) return int.MaxValue;
+            int total = 0;
+            for (int t = 0; t < RegionMap.Count; t++)
+                if (TerritoryResources.IsSanctum(t)) total++;
+            return DominionNeeds(total);
+        }
+
         /// <summary>The faction whose team has won by dominion, if any
         /// (read by EliminationSystem).</summary>
         public static bool TryWinner(EntityManager em, out Faction winner)
@@ -180,20 +195,31 @@ namespace TheWaningBorder.Systems.Economy
             var st = em.GetComponentData<SanctumDominion>(ent);
             if (st.Done != 0) return;           // decided: final
 
-            // Who holds every Sanctum? One faction, or allies together; the
-            // lowest-numbered holder stands for the team.
+            // Who holds the Sanctums? One faction, or allies together, holding
+            // at least DominionNeeds of them (decision 70: all but one on a map
+            // with three or more); the lowest-numbered holder on that side
+            // stands for the team.
             int rep = -1;
-            bool all = true, any = false;
-            for (int t = 0; t < RegionMap.Count && all; t++)
+            int total = 0;
+            System.Span<int> heldBy = stackalloc int[8];
+            for (int t = 0; t < RegionMap.Count; t++)
             {
                 if (!TerritoryResources.IsSanctum(t)) continue;
-                any = true;
+                total++;
                 int owner = TerritoryOwnership.OwnerOf(t);
-                if (owner < 0 || owner >= 8) { all = false; break; }
-                if (rep < 0) rep = owner;
-                else if (owner != rep && Alliances.AreHostile((Faction)owner, (Faction)rep)) { all = false; break; }
-                else if (owner < rep) rep = owner;
+                if (owner >= 0 && owner < 8) heldBy[owner]++;
             }
+            bool any = total > 0;
+            int need = DominionNeeds(total);
+            for (int f = 0; f < 8 && rep < 0; f++)
+            {
+                if (heldBy[f] <= 0) continue;
+                int side = 0;
+                for (int g = 0; g < 8; g++)
+                    if (heldBy[g] > 0 && (g == f || !Alliances.AreHostile((Faction)f, (Faction)g))) side += heldBy[g];
+                if (side >= need) rep = f;   // f is the lowest-numbered holder on its side
+            }
+            bool all = rep >= 0;
 
             if (!any || !all)
             {

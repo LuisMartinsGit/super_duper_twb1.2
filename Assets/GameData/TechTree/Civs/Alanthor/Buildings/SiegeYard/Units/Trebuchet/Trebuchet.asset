@@ -15,19 +15,19 @@ MonoBehaviour:
   id: Alanthor_Trebuchet
   displayName: Trebuchet
   unitClass: machinery_siege
-  hp: 320
+  hp: 300
   speed: 2.4
   trainingTime: 120
-  damage: 60
+  damage: 20
   damageType: siege
   armorType: ranged
   defense:
     melee: 0
-    ranged: 5
+    ranged: 4
     siege: 0
     magic: 0
-  attackCooldown: 12
-  attackRange: 38
+  attackCooldown: 10
+  attackRange: 36
   minAttackRange: 12
   lineOfSight: 30
   aimTime: 1
@@ -35,9 +35,9 @@ MonoBehaviour:
   trajectory: high
   projectileSpeed: 9.8
   cost:
-    Supplies: 180
-    Iron: 150
-    Veilstone: 490
+    Supplies: 0
+    Iron: 400
+    Veilstone: 300
   populationCost: 5
   minBuildingLevel: 3
   buildSpeed: 0
@@ -46,14 +46,14 @@ MonoBehaviour:
   healRange: 0
   siegeRange: 0
   siegeCooldown: 0
-  aoeRadius: 6
+  aoeRadius: 2
   tags:
   - Ranged
   - Siege
   - Heavy
   bonusVsTags:
   - vsTag: Building
-    amount: 80
+    amount: 100
   preferTargets: []
   abilities: []
   prefab: {fileID: 132866903991625, guid: 516d3df3946cc39f2f363f18aa224f48, type: 3}

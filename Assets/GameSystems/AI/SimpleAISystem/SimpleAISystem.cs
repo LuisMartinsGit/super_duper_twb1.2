@@ -52,7 +52,7 @@ namespace TheWaningBorder.AI
             // Static, keyed on simulated time: a previous match's entries
             // would pass units over at the start of this one.
             _unitUnaffordableUntil.Clear();
-            _lastAffordFallback.Clear();
+            _lastStandIn.Clear();
 
             // Deterministic, match-specific RNG seed. Under the fixed-step
             // lockstep this stream advances identically on every client (same
@@ -505,6 +505,15 @@ namespace TheWaningBorder.AI
                     var planProfile = PlanProfileOf(brain.Owner);
                     AIBudget.EvaluateWeights(planProfile, aiState.Posture,
                         out float wAdv, out float wMil, out float wEco);
+                    // THE RATE GOVERNOR (decision 86): behind the tier's unit
+                    // rate, the military wallet takes at least rateDeficitMilWeight.
+                    TickProductionRate(em, brain.Owner, profile);
+                    if (RateBehind(brain.Owner) && wMil < Cfg.rateDeficitMilWeight)
+                    {
+                        float rest = wAdv + wEco, keep = 1f - Cfg.rateDeficitMilWeight;
+                        if (rest > 0.0001f) { wAdv *= keep / rest; wEco *= keep / rest; }
+                        wMil = Cfg.rateDeficitMilWeight;
+                    }
                     AIBudget.Tick(em, brain.Owner, wAdv, wMil, wEco, thinkInterval, now);
 
                     // ECONOMY DISTRESS (Game_AI.md § 5i): with the income just

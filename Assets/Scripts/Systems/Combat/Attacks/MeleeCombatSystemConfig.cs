@@ -36,13 +36,10 @@ namespace TheWaningBorder.Systems.Combat
         /// same window.</summary>
         public float swingCommitSeconds;
 
-        /// <summary>Share of a MELEE hit that lands on a building
-        /// (CombatDamageHelper.ScaleVsBuilding; decision 62). Siege, magic,
-        /// true damage and the curse's units are not scaled.</summary>
-        public float meleeVsBuilding;
-
-        /// <summary>Share of a RANGED (non-siege) hit that lands on a
-        /// building. Read by ProjectileSystem through the same helper.</summary>
-        public float rangedVsBuilding;
+        /// <summary>Reach, in BUILD-GRID CELLS from the building's edge, of a
+        /// melee unit's thrown torch (decision 82; Combat_Pacing.md §
+        /// Buildings). A melee unit with a torch attacks a building from
+        /// anywhere inside it, so no attack slots apply.</summary>
+        public float torchReachCells;
     }
 }

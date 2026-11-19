@@ -16,21 +16,29 @@ MonoBehaviour:
   displayName: Stone Weapons
   role: Military Offense
   effect: 
-  desc: "Weapon tier 1: knapped stone heads. All infantry deal +2 damage."
+  desc: "+1 damage for every infantryman."
   researchAt: Barracks
   minBuildingLevel: 0
-  researchTime: 25
+  researchTime: 30
   prerequisites: []
   culture: 
   cost:
-    Supplies: 80
-    Iron: 0
+    Supplies: 75
+    Iron: 30
     Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
     meleeDefenseAdd: 0
-    meleeDamageAdd: 2
+    meleeDamageAdd: 0
     rangedDamageAdd: 0
     archerRangeMult: 0
-  effectsList: []
+  effectsList:
+  - Target: "unit:Spearman"
+    Stat: Damage
+    Op: Add
+    Value: 1
+  - Target: "unit:Alanthor_Swordsman"
+    Stat: Damage
+    Op: Add
+    Value: 1

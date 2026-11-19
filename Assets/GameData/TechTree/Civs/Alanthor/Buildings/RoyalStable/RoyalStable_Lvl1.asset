@@ -37,7 +37,5 @@ MonoBehaviour:
     maxTargets: 1
     siegeShotDamage: 0
   lineOfSight: 0
-  grantsTechs:
-  - StoneBardedLances
-  - SeasonedCavalry
+  grantsTechs: []
   prefab: {fileID: 572455646790562508, guid: cfc2b54ad4880604eb9f1d460c1f0f11, type: 3}

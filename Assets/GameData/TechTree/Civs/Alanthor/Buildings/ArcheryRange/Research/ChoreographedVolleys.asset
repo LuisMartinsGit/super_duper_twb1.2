@@ -16,16 +16,17 @@ MonoBehaviour:
   displayName: Choreographed Volleys
   role: Military
   effect: 
-  desc: "Active, carried by every ranged unit: call the cadence and allied ranged units within 15 m fire at double rate for 5 s. 60 s cooldown."
+  desc: "Archer skill, cast by itself: for 5 s the archers fire three times as fast, and every archer within 15 tiles joins in; all of them then wait 180 s. (The automatic cast comes in the next build; until then it is cast by hand.)"
   researchAt: ArcheryRange
-  minBuildingLevel: 0
-  researchTime: 35
-  prerequisites: []
+  minBuildingLevel: 3
+  researchTime: 50
+  prerequisites:
+  - ArrowShower
   culture: 
   cost:
-    Supplies: 120
-    Iron: 30
-    Veilstone: 0
+    Supplies: 300
+    Iron: 200
+    Veilstone: 150
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0

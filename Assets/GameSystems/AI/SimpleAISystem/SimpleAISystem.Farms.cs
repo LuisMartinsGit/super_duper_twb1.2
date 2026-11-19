@@ -21,14 +21,11 @@
 //             worker count, so the worker rule retrains the build crew; past
 //             that, one extra Worker is queued for the empty slots while the
 //             bank holds farmTrainWorkerMinSupplies.
-//   MARKET  — once aged up and the bank holds marketBuildMinSupplies, raise
-//             the one Market. Each decision SETS the rates from the surplus
-//             (decision 56 e; the 0.0.84 test's creeping +20/-20 steps left
-//             54,000 supplies idle beside an empty iron bank): the supplies
-//             above marketSupplyFloor are spent over marketSpendMinutes,
-//             split between iron and veilstone by how far each is below its
-//             target (marketIronShort / marketVeilstoneShort). Nothing short
-//             or no surplus: both rates go to zero.
+//   MARKET  - once aged up and the bank holds marketBuildMinSupplies, raise
+//             the one Market. Each decision reads the SHARED prices and
+//             trades lots for veilstone (decision 67): it sells a glut or
+//             a price spike, buys what it is short of, and buys what
+//             somebody else dumped cheap. See TickMarket.
 //
 // Every number is in SimpleAISystem.asset; the Market's prices and steps are
 // the Market SO's. Orders go through CommandRouter (CommandSource.AI) like
@@ -154,6 +151,7 @@ namespace TheWaningBorder.AI
         }
 
         private const string FarmReserveKey = "Farm";
+        private const string MarketReserveKey = "Market";
 
         /// <summary>Empty slots in the faction's finished Farms (the worker rule
         /// lets this many more Workers be trained).</summary>
@@ -248,60 +246,147 @@ namespace TheWaningBorder.AI
             var market = Market.Of(em, faction);
             if (market == Entity.Null)
             {
-                if (bank.Supplies < Cfg.marketBuildMinSupplies) return;
-                if (CountFactionBuildings<MarketTag>(em, faction) > 0) return;   // still a plan
+                // THE MARKET COMES WITH THE GLUT (decision 84): it waited for a
+                // marketBuildMinSupplies bank, which a faction short of supplies
+                // never has — the batch-17 AIs placed it at minutes 11-18 while
+                // thousands of iron and veilstone sat unused. Iron or veilstone
+                // piling up now places it too, saved for like a Farm.
+                if (CountFactionBuildings<MarketTag>(em, faction) > 0)
+                {
+                    AIPivotalReserve.Clear(faction, MarketReserveKey);
+                    return;   // still a plan
+                }
+                bool glut = (Cfg.marketBuildVeilstone > 0 && bank.Veilstone >= Cfg.marketBuildVeilstone)
+                         || (Cfg.marketBuildIron > 0 && bank.Iron >= Cfg.marketBuildIron);
+                if (bank.Supplies < Cfg.marketBuildMinSupplies && !glut) return;
+                var marketCost = TheWaningBorder.Data.BuildCosts.For(em, faction, Market.BuildingId);
+                if (glut && !FactionEconomy.CanAfford(em, faction, marketCost))
+                    AIPivotalReserve.Set(faction, MarketReserveKey, marketCost, strict: true);
                 if (TryBuildBuildingWithReason(em, faction, Market.BuildingId, out string why))
-                    AILogger.Log(faction, "MARKET", $"placed the Market (supplies {bank.Supplies})");
+                {
+                    AIPivotalReserve.Clear(faction, MarketReserveKey);
+                    AILogger.Log(faction, "MARKET", $"placed the Market (supplies {bank.Supplies}, iron {bank.Iron}, veilstone {bank.Veilstone})");
+                }
                 else if (AILogger.Enabled)
                     AILogger.Log(faction, "MARKET", $"Market refused: {why}");
                 return;
             }
-            if (em.HasComponent<UnderConstruction>(market) || !em.HasComponent<MarketRates>(market)) return;
+            if (em.HasComponent<UnderConstruction>(market)) return;
 
-            var r = em.GetComponentData<MarketRates>(market);
+            // THE AI READS THE SHARED PRICES EVERY THINK (decision 67). Veilstone
+            // is the money, and the prices are everybody's: what another faction
+            // dumps is cheap for this one, what another faction buys up is worth
+            // selling into. In order, a think may:
+            //   1. SELL A GLUT   — a resource banked above its glut level, at
+            //                      whatever the price is (decision 81: the floor
+            //                      does not stop a seller, it sells more lots).
+            //   2. SELL THE SPIKE — a resource somebody drove above
+            //                      marketDearPercent, down to twice its short level.
+            //   3. BUY A NEED    — a resource below its short level (or one the
+            //                      army's last purchases were refused for), with
+            //                      the veilstone above marketVeilstoneShort, unless
+            //                      its price is above marketBuyMaxPercent. With no
+            //                      veilstone to spare it first sells the OTHER
+            //                      resource down to that one's short level.
+            //   4. BUY THE DIP   — a resource somebody dumped below
+            //                      marketCheapPercent, with spare veilstone, up to
+            //                      half its glut level.
+            // At most marketLotsPerThink lots a resource a think, so one AI moves
+            // a price in steps the others can answer. The 15 Nov match is the
+            // case this is for: three Expert AIs held 17,000-30,000 iron and
+            // under 2,000 supplies all game, with no way to turn one into the
+            // other.
+            var prices = Market.Prices(em);
+            int maxLots = math.max(1, Cfg.marketLotsPerThink);
+            int veilSpare = bank.Veilstone - Cfg.marketVeilstoneShort;
+            if (AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone)) veilSpare = 0;
 
-            // SURPLUS TO IRON (decision 59; AI use added 2026-11-15). The set
-            // rates top out at a few hundred supplies a minute, and an AI
-            // holding the whole map sat on 4,000 supplies and 7,000 veilstone
-            // with 50 iron, training nothing (developer's Trine Hollow match,
-            // 0.0.88). While it is short of iron and its army is not waiting
-            // on supplies, everything above a small reserve becomes iron each
-            // second; once iron is back above the target the mode is switched
-            // off so the bank can build up for buildings again.
-            bool wantAuto = bank.Iron < Cfg.marketIronShort
-                            && !AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies);
-            int reserve = Market.ClampReserve(Cfg.marketSurplusReserve);
-            if ((r.AutoIron != 0) != wantAuto || (wantAuto && r.ReserveSupplies != reserve))
+            // (good, held, short level, glut level, army waiting on it)
+            var sup = (Good: Market.GoodSupplies, Held: bank.Supplies, Short: Cfg.marketSuppliesShort,
+                Glut: Cfg.marketSuppliesGlut, Starved: AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies));
+            var iro = (Good: Market.GoodIron, Held: bank.Iron, Short: Cfg.marketIronShort,
+                Glut: Cfg.marketIronGlut, Starved: AIBudget.IsMilitaryShort(faction, AIBudget.ResIron));
+
+            for (int pass = 0; pass < 2; pass++)
             {
-                CommandRouter.IssueSetMarketSurplus(em, market, reserve, wantAuto, CommandSource.AI);
+                var g = pass == 0 ? sup : iro;       // the resource decided
+                var o = pass == 0 ? iro : sup;       // the other one
+                int price = Market.PriceOf(prices, g.Good);
+                int pct = Market.PricePercent(g.Good, price);
+                int lot = Market.LotSize(g.Good);
+                // A NEED IS A BLOCKED ARMY (2026-11-16, batch 2): "bank below the
+                // short level" is the permanent state of an AI that spends what it
+                // earns, so every AI sold iron at the floor and bought supplies at
+                // twice their price 1,622 times in six matches and starved its
+                // army of iron. Now only a resource the army's last purchases were
+                // refused for, and only while the bank is still below its level.
+                bool need = g.Starved && g.Held < g.Short;
+
+                // 1-2. Sell: a glut, or into a spike. Never what the army waits on.
+                // A GLUT SELLS AT ANY PRICE (decision 81, 2026-11-19, developer:
+                // "The market being at the floor price should not stop the
+                // players from selling. They just have to sell more of it.").
+                // The AI refused below 60 %; with every AI selling into the
+                // same prices they sat below it, so each AI sold six lots every
+                // few minutes while its bank reached the 100,000 cap and its
+                // army stood idle for veilstone (0.0.90 batch). A player has no
+                // such gate. The floor (Market.asset) is the worst price; past
+                // it a sale only pays less, it is never refused.
+                if (!need)
+                {
+                    int keep = g.Held > g.Glut ? g.Glut
+                             : pct >= Cfg.marketDearPercent ? g.Short * 2
+                             : int.MaxValue;
+                    int lots = keep == int.MaxValue ? 0 : math.min(maxLots, (g.Held - keep) / lot);
+                    if (lots > 0)
+                    {
+                        CommandRouter.IssueMarketTrade(em, market, g.Good, lots, false, CommandSource.AI);
+                        AILogger.Log(faction, "MARKET",
+                            $"sell {lots} lot(s) of {GoodName(g.Good)} at {pct}% " +
+                            $"({(g.Held > g.Glut ? "glut" : "spike")}; bank {bank.Supplies}s {bank.Iron}i {bank.Veilstone}v)");
+                        continue;
+                    }
+                }
+
+                // 3-4. Buy: a need, or a dip.
+                // (to HALF the glut level: buying up to it and selling above it would
+                // trade the same lots back and forth at a loss)
+                bool dip = !need && pct <= Cfg.marketCheapPercent && g.Held < g.Glut / 2;
+                if (!need && !dip) continue;
+                if (need && pct > Cfg.marketBuyMaxPercent) continue;
+                int want = need ? maxLots : (g.Glut / 2 - g.Held) / lot;
+                want = math.clamp(want, 1, maxLots);
+                int affordable = 0;
+                for (int n = 1; n <= want; n++)
+                {
+                    if (Market.Quote(g.Good, price, n, true) > veilSpare) break;
+                    affordable = n;
+                }
+                if (affordable > 0)
+                {
+                    veilSpare -= Market.Quote(g.Good, price, affordable, true);
+                    CommandRouter.IssueMarketTrade(em, market, g.Good, affordable, true, CommandSource.AI);
+                    AILogger.Log(faction, "MARKET",
+                        $"buy {affordable} lot(s) of {GoodName(g.Good)} at {pct}% " +
+                        $"({(need ? "short" : "dip")}; bank {bank.Supplies}s {bank.Iron}i {bank.Veilstone}v)");
+                    continue;
+                }
+
+                // A need and no veilstone: raise it from the other resource.
+                // Only from a stock well above its own short level; at any
+                // price (decision 81).
+                if (!need || o.Starved) continue;
+                int oPrice = Market.PriceOf(prices, o.Good);
+                int oLots = math.min(maxLots, (o.Held - o.Short * 2) / Market.LotSize(o.Good));
+                if (oLots <= 0 || Market.SellPay(oPrice) <= 0) continue;
+                CommandRouter.IssueMarketTrade(em, market, o.Good, oLots, false, CommandSource.AI);
                 AILogger.Log(faction, "MARKET",
-                    $"surplus to iron {(wantAuto ? "ON" : "off")}, keeping {reserve} supplies " +
-                    $"(bank {bank.Supplies}s {bank.Iron}i {bank.Veilstone}v)");
+                    $"sell {oLots} lot(s) of {GoodName(o.Good)} at {Market.PricePercent(o.Good, oPrice)}% " +
+                    $"to buy {GoodName(g.Good)} (bank {bank.Supplies}s {bank.Iron}i {bank.Veilstone}v)");
             }
-
-            float surplus = math.max(0f, bank.Supplies - Cfg.marketSupplyFloor);
-            // Never while the army waits on supplies (iteration 9: Hard Defensive
-            // spent 16,000 supplies on 2,000 veilstone with its army starved).
-            if (AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)) surplus = 0f;
-            float budget = surplus / math.max(0.25f, Cfg.marketSpendMinutes);   // supplies a minute
-            float needIron = math.max(0f, Cfg.marketIronShort - bank.Iron);
-            float needVeil = math.max(0f, Cfg.marketVeilstoneShort - bank.Veilstone);
-            float needAll = needIron + needVeil;
-            int iron = 0, veil = 0;
-            if (budget > 0f && needAll > 0f)
-            {
-                iron = (int)(budget * (needIron / needAll) / math.max(1, Market.SuppliesPerIron));
-                veil = (int)(budget * (needVeil / needAll) / math.max(1, Market.SuppliesPerVeilstone));
-            }
-            iron = Market.ClampRate(iron);
-            veil = Market.ClampRate(veil);
-            if (iron == r.IronPerMinute && veil == r.VeilstonePerMinute) return;
-
-            CommandRouter.IssueSetMarketRate(em, market, iron, veil, CommandSource.AI);
-            AILogger.Log(faction, "MARKET",
-                $"rates iron {r.IronPerMinute}->{iron}/min, veilstone {r.VeilstonePerMinute}->{veil}/min " +
-                $"(bank {bank.Supplies}s {bank.Iron}i {bank.Veilstone}v, costs {Market.SuppliesCostPerMinute(iron, veil)}s/min)");
         }
+
+        private static string GoodName(int good) => good == Market.GoodIron ? "iron" : "supplies";
 
     }
 }

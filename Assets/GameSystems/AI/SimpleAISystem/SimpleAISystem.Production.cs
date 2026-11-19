@@ -650,11 +650,6 @@ namespace TheWaningBorder.AI
         private static readonly System.Collections.Generic.Dictionary<Faction, string> _lastMissingTrainer
             = new System.Collections.Generic.Dictionary<Faction, string>();
 
-        /// <summary>Last "unaffordable, training X instead" pair logged, per
-        /// faction — the line repeats only when the pair changes.</summary>
-        private static readonly System.Collections.Generic.Dictionary<Faction, string> _lastAffordFallback
-            = new System.Collections.Generic.Dictionary<Faction, string>();
-
         private static void ReplaceLostUnits(EntityManager em, Entity brainEntity, Faction faction,
             ref SimpleAIState aiState, RoleBudget budget, float intelFreshness, float now)
         {
@@ -733,53 +728,14 @@ namespace TheWaningBorder.AI
                         trained++;
                     }
 
-                    // THE BANK CANNOT PAY FOR THIS UNIT — TRAIN ONE IT CAN
-                    // (2026-10-03). The 0.0.33 60-minute batch: every Alanthor
-                    // AI held 100,000 supplies and 30,000 iron, 10-430
-                    // veilstone, an army of 2-80 against a 300 cap, and its
-                    // top military line (~800x) was "deficit N x
-                    // Alanthor_Catapult — Military budget short". The floor
-                    // re-asked for the same veilstone unit every think while
-                    // the Spearman and the Archer — no veilstone at all —
-                    // went unbought. TryTrainUnitBudgeted has now recorded the
-                    // refusal (the unit is passed over for
-                    // unaffordableUnitCooldownSeconds), so re-picking returns
-                    // the next-best unit the bank CAN pay for.
-                    // Each refused pick is recorded, so each re-pick steps one
-                    // unit further down; a few steps reach the veilstone-free
-                    // bottom of the ladder within the same think.
-                    string refused = aiState.LastMilitaryUnit.ToString();
-                    string tried = refused;
-                    const string BudgetShort = " budget short";
-                    const int MaxAffordRepicks = 4;   // loop bound, not tuning
-                    for (int attempt = 0; attempt < MaxAffordRepicks && trained == 0
-                         && floorBlock != null
-                         && floorBlock.StartsWith(AIBudgetCategory.Military + BudgetShort); attempt++)
-                    {
-                        string alt = PickCompositionUnit(em, brainEntity, faction, now,
-                            budget, intelFreshness);
-                        if (string.IsNullOrEmpty(alt) || alt == tried) break;
-                        tried = alt;
-                        for (int t = 0; t < refill; t++)
-                        {
-                            if (!TryTrainUnitBudgeted(em, faction, alt,
-                                    AIBudgetCategory.Military, out floorBlock))
-                                break;
-                            trained++;
-                        }
-                        if (trained == 0) continue;
-
-                        aiState.LastMilitaryUnit = new FixedString64Bytes(alt);
-                        string pair = refused + ">" + alt;
-                        if (!_lastAffordFallback.TryGetValue(faction, out string prevPair)
-                            || prevPair != pair)
-                        {
-                            _lastAffordFallback[faction] = pair;
-                            AILogger.Log(faction, "MILITARY",
-                                $"{refused} unaffordable ({ShortOf(em, faction, refused)}) — " +
-                                $"training {alt} instead (repeats suppressed until the pair changes)");
-                        }
-                    }
+                    // THE BANK CANNOT PAY FOR THIS UNIT (2026-10-03; decision 81,
+                    // 2026-11-19). The re-pick that stood here replaced a unit the
+                    // money could not buy with the next unit of ANY line (an
+                    // unaffordable Crossbowman became a Spearman, or — before
+                    // decision 73 — a Ram). The stand-in is now made where every
+                    // order is paid, TryTrainUnitBudgeted, and only inside the
+                    // unit's own line; a trained == 0 here means even the line's
+                    // last unit could not be paid for, and the army waits.
 
                     // EVERY LINE TRAINS (2026-10-05, Game_AI.md 6c). The floor
                     // used to order the whole deficit as ONE unit — the plan's
@@ -987,14 +943,32 @@ namespace TheWaningBorder.AI
             }
             _otherLines.Sort((a, b) => a.Ratio != b.Ratio ? a.Ratio.CompareTo(b.Ratio) : a.Row.CompareTo(b.Row));
 
+            // NO LINE PAST ITS SHARE (decision 75, 2026-11-18). A role line
+            // used to train here until its own trainers refused, and the Siege
+            // Yard's queue was nearly always free: Red planned 1 Ram and fielded
+            // 62 (Moatwatch, 0.0.90). Each row now stops at its share of the
+            // army as it will stand after this spread, and siege as a whole at
+            // the siege cap (siegeMaxArmyShare, siegeTrainFloor engines at least).
+            int armyAfter = planned ? math.max(p.Army + budget, Cfg.basicsFloor) : 0;
+            int siegeCap = planned
+                ? math.max(Cfg.siegeTrainFloor, (int)math.ceil(Cfg.siegeMaxArmyShare * armyAfter))
+                : 0;
+
             int trained = 0, basicsAdded = 0;
             for (int i = 0; i < _otherLines.Count && trained < budget; i++)
             {
                 var line = _otherLines[i];
                 bool basic = planned && line.Row >= 0 && p.Rows[line.Row].basic;
+                bool siegeRow = planned && line.Row >= 0 && p.Class[line.Row] == ClassSiege;
+                // Without a plan, siege comes from the siege program only.
+                if (!planned && RoleClassOf(line.Id) == ClassSiege) continue;
+                int rowCap = planned && line.Row >= 0 && !basic
+                    ? (int)math.ceil(p.Share[line.Row] * armyAfter) : int.MaxValue;
                 while (trained < budget)
                 {
                     if (basic && p.Basics + basicsAdded >= BasicsAllowed(p)) break;
+                    if (planned && line.Row >= 0 && !basic && p.Count[line.Row] >= rowCap) break;
+                    if (siegeRow && PlannedSiegeCount(p) >= siegeCap) break;
                     if (!TryTrainUnitBudgeted(em, faction, line.Id, AIBudgetCategory.Military, out lastBlock))
                         break;
                     trained++;
@@ -1200,7 +1174,7 @@ namespace TheWaningBorder.AI
                 cavalry = FirstTrainableOrNull(em, faction,
                     "Alanthor_Cataphract", "Alanthor_Outrider");
                 siege = FirstTrainableOrNull(em, faction,
-                    "Alanthor_Trebuchet", "Alanthor_BatteringRam");
+                    "Alanthor_Trebuchet", "Alanthor_Catapult", "Alanthor_BatteringRam");
             }
             else if (FactionCultureOf(em, faction) == Cultures.Runai)
             {

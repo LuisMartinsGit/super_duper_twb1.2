@@ -63,8 +63,8 @@ namespace TheWaningBorder.Core.Localization
             t["a siege budget"] = "um orçamento de cerco";
             t["Temple materials"] = "materiais para o Templo";
             t["sect materials and a Religion Point"] = "materiais da seita e um Ponto de Religião";
-            t["chapel materials and 3 Religion Points"] =
-                "materiais para a capela e 3 Pontos de Religião";
+            t["sect materials and 3 Religion Points"] =
+                "materiais da seita e 3 Pontos de Religião";
             t["a hero's stipend and a Religion Point"] =
                 "a bolsa de um herói e um Ponto de Religião";
 
@@ -151,14 +151,16 @@ namespace TheWaningBorder.Core.Localization
               + "queue up and run in turn — up to <b>15</b>. The route is drawn on "
               + "the ground.\n"
               + "Soldiers start <b>Aggressive</b>: they chase anything in sight. "
-              + "<b>D</b> makes them Defensive, <b>H</b> holds them in place, <b>G</b> "
+              + "<b>D</b> makes them Standard (they only return fire), <b>H</b> makes "
+              + "them Defensive (they hold in place), <b>G</b> "
               + "turns them loose again. A queued move is obeyed over the stance — "
               + "if you want them to fight on the way, press <b>A</b> first."] =
                 "Mantém <b>Shift</b> e faz <b>clique direito</b> em vários pontos: as "
               + "ordens entram em fila e são cumpridas por ordem — até <b>15</b>. A "
               + "rota é desenhada no chão.\n"
               + "Os soldados começam <b>Agressivos</b>: perseguem tudo o que veem. "
-              + "<b>D</b> torna-os Defensivos, <b>H</b> mantém-nos no lugar, <b>G</b> "
+              + "<b>D</b> põe-nos em Padrão (só respondem ao fogo), <b>H</b> põe-nos "
+              + "em Defensivo (mantêm-se no lugar), <b>G</b> "
               + "solta-os de novo. Um movimento em fila é obedecido acima da "
               + "postura — se os queres a lutar pelo caminho, carrega primeiro em "
               + "<b>A</b>.";
@@ -183,8 +185,8 @@ namespace TheWaningBorder.Core.Localization
 
             // ── 5. Culture ─────────────────────────────────────────────────
             t["Build your landmark"] = "Constrói o teu marco";
-            t["The age-up <b>is</b> a building. Pick the <b>Vault of Almiérra</b> from the top of the screen and place it on ground you own.\nIt builds itself slowly, and every worker you send speeds it up. <b>Only one per match</b> — and if it is destroyed before it finishes, the progress and everything you paid are lost."] =
-                "O avanço de Era <b>é</b> um edifício. Escolhe o <b>Cofre de Almiérra</b> no topo do ecrã e coloca-o em terreno teu.\nConstrói-se sozinho, devagar, e cada trabalhador que envias acelera-o. <b>Só um por partida</b> — e se for destruído antes de terminar, o progresso e tudo o que pagaste perdem-se.";
+            t["The age-up <b>is</b> a building. Pick the <b>Vault of Almiérra</b> from the top of the screen and place it on ground you own.\nYour Workers build it, like any other building - send them to the site. <b>Only one per match</b> — and if it is destroyed before it finishes, the progress and everything you paid are lost."] =
+                "O avanço de Era <b>é</b> um edifício. Escolhe o <b>Cofre de Almiérra</b> no topo do ecrã e coloca-o em terreno teu.\nOs teus Trabalhadores constroem-no, como qualquer outro edifício - envia-os para o local. <b>Só um por partida</b> — e se for destruído antes de terminar, o progresso e tudo o que pagaste perdem-se.";
 
             t["Age up"] = "Avança de Era";
             t["When the Vault finishes, you <b>are</b> Alanthor: Age 0 ends and your culture's units, buildings and upgrades open. Only now can your army claim new ground.\nProtect the site until then. The <b>Advancing</b> pill at the top shows how far it has come."] =
@@ -217,12 +219,12 @@ namespace TheWaningBorder.Core.Localization
                 "Coloca o <b>Templo de Ridan</b>. Custa só recursos.\nTreina o <b>Litharch</b>, soma a cada morte da maldição e gera religião por si, devagar. O seu <b>Dízimo</b> — clica nos teus Pontos de Religião — compra um PR com recursos, mais caro de cada vez. Também troca PR por recursos e vende-te o <b>Exército da Patriarquia</b>.";
 
             t["Adopt a sect"] = "Adota uma seita";
-            t["The <b>religion panel</b> on the right (<b>R</b>) shows your six chapel slots, and <b>T</b> opens the full tree. A chapel adopts a sect for RP, cheaper for a sect of your own culture, and the choice is final.\nIt unlocks the sect's first power and lets you raise its building."] =
-                "O <b>painel de religião</b> à direita (<b>R</b>) mostra os teus seis lugares de capela, e <b>T</b> abre a árvore completa. Uma capela adota uma seita com PR, mais barato para uma seita da tua cultura, e a escolha é definitiva.\nDesbloqueia o primeiro poder da seita e permite erguer o seu edifício.";
+            t["The <b>religion panel</b> on the right (<b>R</b>) shows the sects. Adopting one costs RP, cheaper for a sect of your own culture, and the choice is final.\nIt unlocks the sect's first power and lets you raise its building."] =
+                "O <b>painel de religião</b> à direita (<b>R</b>) mostra as seitas. Adotar uma custa PR, mais barato para uma seita da tua cultura, e a escolha é definitiva.\nDesbloqueia o primeiro poder da seita e permite erguer o seu edifício.";
 
             t["Cast a sect power"] = "Lança um poder de seita";
-            t["Each sect has a row of cells: <b>A</b>, <b>B</b> and a wildcard power. Click a lit one, or press <b>F1-F6</b>, and pick a target in sight.\nRP unlocks the other powers, and the chapel's level — also bought with RP — is the level of every power it has."] =
-                "Cada seita tem uma fila de células: os poderes <b>A</b>, <b>B</b> e um trunfo. Clica numa acesa, ou carrega em <b>F1-F6</b>, e escolhe um alvo à vista.\nOs PR desbloqueiam os outros poderes, e o nível da capela — também comprado com PR — é o nível de todos os seus poderes.";
+            t["Each sect has a row of cells: <b>A</b>, <b>B</b> and a wildcard power. Click a lit one, or press <b>F1-F6</b>, and pick a target in sight.\nRP unlocks the other powers, and the sect's level — also bought with RP — is the level of every power it has."] =
+                "Cada seita tem uma fila de células: os poderes <b>A</b>, <b>B</b> e um trunfo. Clica numa acesa, ou carrega em <b>F1-F6</b>, e escolhe um alvo à vista.\nOs PR desbloqueiam os outros poderes, e o nível da seita — também comprado com PR — é o nível de todos os seus poderes.";
 
             t["Recruit a sect hero"] = "Recruta um herói de seita";
             t["The sect's building also recruits its <b>hero</b>, for 1 RP the first time plus its price. Heroes are the strongest units in the game, and they gain levels by fighting.\nTheir abilities <b>cast themselves</b> within their sight. If a hero falls, train it again: it returns at <b>the same level</b>, for more resources and time, and never for RP."] =
@@ -308,7 +310,7 @@ namespace TheWaningBorder.Core.Localization
                 "As tuas Cabanas do Recoletor são agora <b>Guildas</b>: seleciona uma e sobe-a de nível — todas as Guildas sobem com ela e rendem mais. Depois sobe uma <b>Mina</b> de nível da mesma forma. Todos os nós acabam por se esgotar: continua a erguer extratores em nós novos. O Litharch é agora o <b>Rei Lexor</b>, o teu herói.";
             t["2b - Level up your Mines ({0}/{1})"] = "2b - Sobe as tuas Minas de nível ({0}/{1})";
             t["3 - Build an Archery Range ({0}/{1})"] = "3 - Constrói uma Campo de Tiro com Arco ({0}/{1})";
-            t["4a - Build a Watch Tower ({0}/{1})"] = "4a - Constrói uma Torre de Vigia ({0}/{1})";
+            t["4a - Build a Battle Tower ({0}/{1})"] = "4a - Constrói uma Torre de Batalha ({0}/{1})";
             t["4b - Claim a territory ({0}/{1})"] = "4b - Conquista um território ({0}/{1})";
             t["5 - Earn Religion Points ({0}/{1})"] = "5 - Ganha Pontos de Religião ({0}/{1})";
             t["6a - Build the Temple ({0}/{1})"] = "6a - Constrói o Templo ({0}/{1})";
@@ -322,7 +324,7 @@ namespace TheWaningBorder.Core.Localization
             t["The Alanthor army"] = "O exército de Alanthor";
             t["The Barracks is now the <b>Garrison</b>. You can also build the <b>Archery Range</b>, the <b>Royal Stable</b> and the <b>Siege Yard</b>. Levelling up one building levels every building of that type."] = "O Quartel é agora a <b>Guarnição</b>. Também podes construir a <b>Campo de Tiro com Arco</b>, o <b>Estrebaria Real</b> e o <b>Estaleiro de Cerco</b>. Subir o nível de um edifício sobe o de todos os edifícios desse tipo.";
             t["Defend and expand"] = "Defende e expande";
-            t["The waves keep coming. <b>Stone Walls</b> close the way and <b>Watch Towers</b> shoot whatever comes near. To take new ground, stand soldiers in a territory that borders yours until its meter fills, then build there to hold it."] = "As vagas continuam a chegar. As <b>Muralhas de Pedra</b> fecham o caminho e as <b>Torres de Vigia</b> disparam sobre o que se aproxima. Para conquistar terreno, mantém soldados num território vizinho até o medidor encher e depois constrói lá para o manter.";
+            t["The waves keep coming. <b>Stone Walls</b> close the way and <b>Battle Towers</b> shoot whatever comes near. To take new ground, stand soldiers in a territory that borders yours until its meter fills, then build there to hold it."] = "As vagas continuam a chegar. As <b>Muralhas de Pedra</b> fecham o caminho e as <b>Torres de Batalha</b> disparam sobre o que se aproxima. Para conquistar terreno, mantém soldados num território vizinho até o medidor encher e depois constrói lá para o manter.";
             t["A rival kingdom"] = "Um reino rival";
             t["Another kingdom holds the east. It will not march on you. When two hostile armies share a territory, the stronger one pushes the meter. For now it stays out of reach."] = "Outro reino domina o leste. Não marchará contra ti. Quando dois exércitos hostis partilham um território, o mais forte empurra o medidor. Por agora, fica fora de alcance.";
             t["Religion Points"] = "Pontos de Religião";

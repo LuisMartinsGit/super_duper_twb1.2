@@ -200,34 +200,8 @@ def renewal_fortress():
     return a, RA
 
 
-def field_hospital():
-    # The Litharch's healing tent: an open pavilion over a bare platform,
-    # bushes and lanterns round it.
-    a = Assembly(); a.terrace(0, 0, wall=False)
-    a.pavilion(1, loc=(0, 0.1, 0), scale=(0.75, 0.75, 0.7))
-    a.bushes([(-2.0, -1.4), (2.0, -1.4), (-2.0, 1.9), (2.0, 1.9)], s=0.8)
-    a.lantern(1.3, -0.9, 1.5); a.lantern(-1.3, -0.9, 1.5)
-    return a, os.path.join(S, "Renewal", "Abilities", "DeployFieldHospital", "Art")
-
-
-CH = os.path.join(S, "Shared", "Chapel", "Art")
-
-
-def chapel(kind):
-    # A sect chapel: a small shrine on a bare platform, one identity per sect.
-    a = Assembly(); a.terrace(0, 0, wall=False)
-    if kind == "Antiquity":      # the archive shrine: a hall with a tall upper tier
-        a.hall(1, loc=(0, 0.2, 0), scale=(0.62, 0.62, 0.7), lanterns=False)
-        a.upper(0.42, 0.55, loc=(0, 0.2), base_z=2.75, door=False)
-    elif kind == "Renewal":      # the healing garden: an open pavilion among bushes
-        a.pavilion(1, loc=(0, 0.2, 0), scale=(0.6, 0.6, 0.65))
-        a.bushes([(-1.9, -1.3), (1.9, -1.3)], s=0.75)
-    elif kind == "Fortitude":    # the bulwark: a squat two-storey tower
-        a.tower(0, 0.4, rot=math.pi, storeys=2, s0=0.62)
-    else:                        # Prosperity, the counting house: a lantern-hung hall
-        a.hall(1, loc=(0, 0.2, 0), scale=(0.66, 0.6, 0.72))
-        a.lantern(-1.3, -1.0, 1.4); a.lantern(1.3, -1.0, 1.4)
-    return a, CH
+# (The sect chapels are gone, 2026-11-18, decision 80: the Temple is one
+#  building with no chapels.)
 
 
 def temple():
@@ -267,10 +241,9 @@ MODELS["Sect_MusterYard_Age_0"] = musteryard
 MODELS["Renewal_Tower_Age_0"] = renewal_tower
 MODELS["Renewal_Fortification_Age_0"] = renewal_fortification
 MODELS["Renewal_Fortress_Age_0"] = renewal_fortress
-MODELS["Renewal_FieldHospital_Age_0"] = field_hospital
+# (The Field Hospital tent is retired, 2026-11-18: the Healing Ward that
+#  replaced it is a one-cell prefab, Renewal/Abilities/HealingWard/Art/.)
 MODELS["alanthor_TempleOfRidan_lv1"] = temple
-for k in ("Antiquity", "Renewal", "Fortitude", "Prosperity"):
-    MODELS["Chapel_Sect_%s_Age_0" % k] = (lambda kk=k: chapel(kk))
 
 if __name__ == "__main__":
     args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []

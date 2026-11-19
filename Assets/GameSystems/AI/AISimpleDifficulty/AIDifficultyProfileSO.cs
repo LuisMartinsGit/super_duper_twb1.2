@@ -189,6 +189,14 @@ namespace TheWaningBorder.AI
         /// <summary>Seconds the saturation must hold, unbroken, before an
         /// extra production building may be placed.</summary>
         public float productionSaturationSeconds;
+        /// <summary>THE RATE GOVERNOR (decision 86): units a minute this tier
+        /// aims to order at minute 10, ramping from the match start, and from
+        /// minute 20 on (linear between). 0 and 0 = no governor.</summary>
+        /// <summary>Decision 91: 1 = a newly held province gets its first
+        /// towers before its extractors (the higher tiers).</summary>
+        public int secureProvincesFirst;
+        public float unitRateAt10Min;
+        public float unitRateFrom20Min;
 
         // ── Economy defence (docs/Design/Game_AI.md § 5i) ────────────────
 

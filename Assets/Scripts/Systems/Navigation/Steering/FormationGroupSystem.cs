@@ -11,8 +11,9 @@
 //      member's FlowDesiredDir before SteeringSystem blends separation /
 //      avoidance on top. A member with NO line of sight to its spot falls
 //      back to its own goal flow toward its final slot destination.
-//   4. Members behind their spot get the +40% catch-up speed; members in
-//      place march at the group speed.
+//   4. Members behind their spot catch up at up to their OWN top speed
+//      (never above it, 2026-11-17); members in place march at the group
+//      speed.
 //   5. Combat takes a member OUT OF RANK, not out of the group: a member
 //      that auto-acquires a target fights at its own speed and rejoins its
 //      slot when the target is gone (an explicit attack order detaches it
@@ -24,6 +25,15 @@
 //   6. A blocked leader pivots in place or steps along the flow; only a
 //      genuine stall releases the group, and it releases members to their
 //      own final slots rather than faking arrival.
+//   7. RE-FORM AFTER A NARROW SPOT (2026-11-17): while most of its spots stand
+//      in rock or water the formation files through; back on open ground
+//      (openGroundShare of the spots passable) the leader waits
+//      (columnWaitSpeed) until no more than columnWaitFraction of the members
+//      are over columnLagMetres from their spots. Members never move faster
+//      than their own top speed (no catch-up bonus).
+//   8. THE CONVOY WAITS (2026-11-17): the formations one split order makes
+//      (FormationGroup.Convoy) keep pace — one more than convoyGapMetres
+//      nearer the destination than the hindmost crawls until it is not.
 //
 // BURST (perf pass 2026-10-15). The whole per-group pass is
 // FormationGroupJob, a Burst IJob Run() on the main thread — single-threaded,
@@ -175,6 +185,11 @@ namespace TheWaningBorder.Systems.Navigation
                 HoldFraction = cfg != null ? cfg.engagedHoldFraction : 1f,
                 ProgressEps = cfg != null ? cfg.tetherProgressEpsilon : 0f,
                 StallHeadingTolerance = cfg != null ? cfg.stallHeadingToleranceRadians : 0f,
+                ColumnLag = cfg != null ? cfg.columnLagMetres : float.MaxValue,
+                ColumnWaitFraction = cfg != null ? cfg.columnWaitFraction : 2f,
+                ColumnWaitSpeed = cfg != null ? cfg.columnWaitSpeed : 1f,
+                ConvoyGap = cfg != null ? cfg.convoyGapMetres : float.MaxValue,
+                OpenGroundShare = cfg != null ? cfg.openGroundShare : 1f,
                 Grid = grid,
                 Cost = cost.Cost,
                 CostFlags = cost.Flags,
@@ -282,6 +297,11 @@ namespace TheWaningBorder.Systems.Navigation
         public float HoldFraction;
         public float ProgressEps;
         public float StallHeadingTolerance;
+        public float ColumnLag;
+        public float ColumnWaitFraction;
+        public float ColumnWaitSpeed;
+        public float ConvoyGap;
+        public float OpenGroundShare;
 
         public NavGridSingleton Grid;
         [ReadOnly] public NativeArray<byte> Cost;
@@ -317,11 +337,27 @@ namespace TheWaningBorder.Systems.Navigation
 
         public void Execute()
         {
+            // Per convoy, the hindmost formation's distance to its destination
+            // this tick. A LOCAL, handed to ProcessGroup: a container field on
+            // the job is checked when it is scheduled, before Execute exists
+            // to fill it ("has not been assigned", every frame).
+            var convoyRear = new NativeHashMap<int, float>(8, Allocator.Temp);
             for (int gi = 0; gi < Groups.Length; gi++)
-                ProcessGroup(Groups[gi]);
+            {
+                var ge = Groups[gi];
+                if (!Group.HasComponent(ge)) continue;
+                var cg = Group[ge];
+                if (cg.Convoy == 0 || cg.State != FormationGroup.StateMoving) continue;
+                float dd = math.distance(cg.LeaderPos.xz, cg.Destination.xz);
+                if (!convoyRear.TryGetValue(cg.Convoy, out float rear) || dd > rear)
+                    convoyRear[cg.Convoy] = dd;
+            }
+            for (int gi = 0; gi < Groups.Length; gi++)
+                ProcessGroup(Groups[gi], convoyRear);
+            convoyRear.Dispose();
         }
 
-        private void ProcessGroup(Entity groupEntity)
+        private void ProcessGroup(Entity groupEntity, NativeHashMap<int, float> convoyRear)
         {
             if (!Group.HasComponent(groupEntity) || !Members.HasBuffer(groupEntity)) return;
             var g = Group[groupEntity];
@@ -354,6 +390,9 @@ namespace TheWaningBorder.Systems.Navigation
             Entity worstOffender = Entity.Null;
             // Members out of rank fighting an auto-acquired target.
             int engagedCount = 0;
+            // Marching members, and those further than ColumnLag behind
+            // their spot (the column test below).
+            int marchingCount = 0, laggingCount = 0, blockedSpots = 0;
 
             for (int i = 0; i < snapshot.Length; i++)
             {
@@ -432,6 +471,9 @@ namespace TheWaningBorder.Systems.Navigation
                     float lx = sp0.x - p0.x, lz = sp0.z - p0.z;
                     float offset = math.sqrt(lx * lx + lz * lz);
                     if (offset > maxOffset) { maxOffset = offset; worstOffender = u; }
+                    marchingCount++;
+                    if (offset > ColumnLag) laggingCount++;
+                    if (!IsLeaderCellPassable(sp0, g.FactionIdx)) blockedSpots++;
                 }
             }
             if (keep.Length != snapshot.Length) rosterChanged = true;
@@ -477,6 +519,31 @@ namespace TheWaningBorder.Systems.Navigation
 
             float lagScale = easing ? OutOfFormationLeaderSpeed : 1f;
 
+            // ── RE-FORM AFTER A NARROW SPOT (2026-11-17, developer: "If
+            // formation has to break to pass a narrow spot, it reassembles
+            // right after it and continues"). ──────────────────────────
+            // While its spots stand in rock or water (more than openGroundShare
+            // of them blocked) the formation is squeezing through a ramp or a
+            // ford: the leader walks on and the column files through. Back on
+            // open ground, the leader WAITS (columnWaitSpeed) while more than
+            // columnWaitFraction of the members are over columnLagMetres from
+            // their spots, and goes on once the formation stands whole again.
+            bool openGround = marchingCount > 0
+                && blockedSpots <= (1f - OpenGroundShare) * marchingCount;
+            bool column = openGround
+                && laggingCount > ColumnWaitFraction * marchingCount;
+            if (column) lagScale = math.min(lagScale, ColumnWaitSpeed);
+
+            // ── THE CONVOY WAITS (2026-11-17). ─────────────────────────
+            // A spread army's order is split into several formations, one per
+            // cluster, all bound for the same place; each marched at its own
+            // pace and the order arrived as a 150-340 m procession (batch 15).
+            // A formation this far ahead of the hindmost of its convoy waits.
+            if (g.Convoy != 0 && g.State == FormationGroup.StateMoving
+                && convoyRear.TryGetValue(g.Convoy, out float hindmost)
+                && hindmost - math.distance(g.LeaderPos.xz, g.Destination.xz) > ConvoyGap)
+                lagScale = math.min(lagScale, ColumnWaitSpeed);
+
             // ── Hold for the fight. ────────────────────────────────────
             // While MORE than engagedHoldFraction of the roster is engaged
             // the leader holds where it is, the fuse and stall counters
@@ -489,6 +556,9 @@ namespace TheWaningBorder.Systems.Navigation
             // Only a group FAILING to close up counts toward the release
             // fuse; it runs only while the leader is easing on the march.
             Entity pendingDrop = Entity.Null;
+            // While the formation waits to re-form, the fuse still drops a
+            // member that makes NO progress toward its spot (wedged, or cut
+            // off) — one that is walking in is never dropped.
             if (!easing || holdForFight || g.State != FormationGroup.StateMoving)
             {
                 g.TetherTicks = 0;
@@ -555,9 +625,12 @@ namespace TheWaningBorder.Systems.Navigation
                         float sinErr = g.Facing.x * dir.z - g.Facing.z * dir.x;
                         err = math.atan2(sinErr, cosErr);
 
-                        // The turn rate the formation can actually hold.
+                        // The turn rate the formation can actually hold. No
+                        // member runs above its own speed (2026-11-17), so the
+                        // flank's spare is what the leader gives up in a turn
+                        // (it walks at WheelSpeedFloor at the slowest).
                         float omega = FlankTurnRate(in g,
-                            g.GroupSpeed * (FormationGroup.CatchUpMultiplier - 1f));
+                            g.GroupSpeed * (1f - WheelSpeedFloor));
 
                         if (math.abs(err) > FormationGroup.WheelSnapAngle)
                         {
@@ -606,8 +679,7 @@ namespace TheWaningBorder.Systems.Navigation
                         // forward motion a member's whole catch-up speed is
                         // free for the sideways drag; angular progress, not a
                         // stall.
-                        float pivot = FlankTurnRate(in g,
-                            g.GroupSpeed * FormationGroup.CatchUpMultiplier);
+                        float pivot = FlankTurnRate(in g, g.GroupSpeed);
                         float turn = math.clamp(err, -pivot * Dt, pivot * Dt);
                         g.Facing = Rotate(g.Facing, turn);
                         if (Dt > 1e-6f) appliedOmega = turn / Dt;
@@ -789,6 +861,12 @@ namespace TheWaningBorder.Systems.Navigation
                     float mult = i < keepMult.Length && !math.isnan(keepMult[i])
                         ? keepMult[i]
                         : UnitSpeedModifiers.Multiplier(ref SpeedMods, u);
+                    // NO SPEED BONUS (2026-11-17, developer: "The fix is not
+                    // adding speed to stragglers"): catching up is done at the
+                    // member's OWN top speed at most — its stat times its own
+                    // slows and hastes — never above it.
+                    if (MoveSpeedL.HasComponent(u))
+                        cmdSpeed = math.min(cmdSpeed, MoveSpeedL[u].Value * math.max(mult, 0f));
                     if (mult > 0.05f) cmdSpeed /= mult;
                     SpeedOverride[u] = new FormationSpeedOverride { Value = cmdSpeed };
                 }

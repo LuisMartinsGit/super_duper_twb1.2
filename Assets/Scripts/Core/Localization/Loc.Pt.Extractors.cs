@@ -49,13 +49,13 @@ namespace TheWaningBorder.Core.Localization
             t["Pack"] = "Desmontar";
             t["Pack Bazaar into a mobile wagon"] = "Desmonta o Bazar numa carroça móvel";
             t["Convert to Wall Hub"] = "Converter em Nó de Muralha";
-            t["Convert to Watch Tower"] = "Converter em Torre de Vigia";
+            t["Convert to Battle Tower"] = "Converter em Torre de Batalha";
             t["Convert to Gate ({0}x)"] = "Converter em Portão ({0}x)";
             t["Convert to Tower"] = "Converter em Torre";
             t["Replaces the hut with a Wall Hub. Adjacent hubs auto-link into wall segments."] =
                 "Substitui a cabana por um Nó de Muralha. Nós adjacentes ligam-se automaticamente em segmentos de muralha.";
-            t["Replaces the hut with a stand-alone Alanthor Watch Tower (ranged defense)."] =
-                "Substitui a cabana por uma Torre de Vigia Alanthor independente (defesa à distância).";
+            t["Replaces the hut with a stand-alone Alanthor Battle Tower (ranged defense)."] =
+                "Substitui a cabana por uma Torre de Batalha Alanthor independente (defesa à distância).";
             t["Short segment — gate will span {0} instances. Groups wider than {0} may not fit."] =
                 "Segmento curto — o portão abrangerá {0} troços. Grupos mais largos do que {0} podem não passar.";
             t["3-instance opening. Units can path through."] =
@@ -153,19 +153,6 @@ namespace TheWaningBorder.Core.Localization
             t["Iron Deposit"] = "Depósito de Ferro";
             t["Veilstone Node"] = "Nó de Veilstone";
 
-            // Chapel names composed as Prettify(sectId) + " Chapel".
-            t["Antiquity Chapel"] = "Capela da Antiguidade";
-            t["Renewal Chapel"] = "Capela da Renovação";
-            t["Fortitude Chapel"] = "Capela da Fortitude";
-            t["Reclamation Chapel"] = "Capela da Recuperação";
-            t["Silence Chapel"] = "Capela do Silêncio";
-            t["Justice Chapel"] = "Capela da Justiça";
-            t["Veneration Chapel"] = "Capela da Veneração";
-            t["Witness Chapel"] = "Capela do Testemunho";
-            t["War Chapel"] = "Capela da Guerra";
-            t["Ash Chapel"] = "Capela das Cinzas";
-            t["Ruin Chapel"] = "Capela da Ruína";
-            t["Wrath Chapel"] = "Capela da Ira";
 
             // ── Unit names (GetUnitName ladder + PresentationId table).
             //    Coined proper names (Litharch, Berserker, Crystalling,
@@ -224,7 +211,8 @@ namespace TheWaningBorder.Core.Localization
             t["Scout Sight"] = "Visão de Batedor";
             t["War Horn"] = "Corno de Guerra";
             t["Full Gallop"] = "A Todo o Galope";
-            t["Deploy Field Hospital"] = "Montar Hospital de Campanha";
+            t["Too close to another Healing Ward (keep {0} m apart)."] = "Demasiado perto de outra Guarda Curativa (mantém {0} m de distância).";
+            t["Your team already has {0} Healing Ward(s) standing."] = "A tua equipa já tem {0} Guarda(s) Curativa(s) de pé.";
 
             // ── Alanthor building-fired actives ──
             t["Choreographed Volleys"] = "Salvas Coreografadas";

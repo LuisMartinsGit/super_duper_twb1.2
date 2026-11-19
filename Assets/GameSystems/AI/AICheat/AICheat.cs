@@ -42,7 +42,7 @@ namespace TheWaningBorder.AI
         public static Cost ScaleIncome(Faction faction, in Cost c, IncomeSource source)
         {
             if (source == IncomeSource.Refund || source == IncomeSource.Vault || source == IncomeSource.Grant
-                || source == IncomeSource.Market) return c;   // a purchase, at the Market's fixed price
+                || source == IncomeSource.Market) return c;   // a trade at the Market, not income
             if (!IsCheating(faction)) return c;
             if (_carryEpoch != SimCadence.Epoch)
             {

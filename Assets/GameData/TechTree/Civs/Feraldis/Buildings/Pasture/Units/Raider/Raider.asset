@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_Raider
   displayName: Raider
   unitClass: human_cavalry
-  hp: 175
+  hp: 110
   speed: 7.5
   trainingTime: 7
   damage: 10
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Cavalry
   - Light
   bonusVsTags: []
+  torchDamage: 10
   preferTargets: []
   abilities: []
   prefab: {fileID: 3958872465679805044, guid: 0ac64b458f08ea041963b9e1136d4f25, type: 3}

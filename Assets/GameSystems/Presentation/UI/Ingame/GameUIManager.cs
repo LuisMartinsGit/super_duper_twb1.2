@@ -45,10 +45,6 @@
 //   walls, gates, the Vault and the hut age-up choice included (2026-11-10).
 //   The code-built ActionsPanelBinder / WorkerPanelBinder fallbacks are gone;
 //   an unassigned catalog entry is a loud data error.
-// - TOP CHOICE BAR: special-building choice buttons (Vault /
-//   Keep, until one is started), plus the authored CultureSelection
-//   prefabs — the "SELECT CULTURE" pill and the culture selection menu
-//   it opens (TopChoiceBar).
 // - SELECTION HEADER UPGRADE BUTTON: bound only when the SelectionHeader
 //   prefab AUTHORS a node named "…upgrade…". The building level-up itself is
 //   a normal action in whichever actions panel is up (BuildingUpgradeAction);
@@ -347,9 +343,9 @@ namespace TheWaningBorder.UI.Ingame
             // stands in are marked (Territory_Claims.md § 7.4).
             gameObject.AddComponent<TheWaningBorder.UI.World.EndgameMarkers>();
 
-            // Where the income comes from: a collapsible per-territory economy
-            // panel (2026-11-09; replaces the floating IncomeOverlay panels).
-            gameObject.AddComponent<EconomyPanel>().Init(catalog.chrome);
+            // (The per-territory economy panel and the Objectives panel were
+            // removed 2026-11-17, developer: "Remove the objectives and the
+            // resource overview panels".)
             // What is left in every visible resource node (Territory_Claims.md § 11.3).
             gameObject.AddComponent<TheWaningBorder.UI.World.NodeReserveBars>();
             // How many men are inside each garrisoned tower (n/max) — a
@@ -399,20 +395,11 @@ namespace TheWaningBorder.UI.Ingame
             else
                 TWBLog.Log("[GameUI] GameUICatalog.selectionBox is unassigned - no drag frame.");
 
-            var topBar = SpawnCodeBuilt<TopChoiceBar>("GameUI_TopChoiceBar");
-            GameObject specialMenu = catalog.specialBuildingMenu != null
-                ? SpawnPanel(catalog.specialBuildingMenu, "GameUI_SpecialBuildingMenu")
-                : null;
-            GameObject cultureButton = catalog.cultureSelectionButton != null
-                ? SpawnPanel(catalog.cultureSelectionButton, "GameUI_CultureSelectionButton")
-                : null;
-            topBar.BindAuthoredMenus(specialMenu, cultureButton);
-
-            if (catalog.objectivesPanel != null)
-            {
-                var objectives = SpawnPanel(catalog.objectivesPanel, "GameUI_ObjectivesPanel");
-                objectives.AddComponent<ObjectivesPanelBinder>();
-            }
+            // NO OVERHEAD UI (2026-11-17, developer: "Remove the overhead UI"):
+            // the top-centre landmark buttons and age-up pill (TopChoiceBar)
+            // are gone — the landmarks are placed from the Worker's Age 0
+            // build palette. catalog.specialBuildingMenu stays: its hexagonal
+            // button is the art of the node / rubble button above.
 
             if (catalog.religionPanel != null)
             {
@@ -447,12 +434,14 @@ namespace TheWaningBorder.UI.Ingame
                 _selectionHeader.SetActive(false);
             }
 
-            // The resource panel's widen toggle — last, so every other dock
-            // panel exists and is pushed along when it widens (2026-10-16).
+            // The resource panel's per-minute toggle (2026-10-16): the rate
+            // stacks under each amount inside the panel's own width, so no
+            // other dock panel moves (2026-11-18). Religion is included; its
+            // rate shows only while religion is flowing.
             if (_resourcePanel != null)
             {
                 _resourceExpander = _resourcePanel.AddComponent<ResourcePanelExpander>();
-                _resourceExpander.Init(_supplies, _iron, _veilstone);
+                _resourceExpander.Init(_supplies, _iron, _veilstone, _religion);
             }
 
             RefreshNow();
@@ -672,6 +661,22 @@ namespace TheWaningBorder.UI.Ingame
                 { _religion = label; break; }
 
             UITooltip.Bind(row, () => _religionTip);
+            AddRowHoverArea(row.transform);
+        }
+
+        /// <summary>
+        /// A transparent raycast target filling a resource row, behind its
+        /// icon and labels, so hovering ANYWHERE on the row — icon, amount,
+        /// rate or the gap between them — finds the row's tooltip (UITooltip
+        /// walks up from whatever the pointer hits). Without it only the
+        /// graphics themselves answered and the gaps showed nothing.
+        /// </summary>
+        private static void AddRowHoverArea(Transform row)
+        {
+            if (row == null || row.Find("HoverArea") != null) return;
+            var hit = GameUIKit.Image(row, "HoverArea", new Color(0f, 0f, 0f, 0f), raycast: true);
+            GameUIKit.Stretch(hit.rectTransform);
+            hit.transform.SetAsFirstSibling();
         }
 
         private static Image MakeRing(RectTransform icon, string name, Sprite sprite, Color color, bool filled)
@@ -760,6 +765,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (_housing != null)   _housing.text   = "-";
                 if (_religion != null)  _religion.text  = "-";
                 if (_religionRing != null) _religionRing.fillAmount = 0f;
+                _resourceExpander?.SetRate(_religion, 0f, fractional: true, onlyWhenPositive: true);
                 _incomeKnown = false;
                 return;
             }
@@ -898,9 +904,9 @@ namespace TheWaningBorder.UI.Ingame
             int rate = Mathf.RoundToInt(netPerMinute);
             string colour = rate > 0 ? "#9FE08A" : rate < 0 ? "#FF6A5E" : "#B8B8B8";
             label.textWrappingMode = TextWrappingModes.NoWrap;
-            // The rate has its own column now, shown only while the panel is
-            // expanded (ResourcePanelExpander); without the expander (no
-            // dock) it stays inline as before.
+            // The rate has its own line under the amount, shown only while the
+            // panel is expanded (ResourcePanelExpander); without the expander
+            // (no dock) it stays inline as before.
             if (_resourceExpander != null)
             {
                 label.text = amount.ToString();
@@ -923,6 +929,7 @@ namespace TheWaningBorder.UI.Ingame
                 if (r < 0) continue;
                 string res = row.name;
                 UITooltip.Bind(row.gameObject, () => IncomeTooltip(res, r));
+                AddRowHoverArea(row);
             }
         }
 
@@ -975,6 +982,10 @@ namespace TheWaningBorder.UI.Ingame
                     sb.Append('\n').Append(Loc.T(LumpyNames[s])).Append(' ')
                       .Append(Loc.T("(last minute)")).Append(" - ").Append(got);
                 }
+            // The rate line under the amount carries no "/min" (2026-11-18):
+            // the tooltip is where it says what the number is.
+            if (_resourceExpander != null && ResourcePanelExpander.Expanded)
+                sb.Append("\n<i>").Append(Loc.T("The coloured number under the amount is the income per minute.")).Append("</i>");
             return sb.ToString();
         }
 
@@ -1034,15 +1045,76 @@ namespace TheWaningBorder.UI.Ingame
             var (have, need) = TheWaningBorder.Economy.FactionReligionPointsHelper.PtsProgress(em, faction);
             if (_religion != null) _religion.text = rp.ToString();
             if (_religionRing != null) _religionRing.fillAmount = need > 0 ? Mathf.Clamp01((float)have / need) : 0f;
+
+            // THE STEADY RELIGION INCOME, per minute (2026-11-18): computed
+            // from what the faction holds and the cadences on the configs the
+            // paying systems read — nothing here is a number of its own.
+            //  - a standing Temple: one POINT every templeSecondsPerPoint
+            //    (TempleReligionSystem, FactionReligionPoints.asset);
+            //  - each held monument: one POINT every secondsPerPoint
+            //    (MonumentSystem, MonumentSystem.asset);
+            //  - each held Sanctum: one whole RP every secondsPerPoint
+            //    (SanctumSystem, SanctumSystem.asset).
+            // Points become RP on the ladder, so they are divided by what the
+            // NEXT Religion Point costs. Curse kills and sect-unit damage are
+            // lumps, not a rate, and are left out.
+            var rpCfg = TheWaningBorder.Economy.FactionReligionPointsHelper.Cfg;
+            bool temple = TheWaningBorder.Economy.SectQuery.HasStandingTemple(em, faction);
+            float templePts = temple && rpCfg != null
+                ? 60f / Mathf.Max(1, rpCfg.templeSecondsPerPoint) : 0f;
+            int monuments = MonumentsHeldBy(em, faction);
+            var monCfg = TheWaningBorder.Entities.MonumentSystemConfig.I;
+            float monumentPts = monuments > 0 && monCfg != null && monCfg.secondsPerPoint > 0f
+                ? monuments * 60f / monCfg.secondsPerPoint : 0f;
+            int sanctums = TheWaningBorder.Systems.Economy.SanctumSystem.HeldBy(faction);
+            var sanCfg = TheWaningBorder.Systems.Economy.SanctumSystemConfig.I;
+            float sanctumRp = sanctums > 0 && sanCfg != null && sanCfg.secondsPerPoint > 0f
+                ? sanctums * 60f / sanCfg.secondsPerPoint : 0f;
+            float rpPerMinute = sanctumRp + (need > 0 ? (templePts + monumentPts) / need : 0f);
+            _resourceExpander?.SetRate(_religion, rpPerMinute, fractional: true, onlyWhenPositive: true);
+
             // Feraldis earn points by drawing blood: every kill and every
             // sacrifice, Altar or not (Religion.md §7).
             bool blood = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Feraldis;
-            _religionTip = "<b>" + Loc.T("Religion Points") + "</b>: " + rp + "\n"
-                + string.Format(blood
+            var sb = _incomeSb;
+            sb.Clear();
+            sb.Append("<b>").Append(Loc.T("Religion Points")).Append(": ").Append(rp);
+            if (rpPerMinute >= 0.05f)
+                sb.Append("   +").Append(FormatRate(rpPerMinute)).Append(Loc.T("/min"));
+            sb.Append("</b>");
+            if (templePts > 0f)
+                sb.Append('\n').Append(Loc.T("Temple of Ridan")).Append(" - ")
+                  .Append(string.Format(Loc.T("{0} points/min"), FormatRate(templePts)));
+            if (monumentPts > 0f)
+                sb.Append('\n').Append(string.Format(Loc.T("Monuments held ({0})"), monuments)).Append(" - ")
+                  .Append(string.Format(Loc.T("{0} points/min"), FormatRate(monumentPts)));
+            if (sanctumRp > 0f)
+                sb.Append('\n').Append(string.Format(Loc.T("Sanctums held ({0})"), sanctums)).Append(" - ")
+                  .Append(string.Format(Loc.T("{0} RP/min"), FormatRate(sanctumRp)));
+            sb.Append('\n').Append(string.Format(blood
                     ? Loc.T("Drawing blood pays points: every kill and every sacrifice, more at the Blood Altar. {0}/{1} toward the next Religion Point.")
                     : Loc.T("Killing curse units pays points — {0}/{1} toward the next Religion Point."),
-                    have, need)
-                + "\n<i>" + Loc.T("Spent on the Temple, chapels, sect powers and sect heroes.") + "</i>";
+                    have, need));
+            if (rpPerMinute >= 0.05f)
+                sb.Append("\n<i>").Append(Loc.T("The coloured number under the amount is the income per minute.")).Append("</i>");
+            sb.Append("\n<i>").Append(Loc.T("Spent on the Temple, sects, sect powers and sect heroes.")).Append("</i>");
+            _religionTip = sb.ToString();
+        }
+
+        /// <summary>"0.8" below ten, whole above — the rate line's format.</summary>
+        private static string FormatRate(float v)
+            => v < 10f
+                ? (Mathf.Round(v * 10f) / 10f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                : Mathf.RoundToInt(v).ToString();
+
+        /// <summary>How many monuments this faction holds right now.</summary>
+        private static int MonumentsHeldBy(EntityManager em, Faction faction)
+        {
+            using var all = TheWaningBorder.Entities.Monument.All(em, Allocator.Temp);
+            int n = 0;
+            for (int i = 0; i < all.Length; i++)
+                if (em.GetComponentData<MonumentState>(all[i]).Holder == faction) n++;
+            return n;
         }
 
         /// <summary>

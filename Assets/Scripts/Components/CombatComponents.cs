@@ -151,6 +151,19 @@ public struct UnitTagsData : IComponentData
 }
 
 /// <summary>
+/// What one melee hit of this unit does to a building — the AoE4 torch
+/// (decision 79; docs/Design/Combat_Pacing.md § Buildings). From the unit
+/// SO's torchDamage, stamped by UnitFactory on every unit that has an SO.
+/// CombatDamageHelper.ScaleVsBuilding swaps it in for the unit's damage when
+/// a melee hit lands on a building. A unit without it (no SO) hits a
+/// building with its normal damage.
+/// </summary>
+public struct TorchDamage : IComponentData
+{
+    public int Value;
+}
+
+/// <summary>
 /// Flat bonus damage vs target tags, from the unit SO's bonusVsTags list
 /// (added after armor, armor-ignoring — see CombatModifiers). Up to four
 /// (tag-mask, amount) pairs; unused slots have Mask == 0.
@@ -164,15 +177,27 @@ public struct BonusVsTags : IComponentData
 
     public bool IsEmpty => Mask0 == 0 && Mask1 == 0 && Mask2 == 0 && Mask3 == 0;
 
-    /// <summary>Sum of the bonus amounts whose tag mask intersects the target's tags.</summary>
+    /// <summary>Sum of the bonus amounts whose tags the target carries ALL of:
+    /// a single tag ("Cavalry") or a compound one ("Light+Infantry", 2026-11-17
+    /// — the Archer's bonus is against LIGHT infantry, not the Swordsman).</summary>
     public int AmountAgainst(uint targetMask)
     {
         int bonus = 0;
-        if ((Mask0 & targetMask) != 0) bonus += Amount0;
-        if ((Mask1 & targetMask) != 0) bonus += Amount1;
-        if ((Mask2 & targetMask) != 0) bonus += Amount2;
-        if ((Mask3 & targetMask) != 0) bonus += Amount3;
+        if (Mask0 != 0 && (Mask0 & targetMask) == Mask0) bonus += Amount0;
+        if (Mask1 != 0 && (Mask1 & targetMask) == Mask1) bonus += Amount1;
+        if (Mask2 != 0 && (Mask2 & targetMask) == Mask2) bonus += Amount2;
+        if (Mask3 != 0 && (Mask3 & targetMask) == Mask3) bonus += Amount3;
         return bonus;
+    }
+
+    /// <summary>Add <paramref name="add"/> to every bonus this unit has (the
+    /// building level-ups' "+N bonus damage", decision 71).</summary>
+    public void AddToAll(int add)
+    {
+        if (Mask0 != 0) Amount0 += add;
+        if (Mask1 != 0) Amount1 += add;
+        if (Mask2 != 0) Amount2 += add;
+        if (Mask3 != 0) Amount3 += add;
     }
 }
 
@@ -216,8 +241,15 @@ public static class UnitTagParse
         for (int i = 0; i < list.Count && slot < 4; i++)
         {
             if (list[i] == null) continue;
-            uint mask = Tag(list[i].vsTag);
-            if (mask == 0) continue;
+            uint mask = 0;
+            bool unknown = false;
+            foreach (var part in (list[i].vsTag ?? "").Split('+'))
+            {
+                uint bit = Tag(part.Trim());
+                if (bit == 0) { unknown = true; break; }
+                mask |= bit;
+            }
+            if (unknown || mask == 0) continue;
             int amount = (int)System.Math.Round(list[i].amount);
             if (amount == 0) continue;
             switch (slot)

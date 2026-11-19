@@ -3,12 +3,14 @@
 //   * CleanseWardVisual builds the ward's view from the prefab on
 //     CleanseWardSystem.asset (PresentationSpawnSystem's authored branch),
 //     with a plain stone-and-crystal stand-in when the slot is empty;
-//   * CleanseWardVfx plays the pulse aura: a one-shot ring at every ward whose
-//     PulseCount moved since the last poll, scaled to the circle's radius —
-//     the same tick the ground was cleared, so the curse retreats with the
-//     burst.
+//   * CleanseWardVfx keeps the ward's calm blue aura (2026-11-18: a blue copy
+//     of the Field Hospital's healing-area loop, CleanseWard_Aura.prefab,
+//     replacing the old per-pulse burst rings) looping on every standing
+//     ward, sized to its clean circle and growing with it, and plays that aura
+//     once where a Cleanse Pulse lands. Prefab, authored radius and fade are on
+//     CleanseWardSystem.asset.
 // Presentation only: reads CleanseWardState, writes nothing the simulation
-// reads. A ward is drawn only when its view is visible (fog).
+// reads. The aura is parented to the ward's view, so fog hides it with it.
 
 using System.Collections.Generic;
 using Unity.Collections;
@@ -61,7 +63,7 @@ namespace TheWaningBorder.Rendering
 
     /// <summary>
     /// A Cleanse Pulse has no entity for the presentation to poll, so its one
-    /// burst is posted here by the executor and drained by CleanseWardVfx.
+    /// aura is posted here by the executor and drained by CleanseWardVfx.
     /// Presentation only: nothing the simulation reads.
     /// </summary>
     public static class CleansePulseSignals
@@ -86,7 +88,7 @@ namespace TheWaningBorder.Rendering
 
     public sealed class CleanseWardVfx : MonoBehaviour
     {
-        private readonly Dictionary<Entity, int> _seenPulse = new();
+        private readonly Dictionary<Entity, (GameObject Fx, float Radius)> _live = new();
         private readonly HashSet<Entity> _alive = new();
         private readonly List<Entity> _scratch = new();
         private EntityQuery _wards;
@@ -101,17 +103,17 @@ namespace TheWaningBorder.Rendering
             var world = EntityWorld.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated) return;
             var em = world.EntityManager;
+            float authored = Mathf.Max(0.1f, cfg.auraAuthoredRadius);
 
-            // Cleanse Pulses: the same aura and burst, heard and seen only
-            // where the local player can see the ground.
+            // Cleanse Pulses: the aura played once, seen and heard only where
+            // the local player can see the ground.
             while (CleansePulseSignals.TryTake(out var pulseAt, out float pulseRadius))
             {
                 if (!TheWaningBorder.World.FogOfWar.FactionSight.CanSee(
                         em, GameSettings.LocalPlayerFaction, pulseAt, false)
                     && !GameSettings.IsSpectating) continue;
-                if (cfg.pulsePrefab != null)
-                    VfxSpawn.OneShot(cfg.pulsePrefab, transform, pulseAt,
-                        pulseRadius / Mathf.Max(0.1f, cfg.pulseAuthoredRadius));
+                if (cfg.auraPrefab != null)
+                    VfxSpawn.OneShot(cfg.auraPrefab, transform, pulseAt, pulseRadius / authored);
                 CleanseSfx.PlayBurst(pulseAt);
             }
 
@@ -120,31 +122,54 @@ namespace TheWaningBorder.Rendering
                 _wards = new EntityQueryBuilder(Allocator.Temp)
                     .WithAll<CleanseWardTag, CleanseWardState>().Build(em);
                 _queryOwner = em;
-                _seenPulse.Clear();
+                Clear();
             }
 
+            // Wards: one looping aura each, as the Field Hospital wears its
+            // own, resized when the clean circle grows.
             _alive.Clear();
-            using (var ents = _wards.ToEntityArray(Allocator.Temp))
-            using (var states = _wards.ToComponentDataArray<CleanseWardState>(Allocator.Temp))
-                for (int i = 0; i < ents.Length; i++)
-                {
-                    var e = ents[i];
-                    _alive.Add(e);
-                    int count = states[i].PulseCount;
-                    bool known = _seenPulse.TryGetValue(e, out int last);
-                    _seenPulse[e] = count;
-                    // A ward seen for the first time plays nothing: its landing
-                    // burst is the cast's own effect.
-                    if (!known || count == last) continue;
-                    if (cfg.pulsePrefab == null) continue;
-                    if (!VfxSpawn.TryVisibleView(e, out var view) || view == null) continue;
-                    float scale = states[i].Radius / Mathf.Max(0.1f, cfg.pulseAuthoredRadius);
-                    VfxSpawn.OneShot(cfg.pulsePrefab, view.transform, VfxSpawn.Foot(view), scale);
-                }
+            if (cfg.auraPrefab != null)
+                using (var ents = _wards.ToEntityArray(Allocator.Temp))
+                using (var states = _wards.ToComponentDataArray<CleanseWardState>(Allocator.Temp))
+                    for (int i = 0; i < ents.Length; i++)
+                    {
+                        var e = ents[i];
+                        if (EntityViewManager.Instance == null
+                            || !EntityViewManager.Instance.TryGetView(e, out var view) || view == null) continue;
+                        _alive.Add(e);
+                        float radius = states[i].Radius;
+                        if (_live.TryGetValue(e, out var live) && live.Fx != null
+                            && live.Fx.transform.parent == view.transform)
+                        {
+                            if (!Mathf.Approximately(live.Radius, radius))
+                            {
+                                VfxSpawn.SetWorldScale(live.Fx.transform,
+                                    cfg.auraPrefab.transform.localScale * (radius / authored));
+                                _live[e] = (live.Fx, radius);
+                            }
+                            continue;
+                        }
+                        if (live.Fx != null) Destroy(live.Fx);
+                        var fx = VfxSpawn.Spawn(cfg.auraPrefab, view.transform, VfxSpawn.Foot(view),
+                                                radius / authored, loop: true);
+                        _live[e] = (fx, radius);
+                    }
 
             _scratch.Clear();
-            foreach (var kv in _seenPulse) if (!_alive.Contains(kv.Key)) _scratch.Add(kv.Key);
-            foreach (var e in _scratch) _seenPulse.Remove(e);
+            foreach (var kv in _live) if (!_alive.Contains(kv.Key)) _scratch.Add(kv.Key);
+            foreach (var e in _scratch)
+            {
+                VfxSpawn.FadeOut(_live[e].Fx, Mathf.Max(0f, cfg.auraFadeSeconds));
+                _live.Remove(e);
+            }
         }
+
+        private void Clear()
+        {
+            foreach (var live in _live.Values) if (live.Fx != null) Destroy(live.Fx);
+            _live.Clear();
+        }
+
+        void OnDestroy() => Clear();
     }
 }

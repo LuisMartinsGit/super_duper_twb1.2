@@ -1735,20 +1735,18 @@ namespace TheWaningBorder.Multiplayer
                     if (LogCommands) TWBLog.Log($"[Lockstep] Executed DeleteEntity from player {cmd.PlayerIndex}");
                     break;
 
-                case LockstepCommandType.SetMarketRate:
-                    // EntityNetworkId: the Market. TargetEntityId: iron a minute.
-                    // SecondaryTargetId: veilstone a minute (decision 55).
+                case LockstepCommandType.MarketTrade:
+                    // EntityNetworkId: the Market. TargetEntityId: the good
+                    // (+2 = a sale). SecondaryTargetId: lots (decision 67).
                     if (entity != Entity.Null)
-                        CommandRouter.SetMarketRateDirect(em, entity, cmd.TargetEntityId, cmd.SecondaryTargetId);
-                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetMarketRate from player {cmd.PlayerIndex}");
+                        CommandRouter.MarketTradeDirect(em, entity, cmd.TargetEntityId, cmd.SecondaryTargetId);
+                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed MarketTrade from player {cmd.PlayerIndex}");
                     break;
 
-                case LockstepCommandType.SetMarketSurplus:
-                    // EntityNetworkId: the Market. TargetEntityId: the supplies
-                    // it keeps. SecondaryTargetId: surplus mode (decision 59).
-                    if (entity != Entity.Null)
-                        CommandRouter.SetMarketSurplusDirect(em, entity, cmd.TargetEntityId, cmd.SecondaryTargetId != 0);
-                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SetMarketSurplus from player {cmd.PlayerIndex}");
+                case LockstepCommandType.RetiredSetMarketRate:
+                case LockstepCommandType.RetiredSetMarketSurplus:
+                    // The Market's rates and surplus mode were removed
+                    // (decision 67, 2026-11-16). They do nothing.
                     break;
 
                 case LockstepCommandType.RetiredSetExtractorStopped:
@@ -1889,9 +1887,8 @@ namespace TheWaningBorder.Multiplayer
                     break;
 
                 case LockstepCommandType.SectShardrootAlloc:
-                    CommandRouter.SectShardrootAllocDirect(em, (Faction)cmd.EntityNetworkId,
-                        cmd.BuildingId, cmd.TargetEntityId != 0);
-                    if (LogCommands) TWBLog.Log($"[Lockstep] Executed SectShardrootAlloc from player {cmd.PlayerIndex}");
+                    // Retired 2026-11-18 (decision 80: the Temple's chapel
+                    // slots are gone). Kept as a no-op so old replays parse.
                     break;
 
                 case LockstepCommandType.Corrupt:

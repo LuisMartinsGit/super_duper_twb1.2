@@ -6,9 +6,10 @@
 // rate are IdleBuilderButton.asset.
 //
 // DOCKED (2026-10-16): GameUIManager moves it into the resource panel's
-// Housing row, beside the housing count (DockInto), where it reads as a big
-// count over "Idle". The free-floating placement stays the fallback for a
-// HUD without the resource panel.
+// Housing row (DockInto). Since 2026-11-18 it is a one-line "3 Idle" bar
+// under the housing count, spanning the resource rows' icon and amount
+// columns, sized to fit the row. The free-floating placement stays the
+// fallback for a HUD without the resource panel.
 
 using TMPro;
 using UnityEngine;
@@ -37,18 +38,31 @@ namespace TheWaningBorder.UI.Ingame
         private void OnDestroy() { if (Instance == this) Instance = null; }
 
         /// <summary>
-        /// Move the button into the resource panel's Housing row and shift the
-        /// housing icon + count to the other half, so the two sit side by side.
+        /// Move the button into the resource panel's Housing row. The row is
+        /// laid out like the resource rows below it (2026-11-18): the housing
+        /// icon in their icon column and the count in their amount column on
+        /// the upper line, the button under them spanning both columns.
         /// </summary>
         public void DockInto(RectTransform housingRow)
         {
             if (housingRow == null) return;
             foreach (RectTransform child in housingRow)
             {
-                var p = child.anchoredPosition;
-                child.anchoredPosition = new Vector2(Cfg.housingShiftX, p.y);
-                if (child.GetComponent<TMP_Text>() != null)
-                    child.sizeDelta = new Vector2(Cfg.housingLabelWidth, child.sizeDelta.y);
+                child.anchorMin = child.anchorMax = child.pivot = new Vector2(0.5f, 0.5f);
+                var text = child.GetComponent<TMP_Text>();
+                if (text != null)
+                {
+                    child.anchoredPosition = Cfg.housingLabelCenter;
+                    child.sizeDelta = Cfg.housingLabelSize;
+                    text.horizontalAlignment = HorizontalAlignmentOptions.Left;
+                    text.verticalAlignment = VerticalAlignmentOptions.Middle;
+                    text.textWrappingMode = TextWrappingModes.NoWrap;
+                }
+                else
+                {
+                    child.anchoredPosition = Cfg.housingIconCenter;
+                    child.sizeDelta = Cfg.housingIconSize;
+                }
             }
 
             _root.SetParent(housingRow, false);
@@ -56,7 +70,6 @@ namespace TheWaningBorder.UI.Ingame
             _root.anchoredPosition = Cfg.dockedCenter;
             _root.sizeDelta = Cfg.dockedSize;
             _label.fontSize = Cfg.dockedFontSize;
-            _label.lineSpacing = -20f;
             _docked = true;
             _count = -1;
             Refresh();
@@ -101,7 +114,7 @@ namespace TheWaningBorder.UI.Ingame
             if (n == _count) return;
             _count = n;
             _label.text = _docked
-                ? n + "\n<size=55%>" + Loc.T("Idle") + "</size>"
+                ? n + " <size=70%>" + Loc.T("Idle") + "</size>"
                 : string.Format(Loc.T("Idle builders: {0}"), n);
             _label.color = n > 0 ? GameUIKit.Gold : GameUIKit.TextDim;
         }

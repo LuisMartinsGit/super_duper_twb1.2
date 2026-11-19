@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Slinger
   displayName: Slinger
   unitClass: human_ranged
-  hp: 130
+  hp: 100
   speed: 6.4
   trainingTime: 20
   damage: 16

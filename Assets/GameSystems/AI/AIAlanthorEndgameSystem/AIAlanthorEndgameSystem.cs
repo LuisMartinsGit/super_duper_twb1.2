@@ -362,11 +362,9 @@ namespace TheWaningBorder.AI
                 //    layer, 2026-10-03 — see AIAlanthorEndgameSystem.Military.cs.)
 
                 // ─── 7b. Sect units ───────────────────────────────────
-                // Canon trains the sect unit at the SECT BUILDING; the chapel
-                // path stays for the sects that have no building yet
-                // (docs/Design/Sects.md section 1; cap 2 per sect).
+                // The sect unit trains at the SECT BUILDING (docs/Design/
+                // Sects.md section 1); the Temple's chapels are gone.
                 TryTrainSectUnitsAtSectBuildings(faction, em);
-                TryTrainSectUnits(faction, em);
 
                 // ─── 8. Worker flee ───────────────────────────────────
                 HandleWorkerFlee(faction, em, hallPos, time);

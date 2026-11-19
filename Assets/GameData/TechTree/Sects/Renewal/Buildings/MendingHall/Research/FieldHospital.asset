@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: FieldHospital
   m_EditorClassIdentifier: 
   id: FieldHospital
-  displayName: Field Hospital
+  displayName: Healing Ward
   role: Support
   effect: 
-  desc: "Sect of Renewal. Unlocks the Deploy Field Hospital ability for Litharchs: a temporary building that heals nearby allied units, then destroys itself after 2 minutes. 300 s cooldown."
+  desc: "Sect of Renewal. Your Litharchs learn to cast the Healing Ward spell: the Litharch plants a small ward that slowly heals nearby allied units until it is destroyed. The ward is fragile: a single blow breaks it. Each Litharch recharges it on its own."
   researchAt: Sect_MendingHall
   minBuildingLevel: 0
   researchTime: 45

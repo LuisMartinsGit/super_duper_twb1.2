@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: VeilstoneBrigandine
   m_EditorClassIdentifier: 
   id: VeilstoneBrigandine
-  displayName: Veilstone Brigandine
+  displayName: Chainmail Brigandine
   role: Military
   effect: 
-  desc: "Ranged armour tier 2: +2 defense to all ranged units."
+  desc: "+1 ranged armour for every unit."
   researchAt: ArcheryRange
   minBuildingLevel: 2
   researchTime: 40
@@ -24,9 +24,9 @@ MonoBehaviour:
   - IronBrigandine
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 150
-    Veilstone: 120
+    Supplies: 150
+    Iron: 100
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -35,7 +35,7 @@ MonoBehaviour:
     rangedDamageAdd: 0
     archerRangeMult: 0
   effectsList:
-  - Target: "type:Ranged"
-    Stat: DefenseAll
+  - Target: "type:All"
+    Stat: DefenseRanged
     Op: Add
-    Value: 2
+    Value: 1

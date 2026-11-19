@@ -577,8 +577,8 @@ namespace TheWaningBorder.Systems.Navigation
                     float edge = TheWaningBorder.Core.TargetGeometry
                         .SurfaceDistXZ(myP, tgtPos, tgt.Value, in Sizes, in Radii);
                     // Halt only inside the FIRING band. Below min range the
-                    // unit must stay mobile or RangedCombat's retreat order
-                    // would be arrived-out right here every frame.
+                    // combat system drops the target (no retreat since
+                    // 2026-11-18), so there is nothing to halt for.
                     if (edge <= maxRange && edge >= minRange)
                     {
                         dd.Has = 0;

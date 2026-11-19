@@ -51,6 +51,11 @@ namespace TheWaningBorder.Economy
         public int[] sectStepRp;
         /// <summary>RP each sect line unit costs, on top of its resources (Religion.md §4).</summary>
         public int sectUnitRp;
+
+        /// <summary>False: no sect line unit or sect hero can be trained or
+        /// summoned (the Petriarchy's Army included). Set off on 2026-11-17
+        /// while the sect units still carry their pre-decision-71 stats.</summary>
+        public bool sectUnitsEnabled;
         /// <summary>RP the AI keeps for chapels and levels before buying sect units.</summary>
         public int aiSectUnitRpReserve;
 

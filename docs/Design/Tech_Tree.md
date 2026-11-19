@@ -322,14 +322,14 @@ flowchart TB
         a_h_note["(provides population)"]
     end
 
-    subgraph Farm_A["Farm (decisions 55, 57; L1-L3, crop ring, max 6)"]
+    subgraph Farm_A["Farm (decisions 55, 57; L1-L3, crop ring, max 4)"]
         direction TB
         a_farm_note["(holds up to 5 Workers;<br/>supplies per Worker inside)"]
     end
 
-    subgraph Mkt_A["Market (decision 55; no levels, one per player)"]
+    subgraph Mkt_A["Market (decision 67; no levels, one per player)"]
         direction TB
-        a_mkt_note["(buys iron and veilstone<br/>for supplies at fixed prices;<br/>player sets both rates)"]
+        a_mkt_note["(buys and sells supplies and iron<br/>for veilstone, by the lot;<br/>prices shared by every player)"]
     end
 
     subgraph WT_A["Watch Tower L1-L3"]

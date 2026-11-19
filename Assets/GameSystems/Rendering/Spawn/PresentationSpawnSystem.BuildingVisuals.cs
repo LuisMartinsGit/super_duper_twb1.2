@@ -17,7 +17,6 @@
 //     culture complete, type has a ladder  -> that culture's BuildingLevelDefSO prefab
 //     culture complete, no ladder          -> the BuildingDefSO's culturePrefabs entry
 //     no culture yet (Age 0)               -> the BuildingDefSO's prefab
-//     a sect chapel                        -> ChapelArt.asset (chapels are not catalog buildings)
 //
 // No multi-variant branches, no procedural builders, no Resources ladder.
 // A building whose SO has no model is a DATA bug: logged once per SO, drawn
@@ -77,14 +76,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             return true;
         }
 
-        if (em.HasComponent<ChapelTag>(e))
-        {
-            string sect = em.GetComponentData<ChapelTag>(e).SectId.ToString();
-            prefab = ChapelArt.For(sect);
-            if (prefab == null) ReportMissing("ChapelArt: " + sect);
-            return true;
-        }
-
         string id = TheWaningBorder.Entities.BuildingIds.Of(e, em);
         if (string.IsNullOrEmpty(id) && em.HasComponent<PresentationId>(e))
             id = TechCatalog.BuildingIdForPresentation(em.GetComponentData<PresentationId>(e).Id);
@@ -107,8 +98,8 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     /// The model a <paramref name="buildingId"/> built now by
     /// <paramref name="faction"/> will show once it finishes: its completed
     /// culture and the faction-wide level of the type (FactionBuildingLevels;
-    /// L1 when none is recorded, a ladderless building's culture look at 1),
-    /// a chapel's ChapelArt. The placement ghost, the plan, the site and the
+    /// L1 when none is recorded, a ladderless building's culture look at 1).
+    /// The placement ghost, the plan, the site and the
     /// finished building all use it.
     /// </summary>
     public static bool ResolveFinishedVisual(EntityManager em, string buildingId, Faction faction,
@@ -122,13 +113,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     {
         prefab = null; missing = null;
         if (string.IsNullOrEmpty(buildingId)) { missing = "(no building id)"; return false; }
-        if (buildingId.StartsWith("Chapel_"))
-        {
-            string sect = buildingId.Substring("Chapel_".Length);
-            prefab = ChapelArt.For(sect);
-            if (prefab == null) missing = "ChapelArt: " + sect;
-            return prefab != null;
-        }
         string ladder = string.IsNullOrEmpty(ladderId) ? buildingId : ladderId;
         byte culture = CultureConfig.GetCompletedCulture(em, faction);
         int level = 0;

@@ -9,7 +9,7 @@
 // number it gets from here. Concentrating the numbers in one file is what keeps
 // them greppable when the design doc moves.
 //
-// Shipped so far: the four Alanthor researches (Cartography, Field Hospital,
+// Shipped so far: the four Alanthor researches (Cartography, Healing Ward,
 // Deep Foundations, Charter of Works — Sects.md §4, 2026-10-15) and War's.
 // The remaining seven land with their clusters' passes.
 //
@@ -24,7 +24,7 @@ namespace TheWaningBorder.Economy
     {
         // ── Tech ids. Must match the TechDefSO ids in TechTreeCatalog ──
         public const string Cartography      = "Cartography";      // Antiquity
-        public const string FieldHospital    = "FieldHospital";    // Renewal
+        public const string FieldHospital    = "FieldHospital";    // Renewal: the Healing Ward (id kept for saves / replays)
         public const string DeepFoundations  = "DeepFoundations";  // Fortitude
         public const string CharterOfWorks   = "CharterOfWorks";   // Prosperity
         public const string EndlessMuster    = "EndlessMuster";    // War
@@ -52,13 +52,13 @@ namespace TheWaningBorder.Economy
         /// <summary>Research COST multiplier (the retired Royal Index; neutral).</summary>
         public static float ResearchCostMultiplier(Faction faction) => 1f;
 
-        // ── Renewal: Field Hospital ───────────────────────────────────────────
-        // "Your Litharchs unlock Deploy Field Hospital."
+        // ── Renewal: Healing Ward (tech id FieldHospital) ─────────────────────
+        // "Your Litharchs unlock the Healing Ward."
         //
         // The only sect research that is a pure UNLOCK rather than a number, so
         // it has no multiplier here. Its consumers are the two ability-grant
         // sites that both read the raw tech id: TechEffectSystem's
-        // GrantLitharchFieldHospital (re-arms Litharchs already on the field the
+        // GrantLitharchHealingWard (re-arms Litharchs already on the field the
         // moment it finishes) and ApplySpawnPassives (arms every Litharch
         // trained after). The id constant lives here anyway so the twelve sect
         // researches stay greppable from one place.
@@ -76,7 +76,7 @@ namespace TheWaningBorder.Economy
         /// <summary>
         /// Multiplier on construction SPEED (higher is faster). Deep Foundations
         /// is the only sect research that touches construction now that Renewal
-        /// sells Field Hospital instead of Mason's Charter, so this applies to
+        /// sells the Healing Ward instead of Mason's Charter, so this applies to
         /// defensive structures only.
         /// </summary>
         public static float ConstructionSpeedMultiplier(Faction faction, string buildingId)

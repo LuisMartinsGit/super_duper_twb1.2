@@ -16,15 +16,15 @@ MonoBehaviour:
   displayName: Stone Shot
   role: Military Offense
   effect: 
-  desc: "Munition tier 1: siege engines gain +2 damage."
-  researchAt: Alanthor_SiegeYard
-  minBuildingLevel: 0
-  researchTime: 25
+  desc: "+5 damage for every siege engine."
+  researchAt: SiegeYard
+  minBuildingLevel: 1
+  researchTime: 30
   prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 80
-    Iron: 0
+    Supplies: 75
+    Iron: 30
     Veilstone: 0
   effects:
     gatherSpeedMult: 0
@@ -37,4 +37,4 @@ MonoBehaviour:
   - Target: "type:Siege"
     Stat: Damage
     Op: Add
-    Value: 2
+    Value: 5

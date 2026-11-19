@@ -5,11 +5,11 @@
 // drift apart in SHAPE while differing entirely in DATA: every number is
 // read from that building's own BuildingDefSO in this folder.
 //
-// Like the Field Hospital these are conjured, not placeable: no BuildCosts
+// Like the Healing Ward these are conjured, not placeable: no BuildCosts
 // entry, no worker-catalog row, and they spawn already finished, with no
 // UnderConstruction phase, because a fortification raised mid-fight that
 // then takes a minute to build would be useless in the fight it was cast
-// for. Unlike the Field Hospital they are PERMANENT: no lifetime, no
+// for. Like it, they are PERMANENT: no lifetime, no
 // self-demolition, no upgrade ladder. They stand until destroyed.
 //
 // Reached through BuildingFactory.Create(em, "<id>", ...) so the dispatcher

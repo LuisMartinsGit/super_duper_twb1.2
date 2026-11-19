@@ -47,8 +47,10 @@ namespace TheWaningBorder.Systems.Work
     [UpdateBefore(typeof(BuildCommandSystem))]
     public partial class PlannedBuildingSystem : SystemBase
     {
-        /// <summary>Same reach BuildCommandSystem uses to start building.</summary>
-        private const float BuildRange = 4f;
+        // The reach at which a plan breaks ground is the one BuildCommandSystem
+        // hands a job over at: BuildingConstructionSystem.asset handoverRange.
+        // The worker then walks on to its own spot outside the new site
+        // (BuilderStand), so one standing on the plan walks off it.
         /// <summary>Ownership sweep cadence.</summary>
         private const float SweepInterval = 1f;
         /// <summary>A plan that HAD a worker and lost it (death, a stuck plan
@@ -78,6 +80,9 @@ namespace TheWaningBorder.Systems.Work
             ResumeQueues(em);
 
             if (QC_Plans.Get(em, QT_Plans).IsEmptyIgnoreFilter) return;
+            var standCfg = BuildingConstructionSystemConfig.I;
+            if (standCfg == null) return;   // Require has logged the data bug
+            float handover = standCfg.handoverRange;
 
             var retarget = new NativeList<Entity>(Allocator.Temp);
             var retargetTo = new NativeList<Entity>(Allocator.Temp);
@@ -110,7 +115,7 @@ namespace TheWaningBorder.Systems.Work
                 }
                 else continue;   // a real site — BuildCommandSystem's job
 
-                if (TargetGeometry.SurfaceDistXZ(em, xf.ValueRO.Position, plan) > BuildRange) continue;
+                if (TargetGeometry.SurfaceDistXZ(em, xf.ValueRO.Position, plan) > handover) continue;
                 // A refused plan retries on its own cadence (PlannedBuildings.BreakGround).
                 if (em.GetComponentData<PlannedBuilding>(plan).NextBreakGroundAt > SimClock.Now) continue;
                 if (breakPlan.Contains(plan)) continue;

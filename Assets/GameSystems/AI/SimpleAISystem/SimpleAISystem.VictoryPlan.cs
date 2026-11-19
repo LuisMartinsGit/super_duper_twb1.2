@@ -71,7 +71,8 @@ namespace TheWaningBorder.AI
         {
             if (!Cfg.victoryPlanEnabled) return false;
             var p = VictoryPlanOf(faction);
-            if (p.Path == VictoryPath.Sanctums) return true;
+            // The Sanctum road walks through the waves since decision 68: its
+            // waves are sent at the Sanctums (TrySanctumObjective).
             if (p.Path != VictoryPath.Shardroot) return false;
             return p.HoldsArtifact || !ProfileOf(faction).VictoryMultiFocus;
         }
@@ -112,6 +113,16 @@ namespace TheWaningBorder.AI
             return true;
         }
 
+        /// <summary>On the Sanctum road and one Sanctum short of dominion: the
+        /// last Sanctum outranks finishing a beaten rival.</summary>
+        private bool SanctumRoadClose(Faction faction)
+        {
+            if (!Cfg.victoryPlanEnabled || VictoryPlanOf(faction).Path != VictoryPath.Sanctums) return false;
+            int sanctums = TerritoryResources.TerritoriesOf(RegionSeedMarker.ResourceType.Sanctum).Count;
+            int need = SanctumSystem.DominionNeeds(sanctums);
+            return need > 1 && SanctumSystem.HeldBy(faction) >= need - 1;
+        }
+
         // ── The decision ──────────────────────────────────────────────────
 
         private void TickVictoryPlan(EntityManager em, Entity brain, Faction faction, float now)
@@ -134,7 +145,7 @@ namespace TheWaningBorder.AI
             {
                 var f = (Faction)i;
                 if (f == faction || !Alliances.AreHostile(faction, f)) continue;
-                if (sanctums > 0 && SanctumSystem.HeldBy(f) >= sanctums) rivalDominion = true;
+                if (sanctums > 0 && SanctumSystem.HeldBy(f) >= SanctumSystem.DominionNeeds(sanctums)) rivalDominion = true;
             }
 
             // ── Forced: these leave no choice. ──
@@ -146,13 +157,21 @@ namespace TheWaningBorder.AI
                 forced = bound ? VictoryPath.Conquest : VictoryPath.Shardroot;
                 why = bound ? "our hero carries the Shardroot: it leads the war" : "we hold the Shardroot: fortify and ascend";
             }
-            else if (rivalHolds) { forced = VictoryPath.Conquest; why = "a rival holds the Shardroot: everyone against it"; }
+            // Only a REAL win threat forces the war (iteration 2, 2026-11-17): the
+            // ascension countdown. A rival merely carrying it (its hero is always a
+            // Shardbound King) forced every AI onto Conquest from minute ~13 in every
+            // match, so no AI ever walked the Sanctum road (155 forced switches in
+            // iterations 1-2). The carrier is still hunted by the all-in (§ 6o).
+            else if (rivalHolds && HostileCountdownRunning(em, faction))
+            { forced = VictoryPath.Conquest; why = "a rival is ascending with the Shardroot: everyone against it"; }
             else if (rivalDominion) { forced = VictoryPath.Sanctums; why = "a rival holds every Sanctum: take one back"; }
-            else if (FinishingVictim(faction, out _)) { forced = VictoryPath.Conquest; why = "a rival is beaten: finish it"; }
+            // …but not off a Sanctum road one Sanctum short of dominion (iteration 5,
+            // 2026-11-17): Blue held 2 of 3 and flipped Sanctums <-> Conquest five
+            // times in 14 minutes, closing neither road.
 
             plan.StrikeHome = false;
             float conquest = ConquestChance(em, brain, faction, plan);
-            float sanctum = sanctums > 0 ? Cfg.victorySanctumBase + (float)held / sanctums : 0f;
+            float sanctum = sanctums > 0 ? Cfg.victorySanctumBase + math.min(1f, (float)held / SanctumSystem.DominionNeeds(sanctums)) : 0f;
             float shardroot = found && !mine ? 0f : ShardrootChance(em, faction);
 
             float wc = conquest * row.victoryConquestWeight;

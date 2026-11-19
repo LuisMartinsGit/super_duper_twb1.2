@@ -258,8 +258,9 @@ valid/invalid colour.
 
 **Every ability or power that produces a building is placed like a normal
 building.** Today that is the Litharch's **Cleanse** (Cleansing Ward,
-[Territory_Claims.md §6.9.7](Territory_Claims.md)), **Deploy Field Hospital**
-(Sect of Renewal research), **Fortify** (Fortitude ★: Tower / Fortification /
+[Territory_Claims.md §6.9.7](Territory_Claims.md)), the **Healing Ward**
+(Sect of Renewal research, one cell; it was the Field Hospital until
+2026-11-18), **Fortify** (Fortitude ★: Tower / Fortification /
 Fortress) and **Plenty** (Prosperity ★: Counting House) —
 [Sects.md](Sects.md).
 
@@ -282,14 +283,14 @@ Fortress) and **Plenty** (Prosperity ★: Counting House) —
 | Ability | Ground it may stand on |
 |---|---|
 | Cleanse (ward) | geometry only (map edge, terrain, overlap, nodes, obstacles, own plans) — no territory gate and **cursed ground allowed**; within the card's reach; team cap and spacing |
-| Deploy Field Hospital | anywhere a building could stand (crust + geometry + own plans) — **no territory gate**, it goes where the fight is; within the card's reach; team cap and spacing |
+| Healing Ward | anywhere a building could stand (crust + geometry + own plans) — **no territory gate**, it goes where the fight is; within the card's reach; team cap and spacing; not while the faction's shared ward cooldown runs |
 | Fortify | **legal build ground**: every rule a worker's building answers to, **own territory** included |
 | Plenty | ground a building could stand on (crust + geometry + own plans) — no territory gate — and never on another Counting House |
 
 Code: `Shared/Buildings/AbilityBuildingSite` (snap + the shared test + the AI's
 nearest-legal search), `UI/World/GroundPlacement` + `AbilityBuildingGhost`
 (the ghost), and per ability `CleanseWard.SiteRefusal`,
-`FieldHospital.SiteRefusal`, `SectActivePowerHelper.RaisedSiteRefusal`.
+`HealingWard.SiteRefusal`, `SectActivePowerHelper.RaisedSiteRefusal`.
 
 ---
 

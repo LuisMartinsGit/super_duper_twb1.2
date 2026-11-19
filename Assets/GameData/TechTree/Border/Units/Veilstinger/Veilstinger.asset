@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Veilstinger
   displayName: Veilstinger
   unitClass: ranged
-  hp: 45
+  hp: 35
   speed: 4
   trainingTime: 35
   damage: 18
@@ -49,7 +49,9 @@ MonoBehaviour:
   aoeRadius: 0
   tags:
   - ranged
-  bonusVsTags: []
+  bonusVsTags:
+  - vsTag: Building
+    amount: 17
   preferTargets: []
   abilities:
   - Veil Offering

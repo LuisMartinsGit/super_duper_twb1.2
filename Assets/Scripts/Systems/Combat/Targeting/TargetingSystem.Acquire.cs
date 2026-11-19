@@ -46,6 +46,11 @@ namespace TheWaningBorder.Systems.Combat
             /// <summary>A preferred candidate counts only inside this — the
             /// unit's own attack reach — so a preference never drags it off.</summary>
             public float PreferReach;
+            /// <summary>The unit's own minimum range (ArcherState.MinRange;
+            /// siege only). A candidate closer than this is never picked — the
+            /// engine takes one it can actually shoot (Combat_Pacing.md §
+            /// Minimum range, 2026-11-18).</summary>
+            public float MinRange;
         }
 
         /// <summary>A unit's own attack reach, to the target's surface:
@@ -150,6 +155,8 @@ namespace TheWaningBorder.Systems.Combat
                 NonSiege = (byte)((!em.HasComponent<DamageTypeData>(e)
                     || em.GetComponentData<DamageTypeData>(e).Value != DamageType.Siege) ? 1 : 0),
                 HitRecently = (byte)(hitRecently ? 1 : 0),
+                MinRange = em.HasComponent<ArcherState>(e)
+                    ? math.max(0f, em.GetComponentData<ArcherState>(e).MinRange) : 0f,
             };
 
             float reach = math.min(los, AttackReach(em, e));
@@ -314,6 +321,30 @@ namespace TheWaningBorder.Systems.Combat
                     e.Leash = plan.Rules.Leash;
                     engRW[entity] = e;
 
+                    // RETALIATION ON THE MOVE (Stances.md §5a): the unit turns
+                    // on its attacker, so the move it was on ends here — the
+                    // player-move shield, the move command, its formation
+                    // slot (the same set an attack order clears) and its
+                    // destination. Its guard point becomes where it was hit:
+                    // it holds that ground once the fight is over. A unit
+                    // that may pursue (Aggressive) chases through an
+                    // AttackCommand, leashed from here like any auto
+                    // engagement; a Defensive / support one fights in reach.
+                    if (plan.Retaliate != 0)
+                    {
+                        TransientState.Clear<UserMoveOrder>(em, ecb, entity);
+                        TransientState.Clear<MoveCommand>(em, ecb, entity);
+                        TransientState.Clear<FormationMemberState>(em, ecb, entity);
+                        TransientState.Clear<FormationSpeedOverride>(em, ecb, entity);
+                        TransientState.Clear<FormationSlotMemory>(em, ecb, entity);
+                        if (em.HasComponent<DesiredDestination>(entity))
+                            ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
+                        TransientState.Set(ecb, entity, new GuardPoint { Position = plan.MyPos, Has = 1 });
+                        if (plan.Rules.Leash > 0f)
+                            TransientState.Set(ecb, entity, new AttackCommand { Target = bestTarget });
+                        continue;
+                    }
+
                     // Attack-move and patrol units also issue an AttackCommand so combat systems chase
                     // Do NOT clear DesiredDestination - unit resumes movement after combat.
                     // Not for a unit that may not chase (support on attack-move):
@@ -459,6 +490,7 @@ namespace TheWaningBorder.Systems.Combat
                             // TargetGeometry.SurfaceDistXZ, no EntityManager.
                             var dist = ec.SurfaceDist(myPos);
                             if (dist > rules.ScanRadius) continue;
+                            if (dist < rules.MinRange) continue;
 
                             if ((flags & FlagFlying) != 0 && !hitsAir) continue;
 

@@ -78,7 +78,7 @@ namespace TheWaningBorder.Abilities
         LosRampWhileStill = 12, // passive: line-of-sight grows while stationary (Scout Sight)
         ChargeDamagePct = 13,   // +Value% damage on the NEXT charge hit, for allied cavalry in radius (War Horn)
         DisarmWhileBuffed = 14, // the affected units cannot attack for the duration (Full Gallop's sprint)
-        DeployFieldHospital = 15, // spawn a temporary healing building at the caster (Litharch)
+        DeployHealingWard = 15,   // plant a Healing Ward at the aimed point (Litharch; was DeployFieldHospital)
         SummonPledgeArmy = 16,  // spawn a temporary army around the caster, scaled by hero level (Honour thy Pledge)
         FireRatePct = 17,       // +Value% fire rate for allied RANGED units in radius (Choreographed Volleys: 100 = double)
         ShardboundFury = 18,    // the Shardbound King hurls every enemy in radius skyward, damages buildings (ShardboundFury.Cast)
@@ -192,6 +192,16 @@ namespace TheWaningBorder.Abilities
         /// than no button. See docs/Design/Heroes.md §2.
         /// </summary>
         public int UnlocksAtLevel = 1;
+
+        /// <summary>
+        /// True when the ability is unavailable while the caster's faction is
+        /// still in Age 0 (2026-11-18, docs/Design/Age_0.md § Litharch: "no
+        /// abilities on age 0, only its default heal power"). Like the hero
+        /// level, a locked card is not castable and not shown. Read through
+        /// AbilityQuery.IsUnlocked only, so the bar, the cast path, the auto-
+        /// cast and the AI obey the same rule.
+        /// </summary>
+        public bool RequiresAgeUp;
 
         /// <summary>
         /// The effect played when this ability lands (AbilityDefSO.vfxPrefab,

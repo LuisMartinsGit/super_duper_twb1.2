@@ -15,36 +15,37 @@ MonoBehaviour:
   id: 'Alanthor_Outrider'
   displayName: 'Outrider'
   unitClass: 'human_cavalry'
-  hp: 150
-  speed: 8.2
+  hp: 130
+  speed: 6
   trainingTime: 15.4
-  damage: 12
+  damage: 9
   damageType: 'melee'
-  armorType: 'cavalry'
+  armorType: cavalry
   defense:
-    melee: 2
+    melee: 1
     ranged: 2
     siege: 0
     magic: 0
-  attackCooldown: 1.4
+  attackCooldown: 1.75
   attackRange: 1.6
   minAttackRange: 0
   lineOfSight: 34
   radius: 0.55
   cost:
-    Supplies: 250
-    Iron: 100
-    Crystal: 0
+    Supplies: 100
+    Iron: 20
+    Veilstone: 0
   populationCost: 1
-  minBuildingLevel: 1
+  minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
   carryCapacity: 0
   healsPerSecond: 0
   tags:
-  - 'Cavalry'
+  - Cavalry
   - Light
   bonusVsTags:
-  - vsTag: 'Ranged'
-    amount: 12
+  - vsTag: Ranged
+    amount: 9
+  torchDamage: 10
   presentationId: 349

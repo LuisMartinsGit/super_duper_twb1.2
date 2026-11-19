@@ -17,13 +17,13 @@ MonoBehaviour:
   role: Military
   effect: 
   desc: "Unlocks the War Horn active for Alanthor cavalry: allied cavalry within 15 m gain +50% damage on their next charge. 20 s window, 60 s cooldown."
-  researchAt: Alanthor_RoyalStable
-  minBuildingLevel: 2
-  researchTime: 35
+  researchAt: RoyalStable
+  minBuildingLevel: 1
+  researchTime: 30
   prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 173
+    Supplies: 120
     Iron: 60
     Veilstone: 0
   effects:

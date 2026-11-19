@@ -19,6 +19,7 @@
 
 using System.Collections.Generic;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Commands.Types;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -123,6 +124,70 @@ namespace TheWaningBorder.AI
             _kiteAnchor.Clear();
             _logNext.Clear();
             System.Array.Clear(_kiteCount, 0, _kiteCount.Length);
+            System.Array.Clear(_actions, 0, _actions.Length);
+            for (int i = 0; i < _actionsAt.Length; i++) _actionsAt[i] = double.NaN;
+            System.Array.Clear(_actionsRefused, 0, _actionsRefused.Length);
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // THE ACTION BUDGET (docs/Design/Game_AI.md § 6e, 2026-11-18)
+        // ─────────────────────────────────────────────────────────────────
+        // The AI's micro is paced like a player's hands: every micro order —
+        // a kiting pull-back, a unit ability cast, a per-unit re-target, a
+        // firing-line move, a flank — spends one action, and a tier earns
+        // actionsPerMinute of them, banking at most actionBurst. One order to
+        // a GROUP is one action, as one click is. The army's plain orders
+        // (march, attack the focus, fall back, give up) are not micro and
+        // cost nothing: a tier with no actions still fights.
+
+        private static readonly float[] _actions = new float[MaxFactions];
+        private static readonly double[] _actionsAt = InitNaN(MaxFactions);
+        private static readonly int[] _actionsRefused = new int[MaxFactions];
+
+        private static double[] InitNaN(int n)
+        {
+            var a = new double[n];
+            for (int i = 0; i < n; i++) a[i] = double.NaN;
+            return a;
+        }
+
+        /// <summary>Spend one micro action for <paramref name="f"/>; false
+        /// (nothing spent) when the budget is empty or f is not an AI.</summary>
+        public static bool TrySpendAction(EntityManager em, Faction f)
+        {
+            if (!TryGetSkill(em, f, out var skill)) return false;
+            int i = (int)f;
+            double now = Now(em);
+            float cap = math.max(1, skill.actionBurst);
+            if (double.IsNaN(_actionsAt[i])) _actions[i] = cap;   // a fight opens with a full hand
+            else _actions[i] = math.min(cap,
+                _actions[i] + (float)(now - _actionsAt[i]) * math.max(0f, skill.actionsPerMinute) / 60f);
+            _actionsAt[i] = now;
+            if (_actions[i] < 1f) { _actionsRefused[i]++; return false; }
+            _actions[i] -= 1f;
+            return true;
+        }
+
+        /// <summary>True when <paramref name="f"/> could spend an action now
+        /// (does not spend it).</summary>
+        public static bool HasAction(EntityManager em, Faction f)
+        {
+            if (!TryGetSkill(em, f, out var skill)) return false;
+            int i = (int)f;
+            if (double.IsNaN(_actionsAt[i])) return true;
+            float banked = math.min(math.max(1, skill.actionBurst),
+                _actions[i] + (float)(Now(em) - _actionsAt[i]) * math.max(0f, skill.actionsPerMinute) / 60f);
+            return banked >= 1f;
+        }
+
+        /// <summary>Micro orders refused for want of actions since the last call.</summary>
+        internal static int TakeRefusedActions(Faction f)
+        {
+            int i = (int)f;
+            if (i < 0 || i >= MaxFactions) return 0;
+            int n = _actionsRefused[i];
+            _actionsRefused[i] = 0;
+            return n;
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -263,6 +328,9 @@ namespace TheWaningBorder.AI
             }
         }
 
+        /// <summary>Forget a unit's kiting step (it was pulled back again).</summary>
+        internal static void ClearKiting(Entity e) => _kiteUntil.Remove(e);
+
         /// <summary>Kites issued for this faction since the last call.</summary>
         internal static int TakeKiteCount(Faction f)
         {
@@ -305,6 +373,34 @@ namespace TheWaningBorder.AI
             return math.max(0, dmg * 2 + hp.Value / 10);
         }
 
+        /// <summary>
+        /// Live strength AGAINST AN ARMY: <see cref="LiveStrength"/>, but 0
+        /// for a unit that cannot damage units at all (a buildings-only
+        /// engine — the Battering Ram). Its building damage made thirty Rams
+        /// read as a huge army, so the engage gate ignored a whole defending
+        /// army as "not worth leaving the march for" (2026-11-18).
+        /// </summary>
+        public static int StrengthVsArmy(EntityManager em, Entity e)
+        {
+            if (em.Exists(e) && em.HasComponent<BuildingsOnlyAttacker>(e)) return 0;
+            return LiveStrength(em, e);
+        }
+
+        /// <summary>A hostile that fights other units: armed (damage above
+        /// zero), not a worker, scout or economy unit, not a buildings-only
+        /// engine. What the engage floor counts.</summary>
+        public static bool IsCombatUnit(EntityManager em, Entity e)
+        {
+            if (!em.HasComponent<Damage>(e) || em.GetComponentData<Damage>(e).Value <= 0) return false;
+            if (em.HasComponent<WorkerTag>(e) || em.HasComponent<BuildingsOnlyAttacker>(e)) return false;
+            if (em.HasComponent<UnitTag>(e))
+            {
+                var c = em.GetComponentData<UnitTag>(e).Class;
+                if (c == UnitClass.Scout || c == UnitClass.Economy || c == UnitClass.Worker) return false;
+            }
+            return true;
+        }
+
         public static uint TagsOf(EntityManager em, Entity e)
             => em.HasComponent<UnitTagsData>(e) ? em.GetComponentData<UnitTagsData>(e).Mask : 0u;
 
@@ -318,6 +414,15 @@ namespace TheWaningBorder.AI
             if (!em.HasComponent<UnitTag>(e)) return false;
             var c = em.GetComponentData<UnitTag>(e).Class;
             return c == UnitClass.Siege || c == UnitClass.Support || c == UnitClass.Magic;
+        }
+
+        /// <summary>Is this unit's current target (or attack order) a building?</summary>
+        public static bool WorkingABuilding(EntityManager em, Entity e)
+        {
+            Entity t = TransientState.Active<AttackCommand>(em, e)
+                ? em.GetComponentData<AttackCommand>(e).Target
+                : em.HasComponent<Target>(e) ? em.GetComponentData<Target>(e).Value : Entity.Null;
+            return t != Entity.Null && em.Exists(t) && em.HasComponent<BuildingTag>(t);
         }
 
         /// <summary>A unit that fights hand to hand.</summary>
@@ -398,9 +503,17 @@ namespace TheWaningBorder.AI
             var hp = em.GetComponentData<Health>(e);
             float3 p = em.GetComponentData<LocalTransform>(e).Position;
             int dmg = em.HasComponent<Damage>(e) ? em.GetComponentData<Damage>(e).Value : 0;
+            // A BUILDINGS-ONLY ATTACKER (the Battering Ram) cannot hurt a unit
+            // (Game_AI.md § 6e, 2026-11-18): it is no danger and no prize to an
+            // army in a field fight, which used to pour its melee into a
+            // 400-500 HP engine while the enemy army cut it down. It counts
+            // again the moment it is working a building — a player kills the
+            // ram at the gate.
+            bool harmlessEngine = em.HasComponent<BuildingsOnlyAttacker>(e) && !WorkingABuilding(em, e);
+            if (harmlessEngine) dmg = 0;
             float danger = dmg * c.dangerScale;
             float finish = (hp.Max - hp.Value) * c.finishScale * skill.focusFireWeight;
-            float value = IsHighValue(em, e) ? c.highValueBonus * skill.focusFireWeight : 0f;
+            float value = !harmlessEngine && IsHighValue(em, e) ? c.highValueBonus * skill.focusFireWeight : 0f;
             // WORKERS ARE HIGH-VALUE TARGETS (2026-10-07, Game_AI.md § 3b): a
             // flat bonus at every tier, outside focusFireWeight — killing the
             // builders stops the rebuild, whatever the tier's focus skill.

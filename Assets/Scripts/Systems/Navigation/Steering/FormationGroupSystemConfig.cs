@@ -68,5 +68,29 @@ namespace TheWaningBorder.Systems.Navigation
         /// <summary>An AI re-order to within this many metres of where a marching
         /// formation already goes changes nothing: the formation keeps marching.</summary>
         public float repeatOrderKeepRadius;
+
+        /// <summary>RE-FORM AFTER A NARROW SPOT (2026-11-17): a member further
+        /// than this many metres from its spot counts as out of formation.</summary>
+        public float columnLagMetres;
+
+        /// <summary>On open ground the leader waits while MORE than this share
+        /// of the members are out of formation (0 = it waits for every one).</summary>
+        public float columnWaitFraction;
+
+        /// <summary>The leader's speed while it waits, as a share of the group
+        /// speed (0 = it stands). A member that makes no progress toward its
+        /// spot is still dropped by the tether fuse, so a wedged unit cannot
+        /// hold an army forever.</summary>
+        public float columnWaitSpeed;
+
+        /// <summary>Share of the spots that must be passable ground for the
+        /// formation to count as OUT of a narrow spot (and so wait to re-form);
+        /// below it, the formation is squeezing through and walks on.</summary>
+        public float openGroundShare;
+
+        /// <summary>THE CONVOY WAITS (2026-11-17): a formation more than this
+        /// many metres nearer the destination than the hindmost formation of
+        /// the same split order walks at columnWaitSpeed until it is not.</summary>
+        public float convoyGapMetres;
     }
 }

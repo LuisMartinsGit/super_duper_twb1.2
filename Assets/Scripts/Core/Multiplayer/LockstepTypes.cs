@@ -74,7 +74,7 @@ namespace TheWaningBorder.Core.Multiplayer
         PlaceWallHub = 36,       // CommandRouter.IssuePlaceWallHub (faction in EntityNetworkId, autoBuild flag in TargetEntityId, position in TargetPosition)
         WallExtend = 37,         // CommandRouter.IssueWallExtend (source hub; snap hub network id in TargetEntityId or 0 for a new hub at TargetPosition; faction in SecondaryTargetId)
         Corrupt = 38,            // CommandRouter.IssueCorrupt (corruptor + node in TargetEntityId — the Feraldis verb; mirrors Purify)
-        SectShardrootAlloc = 39,      // CommandRouter.IssueSectShardrootAlloc (faction in EntityNetworkId, sect id in BuildingId, allocate flag in TargetEntityId — halves that sect's power cooldown, so peers must agree)
+        SectShardrootAlloc = 39,      // RETIRED 2026-11-18 (decision 80: no chapel slots) — a no-op, kept so old replays parse
         BazaarPack = 40,         // CommandRouter.IssueBazaarPack (bazaar + pack flag in TargetEntityId; BazaarPackSystem destroys the building and spawns the wagon, so it must run on every peer)
         VaultTransfer = 41,
         CancelProduction = 42,   // CommandRouter.IssueCancelProduction (building + slotIndex in TargetEntityId) — the research/level-up twin of CancelTrain      // CommandRouter.IssueVaultTransfer (vault; resource type + deposit flag packed in TargetEntityId, amount in SecondaryTargetId — bank + VaultStorage move on every peer)
@@ -93,8 +93,9 @@ namespace TheWaningBorder.Core.Multiplayer
         EnshrineShardroot = 56, // CommandRouter.IssueEnshrineShardroot (the Shardroot's bearer in EntityNetworkId, its own Temple of Ridan in TargetEntityId) — the bearer walks to the Temple and enshrines the artifact there; docs/Design/Curse_And_Shardroot.md § 3.1d
         BuildingAttack = 50,    // CommandRouter.IssueBuildingAttack (shooting building in EntityNetworkId, forced target in TargetEntityId; 0 = clear the order, i.e. Stop) — docs/Design/Combat_Pacing.md § Directed building fire
         DropShardroot = 58,     // CommandRouter.IssueDropShardroot (the bearer in EntityNetworkId) — the hero sets the Shardroot down safely; docs/Design/Heroes.md §4
-        SetMarketRate = 59,     // CommandRouter.IssueSetMarketRate (the Alanthor Market in EntityNetworkId; iron per minute in TargetEntityId, veilstone per minute in SecondaryTargetId) — what it buys changes what the faction spends and earns every second; docs/Design/Age_1_Alanthor.md § The Market (decision 55)
-        SetMarketSurplus = 60, // CommandRouter.IssueSetMarketSurplus (the Alanthor Market in EntityNetworkId; supplies kept in TargetEntityId, surplus mode 1/0 in SecondaryTargetId) — everything above the reserve becomes iron every second; decision 59
+        RetiredSetMarketRate = 59,     // the Market's per-minute rates, removed 2026-11-16 (decision 67); ignored on playback
+        RetiredSetMarketSurplus = 60,  // the Market's surplus mode, removed 2026-11-16 (decision 67); ignored on playback
+        MarketTrade = 61,       // CommandRouter.IssueMarketTrade (the Alanthor Market in EntityNetworkId; the good (0 supplies, 1 iron, +2 = a sale) in TargetEntityId; lots in SecondaryTargetId) - docs/Design/Age_1_Alanthor.md, The Market
         Resign = 57,            // CommandRouter.IssueResign (the resigning FACTION in EntityNetworkId) — the pause menu's Resign: EliminationSystem retires the faction on every peer at the same tick, exactly like an elimination, so the replay and every peer agree on when it left (2026-10-28)
     }
 

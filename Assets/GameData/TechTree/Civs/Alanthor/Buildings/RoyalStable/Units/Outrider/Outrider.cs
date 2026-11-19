@@ -52,9 +52,9 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new TheWaningBorder.Abilities.InnateChargePct { Pct = 30f });
             creator.AddComponent<CavalryTag>(entity);
 
-            creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Melee });
-            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Cavalry });
-            creator.AddComponent(entity, new Defense { Melee = 1, Ranged = 1, Siege = 0, Magic = 0 });
+            creator.AddComponent(entity, new DamageTypeData { Value = CombatTypeParse.Damage(def.damageType, DamageType.Melee) });
+            creator.AddComponent(entity, new ArmorTypeData { Value = CombatTypeParse.Armor(def.armorType, ArmorType.Cavalry) });
+            creator.AddComponent(entity, new Defense { Melee = def.defense.melee, Ranged = def.defense.ranged, Siege = def.defense.siege, Magic = def.defense.magic });
 
             // Royal Stable horn techs (War Horn / Full Gallop) are granted at spawn
             // when researched; TechEffectSystem back-fills cavalry already on the map.

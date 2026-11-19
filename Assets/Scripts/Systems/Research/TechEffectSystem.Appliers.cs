@@ -269,12 +269,13 @@ namespace TheWaningBorder.Systems.Research
             }
         }
 
-        /// <summary>Field Hospital (Sect of Renewal research, bought at the
-        /// Mending Hall) — grant the deploy ability to every existing Litharch
-        /// of the faction (new Litharchs pick it up at spawn).</summary>
-        private static void GrantLitharchFieldHospital(EntityManager em, Faction faction)
+        /// <summary>Healing Ward (Sect of Renewal research, tech id
+        /// FieldHospital, bought at the Mending Hall) — grant the ward ability
+        /// to every existing Litharch of the faction (new Litharchs pick it up
+        /// at spawn).</summary>
+        private static void GrantLitharchHealingWard(EntityManager em, Faction faction)
         {
-            int idx = TheWaningBorder.Abilities.AbilityCatalog.IndexOf("Deploy Field Hospital");
+            int idx = TheWaningBorder.Abilities.AbilityCatalog.IndexOf(TheWaningBorder.Entities.HealingWard.CardName);
             if (idx < 0) return;
             var query = QC_LitharchTagFactionTag.Get(em, QT_LitharchTagFactionTag);
             using var entities = query.ToEntityArray(Allocator.Temp);

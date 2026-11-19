@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_SunArcher
   displayName: Sun Archer
   unitClass: human_ranged
-  hp: 145
+  hp: 110
   speed: 5.8
   trainingTime: 26
   damage: 26

@@ -16,17 +16,17 @@ MonoBehaviour:
   displayName: Veilstone Plating
   role: Military
   effect: 
-  desc: "Siege armour tier 2: +2 defense to all siege engines."
-  researchAt: Alanthor_SiegeYard
+  desc: "+1 melee and +1 ranged armour for every siege engine."
+  researchAt: SiegeYard
   minBuildingLevel: 2
   researchTime: 40
   prerequisites:
   - IronPlating
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 150
-    Veilstone: 120
+    Supplies: 150
+    Iron: 100
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -35,7 +35,27 @@ MonoBehaviour:
     rangedDamageAdd: 0
     archerRangeMult: 0
   effectsList:
-  - Target: "type:Siege"
-    Stat: DefenseAll
+  - Target: "unit:Alanthor_Ballista"
+    Stat: DefenseMelee
     Op: Add
-    Value: 2
+    Value: 1
+  - Target: "unit:Alanthor_Catapult"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "unit:Alanthor_Trebuchet"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "unit:Alanthor_EmplacedBallista"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "unit:Alanthor_EmplacedTrebuchet"
+    Stat: DefenseMelee
+    Op: Add
+    Value: 1
+  - Target: "type:Siege"
+    Stat: DefenseRanged
+    Op: Add
+    Value: 1

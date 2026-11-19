@@ -15,7 +15,7 @@ MonoBehaviour:
   tier: 3
   thinkInterval: 0.25
   intelFreshnessSeconds: 20
-  firstAttackEarliestSeconds: 480
+  firstAttackEarliestSeconds: 360
   levelUpsFromSeconds: 0
   extractorGapSeconds: 0
   wasteBuildSeconds: 0
@@ -65,7 +65,7 @@ MonoBehaviour:
   savingsIncomeShare: 0.35
   savingsWrongObjectiveChance: 0
   economyUpgradesPerThink: 3
-  productionQueueDepth: 1
+  productionQueueDepth: 2
   protectAgeUpSavings: 0
   curseHuntMinCapitalLevel: 1
   vaultDepositShare: 0.85
@@ -77,6 +77,9 @@ MonoBehaviour:
   provinceProductionPerTerritory: 2
   productionSaturationThreshold: 0.5
   productionSaturationSeconds: 30
+  secureProvincesFirst: 1
+  unitRateAt10Min: 10
+  unitRateFrom20Min: 30
   economyDefenceDelaySeconds: 1
   economyDefenceMargin: 2
   tactics:
@@ -91,3 +94,6 @@ MonoBehaviour:
     aoeMinEnemies: 4
     healMinMissingFraction: 0.3
     pivotalRatio: 1.3
+    actionsPerMinute: 120
+    actionBurst: 12
+    reactionSeconds: 0.4

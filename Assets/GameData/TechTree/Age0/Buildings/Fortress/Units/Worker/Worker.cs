@@ -48,7 +48,16 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new Health { Value = (int)hp, Max = (int)hp });
             creator.AddComponent(entity, new MoveSpeed { Value = speed });
             creator.AddComponent(entity, new Damage { Value = (int)damage });
-            creator.AddComponent(entity, new CanBuild { Value = true });
+            // Work rates are the SO's (decision 2026-11-17: "Make a worker
+            // SO"); a zero is a data bug, loud at creation.
+            if (def.buildSpeed <= 0f || def.repairSpeed <= 0f)
+                UnityEngine.Debug.LogError("[Worker] Worker.asset buildSpeed / repairSpeed must be above zero.");
+            creator.AddComponent(entity, new CanBuild
+            {
+                Value = true,
+                BuildRate = def.buildSpeed,
+                RepairRate = def.repairSpeed,
+            });
             creator.AddComponent(entity, new LineOfSight { Radius = los });
             creator.AddComponent(entity, new Radius { Value = def.radius });
             creator.AddComponent(entity, new PopulationCost { Amount = def.populationCost });

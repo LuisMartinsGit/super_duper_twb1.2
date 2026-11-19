@@ -16,11 +16,11 @@ MonoBehaviour:
   displayName: Renewal Fortification
   role: Raise Anew II - a walled strongpoint, permanent, notably tougher than a tower
   description: 
-  hp: 1400
+  hp: 2800
   armorType: structure_human
   defense:
-    melee: 9
-    ranged: 16
+    melee: 0
+    ranged: 50
     siege: 2
     magic: 5
   radius: 4

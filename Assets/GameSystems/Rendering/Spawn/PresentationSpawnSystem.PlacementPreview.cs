@@ -3,7 +3,7 @@
 // docs/Design/Art_Direction.md § 13). The ghost shows the model the building
 // will take once it finishes for this faction: its completed culture, its
 // faction-wide level of the type (FactionBuildingLevels, Overview.md §
-// Building levels), a chapel's ChapelArt — ResolveFinishedVisual, the answer
+// Building levels) — ResolveFinishedVisual, the answer
 // the plan it leaves behind shows too. Null when the SO has no model.
 
 using UnityEngine;

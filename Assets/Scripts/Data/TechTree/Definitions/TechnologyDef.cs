@@ -95,7 +95,7 @@ namespace TheWaningBorder.Data
         /// ChargeRearmSeconds).</summary>
         public string Target;
 
-        /// <summary>"Hp" | "Damage" | "Speed" | "DefenseAll" | "AttackRange" | "AttackCooldown" | "LineOfSight".</summary>
+        /// <summary>"Hp" | "Damage" | "Speed" | "DefenseAll" | "DefenseMelee" | "DefenseRanged" | "BonusDamage" | "AttackRange" | "AttackCooldown" | "LineOfSight".</summary>
         public string Stat;
 
         /// <summary>"Add" (+= Value), "Pct" (*= 1 + Value/100), or "Set" (= Value;

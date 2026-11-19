@@ -143,15 +143,17 @@ namespace TheWaningBorder.Entities
         /// <summary>
         /// May <paramref name="faction"/> raise NEW wall of this kind
         /// (docs/Design/Age_0.md § Palisade, Age_1_Alanthor.md § The stone
-        /// wall)? The palisade is every culture's in Age 0 and Feraldis's
-        /// after; Alanthor and Runai lose it at age-up. The stone wall is
+        /// wall)? The palisade is every culture's in Age 0, and Feraldis's and
+        /// Alanthor's after (Alanthor kept it on 2026-11-18: the developer's
+        /// Age 1 builder layout lists Palisade first in the Defense row);
+        /// only Runai lose it at age-up. The stone wall is
         /// Alanthor's from the age-up on. Read by the build panel AND every
         /// wall executor, so a stale panel cannot raise the wrong wall.
         /// </summary>
         public static bool CanBuild(EntityManager em, Faction faction, bool palisade)
         {
             byte culture = CultureConfig.GetCompletedCulture(em, faction);
-            if (palisade) return culture == Cultures.None || culture == Cultures.Feraldis;
+            if (palisade) return culture != Cultures.Runai;
             return culture == Cultures.Alanthor;
         }
 

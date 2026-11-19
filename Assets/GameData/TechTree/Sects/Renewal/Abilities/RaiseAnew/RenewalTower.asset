@@ -16,11 +16,11 @@ MonoBehaviour:
   displayName: Renewal Tower
   role: Raise Anew I - a modest, permanent watch post conjured mid-fight
   description: 
-  hp: 750
+  hp: 1500
   armorType: structure_human
   defense:
-    melee: 6
-    ranged: 13
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 4
   radius: 4

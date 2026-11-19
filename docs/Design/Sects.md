@@ -269,14 +269,40 @@ III survivors heal 25 % when it ends. **S / S / M**.
 **[BUILDING] Mending Hall** — damaged units inside heal over time; while it
 stands, your buildings slowly repair themselves out of combat.
 
-**[RESEARCH] Field Hospital** — Litharchs gain Deploy Field Hospital. **A team
-(a faction and its allies) may keep at most `capPerTeam` hospitals standing at
-once, and no two closer than `minSpacingMetres` (`FieldHospitalSystem.asset`,
-2026-10-22)**: a cast past the cap or too close is refused and costs no
-cooldown. The AI used to stack them into an instant-heal zone under an army
-that could not be killed. **The hospital is placed like a building within the
-card's reach (2026-11-11)** — ghost, grid, legality: [Build_Grid.md § Buildings
-raised by abilities](Build_Grid.md).
+**[RESEARCH] Healing Ward** *(2026-11-18; was the Field Hospital, a 2 × 2 tent
+that tore itself down after two minutes)* — Litharchs gain the **Healing
+Ward**, developer: "Field hospital needs a long cooldown (shared amongst all
+litharchs). Change it to Healing ward and make it a building that occupies 1
+tile, using the same mechanics as the cleanse."
+- **A one-cell building** (one build cell, [Build_Grid.md](Build_Grid.md)),
+  planted where the Litharch aims, within the card's reach, **placed like a
+  building** — ghost, grid, legality: [Build_Grid.md § Buildings raised by
+  abilities](Build_Grid.md). It rises finished.
+- **Never in Age 0** (developer, 2026-11-18: the Litharch has "no abilities on age 0"): the card carries `requiresAgeUp`, like Cleanse.
+- **The research is what lets a Litharch CAST it** (developer, 2026-11-18:
+  "make sure that it states clearly that the tech enables the litharch to
+  cast the healing ward spell"); the tech's text says so.
+- **It heals slowly, stands until destroyed, and breaks at one blow**
+  (developer, 2026-11-18: "The healing ward heals slowly"; then "remove the
+  45s duration for healing wards but reduce their HP to 1"): no lifetime; its
+  HP is its building SO's (`RenewalHealingWard.asset`), set so a single hit
+  destroys it.
+- **It pulses like the Cleansing Ward** ([Territory_Claims.md
+  §6.9.7](Territory_Claims.md)): it **pulses**, every `pulseSeconds`, each pulse healing every wounded
+  allied unit (allies included, [Teams.md](Teams.md)) inside the card's radius
+  by `healPerPulse` (`HealingWardSystem.asset`). Its HP, armour and sight are
+  its building SO's (`RenewalHealingWard.asset`). Unlike the Cleansing Ward it
+  is not the curse's preferred target and it decays on cursed ground like any
+  building.
+- **Each Litharch has its own cooldown** (the card's, `HealingWard.asset`;
+  developer, 2026-11-18: "the cooldown can be per litharch (the shared one was
+  for permanent wards)"). The faction-wide shared cooldown is gone with the
+  permanent ward.
+- **A team (a faction and its allies) may keep at most `capPerTeam` wards
+  standing at once, and no two closer than `minSpacingMetres`
+  (`HealingWardSystem.asset`, 2026-10-22)**: a cast past the cap or too close
+  is refused and costs no cooldown. The AI used to stack the old hospitals
+  into an instant-heal zone under an army that could not be killed.
 
 **[UNIT] Scar Guard** — heavy melee shock. **Borrowed Breath:** more damage
 the lower its HP. Weak to ranged focus fire. Pairs with the Surgeon and

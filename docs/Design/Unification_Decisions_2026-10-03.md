@@ -9,6 +9,475 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+91. **One army, fed in the field, razing inward (2026-11-19, developer: "Do it", to the findings
+    of the version-by-version investigation; and his insight: "the AI (at higher levels) must
+    secure the newly acquired territories with towers before proceeding and take the enemy's
+    economy (outskirt territories) so that it can out-produce the enemy").** The same match on
+    every release from 0.0.70 and on the 16 November build showed the tagged versions and 16
+    November still conquering (bodies of 65-69 soldiers and 8 engines at the capitals), and
+    today's build never bringing more than 11 soldiers or any engine within 30 m of one; tower
+    count, siege share, building HP and outskirts targeting, each changed alone, restored
+    nothing. What differed was the shape of the attack. (a) **Reinforcement groups are back**
+    (removed 2026-11-18): while an army lives, the soldiers gathered at home leave as a formed
+    group of at least `reinforceMinGroup`, march in formation and merge into the army; units a
+    timed-out muster left behind go with the next group. (b) **Outskirts first**:
+    `warTargetsKeystones` is off, so a war razes the victim's outlying buildings, objective to
+    objective, and goes for the capital once the victim is crippled (the seen-keystone and
+    start-capital targets of decisions 86 and 90 apply then). (c) **Secure it first**: on a
+    tier with `secureProvincesFirst` (Hard, Expert) a newly held province gets its first towers
+    before its extractors. (d) **No strength holds at home** (`waveStrengthHolds` off): a wave
+    that has its size is not kept home for reading weaker than the defence. The one-Fortress
+    siege rule (decision 69) is unchanged. Game_AI.md § 6ah.
+90. **The AI knows where every player started (2026-11-19, developer: "The AI players should know
+    the starting position of the other players").** In the decision-89 match Red's war on Blue
+    held all game and its waves arrived, but it had never seen Blue's keystones behind the moat,
+    so it razed only outlying buildings and no capital ever fell. A war wave now marches on the
+    victim's nearest SEEN keystone (decision 86) and, with none seen, on the victim's capital at
+    its start position (`TryVictimStartCapital` over `FindEnemyStartHall`). Start positions are
+    public, so this is nothing a player does not know. Game_AI.md § 6ah.
+89. **On the way, an army fights only soldiers (2026-11-19, developer: "Yes", to the proposal
+    after the decision-88 match).** Expert's 147-strong main army was recalled 137 strong to
+    chase a single Red worker 55 m off its march, skirmished near home for three minutes and
+    never left. A mustering or staging army now takes contact only with enemy combat units (or
+    anything that comes at its engines, decision 88); a lone worker, scout or building on the way
+    is left to the members beside it, and a member fighting one no longer pulls the whole army
+    into an engagement (`marchFightsSoldiersOnly`). At the objective it fights everything as
+    before. Game_AI.md § 6ah.
+88. **The whole army attacks, and it escorts its engines (2026-11-19, developer, after a
+    four-tier Moatwatch match in which every wave of 60-90 broke on a home army of 45-130 plus
+    towers: "rules 1 - Send all of the army to attack. 2 - marching armies escort the siege
+    engines and attack anything that comes close to them").** (a) No standing home guard
+    (`sendWholeArmy`), and as a wave goes the claim squads are released into the army; they
+    re-form between waves. The tier caps on wave size (Easy, Normal) stay. (b) A hostile unit
+    within `siegeEscortRadius` of one of an army's engines is the army's target at once, whatever
+    its strength; a formation already marches at its slowest member, so the engines stay inside
+    it. Game_AI.md § 6ah.
+87. **The "beaten" verdict and its finishing mode are removed (2026-11-19, developer, after a
+    match in which Yellow called him beaten at 13:23 and sent its army at him in groups of 28-47
+    that never arrived: "why did it assume I'm beaten??", then "remove this mechanic").** The
+    verdict (Game_AI.md § 6u) read land and SEEN soldiers only, so a player banking resources
+    instead of fielding an army looked beaten. Gone with it: the finishing push (every wave for
+    the capital, the next army sent whenever ten stood at home, faster follow-ups, the token home
+    guard, the press past a timeout, the higher retreat ratio, the Conquest plan it forced, the
+    Sanctum garrisons and monument squads it pulled) and the ten `finish*` settings. A weak
+    neighbour is only the weaker target (decision 84).
+86. **The hardest AI must be overwhelming (2026-11-19, developer, after batch 18: "attacks are
+    failing because they come too late and too far apart. The AI switches target too often and
+    does not follow through"; "if I need a 100 unit army every 3-5 minutes... it has to be"; on
+    the plan: armies grow and leave whole, one war until the victim falls, "the capital and the
+    religion buildings", retreat later, no timeout while fighting).** Game_AI.md § 6ah. (a) A
+    unit-rate governor on the Expert profile: behind its target, units come first in the budget,
+    surplus spending yields and extra production is allowed. (b) A war holds until its victim
+    falls; only being beaten, a game-ending threat or the Shardroot holder interrupts it; no
+    Sanctum detours while it is on. (c) War waves go for the victim's capital, Temple, landmark
+    and sect buildings, with every idle engine. (d) At war an army retreats only when badly
+    outmatched and never while besieging its victim with engines; fighting missions do not time
+    out.
+85. **The Vault's bars pay a trickle (2026-11-19, developer: "Instead of being a 5% multiplier, it
+    acts as a trickle income of whatever resource is stored, and it can't store supplies. No
+    resource type locked behind research", with the first two bars' sizes and per-level
+    payments, then "do third and fourth bars as well").** Measured first: a full supply bar paid
+    back in minutes, the iron bar in about an hour and the veilstone bar in about three, and no
+    AI ever opened bar 2. (a) A bar stores iron or veilstone — whichever is first paid into it —
+    never supplies. (b) A FULL bar pays its `vaultBarIncomePerMinute` of that resource every
+    minute at the Vault's level; a part-filled bar pays nothing. (c) Sizes and payments are on
+    `VaultOfAlmierra_Lvl1..3`; bars 3 and 4 continue the developer's two (each pays its size back
+    a little faster at level 3). (d) The Coffers still open bars 2-4 in order; no resource is
+    locked behind research. (e) `vaultBarBonus`, `vaultBarResource` and the income multiplier
+    are deleted; `VaultBarSystem` pays the trickle as `IncomeSource.VaultBar`; the save format
+    is 14. (f) Then (developer: "The last bar can be filled with supplies. Add the research to
+    the AI. Don't make it prohibitively expensive"): the last bar also takes supplies; the
+    Coffers are much cheaper and on the AI's economy research ladder; the AI deposits any
+    resource an open bar takes. Age_0.md § Vault of Almiérra.
+84. **The AI rushes, fields its army and picks the weaker player first (2026-11-19, developer:
+    "11 minutes with 27 units is not an expert rush AI", "8 minutes is too late for expert!",
+    "Add thresholds to the leader rule and the weaker rule. A player is weaker if it has 70%
+    less score and stronger if it has 130% score", "do the AI changes as proposed").** Game_AI.md
+    § 6ag. (a) Target order: the attacker beating us, a game-ending threat, the Shardroot
+    holder, the beaten, a weaker rival, then a stronger one; weaker / stronger by the board
+    score the AI knows against its own (`preyScoreShare`, `threatScoreRatio`), read as at most
+    70 % and at least 130 % of its own. (b) Rush and Aggressive raise an Age 0 army, attack
+    earlier, and a Rush skips the growing-wave bar early; their short waves take the claim
+    squads. (c) Every production line trains; a trainer refusal spreads to the other rows.
+    (d) The capital's savings pause while the army is far under target. (e) Farms pass the
+    open-site cap, Farm levels are valued full, the Market comes with an iron / veilstone glut.
+83. **The Farm grows its own hands (2026-11-19, developer: "Farms gradually produce their own
+    workers ~1 per minute if they are not full. Workers produced in farms start garrisoned
+    automatically. The worker who builds the farm is also automatically garrisoned unless it
+    has another action in queue").** In batch 17 and the developer's match after it, every AI's
+    Farms stood 60-90 % empty to minute 15: Workers come only from the Fortress, and the
+    supplies to train them were what the empty Farms should have been making.
+    (a) A finished, living Farm with a free slot produces a Worker every
+    `garrisonWorkerSeconds` (new field on the building SO, set on `Farm.asset`), free, straight
+    into the slot, made exactly as a trained Worker (research and passives applied). It needs
+    population room; without it the Farm waits at the mark. A full Farm's clock restarts.
+    (b) The Workers building a Farm go inside when it is finished — the one that finishes it
+    and its crewmates — unless they have a queued build or command; a full Farm leaves them
+    outside. For every player, the AI included.
+    (c) **Open (not decided)**: whether the produced Worker should cost supplies; it is free.
+82. **Melee units THROW the torch: a short ranged attack on buildings (2026-11-19, developer:
+    "Melee units attack with a torch ranged attack now so the slot rule no longer applies. They
+    should have 2 tiles of range").** Decision 79's torch kept its damage but was struck from
+    melee reach, so only the ring of attack slots round a building could burn it — about a
+    dozen men on a 2 x 2 economy building, the rest of a raid standing behind them.
+    (a) A melee unit with a torch above 0 (and melee damage — not the curse's units, not a
+    ram) attacks a building from **two build-grid cells of its edge** (`torchReachCells` on
+    `MeleeCombatSystem.asset`), stops wherever it first reaches that band, and lands its
+    torch on its own attack cooldown (`CombatDamageHelper.ThrowsTorch`, read by the
+    `MeleeCombatSystem` plan job).
+    (b) **The attack-slot rule no longer applies to them** (`BuildingAttackSlotSystem` skips
+    a torch thrower); slots remain for the ram and any melee unit with no torch.
+    Navigation_And_Formations.md § 4.1, Combat_Pacing.md § Buildings.
+    (c) **It is seen** (developer: "a visible torch, with a red-orange streak, a point light
+    and a flash when it lands"): the hit lands on the swing in the simulation, and the
+    presentation then draws a burning torch tumbling to the building's edge with a red-orange
+    streak and a light, and a flash with a light where it lands — `TorchThrows` (the
+    sim-to-presentation queue, never read by the simulation) and `TorchThrowVisual` (its look
+    on `TorchThrowVisual.asset`), drawn only where the viewer has vision.
+    (d) **Torch values raised to the Age of Empires IV scale** (developer: "raise torch values
+    (check AOE4)"), keeping decision 79's role order — Workers and Scouts least, heroes most;
+    the values are on the unit SOs.
+    (e) **Open**: no throwing animation (the unit plays its attack clip); worker repair under
+    attack is unchanged.
+81. **The batch-17 AI pass: spend, field, march, expand (2026-11-19, developer: "players are
+    not spending all their income", "something is limiting the amount of units", "red player
+    has a huge army but never attacks on the Fiendstone map", "players attack with small
+    armies", "the players should be building secondary bases on the other territories and
+    securing them with towers"; then "The market being at the floor price should not stop the
+    players from selling. They just have to sell more of it." and "Do them all. Do not change
+    unit prices. Make sure that if a unit can't be trained due to lack of resources, it always
+    has a fallback of the same unit type").** No unit price changed.
+    (a) **Every unit has a same-type stand-in.** A unit the money cannot pay for (its budget,
+    the bank, a savings hold, King Lexor's veilstone) trains the next unit down its own line
+    instead: infantry, ranged, cavalry and siege each fall back only inside themselves
+    (`compositionRoles` `fallbackUnitId` on `SimpleAISystem.asset`; the Catapult now falls back
+    to the Ram). Each line ends in a unit with no veilstone price. The stand-in passes the
+    basics cap and counts, for the rest of the think, toward the role it replaces. The old
+    paths that swapped an unaffordable role unit for a unit of another line, or left the army
+    "saving", are gone (Game_AI.md § 5d). Code: `TryTrainUnitBudgeted`.
+    (b) **The Market's floor never stops a sale.** A seller at the floor price sells more lots
+    for the same veilstone; nothing refuses the sale. The AI sells its glut at any price
+    (`marketSellMinPercent` is deleted).
+    (c) **One Fortress means no Fortress step in a province.** The AI's territory walk read its
+    own Fortress ceiling (8) instead of the Fortress SO's `maxPerFaction` (1, decision 69), so
+    every province reserved a Fortress spot and held its towers and production for it. A
+    province now goes extractors, towers, production (Game_AI.md § 5g).
+    (d) **A wall never seals its owner in.** A chokepoint gate stretch too short for a
+    gatehouse (`AlanthorWall.FreeRunForGate` modules) is left open between its two tower hubs;
+    a chokepoint wall wants only the gates it planned; no tower or emplacement converts while a
+    gate is still owed and can be cut (Game_AI.md § 3c).
+    (e) **The home guard shrinks when it is not needed.** The standing army floor is scaled
+    down while the home stands defended by its towers, and further while the faction is at its
+    population cap or banks a large reserve; a wave sends side armies only when it is big
+    enough for each to matter (`standingFloorDefendedScale`, `standingFloorFullScale`,
+    `standingFloorRichSupplies`, `sisterMinWaveUnits`). The muster rule of 2026-11-17 (units not
+    at the muster point stay home) is unchanged.
+80. **The Temple has no chapels (2026-11-18, developer: "Remove the chapels and chapel slots
+    from the temple").** Adopting a sect builds nothing: adoption, the sect's level and its
+    unlocked powers were already held on the faction bank (`SectAdoptionState`), so the
+    chapels were decoration. Removed: the chapel entities, their art and site decals
+    (`Sects/Shared/Chapel/`, the legacy `Resources/Prefabs/Buildings/Chapels/`), the Temple's
+    six slots (`TempleChapelSlot`, `TempleOwner`, `TempleChapelRing`, `TempleChapelBuildSystem`,
+    `TempleCascadeDestroySystem`), and the slot-bound Shardroot allocation, which nothing in
+    the game issued any more (lockstep slot 39 `SectShardrootAlloc` is kept as a no-op). The
+    cap on adopted sects stays (`SectConfig.MaxAdoptedSects`). What the player saw as the
+    "chapel level" is now called the **sect level** (same RP prices, same rule). **Open:** the
+    seven sects with no sect building trained their unit at their chapel; with sect units
+    switched off (`sectUnitsEnabled`) nothing is lost today, but they have no trainer until
+    they get a building.
+79. **Buildings fall the Age of Empires IV way: torches, scratches, siege (2026-11-18, developer:
+    "We need to update the armor/damage values to couple with the new units' stats", then
+    "Apply these stats. Also rework the building HP. Fortress must have 5000 before
+    upgrades").** Replaces decision 62's shares (`meleeVsBuilding` / `rangedVsBuilding` are
+    deleted from `MeleeCombatSystem.asset`).
+    (a) **The torch**: a melee hit on a building lands the attacker's `torchDamage` (new field
+    on the unit SO, stamped as `TorchDamage` by `UnitFactory`) less the building's melee
+    armour, instead of its anti-unit damage (`CombatDamageHelper.ScaleVsBuilding`). Set by
+    role: Workers / Scouts least, light soldiers, heavy soldiers, sect soldiers, heroes most;
+    0 = cannot burn. Every melee unit SO of every culture carries one.
+    (b) **Arrows**: building ranged armour at or above a bow's whole attack, so an arrow lands
+    one point. Melee armour 0, siege armour unchanged, on the Age 0, Alanthor and sect
+    buildings (and the B/C landmarks). The curse's Veilstinger gets a bonus vs Building so its
+    pressure on a base survives.
+    (c) **Armour is applied at all**: `BuildingFactory` now stamps every building's Defense
+    from its SO. Until now only the Mine, the Veilstone Mine, the Renewal raised structures,
+    the Healing Ward and the Great Forge set one; every other building fought at 0 armour
+    whatever its SO said.
+    (d) **Hit points by role** (Combat_Pacing.md § Buildings): the Fortress is the developer's
+    figure before its levels, the keystones (Temple, landmarks) next, the four production
+    buildings equal, defences, economy, the Watch Tower least. Walls, the Gate and the Wall
+    Tower are unchanged (siege-only). Feraldis and Runai culture buildings are untouched
+    until their own pass.
+    (e) **Open**: chapels still carry a code-side HP and no SO; magic damage (the sect casters)
+    hits buildings in full.
+78. **The in-match UI pass for Age 0 and Alanthor (2026-11-18, developer's UI list).**
+    (a) **Resource panel**: the per-minute rate sits UNDER each amount in
+    the same font, with no "/min" (the hover says it is per minute); hovering any row lists its
+    income sources; Religion shows an RP-a-minute rate when a Temple, monument or Sanctum pays;
+    the panel no longer widens, so nothing in the dock (the selection header included) moves;
+    the separator follows the panel's width; the Idle button sits centred under the housing count; the expand toggle is gone (developer: "the expanding resource panel becomes obsolete, which is good! keep the layout").
+    (b) **The Religion menu is locked in Age 0** (Religion_Menu.md). (c) **The worker has two
+    build panels**: the 4 x 4 palette with fixed rows — Economy, Military, Defense, and a
+    reserved purple Research row (developer: "maybe a building with super advanced expensive
+    tech, and a blacksmith" — undecided) — and a 3 x 4 religion panel beside it: in Age 0 the
+    age-up landmarks and the Temple, from Age 1 one framed column per culture's sect cluster
+    (Alanthor, Feraldis, Runai) (Overview.md § actions panel). (d) **A new Age 0 Watch Tower**
+    (`Lookout`): cheap, sees far, no attack, no levels, never converted, buildable in every
+    age; the Alanthor tower is renamed the **Battle Tower** (id unchanged). Alanthor keep the
+    Palisade after age-up. (e) **The Temple offers only the Litharch in Age 0, and the Litharch
+    and Warrior Priests from Age 1** (`TempleOffer.asset`); the Masses ladder, the Litharch
+    ladder (decision 77), Petriarchy Support / Army and the Temple's sect units are hidden and
+    refused for everyone, the AI included, until the developer gives them a home ("Leave hidden
+    for now"). (f) **The Litharch casts nothing in Age 0** — Cleanse, Cleanse Pulse and the
+    Healing Ward carry `requiresAgeUp`. (g) **The ability bar** shows only for an owned unit
+    with a castable ability and never over a worker's build menu. (h) **Units**: formations on
+    the top row, stances on the bottom; the stances read **Aggressive / Standard / Defensive**
+    (Standard = the old Defensive, Defensive = the old Hold Position; display only, Stances.md
+    § 9).
+77. **The Litharch gets an upgrade ladder; its tiers open with the sects (2026-11-18, developer:
+    "go over the litharch's upgrades and stats, and propose something akin to what we have in the
+    other units"; "Litharch tiers unlock with the max level of sects adopted").** The Temple has
+    no levels (decision 20), so its RESEARCH level is the highest level among the faction's
+    adopted sects (0 with none) — `ResearchHostLevel`, read by the panel, the AI and the research
+    command. On it, three tiers of Litharch research like every trainer's: a heal ladder, an
+    armour ladder (melee + ranged), veteran / elite health, and skills — Swift Rites and Long
+    Reach at II, Twin Blessing at III (Age_0.md § Litharch). Base stats unchanged. Numbers on
+    the tech SOs in `TempleOfRidan/Research/`.
+76. **The Litharch's wards, and one action grid (2026-11-18, developer: "The burst animation for
+    the cleanse/cleanse burst is too polluting. I need it to look like the field hospital's
+    aura, but in blue color"; "Field hospital needs a long cooldown (shared amongst all
+    litharchs). Change it to Healing ward and make it a building that occupies 1 tile, using the
+    same mechanics as the cleanse"; "all buildings should preserve the 4x4 action grid").**
+    (a) **The Cleansing Ward and Cleanse Pulse wear a calm blue aura** (a blue copy of the old
+    hospital aura, `CleanseWard_Aura.prefab`) instead of the burst rings; the ward's pulses show
+    no burst. (b) **The Field Hospital is the Healing Ward**: a one-cell building planted where
+    aimed, standing until destroyed and pulsing heals to allies in its radius (numbers on
+    `RenewalHealingWard.asset`, `HealingWard.asset`, `HealingWardSystem.asset`); still the Sect
+    of Renewal's research at the Mending Hall (tech id `FieldHospital` kept for saves). **Its
+    cooldown is shared by all of a faction's Litharchs** — one ward starts it for every
+    Litharch, and a new Litharch inherits what is left (Sects.md § Renewal). *Superseded the
+    same day: the ward heals slowly, stands until destroyed but breaks at one blow (1 HP on its SO), and each Litharch keeps its own
+    cooldown (developer: "the cooldown can be per litharch (the shared one was for permanent
+    wards)").* (c) **Every
+    building's actions panel is a fixed 4 × 4 grid**: row 0 units (or the building's own
+    commands), rows 1-2 research (each ladder in a fixed cell), row 3 overflow, the level-up
+    always bottom-right, more than fifteen cells paged; empty cells keep their place
+    (Overview.md § The actions panel is a 4 x 4 grid). The 3 × 5 building layouts are gone.
+75. **The Battering Ram is open to swords, and the AI stops overbuilding it (2026-11-18,
+    developer, after a Moatwatch match: "still an overabundance of battering rams"; "it is too
+    hardy vs melee"; "do 1-5. 5 means repairing over time").** (a) **The spill-over leak is
+    closed**: when the AI's wanted unit is blocked, the other lines it trains on stop at their
+    share of the army and siege at the siege cap — the Siege Yard had trained Rams until refused
+    (Red: 1 planned, 62 fielded). (b) **The AI scores a buildings-only attacker as no danger and
+    no prize unless it is working a building** (it used to pour its melee into idle Rams).
+    (c) **The Ram never gains melee armour**: Iron, Veilstone and Reinforced Plating add ranged
+    armour only to it (melee and ranged to the other engines). (d) **Lower HP**: base and
+    Iron-Shod Ram's bonus cut (values on `BatteringRam.asset` and `IronShodRam.asset`).
+    (e) **Field Repair works**: every siege engine of the researching faction repairs itself over
+    time (`FieldRepair.asset`, `RepairHpPerSecond`) — it used to cost a level-3 research and do
+    nothing.
+74. **The AI micros at a player's pace, and siege does not back away (2026-11-18, developer:
+    "archers are fleeing every melee unit ... It causes fights to spread outwards and penalizes
+    catapults and archers who need to constantly keep moving to hit targets"; "Shouldn't the
+    solution be to restrict the AI's APM to human levels when microing?"; "Implement it").**
+    (a) **An action budget**: every AI micro order (kiting pull-back, unit ability cast,
+    counter-aware re-target, firing-line move, flank) spends one action; one order to a group is
+    one action; each tier earns `actionsPerMinute`, banks `actionBurst` and reacts after
+    `reactionSeconds` (the `tactics` block on the four difficulty profiles). Plain army orders are
+    free. (b) **Kiting is a group pull-back** behind the own melee line (or toward the own army),
+    one order per group of threatened shooters, never straight away from each attacker; per-unit
+    kiting on every reload is gone; Normal kites too now (slowly), Easy still does not
+    (`AITactics.asset`, Game_AI.md § 6e). (c) **Siege inside its minimum range drops the target
+    and takes one beyond it**, or stands; it never walks away — every player's engines, not only
+    the AI's (Combat_Pacing.md § Minimum range; `RangedCombatSystem`, `TargetingSystem`).
+73. **Less late income, and siege is a support arm (2026-11-18, developer, after a Moatwatch
+    match where every AI reached the population cap around twenty minutes and then banked
+    supplies and iron to the bank cap: "option a"; "There is too much iron income in mid-late
+    game"; "Rams don't need to be replaced, they can still play a role. I just don't think siege
+    should take up 30-50% of an army").** (a) **Late supplies come down, early supplies stay**:
+    the Guild's level 2 and 3 `slotIncomePerMinute` (`Civs/Alanthor/Buildings/Guild/Guild_Lvl2..3`)
+    and the Farm's level 2 and 3 `suppliesPerWorkerPerMinute` (`Farm_Lvl2..3`) are lowered;
+    level 1, claims and the capital are untouched (the AI is short of supplies before the cap).
+    (b) **Mid-late iron comes down, early iron stays**: the Alanthor Mine's level 2 and 3
+    `slotIncomePerMinute` (`Civs/Alanthor/Buildings/Mine/Mine_Lvl2..3`), and on
+    `TerritoryIncomeSystem.asset` the iron a held territory pays (`claimIronPerMinute`) and a spent
+    Mine's share (`depletedMineShare`); the level 1 Mine, `ironYieldMultiplier` and the Mine
+    research multipliers (which also pay the Veilstone Mines) are untouched. (c) **The Battering
+    Ram costs supplies as well as iron** (`BatteringRam.asset` `cost`), so an iron glut no longer
+    makes it the cheapest thing to train. (d) **The AI's siege share is capped**: every siege
+    role together (Ram, Catapult, Trebuchet, Ballista) holds at most `siegeMaxArmyShare` of the
+    army plan (`SimpleAISystem.asset`), the excess going to the other lines; the siege program's
+    engine floor obeys the same share; the Siegecraft doctrine's `doctrineSiege` weight and the
+    Ram row's `baseShare` are halved; a role with nothing of its line trainable hands its share
+    to the basic infantry instead of being dropped (dropping it let a lone Ram row become the
+    whole non-basic share); and an unaffordable unit is never stood in for by an engine — the
+    stand-in is the basic infantry inside the basics cap, or the army waits. Rams are kept.
+    (e) The AI's measured income (`AIBudget`) is now taken over the real time between two budget
+    ticks; it divided by the think interval, and throttled thinks inflated it several times over.
+    (f) The Catapult is back on the Siege Yard (`SiegeYard.asset` `trains[]`, decision 52 cut it);
+    the AI plans it as the engine against massed foot. Game_AI.md § 5d.
+72. **Workers build and repair by the Age of Empires II crew rule (2026-11-17, developer: "Make a
+    worker SO!"; "Do points 1-4 from before. Make sure repairs stop if there are no funds").**
+    (a) A Worker's build and repair rates are stats on its unit SO (`Worker.asset`
+    `buildSpeed`, `repairSpeed`, copied onto `CanBuild`); they were constants in the two
+    systems. (b) **Diminishing returns**: n builders on one site finish in 3T / (n + 2) — one
+    takes T, four take T / 2, eight take 0.3 T (`BuildingConstructionSystem.CrewShare`), and the
+    same share applies to n repairers on one building. (c) **Repairs are paid as the HP goes
+    in**: each HP costs `repairCostShare` of the building's price over its max HP
+    (`BuildingRepairSystem.asset`, with the repair reach), once whoever restores it — it used
+    to charge each arriving Worker for the whole repair, at a premium over the price. With no
+    funds the repair STOPS, and the player is told. Repair also ran at double its stated speed
+    (every tick rounded up); the fraction of an HP is carried now. (d) The Worker moves slower
+    than a soldier (its speed on the SO; about 0.8 of a Spearman's, the Age of Empires ratio).
+    (e) **Support units reviewed the same day** (developer: "Apply all"): the Litharch is a
+    fragile, slow healer — fewer HP than a Spearman, the Swordsman's pace so it cannot outrun
+    the army it heals, a gentler heal and a dearer price; the Scout (on foot, not mounted) is
+    still the fastest infantry but by a quarter, not a half. Values on `Litharch.asset` and
+    `Scout.asset`. (f) **The Ledger is DISABLED until further notice** (developer): it is off
+    the Fortress's `trains[]`, and the router now refuses any unit missing from its trainer's
+    roster, for every command source; its Foreclosure (half of every hostile bank, every ten
+    minutes, cast by every level-10 Ledger the moment it was ready) was most of what the long
+    test matches spent.
+71. **AoE-style units and flat upgrades (2026-11-17, developer: "we are using percentages that
+    compound"; "all upgrades are in point format and very small"; "Remove the shard tier (let's
+    reserve it for Sect units only)"; "use AOE speeds"; "apply the stats").** The arrow, lance and
+    siege tiers (+15 %, +30 %, +75 %) multiplied each other and every flat bonus before them: a
+    fully upgraded Archer went from 8 to 32 damage and killed a Cataphract four times faster than
+    at base, while infantry ladders were flat. Now, for the Garrison, Archery Range, Royal Stable
+    and Siege Yard: (a) **every upgrade is a small flat number**: weapons / arrows / lances +1
+    damage a tier (siege shot +5), armour +1 a tier, range +1 tile (2 m) a tier, speed a small
+    flat step; no percentages. (b) **Three tiers, one per building level** (Stone L1, Iron L2,
+    Veilstone L3), researched; **the Shard tier is gone** — it is reserved for sect units.
+    (c) **Armour lines are army-wide:** the Archery Range's Brigandines give EVERY unit +1 ranged
+    armour, the Garrison's Gambeson / Hauberk / Harness every unit +1 melee armour; Barding and
+    Plating stay with cavalry and siege. (d) **Each level-up gives its building's units flat HP
+    and bonus damage** (L2 +10 HP, +2 bonus; L3 +15 HP, +3 bonus — the `Veteran*` / `Elite*`
+    grant techs), so counters keep pace with armour. (e) **Units unlock by building level:**
+    L1 Archer, Spearman, Outrider, Battering Ram; L2 Swordsman, Crossbowman, Catapult; L3
+    Longbowman, Cataphract, Trebuchet (the Longbowman and Catapult return from decision 52). A
+    unit unlocked at L1 has three skills (one a level), at L2 two, at L3 one, each researched at
+    its level. (f) **Base stats follow Age of Empires IV** at 1 tile = 2 m — costs (AoE food →
+    supplies, wood → iron, gold → veilstone), HP, damage, bonus, attack speed, range and
+    **movement speed**, kept in AoE IV's proportions but raised ×1.6 the same day (developer: "keep the relative speeds, but increase them so that the spearman moves at 2 tiles (4 m) per second") — AoE's absolute pace read as sluggish at our camera and on our maps. Bonus damage may
+    name a compound tag ("Light+Infantry": the target must carry both). All numbers are on the
+    unit and tech SOs. (g) Still to build (next build): unit **turning rates** for cavalry and
+    siege, and the new skills (Double Shot, Arrow Shower, the automatic Choreographed Volleys,
+    Pavise, Fire Arrows, Brace, Couched Lance, Field Repair, Incendiary Shot, Rapid Deployment),
+    plus the four-row building panel (units / skills / upgrades / level-up). Arrow Volley and
+    the Swordsman's Counter are cut. Age_1_Alanthor.md and Combat_Pacing.md defer to this.
+70. **Dominion needs all Sanctums but one (2026-11-17, developer: "OK" to "dominion on most
+    Sanctums").** In the Expert batches almost no AI ever held more than one Sanctum; holding
+    every one at once happened once in 72 matches. On a map with **three or more** Sanctums
+    the dominion countdown starts when one side holds **all but one** of them; on a map with
+    one or two it still takes **all**. A cursed Sanctum counts for nobody, as before. The
+    count is `SanctumSystem.DominionNeeds`; the AI reads the same number (Game_AI.md § 6t).
+69. **A player falls with its Fortress (2026-11-17, developer: "players die when their
+    starting fortress dies"; "a fortress must be nearly unkillable unless there is a
+    considerable force attacking it (and it must have siege)"; "Players cannot build other
+    fortresses, you get one only"; "A fallen fortress leaves a rubble that can be rebuilt";
+    "After the fortress has died, players have 5 minutes to rebuild their fortress").**
+    Conquest never finished in the Expert batches: a beaten faction lived on through any
+    Barracks or Worker it had left. (a) **One Fortress per player, ever** (`maxPerFaction` 1
+    on `Fortress.asset`): the starting Shelter, which becomes the Fortress at age-up, is the
+    only one. No second Fortress may be raised anywhere; expansion Fortresses are gone.
+    (b) **The Fortress is nearly unkillable without siege.** A SIEGE hit lands
+    `siegeShare` of its damage and every engine's hit lands, so the damage grows with the
+    siege brought (developer, same day: "siege damage must scale with the amount of siege
+    equipment" — a first cut that held siege back until a large army stood round the
+    Fortress was dropped). As in Age of Empires IV (developer: "do like AOE"), an arrow or
+    bolt barely scratches it (`rangedShare`) and a melee blow burns it slowly
+    (`meleeShare`). All on `FortressFallSystem.asset`. (c) **A fallen Fortress leaves rubble** where it stood
+    (`KeystoneRubble`). The rubble is the only place the Fortress can be built again, the
+    old facing kept, and it may be rebuilt there whoever holds the ground. **The rebuild costs
+    a SHARE of the price** (`rubbleRebuildCostShare` on `FortressFallSystem.asset`, read by
+    `BuildCosts.For` while the owner's rubble lies; developer, 2026-11-17: "landmarks also cost
+    resources to rebuild" — it was free for a few hours: "the challenge is defending the
+    workers and the repair site before the countdown expires"). **It is rebuilt
+    from a button over the rubble** (developer: "a button like the one on the resource nodes.
+    Not in the builder UI panel"): with Workers selected, pointing at the rubble raises the
+    node-button (`ActionsPanelPrefabBinder.NodeButton.cs`); the Fortress is never in the build
+    palette. (d) **The KEYSTONES** (same day, developer: "The same rule applies to the temple
+    and the vault. All three must be dead for 5 minutes for a defeat to occur"; then "Sect
+    buildings are added to landmarks list"): the Fortress, the Temple of Ridan, the culture's
+    landmark (Vault of Almierra, Fiendstone Keep, Thessara's Crossing) and every sect building
+    (Reliquary, Mending Hall, Stonehold, Treasury, Muster Yard) are one each, ever; each leaves
+    rubble when it falls (`KeystoneRubble`), is built again only there, for the share above,
+    from the button over it (a fallen one stays in the palette greyed; the landmark's button is
+    made by the node button). A sect building still needs its sect adopted and a standing
+    Temple to be raised again.
+    No landmark builds itself any more, the age-up one included (developer: "Completely
+    remove the auto build from the vault"): Workers raise it, like every keystone rebuild (a
+    free self-building Vault kept a faction with nothing else alive for 100 minutes in the
+    first test batch).
+    The siege-only damage of (b) is the Fortress's alone. (e) **Five minutes to rebuild**
+    (`fortressRebuildGraceSeconds` on `EliminationSystem.asset`): a faction that has had its
+    Fortress is ELIMINATED once its keystones have ALL been down — fallen, or never built —
+    for the grace without one FINISHED again on its rubble (a site does not count). Any one
+    standing stops the clock. No early elimination for a faction with no way to rebuild (no Workers, which
+    train only at the Fortress): the timer runs out. Its other buildings, Workers and army
+    no longer keep it alive. A faction that never had a Fortress (tutorial scenes) keeps
+    the old lifelines (a military building or a Worker). The capital's territory LOCK and
+    every other Fortress rule stand for the one Fortress.
+68. **Shorter supply nodes, four Farms, and an AI that attacks (2026-11-16, developer: "matches
+    bog down to stalemates and no one ever finishes a game"; "reduce the lifetime of supply
+    nodes"; "the AI is playing too defensive ... not attacking in formed armies anymore";
+    "reduce farms to 4").** Measured in the developer's Trine Hollow v2 match (0.0.90, 44
+    minutes, Rush Hard and Economic Hard): neither AI launched a single wave. Each kept a
+    30-soldier Sanctum army reserved out of an army of 30-45, mustered it for five to ten
+    minutes, lost it in one or two, and reserved the next; any hit on a building near home
+    put it in Defend, which disbanded every mission and recalled the army (Red 38 times,
+    Green 43). The base under siege was paid for by its Farms, which sat behind its towers.
+    (a) **Supply nodes hold half as much** (`supplyNodeReserve` on
+    `TerritoryIncomeSystem.asset`; rich and poor nodes scale from it). (b) **At most four
+    Farms per player** (`maxPerFaction` on `Farm.asset`). (c) **No dedicated Sanctum army.**
+    A Sanctum is a WAVE objective: a held Sanctum under threat or one just lost comes first;
+    otherwise the best Sanctum not ours takes the wave on the Sanctum road, or on the Mixed
+    road when it lies about as near as the base the wave would strike. The wave brings the
+    claim's head count, holds on the Sanctum until the claim lands, leaves a **garrison**
+    (`sanctumGarrisonSize`) and moves on. The garrison hunts hostiles in the territory, tops
+    itself up from soldiers passing through, raises towers, and calls the next wave at once
+    when the hostile strength there outweighs it. The Sanctum road no longer holds the
+    waves. (d) **Defend is for a real attack:** a building near home under attack puts the
+    AI in Defend only when the enemy round it weighs what the Hall ring already asks
+    (`defendThreatThreshold`); a smaller raid is the economy defence's and the army stays
+    out. (e) **The all-in takes the Sanctum garrisons** with it, as the finishing push
+    already did. Reinforcements stay armies that join the main army (the 4 Nov rule); the
+    Sanctum's own reinforcement packets are gone with its army. (f) **Waves grow with the
+    game** (developer, after the batches: "the wave size over time must have an upwards
+    trend!!"): the median wave sat at 25 soldiers from minute 20 to 65 because a wave left as
+    soon as ten were idle, so armies bled away and never grew past about 45. A wave is measured
+    in POPULATION (cavalry, rams and engines cost 2-5) and must reach a minimum that rises with
+    the minutes played (`waveMinPopBase`, `waveMinPopPerMinute`), with no cap but population
+    itself: once the faction has no population left to grow into (`waveFullPopSlack`),
+    everything drafted goes (developer's math: Farm Workers, builders and scouts leave about
+    240 of the 300 population for the army). The all-in obeys it too: armed at minute 22, it
+    launched a wave a minute as soon as twelve soldiers stood idle, which kept every army near
+    45. (g) **The Market AI buys only for
+    a blocked army** (a resource the army's purchases were refused for), never sells below
+    `marketSellMinPercent` to fund a purchase (decision 81: that gate is deleted — a sale at
+    the floor is never refused), and never buys above `marketBuyMaxPercent`:
+    the first rule sold iron at the floor and bought supplies at twice their price 1,622 times
+    in six matches. Game_AI.md § 6t, § 5i, § 2j.
+67. **The Market trades for veilstone at prices every player shares (2026-11-16, developer:
+    "Every resource can be bought using veilstone. Every resource can be sold using
+    veilstone. Selling decreases the veilstone value of a material, buying increases it. The
+    values are shared across all players, so a player who dumps supplies is actually
+    favouring the purchase for other players"; "AI should monitor and try to take advantage
+    of manipulating the markets").** Seen in the 15 Nov six-player match (0.0.90): three
+    Expert AIs ended with 17,000-30,000 iron and under 2,000 supplies, and the old Market
+    (supplies in, iron and veilstone out, fixed prices) had no way back. (a) **Veilstone is
+    the money**: supplies and iron are bought with it and sold for it; veilstone itself is
+    not traded. (b) **Instant lots** (developer's choice over per-minute rates): a click
+    trades one lot, Shift five, Ctrl twenty. The per-minute rates and the surplus-to-iron
+    mode (decisions 55 d, 56 c, 59 a-b) are **removed**; their lockstep slots 59 and 60 are
+    kept as no-ops. (c) **Each lot moves the price** — up when bought, down when sold — and
+    **there is one price per resource for the whole match**. (d) A sale pays a share of the
+    price, so buying and selling back loses; prices have a floor and a ceiling and **drift
+    back** to their starting value (developer's choice over prices that stay). (e) **The AI
+    reads the shared prices every think**: sells a glut, sells into a spike, buys a need,
+    buys a dip. Every number is on `Market.asset` (lots, starting prices, step, seller's
+    share, floor, ceiling, drift) and `SimpleAISystem.asset` (the AI's levels). Lockstep
+    command `MarketTrade`; save format 12. Age_1_Alanthor.md § Market, Game_AI.md § 2j.
 66. **The religion menu is a set of power reserves (2026-11-15, developer: "I need it all to
     look like you are filling up a power reserve"; "all buttons should be pictographic"; "must
     not cross the minimap").** Decision 63 made progress automatic; the menu now shows it as
@@ -81,7 +550,7 @@ Standing rules (user):
     (g) **Ward Discharge** is reworked (wisps as charges, Sects.md § Fortitude) and
     **Revive** repaired. Save format 11. The AI still adopts by its old pacing and no longer
     buys unlocks; how many sects it should hold under the equal split is untuned.
-62. **Soldiers chip buildings; they do not take them down (2026-11-15, developer: "most melee
+62. **[Superseded by 79: torches replace the shares.] Soldiers chip buildings; they do not take them down (2026-11-15, developer: "most melee
     and ranged units are dealing too much damage to structures. A squad of 15 archers is taking
     down towers").** A melee or ranged (non-siege) hit on any building lands only a **share** of
     its damage: `meleeVsBuilding` and `rangedVsBuilding` on `MeleeCombatSystem.asset`. The
@@ -234,7 +703,10 @@ Standing rules (user):
     at the Market. (f) Feraldis and Runai (editions B / C) lose finite nodes too; their own
     staffing and haul rules are untouched.
 54. **The Objectives panel names every way to win (2026-11-11, developer, after player feedback:
-    "map objectives are not clear").** After the two opening steps (a special building; a
+    "map objectives are not clear").** *(Panel REMOVED 2026-11-17, developer: "Remove the
+    objectives and the resource overview panels" — with the per-territory Economy panel of
+    decision 56 (g) and the top-centre landmark buttons / age-up pill; the landmarks are placed
+    from the Worker's Age 0 build palette.)* After the two opening steps (a special building; a
     culture and age-up) the panel lists the live victories with their progress: conquest (rivals
     left), **Sanctum dominion** (Sanctums held / on the map, and the countdown while it runs), and
     **the Shardroot** (monuments explored, who carries it, the ascension countdown). The old
@@ -361,7 +833,7 @@ Standing rules (user):
     improvements**: Deep Shafts / Rich Seams raise it too, and it levels L1-L3
     (`Civs/Alanthor/Buildings/VeilstoneMine/VeilstoneMine_Lvl1..3`). (g) **No floating income
     panels over the world**: a collapsible Economy panel on screen lists what each held
-    territory pays (`UI/Ingame/Panels/EconomyPanel.cs`). Tutorial mission 2 step 2a is now
+    territory pays (`UI/Ingame/Panels/EconomyPanel.cs`; removed 2026-11-17, see decision 54). Tutorial mission 2 step 2a is now
     "Level up your Guilds".
 42. **One crystal, nodes worth saving, ground that holds (2026-11-09, developer).** A player
     reported veilstone and veilsteel as confusing and indistinguishable. Decided:

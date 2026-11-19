@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_HarpoonRig
   displayName: Harpoon Rig
   unitClass: siege
-  hp: 335
+  hp: 210
   speed: 4.6
   trainingTime: 26
   damage: 30

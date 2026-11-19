@@ -79,6 +79,8 @@ namespace TheWaningBorder.Systems.Combat
             // has already been reported loudly by ComponentConfig.Require —
             // flanking is then off rather than every melee swing throwing.
             var meleeCfg = MeleeCombatSystemConfig.I;
+            // Slots round an attacked building (BuildingAttackSlotSystem).
+            var slotCfg = BuildingAttackSlotSystemConfig.I;
             float flankMult = meleeCfg != null ? meleeCfg.flankDamageMultiplier : 1f;
             float frontArcCos = meleeCfg != null
                 ? math.cos(math.radians(meleeCfg.frontArcHalfAngleDegrees))
@@ -115,6 +117,13 @@ namespace TheWaningBorder.Systems.Combat
                 Storage = SystemAPI.GetEntityStorageInfoLookup(),
                 Dt = dt,
                 SwingCommit = meleeCfg != null ? meleeCfg.swingCommitSeconds : 0f,
+                Slots = SystemAPI.GetComponentLookup<BuildingAttackSlot>(true),
+                SlotTolerance = slotCfg != null ? slotCfg.slotArriveTolerance : 0f,
+                // A thrown torch reaches a building from further than a blade
+                // (decision 82): MeleeCombatSystem.asset, in build-grid cells.
+                TorchReach = meleeCfg != null
+                    ? math.max(MeleeRange, meleeCfg.torchReachCells * BuildGrid.CellSize)
+                    : MeleeRange,
                 Plans = plans,
             };
             var planHandle = planJob.Schedule(n, 32, state.Dependency);
@@ -167,6 +176,11 @@ namespace TheWaningBorder.Systems.Combat
             var targetPos = targetXf.Position;
 
             int baseDamage = em.GetComponentData<Damage>(entity).Value;
+
+            // A thrown torch (decision 82): the hit lands now, the presentation
+            // draws the torch flying to the building's edge afterwards.
+            if (lk.Building.HasComponent(target) && lk.ThrowsTorch(entity))
+                TorchThrows.Post(myPos, lk.Extent(target).ApproachPoint(myPos, 0f));
 
             // --- Batch-read attacker components once ---
             DamageType dmgType = DamageType.Melee;

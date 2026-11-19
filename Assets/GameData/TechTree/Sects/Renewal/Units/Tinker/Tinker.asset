@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Tinker
   displayName: Tinker
   unitClass: economy
-  hp: 130
+  hp: 80
   speed: 0
   trainingTime: 21
   damage: 0
@@ -52,6 +52,7 @@ MonoBehaviour:
   - Light
   - Worker
   bonusVsTags: []
+  torchDamage: 5
   preferTargets: []
   abilities: []
   prefab: {fileID: 5480634917547094066, guid: bddded40733ff14ce1e1aab53a3b700c, type: 3}

@@ -217,7 +217,7 @@ expensive thing in the game**:
 | | |
 |---|---|
 | Cost | on the `Fortress` SO. **Rule:** it must stay the most expensive building and above the age-up landmark's price |
-| Limit | one per territory |
+| Limit | **one per player, ever** (decision 69, 2026-11-17; it was one per territory) |
 | Placement | only in a territory you own (the ordinary build gate, §5) |
 | Hosts | trains Worker and Scout (Alanthor adds the Ledger and King Lexor), researches Stone Tools / Armed Scouts (Alanthor adds the tool ladder, Mason Guild and Scouting Celestarii — all `researchAt: Fortress`), banks resources |
 
@@ -699,9 +699,12 @@ work.
   ability's rate times the pulse length), so the radius slows as it widens,
   up to the ability's maximum radius. Between pulses a living node's creep
   may stain the edge back; the next pulse takes it again — **the curse
-  retreats in bursts, in step with the ward's aura**, which the presentation
-  plays on the same pulse (a ring at the ward, scaled to the circle, and a
-  burst that can be heard: `CleanseWardVfx`, `CleanseSfx`).
+  retreats in steps**. On screen the ward wears **one calm blue aura**
+  (2026-11-18: a blue copy of the Field Hospital's healing-area aura, no
+  burst rings), looping for as long as it stands, sized to the clean circle
+  and growing with it; a Cleanse Pulse plays the same aura once where it
+  lands. The pulse is heard (`CleanseWardVfx`, `CleanseSfx`; the prefab and
+  its authored radius are on `CleanseWardSystem.asset`).
 - **A falloff band** outside the circle is thinned on every pulse: a cursed
   cell in the band clears with a chance that is 1 at the circle and falls to
   0 at the band's outer edge, so the cleared ground keeps a soft edge.
@@ -711,7 +714,8 @@ work.
   buildings (`CurseTerritorySystem.Waves`). A ward is therefore something the
   player must **defend**; left alone, the curse tears it down and takes the
   ground back.
-- **How many, how close** — the Field Hospital's rule: a team (a faction and
+- **How many, how close** — the Field Hospital's rule (now the Healing
+  Ward's, [Sects.md](Sects.md) Renewal): a team (a faction and
   its allies) keeps at most `capPerTeam` wards standing, and no two closer
   than `minSpacingMetres` (`CleanseWardSystem.asset`). A cast past the cap or
   too close is refused and costs no cooldown; the AI never sends a Litharch
@@ -740,7 +744,7 @@ edge of the reach, toward the point. Its numbers are on
 AI uses it where a ward is refused or still on cooldown.
 
 The Litharch is the one non-hero unit allowed **several active abilities**:
-Cleanse and Cleanse Pulse from the start, and Deploy Field Hospital once the
+Cleanse and Cleanse Pulse from the start, and the Healing Ward once the
 Sect of Renewal's research is bought. The spells bar draws one button per
 active, so all are castable.
 
@@ -822,7 +826,10 @@ Temple survives the Shardroot's 10-minute countdown wins
 
 **Second exception (2026-10-18): Sanctum dominion** — a faction (or team)
 that holds **every Sanctum on the map at once** starts a **10-minute
-countdown**; if it still holds them all when it ends, it wins. Losing any
+countdown**; if it still holds them all when it ends, it wins.
+**2026-11-17 (decision 70): on a map with three or more Sanctums, all but one
+is enough** (`SanctumSystem.DominionNeeds`); "every Sanctum" below reads that
+way. A map with one or two still needs all of them. Losing any
 Sanctum — to a player or the curse — cancels the countdown, and taking them
 all again starts a fresh 10 minutes. Rules in § 11.4.
 
@@ -836,6 +843,26 @@ left and at the final marks (`countdownFinalWarnings`) — config values on
 `SanctumSystem.asset` and `ShardrootEmpowerment.asset` — plus one when it is
 cancelled. Details in § 11.4 and
 [Curse_And_Shardroot.md §3.1c](Curse_And_Shardroot.md).
+
+**2026-11-17 (decision 69): a player falls with its keystones.** The
+keystones are the Fortress, the Temple of Ridan, the culture's landmark
+(the Vault of Almierra for Alanthor) and every sect building: one of each, ever. A faction that has
+had its Fortress is eliminated once all three have been down — fallen, or
+never built — for `fortressRebuildGraceSeconds` (`EliminationSystem.asset`)
+without one FINISHED again on its rubble; any one standing stops the clock.
+While a keystone stands, or the grace runs, nothing else can eliminate it;
+once it is out, its other buildings, Workers, army and ground do not keep it
+in. The Fortress takes real damage only from siege, which scales with the
+engines brought (`FortressFallSystem.asset`). A fallen keystone leaves
+rubble — the only place it can be built again, whoever holds the ground
+(`KeystoneRubble`). It is rebuilt from the button that appears over the rubble
+when Workers are selected (as on a resource node), never from the build
+palette. A player left with no way to rebuild (no Workers — they train only at
+the Fortress) is not eliminated early: it is out when the grace runs out, like
+anyone else (developer, 2026-11-17). The rebuild costs nothing but the Workers' time: the
+challenge is keeping the Workers and the site alive until the grace runs out —
+and a share of its price (`rubbleRebuildCostShare`, `FortressFallSystem.asset`). The three rules below now apply only to a faction that
+never had a Fortress.
 
 A faction is eliminated by **any** of three rules (`EliminationSystem`, all
 checked on the lockstep clock, so every peer drops the same faction on the

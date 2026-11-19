@@ -26,9 +26,24 @@ namespace TheWaningBorder.AI
         /// healers, casters) steer target choice. 0 = ignored.</summary>
         public float focusFireWeight;
 
-        /// <summary>Ranged units step back while reloading when melee closes
-        /// in, then fire again.</summary>
+        /// <summary>Ranged units under melee attack are pulled back, as a
+        /// group, behind their own melee line (Game_AI.md § 6e, 2026-11-18).</summary>
         public bool kiting;
+
+        /// <summary>THE ACTION BUDGET (Game_AI.md § 6e, 2026-11-18): how many
+        /// micro orders a minute this tier may give — a kiting pull-back, a
+        /// unit ability cast, a per-unit re-target, a firing-line move, a flank.
+        /// One order to a GROUP is one action, as a player's click is. Unspent
+        /// actions bank up to actionBurst.</summary>
+        public float actionsPerMinute;
+
+        /// <summary>Most actions the budget banks (a player's burst of clicks
+        /// when a fight opens).</summary>
+        public int actionBurst;
+
+        /// <summary>Seconds between a unit coming under melee attack and the
+        /// AI reacting to it (a player has to notice it first).</summary>
+        public float reactionSeconds;
 
         /// <summary>Share of the army's FAST MELEE that swings round to hit
         /// the enemy from the side / rear when a fight opens. 0 = never.</summary>
@@ -48,7 +63,7 @@ namespace TheWaningBorder.AI
         public bool rangedBehindMelee;
 
         /// <summary>The AI casts its units' active abilities (hero, cavalry
-        /// horns, volleys, field hospital, sect-unit actives) at all.</summary>
+        /// horns, volleys, Healing Ward, sect-unit actives) at all.</summary>
         public bool castUnitAbilities;
 
         /// <summary>Fewest enemies an area damage / control ability must catch

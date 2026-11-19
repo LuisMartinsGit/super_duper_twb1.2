@@ -11,7 +11,7 @@
 //   4  Culture — the age-up landmark (first: claims only open at age-up)
 //   5  Territory — standing armies claim, buildings hold, extractors lock
 //   6  The curse — its nodes, its units, and the religion they pay
-//   7  Religion — Temple, chapels, powers, sect buildings and units, sect heroes
+//   7  Religion — Temple, sects, powers, sect buildings and units, sect heroes
 //   8  Monuments, level 10, the Shardroot and how the match is won
 //
 // A step may name infographic CARDS (TutorialCardViewer): they open by themselves
@@ -43,7 +43,7 @@
 // against a single relaxed AI, on whatever map ships. That is the point — a
 // tutorial built on a mock-up teaches a mock-up, and it rots the moment the
 // real opening changes. Every step reads the same state the game itself reads
-// (TerritoryOwnership, Target, TempleChapelSlot, SectAdoptionState,
+// (TerritoryOwnership, Target, SectAdoptionState,
 // SmallNodeTag, LastDamagedByFaction), so the only way to fail is to change
 // the game, which is exactly when the tutorial SHOULD break.
 //
@@ -272,7 +272,8 @@ namespace TheWaningBorder.UI.Ingame
                      + "queue up and run in turn — up to <b>15</b>. The route is drawn on "
                      + "the ground.\n"
                      + "Soldiers start <b>Aggressive</b>: they chase anything in sight. "
-                     + "<b>D</b> makes them Defensive, <b>H</b> holds them in place, <b>G</b> "
+                     + "<b>D</b> makes them Standard (they only return fire), <b>H</b> makes "
+                     + "them Defensive (they hold in place), <b>G</b> "
                      + "turns them loose again. A queued move is obeyed over the stance — "
                      + "if you want them to fight on the way, press <b>A</b> first.",
                 Done = (t, em, f) => t._sawQueuedOrders,
@@ -307,7 +308,7 @@ namespace TheWaningBorder.UI.Ingame
                 Cards = new[] { "14" },
                 Body = "The age-up <b>is</b> a building. Pick the <b>Vault of Almiérra</b> from "
                      + "the top of the screen and place it on ground you own.\n"
-                     + "It builds itself slowly, and every worker you send speeds it up. "
+                     + "Your Workers build it, like any other building - send them to the site. "
                      + "<b>Only one per match</b> — and if it is destroyed before it "
                      + "finishes, the progress and everything you paid are lost.",
                 Grant = Cost.Of(supplies: 600, iron: 300, veilstone: 200),
@@ -438,12 +439,12 @@ namespace TheWaningBorder.UI.Ingame
                 Chapter = Ch7,
                 Title = "Adopt a sect",
                 Cards = new[] { "19", "21" },
-                Body = "The <b>religion panel</b> on the right (<b>R</b>) shows your six chapel "
-                     + "slots, and <b>T</b> opens the full tree. A chapel adopts a sect for "
-                     + "RP, cheaper for a sect of your own culture, and the choice is final.\n"
+                Body = "The <b>religion panel</b> on the right (<b>R</b>) shows the sects. "
+                     + "Adopting one costs RP, cheaper for a sect of your own culture, and "
+                     + "the choice is final.\n"
                      + "It unlocks the sect's first power and lets you raise its building.",
                 Grant = Cost.Of(supplies: 800, iron: 600, veilstone: 400), RpGrant = 3,
-                GrantLabel = "chapel materials and 3 Religion Points",
+                GrantLabel = "sect materials and 3 Religion Points",
                 Done = (t, em, f) => t.AdoptedSect(em, f) != null,
             },
             new Step
@@ -452,7 +453,7 @@ namespace TheWaningBorder.UI.Ingame
                 Title = "Cast a sect power",
                 Body = "Each sect has a row of cells: <b>A</b>, <b>B</b> and a wildcard power. "
                      + "Click a lit one, or press <b>F1-F6</b>, and pick a target in sight.\n"
-                     + "RP unlocks the other powers, and the chapel's level — also bought with "
+                     + "RP unlocks the other powers, and the sect's level — also bought with "
                      + "RP — is the level of every power it has.",
                 Done = (t, em, f) => t.AnySectPowerOnCooldown(em, f),
             },
@@ -1175,28 +1176,23 @@ namespace TheWaningBorder.UI.Ingame
             return temple != Entity.Null && !em.HasComponent<UnderConstruction>(temple);
         }
 
-        /// <summary>First sect adopted into a chapel slot (state 2), or null.</summary>
+        /// <summary>First sect the faction has adopted (in fixed sect order), or null.</summary>
         private string AdoptedSect(EntityManager em, Faction faction)
         {
-            Entity temple = FindTemple(em, faction);
-            if (temple == Entity.Null || !em.HasBuffer<TempleChapelSlot>(temple)) return null;
-            var slots = em.GetBuffer<TempleChapelSlot>(temple);
-            for (int i = 0; i < slots.Length; i++)
-                if (slots[i].State == 2) return slots[i].SectId.ToString();
+            var ids = SectConfig.AllSectIds;
+            for (int i = 0; i < ids.Length; i++)
+                if (SectActivePowerHelper.IsAdopted(em, faction, ids[i])) return ids[i];
             return null;
         }
 
         /// <summary>A sect power fired = that tier is now recharging.</summary>
         private bool AnySectPowerOnCooldown(EntityManager em, Faction faction)
         {
-            Entity temple = FindTemple(em, faction);
-            if (temple == Entity.Null || !em.HasBuffer<TempleChapelSlot>(temple)) return false;
-
-            var slots = em.GetBuffer<TempleChapelSlot>(temple);
-            for (int i = 0; i < slots.Length; i++)
+            var ids = SectConfig.AllSectIds;
+            for (int i = 0; i < ids.Length; i++)
             {
-                if (slots[i].State != 2) continue;
-                string sectId = slots[i].SectId.ToString();
+                string sectId = ids[i];
+                if (!SectActivePowerHelper.IsAdopted(em, faction, sectId)) continue;
                 for (int tier = 1; tier <= 3; tier++)
                     if (SectActivePowerHelper.CooldownRemaining(em, faction, sectId, tier) > 0f)
                         return true;

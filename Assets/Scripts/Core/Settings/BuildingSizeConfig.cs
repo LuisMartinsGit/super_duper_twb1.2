@@ -33,13 +33,11 @@ public static class BuildingSizeConfig
     }
 
     /// <summary>
-    /// The ids with no BuildingDefSO: the twelve chapels (Chapel_Sect_*,
-    /// docked in the Temple ring) and the curse's well. Everything else is
+    /// The ids with no BuildingDefSO: the curse's well. Everything else is
     /// read from its asset — add a footprint THERE, not here.
     /// </summary>
     private static int2 CodeSeededSize(string buildingId)
     {
-        if (buildingId != null && buildingId.StartsWith("Chapel_")) return new int2(2, 2);
         if (buildingId == "BorderMainNode") return new int2(12, 12);
         // An id nobody authored. 4 x 4 cells, the old default, so placement
         // still has a box to test; the SO is the fix.

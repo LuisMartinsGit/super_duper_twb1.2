@@ -18,11 +18,11 @@ MonoBehaviour:
   description: Ranged training building. Its level unlocks the archer ladder (Archer
     at L1, Crossbowman at L2) and grants the arrow / armour / experience tiers; it
     researches the volley / fletching / stakes techs.
-  hp: 600
+  hp: 1600
   armorType: structure_human
   defense:
-    melee: 4
-    ranged: 10
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 2
   radius: 1.6
@@ -44,6 +44,7 @@ MonoBehaviour:
   trains:
   - Alanthor_Archer
   - Alanthor_Crossbowman
+  - Alanthor_Longbowman
   research:
   - Fletching
   - ChoreographedVolleys

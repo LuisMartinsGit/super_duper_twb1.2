@@ -4,8 +4,8 @@
 //   * Hands of Plenty III regen tail (SectRegenTail) — a regeneration loop on
 //     every unit healing over time;
 //   * Second Wind (SectDeathWard) — a ward on every unit that cannot die;
-//   * Field Hospital (FieldHospitalTag) — a healing-area loop over the tent
-//     for its whole life, sized to its heal radius.
+//   * Healing Ward (HealingWardTag) — a healing-area loop over the ward for
+//     its whole life, sized to its heal radius (the Healing Ward card's Radius).
 // Individual heals still get the shared heal effect from UnitHealVfx.
 // Presentation only.
 
@@ -29,7 +29,7 @@ namespace TheWaningBorder.Rendering
             public readonly Dictionary<Entity, GameObject> Live = new();
             public EntityQuery Query;
         }
-        private readonly Layer _regen = new(), _ward = new(), _hospital = new();
+        private readonly Layer _regen = new(), _ward = new(), _healingWard = new();
         private readonly HashSet<Entity> _seen = new();
         private readonly List<Entity> _scratch = new();
         private EntityManager _queryOwner;
@@ -47,14 +47,16 @@ namespace TheWaningBorder.Rendering
             {
                 _regen.Query = new EntityQueryBuilder(Allocator.Temp).WithAll<SectRegenTail, UnitTag>().Build(em);
                 _ward.Query = new EntityQueryBuilder(Allocator.Temp).WithAll<SectDeathWard, UnitTag>().Build(em);
-                _hospital.Query = new EntityQueryBuilder(Allocator.Temp).WithAll<FieldHospitalTag>().Build(em);
+                _healingWard.Query = new EntityQueryBuilder(Allocator.Temp).WithAll<HealingWardTag>().Build(em);
                 _queryOwner = em;
             }
 
-            float hospitalScale = cfg.hospitalHealRadius / Mathf.Max(0.1f, cfg.hospitalAuthoredRadius);
+            var wardCard = TheWaningBorder.Abilities.AbilityCatalog.Get(TheWaningBorder.Entities.HealingWard.CardName);
+            float wardRadius = wardCard != null ? wardCard.Radius : 0f;
+            float wardScale = wardRadius / Mathf.Max(0.1f, cfg.healingWardAuthoredRadius);
             Sync(_regen, cfg.regenTailPrefab, cfg, v => VfxSpawn.Height(v) * cfg.unitScalePerMetre);
             Sync(_ward, cfg.deathWardPrefab, cfg, v => VfxSpawn.Height(v) * cfg.unitScalePerMetre);
-            Sync(_hospital, cfg.fieldHospitalAuraPrefab, cfg, _ => hospitalScale);
+            Sync(_healingWard, cfg.healingWardAuraPrefab, cfg, _ => wardScale);
         }
 
         /// <summary>Keep exactly one looping effect on each entity the layer's
@@ -85,7 +87,7 @@ namespace TheWaningBorder.Rendering
 
         void OnDestroy()
         {
-            foreach (var l in new[] { _regen, _ward, _hospital })
+            foreach (var l in new[] { _regen, _ward, _healingWard })
             {
                 foreach (var fx in l.Live.Values) if (fx != null) Destroy(fx);
                 l.Live.Clear();

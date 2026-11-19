@@ -32,6 +32,17 @@ for sources. Where this doc and code disagree, this doc wins.
   the rock, and "standable" also accepted the shelf below a cliff — so armies
   mustering at a mountain edge left men pressed against it, who then trickled
   after the army one by one.
+- **The patch grows until it holds the army; an overflow slot keeps the
+  lattice** (2026-11-18). An order onto cramped ground (an AI muster inside a
+  base's ring of buildings) left a reachable patch smaller than the
+  formation, every slot without free ground of its own was given the
+  destination itself, and its marching offset — re-derived from that slot —
+  became the leader's own spot: the overflow marched stacked on the leader as
+  one point. Now the patch is widened (by the formation's radius plus its
+  margin, a bounded number of times) while any slot finds no free ground; a
+  slot that still finds none ends on the nearest reachable cell to its
+  authored place, and its MARCHING offset stays the authored lattice offset.
+  Only the final spot may be crowded, never the marching shape.
 - **Steering slides along a wall the way the flow is going** (2026-10-25).
   When the look-ahead finds blocked ground, the side to slide to is the
   wall's own tangent (from the blocked cells round the hit) signed to agree
@@ -63,6 +74,30 @@ for sources. Where this doc and code disagree, this doc wins.
   fields, locked force order in steering, fixed iteration orders.
 
 ## 2. Group movement (AoE4 virtual-leader model)
+
+> **2026-11-17 — three standing rules (developer: "The fix is not adding speed to
+> stragglers. Armies must muster completely near their base, then march in formation.
+> Obstacles must be navigated in formation. If formation has to break to pass a narrow
+> spot, it reassembles right after it and continues").** They override anything below
+> that disagrees:
+> 1. **No speed bonus.** A member out of place catches up at **its own top speed at
+>    most** (its stat times its own slows and hastes) — never above it. The "+40%" /
+>    catch-up multiplier below no longer lifts anyone past their own speed; the wheel
+>    rate is sized from what the leader gives up in a turn (`WheelSpeedFloor`), and a
+>    pivot from the group speed.
+> 2. **The army musters completely** near its base before it marches
+>    (`musterGatherFraction` 1 on `SimpleAISystem.asset`, Game_AI.md). When the muster
+>    wait runs out, whoever has not arrived is LEFT OUT of that army — it does not
+>    trail the march.
+> 3. **Re-form after a narrow spot.** While more than `1 - openGroundShare` of the
+>    formation's spots stand in rock or water it is squeezing through a ramp or ford and
+>    walks on as a column; back on open ground the leader **stands**
+>    (`columnWaitSpeed` 0) until no member is more than `columnLagMetres` from its spot
+>    (`columnWaitFraction` 0), then continues. A member that makes NO progress toward
+>    its spot is still dropped by the tether fuse, so a wedged unit cannot hold an army.
+>    The formations one split order makes march as a **convoy**: one more than
+>    `convoyGapMetres` nearer the destination than the hindmost waits for it. All on
+>    `FormationGroupSystem.asset`.
 
 When N ≥ 2 movable units receive one move / attack-move order:
 
@@ -349,6 +384,50 @@ the pose-fit tolerance makes the first order snap instead of continue.
 - A selected formation draws **one** movement line, from its virtual leader to
   its destination; units out of the group draw their own.
 - Rally points support target entities and shift-queued chains.
+
+### 4.1 Attacking a building — slots round the footprint (2026-11-18)
+
+> **2026-11-19, [decision 82](Unification_Decisions_2026-10-03.md): torch throwers take no
+> slot.** A melee unit with a torch attacks a building from its torch reach
+> (`MeleeCombatSystem.asset`) and stands wherever it first reaches that band. The slots below
+> now serve only the ram and melee units with no torch.
+
+Developer: "Sending an army to attack a building results in units rushing too
+close together and stacking. The units that do stay behind go in circles when
+they should try to go around the target searching for a free spot to attack it
+or stay put, waiting for one of the frontliners to die and take its place."
+
+Every melee attacker used to walk to the point of the footprint nearest to
+itself, so an army arriving from one side aimed at one spot; the ones that did
+not fit kept chasing it (a chaser never counts as "arrived in a crowd") and the
+stuck recovery re-aimed them a little further round each time — the circling.
+
+The rule (AoE-style), for melee units on the ground attacking a building with
+a footprint:
+
+- **Two rings of slots.** Round the footprint edge, inside melee reach, a
+  FRONT ring of slots spaced along the edge; behind it a WAITING ring. Slots on
+  impassable ground are pushed outward until they stand, or dropped.
+- **One unit per slot, no stacking.** A wide unit (cavalry, a ram) keeps the
+  slots beside it free — two claimants' slots are at least their summed radii
+  (scaled) apart.
+- **Holders keep their slots.** The rest, nearest the building first, take the
+  nearest free front slot, walking round the building to it when this side is
+  full; then the nearest free waiting slot.
+- **No slot means stand still, never circle.** A waiting unit walks to its
+  waiting slot and holds there; one with no slot on either ring stops in the
+  band behind the waiting ring. A unit in reach but not on its own front slot
+  walks to it (or steps back out) instead of swinging from inside the pile.
+- **A freed slot passes back.** Slots are re-allocated on a fixed cadence; when
+  a front-liner dies or leaves, the nearest unit — the one waiting behind it —
+  takes its place.
+
+Walls keep the plain nearest-point approach (only siege hits them). Ranged
+units are unchanged: they halt wherever they first reach their range ring.
+Spacing, stand-off, waiting-ring offset, overflow band, tolerance and cadence
+are on `BuildingAttackSlotSystem.asset`; code `Systems/Combat/Attacks/
+BuildingAttackSlotSystem.cs` (allocation) and `MeleeCombatSystem.Jobs.cs`
+(walk / swing / hold).
 
 ## 5. Gates, walls & overpass bridges (dual-level navigation)
 

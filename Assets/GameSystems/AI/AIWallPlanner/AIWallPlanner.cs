@@ -811,6 +811,20 @@ namespace TheWaningBorder.AI
             int hubCount = segs + 1;
             int gateSlot = (segs - 1) / 2;       // middle segment gateSlot -> gateSlot+1
 
+            // A GATE MUST FIT, OR THE WAY STAYS OPEN (decision 81, 2026-11-19).
+            // A gate needs AlanthorWall.FreeRunForGate free modules in one
+            // segment, laid every AlanthorWall.InstanceSpacing metres. On a
+            // narrow ramp the two hubs stood 8 m apart — three modules — so
+            // no gate could ever be cut, the shoulder towers took two of the
+            // three, and the curtain sealed the faction's only way out: Red
+            // on Fiendstone Pass trained 300 population and never left its
+            // shelf (0.0.90 batch, both Fiendstone matches). Such a gate
+            // stretch gets no curtain: the way stays open between its two
+            // tower hubs. Engine geometry, not tuning.
+            float gateSpan = span / segs;
+            bool gateFits = (int)math.ceil(gateSpan / TheWaningBorder.Entities.AlanthorWall.InstanceSpacing)
+                            >= TheWaningBorder.Entities.AlanthorWall.FreeRunForGate;
+
             for (int i = 0; i < hubCount; i++)
             {
                 float t = i / (float)(hubCount - 1);
@@ -818,7 +832,7 @@ namespace TheWaningBorder.AI
                 pos.y = TerrainUtility.GetHeight(pos.x, pos.z);
 
                 byte flags = 0;
-                if (i == gateSlot) flags |= FlagGateAfter;
+                if (i == gateSlot) flags |= gateFits ? FlagGateAfter : FlagTerrainSealed;
                 if (i == 0 || i == hubCount - 1
                     || i == gateSlot || i == gateSlot + 1) flags |= FlagTower;
                 slots.Add(new AIWallPlanSlot { Position = pos, Chain = chain, Flags = flags });

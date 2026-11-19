@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.Data;
 using TheWaningBorder.World.Regions;
 
@@ -89,6 +90,10 @@ namespace TheWaningBorder.Systems.Core
         // none, since when (sim seconds), or -1.
         private readonly bool[] _everHadBuilding = new bool[MaxFactions];
         private readonly float[] _buildinglessSince = new float[MaxFactions];
+        // The Fortress rule (decision 69): the faction has had a finished
+        // Fortress, and since when (sim seconds) it has had none, or -1.
+        private readonly bool[] _everHadFortress = new bool[MaxFactions];
+        private readonly float[] _fortressLostSince = new float[MaxFactions];
 
         // Resignations (the lockstep Resign command, 2026-10-28), waiting for
         // the next pass. Sim state: set during command execution at one tick
@@ -140,6 +145,8 @@ namespace TheWaningBorder.Systems.Core
                     _landlessSince[i] = -1f;
                     _everHadBuilding[i] = false;
                     _buildinglessSince[i] = -1f;
+                    _everHadFortress[i] = false;
+                    _fortressLostSince[i] = -1f;
                 }
             }
 
@@ -199,6 +206,7 @@ namespace TheWaningBorder.Systems.Core
             // survival rule the Mono computed (2026-08-07 rewrite), read at
             // an identical tick on every peer now. ──
             var hasHall = new bool[MaxFactions];
+            var hasKeystone = new bool[MaxFactions];
             var hasBuilding = new bool[MaxFactions];
             var hasMilitary = new bool[MaxFactions];
             var hasWorker = new bool[MaxFactions];
@@ -215,6 +223,10 @@ namespace TheWaningBorder.Systems.Core
                     // Rule 3 counts sites too (plans carry no BuildingTag).
                     hasBuilding[fi] = true;
                     if (em.HasComponent<UnderConstruction>(ents[i])) continue;
+                    // A finished keystone (decision 69): Fortress, Temple or
+                    // landmark — any one of them stops the fall clock.
+                    if (!hasKeystone[fi] && TheWaningBorder.Entities.KeystoneRubbles.KeystoneIdOf(em, ents[i]) != null)
+                        hasKeystone[fi] = true;
                     if (em.HasComponent<HallTag>(ents[i])) { hasHall[fi] = true; continue; }
                     if (!hasMilitary[fi] && IsMilitaryBuilding(em, ents[i]))
                         hasMilitary[fi] = true;
@@ -270,6 +282,45 @@ namespace TheWaningBorder.Systems.Core
                     newly.Add(f);
                     reason[f] = "resigned.";
                     continue;
+                }
+
+                // ── THE KEYSTONE RULE (decision 69, Territory_Claims.md § 7):
+                // a faction that has had its Fortress lives while ANY of its
+                // keystones stands — the Fortress, the Temple, its landmark or a sect
+                // building.
+                // With all three down (fallen, or never built) it has
+                // fortressRebuildGraceSeconds to finish one again on its
+                // rubble; its other buildings, Workers, army and ground no
+                // longer keep it in the match. ──
+                if (cfg.fortressRebuildGraceSeconds > 0f)
+                {
+                    if (hasHall[fi]) _everHadFortress[fi] = true;
+                    if (_everHadFortress[fi])
+                    {
+                        if (hasKeystone[fi])
+                        {
+                            if (_fortressLostSince[fi] >= 0f)
+                                TheWaningBorder.AI.AILogger.Log(f, "VICTORY",
+                                    $"KEYSTONE REBUILT at {_matchSeconds:0}s - the fall clock stops.");
+                            _fortressLostSince[fi] = -1f;
+                            continue;
+                        }
+                        if (_fortressLostSince[fi] < 0f)
+                        {
+                            _fortressLostSince[fi] = _matchSeconds;
+                            TheWaningBorder.AI.AILogger.Log(f, "VICTORY",
+                                $"ALL KEYSTONES FALLEN at {_matchSeconds:0}s (Fortress, Temple, landmark, sect buildings) - " +
+                                $"eliminated in {cfg.fortressRebuildGraceSeconds:0}s unless one is rebuilt on its rubble.");
+                            SimSignals.Notify(string.Format(
+                                Loc.T("{0} has lost every keystone (Fortress, Temple, landmark, sect buildings) - {1} to rebuild one on its rubble"),
+                                Loc.T(f.ToString()), FormatGrace(cfg.fortressRebuildGraceSeconds)));
+                            continue;
+                        }
+                        if (_matchSeconds - _fortressLostSince[fi] < cfg.fortressRebuildGraceSeconds) continue;
+                        newly.Add(f);
+                        reason[f] = $"its keystones (Fortress, Temple, landmark, sect buildings) were all down for {cfg.fortressRebuildGraceSeconds:0}s.";
+                        continue;
+                    }
                 }
 
                 if (!canRebuild)
@@ -386,6 +437,12 @@ namespace TheWaningBorder.Systems.Core
 
         private static readonly ComponentType[] QT_Shardroot = { ComponentType.ReadOnly<ShardrootState>() };
         private static CachedEntityQuery QC_Shardroot;
+
+        private static string FormatGrace(float seconds)
+        {
+            int s = (int)seconds;
+            return $"{s / 60}:{s % 60:00}";
+        }
 
         private static bool TryAscendant(EntityManager em, out Faction ascendant)
         {

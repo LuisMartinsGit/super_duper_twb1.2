@@ -37,6 +37,7 @@ MonoBehaviour:
   - 2
   - 3
   sectUnitRp: 1
+  sectUnitsEnabled: 0
   aiSectUnitRpReserve: 0
   sectDamagePerRp: 3000
   supportSupplies: 250

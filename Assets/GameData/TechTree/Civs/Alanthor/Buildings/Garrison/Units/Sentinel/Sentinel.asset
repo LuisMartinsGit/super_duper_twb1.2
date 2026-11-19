@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Sentinel
   displayName: Sentinel
   unitClass: human_melee
-  hp: 335
+  hp: 210
   speed: 5
   trainingTime: 16.8
   damage: 12
@@ -47,6 +47,7 @@ MonoBehaviour:
   bonusVsTags:
   - vsTag: Heavy
     amount: 10
+  torchDamage: 13
   prefab: {fileID: 4588659633499736191, guid: 301679efc29690b4c89672d02ec32cf9, type: 3}
   presentationId: 334
   animatorController: {fileID: 9100000, guid: 2400e2675f8a1534ba0e381eab01bc68, type: 2}

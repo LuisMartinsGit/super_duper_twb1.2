@@ -16,11 +16,11 @@ MonoBehaviour:
   displayName: Ballista Emplacement
   role: Fixed anti-armour battery
   description: 
-  hp: 500
+  hp: 1000
   armorType: structure_human
   defense:
-    melee: 8
-    ranged: 12
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 4
   radius: 2

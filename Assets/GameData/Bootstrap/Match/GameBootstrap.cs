@@ -644,8 +644,9 @@ namespace TheWaningBorder.Bootstrap
             managersGO.AddComponent<PresentationSpawnSystem>();
             managersGO.AddComponent<TheWaningBorder.Rendering.BuildingPrefabSwapSystem>();
             managersGO.AddComponent<TheWaningBorder.Rendering.NodeRubbleVisualSystem>(); // node rubble / rebuild visual
+            managersGO.AddComponent<TheWaningBorder.Rendering.FortressRubbleVisual>(); // a fallen Fortress (decision 69)
             // Ability effects: each ability's own <Name>_Effect prefab (the Ledger's
-            // buff, King Lexor, the Field Hospital), every unit heal, the Sect of
+            // buff, King Lexor, the Healing Ward), every unit heal, the Sect of
             // Renewal's lasting effects and the Shardroot's loot states (2026-10-02;
             // replaced LedgerAutomationVfx's procedural aura).
             managersGO.AddComponent<TheWaningBorder.Rendering.AbilityVfxPlayer>();
@@ -682,11 +683,11 @@ namespace TheWaningBorder.Bootstrap
 #endif
             managersGO.AddComponent<TheWaningBorder.UI.Ingame.MatchSnapshotLog>(); // per-minute faction snapshot into the match logs
             managersGO.AddComponent<TheWaningBorder.Rendering.CurseBeaconVfx>(); // curse-node beacons + emergence pulses
-            managersGO.AddComponent<TheWaningBorder.Rendering.ChapelSiteDecals>();
 
             managersGO.AddComponent<FloatingIncomeDisplay>();   // BFME2-style floating income text
             managersGO.AddComponent<ResourceGainPopups>();      // "+N [icon]" where resources are gained
             managersGO.AddComponent<ProjectileVisualSystem>();   // Arrow projectile visuals
+            managersGO.AddComponent<TheWaningBorder.Rendering.TorchThrowVisual>(); // thrown torches at buildings (decision 82)
             managersGO.AddComponent<BuildingEffectSystem>();    // Construction dust + collapse effects
             managersGO.AddComponent<RitualBeamSystem>();         // Ritual broadcast beams (spec §5.1)
             managersGO.AddComponent<CaravanVisualSystem>();       // Procedural desert-traveler visual (spec refinement #3)

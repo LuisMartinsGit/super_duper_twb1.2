@@ -13,6 +13,32 @@ using Unity.Mathematics;
 public struct BuildOrder : IComponentData, IEnableableComponent
 {
     public Entity Site; // Building entity being constructed
+    /// <summary>Where this builder stands to work (BuilderStand). A fresh
+    /// order (<c>new BuildOrder { Site = x }</c>) starts with none.</summary>
+    public WorkStand Stand;
+}
+
+/// <summary>
+/// A builder's own spot beside the footprint it works on (2026-11-18,
+/// docs/Design/Age_0.md § Worker): one slot on a ring just outside the
+/// footprint's edge, latched for the job so the walk target never moves, and
+/// given up for the next free slot when the worker makes no progress toward
+/// it. Carried inside <see cref="BuildOrder"/> and <see cref="RepairOrder"/>;
+/// read and written only by <c>BuilderStand</c>.
+/// </summary>
+public struct WorkStand
+{
+    /// <summary>The spot (world), valid while <see cref="HasSpot"/> is 1.</summary>
+    public float3 Spot;
+    public byte HasSpot;
+    /// <summary>Which slot of the site's ring <see cref="Spot"/> is.</summary>
+    public byte SlotIndex;
+    /// <summary>Slots already given up on for this job (bit per slot).</summary>
+    public ulong Tried;
+    /// <summary>Closest the worker has come to <see cref="Spot"/>.</summary>
+    public float BestDist;
+    /// <summary>Seconds near the spot without getting closer.</summary>
+    public float Stall;
 }
 
 /// <summary>
@@ -45,15 +71,24 @@ public struct QueuedBuildSite : IBufferElementData
 public struct RepairOrder : IComponentData, IEnableableComponent
 {
     public Entity Site;          // Building entity being repaired
-    public byte CostPaid;        // 1 = resources already deducted, 0 = not yet
+    public byte CostPaid;        // unused since repairs are paid per HP (2026-11-17)
     public int TargetHP;         // HP to repair to (max HP)
     public int StartHP;          // HP when repair started (for cost calculation)
+    public float Carry;          // fraction of an HP owed, kept between ticks
+    public float CostCarryS, CostCarryI, CostCarryV;   // fractions of a resource owed for repaired HP
+    public WorkStand Stand;      // where this repairer stands (BuilderStand)
 }
 
-/// <summary>Marks a unit as capable of constructing buildings.</summary>
+/// <summary>Marks a unit as capable of constructing buildings, with its work
+/// rates from its unit SO (Worker.asset: buildSpeed, repairSpeed).</summary>
 public struct CanBuild : IComponentData
 {
     public bool Value;
+    /// <summary>Construction progress (seconds of build time) this unit adds
+    /// per second.</summary>
+    public float BuildRate;
+    /// <summary>HP this unit restores per second when repairing.</summary>
+    public float RepairRate;
 }
 
 /// <summary>Marker tag for units that can mine (every Worker carries it).</summary>

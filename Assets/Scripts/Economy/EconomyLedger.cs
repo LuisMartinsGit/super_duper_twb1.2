@@ -79,6 +79,9 @@ namespace TheWaningBorder.Economy
         /// <summary>Iron and veilstone the Alanthor Market bought for
         /// supplies at its fixed prices (decision 55, MarketSystem).</summary>
         Market,
+        /// <summary>The Vault of Almierra's full bars: each pays its own trickle
+        /// of the iron or veilstone it holds (decision 85, VaultBarSystem).</summary>
+        VaultBar,
         Count
     }
 

@@ -53,15 +53,9 @@ namespace TheWaningBorder.Data
         /// bar holds when full, bar 1 first -- every bar harder to fill than the
         /// last. The Vault of Almierra only; VaultBars reads it.</summary>
         public int[] vaultBarCapacity;
-        /// <summary>The income a full bar adds to the resource it boosts
-        /// (0.05 = +5 %). The Vault of Almierra only.</summary>
-        public float vaultBarBonus;
-        /// <summary>Sub-bars per bar: each filled sub-bar pays its share of
-        /// vaultBarBonus at once, so a bar pays early (2026-11-10).</summary>
+        /// <summary>Sub-bars each Vault bar is drawn in (display only since
+        /// decision 85: only a full bar pays).</summary>
         public int vaultSubBars;
-        /// <summary>The resource each Vault bar takes and boosts: 1 supplies, 2 iron,
-        /// 3 veilstone (decision 60).</summary>
-        public int[] vaultBarResource;
         /// <summary>The stone-wall level (WallTiers) a wall must stand at for
         /// this building to be mounted on it. The emplacements only.</summary>
         public int minWallLevel;
@@ -71,6 +65,10 @@ namespace TheWaningBorder.Data
         /// <summary>Extra targets per volley each garrisoned unit adds to the
         /// building's own attack.</summary>
         public int garrisonArrowsPerOccupant;
+        /// <summary>Seconds this building takes to produce one Worker straight
+        /// into a free garrison slot, free of charge, while it has room (the
+        /// Farm, decision 83); 0 = never.</summary>
+        public float garrisonWorkerSeconds;
         /// <summary>Most a faction may own at once, plans and sites included.
         /// 0 = unlimited. Enforced by <c>BuildingFactory.AtFactionCap</c>.</summary>
         public int maxPerFaction;
@@ -82,18 +80,25 @@ namespace TheWaningBorder.Data
         /// <summary>The Farm's crop ring, metres out from its footprint edge. Its
         /// free share scales the Farm's pay; FarmRing reads it.</summary>
         public float cropRingMeters;
-        /// <summary>The Market's FIXED price: supplies paid for one iron.</summary>
-        public int suppliesPerIron;
-        /// <summary>The Market's FIXED price: supplies paid for one veilstone.</summary>
-        public int suppliesPerVeilstone;
-        /// <summary>Highest purchase rate a Market may be set to, per resource, a minute.</summary>
-        public int maxRatePerMinute;
-        /// <summary>One click of a Market rate button, a minute.</summary>
-        public int rateStep;
-        /// <summary>The supplies a new Market's surplus mode keeps in the bank (decision 59).</summary>
-        public int marketReserveDefault;
-        /// <summary>One click of the Market's reserve buttons, supplies (decision 59).</summary>
-        public int marketReserveStep;
+        /// <summary>The Market (decision 67): units of supplies in one lot.</summary>
+        public int marketSuppliesLot;
+        /// <summary>Units of iron in one lot.</summary>
+        public int marketIronLot;
+        /// <summary>Starting price of one supplies lot, HUNDREDTHS of a veilstone.</summary>
+        public int marketSuppliesLotPrice;
+        /// <summary>Starting price of one iron lot, HUNDREDTHS of a veilstone.</summary>
+        public int marketIronLotPrice;
+        /// <summary>Per-mille a shared price moves for each lot bought (up) or sold (down).</summary>
+        public int marketPriceStepPermille;
+        /// <summary>Percent of the price a sale pays (the rest is the Market's cut).</summary>
+        public int marketSellPercent;
+        /// <summary>Lowest and highest a shared price may go, percent of its starting price.</summary>
+        public int marketPriceFloorPercent;
+        public int marketPriceCeilingPercent;
+        /// <summary>Seconds between two drift steps back toward the starting price.</summary>
+        public float marketDriftSeconds;
+        /// <summary>Per-mille of the gap to the starting price closed each drift step.</summary>
+        public int marketDriftPermille;
 
         // ==================== Storage ====================
         public int maxIron;

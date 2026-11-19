@@ -12,7 +12,7 @@
 //
 // Filed under the caster's own Abilities/ folder per the co-location rule in
 // CLAUDE.md: an ability lives with whatever owns it, and the thing it conjures
-// files with the ability (the Field Hospital sets the precedent).
+// files with the ability (the Healing Ward sets the precedent).
 
 using Unity.Entities;
 using Unity.Mathematics;

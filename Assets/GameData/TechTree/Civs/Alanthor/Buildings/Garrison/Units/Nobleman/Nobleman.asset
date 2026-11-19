@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Alanthor_Nobleman
   displayName: Nobleman
   unitClass: human_melee
-  hp: 280
+  hp: 175
   speed: 5.7
   trainingTime: 19.6
   damage: 18
@@ -44,6 +44,7 @@ MonoBehaviour:
   - Infantry
   - Heavy
   bonusVsTags: []
+  torchDamage: 17
   abilities: []
   prefab: {fileID: 106028756459890, guid: 0c3a41141f480fd44b6177bbb5132468, type: 3}
   presentationId: 346

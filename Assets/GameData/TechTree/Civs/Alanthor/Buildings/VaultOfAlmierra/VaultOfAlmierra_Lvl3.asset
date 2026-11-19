@@ -28,11 +28,15 @@ MonoBehaviour:
   populationProvided: 0
   slotIncomePerMinute: 0
   vaultBarCapacity:
-  - 3000
-  - 5000
-  - 5000
-  - 5000
-  vaultBarBonus: 0.1
+  - 1500
+  - 3200
+  - 6000
+  - 10000
+  vaultBarIncomePerMinute:
+  - 300
+  - 800
+  - 1600
+  - 2800
   tradeRateMultiplier: 0
   attack:
     enabled: 0

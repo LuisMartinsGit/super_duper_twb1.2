@@ -37,9 +37,17 @@
 //                trains; walks into spears and crossbows.
 //   Battering Ram  EARLY anti-building (buildings only). Its share moves to
 //                the Trebuchet once the Siege Yard can train one.
+//   Catapult     the engine against massed foot (and ranged), trained at
+//                the Siege Yard beside the Ram and the Trebuchet — cut in
+//                decision 52, back on the Siege Yard's trains[] since
+//                2026-11-18. It falls back to the Ram (decision 81: every
+//                unit has a same-line stand-in when the money is short).
 //   Trebuchet    LATE anti-building / anti-fortification, the longest reach.
-// (The Sentinel, Nobleman, Longbowman, Ballista and Catapult left every
-// roster in decision 52; their rows are gone from the role table.)
+// (The Sentinel, Nobleman and Ballista left every roster in decision 52.)
+// SIEGE IS A SUPPORT ARM (decision 73): every siege role together is capped
+// at siegeMaxArmyShare of the plan (step 7 below), and a role whose whole
+// line is locked hands its share to the basic infantry, not to whatever
+// happens to be trainable.
 //
 // HOW A SHARE IS MADE (all numbers in assets):
 //   1. INTEL. share = baseShare + counterResponse x sum(perEnemyX x enemy X
@@ -55,14 +63,17 @@
 //      income (veilstoneIncomeForFullLadder) — a starved faction
 //      leans on the basics, a rich one on the roles.
 //   5. LOCKS. A role its trainer cannot train yet hands its share down its
-//      fallback chain (Outrider -> Swordsman -> Spearman ...); a superseded
-//      role (Ram -> Trebuchet) hands it up.
+//      fallback chain (inside its own line); a superseded role
+//      (Ram -> Trebuchet) hands it up; with nothing of the line trainable
+//      the share goes to the basic infantry (decision 73).
 //   6. The basics' total is clamped into [basicsMinShare, basicsMaxShare].
+//   7. All siege together is capped at siegeMaxArmyShare (decision 73).
 // The next unit is the role furthest below its share. The basics may number
 // the larger of basicsFloor and their share of the army — a HARD cap (the
 // developer's 2026-10-04 ruling: the share is fixed even with population
-// free). At the cap the AI WAITS and SAVES for the role unit; nothing lets a
-// basic past it (the overflow valve and the "basics fill" are gone). A bank
+// free). At the cap no basic is PICKED; but a role unit the money cannot buy
+// trains its same-line stand-in (decision 81, TryTrainUnitBudgeted), basics
+// cap or not, so the army never stands idle saving for it. A bank
 // piling up supplies and iron meanwhile spends on veilstone and upgrades
 // (SimpleAISystem.Surplus.cs, Game_AI.md 5e).
 // While a role is behind, AIBudget earmarks militaryVeilstoneShare of the
@@ -423,7 +434,8 @@ namespace TheWaningBorder.AI
 
         /// <summary>
         /// Every role's share: intel, personality, difficulty, economy, then
-        /// locks, normalisation and the basics clamp. See the file header.
+        /// locks, normalisation, the basics clamp and the siege cap. See the
+        /// file header.
         /// </summary>
         private static void ComputeShares(EntityManager em, Faction faction, ArmyPlan p,
             in AIDifficultyProfile profile, AISettingsSO.PersonalityBlock personality)
@@ -520,10 +532,19 @@ namespace TheWaningBorder.AI
             if (_biggest.Length < p.N) _biggest = new float[p.N];
             var biggest = _biggest;
             for (int r = 0; r < p.N; r++) biggest[r] = 0f;
+            // A role with nothing of its line trainable hands its share to the
+            // basic infantry (decision 73, 2026-11-18): dropping it made the
+            // normalisation below blow up whatever happened to be trainable —
+            // a lone Ram row became the whole non-basic share of the army.
+            int basicInfantry = -1;
+            for (int r = 0; r < p.N && basicInfantry < 0; r++)
+                if (rows[r] != null && rows[r].basic && p.Class[r] == ClassInfantry && p.Trainable[r])
+                    basicInfantry = r;
             for (int r = 0; r < p.N; r++)
             {
                 if (p.Raw[r] <= 0f) continue;
                 int t = ResolveRow(p, r);
+                if (t < 0) t = basicInfantry;
                 if (t < 0) continue;
                 p.Share[t] += p.Raw[r];
                 if (p.Raw[r] > biggest[t]) { biggest[t] = p.Raw[r]; p.Via[t] = r; }
@@ -544,6 +565,40 @@ namespace TheWaningBorder.AI
                 float kb = target / b, kn = (1f - target) / (1f - b);
                 for (int r = 0; r < p.N; r++) p.Share[r] *= rows[r].basic ? kb : kn;
                 b = target;
+            }
+
+            // 7: THE SIEGE CAP (decision 73, 2026-11-18). "Siege should not
+            // take up 30-50% of an army": every siege-class role together is
+            // held to siegeMaxArmyShare. The excess goes to the other role
+            // lines (so the basics clamp above still holds); with no other
+            // role line it goes to the basics.
+            float siegeCap = Cfg.siegeMaxArmyShare;
+            if (siegeCap > 0f)
+            {
+                float siege = 0f, roles = 0f;
+                for (int r = 0; r < p.N; r++)
+                {
+                    if (p.Share[r] <= 0f) continue;
+                    if (p.Class[r] == ClassSiege) siege += p.Share[r];
+                    else if (!rows[r].basic) roles += p.Share[r];
+                }
+                if (siege > siegeCap)
+                {
+                    float excess = siege - siegeCap, ks = siegeCap / siege;
+                    bool toRoles = roles > 0f;
+                    float pool = toRoles ? roles : b;
+                    if (pool > 0f)
+                    {
+                        float kp = (pool + excess) / pool;
+                        for (int r = 0; r < p.N; r++)
+                        {
+                            if (p.Share[r] <= 0f) continue;
+                            if (p.Class[r] == ClassSiege) p.Share[r] *= ks;
+                            else if (rows[r].basic != toRoles) p.Share[r] *= kp;
+                        }
+                        if (!toRoles) b += excess;
+                    }
+                }
             }
             p.BasicsShare = b;
         }
@@ -608,7 +663,9 @@ namespace TheWaningBorder.AI
             if (p.Stamp != _thinkStamp || p.F != faction) return;
             if (TheWaningBorder.Abilities.HeroTrainLimit.IsKingLexorId(unitId)) p.LexorOwed = false;
             if (!p.Active) return;
-            int r = RowIndex(p, unitId);
+            // A same-line stand-in counts for the role it replaces this think
+            // (decision 81); the next think counts units as they are.
+            int r = RowIndex(p, _trainingStandIn && _standInFor != null ? _standInFor : unitId);
             if (r < 0) return;
             p.Count[r]++;
             p.Army++;
@@ -646,27 +703,18 @@ namespace TheWaningBorder.AI
                 return p.Rows[bestBasic].unitId;
             }
 
+            // The role unit, whether or not the money covers it now. When it
+            // does not, the order trains its same-line stand-in
+            // (TryTrainUnitBudgeted, decision 81): a Crossbowman short of
+            // veilstone becomes an Archer, never a Spearman of another line,
+            // and the army no longer stands idle saving for it. SavingFor
+            // still names it, for the veilstone claim and the log.
             if (bestRole >= 0)
             {
                 string unit = p.Rows[bestRole].unitId;
-                if (CanBuyPlannedNow(em, faction, unit, p))
-                {
-                    p.SavingFor = null;
-                    return unit;
-                }
-                p.SavingFor = unit;
+                p.SavingFor = CanBuyPlannedNow(em, faction, unit, p) ? null : unit;
+                return unit;
             }
-
-            // The role unit cannot be paid for right now: a basic, if the
-            // cap lets one through. At the cap the army waits for the role
-            // unit — the cap is never exceeded (Game_AI.md 5d).
-            if (bestBasic >= 0 && BasicAllowed(p))
-                return p.Rows[bestBasic].unitId;
-
-            // Saving. Name the role unit; its train attempt fails on the
-            // bank and records the shortage (AIBudget.NoteMilitaryShort),
-            // (AIBudget.NoteMilitaryShort).
-            if (bestRole >= 0) return p.Rows[bestRole].unitId;
             if (p.LexorOwed) p.SavingFor = "King Lexor";
             return bestBasic >= 0 ? p.Rows[bestBasic].unitId : "Spearman";
         }
@@ -779,7 +827,9 @@ namespace TheWaningBorder.AI
             if (FactionCultureOf(em, faction) != Cultures.Alanthor) return null;
             var p = GetArmyPlan(em, faction);
             if (!p.Active) return null;
-            if (IsBasicRow(p, RowIndex(p, unitId)) && !BasicAllowed(p))
+            // A same-line stand-in for a role unit the money could not buy
+            // passes the cap (decision 81): it holds the role's place.
+            if (IsBasicRow(p, RowIndex(p, unitId)) && !BasicAllowed(p) && !_trainingStandIn)
                 return $"basics cap {p.Basics}/{BasicsAllowed(p)} (saving for {p.SavingFor ?? "a role unit"})";
             return LexorGate(em, faction, unitId, cost, p);
         }

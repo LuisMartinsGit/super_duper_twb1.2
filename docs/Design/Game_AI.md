@@ -120,6 +120,29 @@ dominates with nothing left to buy; a reserve of 10,000-30,000 is fine. All on `
 
 ### 2j. Production levels and the Market (2026-11-11, decision 56)
 
+> **2026-11-16 (decision 67): the Market paragraph below is superseded.** The Market has
+> no rates. Each think the AI reads the SHARED prices and trades lots for veilstone
+> (`TickMarket`, `SimpleAISystem.Farms.cs`), in this order per resource: **sell a glut**
+> (banked above `marketSuppliesGlut` / `marketIronGlut`, **at any price** — decision 81,
+> § 6af: the floor never stops a sale, the seller sells more lots); **sell into a
+> spike** (price at or above `marketDearPercent`: somebody bought it up); **buy a need**
+> (below `marketSuppliesShort` / `marketIronShort`, or the army's last purchases were
+> refused for it), with the veilstone above `marketVeilstoneShort`, unless the price is
+> above `marketBuyMaxPercent` — and with no veilstone to spare it first sells the other
+> resource; **buy a dip** (price at or below `marketCheapPercent`: somebody dumped it),
+> up to half the glut level. At most `marketLotsPerThink` lots a resource a think. Log
+> category MARKET. **Decision 68 g:** "short" means the army's purchases were refused for
+> it (`AIBudget.IsMilitaryShort`) while the bank is below the short level — a low bank alone
+> is not a need; funding a need by selling the other resource needs that resource above
+> twice its short level (decision 81: at any price).
+>
+> **Decision 68 f — waves grow with the game:** a wave's population (`PopulationCost`, so a
+> Trebuchet counts 5) must reach `waveMinPopBase` + `waveMinPopPerMinute` x minutes played,
+> unless the faction has `waveFullPopSlack` free population or less, when everything drafted
+> goes. No other cap. Only the Shardbound King's escort is exempt — the all-in (§ 6n) obeys it
+> too: armed at minute 22, it had been launching a wave a minute as soon as `allInMinWaveUnits`
+> stood idle (`TryLaunchAttack`; log `WAVE: wave N growing — …`).
+
 The first decision-55 test: no AI levelled a Garrison, Archery Range, Royal Stable or Siege Yard
 in 40 minutes (the soldiers-for-price test refused every one), so no army ever got a tier
 (decision 53 puts them only on levels), and supplies piled to 54,000 beside an empty iron bank
@@ -305,7 +328,8 @@ labeled with their multiplier (AoE4's hidden-Hardest-cheat backlash).
 | Expansion (extra GathererHuts near untapped deposits) | off | on | on | on |
 | Counter-aware target choice / focus-fire weight (`tactics`, §6e) | off / off | 0.5 / 0.6 | 0.85 / 0.85 | 1 / 1 |
 | Ranged hold a line behind the melee (§6e) | off | on | on | on |
-| Kiting (§6e) | off | off | on | on |
+| Kiting — a group pull-back behind the own melee line (§6e) | off | on | on | on |
+| Micro action budget and reaction delay (`actionsPerMinute`, `actionBurst`, `reactionSeconds`, §6e; values on the profile SO) | slowest | slow | quick | quickest |
 | Flanking share of the fast melee (§6e) | 0 | 0 | 20% | 30% |
 | Fall back to regroup at enemy/own power (re-engage at) (§6e) | never | 1.8 (0.8) | 1.5 (0.9) | 1.35 (0.95) |
 | Casts unit abilities; AoE needs N enemies (§6e) | no; 2 | yes; 3 | yes; 4 | yes; 4 |
@@ -627,6 +651,10 @@ an army. Raids now take the same road as a wave (`PutOnTheRoad`: muster
 outside the gate, march to the stage point, strike as one body).
 
 ### 3c. Fiendstone Pass fixes: chokepoint walls, shelf towers, wedged workers, the landmark (2026-10-17)
+
+> **Decision 81 (2026-11-19, § 6af): a chokepoint wall never seals its owner in.** A gate
+> stretch too short for a gatehouse stays open between its tower hubs; gates are cut before
+> any tower or emplacement converts.
 
 From the Fiendstone Pass culture batches (a map of cliff-shelf starts reached by
 ramps):
@@ -1042,6 +1070,11 @@ building levels, above the working float — and cleared when it is ordered.
 
 ### 5d. Army composition by role, the dynamic basics share and veilstone priority (2026-10-03)
 
+> **Decision 81 (2026-11-19, § 6af): the army no longer "saves".** A role unit the money
+> cannot pay for trains its same-line stand-in (its `fallbackUnitId`, down the chain to the
+> line's veilstone-free unit), past the basics cap; it never becomes a unit of another line.
+> Where the text below says the army waits and saves for its role unit, read this instead.
+
 The 0.0.33 60-minute batch ended with armies of Spearmen and Archers (Blue,
 Sundered Crown: 147 + 132, then 2 Cataphracts, 1 Outrider, 1 Ballista), no
 Swordsman / Nobleman / Sentinel / Crossbowman / Longbowman, no ram, catapult or
@@ -1071,10 +1104,10 @@ Implementation: `SimpleAISystem.Composition.cs`; every number is in an asset.
 | Longbowman | Long-range bow DPS, no bonus: outranges every bow, shreds slow foot and masses | infantry, massed; **less** vs cavalry | Archer |
 | Outrider | Light raider cavalry (bonus vs Ranged), the fastest unit | ranged, siege; **less** vs cavalry | Nobleman |
 | Cataphract | Heavy shock cavalry (bonus vs Ranged): breaks bow lines and siege | ranged, siege | Outrider |
-| Battering Ram | **Early** anti-building; its share moves to the Trebuchet once the Siege Yard can train one | — | Ballista |
+| Battering Ram | **Early** anti-building; its share moves to the Trebuchet once the Siege Yard can train one | — | — |
 | Trebuchet | **Late** anti-building / fortification, the longest reach | — | Battering Ram |
 | Ballista | **Anti-army**, single target: heroes, heavy cavalry, enemy engines | high-value (heroes + heavy cavalry + siege) | Sentinel |
-| Catapult | **Anti-army**, splash (bonus vs Infantry): clumped foot and formations | massed foot | Longbowman |
+| Catapult | **Anti-army**, splash: clumped foot and formations (back at the Siege Yard 2026-11-18, decision 73) | massed foot, ranged | — |
 
 **How a share is made.**
 
@@ -1098,9 +1131,29 @@ Implementation: `SimpleAISystem.Composition.cs`; every number is in an asset.
    bank of `veilstoneBankForFullLadder` counts as full); the basics take up the
    slack.
 5. **Locks.** A role its trainer cannot train yet hands its share down its
-   fallback chain; the Ram hands its share UP to the Trebuchet once that can
-   train (early rams, late trebuchets).
+   fallback chain (inside its own line); the Ram hands its share UP to the
+   Trebuchet once that can train (early rams, late trebuchets). **A role with
+   nothing of its line trainable hands its share to the basic infantry**
+   (decision 73, 2026-11-18) — it used to be dropped, and the normalisation
+   then inflated whatever was trainable: a lone Ram row became the whole
+   non-basic share of the army.
 6. The basics' total is clamped into [`basicsMinShare`, `basicsMaxShare`].
+7. **The siege cap** (decision 73, developer: "I just don't think siege
+   should take up 30-50% of an army"). Every siege role together (Ram,
+   Catapult, Trebuchet, Ballista) holds at most `siegeMaxArmyShare` of the
+   plan; the excess goes to the other role lines in proportion (to the basics
+   only when no other role line is trainable). The siege program's engine
+   floor (`siegeTrainFloor`, raised for a walled victim, § 6x) never asks for
+   more engines than that share of the army, `siegeTrainFloor` itself staying
+   the minimum.
+
+**No engine as a stand-in (decision 73).** When the floor's unit is
+unaffordable the AI re-picks one the bank can pay for (§ 6c); that re-pick
+never lands on a siege unit for a non-siege unit — an iron-rich bank could
+always pay for a Ram, and armies filled with them. The stand-in is the basic
+infantry inside the basics cap, or the army waits. Siege comes only from its
+own share and the siege program. Rams stay in the roster: they cost supplies
+as well as iron (`BatteringRam.asset`) and keep their early anti-building job.
 
 The next unit is the role furthest below its share (`(count + 1) / share`,
 table order breaks ties). Counts include units still in production queues.
@@ -1405,7 +1458,10 @@ order. It places at most one building per walk:
    territory: Gatherer's Huts, Mines, Veilstone Mines, and Trading Outposts
    on outcrop sides (the same culture rules and node gates as the extractor
    walk, § 4).
-2. **The Fortress, as soon as the resource buildings are up.** The home
+2. **The Fortress, as soon as the resource buildings are up.** *(Decision 81, § 6af: one
+   Fortress per player, ever — decision 69 — so this step never holds a province: the
+   ceiling is the Fortress SO's `maxPerFaction`, and no province reserves a Fortress spot.)*
+   The home
    territory has its capital already. Everywhere else, the Fortress
    expansion (§ 5c) picks only territories whose step 1 is done, unless the
    territory is cut off from every Fortress (`fortressAfterResources`); a
@@ -1732,6 +1788,13 @@ difficulty profiles (`AISimpleDifficulty/Profiles/`) and
 `econLogInterval`).
 
 ### 5i. Defending and rebuilding the economy; the savings pause (2026-10-05)
+
+> **2026-11-16 ([decision 68](Unification_Decisions_2026-10-03.md) d):** a building under
+> attack near home puts the AI in **Defend** (which disbands every mission and recalls the
+> army) only when the enemy strength round the building exceeds half of
+> `defendThreatThreshold` (`AISettings.asset`) — the same bar as the Hall ring. A smaller raid
+> is answered by the economy defence below and the waves keep going.
+
 
 An in-editor SunderedCrown match: Blue (Expert) started beside a curse node
 whose garrison razed its supply sites all match — 13 Gatherer's Huts, 8
@@ -2068,6 +2131,11 @@ wall in the way (2026-10-05).** Three findings from Mirror Marches M1-M6:
   march alone took 500-1500 s, so missions timed out on arrival. A mission's
   deadline is now the flat timeout plus the march at
   `missionMarchSpeedForTimeout`, re-armed at every chain.
+- **The army musters COMPLETELY** (2026-11-17, developer: "Armies must muster
+  completely near their base, then march in formation"): `musterGatherFraction` is 1 —
+  it leaves only with every member at the muster point. When the wait below runs out,
+  the members not there are taken out of the army and stay home for the next one; the
+  army never marches with stragglers behind it (Navigation_And_Formations.md § 2).
 - **The muster waits for its farthest man** (2026-10-25). Its wait was a flat
   `musterTimeoutSeconds`, less than the walk of a soldier drafted from a far
   territory, so a third of the musters on Fiendstone Pass left without part of
@@ -2081,6 +2149,45 @@ wall in the way (2026-10-05).** Three findings from Mirror Marches M1-M6:
   the army jammed at the edge in every match, re-sent there by every straggler
   sweep. A point that is not standable is walked back toward the army's own
   side until it is.
+- **The muster is on OPEN ground** (2026-11-18). The point `musterDistance` out
+  from the Hall fell inside the base's own ring of Huts, Towers and Farms on
+  Moatwatch, the formation found no room there and the army collapsed to a
+  point. The muster point is now the first point, from `musterDistance`
+  outward along the road to the objective (fanned to either side of it) up
+  to `musterProbeMaxMeters`, that stands on the faction's OWN ground with a
+  standable disc big enough for the army (`musterOpenRadius` +
+  `musterOpenPerUnit` x the square root of its head count) and no building
+  within `musterBuildingClearance` of that disc (`OpenMusterToward`). Failing
+  that, the clearance is dropped; failing both, the old point.
+- **Left out of a muster means held for the NEXT army** (2026-11-18). The
+  members a timed-out muster leaves behind are held: no reinforcement draft
+  takes them until the next wave launches, which is the army they wait for.
+- **The stage point is outside the guns** (2026-11-18). `stagingDistance` from an
+  enemy Fortress stood inside the enemy base, under its towers. The stage
+  point is probed outward along the home bearing (`OpenStageToward`) and
+  prefers, in order: open ground outside every hostile territory AND beyond the
+  range of every hostile shooting building the faction has seen (plus
+  `stageTowerMargin`); open ground beyond the guns; any ground beyond the guns;
+  open ground. It never steps back past the muster end of the road.
+- **Siege rides behind the body** (2026-11-18). An engine is ordered onto a
+  building by name (`AimSiegeAt`) only once the army's centroid stands within
+  `siegeAimArmyRadius` of that building's edge; until then it stays in the
+  formation's attack-move, at the rear of the formation (Navigation_And_Formations.md
+  § 3). Before, every "pressing on" aimed the engines at the next building and
+  they drove off ahead of the army alone. The one exception is THROUGH THE
+  BREACH: there the engines are aimed at the resumed objective at once, or
+  they would grind the next wall piece.
+- **An army before a building** (2026-11-18). Before an army presses on to the
+  next building, a VISIBLE hostile army (`pressOnArmyMinUnits` or more) within
+  `pressOnArmyRadius` of our army or of that building becomes the objective
+  (an attack-move onto it). While our army is already fighting it, nothing is
+  re-ordered; the next building is chosen after the fight.
+- **Loose members are folded back early** (2026-11-18). A straggler sweep fires
+  once `regroupLooseFraction` of the army (never fewer than two) travels outside
+  the formation, at most every `regroupInterval`, and it re-plans the WHOLE army
+  as one formation (`CommandRouter.IssueFormationReplan`, which skips the
+  repeat-order filter). Through that filter only the loose units took the order
+  and walked beside the army as a second formation of their own.
 - The wave bar read half of DesiredMilitary — 200 from the age-up on — and
   was clamped to a third of the population cap, so the tier that houses
   fastest had the highest bar: Expert's read 66-73 by minute 15 against
@@ -2354,6 +2461,13 @@ training (of 7)", an army of 80 of 200, and a bank of 99,860 iron and 21,820
 supplies. One single-trainer role held the whole army program. Low
 saturation followed from that too, so no extra production was ever added.
 Logged as `MILITARY: X blocked (...) — n unit(s) trained on other lines`.
+**No line past its share (decision 75, 2026-11-18).** The spill-over used to
+train each other line until ITS trainers refused, and the Siege Yard's queue
+was nearly always free: Red planned one Ram and fielded 62 (Moatwatch,
+0.0.90). Each role row now stops at its share of the army as it will stand
+after the spill-over, and siege as a whole at the siege cap
+(`siegeMaxArmyShare`, never below `siegeTrainFloor` engines). Without a plan,
+the spill-over trains no siege at all — engines come from the siege program.
 
 **A full queue is a build order.** When every trainer of a kind has a full
 production queue, that line is the bottleneck and the AI must raise another
@@ -2482,11 +2596,43 @@ prioritise targets that are good against its composition. Rules:
 - **Ranged behind melee.** A shooter only takes a target it can reach from
   where it stands; otherwise it holds a firing line behind the melee front
   instead of walking through its own front rank.
-- **Kiting.** A ranged unit that has just fired (reloading) with hostile melee
-  closing inside the trigger band, and the legs to open the gap, takes one
-  step straight back, then fires again. Bounded by a drift allowance from
-  where its kiting began, so the stance leash and the army's cohesion still
-  rule. Siege and emplaced engines never kite.
+- **The action budget — micro at a player's pace (2026-11-18, developer:
+  "Shouldn't the solution be to restrict the AI's APM to human levels when
+  microing?").** No AI rule a player would not have: the AI's hands are
+  limited as a player's are. Every MICRO order spends one action — a kiting
+  pull-back, a unit ability cast, a re-target in the counter-aware focus, a
+  firing-line move, sending a flank — and a tier earns `actionsPerMinute` of
+  them, banking at most `actionBurst` (the burst of clicks when a fight
+  opens). **One order to a GROUP is one action**, as one click is: every unit
+  sent at the same target in one pass, every shooter in one pull-back, the
+  whole firing line. Out of actions, a unit keeps doing what it was doing;
+  the combat systems still fight. The army's plain orders — march, attack the
+  focus, fall back, give up the objective — are not micro and cost nothing,
+  so a tier with an empty hand still fights. A tier also REACTS late: a unit
+  that comes under melee attack is acted on only after `reactionSeconds` (a
+  player has to notice it first), and the clock starts afresh after each
+  pull-back. Refusals are logged with the kite count.
+- **An engine that cannot hurt a unit is no target in a field fight
+  (decision 75).** A buildings-only attacker (the Battering Ram) scores no
+  danger and no high-value bonus while it is not working a building; the
+  moment it is on one, it scores in full — a player kills the ram at the gate,
+  not the ram in the field.
+- **Kiting, as a player does it (rewritten 2026-11-18).** It used to be
+  per-unit: every archer that had just fired stepped straight away from its
+  own nearest melee attacker, up to ~3 times a second each — thousands of
+  hand-aimed orders a minute — and each stepped in its own direction, so the
+  bow line pulled the fight apart and away from its own front. Now: shooters
+  with hostile melee inside the trigger band, and the legs to open the gap,
+  are UNDER ATTACK; once the reaction delay has passed, those within
+  `kiteGroupRadius` of each other are pulled back by ONE order (one action)
+  to a spot `kiteBehindLine` behind their own melee line within
+  `kiteLineSearchRadius` — without one, toward their own army there, else a
+  short step straight back — keeping their shape, never toward the threat
+  (a line on the enemy's far side is not fallen back to), at most
+  `kiteMaxStep` per pull-back and `kiteMaxDrift` from where this fight's
+  kiting began (`AITactics.asset`). Whether they reload does not matter. Siege
+  and emplaced engines never kite (their own rule is Combat_Pacing.md §
+  Minimum range).
 - **Flanking.** When a fight opens against enough enemies, a share of the
   army's FAST melee (cavalry, or clearly faster than the army) swings round
   the enemy's lighter wing to a point beside and behind its line, then
@@ -2518,9 +2664,11 @@ prioritise targets that are good against its composition. Rules:
 Per-tier values: the `tactics` block on the four difficulty profiles (table
 in §2). Shared geometry and weights: `AITactics.asset`. Code:
 `SimpleAISystem.Tactics.cs` (army: focus, ranged line, flank, fall back),
-`AITactics/AITacticsMicroSystem.cs` (kiting, unit abilities),
+`AITactics/AITacticsMicroSystem.cs` (kiting, unit abilities; the action
+budget is `AITactics.TrySpendAction`),
 `AIAlanthorEndgameSystem.Sects.cs` (sect powers), `AITactics/AITactics.cs`
-(scoring, live power, fight sites). Logs: `TACTICS: kite n units`,
+(scoring, live power, fight sites). Logs: `TACTICS: kite n units, m micro
+orders refused for want of actions`,
 `TACTICS: flank group n -> angle`, `TACTICS: retreat (power a vs b)`,
 `TACTICS: re-engage`, `TARGET: focus <unit> (counter|finish|high value|danger)`,
 `ABILITY: <id> cast (k enemies)`, `ABILITY: <id> held (reason)` (rate-limited).
@@ -2546,9 +2694,28 @@ entirely. Rules now:
 - **Not every contact is worth a fight.** A scout walking ahead of an army
   could kite the whole army off its objective. An army that is not already
   fighting engages only when the hostile strength in reach is at least
-  `engageMinThreatFraction` (10 %) of its own live strength; below that it keeps
-  its march and ignores them. Scouts are not ignored as such: a body of armed
-  scouts adds up past the line and is fought.
+  `engageMinThreatFraction` (`SimpleAISystem.asset`) of its own live strength;
+  below that it keeps its march and ignores them. Scouts are not ignored as
+  such: a body of armed scouts adds up past the line and is fought.
+- **The engage rule, revised 2026-11-18** ("the AI ignores the defending army
+  to go attack buildings / rally behind enemy lines" — an army marched past
+  ~50 defending soldiers for 90 s because it weighed them against its whole
+  mission, stragglers, far reinforcements and a train of Battering Rams
+  included):
+  - **Its own strength is only what is at the fight**: members within the
+    contact reach of the focus target, each at its strength *against an
+    army* — a unit that cannot damage units (a buildings-only engine such as
+    the Battering Ram) counts nothing (`AITactics.StrengthVsArmy`).
+  - **A floor, whatever the ratio**: when at least `engageFloorUnits`
+    (`SimpleAISystem.asset`) hostile combat units are in reach — armed, not
+    workers, scouts, economy units or buildings-only engines — the army
+    always engages. A defending army is never marched past.
+  - **An army already fighting is engaged.** Units on the march fight back
+    when they are hit ([Stances.md §5a](Stances.md)); once any member is
+    fighting a hostile unit, the army is in an engagement and the tactics
+    layer takes it over, so the march does not pull those members away
+    mid-fight. The scout-kiting rule above survives only for a contact too
+    small to pass the floor, nobody is fighting, and the ratio is not met.
 - **When the fight is won, the army resumes its own leg**: a mustering army
   goes back to its muster point, a staging army on to its stage point (a
   move; the strike still waits for the whole army), a striking army onto the
@@ -3205,6 +3372,37 @@ down off the wall`, `posted N sentry(ies) on the wall`.
 
 ## 6t. The Sanctum army (2026-10-20)
 
+> **2026-11-16 ([decision 68](Unification_Decisions_2026-10-03.md)): there is no dedicated
+> Sanctum army any more; everything below this box is history where it disagrees.** Developer:
+> "matches bog down to stalemates"; "the AI is playing too defensive"; the AI must "defend its
+> sanctums after it takes them". The rule now:
+>
+> - **A Sanctum is a wave objective** (`TrySanctumObjective`, read by `TryLaunchAttack`), in
+>   this order: a held Sanctum **under threat** (the hostile strength round its crystal,
+>   `sanctumThreatRadius`, times `sanctumLaunchMargin` exceeds its garrison's power); a held
+>   Sanctum **lost** to a rival in the last `sanctumRetakeSeconds`; on the Sanctum road the best
+>   Sanctum not ours; on the Mixed road the best Sanctum not ours when it is no more than
+>   `sanctumObjectivePreferMeters` farther from home than the base the wave would strike.
+>   Free Sanctums first (`sanctumHostilePenalty`), nearest first, never a cursed one or an
+>   ally's; one picked is not picked again for `sanctumRetrySeconds`. Taking one needs a wave of
+>   the claim's head count (`sanctumClaimUnits`); defending one does not.
+> - **The wave holds until the claim lands** (`Mission.SanctumTerritory`): reaching the
+>   crystal is not "objective down" while the Sanctum is still to take.
+> - **A taken Sanctum keeps a garrison** of `sanctumGarrisonSize`, drawn from whoever of ours
+>   stands in it (normally the wave that took it, which then moves on). The garrison hunts
+>   hostile soldiers in the territory, otherwise stands round the crystal, tops itself up from
+>   our soldiers passing through, and its workers raise `sanctumFortTowers` towers there.
+> - **Defended:** under threat, the next wave is due at once (`NextWaveTime` = now) and goes to
+>   that Sanctum. Lost, the garrison fights on; below `sanctumDisbandBelow` it falls back, and
+>   the next wave retakes it.
+> - **The Sanctum road sends waves** (it used to hold them: § 6aa `VictoryHoldsWaves`).
+> - **The all-in and the finishing push take the garrisons with them.**
+>
+> Logs: `SANCTUM: X is ours — n soldiers stay as its garrison`, `X is under threat …`, `X lost
+> …`, `the garrison of X is broken …`; the wave's doctrine reads `take the Sanctum X`,
+> `retake the Sanctum X` or `defend the Sanctum X`. The `sanctumArmyMinSize` and
+> `sanctumMusterMaxSeconds` settings are removed.
+
 **Amended 2026-11-02 (§ 6w):** the army forms over time (free soldiers are
 reserved at once, the muster tops up, it launches at the head count and the
 power) and its tick runs before the waves draft.
@@ -3241,6 +3439,8 @@ Config: the `sanctum*` block on `SimpleAISystem.asset`. Code:
 `SimpleAISystem.Sanctum.cs`. Log: `SANCTUM:`.
 
 ## 6u. Finish the beaten (2026-10-25)
+
+> **REMOVED 2026-11-19 ([decision 87](Unification_Decisions_2026-10-03.md), developer: "remove this mechanic").** The "beaten" verdict judged a player by its land and the soldiers it had been seen with, so a player who banked instead of fielding an army read as beaten and drew every wave as back-to-back small groups. A weak neighbour is now only the weaker target of decision 84. Everything below is history.
 
 Developer: "AI does not fully pursue players. Both human players in this game
 had a terrible performance and the AI never moved in to finish them off."
@@ -3466,6 +3666,20 @@ Knobs: the `stage*`, `stallRepathSeconds`, `provinceTrainer*`, `threat*`,
 `AIWallPlanner.asset`; `formationMeleeEngage` on `UnitStanceSystem.asset`.
 
 ## 6z. One army, and what follows it (2026-11-04)
+
+> **2026-11-18 — NO REINFORCEMENT COLUMNS** (developer: "Armies must muster
+> completely near their base, then march in formation"). Reinforcement columns
+> of 10-24 soldiers walked 150-210 m alone to find the army. Rules 1 and 2
+> below no longer send a column: soldiers at home WAIT for the next army, and
+> when the timer or the population cap fires (or the finish, below) the live
+> wave's reinforcement window closes and the NEXT WAVE launches that tick through
+> the ordinary launch — drafted at home, mustered completely on open ground,
+> marched in formation, with an objective of its own (its skip and bar rules
+> apply there). The live army fights on. No column is created any more; the
+> merge rule that remains (a column reaching the army) plans the newcomers INTO
+> the army's formation by re-issuing its leg to the whole army as one forced
+> re-plan. Soldiers left out of a timed-out muster are held for the next wave
+> (§ 6 muster rules). The text below is the older model where it disagrees.
 
 Developer's rules. The first army leaves at a fixed time, `waveFirstSeconds`, with every
 soldier above the reserve. While an army lives, soldiers gather at home, and no
@@ -3839,6 +4053,170 @@ level 1 for 52 minutes with no production level and no Trebuchet.
 - **Engines in a fight** (`SimpleAISystem.Tactics.cs`, `HoldEngines`). A unit that can only hit
   buildings is left out of the army's unit-focus orders; it waits behind the body on an
   attack-move, where the targeting system offers it buildings only.
+
+## 6ae. The Expert tuning loop (2026-11-17)
+
+Developer: Expert only, original maps, random seeds and personalities;
+decided matches split 30 % Shardroot / 40 % conquest / 30 % Sanctum; a match
+resolves in 45 minutes up to three players, +10 a player above; armies at
+70 % of the population cap by minute 30. What the loop changed in the AI:
+
+- **A countdown is everyone's war.** While a hostile ascension or dominion
+  countdown runs, the all-in ignores its strength floor
+  (`allInCountdownIgnoresFloor`), raiding parties stay home, and a wave whose
+  objective falls chains on to the enshrining Temple. The Conquest road is
+  FORCED only while a rival's ascension countdown runs, not while it merely
+  carries the Shardroot (that forced every AI onto Conquest from minute 13).
+- **A Sanctum wave waits for the claim's head count** plus
+  `sanctumWaveMargin`, unless population is full.
+- **The Sanctum road keeps its last Sanctum.** One Sanctum short of
+  dominion (`SanctumSystem.DominionNeeds`, decision 70), "a rival is beaten:
+  finish it" no longer forces Conquest and the wave still takes the Sanctum
+  (it flipped Sanctums / Conquest five times in 14 minutes, closing neither).
+- **A cursed Sanctum is cleared, not skipped.** On the Sanctum road with no
+  clean Sanctum left to take, the wave marches on the nearest curse node of
+  a cursed one (Broken Oath's only Sanctum stayed cursed every match).
+- **Income is what the simulation credited** (`EconomyLedger` lifetime
+  income, refunds and grants excluded), not bank deltas plus recorded
+  spends: a spend recorded but debited late read as income and put veilstone
+  income at 10,000+ a minute, so a Shardroot holder never saved for the
+  Temple.
+- **One Fortress (decision 69).** No expansion Fortress is attempted. A
+  fallen keystone (Fortress, Temple, landmark) is rebuilt on its rubble at
+  once (it is free), every Worker sent (`TryRebuildKeystones`); while the fall
+  clock runs (all three down) no wave leaves and every army is recalled to
+  guard the rubble, again whenever enemies reach it (`FallClockRunning`,
+  `EvaluatePosture`, `TickAttackWaves`).
+
+## 6af. The batch-17 pass: spend, field, march, expand (2026-11-19, decision 81)
+
+The 0.0.90 batch (12 Expert all-Alanthor matches, one decided): banks at the 100,000 cap,
+trainers idle, armies held at home, one faction walled into its own shelf, provinces with
+no production. Developer: "players are not spending all their income", "something is
+limiting the amount of units", "red player has a huge army but never attacks on the
+Fiendstone map", "players attack with small armies", "the players should be building
+secondary bases on the other territories and securing them with towers. These secondary
+production lines are crucial for the hoarding not to exist." No unit price changed.
+
+- **Every unit has a same-type stand-in** (developer: "if a unit can't be trained due to
+  lack of resources, it always has a fallback of the same unit type"). When the money
+  refuses a military unit — its budget, the bank, a savings hold, or King Lexor's veilstone
+  — `TryTrainUnitBudgeted` trains the next unit down the same line's `fallbackUnitId` chain
+  (`compositionRoles`): Swordsman → Spearman, Crossbowman / Longbowman → Archer, Cataphract
+  → Outrider, Trebuchet / Catapult → Battering Ram. Infantry, ranged, cavalry and siege
+  never stand in for each other. The stand-in passes the basics cap and, for the rest of
+  the think, counts toward the role it replaces, so the next picks move on to the other
+  roles. A refusal that is not money (queue, trainer, population) ends the chain. Log:
+  `MILITARY: X unaffordable (…) — Y stands in, same line`. Blue on Highfold had 70,000
+  supplies, pop 191/300 and none of its 11 trainers working while the plan asked for
+  Crossbowmen and Trebuchets it had no veilstone for.
+- **The Market's floor never stops a sale** (developer: "They just have to sell more of
+  it"). The AI sells its glut at any price; `marketSellMinPercent` is deleted. Every AI
+  sale in the batch was at 60-62 %: with every AI selling into the same prices they sat
+  below the old gate, and each AI sold six lots every few minutes.
+- **No Fortress step in a province.** The territory walk held each province's towers and
+  production for a Fortress the faction could not build (it read the AI's own
+  `fortressMaxPerFaction` instead of the SO's one): White on Highfold held 14 territories,
+  13 of them at "[Fortress] spot reserved" with no tower and no trainer. The ceiling now
+  includes the SO's `maxPerFaction` and the keystone rubble; no province reserves a spot.
+  A province goes extractors, towers (`towersProvinceFirst`), production — its first
+  trainer passes the saturation gate (§ 5g).
+- **A wall never seals its owner in.** Red on Fiendstone Pass (both matches) sealed its one
+  ramp at minute 5 with two hubs 8 m apart: three modules, too few for a gate
+  (`AlanthorWall.FreeRunForGate`), and the two shoulder towers took two of them. Not one
+  Red unit left the shelf after minute 12; ten waves of 50-80 stalled at its own wall.
+  `EmitChokeLine` now leaves a gate stretch that cannot take a gatehouse open between its
+  tower hubs (terrain-sealed: no curtain); a chokepoint wall wants only its planned gates
+  (the ring minimum converted spur pieces into gates to nowhere); and while a gate is
+  owed and a piece can still take one, no tower or emplacement converts.
+- **The home guard shrinks when it is not needed.** The standing army floor (§ 3a, § 6a) is
+  multiplied by `standingFloorDefendedScale` while the home has its towers (Watch Towers
+  and Wall Towers at `towersPerTerritory`), and by `standingFloorFullScale` while the
+  faction is at its population cap (within `waveFullPopSlack`) or banks
+  `standingFloorRichSupplies`. Side armies split off only from `sisterMinWaveUnits`, so
+  each is big enough to matter (a 62-unit wave had gone out 44 + 9 + 9). The 2026-11-17
+  muster rule (whoever is not at the muster point stays home) is unchanged.
+- All numbers on `SimpleAISystem.asset`.
+
+## 6ag. The developer's Moatwatch match: rush, field, target (2026-11-19, decision 84)
+
+Developer, after an Expert Moatwatch match: "The AI attacks are meek and very far apart. I am
+playing with expert, I expect to be overwhelmed at minute 15. It has the resources to do so",
+"11 minutes with 27 units is not an expert rush AI", "8 minutes is too late for expert!",
+"Add thresholds to the leader rule and the weaker rule. A player is weaker if it has 70% less
+score and stronger if it has 130% score". The developer held one territory the whole match and
+was not attacked until 22:31: the Rush AI marked it as prey at 15:00 and dropped it the same
+second for the table's leader. Every number below is on `SimpleAISystem.asset`,
+`AIBuildingUpgradeSystem.asset` or the tier profiles.
+
+- **Targets, in this order** (`TickAllInDoctrine`): the attacker beating us (§ 6x); a
+  game-ending threat (an enshrinement or dominion countdown, a Shardbound King); the Shardroot
+  holder; a beaten rival (§ 6u); a **weaker** rival; and only then a **stronger** one. Weaker
+  and stronger are read from the board score as this AI knows it (`KnownBoardScore`:
+  territories, public, plus the soldiers it has seen — the match Score is never read by the
+  simulation): a rival at or under `preyScoreShare` of ours is weaker, one at or over
+  `threatScoreRatio` of ours is stronger, and being stronger is itself a threat case. The
+  territory bars of the hunt are gone, and it starts at `preyAfterSeconds`. The war and wave
+  logs now give the doctrine's real reason instead of "it holds next to nothing" / "is
+  weakest".
+- **The forward personalities move first.** Rush and Aggressive keep `age0ArmyCapForward`
+  before their age-up (everyone else a garrison of 8), attack from `rushFirstAttackShare` /
+  `aggressiveFirstAttackShare` of the tier's `firstAttackEarliestSeconds` (Expert's own time is
+  earlier too), a Rush wave skips the growing-wave bar until `rushWaveGrowthFromSeconds`, and a
+  wave that is short releases their claim squads into the army when they make up the
+  shortfall.
+- **Every production building trains.** The sustained-production burst counts all four lines
+  and sends an order its trainer refuses (a full queue, no trainer) to the plan's other rows
+  instead of ending the burst.
+- **The army before the capital's pot**: while the live army is under
+  `capitalSavingsArmyShare` of its target the capital sets nothing aside.
+- **Supplies**: Farms pass the open-site cap; a Farm level is valued at the Farm's full slots
+  (decision 83 fills them); the Market is placed when iron or veilstone has piled up
+  (`marketBuildIron` / `marketBuildVeilstone`), saved for like a Farm, not only on a large
+  supply bank.
+
+## 6ah. Overwhelming: the production rate and the follow-through (2026-11-19, decision 86)
+
+Developer: "There is still almost no military action. AI attacks late and poorly, and no wins
+come from conquest... the attacks are failing because they come too late and too far apart. The
+AI switches target too often and does not follow through." Then: "If I need a 100 unit army every
+3-5 minutes, then I need to have the resources and production buildings to back it up. Is this
+assured? It has to be. This is the hardest AI, it must be overwhelming." Batch 18 measured the
+Expert AIs at 6 units a minute at minute 10 and a ceiling near 21 from minute 25, production
+buildings a third busy, 35-40 % of income on units, 40 % of consecutive waves at a different
+player, 401 retreats and no conquest win. Every number below is on `SimpleAISystem.asset` or the
+tier profiles.
+
+- **The production rate governor** (`SimpleAISystem.ProductionRate.cs`). A tier may carry a unit
+  rate target (`unitRateAt10Min`, `unitRateFrom20Min` on its profile; Expert only). Each think the
+  AI measures its military orders over `rateWindowSeconds`; while it is below `rateBehindShare`
+  of the target and has population room, its budget gives the military at least
+  `rateDeficitMilWeight`, every surplus spender (levels, research, Vault deposits) yields to the
+  army, and an extra production building passes the saturation gate whenever the bank can pay
+  for it. A RATE line a minute logs the measured rate against the target.
+- **Armies still grow and leave whole** (developer: trickle-feeding is out; "armies must grow").
+- **A war holds until its victim falls** (`warHoldsUntilFall`): only the attacker beating the AI,
+  a game-ending threat (a countdown, a Shardbound King) or the Shardroot holder interrupts it,
+  and while it is on no Sanctum wave detours (off the Sanctum road). A war is abandoned after
+  `warMaxFailures` failed attacks.
+- **The capital and the religion buildings** (`warTargetsKeystones`): a war wave marches on the
+  victim's nearest known Fortress, Temple, landmark or sect building before its outlying
+  holdings. While at war the siege program keeps `keystoneSiegeMin` engines and every idle engine
+  marches with the wave; the wave never waits for them.
+- **Crash, don't retreat**: at war an army falls back only past `warRetreatRatio`, and never while
+  it stands in its victim's territory with engines; a mission still fighting does not time out
+  (`noTimeoutWhileFighting`).
+
+> **2026-11-19, decision 88:** the whole army attacks — no standing home guard
+> (`sendWholeArmy`), the claim squads join the army as a wave goes — and a marching army fights
+> any hostile unit within `siegeEscortRadius` of one of its engines.
+
+> **2026-11-19, decision 91 (supersedes the keystone-first target of decision 86 and the
+> "no reinforcement columns" rule of 2026-11-18):** one army per war, fed by reinforcement
+> groups of at least `reinforceMinGroup` that merge into it in the field; the war razes the
+> victim's outskirts first and takes the capital when it is crippled; Hard and Expert tower a
+> newly held province before its extractors (`secureProvincesFirst`); a wave with its size is
+> not held at home by a strength reading (`waveStrengthHolds`).
 
 ## 8. Tech / age / culture
 

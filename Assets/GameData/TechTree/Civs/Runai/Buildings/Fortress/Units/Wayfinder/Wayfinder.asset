@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Wayfinder
   displayName: The Wayfinder
   unitClass: human_cavalry
-  hp: 1120
+  hp: 700
   speed: 7.2
   trainingTime: 45
   damage: 42
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Cavalry
   - Heavy
   bonusVsTags: []
+  torchDamage: 25
   preferTargets: []
   abilities:
   - Wayfinding

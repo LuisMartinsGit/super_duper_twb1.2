@@ -1,22 +1,26 @@
 // THE VAULT'S FOUR BARS (docs/Design/Age_0.md § Vault of Almiérra; decision 46,
-// 2026-11-10, reworked by decision 60, 2026-11-15).
+// 2026-11-10, reworked by decision 60, 2026-11-15, and decision 85,
+// 2026-11-19).
 //
-//   * EACH BAR BELONGS TO ONE RESOURCE (the Vault SO's vaultBarResource):
-//     bars 1 and 2 supplies, bar 3 iron, bar 4 veilstone. A bar is filled
-//     only with its own resource and raises only that resource's income.
-//   * What a bar holds and what a full bar gives come from the Vault's LEVEL
-//     (the level SOs' vaultBarCapacity and vaultBarBonus; the Vault SO's own
-//     before any level): each level-up raises the bonus and the capacity.
-//   * Each bar is cut into vaultSubBars sub-bars; every FILLED sub-bar adds
-//     its share of the bonus at once (a full bar = the whole bonus).
+// Decision 85 (developer: "Instead of being a 5% multiplier, it acts as a
+// trickle income of whatever resource is stored, and it can't store supplies.
+// No resource type locked behind research"):
+//   * A bar stores IRON or VEILSTONE — and the LAST bar supplies too
+//     (developer: "The last bar can be filled with supplies"). It takes
+//     whichever is first paid into it and keeps it until a withdrawal
+//     empties it.
+//   * A FULL bar pays its own trickle of that resource every minute
+//     (the level SOs' vaultBarIncomePerMinute, one entry per bar, read at the
+//     Vault's level); a bar that is not full pays nothing.
+//   * What a bar holds is the level SOs' vaultBarCapacity.
 //   * Bar 1 is open from the start; Second / Third / Fourth Coffer open the
-//     next, in order (research at the Vault).
-//   * A withdrawal returns exactly what was paid in, by resource, and
-//     empties every bar: the bonus and the progress are gone.
+//     next, in order (research at the Vault). They open bars, not resources.
+//   * A withdrawal returns exactly what was paid in, by resource, and empties
+//     every bar: the trickle stops.
 //
-// The bonus applies to resource INCOME only (territory, extractors, the
-// capital, building trickles, Farms) — never to refunds, grants, loot, curse
-// bounties, Market purchases, a Vault withdrawal or religion points.
+// The trickle is paid by VaultBarSystem once a second, in sixtieths carried
+// on the Vault (VaultStorage.CarryIron / CarryVeilstone), booked as
+// IncomeSource.VaultBar.
 using Unity.Entities;
 using TheWaningBorder.Core;
 using TheWaningBorder.Economy;
@@ -35,6 +39,15 @@ namespace TheWaningBorder.Systems.Economy
 
         public static readonly string[] ResourceNames = { "None", "Supplies", "Iron", "Veilstone" };
 
+        /// <summary>Resource codes some bar may store (1 supplies, 2 iron, 3 veilstone).</summary>
+        public static bool Storable(int res) => res >= 1 && res <= 3;
+
+        /// <summary>Does bar <paramref name="i"/> take resource <paramref name="res"/>?
+        /// Iron and veilstone go in any bar; supplies only in the last
+        /// (decision 85).</summary>
+        public static bool Takes(int i, int res)
+            => res == 2 || res == 3 || (res == 1 && i == VaultStorage.Bars - 1);
+
         static bool Has(Faction f, string tech)
         {
             var r = FactionResearchState.Instance;
@@ -48,15 +61,9 @@ namespace TheWaningBorder.Systems.Economy
                 ? System.Math.Max(1, (int)em.GetComponentData<BuildingUpgradeState>(vault).Level)
                 : 1;
 
-        /// <summary>The resource bar <paramref name="i"/> (0..3) takes and
-        /// boosts: 1 supplies, 2 iron, 3 veilstone.</summary>
-        public static int ResourceOf(int i)
-        {
-            var res = TechCatalog.Building(VaultId).vaultBarResource;
-            if (res == null || res.Length == 0) return 1;
-            int r = res[System.Math.Min(i, res.Length - 1)];
-            return r < 1 || r > 3 ? 1 : r;
-        }
+        /// <summary>The resource bar <paramref name="i"/> holds: 1 supplies,
+        /// 2 iron, 3 veilstone, 0 while it is empty and has not started.</summary>
+        public static int ResourceOf(in VaultStorage s, int i) => s.Res(i);
 
         /// <summary>What bar <paramref name="i"/> (0..3) holds when full, at
         /// Vault level <paramref name="level"/>.</summary>
@@ -70,36 +77,43 @@ namespace TheWaningBorder.Systems.Economy
             return System.Math.Max(1, caps[System.Math.Min(i, caps.Length - 1)]);
         }
 
-        /// <summary>The income bonus one full bar gives at Vault level
-        /// <paramref name="level"/>.</summary>
-        public static float BonusPerBar(int level)
-            => TechCatalog.TryGetBuildingLevel(Cultures.Alanthor, VaultId, level, out var lvl) && lvl.vaultBarBonus > 0f
-                ? lvl.vaultBarBonus
-                : TechCatalog.Building(VaultId).vaultBarBonus;
+        /// <summary>What a FULL bar <paramref name="i"/> pays a minute, of the
+        /// resource it holds, at Vault level <paramref name="level"/>.</summary>
+        public static int IncomeOf(int i, int level)
+        {
+            if (!TechCatalog.TryGetBuildingLevel(Cultures.Alanthor, VaultId, level, out var lvl)
+                || lvl.vaultBarIncomePerMinute == null || lvl.vaultBarIncomePerMinute.Length == 0) return 0;
+            var inc = lvl.vaultBarIncomePerMinute;
+            return System.Math.Max(0, inc[System.Math.Min(i, inc.Length - 1)]);
+        }
 
         public static int SubBars => System.Math.Max(1, TechCatalog.Building(VaultId).vaultSubBars);
-        /// <summary>What one filled sub-bar pays at that level.</summary>
-        public static float BonusPerSubBar(int level) => BonusPerBar(level) / SubBars;
 
-        /// <summary>Filled sub-bars of bar <paramref name="i"/> (integer maths: lockstep-safe).</summary>
+        /// <summary>Filled sub-bars of bar <paramref name="i"/> (display only:
+        /// only a full bar pays).</summary>
         public static int FilledSubBars(in VaultStorage s, int i, int level)
         {
             int cap = CapacityOf(i, level), subs = SubBars;
             return System.Math.Min(subs, (int)((long)s.Fill(i) * subs / cap));
         }
 
+        public static bool IsFull(in VaultStorage s, int i, int level) => s.Fill(i) >= CapacityOf(i, level);
+
         /// <summary>Bars this faction may fill: 1, plus one per Coffer researched.</summary>
         public static int OpenBars(Faction f)
             => 1 + (Has(f, SecondCoffer) ? 1 : 0) + (Has(f, ThirdCoffer) ? 1 : 0) + (Has(f, FourthCoffer) ? 1 : 0);
 
-        /// <summary>How much of resource <paramref name="res"/> (1..3) the open
-        /// bars of that resource would take right now.</summary>
+        /// <summary>How much of resource <paramref name="res"/> the open bars
+        /// would take right now: its own bars' room, and every empty bar.</summary>
         public static int Room(in VaultStorage s, Faction f, int level, int res)
         {
+            if (!Storable(res)) return 0;
             int open = System.Math.Min(OpenBars(f), VaultStorage.Bars), room = 0;
             for (int i = 0; i < open; i++)
             {
-                if (ResourceOf(i) != res) continue;
+                if (!Takes(i, res)) continue;
+                int r = s.Res(i);
+                if (r != 0 && r != res) continue;
                 int left = CapacityOf(i, level) - s.Fill(i);
                 if (left > 0) room += left;
             }
@@ -107,137 +121,91 @@ namespace TheWaningBorder.Systems.Economy
         }
 
         /// <summary>Pour <paramref name="amount"/> of resource <paramref name="res"/>
-        /// into the open bars of that resource, in order. Returns what was taken.</summary>
+        /// into the open bars in order: a bar already holding it, or an empty
+        /// bar, which takes it from now on. Returns what was taken.</summary>
         public static int Pour(ref VaultStorage s, Faction f, int level, int res, int amount)
         {
+            if (!Storable(res)) return 0;
             int open = System.Math.Min(OpenBars(f), VaultStorage.Bars), taken = 0;
             for (int i = 0; i < open && amount > 0; i++)
             {
-                if (ResourceOf(i) != res) continue;
+                if (!Takes(i, res)) continue;
+                int r = s.Res(i);
+                if (r != 0 && r != res) continue;
                 int cap = CapacityOf(i, level);
                 int fill = s.Fill(i);
                 if (fill >= cap) continue;
                 int put = System.Math.Min(cap - fill, amount);
                 s.SetFill(i, fill + put);
+                s.SetRes(i, res);
                 amount -= put;
                 taken += put;
             }
             return taken;
         }
 
-        /// <summary>Filled sub-bars of this storage, across its bars of
-        /// resource <paramref name="res"/>.</summary>
-        public static int FilledSubBarsFor(in VaultStorage s, int res, int level)
+        /// <summary>What this storage's full bars pay a minute of resource
+        /// <paramref name="res"/> (1 supplies, 2 iron, 3 veilstone) at its level.</summary>
+        public static int IncomePerMinute(in VaultStorage s, int level, int res)
         {
             int n = 0;
             for (int i = 0; i < VaultStorage.Bars; i++)
-                if (ResourceOf(i) == res && s.Fill(i) > 0) n += FilledSubBars(s, i, level);
+                if (s.Res(i) == res && IsFull(s, i, level)) n += IncomeOf(i, level);
             return n;
-        }
-
-        // ── The income bonus ─────────────────────────────────────────────
-
-        const int MaxFactions = 16;
-        // Per faction, per resource (supplies, iron, veilstone): the bonus
-        // fraction its full bars give, refreshed every tick by VaultBarSystem.
-        static readonly float[,] _bonus = new float[MaxFactions, 3];
-        // The fractional part of each bonus payment, carried so small
-        // trickles are not rounded away (as AICheat.ScaleIncome does).
-        static readonly float[,] _carry = new float[MaxFactions, 3];
-        // Systems and statics outlive a match: the carry restarts per match
-        // (SimCadence.Epoch), as AICheat.ScaleIncome's does.
-        static int _carryEpoch = -1;
-
-        internal static void Clear()
-        {
-            System.Array.Clear(_bonus, 0, _bonus.Length);
-        }
-
-        internal static void ClearCarry()
-        {
-            System.Array.Clear(_carry, 0, _carry.Length);
-        }
-
-        internal static void AddBonus(Faction f, int res, float fraction)
-        {
-            int k = (int)f;
-            if (k < 0 || k >= MaxFactions || res < 1 || res > 3) return;
-            _bonus[k, res - 1] += fraction;
-        }
-
-        /// <summary>The bonus fraction this faction's full bars give resource
-        /// <paramref name="res"/> (1..3) right now.</summary>
-        public static float BonusOf(Faction f, int res)
-        {
-            int k = (int)f;
-            return k < 0 || k >= MaxFactions || res < 1 || res > 3 ? 0f : _bonus[k, res - 1];
-        }
-
-        static bool IsIncome(IncomeSource s) => s switch
-        {
-            IncomeSource.EmptySlot or IncomeSource.GatherersHut or IncomeSource.Mine
-                or IncomeSource.VeilstoneMine or IncomeSource.FortressLevel or IncomeSource.Capital
-                or IncomeSource.BuildingPassive or IncomeSource.Trade or IncomeSource.GuildSurvey
-                or IncomeSource.TerritoryClaim or IncomeSource.Farm => true,
-            _ => false,
-        };
-
-        /// <summary>FactionEconomy.Add's hook: resource income raised by the
-        /// faction's full bars.</summary>
-        public static Cost ScaleIncome(Faction f, in Cost c, IncomeSource source)
-        {
-            if (!IsIncome(source)) return c;
-            int k = (int)f;
-            if (k < 0 || k >= MaxFactions) return c;
-            var r = c;
-            r.Supplies = Scale(c.Supplies, k, 0);
-            r.Iron = Scale(c.Iron, k, 1);
-            r.Veilstone = Scale(c.Veilstone, k, 2);
-            return r;
-        }
-
-        static int Scale(int amount, int k, int res)
-        {
-            float b = _bonus[k, res];
-            if (amount <= 0 || b <= 0f) return amount;
-            if (_carryEpoch != SimCadence.Epoch) { _carryEpoch = SimCadence.Epoch; ClearCarry(); }
-            float exact = amount * b + _carry[k, res];
-            int whole = (int)exact;
-            _carry[k, res] = exact - whole;
-            return amount + whole;
         }
     }
 
-    /// <summary>Refreshes every faction's Vault bonus from its finished
-    /// Vaults' full bars, every tick (a fallen Vault stops paying at once).</summary>
+    /// <summary>
+    /// Pays every finished Vault's full bars (decision 85): once a second, each
+    /// full bar's vaultBarIncomePerMinute of the resource it holds, in
+    /// sixtieths carried on the Vault, into its owner's bank as
+    /// IncomeSource.VaultBar. A fallen or unfinished Vault pays nothing.
+    /// Lockstep: SimCadence clock, integer arithmetic, Vaults in entity-index order.
+    /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    public partial struct VaultBarSystem : ISystem
+    public partial class VaultBarSystem : SystemBase
     {
-        public void OnCreate(ref SystemState state)
+        private const float TickSeconds = 1f;   // the pay clock (engine-side, as FarmSystem)
+        private SimCadence.Periodic _tick;
+        private readonly System.Collections.Generic.List<Entity> _vaults = new System.Collections.Generic.List<Entity>();
+
+        protected override void OnCreate()
         {
-            VaultBars.Clear();
-            VaultBars.ClearCarry();
+            RequireForUpdate(GetEntityQuery(ComponentType.ReadOnly<VaultStorage>()));
         }
 
-        public void OnUpdate(ref SystemState state)
+        protected override void OnUpdate()
         {
-            VaultBars.Clear();
-            foreach (var (vault, faction, e) in SystemAPI
-                .Query<RefRO<VaultStorage>, RefRO<FactionTag>>()
-                .WithAll<VaultTag>()
-                .WithNone<UnderConstruction>()
-                .WithEntityAccess())
+            if (!_tick.Due(SystemAPI.Time.DeltaTime, TickSeconds)) return;
+            var em = EntityManager;
+            _vaults.Clear();
+            foreach (var (_, e) in SystemAPI.Query<RefRO<VaultStorage>>().WithAll<VaultTag, FactionTag>()
+                         .WithNone<UnderConstruction>().WithEntityAccess())
+                _vaults.Add(e);
+            _vaults.Sort((a, b) => a.Index.CompareTo(b.Index));
+            for (int k = 0; k < _vaults.Count; k++)
             {
-                int level = SystemAPI.HasComponent<BuildingUpgradeState>(e)
-                    ? System.Math.Max(1, (int)SystemAPI.GetComponent<BuildingUpgradeState>(e).Level)
-                    : 1;
-                float per = VaultBars.BonusPerSubBar(level);
-                if (per <= 0f) continue;
-                for (int res = 1; res <= 3; res++)
-                {
-                    int filled = VaultBars.FilledSubBarsFor(vault.ValueRO, res, level);
-                    if (filled > 0) VaultBars.AddBonus(faction.ValueRO.Value, res, filled * per);
-                }
+                var e = _vaults[k];
+                if (!em.Exists(e)) continue;
+                if (em.HasComponent<Health>(e) && em.GetComponentData<Health>(e).Value <= 0) continue;
+                var s = em.GetComponentData<VaultStorage>(e);
+                if (s.Paid <= 0) continue;
+                int level = VaultBars.LevelOf(em, e);
+                int sup = VaultBars.IncomePerMinute(s, level, 1);
+                int iron = VaultBars.IncomePerMinute(s, level, 2);
+                int veil = VaultBars.IncomePerMinute(s, level, 3);
+                if (sup <= 0 && iron <= 0 && veil <= 0) continue;
+                s.CarrySupplies += sup;
+                s.CarryIron += iron;
+                s.CarryVeilstone += veil;
+                int ws = s.CarrySupplies / 60, wi = s.CarryIron / 60, wv = s.CarryVeilstone / 60;
+                s.CarrySupplies %= 60;
+                s.CarryIron %= 60;
+                s.CarryVeilstone %= 60;
+                em.SetComponentData(e, s);
+                if (ws > 0 || wi > 0 || wv > 0)
+                    FactionEconomy.Add(em, em.GetComponentData<FactionTag>(e).Value,
+                        Cost.Of(supplies: ws, iron: wi, veilstone: wv), IncomeSource.VaultBar);
             }
         }
     }

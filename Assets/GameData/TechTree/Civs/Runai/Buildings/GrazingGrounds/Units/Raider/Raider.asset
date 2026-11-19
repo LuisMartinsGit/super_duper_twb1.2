@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Raider
   displayName: Raider
   unitClass: human_cavalry
-  hp: 240
+  hp: 150
   speed: 7.6
   trainingTime: 22
   damage: 16
@@ -53,6 +53,7 @@ MonoBehaviour:
   bonusVsTags:
   - vsTag: Ranged
     amount: 10
+  torchDamage: 13
   preferTargets: []
   abilities: []
   prefab: {fileID: 8624030962270631097, guid: 1dd16ba4a0ed580439b382d67473bac6, type: 3}

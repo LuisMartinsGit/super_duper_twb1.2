@@ -323,12 +323,12 @@ namespace TheWaningBorder.EditorTools
             var renewal = Config<TheWaningBorder.Rendering.RenewalVfxConfig>(
                 R + "RenewalVfx.asset", c =>
                 {
-                    c.unitScalePerMetre = 0.5f; c.hospitalAuthoredRadius = 4f; c.hospitalHealRadius = 15f;
+                    c.unitScalePerMetre = 0.5f; c.healingWardAuthoredRadius = 4f;
                     c.fadeSeconds = 1.5f; c.pollSeconds = 0.5f;
                 });
             renewal.regenTailPrefab = P(R + "HandsOfPlenty/HandsOfPlenty_RegenTail.prefab");
             renewal.deathWardPrefab = P(R + "SecondWind/SecondWind_Ward.prefab");
-            renewal.fieldHospitalAuraPrefab = P(R + "DeployFieldHospital/FieldHospital_Aura.prefab");
+            renewal.healingWardAuraPrefab = P(R + "HealingWard/HealingWard_Aura.prefab");
             EditorUtility.SetDirty(renewal);
 
             const string DecalMatPath = "Assets/GameData/Art/Vfx/VfxDecal.mat";

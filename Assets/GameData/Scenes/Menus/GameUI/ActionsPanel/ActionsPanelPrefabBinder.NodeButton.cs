@@ -5,7 +5,10 @@
 // deposit, the Veilstone Mine (Runai Sanctuary) on a veilstone outcropping.
 // Clicking it places that building on the node and sends the selected Workers
 // (WorkerCommandPanel.PlaceNow — the same checks and orders a ghost click
-// runs). These buildings are not in the build palette.
+// runs). These buildings are not in the build palette. The same button rebuilds
+// a fallen keystone — Fortress, Temple, landmark or sect building — over its
+// rubble, for a share of its price (decision 69); the Fortress is never in the
+// palette, nor any keystone whose rubble lies.
 //
 // The button is a copy of the panel's own authored action button, so it wears
 // the same art, tint, icon, tooltip and afford / locked states (FillSlot). It
@@ -24,6 +27,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UI;
 using TheWaningBorder.Core;
+using TheWaningBorder.Core.Localization;
 using TheWaningBorder.UI.Common;
 using TheWaningBorder.UI.Data;
 using TheWaningBorder.World.Regions;
@@ -287,9 +291,13 @@ namespace TheWaningBorder.UI.Ingame
                 && RectTransformUtility.RectangleContainsScreenPoint(_nodeRect, mouse, NodeUiCamera);
             if (onButton)
             {
-                // ...unless the node was taken meanwhile.
-                if (!TerritoryOwnership.TrySnapToNode(em, _nodeId, _nodePos, out _))
-                { HideNodeButton(); return; }
+                // ...unless the node was taken meanwhile (the rubble: unless
+                // the rebuild was ordered or the rubble is gone).
+                bool still = TheWaningBorder.Entities.KeystoneRubbles.IsKeystone(_nodeId)
+                    ? TheWaningBorder.Entities.KeystoneRubbles.TryFind(em, faction, _nodeId, out _, out _)
+                      && !TheWaningBorder.Entities.KeystoneRubbles.Has(em, faction, _nodeId)
+                    : TerritoryOwnership.TrySnapToNode(em, _nodeId, _nodePos, out _);
+                if (!still) { HideNodeButton(); return; }
             }
             else
             {
@@ -355,13 +363,34 @@ namespace TheWaningBorder.UI.Ingame
             if (TerritoryOwnership.ResolveExtractorAt(em, faction, ground, out var mineId, out var mine)
                 && math.distancesq(mine.xz, ground.xz) < best)
             {
+                best = math.distancesq(mine.xz, ground.xz);
                 id = mineId;
                 pos = mine;
+            }
+            // KEYSTONE RUBBLE (decision 69): the faction's own fallen
+            // Fortress, Temple or landmark is rebuilt from the same button,
+            // laid over its rubble — never from the palette.
+            TheWaningBorder.Entities.KeystoneRubbles.All(em, faction, _rubbleHits);
+            for (int i = 0; i < _rubbleHits.Count; i++)
+            {
+                var (rid, rubble) = _rubbleHits[i];
+                float d2 = math.distancesq(rubble.xz, ground.xz);
+                if (d2 > RubbleHoverRadius * RubbleHoverRadius || d2 >= best) continue;
+                if (TheWaningBorder.Entities.KeystoneRubbles.Has(em, faction, rid)) continue;
+                best = d2;
+                id = rid;
+                pos = rubble;
             }
             if (id == null) return false;
             pos.y = TheWaningBorder.World.Terrain.TerrainUtility.GetHeight(pos.x, pos.z);
             return true;
         }
+
+        /// <summary>How near the rubble's centre the pointer raises the
+        /// rebuild button, in metres — about the Fortress's footprint.</summary>
+        private const float RubbleHoverRadius = 10f;
+
+        private static readonly List<(string id, float3 pos)> _rubbleHits = new List<(string id, float3 pos)>();
 
         /// <summary>
         /// Fill the button for the current node. False when there is nothing
@@ -378,8 +407,30 @@ namespace TheWaningBorder.UI.Ingame
             int index = -1;
             for (int i = 0; i < _builderActions.Count && index < 0; i++)
                 if (_builderActions[i].Id == _nodeId) index = i;
-            if (index < 0) return false;
-            var b = _builderActions[index];
+            ActionButton b;
+            if (index >= 0) b = _builderActions[index];
+            else if (TheWaningBorder.Entities.KeystoneRubbles.IsKeystone(_nodeId))
+            {
+                // A landmark is not in the builder's list after the age-up:
+                // its rebuild button is made here, at the rebuild price (a
+                // share of its own, BuildCosts.For).
+                string name = TechCatalog.TryGetBuilding(_nodeId, out var def)
+                    && !string.IsNullOrEmpty(def.name) ? Loc.T(def.name) : _nodeId;
+                var price = TheWaningBorder.Data.BuildCosts.For(em, faction, _nodeId);
+                bool afford = TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction, price);
+                b = new ActionButton
+                {
+                    Id = _nodeId,
+                    Label = name,
+                    Tooltip = name + "\n" + Loc.T("Rebuild it on its rubble.")
+                        + "\n" + Loc.T("Cost: ") + UIHelpers.FormatCostRich(price,
+                            EntityActionExtractor.GetFactionResourcesAsCostPublic(em, faction)),
+                    Cost = price,
+                    Enabled = true,
+                    CanAfford = afford,
+                };
+            }
+            else return false;
 
             var refusal = WorkerCommandPanel.EvaluateNow(_nodeId, _nodePos);
             if (refusal == PlacementRefusal.Overlap) return false;

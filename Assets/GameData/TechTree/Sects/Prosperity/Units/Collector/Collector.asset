@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Collector
   displayName: Bounty Hunter
   unitClass: melee
-  hp: 385
+  hp: 240
   speed: 6.4
   trainingTime: 18
   damage: 22
@@ -50,6 +50,7 @@ MonoBehaviour:
   - 'Infantry'
   - 'Light'
   bonusVsTags: []
+  torchDamage: 21
   abilities: []
   prefab: {fileID: 122908383832175, guid: 07dc6767e48d386dd2d2cdde551e3f20, type: 3}
   presentationId: 371

@@ -13,20 +13,20 @@ MonoBehaviour:
   m_Name: EliteCrews
   m_EditorClassIdentifier: 
   id: EliteCrews
-  displayName: Elite Crews
+  displayName: Siege Yard Level 3
   role: Military
   effect: 
-  desc: "+60 HP, +5 damage, +3 attack range to every Alanthor siege engine."
-  researchAt: Alanthor_SiegeYard
+  desc: "Every siege engine: +15 HP, +3 bonus damage. Granted by the level."
+  researchAt: SiegeYard
   minBuildingLevel: 3
-  researchTime: 48
+  researchTime: 50
   prerequisites:
   - VeteranCrews
   culture: Alanthor
   cost:
     Supplies: 0
     Iron: 0
-    Veilstone: 564
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -35,39 +35,27 @@ MonoBehaviour:
     rangedDamageAdd: 0
     archerRangeMult: 0
   effectsList:
-  - Target: "unit:Alanthor_Ballista"
+  - Target: "unit:Alanthor_BatteringRam"
     Stat: Hp
     Op: Add
-    Value: 60
-  - Target: "unit:Alanthor_Ballista"
-    Stat: Damage
+    Value: 15
+  - Target: "unit:Alanthor_Catapult"
+    Stat: Hp
     Op: Add
-    Value: 5
-  - Target: "unit:Alanthor_Ballista"
-    Stat: AttackRange
+    Value: 15
+  - Target: "unit:Alanthor_Trebuchet"
+    Stat: Hp
+    Op: Add
+    Value: 15
+  - Target: "unit:Alanthor_BatteringRam"
+    Stat: BonusDamage
     Op: Add
     Value: 3
-  - Target: "unit:Alanthor_BatteringRam"
-    Stat: Hp
-    Op: Add
-    Value: 60
-  - Target: "unit:Alanthor_BatteringRam"
-    Stat: Damage
-    Op: Add
-    Value: 5
-  - Target: "unit:Alanthor_BatteringRam"
-    Stat: AttackRange
+  - Target: "unit:Alanthor_Catapult"
+    Stat: BonusDamage
     Op: Add
     Value: 3
   - Target: "unit:Alanthor_Trebuchet"
-    Stat: Hp
-    Op: Add
-    Value: 60
-  - Target: "unit:Alanthor_Trebuchet"
-    Stat: Damage
-    Op: Add
-    Value: 5
-  - Target: "unit:Alanthor_Trebuchet"
-    Stat: AttackRange
+    Stat: BonusDamage
     Op: Add
     Value: 3

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_RamRig
   displayName: Ram Rig
   unitClass: siege
-  hp: 240
+  hp: 150
   speed: 5.2
   trainingTime: 22
   damage: 5

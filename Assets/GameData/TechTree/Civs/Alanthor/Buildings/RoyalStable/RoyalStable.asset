@@ -16,11 +16,11 @@ MonoBehaviour:
   displayName: Royal Stable
   role: Heavy-cavalry trainer (Cataphract).
   description: 
-  hp: 1000
+  hp: 1600
   armorType: structure_human
   defense:
-    melee: 4
-    ranged: 10
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 2
   radius: 1.6

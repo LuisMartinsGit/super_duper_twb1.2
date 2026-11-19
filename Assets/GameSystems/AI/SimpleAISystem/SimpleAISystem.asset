@@ -108,7 +108,7 @@ MonoBehaviour:
   razeChainRadius: 90
   closeoutAfterSeconds: 900
   crippledTerritories: 4
-  warMaxFailures: 3
+  warMaxFailures: 5
   armyCapRaiseThreshold: 1000
   armyCapRaiseStep: 10
   armyCapRaiseInterval: 30
@@ -123,12 +123,12 @@ MonoBehaviour:
   strengthWaveMinArmy: 20
   stagingGatherRadius: 12
   musterDistance: 22
-  musterGatherFraction: 0.85
+  musterGatherFraction: 1
   musterTimeoutSeconds: 45
   musterWalkSpeed: 3
   musterTimeoutMaxSeconds: 120
   regroupInterval: 5
-  regroupLooseFraction: 0.25
+  regroupLooseFraction: 0.1
   reinforceMergeRadius: 35
   columnFollowSeconds: 20
   columnFollowRadius: 40
@@ -136,14 +136,12 @@ MonoBehaviour:
   raidPartySize: 3
   raidSurplus: 2
   reinforceInterval: 15
-  reinforceMinGroup: 10
+  reinforceMinGroup: 20
   spareCapitalRadius: 40
   spareCapitalMemorySeconds: 600
   reinforceCapMinGroup: 20
   waveReplacePopShare: 0.1
-  finishHoldSeconds: 300
-  finishGuardShare: 0.05
-  sisterMinWaveUnits: 60
+  sisterMinWaveUnits: 130
   sisterArmyShare: 0.15
   waveReplaceMaxWaitSeconds: 180
   waveSkipStrengthRatio: 0.5
@@ -166,6 +164,7 @@ MonoBehaviour:
   tacticsInterval: 1
   workerStallSeconds: 20
   engageMinThreatFraction: 0.1
+  engageFloorUnits: 15
   contactRadius: 34
   focusRadius: 22
   armyCohesionRadius: 28
@@ -230,6 +229,20 @@ MonoBehaviour:
     perEnemySiege: 0
     perEnemyHighValue: 0
     perEnemyMassed: 0
+  - unitId: Alanthor_Longbowman
+    fallbackUnitId: Alanthor_Archer
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.08
+    perEnemyCavalry: -0.1
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0.15
+    perEnemyRanged: 0
+    perEnemyHeavy: 0
+    perEnemyArmoured: -0.15
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0.1
   - unitId: Alanthor_Outrider
     fallbackUnitId: 
     supersededByUnitId: 
@@ -262,7 +275,7 @@ MonoBehaviour:
     fallbackUnitId: 
     supersededByUnitId: Alanthor_Trebuchet
     basic: 0
-    baseShare: 0.06
+    baseShare: 0.03
     perEnemyCavalry: 0
     perEnemyHeavyCavalry: 0
     perEnemyInfantry: 0
@@ -272,6 +285,20 @@ MonoBehaviour:
     perEnemySiege: 0
     perEnemyHighValue: 0
     perEnemyMassed: 0
+  - unitId: Alanthor_Catapult
+    fallbackUnitId: Alanthor_BatteringRam
+    supersededByUnitId: 
+    basic: 0
+    baseShare: 0.05
+    perEnemyCavalry: 0
+    perEnemyHeavyCavalry: 0
+    perEnemyInfantry: 0
+    perEnemyRanged: 0.1
+    perEnemyHeavy: 0
+    perEnemyArmoured: 0
+    perEnemySiege: 0
+    perEnemyHighValue: 0
+    perEnemyMassed: 0.25
   - unitId: Alanthor_Trebuchet
     fallbackUnitId: Alanthor_BatteringRam
     supersededByUnitId: 
@@ -289,6 +316,7 @@ MonoBehaviour:
   basicsFloor: 16
   basicsMinShare: 0.12
   basicsMaxShare: 0.45
+  siegeMaxArmyShare: 0.12
   surplusClaimOutcropScale: 2
   surplusClaimIntervalScale: 0.5
   surplusFortressOutcropScale: 2
@@ -417,19 +445,10 @@ MonoBehaviour:
   allInWaveIntervalSeconds: 60
   allInReinforceMaxHoldSeconds: 90
   allInStrengthFloor: 0.75
+  allInCountdownIgnoresFloor: 1
   allInRetreatRatio: 3
-  preyAfterSeconds: 720
-  preyMaxTerritories: 2
-  preyHunterMinTerritories: 5
-  preyMaxShareOfHunter: 0.4
-  finishAfterSeconds: 720
-  finishMinArmy: 20
-  finishTerritoryShare: 0.5
-  finishArmyShare: 0.4
-  finishIntelMaxAgeSeconds: 180
-  finishWaveIntervalSeconds: 40
-  finishRetreatRatio: 8
-  finishPressMinUnits: 8
+  preyAfterSeconds: 480
+  preyScoreShare: 0.7
   warShelfSeconds: 600
   maxedPopShare: 0.85
   maxedBankSupplies: 15000
@@ -457,7 +476,7 @@ MonoBehaviour:
   - 0.6
   - 0.8
   - 1.5
-  - 3
+  - 1.5
   doctrineCounterResponseScale: 0.35
   wallDefenceIntervalSeconds: 3
   wallPostGraceSeconds: 25
@@ -481,7 +500,35 @@ MonoBehaviour:
   wallSentryPiecesPerSentry: 30
   wallSentryMax: 4
   sanctumArmyEnabled: 1
-  sanctumArmyMinSize: 30
+  waveMinPopBase: 12
+  waveMinPopPerMinute: 1.5
+  waveFullPopSlack: 6
+  age0ArmyCapForward: 20
+  rateWindowSeconds: 60
+  warHoldsUntilFall: 1
+  waveStrengthHolds: 0
+  sendWholeArmy: 1
+  siegeEscortRadius: 14
+  marchFightsSoldiersOnly: 1
+  warTargetsKeystones: 0
+  keystoneSiegeMin: 3
+  warRetreatRatio: 3
+  noTimeoutWhileFighting: 1
+  rateBehindShare: 0.9
+  rateDeficitMilWeight: 0.85
+  marketBuildVeilstone: 400
+  marketBuildIron: 800
+  rushFirstAttackShare: 0.6
+  aggressiveFirstAttackShare: 0.8
+  rushWaveGrowthFromSeconds: 900
+  standingFloorDefendedScale: 0.5
+  standingFloorFullScale: 0.25
+  standingFloorRichSupplies: 20000
+  defendRecallMinStrength: 500
+  sanctumGarrisonSize: 10
+  sanctumWaveMargin: 4
+  sanctumObjectivePreferMeters: 200
+  sanctumRetakeSeconds: 300
   sanctumThinkInterval: 5
   sanctumMaxArmies: 0
   sanctumLaunchMargin: 1.3
@@ -492,19 +539,28 @@ MonoBehaviour:
   sanctumRegoalMeters: 40
   sanctumDisbandBelow: 8
   sanctumRetrySeconds: 180
-  sanctumMusterMaxSeconds: 600
   sanctumFortTowers: 3
   sanctumFortCheckInterval: 20
   stageOpenRadius: 20
   stageProbeStepMeters: 15
   stageProbeMaxMeters: 120
   stallRepathSeconds: 45
+  musterOpenRadius: 8
+  musterOpenPerUnit: 1.5
+  musterBuildingClearance: 4
+  musterProbeStepMeters: 8
+  musterProbeMaxMeters: 90
+  stageTowerMargin: 10
+  siegeAimArmyRadius: 15
+  pressOnArmyRadius: 45
+  pressOnArmyMinUnits: 4
   provinceTrainerFromSeconds: 1200
   provinceTrainerBankSupplies: 1500
   threatRefocusEnabled: 1
   threatTerritorySigma: 1
   threatMinTerritories: 5
   threatAfterSeconds: 900
+  threatScoreRatio: 1.3
   losingPressureWindowSeconds: 600
   losingPressureMinWeight: 6
   losingPressureRatio: 1.5
@@ -532,8 +588,8 @@ MonoBehaviour:
   victorySwitchMargin: 1.2
   victoryConquestBase: 0.35
   victoryConquestPerRatio: 0.25
-  victorySanctumBase: 0.2
-  victoryShardrootBase: 0.2
+  victorySanctumBase: 0.45
+  victoryShardrootBase: 0.12
   victoryShardrootPerMonument: 0.5
   victoryShardrootOnGround: 0.4
   victoryShardrootPerFailedSquad: 0.08
@@ -554,11 +610,15 @@ MonoBehaviour:
   farmMinFreePermille: 600
   farmRingKeepClear: 1
   marketBuildMinSupplies: 900
+  marketSuppliesShort: 1500
   marketIronShort: 800
   marketVeilstoneShort: 300
-  marketSupplyFloor: 2000
-  marketSpendMinutes: 3
-  marketSurplusReserve: 1000
+  marketSuppliesGlut: 8000
+  marketIronGlut: 4000
+  marketLotsPerThink: 6
+  marketBuyMaxPercent: 150
+  marketCheapPercent: 75
+  marketDearPercent: 135
   veilstoneHoardLine: 10000
   ironNoNewMinesAbove: 30000
   veilstoneNoNewMinesAbove: 30000

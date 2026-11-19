@@ -65,7 +65,15 @@ namespace TheWaningBorder.Core.Save
         // 9 (2026-11-15, decision 59): DepletedMine (a spent iron Mine stays
         //   standing) and MarketRates' surplus mode (ReserveSupplies,
         //   AutoIron) — a format-8 snapshot has neither.
-        public const int SaveFormatVersion = 11;
+        // 12 (2026-11-16, decision 67): the Market trades by the lot at shared
+        //   prices - MarketRates is gone and MarketPrices is new, so a
+        //   format-11 snapshot holding a Market cannot load.
+        // 13 (2026-11-18, decisions 79-80): units carry TorchDamage and the
+        //   Temple's chapel slots / chapels are gone (TempleChapelSlot,
+        //   TempleOwner, ChapelTag deleted), so a format-12 snapshot cannot load.
+        // 14 (2026-11-19, decision 85): VaultStorage holds each bar's resource
+        //   and the trickle's carry — a format-13 snapshot's Vault cannot load.
+        public const int SaveFormatVersion = 14;
 
         /// <summary>Same value; kept for existing callers.</summary>
         public const int CurrentFormat = SaveFormatVersion;

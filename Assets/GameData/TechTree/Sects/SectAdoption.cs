@@ -3,8 +3,8 @@
 //
 // Adoption is INSTANT and FINAL: the SectAdopt command, run on every peer,
 // re-validates (CanAdopt: known sect, free slot, standing Temple, RP), spends
-// the RP and stamps PerSectState through ApplyAdoption. The chapel on the
-// Temple is decoration; TempleChapelBuildSystem seats it from the bank state.
+// the RP and stamps PerSectState through ApplyAdoption. Nothing is built: the
+// Temple has no chapels (decision 80).
 //
 // The lever-upgrade code below is retired (levels are bought through
 // ReligionPurchases) and kept only until its last callers are gone.
@@ -59,7 +59,7 @@ namespace TheWaningBorder.Economy
         // ═══════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Fired when a faction adopts a sect (chapel completed). Public —
+        /// Fired when a faction adopts a sect. Public —
         /// other players see this. Subscribers: PlayerNotificationSystem,
         /// minimap pings, sect-tracker UI.
         /// </summary>

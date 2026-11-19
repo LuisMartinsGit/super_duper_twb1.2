@@ -1,27 +1,26 @@
 // ActionsPanelPrefabBinder.Market.cs
-// THE MARKET ON THE STANDARD ACTIONS PANEL (decision 55 (d), reworked by
-// decision 59, 2026-11-15; docs/Design/Age_1_Alanthor.md § The Market).
-// Developer: "three columns of icons: plus sign, resource icon, minus sign.
-// One column for every resource." The grid, one column each:
+// THE MARKET ON THE STANDARD ACTIONS PANEL (decision 67, 2026-11-16;
+// docs/Design/Age_1_Alanthor.md § The Market). Veilstone is the money: one
+// column per resource it trades, the same plus / icon / minus shape decision
+// 59 gave the panel.
 //
-//            col 0 Iron      col 1 Veilstone   col 2 Surplus (supplies)
-//   row 0    [+]             [+]               [+]  keep more
-//   row 1    [iron  N/min]   [veil  N/min]     [supplies  On/Off  reserve]
-//   row 2    [-]             [-]               [-]  keep less
+//            col 0 Supplies            col 1 Iron
+//   row 0    [+]  buy a lot            [+]  buy a lot
+//   row 1    [supplies  price]         [iron  price]
+//   row 2    [-]  sell a lot           [-]  sell a lot
 //
-// A plus or minus moves a rate by the Market SO's rateStep (Shift: five
-// steps, Ctrl: twenty); clicking a resource icon stops buying it. The third
-// column is the surplus mode: its icon turns it on and off, and while it is on
-// every supply above the reserve is turned into iron each second; the plus and
-// minus move the reserve by the SO's marketReserveStep. Tooltips name the
-// supplies a minute the setting costs at the SO's fixed prices.
+// A click trades one lot (Shift: five, Ctrl: twenty) at the SHARED price,
+// which every player's Market reads and moves: the badge under each resource
+// is what one lot costs now, green while it is cheaper than its starting
+// price and red while dearer. Tooltips give the lot size, what this click
+// costs or pays, and the price against its starting value.
 //
-// Every click goes through CommandRouter (SetMarketRate / SetMarketSurplus
-// lockstep commands) with the whole setting, absolute, so it lands on every
-// peer at the same tick. The panel uses the builder's square 4 x 4 grid (large
-// cells); the level-up takes the cell after the three rows.
+// Every click goes through CommandRouter (the MarketTrade lockstep command),
+// so it lands on every peer at the same tick. The panel uses the builder's
+// square 4 x 4 grid (large cells) like every building; the level-up takes the
+// bottom-right cell (2026-11-18).
 //
-// Read-only on the simulation: MarketRates, the Market SO and the bank.
+// Read-only on the simulation: MarketPrices, the Market SO and the bank.
 
 using Unity.Entities;
 using UnityEngine;
@@ -35,153 +34,108 @@ namespace TheWaningBorder.UI.Ingame
 {
     public sealed partial class ActionsPanelPrefabBinder
     {
-        /// <summary>Steps one Shift-click moves a Market setting.</summary>
+        /// <summary>Lots one Shift-click trades.</summary>
         private const int MarketShiftSteps = 5;
-        /// <summary>Steps one Ctrl-click moves a Market setting.</summary>
+        /// <summary>Lots one Ctrl-click trades.</summary>
         private const int MarketCtrlSteps = 20;
 
-        private const int MarketIronCol = 0, MarketVeilCol = 1, MarketSurplusCol = 2;
+        private const int MarketSuppliesCol = 0, MarketIronCol = 1;
 
         private static readonly Color BadgeOn = new Color(0.62f, 0.92f, 0.55f);
+        private static readonly Color BadgeDear = new Color(0.95f, 0.55f, 0.45f);
 
-        /// <summary>The Market's three columns, then its level-up. Returns the
+        /// <summary>The Market's two columns, then its level-up. Returns the
         /// cells used.</summary>
         private int RenderMarket(EntityManager em, in EntityActionInfo info)
         {
-            for (int i = 0; i < _slots.Length; i++) ClearSlot(_slots[i]);
-            // Hold every cell of the three rows in place: the grid skips
-            // inactive cells, so a cleared one would slide the rows together.
-            for (int i = 0; i < 3 * PaletteCols && i < _slots.Length; i++) BlankSlot(_slots[i]);
+            // Every cell of the 4 x 4 is already held blank (BlankGrid, in
+            // RenderBuildingCells): the grid skips inactive cells, so a
+            // cleared one would slide the rows together.
 
-            var r = em.GetComponentData<MarketRates>(_entity);
+            var prices = Market.Prices(em);
+            FactionEconomy.TryGetResources(em, OwnFaction(em), out var bank);
             Entity market = _entity;
+            bool open = !em.HasComponent<UnderConstruction>(market);
             int used = 0;
-            used += MarketRateColumn(em, market, MarketIronCol, isIron: true, r);
-            used += MarketRateColumn(em, market, MarketVeilCol, isIron: false, r);
-            used += MarketSurplusColumn(em, market, MarketSurplusCol, r);
+            used += MarketGoodColumn(em, market, MarketSuppliesCol, Market.GoodSupplies, prices, bank, open);
+            used += MarketGoodColumn(em, market, MarketIronCol, Market.GoodIron, prices, bank, open);
             used += RenderUpgradeSlot(em);
             RenderProgress(em, info);
             return used;
         }
 
-        private static string StepHint(int step, string unit)
-            => string.Format(Loc.T("{0} {3} a click (Shift: {1}, Ctrl: {2})."),
-                step, step * MarketShiftSteps, step * MarketCtrlSteps, unit);
+        /// <summary>A price in hundredths of a veilstone, as text.</summary>
+        private static string Veil(int hundredths)
+            => (hundredths / 100f).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
-        private int MarketRateColumn(EntityManager em, Entity market, int col, bool isIron, in MarketRates r)
+        private int MarketGoodColumn(EntityManager em, Entity market, int col, int good,
+            in MarketPrices prices, in FactionResources bank, bool open)
         {
             if (col + 2 * PaletteCols >= _slots.Length) return 0;
-            int rate = isIron ? r.IronPerMinute : r.VeilstonePerMinute;
-            int price = isIron ? Market.SuppliesPerIron : Market.SuppliesPerVeilstone;
-            string resKey = isIron ? "Iron" : "Veilstone";
+            bool isIron = good == Market.GoodIron;
+            string resKey = isIron ? "Iron" : "Supplies";
             string res = Loc.T(resKey);
-            string costNow = string.Format(Loc.T("The Market spends {0} supplies a minute on its set rates ({1} on {2})."),
-                Market.SuppliesCostPerMinute(r.IronPerMinute, r.VeilstonePerMinute), rate * price, res);
-            string priceLine = string.Format(Loc.T("Fixed price: {0} supplies for 1 {1}. Nothing is bought while the bank cannot pay."),
-                price, res);
-            string unit = Loc.T("a minute");
-            int iron = r.IronPerMinute, veil = r.VeilstonePerMinute;
+            int price = Market.PriceOf(prices, good);
+            int lot = Market.LotSize(good);
+            int percent = Market.PricePercent(good, price);
+            int held = isIron ? bank.Iron : bank.Supplies;
 
-            // [+]
-            var up = _slots[col];
-            FillSlot(up, new ActionButton
-            {
-                Id = isIron ? "Market_IronUp" : "Market_VeilstoneUp",
-                Label = "+",
-                Icon = ActionIcons.Plus(),
-                Tooltip = "<b>" + string.Format(Loc.T("Buy more {0}"), res) + "</b>\n"
-                          + StepHint(Market.RateStep, unit) + "\n" + priceLine + "\n" + costNow,
-                Enabled = rate < Market.MaxRate,
-                CanAfford = true,
-            }, Category.Economy, null,
-                rate < Market.MaxRate ? (System.Action)(() => MarketStep(market, isIron, +1)) : null, em);
+            int buyOne = Market.BuyCost(price);
+            int sellOne = Market.SellPay(price);
+            string shared = Loc.T("Every player trades at this price: buying raises it, selling lowers it, and it drifts back over time.");
+            string priceLine = string.Format(Loc.T("{0} {1} cost {2} veilstone now ({3}% of the starting price). Selling them pays {4}."),
+                lot, res, Veil(price), percent, sellOne);
+            string clicks = string.Format(Loc.T("One lot a click (Shift: {0}, Ctrl: {1})."), MarketShiftSteps, MarketCtrlSteps);
 
-            // [resource  N/min]
-            var mid = _slots[col + PaletteCols];
-            FillSlot(mid, new ActionButton
-            {
-                Id = isIron ? "Market_IronRate" : "Market_VeilstoneRate",
-                Label = res,
-                Icon = ActionIcons.Resource(resKey),
-                Tooltip = "<b>" + string.Format(Loc.T("Buying {0} {1} a minute for {2} supplies"), rate, res, rate * price) + "</b>\n"
-                          + priceLine + "\n" + costNow
-                          + (rate > 0 ? "\n" + Loc.T("Click to stop buying it.") : ""),
-                Enabled = true,
-                CanAfford = rate > 0,
-            }, Category.Economy, null, () => MarketSet(market, isIron, 0), em);
-            SetBadge(mid, string.Format(Loc.T("{0}/min"), rate), rate > 0 ? BadgeOn : GameUIKit.TextDim);
+            bool canBuy = open && bank.Veilstone >= buyOne;
+            bool canSell = open && held >= lot && sellOne > 0;
 
-            // [-]
-            var down = _slots[col + 2 * PaletteCols];
-            FillSlot(down, new ActionButton
-            {
-                Id = isIron ? "Market_IronDown" : "Market_VeilstoneDown",
-                Label = "-",
-                Icon = ActionIcons.Minus(),
-                Tooltip = "<b>" + string.Format(Loc.T("Buy less {0}"), res) + "</b>\n"
-                          + StepHint(Market.RateStep, unit) + "\n" + costNow,
-                Enabled = rate > 0,
-                CanAfford = true,
-            }, Category.Economy, null,
-                rate > 0 ? (System.Action)(() => MarketStep(market, isIron, -1)) : null, em);
-            return 3;
-        }
-
-        private int MarketSurplusColumn(EntityManager em, Entity market, int col, in MarketRates r)
-        {
-            if (col + 2 * PaletteCols >= _slots.Length) return 0;
-            bool on = r.AutoIron != 0;
-            int reserve = r.ReserveSupplies;
-            int step = Market.ReserveStep;
-            int perIron = Market.SuppliesPerIron;
-            int surplus = 0;
-            if (FactionEconomy.TryGetResources(em, OwnFaction(em), out var bank))
-                surplus = System.Math.Max(0, bank.Supplies - reserve);
-            string what = string.Format(Loc.T("Surplus to iron: everything above {0} supplies is turned into iron every second, at {1} supplies for 1 iron, after the set rates are bought."),
-                reserve, perIron);
-            string unit = Loc.T("supplies");
-
+            // [+] buy
             FillSlot(_slots[col], new ActionButton
             {
-                Id = "Market_ReserveUp",
+                Id = isIron ? "Market_IronBuy" : "Market_SuppliesBuy",
                 Label = "+",
                 Icon = ActionIcons.Plus(),
-                Tooltip = "<b>" + Loc.T("Keep more supplies") + "</b>\n" + StepHint(step, unit) + "\n" + what,
-                Enabled = reserve < Market.MaxReserve,
-                CanAfford = true,
+                Tooltip = "<b>" + string.Format(Loc.T("Buy {0} {1} for {2} veilstone"), lot, res, buyOne) + "</b>\n"
+                          + string.Format(Loc.T("Five lots: {0} veilstone. Twenty: {1}."),
+                              Market.Quote(good, price, MarketShiftSteps, true), Market.Quote(good, price, MarketCtrlSteps, true))
+                          + "\n" + clicks + "\n" + shared,
+                Enabled = canBuy,
+                CanAfford = canBuy,
             }, Category.Economy, null,
-                reserve < Market.MaxReserve ? (System.Action)(() => ReserveStep(market, +1)) : null, em);
+                canBuy ? (System.Action)(() => MarketTrade(market, good, true)) : null, em);
 
+            // [resource  price]
             var mid = _slots[col + PaletteCols];
             FillSlot(mid, new ActionButton
             {
-                Id = "Market_Surplus",
-                Label = Loc.T("Supplies"),
-                Icon = ActionIcons.Resource("Supplies"),
-                Tooltip = "<b>" + (on ? Loc.T("Surplus to iron: ON (click to stop)") : Loc.T("Surplus to iron: OFF (click to start)")) + "</b>\n"
-                          + what
-                          + (on && surplus > 0
-                              ? "\n" + string.Format(Loc.T("Right now: {0} supplies above the reserve, {1} iron."), surplus, surplus / System.Math.Max(1, perIron))
-                              : ""),
+                Id = isIron ? "Market_IronPrice" : "Market_SuppliesPrice",
+                Label = res,
+                Icon = ActionIcons.Resource(resKey),
+                Tooltip = "<b>" + res + "</b>\n" + priceLine + "\n" + shared,
                 Enabled = true,
-                CanAfford = on,
-            }, Category.Economy, null, () => SurplusSet(market, null, !on), em);
-            SetBadge(mid, (on ? Loc.T("On") : Loc.T("Off")) + "  " + reserve, on ? BadgeOn : GameUIKit.TextDim);
+                CanAfford = true,
+            }, Category.Economy, null, null, em);
+            SetBadge(mid, Veil(price), percent < 100 ? BadgeOn : percent > 100 ? BadgeDear : GameUIKit.TextDim);
 
+            // [-] sell
             FillSlot(_slots[col + 2 * PaletteCols], new ActionButton
             {
-                Id = "Market_ReserveDown",
+                Id = isIron ? "Market_IronSell" : "Market_SuppliesSell",
                 Label = "-",
                 Icon = ActionIcons.Minus(),
-                Tooltip = "<b>" + Loc.T("Keep fewer supplies") + "</b>\n" + StepHint(step, unit) + "\n" + what,
-                Enabled = reserve > 0,
-                CanAfford = true,
+                Tooltip = "<b>" + string.Format(Loc.T("Sell {0} {1} for {2} veilstone"), lot, res, sellOne) + "</b>\n"
+                          + string.Format(Loc.T("Five lots: {0} veilstone. Twenty: {1}."),
+                              Market.Quote(good, price, MarketShiftSteps, false), Market.Quote(good, price, MarketCtrlSteps, false))
+                          + "\n" + clicks + "\n" + shared,
+                Enabled = canSell,
+                CanAfford = canSell,
             }, Category.Economy, null,
-                reserve > 0 ? (System.Action)(() => ReserveStep(market, -1)) : null, em);
+                canSell ? (System.Action)(() => MarketTrade(market, good, false)) : null, em);
             return 3;
         }
 
-        /// <summary>Steps a click moves a setting: 1, Shift 5, Ctrl 20.</summary>
+        /// <summary>Lots a click trades: 1, Shift 5, Ctrl 20.</summary>
         private static int ClickSteps()
         {
             if (UnityEngine.Input.GetKey(KeyCode.LeftControl) || UnityEngine.Input.GetKey(KeyCode.RightControl))
@@ -191,41 +145,11 @@ namespace TheWaningBorder.UI.Ingame
             return 1;
         }
 
-        private void MarketStep(Entity market, bool isIron, int dir)
-        {
-            int delta = dir * Market.RateStep * ClickSteps();
-            var em = EM(out bool ok);
-            if (!ok || !em.Exists(market) || !em.HasComponent<MarketRates>(market)) return;
-            var r = em.GetComponentData<MarketRates>(market);
-            MarketSet(market, isIron, (isIron ? r.IronPerMinute : r.VeilstonePerMinute) + delta);
-        }
-
-        private void MarketSet(Entity market, bool isIron, int value)
+        private void MarketTrade(Entity market, int good, bool buy)
         {
             var em = EM(out bool ok);
-            if (!ok || !em.Exists(market) || !em.HasComponent<MarketRates>(market)) return;
-            var r = em.GetComponentData<MarketRates>(market);
-            int iron = isIron ? value : r.IronPerMinute;
-            int veil = isIron ? r.VeilstonePerMinute : value;
-            CommandRouter.IssueSetMarketRate(em, market, iron, veil);
-            _timer = RefreshInterval;
-        }
-
-        private void ReserveStep(Entity market, int dir)
-        {
-            var em = EM(out bool ok);
-            if (!ok || !em.Exists(market) || !em.HasComponent<MarketRates>(market)) return;
-            var r = em.GetComponentData<MarketRates>(market);
-            SurplusSet(market, r.ReserveSupplies + dir * Market.ReserveStep * ClickSteps(), r.AutoIron != 0);
-        }
-
-        /// <summary>Send the surplus setting; a null reserve keeps the current one.</summary>
-        private void SurplusSet(Entity market, int? reserve, bool on)
-        {
-            var em = EM(out bool ok);
-            if (!ok || !em.Exists(market) || !em.HasComponent<MarketRates>(market)) return;
-            var r = em.GetComponentData<MarketRates>(market);
-            CommandRouter.IssueSetMarketSurplus(em, market, System.Math.Max(0, reserve ?? r.ReserveSupplies), on);
+            if (!ok || !em.Exists(market) || !em.HasComponent<MarketTag>(market)) return;
+            CommandRouter.IssueMarketTrade(em, market, good, ClickSteps(), buy);
             _timer = RefreshInterval;
         }
     }

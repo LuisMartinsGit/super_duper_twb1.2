@@ -46,6 +46,7 @@ namespace TheWaningBorder.Systems.Combat
         internal const byte MeleeChase = 4;     // walk to the chase anchor
         internal const byte MeleeDropPost = 5;  // dropped AFTER the target-alive test
         internal const byte MeleeCommitted = 6; // mid-swing, target stepped away: stay planted
+        internal const byte MeleeHold = 7;      // waiting for a slot round a building: stand still
 
         internal struct MeleePlan
         {
@@ -87,6 +88,14 @@ namespace TheWaningBorder.Systems.Combat
             public float Dt;
             /// <summary>MeleeCombatSystemConfig.swingCommitSeconds.</summary>
             public float SwingCommit;
+            /// <summary>Where BuildingAttackSlotSystem put this unit round the
+            /// building it attacks (docs/Design/Navigation_And_Formations.md § 4.1).</summary>
+            [ReadOnly] public ComponentLookup<BuildingAttackSlot> Slots;
+            /// <summary>BuildingAttackSlotSystemConfig.slotArriveTolerance.</summary>
+            public float SlotTolerance;
+            /// <summary>Reach to a building's surface of a unit that throws a
+            /// torch (CombatLookups.ThrowsTorch), metres. Decision 82.</summary>
+            public float TorchReach;
             [WriteOnly] public NativeArray<MeleePlan> Plans;
 
             public void Execute(int idx)
@@ -132,7 +141,28 @@ namespace TheWaningBorder.Systems.Combat
 
                 p.HasDest = (byte)(Lk.Destination.HasComponent(entity) ? 1 : 0);
 
-                if (surfaceDist <= MeleeRange)
+                // A TORCH THROWER (decision 82, 2026-11-19): a melee unit
+                // with a torch attacks a building from TorchReach — a short
+                // ranged attack — and stands wherever it first reaches that
+                // band, so it takes no slot round the building.
+                bool torch = Lk.Building.HasComponent(tgt) && Lk.ThrowsTorch(entity);
+                float reach = torch ? TorchReach : MeleeRange;
+
+                // Every other attacker of a building (a ram, a unit with no
+                // torch) stands on slots round its footprint
+                // (BuildingAttackSlotSystem; docs/Design/Navigation_And_Formations.md
+                // § 4.1): a FRONT unit swings from its slot, a WAITING or
+                // OVERFLOW unit stands still behind the front until a slot
+                // frees. Only while the slot names this very target.
+                Slots.TryGetComponent(entity, out var slot);
+                bool slotted = !torch
+                    && slot.Kind != BuildingAttackSlot.None && slot.Target == tgt;
+                bool midSwing = SwingCommit > 0f && cd.Cooldown > 0f && p.CdDec != 0
+                    && cd.Timer > cd.Cooldown - math.min(SwingCommit, cd.Cooldown);
+                float sdx = slot.Point.x - myPos.x, sdz = slot.Point.z - myPos.z;
+                bool onSlot = slotted && sdx * sdx + sdz * sdz <= SlotTolerance * SlotTolerance;
+
+                if (surfaceDist <= reach)
                 {
                     if (TargetingSystem.MeleeHeightBlocks(myPos.y, targetPos.y,
                             Lk.Building.HasComponent(tgt), TargetingSystem.IsOnRampart(in Lk, entity)))
@@ -140,6 +170,22 @@ namespace TheWaningBorder.Systems.Combat
                         p.Kind = MeleeDropPost;
                         return;
                     }
+
+                    // In reach but not on its own front slot (or with no front
+                    // slot at all): walk to the slot / step back out to the
+                    // waiting spot instead of swinging from inside the pile.
+                    // A swing already started is finished first.
+                    if (slotted && !midSwing
+                        && !(slot.Kind == BuildingAttackSlot.Front && onSlot)
+                        && TargetingSystem.MayChase(in Lk, entity, tgt))
+                    {
+                        p.Kind = MeleeChase;
+                        p.AnchorCandidate = 1;
+                        p.AnchorPoint = slot.Point;
+                        p.FreshPoint = slot.Point;
+                        return;
+                    }
+
                     p.Kind = MeleeInRange;
                     if (!Lk.FiresOnMove.HasComponent(entity))
                     {
@@ -159,8 +205,7 @@ namespace TheWaningBorder.Systems.Combat
                 // the target stepping out of reach does not pull the attacker
                 // after it until the swing window has run. The next swing
                 // needs the target in range again (the InRange branch above).
-                if (SwingCommit > 0f && cd.Cooldown > 0f && p.CdDec != 0
-                    && cd.Timer > cd.Cooldown - math.min(SwingCommit, cd.Cooldown))
+                if (midSwing)
                 {
                     p.Kind = MeleeCommitted;
                     return;
@@ -173,6 +218,31 @@ namespace TheWaningBorder.Systems.Combat
                 }
 
                 p.Kind = MeleeChase;
+
+                if (slotted)
+                {
+                    // On its waiting slot, or inside the overflow band: stand
+                    // still. Nothing to chase means nothing to circle; the
+                    // next allocation moves it up when a front slot frees.
+                    bool hold = slot.Kind == BuildingAttackSlot.Wait
+                        ? onSlot
+                        : slot.Kind == BuildingAttackSlot.Hold
+                          && surfaceDist >= slot.HoldBandMin && surfaceDist <= slot.HoldBandMax;
+                    if (hold)
+                    {
+                        p.Kind = MeleeHold;
+                        return;
+                    }
+
+                    // Walk to the slot. Offered as the latched anchor, so the
+                    // resolve pass takes it as-is while it stands on legal
+                    // ground (no ChaseAnchor write per tick).
+                    p.AnchorCandidate = 1;
+                    p.AnchorPoint = slot.Point;
+                    p.FreshPoint = slot.Point;
+                    return;
+                }
+
                 if (CombatLookups.Active(in Lk.ChaseAnchor, entity))
                 {
                     var a = Lk.ChaseAnchor[entity];
@@ -187,7 +257,7 @@ namespace TheWaningBorder.Systems.Combat
                         p.AnchorPoint = a.Point;
                     }
                 }
-                float3 point = extent.ApproachPoint(myPos, MeleeRange * 0.5f);
+                float3 point = extent.ApproachPoint(myPos, reach * 0.5f);
                 point.y = targetPos.y;
                 p.FreshPoint = point;
             }
@@ -259,6 +329,7 @@ namespace TheWaningBorder.Systems.Combat
                             break;
 
                         case MeleeCommitted:
+                        case MeleeHold:
                             if (p.HasDest != 0)
                                 Ecb.SetComponent(entity, new DesiredDestination { Has = 0 });
                             break;

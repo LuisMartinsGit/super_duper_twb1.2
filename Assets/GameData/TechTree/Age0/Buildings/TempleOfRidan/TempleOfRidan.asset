@@ -16,11 +16,11 @@ MonoBehaviour:
   displayName: Temple of Ridan
   role: production
   description: 
-  hp: 1500
+  hp: 3000
   armorType: structure_human
   defense:
-    melee: 6
-    ranged: 12
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 6
   radius: 2.5
@@ -31,7 +31,22 @@ MonoBehaviour:
   suppliesPerTick: 0
   suppliesInterval: 0
   slotIncomePerMinute: []
+  vaultBarCapacity: 
+  vaultBarBonus: 0
+  vaultSubBars: 0
+  vaultBarResource: 
   maxPerFaction: 1
+  cropRingMeters: 0
+  marketSuppliesLot: 0
+  marketIronLot: 0
+  marketSuppliesLotPrice: 0
+  marketIronLotPrice: 0
+  marketPriceStepPermille: 0
+  marketSellPercent: 0
+  marketPriceFloorPercent: 0
+  marketPriceCeilingPercent: 0
+  marketDriftSeconds: 0
+  marketDriftPermille: 0
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
@@ -57,14 +72,11 @@ MonoBehaviour:
     cooldown: 1.5
     maxTargets: 1
     siegeShotDamage: 0
+  firePoints: []
   levels: []
   unitUpgrades: []
   prefab: {fileID: 8615948163009206344, guid: 391a26d605778d541badafb0e88fe4ad, type: 3}
   culturePrefabs:
-  - culture: Feraldis
-    prefab: {fileID: 7166492580214524436, guid: 80cea8e3c7dfc364cb8ff5b052842a32, type: 3}
-  - culture: Runai
-    prefab: {fileID: 6547244948071779011, guid: e1a450eb46f021948aef87ac65701441, type: 3}
   - culture: Alanthor
     prefab: {fileID: 815774184676531782, guid: 56729d55fc42b7f48ba0cde965a3e119, type: 3}
   presentationId: 521

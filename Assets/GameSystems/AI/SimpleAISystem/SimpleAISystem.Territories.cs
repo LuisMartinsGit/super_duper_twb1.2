@@ -170,21 +170,35 @@ namespace TheWaningBorder.AI
             var steps = StepsOf(key);
             var nextPlace = NextPlaceOf(key);
 
-            // Spots for ground no longer held, or now carrying a Fortress, go.
+            // Step 2 cannot happen at all before the age-up or at the
+            // Fortress ceiling: then it never holds steps 3-4.
+            // THE CEILING IS THE SO'S (decision 81, 2026-11-19). Decision 69
+            // made the Fortress one per player, ever (Fortress.asset
+            // maxPerFaction), but this read the AI's own fortressMaxPerFaction
+            // (8), so the walk thought seven more were coming: every province
+            // reserved a Fortress spot and held its towers and production
+            // for it. White on Highfold held 14 territories in the 0.0.90
+            // batch with all 13 provinces at "[Fortress] spot reserved", 0
+            // towers and 0 production. A Fortress in rubble is rebuilt from
+            // the rubble (TryRebuildKeystones), never on a province spot.
+            _devFortressImpossible = !HasAgedUp(em, faction)
+                || CountOwnFortresses(em, faction) >= Cfg.fortressMaxPerFaction
+                || TheWaningBorder.Entities.BuildingFactory.AtFactionCap(em, faction, "Fortress")
+                || TheWaningBorder.Entities.KeystoneRubbles.TryFind(em, faction,
+                       TheWaningBorder.Entities.KeystoneRubbles.FortressId, out _, out _);
+
+            // Spots for ground no longer held, now carrying a Fortress, or
+            // that no Fortress can ever take, go — a reserved spot keeps
+            // every other building off its ground.
             for (int r = 0; r < RegionMap.Count; r++)
             {
                 if (!AIBaseLayout.TryGetFortressSpot(faction, r, out _)) continue;
-                if (TerritoryOwnership.OwnerOf(r) != key || FortressStandsIn(em, r))
+                if (TerritoryOwnership.OwnerOf(r) != key || FortressStandsIn(em, r) || _devFortressImpossible)
                 {
                     AIBaseLayout.ClearFortressSpot(faction, r);
                     if (TerritoryOwnership.OwnerOf(r) != key) steps[r] = 0;
                 }
             }
-
-            // Step 2 cannot happen at all before the age-up or at the
-            // Fortress ceiling: then it never holds steps 3-4.
-            _devFortressImpossible = !HasAgedUp(em, faction)
-                || CountOwnFortresses(em, faction) >= Cfg.fortressMaxPerFaction;
 
             bool placedThisWalk = false, crewBlocked = false, spotSearched = false;
             // Round-robin start, so a walk cut short by a placement or by the
@@ -198,7 +212,7 @@ namespace TheWaningBorder.AI
                 if (!isHome && !TerritoryOwnership.IsClaimed(r)) continue;
 
                 // THE FORTRESS SPOT, from the moment the ground is held.
-                if (!isHome && !FortressStandsIn(em, r))
+                if (!isHome && !FortressStandsIn(em, r) && !_devFortressImpossible)
                     EnsureFortressSpot(em, faction, r, now, ref spotSearched);
 
                 // Once the walk has placed (or the crew is full), or while this
@@ -247,6 +261,20 @@ namespace TheWaningBorder.AI
             crewBlocked = false;
             what = null;
             bool alanthor = CultureConfig.GetCompletedCulture(em, faction) == Cultures.Alanthor;
+
+            // ── SECURE IT FIRST (decision 91, developer: "the AI (at higher
+            // levels) must secure the newly acquired territories with towers
+            // before proceeding"). On a tier with secureProvincesFirst a held
+            // province gets its first towers before its extractors.
+            if (!isHome && alanthor && HasAgedUp(em, faction) && ProfileOf(faction).SecureProvincesFirst != 0
+                && DevelopProvinceTowers(em, faction, r, now, dry, false,
+                       out bool sPlaced, out bool sCrew, out string sWhat))
+            {
+                placed = sPlaced;
+                crewBlocked = sCrew;
+                what = sWhat;
+                return StepTowers;
+            }
 
             // ── STEP 1: resource buildings on every free node here ──────────
             {
@@ -1040,6 +1068,13 @@ namespace TheWaningBorder.AI
                     held = AILogger.Enabled ? $"saturated, but the plan needs {line} more than {buildingId}"
                                             : "other line";
             }
+
+            // THE RATE GOVERNOR (decision 86): behind the tier's unit rate, an
+            // extra production building goes up whenever the bank can pay.
+            if (held != null && RateBehind(faction)
+                && TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction,
+                    TheWaningBorder.Data.BuildCosts.For(em, faction, buildingId)))
+                held = null;
 
             if (held != null)
             {

@@ -873,11 +873,11 @@ namespace TheWaningBorder.Core.Commands
             if (deposit)
             {
                 if (amount <= 0) return;
-                // Paid in: supplies, iron or veilstone (1..3), one for one.
-                if (resourceType < 1 || resourceType > 3) return;
-                // Each bar takes one resource (decision 60): only what the open
-                // bars of THIS resource can hold is taken. (boost is unused:
-                // a bar's resource is fixed.)
+                // Paid in one for one: iron or veilstone into any bar, supplies
+                // into the last only (decision 85). A bar keeps the resource
+                // first paid into it: only what its own bars and the empty ones
+                // that take it can hold is taken. (boost is unused.)
+                if (!TheWaningBorder.Systems.Economy.VaultBars.Storable(resourceType)) return;
                 int level = TheWaningBorder.Systems.Economy.VaultBars.LevelOf(em, vaultEntity);
                 int take = System.Math.Min(amount,
                     TheWaningBorder.Systems.Economy.VaultBars.Room(vault, faction, level, resourceType));
@@ -961,48 +961,6 @@ namespace TheWaningBorder.Core.Commands
                 if (!em.HasComponent<BazaarUnpackCommand>(bazaar))
                     em.AddComponent<BazaarUnpackCommand>(bazaar);
             }
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // SECT GLOW ALLOCATION
-        //
-        // Allocated glow HALVES the sect's active-power cooldown, so a local
-        // allocation makes CanFire disagree between peers — and a replicated
-        // SectPower command then fires on one peer and is dropped on the
-        // other. docs/Multiplayer_Desync_Sweep_2026-08-16.md
-        // ═══════════════════════════════════════════════════════════════
-
-        public static void IssueSectShardrootAlloc(EntityManager em, Faction faction, string sectId,
-            bool allocate, CommandSource source = CommandSource.LocalPlayer)
-        {
-            if (ShouldDropCommand(source)) return;
-            if (string.IsNullOrEmpty(sectId)) return;
-
-            if (ShouldQueueForLockstep(source))
-            {
-                LockstepServiceLocator.Instance.QueueCommand(new LockstepCommand
-                {
-                    Type = LockstepCommandType.SectShardrootAlloc,
-                    EntityNetworkId = (int)faction,
-                    BuildingId = sectId,
-                    TargetEntityId = allocate ? 1 : 0,
-                });
-            }
-            else
-            {
-                SectShardrootAllocDirect(em, faction, sectId, allocate);
-            }
-        }
-
-        /// <summary>Executor — every peer. The helper is a no-op when the
-        /// state already matches, so replays cannot double-apply.</summary>
-        public static void SectShardrootAllocDirect(EntityManager em, Faction faction, string sectId,
-            bool allocate)
-        {
-            if (allocate)
-                SectActivePowerHelper.AllocateShardroot(em, faction, sectId);
-            else
-                SectActivePowerHelper.DeallocateShardroot(em, faction, sectId);
         }
 
         // ═══════════════════════════════════════════════════════════════

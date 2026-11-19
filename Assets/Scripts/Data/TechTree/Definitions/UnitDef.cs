@@ -65,7 +65,8 @@ namespace TheWaningBorder.Data
         public int minBuildingLevel;
 
         // ==================== Support Unit Fields ====================
-        public float buildSpeed;        // for workers
+        public float buildSpeed;        // for workers: construction progress (s) per second, per builder
+        public float repairSpeed;       // for workers: HP restored per second, per repairer
         public float gatheringSpeed;    // for workers/gatherers
         public float healsPerSecond;    // for healers
         public float healRange;         // reach of the heal (Litharch)
@@ -75,6 +76,11 @@ namespace TheWaningBorder.Data
         public string[] tags;
         /// <summary>Flat bonus damage vs target tags (added after armor, ignores armor).</summary>
         public List<DamageBonus> bonusVsTags;
+        /// <summary>What one melee hit of this unit does to a BUILDING (the
+        /// AoE4 torch, decision 79): it replaces the unit's damage against
+        /// buildings, less the building's melee armour. 0 = cannot burn.
+        /// Ranged, siege and magic hits ignore it.</summary>
+        public float torchDamage;
         /// <summary>Auto-acquire preference (Combat_Pacing.md § Target preference).</summary>
         public string[] preferTargets;
 

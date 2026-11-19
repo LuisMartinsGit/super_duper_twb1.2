@@ -154,8 +154,8 @@ namespace TheWaningBorder.Systems.Research
                         (e) => AddOrSet(em, e, new TheWaningBorder.Abilities.SiegeScreens
                         { Pct = 50f }));
                     break;
-                case "FieldHospital":
-                    GrantLitharchFieldHospital(em, faction);
+                case "FieldHospital":   // the Healing Ward (id kept for saves and replays)
+                    GrantLitharchHealingWard(em, faction);
                     break;
                 // RangingShot is a building-fired active, not stamped state:
                 // see AlanthorActiveHelper.

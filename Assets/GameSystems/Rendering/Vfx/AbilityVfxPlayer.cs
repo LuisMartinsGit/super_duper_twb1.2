@@ -1,7 +1,7 @@
 // AbilityVfxPlayer.cs
 // Plays each catalog ability's own effect — AbilityDefSO.vfxPrefab, the
 // <Name>_Effect prefab in the ability's folder (King Lexor's, the Ledger's,
-// the Litharch's Field Hospital, …). Until 2026-10-02 nothing read that slot.
+// the Litharch's Healing Ward, …). Until 2026-10-02 nothing read that slot.
 //
 //   * An ACTIVE ability: drained from AbilityVfxSignals when it lands.
 //       - Area (formed around the caster): played at his feet, scaled to the

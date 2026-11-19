@@ -38,9 +38,5 @@ MonoBehaviour:
     siegeShotDamage: 0
   lineOfSight: 0
   grantsTechs:
-  - IronShotEngines
-  - IronPlating
-  - VeilstoneShot
-  - VeilstonePlating
   - VeteranCrews
   prefab: {fileID: 7445132172505334940, guid: e63cae6b2cd6cc4409088e758239b783, type: 3}

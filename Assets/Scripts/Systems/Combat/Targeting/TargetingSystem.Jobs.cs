@@ -74,6 +74,10 @@ namespace TheWaningBorder.Systems.Combat
             public byte HasDest;
             /// <summary>Attack-move / patrol scanner (acquire pass).</summary>
             public byte Scanner;
+            /// <summary>1 = a unit on a move hit within the retaliation
+            /// window turns on its attacker (Stances.md §5a): the apply pass
+            /// drops its move and formation slot before the engagement.</summary>
+            public byte Retaliate;
             public Faction MyFaction;
             /// <summary>SetDest: the destination. Scan: the engagement anchor.</summary>
             public float3 Pos;
@@ -172,6 +176,8 @@ namespace TheWaningBorder.Systems.Combat
                     NonSiege = (byte)((!DmgType.TryGetComponent(e, out var dt)
                         || dt.Value != DamageType.Siege) ? 1 : 0),
                     HitRecently = (byte)(hitRecently ? 1 : 0),
+                    MinRange = ArcherState.TryGetComponent(e, out var ast)
+                        ? math.max(0f, ast.MinRange) : 0f,
                 };
 
                 float reach = math.min(los, AttackReach(e));
@@ -342,6 +348,7 @@ namespace TheWaningBorder.Systems.Combat
                             var cand = ec.E;
                             var dist = ec.SurfaceDist(myPos);
                             if (dist > rules.ScanRadius) continue;
+                            if (dist < rules.MinRange) continue;
 
                             if ((flags & FlagFlying) != 0 && !hitsAir) continue;
 
@@ -531,17 +538,32 @@ namespace TheWaningBorder.Systems.Combat
 
                 var myPos = Lk.Transform[entity].Position;
 
-
-                if (!isActiveScanner && hasUserMoveOrder) return;
+                // A queued route step keeps the old rule: it does not stop to
+                // fight (an attack-move step in the queue is how a route
+                // fights). The queue's own bookkeeping is not ours to drop.
                 if (!isActiveScanner && UnitLookups.On(in Lk.Queued, entity)) return;
 
                 bool hasDest = Lk.Dest.TryGetComponent(entity, out var dd);
-                if (!isActiveScanner && hasDest && dd.Has != 0) return;
+                bool hitRecently = Clock - eng.HitAt <= Settings.RetaliationWindow;
+
+                // RETALIATION ON THE MOVE (2026-11-18, Stances.md §5a). A plain
+                // move — a player's, an AI army's formation march, a walk
+                // home — used to switch acquisition off entirely, so a column
+                // walked on while it was cut down from the side. Now a moving
+                // unit that was hit within the retaliation window turns on
+                // whoever is attacking IT, by its stance's return-fire reach
+                // (Aggressive: line of sight; Defensive / support: attack
+                // reach; Hold: never). Anything not attacking it is still
+                // ignored on the move.
+                if (!isActiveScanner && (hasUserMoveOrder || (hasDest && dd.Has != 0)))
+                {
+                    if (hitRecently) PlanRetaliation(entity, cls, myPos, ref plan);
+                    return;
+                }
 
                 var myFaction = Lk.Faction[entity].Value;
                 var stance = Lk.EffectiveStance(entity);
 
-                bool hitRecently = Clock - eng.HitAt <= Settings.RetaliationWindow;
                 var rules = Lk.RulesFor(entity, cls, stance, isActiveScanner,
                     Lk.Los[entity].Radius, hitRecently, in Settings);
                 if (rules.Acquire == 0) return;
@@ -624,6 +646,36 @@ namespace TheWaningBorder.Systems.Combat
                 plan.MyFaction = myFaction;
                 plan.MyPos = myPos;
                 plan.Pos = isActiveScanner ? myPos : anchor;
+                plan.Rules = rules;
+                ScanCore(entity, myPos, myFaction, in rules, in Lk, in Scan, ref plan.Scan);
+            }
+
+            /// <summary>
+            /// A unit on a move that was hit within the retaliation window:
+            /// scan for the enemies attacking IT (ThreatsOnly — its last
+            /// attacker, or anyone whose target it is) inside its stance's
+            /// reach, as a non-scanner. Hold and galloping riders get
+            /// Acquire 0 from the rules table and so never turn; the curse's
+            /// units are driven by their wave logic and are left to it. The
+            /// engagement is anchored where the unit was hit.
+            /// </summary>
+            private void PlanRetaliation(Entity entity, UnitClass cls, float3 myPos, ref UnitPlan plan)
+            {
+                var myFaction = Lk.Faction[entity].Value;
+                if (myFaction == Faction.Border) return;
+                if (Lk.IsFixedMount(entity)) return;
+                var stance = Lk.EffectiveStance(entity);
+                var rules = Lk.RulesFor(entity, cls, stance, false,
+                    Lk.Los[entity].Radius, true, in Settings);
+                if (rules.Acquire == 0) return;
+                rules.ThreatsOnly = 1;
+
+                plan.Kind = PlanScan;
+                plan.Scanner = 0;
+                plan.Retaliate = 1;
+                plan.MyFaction = myFaction;
+                plan.MyPos = myPos;
+                plan.Pos = myPos;
                 plan.Rules = rules;
                 ScanCore(entity, myPos, myFaction, in rules, in Lk, in Scan, ref plan.Scan);
             }

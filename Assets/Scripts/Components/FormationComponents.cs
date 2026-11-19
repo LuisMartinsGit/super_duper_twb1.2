@@ -79,6 +79,12 @@ public struct FormationGroup : IComponentData
     /// mistaken for a wedged one. float.MaxValue outside an ease episode.</summary>
     public float BestLag;
 
+    /// <summary>THE CONVOY (2026-11-17): the formations one split order made
+    /// share this number (0 = a formation on its own). A formation that has
+    /// pulled ahead of the hindmost of its convoy waits for it, so a spread
+    /// army arrives as a body, not as a 300 m line of separate formations.</summary>
+    public int Convoy;
+
     /// <summary>1 while the leader is easing for a member out of formation.
     /// LATCHED, because the ease threshold sits inside the formation's own
     /// steady-state noise: the offset the group settles at and the offset that

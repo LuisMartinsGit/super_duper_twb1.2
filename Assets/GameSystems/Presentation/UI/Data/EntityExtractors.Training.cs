@@ -1,7 +1,7 @@
 // EntityExtractors.Training.cs
 // Unit-training actions and state: per-building training buttons (culture and
 // building-level gated), training progress/queue info, unit cost lookup, and
-// the chapel/temple training specializations.
+// the temple training specializations.
 
 using System.Collections.Generic;
 using Unity.Entities;
@@ -23,12 +23,6 @@ namespace TheWaningBorder.UI.Data
             Faction faction = GameSettings.LocalPlayerFaction;
             if (em.HasComponent<FactionTag>(entity))
                 faction = em.GetComponentData<FactionTag>(entity).Value;
-
-            // Chapel special case: training action derived from SectConfig, not TechTreeDB
-            if (em.HasComponent<ChapelTag>(entity))
-            {
-                return GetChapelTrainingActions(entity, em, faction);
-            }
 
             // Identify building type and look up its definition
             string buildingId = GetBuildingId(entity, em);
@@ -195,109 +189,8 @@ namespace TheWaningBorder.UI.Data
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // CHAPEL TRAINING & RESEARCH (from SectConfig, not TechTreeDB)
+        // SECT BUILDINGS & THE TEMPLE (from SectConfig, not TechTreeDB)
         // ═══════════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// Get training actions for a chapel entity.
-        /// Each chapel trains one unique sect unit defined in SectConfig.
-        /// </summary>
-        private static List<ActionButton> GetChapelTrainingActions(Entity entity, EntityManager em, Faction faction)
-        {
-            var actions = new List<ActionButton>();
-            if (!em.HasComponent<ChapelTag>(entity)) return actions;
-            string sectId = em.GetComponentData<ChapelTag>(entity).SectId.ToString();
-
-            // A sect with its own building (the 2026-10 Alanthor kits) trains
-            // its unit and hero there; its chapel is decoration only
-            // (Religion.md §3, §3.2).
-            if (TheWaningBorder.Economy.SectConfig.BuildingIdFor(sectId) != null) return actions;
-
-            // Generic chapel unit (2026-08-11, docs/Design/Sect_Units.md):
-            // every sect with a live kit trains its unique unit here —
-            // resolved through SectConfig.UnitIdFor + the TechCatalog def,
-            // executed by the generic train path (ExecuteTrain at this
-            // chapel). Antiquity keeps its bespoke block below (Lorekeeper
-            // tooltip + the Reliquary building lever).
-            string chapelUnitId = TheWaningBorder.Economy.SectConfig.UnitIdFor(sectId);
-            if (chapelUnitId != null
-                && sectId != TheWaningBorder.Economy.SectConfig.Antiquity
-                && TechCatalog.TryGetUnit(chapelUnitId, out var chapelUnit)
-                && chapelUnit != null)
-            {
-                var ucost = Cost.Of(
-                    supplies: chapelUnit.cost?.Supplies ?? 0,
-                    iron: chapelUnit.cost?.Iron ?? 0,
-                    veilstone: chapelUnit.cost?.Veilstone ?? 0);
-                string ability = chapelUnit.abilities != null && chapelUnit.abilities.Length > 0
-                    ? chapelUnit.abilities[0] : null;
-                actions.Add(new ActionButton
-                {
-                    Id = chapelUnitId,
-                    Label = Loc.T(chapelUnit.name),
-                    Tooltip = string.Format(Loc.T("{0} — the sect's unique unit"), Loc.T(chapelUnit.name))
-                        + (ability != null ? ".\n" + Loc.T(ability) + "." : ".")
-                        + "\n" + Loc.T("Cost: ")
-                        + string.Format(Loc.T("{0} Supplies, {1} Iron"), ucost.Supplies, ucost.Iron)
-                        + (ucost.Veilstone > 0
-                            ? string.Format(Loc.T(", {0} Veilstone"), ucost.Veilstone) : ""),
-                    Cost = ucost,
-                    Enabled = true,
-                    CanAfford = FactionEconomy.CanAfford(em, faction, ucost),
-                    Icon = null
-                });
-            }
-
-            // Sect of Antiquity — the Lorekeeper (Unit lever, implemented
-            // 2026-07-05). Other sects' unique units surface here as they
-            // are implemented.
-            if (sectId == TheWaningBorder.Economy.SectConfig.Antiquity)
-            {
-                var cost = Cost.Of(supplies: 120, iron: 40);
-                actions.Add(new ActionButton
-                {
-                    Id = "Sect_Artificer",
-                    Label = Loc.T("Lorekeeper"),
-                    Tooltip = Loc.T("Lorekeeper — Antiquity support scholar.\n"
-                        + "Reveals stealthed enemies nearby (Lv II: doubled radius; "
-                        + "Lv III: far-sight through fog).\n"
-                        + "Garrison the Reliquary (stand beside it) to speed up its "
-                        + "ability cooldowns.")
-                        + "\n" + Loc.T("Cost: ")
-                        + string.Format(Loc.T("{0} Supplies, {1} Iron"), cost.Supplies, cost.Iron),
-                    Cost = cost,
-                    Enabled = true,
-                    CanAfford = FactionEconomy.CanAfford(em, faction, cost),
-                    Icon = null
-                });
-
-                // Build the Reliquary (Building lever) — one per faction,
-                // spawned under construction beside the chapel.
-                if (!FactionHasReliquary(em, faction))
-                {
-                    var relCost = Cost.Of(supplies: 300, iron: 120, veilstone: 40);
-                    actions.Add(new ActionButton
-                    {
-                        Id = "Reliquary_Build",
-                        Label = Loc.T("Reliquary"),
-                        Tooltip = Loc.T("The Reliquary — Antiquity intel hub (one per faction).\n"
-                            + "Lv I: Scry (reveal a distant area). Lv II: adds Ability "
-                            + "Lockout and a Vision aura. Lv III: cooldowns -30%, "
-                            + "garrison effects doubled.\n"
-                            + "Garrison a Lorekeeper beside it to recharge abilities faster.")
-                            + "\n" + Loc.T("Cost: ")
-                            + string.Format(Loc.T("{0} Supplies, {1} Iron, {2} Veilstone"),
-                                relCost.Supplies, relCost.Iron, relCost.Veilstone),
-                        Cost = relCost,
-                        Enabled = true,
-                        CanAfford = FactionEconomy.CanAfford(em, faction, relCost),
-                        Icon = null
-                    });
-                }
-            }
-
-            return actions;
-        }
 
         // Cached queries — CreateEntityQuery per frame leaks into the world's query registry.
         private static readonly Unity.Entities.ComponentType[] ReliquaryQueryTypes =
@@ -366,7 +259,7 @@ namespace TheWaningBorder.UI.Data
 
         /// <summary>
         /// Get training actions for the Temple of Ridan.
-        /// Returns training buttons for ALL adopted sect units (from completed chapel slots).
+        /// Returns training buttons for ALL adopted sect units.
         /// Also includes Litharch as base temple unit.
         /// </summary>
         private static List<ActionButton> GetTempleTrainingActions(Entity entity, EntityManager em)
@@ -408,7 +301,11 @@ namespace TheWaningBorder.UI.Data
             // once a sect is adopted its unit trains here at the Temple.
             // Sects without an implemented unit yet contribute nothing —
             // widen SectUnitFor as their kits land.
-            if (TheWaningBorder.Economy.FactionEconomy.TryGetBank(em, faction, out var bank)
+            // 2026-11-18 (docs/Design/Age_0.md § Temple of Ridan): the Temple
+            // shows the Litharch and nothing else unless TempleOffer.asset
+            // turns the sect units back on.
+            if (TheWaningBorder.Entities.TempleOffer.OffersSectUnits(em, faction)
+                && TheWaningBorder.Economy.FactionEconomy.TryGetBank(em, faction, out var bank)
                 && em.HasComponent<SectAdoptionState>(bank))
             {
                 var adoption = em.GetComponentData<SectAdoptionState>(bank);

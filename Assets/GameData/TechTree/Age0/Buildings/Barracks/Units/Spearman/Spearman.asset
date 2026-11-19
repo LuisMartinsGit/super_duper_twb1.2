@@ -15,18 +15,18 @@ MonoBehaviour:
   id: Spearman
   displayName: Militia
   unitClass: human_melee
-  hp: 190
-  speed: 5
+  hp: 90
+  speed: 4
   trainingTime: 15.4
-  damage: 10
+  damage: 8
   damageType: melee
-  armorType: infantry_heavy
+  armorType: infantry_light
   defense:
-    melee: 1
-    ranged: 1
+    melee: 0
+    ranged: 0
     siege: 0
     magic: 0
-  attackCooldown: 1.5
+  attackCooldown: 1.9
   attackRange: 1.5
   minAttackRange: 0
   lineOfSight: 16
@@ -35,8 +35,8 @@ MonoBehaviour:
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 36
-    Iron: 19
+    Supplies: 60
+    Iron: 20
     Veilstone: 0
   populationCost: 1
   minBuildingLevel: 0
@@ -49,10 +49,11 @@ MonoBehaviour:
   aoeRadius: 0
   tags:
   - Infantry
-  - Heavy
+  - Light
   bonusVsTags:
   - vsTag: Cavalry
-    amount: 22
+    amount: 16
+  torchDamage: 10
   preferTargets: []
   abilities: []
   prefab: {fileID: 7272246701288170288, guid: eb15e7657d9fa9347ab3798ee994cc1b, type: 3}

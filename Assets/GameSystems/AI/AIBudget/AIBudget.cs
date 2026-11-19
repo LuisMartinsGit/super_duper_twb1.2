@@ -54,8 +54,17 @@ namespace TheWaningBorder.AI
         {
             public readonly float[,] Wallets = new float[Categories, Resources];
             public readonly float[] IncomeEma = new float[Resources]; // per second
+            /// <summary>The caller's clock at the previous Tick (-1 = none):
+            /// the income window is the real time since then.</summary>
+            public float LastTickAt = -1f;
             public readonly int[] LastBank = new int[Resources];
             public readonly float[] WindowSpends = new float[Resources];
+            // The economy ledger's lifetime income at the last tick (iteration 6,
+            // 2026-11-17): income is read from what the simulation actually
+            // credited, not inferred from bank deltas plus recorded spends —
+            // a spend recorded but debited late or never read as income, and
+            // put veilstone income at 10,000+/min.
+            public readonly float[] LastLifetime = new float[Resources];
             public bool Seeded;
             public int ReservePriority;
             public float NextLog;
@@ -94,6 +103,9 @@ namespace TheWaningBorder.AI
             public int ArmyAlive, ArmyDesired;
             public Cost ArmyUnitCost;
             public bool ArmyCanAbsorb;
+            /// <summary>The rate governor says the unit rate is behind
+            /// (SimpleAISystem.ProductionRate, decision 86).</summary>
+            public bool RateDeficit;
             public float ArmyStamp = -1f;
             /// <summary>Yields since the last ARMYFIRST log line, and when
             /// the next line may be written.</summary>
@@ -184,21 +196,37 @@ namespace TheWaningBorder.AI
                 for (int r = 0; r < Resources; r++)
                 {
                     b.LastBank[r] = bank[r];
+                    b.LastLifetime[r] = LedgerIncome(faction, r);
                     b.Wallets[(int)AIBudgetCategory.Advancement, r] = bank[r] * adv;
                     b.Wallets[(int)AIBudgetCategory.Military, r] = bank[r] * mil;
                     b.Wallets[(int)AIBudgetCategory.EconomyExpansion, r] = bank[r] * eco;
                 }
                 b.Seeded = true;
+                b.LastTickAt = now;
                 return;
             }
+
+            // THE WINDOW IS THE REAL ELAPSED TIME (decision 73, 2026-11-18).
+            // The caller passes its think interval, but thinks are throttled
+            // (stage budget, starvation catch-up), so the real gap between two
+            // budget ticks of one faction is often several intervals: dividing
+            // the gross by the interval inflated emaS / emaI three to five
+            // times. Measure the gap on the caller's (match-relative) clock;
+            // the interval is only the fallback for the first window or a
+            // clock that went backwards (a new match in the same process).
+            float window = b.LastTickAt >= 0f && now > b.LastTickAt ? now - b.LastTickAt : dt;
+            b.LastTickAt = now;
+            dt = window;
 
             float[] weights = { adv, mil, eco };
             for (int r = 0; r < Resources; r++)
             {
                 // Gross income = bank delta + everything the wallets spent
                 // this window (spends reduced the bank but were income too).
-                float gross = (bank[r] - b.LastBank[r]) + b.WindowSpends[r];
-                if (gross < 0f) gross = 0f; // outside drains (damage refunds etc.) never go negative
+                float lifetime = LedgerIncome(faction, r);
+                float gross = lifetime - b.LastLifetime[r];
+                if (gross < 0f) gross = 0f;   // the ledger was reset (a new match)
+                b.LastLifetime[r] = lifetime;
                 b.LastBank[r] = bank[r];
                 b.WindowSpends[r] = 0f;
 
@@ -373,6 +401,20 @@ namespace TheWaningBorder.AI
         /// <summary>The measured gross income of one resource, per second
         /// (the EMA every Tick updates; 0 before the first sample). Read by
         /// the economy-distress test (Game_AI.md § 5i).</summary>
+        /// <summary>Everything the simulation credited this faction since the
+        /// match began, in one resource — refunds and scripted grants excluded,
+        /// since money coming back is not income.</summary>
+        private static float LedgerIncome(Faction faction, int resource)
+        {
+            float t = 0f;
+            for (int src = 0; src < (int)IncomeSource.Count; src++)
+            {
+                if (src == (int)IncomeSource.Refund || src == (int)IncomeSource.Grant) continue;
+                t += EconomyLedger.LifetimeIncomeOf((int)faction, (IncomeSource)src, resource);
+            }
+            return t;
+        }
+
         public static float IncomePerSecond(Faction faction, int resource)
         {
             var b = GetBrain(faction);
@@ -838,8 +880,14 @@ namespace TheWaningBorder.AI
         /// army (see the block comment above). The caller logs through
         /// <see cref="NoteArmyFirstYield"/>.
         /// </summary>
+        /// <summary>The rate governor's verdict for this think (decision 86).</summary>
+        public static void SetRateDeficit(Faction faction, bool behind) => GetBrain(faction).RateDeficit = behind;
+
         public static string ArmyFirstYield(EntityManager em, Faction faction, Cost spend)
         {
+            // BEHIND THE UNIT RATE (decision 86): every surplus spend waits.
+            if (GetBrain(faction).RateDeficit)
+                return AILogger.Enabled ? "the unit rate is behind the tier's target" : "rate behind";
             if (Cfg.armyFirstTargetFraction <= 0f) return null;
             var b = GetBrain(faction);
             if (b.ArmyStamp < 0f || SimClock.Now - b.ArmyStamp > Cfg.armyFirstStatusMaxAge) return null;

@@ -1,5 +1,5 @@
-// Turns a TechTree id ("Alanthor_RoyalStable", "Chapel_Sect_Renewal") into the
-// name the player sees ("Royal Stable", "Renewal Chapel").
+// Turns a TechTree id ("Alanthor_RoyalStable", "Sect_MendingHall") into the
+// name the player sees ("Royal Stable", "Mending Hall").
 //
 // Used by UnitFactory / BuildingFactory to stamp the DisplayName component at
 // creation time. Resolution order:
@@ -36,7 +36,7 @@ namespace TheWaningBorder.Core
         /// noise in the selection header — the player already knows their culture.</summary>
         private static readonly string[] StrippedPrefixes =
         {
-            "Chapel_Sect_", "Sect_", "Alanthor_", "Runai_", "Feraldis_", "Border_",
+            "Sect_", "Alanthor_", "Runai_", "Feraldis_", "Border_",
         };
 
         /// <summary>Display name for a unit id (e.g. "Feraldis_WarboarRider" → "Warboar Rider").</summary>
@@ -57,12 +57,6 @@ namespace TheWaningBorder.Core
 
             if (TechCatalog.TryGetBuilding(buildingId, out var def) && !string.IsNullOrEmpty(def.name))
                 return def.name;
-
-            // Chapels are one creator parameterized by sect, so they are never
-            // individually registered in the catalog: "Chapel_Sect_Renewal" →
-            // "Renewal Chapel". Without this they all read as plain "Building".
-            if (buildingId.StartsWith("Chapel_", System.StringComparison.Ordinal))
-                return Prettify(buildingId) + " Chapel";
 
             return Prettify(buildingId);
         }

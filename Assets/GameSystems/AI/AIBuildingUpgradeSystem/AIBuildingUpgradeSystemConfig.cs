@@ -106,5 +106,9 @@ namespace TheWaningBorder.AI
         /// Farm's window a level that added 135 iron a minute for 850 was
         /// refused every time it was looked at. 0 = never.</summary>
         public float mineLevelPaybackMinutes;
+            /// <summary>Decision 84: the capital's savings pot pauses while the
+        /// live army is below this share of its target (0 = never), so the
+        /// supplies it would set aside go to units first.</summary>
+        public float capitalSavingsArmyShare;
     }
 }

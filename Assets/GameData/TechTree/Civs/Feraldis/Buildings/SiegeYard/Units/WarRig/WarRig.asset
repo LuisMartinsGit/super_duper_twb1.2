@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Feraldis_WarRig
   displayName: War Rig
   unitClass: siege
-  hp: 1040
+  hp: 650
   speed: 4
   trainingTime: 40
   damage: 70

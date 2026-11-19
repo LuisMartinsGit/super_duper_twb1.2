@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Sandstrider
   displayName: Sandstrider
   unitClass: human_melee
-  hp: 240
+  hp: 150
   speed: 6.8
   trainingTime: 24
   damage: 18
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Infantry
   - Light
   bonusVsTags: []
+  torchDamage: 13
   preferTargets: []
   abilities: []
   prefab: {fileID: 7278857431059564549, guid: 2be1e955419ad174ca83274b84159fa8, type: 3}

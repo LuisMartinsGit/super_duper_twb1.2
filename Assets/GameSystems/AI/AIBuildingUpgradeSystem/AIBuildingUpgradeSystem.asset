@@ -29,3 +29,4 @@ MonoBehaviour:
   surplusIgnoresValue: 1
   farmLevelPaybackMinutes: 6
   mineLevelPaybackMinutes: 15
+  capitalSavingsArmyShare: 0.5

@@ -215,13 +215,16 @@ namespace TheWaningBorder.Abilities
                 if (rs.HasResearched(faction, AlanthorGallop.TechId))
                     AlanthorGallop.Grant(em, e);
             }
-            // Not an Alanthor passive: Field Hospital is the Sect of Renewal's
-            // research, so any culture that adopts Renewal arms its Litharchs.
+            // Not an Alanthor passive: the Healing Ward (tech id FieldHospital)
+            // is the Sect of Renewal's research, so any culture that adopts
+            // Renewal arms its Litharchs. A Litharch armed while the faction's
+            // shared ward cooldown runs inherits what is left of it
+            // (HealingWardSystem).
             // It rides in this dispatcher because this is the one hook every
             // trained unit passes through - see TrainingSystem.
             else if (unitId == "Litharch" && rs.HasResearched(faction, "FieldHospital"))
             {
-                AbilityAssignment.AddAbility(em, e, AbilityCatalog.IndexOf("Deploy Field Hospital"));
+                AbilityAssignment.AddAbility(em, e, AbilityCatalog.IndexOf(TheWaningBorder.Entities.HealingWard.CardName));
             }
         }
 

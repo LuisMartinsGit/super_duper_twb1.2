@@ -15,8 +15,8 @@ MonoBehaviour:
   id: Scout
   displayName: Scout
   unitClass: human_scout
-  hp: 95
-  speed: 6
+  hp: 60
+  speed: 5
   trainingTime: 18.2
   damage: 0
   damageType: melee
@@ -49,6 +49,7 @@ MonoBehaviour:
   - Infantry
   - Light
   bonusVsTags: []
+  torchDamage: 5
   abilities: []
   prefab: {fileID: 7715456337387763382, guid: a3e0e7973e010b843b6564287c9cde9b, type: 3}
   presentationId: 206

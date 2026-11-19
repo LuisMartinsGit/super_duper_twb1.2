@@ -18,11 +18,11 @@ MonoBehaviour:
   description: "The Alanthor landmark. Four bars of paid-in resources: a full bar
     raises the income of the resource it boosts. Withdrawing returns everything and
     empties every bar."
-  hp: 600
+  hp: 3000
   armorType: structure_human
   defense:
-    melee: 3
-    ranged: 10
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 3
   radius: 2
@@ -35,16 +35,10 @@ MonoBehaviour:
   slotIncomePerMinute: []
   vaultBarCapacity:
   - 1500
-  - 2500
-  - 2500
-  - 2500
-  vaultBarBonus: 0.05
+  - 3200
+  - 6000
+  - 10000
   vaultSubBars: 5
-  vaultBarResource:
-  - 1
-  - 1
-  - 2
-  - 3
   maxPerFaction: 1
   minWallLevel: 0
   garrisonSlots: 0

@@ -16,11 +16,11 @@ MonoBehaviour:
   displayName: Mending Hall
   role: Renewal sect building. Trains the Scar Guard, recruits the Surgeon.
   description: 
-  hp: 750
+  hp: 1500
   armorType: structure_human
   defense:
     melee: 0
-    ranged: 0
+    ranged: 50
     siege: 0
     magic: 0
   radius: 1.6

@@ -86,8 +86,8 @@ namespace TheWaningBorder.Entities
 
         /// <summary>
         /// Does this building go through a plan? Everything a worker raises
-        /// does. The landmarks self-construct with no worker and are placed
-        /// as sites directly, as before.
+        /// does, except the landmarks, which are placed as sites directly
+        /// (Workers build them; none builds itself since 2026-11-17).
         /// </summary>
         public static bool UsesPlan(string buildingId)
             => !BuildingFactory.IsChoiceBuilding(buildingId);
@@ -210,6 +210,7 @@ namespace TheWaningBorder.Entities
             { typeof(ArrowyardTag), new[] { "Runai_Arrowyard" } },
             { typeof(SiegeWorkshopTag),  new[] { "Runai_SiegeWorkshop" } },
             { typeof(WatchTowerTag),     new[] { "Alanthor_Tower" } },
+            { typeof(LookoutTag),        new[] { "Lookout" } },
             { typeof(SiegeYardTag),      new[] { "Alanthor_SiegeYard" } },
             { typeof(RoyalStableTag),    new[] { "Alanthor_RoyalStable" } },
             { typeof(FarmTag),           new[] { "Alanthor_Farm" } },

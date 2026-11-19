@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_VaultKeeper
   displayName: Vault Keeper
   unitClass: melee
-  hp: 545
+  hp: 340
   speed: 4.8
   trainingTime: 21
   damage: 20
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Infantry
   - Heavy
   bonusVsTags: []
+  torchDamage: 21
   preferTargets: []
   abilities: []
   prefab: {fileID: 7859359545045242852, guid: 39d8c62675571e14d4d7fa754452839f, type: 3}

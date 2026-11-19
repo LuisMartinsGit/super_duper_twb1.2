@@ -57,6 +57,9 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary>Friendly Fire (Sects.md, 2026-10-18): a frenzied unit
         /// hurts and is hurt by everyone, its own side included.</summary>
         [Unity.Collections.ReadOnly] public ComponentLookup<SectDisordered> Disordered;
+        /// <summary>The torch a melee unit throws at buildings (decision 79/82).</summary>
+        [Unity.Collections.ReadOnly] public ComponentLookup<TorchDamage> Torch;
+        [Unity.Collections.ReadOnly] public ComponentLookup<BorderUnitTag> BorderUnit;
 
         public static CombatLookups Create(ref SystemState state) => new CombatLookups
         {
@@ -86,11 +89,15 @@ namespace TheWaningBorder.Systems.Combat
             TempDisarm = state.GetComponentLookup<TheWaningBorder.Abilities.TempDisarm>(true),
             AttackCommand = state.GetComponentLookup<TheWaningBorder.Core.Commands.Types.AttackCommand>(true),
             Disordered = state.GetComponentLookup<SectDisordered>(true),
+            Torch = state.GetComponentLookup<TorchDamage>(true),
+            BorderUnit = state.GetComponentLookup<BorderUnitTag>(true),
         };
 
         public void Update(ref SystemState state)
         {
             Disordered.Update(ref state);
+            Torch.Update(ref state);
+            BorderUnit.Update(ref state);
             Health.Update(ref state);
             Faction.Update(ref state);
             Transform.Update(ref state);
@@ -130,6 +137,13 @@ namespace TheWaningBorder.Systems.Combat
         /// <summary><see cref="CombatDamageHelper.DealsSiege"/> through the lookup.</summary>
         public bool DealsSiege(Entity attacker)
             => DamageType.TryGetComponent(attacker, out var d) && d.Value == global::DamageType.Siege;
+
+        /// <summary><see cref="CombatDamageHelper.ThrowsTorch(EntityManager, Entity)"/>
+        /// through the lookups.</summary>
+        public bool ThrowsTorch(Entity attacker)
+            => Torch.TryGetComponent(attacker, out var t) && t.Value > 0
+               && !BorderUnit.HasComponent(attacker)
+               && (!DamageType.TryGetComponent(attacker, out var d) || d.Value == global::DamageType.Melee);
     }
 
     /// <summary>
@@ -911,38 +925,51 @@ namespace TheWaningBorder.Systems.Combat
         }
 
         /// <summary>
-        /// SOLDIERS CHIP BUILDINGS, SIEGE DEMOLISHES THEM (decision 62,
-        /// 2026-11-15; docs/Design/Combat_Pacing.md § Buildings). A melee or
-        /// ranged hit that lands on a building does only a share of its
-        /// damage (MeleeCombatSystem.asset: meleeVsBuilding, rangedVsBuilding).
-        /// The share is exact over time: the fraction of a point left over is
-        /// carried on the building to the next hit, so there is no "always at
-        /// least 1" floor for a bow line to add up. Siege, magic and true
-        /// damage pass through, and so do the curse's units: its pressure on a
-        /// base is part of the curse's design, not a soldier's.
+        /// SOLDIERS BURN BUILDINGS SLOWLY, SIEGE DEMOLISHES THEM — the AoE4
+        /// model (decision 79, 2026-11-18, replacing decision 62's shares;
+        /// docs/Design/Combat_Pacing.md § Buildings). A melee hit on a
+        /// building lands the attacker's TORCH (its SO's torchDamage) less the
+        /// building's melee armour, instead of its anti-unit damage. Ranged
+        /// hits need nothing here: a building's ranged armour on its SO is
+        /// what turns an arrow into a scratch. Siege, magic and true damage
+        /// pass through, and so do the curse's units: its pressure on a base
+        /// is part of the curse's design, not a soldier's.
+        /// THE ONE FORTRESS (decision 69) then scales whatever is left.
         /// Returns the damage to subtract (0 is a legitimate result).
         /// </summary>
+        /// <summary>
+        /// A melee unit that THROWS A TORCH at buildings (decision 82,
+        /// 2026-11-19; Combat_Pacing.md § Buildings): a torch above 0, melee
+        /// damage, not the curse's. It attacks a building from
+        /// MeleeCombatSystem.asset's torch reach instead of melee reach, and
+        /// takes no attack slot round it. Its hit is the torch
+        /// (<see cref="ScaleVsBuilding"/>).
+        /// </summary>
+        public static bool ThrowsTorch(EntityManager em, Entity attacker)
+            => em.HasComponent<TorchDamage>(attacker)
+               && em.GetComponentData<TorchDamage>(attacker).Value > 0
+               && !em.HasComponent<BorderUnitTag>(attacker)
+               && (!em.HasComponent<DamageTypeData>(attacker)
+                   || em.GetComponentData<DamageTypeData>(attacker).Value == DamageType.Melee);
+
         public static int ScaleVsBuilding(EntityManager em, Entity attacker, Entity target,
             int damage, DamageType type)
         {
             if (damage <= 0) return damage;
-            if (type != DamageType.Melee && type != DamageType.Ranged) return damage;
-            if (!em.HasComponent<BuildingTag>(target)) return damage;
-            if (attacker != Entity.Null && em.Exists(attacker) && em.HasComponent<BorderUnitTag>(attacker))
-                return damage;
-
-            var cfg = MeleeCombatSystemConfig.I;
-            float share = type == DamageType.Ranged ? cfg.rangedVsBuilding : cfg.meleeVsBuilding;
-            bool has = em.HasComponent<BuildingDamageState>(target);
-            var st = has ? em.GetComponentData<BuildingDamageState>(target) : default;
-            float total = damage * share + st.ChipCarry;
-            int whole = (int)total;
-            if (has)
+            if (type == DamageType.Melee
+                && em.HasComponent<BuildingTag>(target)
+                && attacker != Entity.Null && em.Exists(attacker)
+                && !em.HasComponent<BorderUnitTag>(attacker)
+                && em.HasComponent<TorchDamage>(attacker))
             {
-                st.ChipCarry = total - whole;
-                em.SetComponentData(target, st);
+                int torch = em.GetComponentData<TorchDamage>(attacker).Value;
+                damage = math.max(0, torch - BaseDefense(em, target, DamageType.Melee));
+                if (damage <= 0) return 0;
             }
-            return whole;
+            // Siege with a considerable force behind it, or next to nothing —
+            // every damage type, the curse too.
+            int fortress = FortressFallSystem.ScaleHit(em, target, damage, type, out bool isFortress);
+            return isFortress ? fortress : damage;
         }
     }
 }

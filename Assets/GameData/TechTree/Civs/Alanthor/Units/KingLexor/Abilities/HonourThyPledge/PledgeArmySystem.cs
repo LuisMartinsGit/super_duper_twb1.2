@@ -2,8 +2,8 @@
 // Counts the pledged down and sends them home.
 // Canon: docs/Design/Heroes.md §3.
 //
-// Expiry follows the project's unit-death contract exactly as FieldHospital
-// does: set Health to 0 and let DeathSystem destroy the entity, NEVER
+// Expiry follows the project's unit-death contract exactly as the retired Field Hospital
+// did: set Health to 0 and let DeathSystem destroy the entity, NEVER
 // DestroyEntity from here — a direct destroy corrupts the EndSimulation ECB
 // playback.
 //

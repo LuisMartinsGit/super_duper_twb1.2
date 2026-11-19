@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_Caravan
   displayName: Caravan
   unitClass: civilian_trade
-  hp: 320
+  hp: 200
   speed: 5.6
   trainingTime: 0
   damage: 0
@@ -50,6 +50,7 @@ MonoBehaviour:
   tags:
   - Light
   bonusVsTags: []
+  torchDamage: 0
   preferTargets: []
   abilities: []
   prefab: {fileID: 8303799667744718446, guid: 43bdc3cdf69bfc94e88876dbb598e904, type: 3}

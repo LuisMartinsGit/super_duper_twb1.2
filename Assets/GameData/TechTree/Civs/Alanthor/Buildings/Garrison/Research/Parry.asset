@@ -18,13 +18,13 @@ MonoBehaviour:
   effect: 
   desc: "Swordsman: turns one melee attack aside completely, then needs 8 s before he can parry again."
   researchAt: Barracks
-  minBuildingLevel: 1
-  researchTime: 30
+  minBuildingLevel: 2
+  researchTime: 40
   prerequisites: []
   culture: Alanthor
   cost:
-    Supplies: 120
-    Iron: 60
+    Supplies: 220
+    Iron: 140
     Veilstone: 0
   effects:
     gatherSpeedMult: 0

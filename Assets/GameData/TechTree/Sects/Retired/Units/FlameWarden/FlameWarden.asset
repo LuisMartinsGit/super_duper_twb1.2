@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_FlameWarden
   displayName: Flame Warden
   unitClass: melee
-  hp: 240
+  hp: 150
   speed: 3.8
   trainingTime: 21
   damage: 15
@@ -49,6 +49,7 @@ MonoBehaviour:
   - 'Infantry'
   - 'Light'
   bonusVsTags: []
+  torchDamage: 21
   abilities: []
   prefab: {fileID: 97828062410649, guid: f015e120f88b81a85b6d20e597739612, type: 3}
   presentationId: 374

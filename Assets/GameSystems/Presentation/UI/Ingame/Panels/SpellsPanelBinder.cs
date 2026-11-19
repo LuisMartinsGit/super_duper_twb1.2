@@ -251,7 +251,7 @@ namespace TheWaningBorder.UI.Ingame
             AbilityEffectKind.LosRampWhileStill=> Loc.T("sight grows while standing still"),
             AbilityEffectKind.ChargeDamagePct  => Signed(e.Value) + Loc.T("% damage on the next charge"),
             AbilityEffectKind.DisarmWhileBuffed=> Loc.T("cannot attack while it lasts"),
-            AbilityEffectKind.DeployFieldHospital => Loc.T("deploys a temporary field hospital"),
+            AbilityEffectKind.DeployHealingWard => Loc.T("plants a Healing Ward that slowly heals nearby allies until it is destroyed (one blow breaks it)"),
             AbilityEffectKind.FireRatePct      => Signed(e.Value) + Loc.T("% fire rate"),
             AbilityEffectKind.SummonPledgeArmy => Loc.T("calls in a temporary army that grows with the hero's level"),
             AbilityEffectKind.ShardboundFury   => Loc.T("hurls every enemy in the radius into the air; enemy buildings take heavy damage"),
@@ -383,16 +383,16 @@ namespace TheWaningBorder.UI.Ingame
                 return;
             }
 
-            // DEPLOY FIELD HOSPITAL places a building too (Build_Grid.md §
-            // Buildings raised by abilities, 2026-11-11): Cleanse's placement,
-            // with the hospital's ghost, footprint and test.
-            if (card != null && card.HasEffect(AbilityEffectKind.DeployFieldHospital))
+            // HEALING WARD places a building too (Build_Grid.md § Buildings
+            // raised by abilities, 2026-11-11): Cleanse's placement, with the
+            // ward's ghost, footprint and test.
+            if (card != null && card.HasEffect(AbilityEffectKind.DeployHealingWard))
             {
                 Entity caster = _primary;
                 var c = card;
                 TheWaningBorder.UI.World.GroundPlacement.Begin(
-                    TheWaningBorder.UI.World.AbilityBuildingGhost.ForBuilding(TheWaningBorder.Entities.FieldHospital.Id),
-                    TheWaningBorder.Entities.FieldHospital.SizeMeters,
+                    TheWaningBorder.UI.World.AbilityBuildingGhost.ForBuilding(TheWaningBorder.Entities.HealingWard.Id),
+                    TheWaningBorder.Entities.HealingWard.SizeMeters,
                     card.Radius, AimRingColor, card.Range,
                     () =>
                     {
@@ -404,14 +404,14 @@ namespace TheWaningBorder.UI.Ingame
                     },
                     (Unity.Mathematics.float3 cursor, out Unity.Mathematics.float3 site) =>
                     {
-                        site = TheWaningBorder.Entities.FieldHospital.SiteFor(cursor);
+                        site = TheWaningBorder.Entities.HealingWard.SiteFor(cursor);
                         var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
                         if (world == null || !world.IsCreated) return null;
                         var em = world.EntityManager;
                         if (!em.Exists(caster)) return Loc.T("The caster is gone");
                         if (!AbilityTargetRules.AimInSight(em, c, caster, site))
                             return Loc.T(CastTargetRules.Describe(CastTargetRefusal.NotInSight, CastTargetKind.None));
-                        return TheWaningBorder.Entities.FieldHospital.SiteRefusal(em, caster, c, site);
+                        return TheWaningBorder.Entities.HealingWard.SiteRefusal(em, caster, c, site);
                     },
                     site =>
                     {
@@ -475,17 +475,36 @@ namespace TheWaningBorder.UI.Ingame
                 _emReady = true;
             }
 
-            // Primary = first selected entity carrying catalog abilities.
+            // Primary = first OWNED selected unit with at least one castable
+            // (unlocked Active) ability. A passive-only unit (a Scout's Scout
+            // Sight) or a unit whose actives are all still locked (a Litharch
+            // in Age 0) gets no bar at all (2026-11-18, developer: "Ability
+            // screen visible over the build menu (Remove)").
             _primary = Entity.Null;
             var sel = TheWaningBorder.Input.SelectionSystem.CurrentSelection;
-            if (sel != null)
+            bool builderPalette = false;
+            bool firstOwnedSeen = false;
+            if (sel != null && !GameSettings.IsSpectating)
             {
                 for (int i = 0; i < sel.Count; i++)
                 {
-                    if (_em.Exists(sel[i]) && _em.HasComponent<UnitAbilities>(sel[i]))
-                    { _primary = sel[i]; break; }
+                    var e = sel[i];
+                    if (!_em.Exists(e) || !_em.HasComponent<FactionTag>(e)) continue;
+                    if (_em.GetComponentData<FactionTag>(e).Value != GameSettings.LocalPlayerFaction) continue;
+                    // The actions panel draws the build palette when the first
+                    // owned selected entity can build — the same test it uses.
+                    // The bar sat on top of that palette, so it stays hidden.
+                    if (!firstOwnedSeen)
+                    {
+                        firstOwnedSeen = true;
+                        if (_em.HasComponent<CanBuild>(e)) { builderPalette = true; break; }
+                    }
+                    if (_primary == Entity.Null && _em.HasComponent<UnitAbilities>(e)
+                        && AbilityQuery.ActiveSlots(_em, e, _activeSlotScratch) > 0)
+                        _primary = e;
                 }
             }
+            if (builderPalette) _primary = Entity.Null;
 
             bool show = _primary != Entity.Null;
             if (_root.gameObject.activeSelf != show) _root.gameObject.SetActive(show);

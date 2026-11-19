@@ -104,9 +104,9 @@ namespace TheWaningBorder.Entities
             creator.AddComponent(entity, new TrebuchetState { Deployed = 0, Timer = 0f });
 
             // Combat type tags
-            creator.AddComponent(entity, new DamageTypeData { Value = DamageType.Siege });
-            creator.AddComponent(entity, new ArmorTypeData { Value = ArmorType.Ranged });
-            creator.AddComponent(entity, new Defense { Melee = 0, Ranged = 1, Siege = 2, Magic = 0 });
+            creator.AddComponent(entity, new DamageTypeData { Value = CombatTypeParse.Damage(def.damageType, DamageType.Siege) });
+            creator.AddComponent(entity, new ArmorTypeData { Value = CombatTypeParse.Armor(def.armorType, ArmorType.Ranged) });
+            creator.AddComponent(entity, new Defense { Melee = def.defense.melee, Ranged = def.defense.ranged, Siege = def.defense.siege, Magic = def.defense.magic });
 
             // SO bonus-vs-tags (+80 vs Building). Design canon for this siege
             // unit, so it must survive a missing / ungenerated TechTreeCatalog

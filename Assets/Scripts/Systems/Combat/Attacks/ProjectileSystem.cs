@@ -557,16 +557,10 @@ namespace TheWaningBorder.Systems.Combat
                 ? TheWaningBorder.Core.HitSource.Bolt : TheWaningBorder.Core.HitSource.Arrow;
             impactDamage = CombatDamageHelper.ApplyBonusDamageOnHit(em, ecb, shooter, targetEntity, impactDamage, hitSource);
 
-            // Balance: arrows & bolts only CHIP structures — siege is what
-            // demolishes them. (The old damage-type×armor matrix used to do this
-            // via Ranged×Structure = 0.15 but is no longer applied, so ranged
-            // was hitting buildings at near-full damage.) Melee and siege are
-            // untouched.
-            // Decision 62 (2026-11-15): the share is on MeleeCombatSystem.asset
-            // and there is no "at least 1" floor any more - fifteen archers
-            // each landing the floor took a tower down. The leftover fraction
-            // is carried on the building instead. A 0 from an allied shot
-            // stays 0. docs/Design/Combat_Pacing.md § Buildings
+            // Arrows only scratch a building: its ranged armour (on its SO)
+            // takes all but a point of each. Decision 79 retired the shares;
+            // the helper is still where the one Fortress scales its hits.
+            // docs/Design/Combat_Pacing.md § Buildings
             impactDamage = CombatDamageHelper.ScaleVsBuilding(em, shooter, targetEntity, impactDamage, dmgType);
 
             // Ability: scale total incoming damage (Liquid Courage 90% DR) before HP.
@@ -715,7 +709,9 @@ namespace TheWaningBorder.Systems.Combat
                 // Parity with the direct hit (:337): ranged splash only chips
                 // buildings, and incoming-damage scaling (Liquid Courage DR) must
                 // apply — splash was demolishing buildings and bypassing DR.
-                if (proj.DmgType == DamageType.Ranged && em.HasComponent<BuildingTag>(entities[i]))
+                int fortressSplash = FortressFallSystem.ScaleHit(em, entities[i], splashDmg, proj.DmgType, out bool splashOnFortress);
+                if (splashOnFortress) splashDmg = fortressSplash;   // decision 69
+                else if (proj.DmgType == DamageType.Ranged && em.HasComponent<BuildingTag>(entities[i]))
                 {
                     int chip = (int)(splashDmg * 0.3f);
                     splashDmg = chip < 1 ? 1 : chip;

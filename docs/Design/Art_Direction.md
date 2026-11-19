@@ -374,7 +374,7 @@ each one must carry information, or it is noise at zoom:
 | An ability's own effect on its target | the ability landed; timed ones loop for their duration, passive auras loop on the carrier (each ability's `<Name>_Effect.prefab`, `AbilityDefSO.vfxPrefab`) | `AbilityVfxPlayer.asset` |
 | Speed fog on an economy building | the Ledger has automated it (+30 % yield, 30 s) | Ledger `AutomateFacility_Effect` |
 | Gold orbs / gold dome / hearts / slowing fog on King Lexor | King's Call aura / Liquid Courage / Life Cling / Veilshift Withdrawal | KingLexor `Abilities/` |
-| Green healing ring / green dome / leaf poof | Renewal: Hands of Plenty landing (+ regen loop at III) / Second Wind ward / Raise Anew; Field Hospital keeps a healing-area loop | `SectPowerVfx.asset`, `RenewalVfx.asset` |
+| Green healing ring / green dome / leaf poof | Renewal: Hands of Plenty landing (+ regen loop at III) / Second Wind ward / Raise Anew; the Healing Ward keeps a healing-area loop | `SectPowerVfx.asset`, `RenewalVfx.asset` |
 | Loot glow on the ground / flicker on a unit | the Shardroot lies here / this unit carries it (drop and pick-up bursts mark the change) | `ShardrootVfx.asset` |
 
 ### 6.4 The curse veil (2026-09-18)

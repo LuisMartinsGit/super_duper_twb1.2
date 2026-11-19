@@ -13,20 +13,20 @@ MonoBehaviour:
   m_Name: IronTippedArrows
   m_EditorClassIdentifier: 
   id: IronTippedArrows
-  displayName: Iron-Tipped Arrows
+  displayName: Iron Arrows
   role: Military
   effect: 
-  desc: "Arrow tier 2: ranged units deal +15% damage."
+  desc: "+1 damage for every archer."
   researchAt: ArcheryRange
-  minBuildingLevel: 1
+  minBuildingLevel: 2
   researchTime: 40
   prerequisites:
   - StoneTippedArrows
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 200
-    Veilstone: 225
+    Supplies: 150
+    Iron: 100
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -37,5 +37,5 @@ MonoBehaviour:
   effectsList:
   - Target: "type:Ranged"
     Stat: Damage
-    Op: Pct
-    Value: 15
+    Op: Add
+    Value: 1

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_HorseArcher
   displayName: Horse Archer
   unitClass: human_cavalry
-  hp: 180
+  hp: 140
   speed: 7
   trainingTime: 26
   damage: 12

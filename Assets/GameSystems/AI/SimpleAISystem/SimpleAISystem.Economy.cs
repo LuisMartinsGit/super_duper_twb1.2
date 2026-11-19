@@ -159,7 +159,11 @@ namespace TheWaningBorder.AI
             if (aiState.AgeUpIssued != 0
                 && FactionCultureOf(em, faction) == Cultures.Alanthor)
             {
-                if (!TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedLedger(em, faction))
+                // Off the Fortress roster = disabled (the Ledger, 2026-11-17):
+                // no training and no savings held for it.
+                if (!TrainsUnit(em, "Fortress", "Ledger"))
+                    AIPivotalReserve.Clear(faction, "Ledger");
+                else if (!TheWaningBorder.Abilities.HeroTrainLimit.HasLiveOrQueuedLedger(em, faction))
                     TryTrainPivotalUnique(em, faction, "Ledger");
                 else
                     AIPivotalReserve.Clear(faction, "Ledger");
@@ -227,7 +231,7 @@ namespace TheWaningBorder.AI
             // recorded zero unit deaths. The cap follows the same rule as
             // the goals: garrison until era 2, then the plan's ceiling.
             if (FactionEra(em, faction) < 2)
-                armyCap = math.min(armyCap, 8);
+                armyCap = math.min(armyCap, Age0ArmyCap(personality.personality));
 
             // THE ARMY KEEPS UP WITH THE GROUND (2026-10-05, Game_AI.md 3a).
             // The target only ever grew by one per unit bought, and the
@@ -269,9 +273,14 @@ namespace TheWaningBorder.AI
                 // no longer freezes supplies/iron infantry
                 // (TryTrainUnitWithReason applies the same test).
                 bool belowGate = CountAliveMilitary(em, faction) < Cfg.minArmyForNextClaim;
-                int trainers = CountFactionBuildings<BarracksTag>(em, faction)
-                             + CountFactionBuildings<ArcheryRangeTag>(em, faction);
-                int burst = math.clamp(trainers, 1, 3);
+                // EVERY PRODUCTION BUILDING (decision 84): the burst counted the
+                // Barracks and Archery Ranges only, and stopped at the first
+                // refusal — a Stable with a full queue left every other line
+                // idle ("parallel 1 buildings training (of 5)"). It counts all
+                // four lines now, and a trainer-side refusal sends the order to
+                // the plan's other rows (TrainOnOtherLines) instead of ending it.
+                int trainers = CountMilitaryTrainers(em, faction);
+                int burst = math.max(1, trainers);
                 for (int t = 0; t < burst && aiState.DesiredMilitary < armyCap; t++)
                 {
                     string unit = PickCompositionUnit(em, brainEntity, faction, now,
@@ -279,7 +288,15 @@ namespace TheWaningBorder.AI
                     if (!belowGate && TechCatalog.TryGetUnit(unit, out var unitDef) && unitDef != null
                         && MilitaryHold(em, faction, unit, AICommon.ToCost(unitDef.cost)))
                         break;
-                    if (!TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military)) break;
+                    if (!TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military, out string burstBlock))
+                    {
+                        if (IsTrainerSideBlock(burstBlock) && TrainOnOtherLines(em, faction, unit, 1, out _) > 0)
+                        {
+                            aiState.DesiredMilitary++;
+                            continue;
+                        }
+                        break;
+                    }
                     aiState.DesiredMilitary++;
                     aiState.LastMilitaryUnit = new FixedString64Bytes(unit);
                 }
@@ -323,7 +340,11 @@ namespace TheWaningBorder.AI
                 TryTrainUnitBudgeted(em, faction, unit, AIBudgetCategory.Military);
         }
 
-        private const string SiegeUnitId = "Alanthor_BatteringRam"; // decision 52: no Catapult
+        /// <summary>The engine trained when no army plan is active. The plan
+        /// itself names the siege role most behind (Ram, Catapult or
+        /// Trebuchet — the Catapult is back at the Siege Yard since
+        /// 2026-11-18).</summary>
+        private const string SiegeUnitId = "Alanthor_BatteringRam";
         private readonly System.Collections.Generic.Dictionary<int, float> _nextSiegeTrain
             = new System.Collections.Generic.Dictionary<int, float>();
 
@@ -400,6 +421,11 @@ namespace TheWaningBorder.AI
             int siegeHeld = plan.Active ? PlannedSiegeCount(plan) : CountAliveByUnitId(em, faction, SiegeUnitId);
             // A walled victim raises the floor to what a breach needs (§ 6x).
             int floorWanted = math.max(Cfg.siegeTrainFloor, EngineDemand(faction));
+            // ...but never past the siege cap's share of the army (decision 73):
+            // siegeTrainFloor engines stay the minimum.
+            if (plan.Active && Cfg.siegeMaxArmyShare > 0f)
+                floorWanted = math.min(floorWanted, math.max(Cfg.siegeTrainFloor,
+                    (int)math.ceil(Cfg.siegeMaxArmyShare * math.max(plan.Army, Cfg.basicsFloor))));
             if (siegeHeld >= floorWanted) return;
             if (TryTrainUnitBudgeted(em, faction, engine, AIBudgetCategory.Military))
                 AILogger.Log(faction, "MILITARY", $"siege program: {engine} queued ({siegeHeld + 1}/{floorWanted})");
@@ -443,6 +469,9 @@ namespace TheWaningBorder.AI
             // granted by building levels (decision 53), never researched.
             "Fletching",                         // Archery Range (Age 1) — range
             "MasonGuild",                        // Fortress (Alanthor) — building HP
+            // The Vault's bars (decision 85): each Coffer opens a bar that
+            // pays its own trickle once full, so they repay themselves.
+            "SecondCoffer", "ThirdCoffer", "FourthCoffer",
             "RichSeams",                         // Mine — replaces Deep Shafts
         };
 
@@ -846,20 +875,24 @@ namespace TheWaningBorder.AI
 
                 // Host building level for minBuildingLevel gates (unstamped
                 // buildings count as L1 — mirrors the research extractor).
-                int level = 1;
-                if (em.HasComponent<BuildingUpgradeState>(building))
-                    level = math.max(level,
-                        em.GetComponentData<BuildingUpgradeState>(building).Level);
+                // The Temple's is the highest adopted sect level (decision 77).
+                int level = TheWaningBorder.Entities.ResearchHostLevel.Of(em, building);
+                bool isTemple = em.HasComponent<TempleOfRidanTag>(building);
 
                 for (int t = 0; t < def.research.Length; t++)
                 {
                     string techId = def.research[t];
                     if (!TechCatalog.TryGetTechnology(techId, out var tech) || tech == null)
                         continue;
+                    // The player's Temple shows only what TempleOffer offers
+                    // (Age_0.md § Temple of Ridan); the research command
+                    // refuses the rest, so the sweep does not try.
+                    if (isTemple && !TheWaningBorder.Entities.TempleOffer.OffersResearch(em, faction, techId))
+                        continue;
                     if (research != null && research.HasResearched(faction, techId)) continue;
                     if (IsResearchInFlight(em, faction, techId)) continue;
                     if (!TechCatalog.CultureAllows(tech, culture)) continue;
-                    if (math.max(1, tech.minBuildingLevel) > level) continue;
+                    if (tech.minBuildingLevel > level) continue;
                     if (research != null
                         && !research.MeetsPrerequisites(faction, tech.prerequisites)) continue;
 
@@ -1004,6 +1037,107 @@ namespace TheWaningBorder.AI
         /// trainer" call for opposite fixes, and the army-floor log could not
         /// tell them apart (2026-09-12).</summary>
         private static bool TryTrainUnitBudgeted(EntityManager em, Faction faction,
+            string unitId, AIBudgetCategory cat, out string blockReason)
+        {
+            bool ok = TryTrainUnitBudgetedStandIn(em, faction, unitId, cat, out blockReason);
+            if (ok && cat == AIBudgetCategory.Military) NoteUnitOrdered(faction);   // the rate governor
+            return ok;
+        }
+
+        private static bool TryTrainUnitBudgetedStandIn(EntityManager em, Faction faction,
+            string unitId, AIBudgetCategory cat, out string blockReason)
+        {
+            if (TryTrainUnitBudgetedOnce(em, faction, unitId, cat, out blockReason)) return true;
+
+            // A UNIT THE MONEY CANNOT PAY FOR ALWAYS HAS A STAND-IN OF ITS OWN
+            // TYPE (decision 81, 2026-11-19, developer: "Make sure that if a
+            // unit can't be trained due to lack of resources, it always has a
+            // fallback of the same unit type"). Every AI military order comes
+            // through here, so every path obeys it: the unit's own line steps
+            // down its fallback chain (compositionRoles fallbackUnitId: Swordsman
+            // -> Spearman, Crossbowman / Longbowman -> Archer, Cataphract ->
+            // Outrider, Trebuchet / Catapult -> Battering Ram) until one can be
+            // paid for. Each line's last unit costs no veilstone. A stand-in
+            // passes the basics cap: it fills the role's place, not the basics'.
+            // A refusal that is not money (queue, trainer, population) ends it:
+            // the stand-ins share their trainer, so they would be refused too.
+            // The 0.0.90 batch is the case: Blue on Highfold, 70,000 supplies,
+            // pop 191/300 and none of its 11 trainers working while the plan
+            // asked for Crossbowmen and Trebuchets it had no veilstone for.
+            if (cat != AIBudgetCategory.Military || !IsMoneyRefusalForUnit(blockReason)) return false;
+            string firstBlock = blockReason;
+            string standIn = unitId;
+            const int MaxLineDepth = 4;   // loop bound, not tuning
+            for (int d = 0; d < MaxLineDepth; d++)
+            {
+                standIn = LineFallbackOf(standIn);
+                if (standIn == null) break;
+                bool ok;
+                string why;
+                _trainingStandIn = true;
+                _standInFor = unitId;
+                try { ok = TryTrainUnitBudgetedOnce(em, faction, standIn, cat, out why); }
+                finally { _trainingStandIn = false; _standInFor = null; }
+                if (ok)
+                {
+                    blockReason = null;
+                    string pair = unitId + ">" + standIn;
+                    if (!_lastStandIn.TryGetValue(faction, out string prev) || prev != pair)
+                    {
+                        _lastStandIn[faction] = pair;
+                        AILogger.Log(faction, "MILITARY",
+                            $"{unitId} unaffordable ({firstBlock}) — {standIn} stands in, same line " +
+                            "(repeats suppressed until the pair changes)");
+                    }
+                    return true;
+                }
+                if (!IsMoneyRefusalForUnit(why)) break;
+            }
+            blockReason = firstBlock;
+            return false;
+        }
+
+        /// <summary>True while TryTrainUnitBudgeted trains a same-line stand-in
+        /// (decision 81): the basics cap lets it through.</summary>
+        private static bool _trainingStandIn;
+
+        /// <summary>The role unit the current stand-in replaces. The army
+        /// plan counts the order against that role for the rest of the think
+        /// (NoteArmyPlanTrained), so the next picks move on to the other roles
+        /// instead of every order becoming the same stand-in.</summary>
+        private static string _standInFor;
+
+        private static readonly System.Collections.Generic.Dictionary<Faction, string> _lastStandIn
+            = new System.Collections.Generic.Dictionary<Faction, string>();
+
+        /// <summary>A refusal for lack of resources (the category's budget, the
+        /// bank, a savings hold, or King Lexor's veilstone) — the refusals a
+        /// cheaper unit of the same line can get past.</summary>
+        private static bool IsMoneyRefusalForUnit(string why)
+            => why != null
+               && (why.StartsWith(AIBudgetCategory.Military + " budget short")
+                   || why == "bank short"
+                   || why.StartsWith("pivotal hold")
+                   || why == "veilstone saved for King Lexor");
+
+        /// <summary>The unit that stands in for <paramref name="unitId"/> when it
+        /// cannot be paid for: its compositionRoles fallback, only inside its
+        /// own line (infantry, ranged, cavalry, siege). Null at the line's end.</summary>
+        private static string LineFallbackOf(string unitId)
+        {
+            var rows = Cfg.compositionRoles;
+            if (rows == null || string.IsNullOrEmpty(unitId)) return null;
+            for (int r = 0; r < rows.Length; r++)
+            {
+                if (rows[r] == null || rows[r].unitId != unitId) continue;
+                string fb = rows[r].fallbackUnitId;
+                if (string.IsNullOrEmpty(fb) || fb == unitId) return null;
+                return RoleClassOf(fb) == RoleClassOf(unitId) ? fb : null;
+            }
+            return null;
+        }
+
+        private static bool TryTrainUnitBudgetedOnce(EntityManager em, Faction faction,
             string unitId, AIBudgetCategory cat, out string blockReason)
         {
             blockReason = null;

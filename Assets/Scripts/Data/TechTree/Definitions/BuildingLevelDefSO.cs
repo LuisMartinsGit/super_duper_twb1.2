@@ -58,11 +58,11 @@ namespace TheWaningBorder.Data
         /// only for the extractors; 0 on every other ladder.</summary>
         public float slotIncomePerMinute;
 
-        /// <summary>The Vault of Almiérra at this level (decision 60): what each of
-        /// its four bars holds, and the income bonus one full bar gives. Empty / 0
-        /// on every other building.</summary>
+        /// <summary>The Vault of Almiérra at this level (decisions 60 and 85): what
+        /// each of its four bars holds, and what a FULL bar pays a minute of the
+        /// iron or veilstone it holds. Empty on every other building.</summary>
         public int[] vaultBarCapacity;
-        public float vaultBarBonus;
+        public int[] vaultBarIncomePerMinute;
         /// <summary>Supplies a minute each Worker inside pays at this level,
         /// before the crop ring's free share scales it — the Alanthor Farm
         /// only (Farm_Lvl1..3, decision 57); 0 on every other ladder.</summary>

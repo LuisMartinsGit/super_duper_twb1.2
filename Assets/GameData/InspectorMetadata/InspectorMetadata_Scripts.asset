@@ -401,7 +401,10 @@ MonoBehaviour:
       tooltip: "Minimum trainer-building level required (0/1 = available immediately)"
     - field: "buildSpeed"
       header: "Support Roles"
-      tooltip: 
+      tooltip: "Builders: seconds of build time this unit adds per second (several builders add up)."
+    - field: "repairSpeed"
+      header: 
+      tooltip: "Builders: HP this unit restores per second when repairing."
     - field: "healRange"
       header: 
       tooltip: "Reach of the heal, in metres (Litharch)."

@@ -386,7 +386,7 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<BazaarWagonTag>(entity)) return "Bazaar Wagon";
             if (em.HasComponent<SiegeWorkshopTag>(entity)) return "Wagonworks";
             // Alanthor culture buildings
-            if (em.HasComponent<WatchTowerTag>(entity)) return "Watch Tower";
+            if (em.HasComponent<WatchTowerTag>(entity)) return "Battle Tower";   // display name since 2026-11-18 (id Alanthor_Tower)
             if (em.HasComponent<SiegeYardTag>(entity)) return "Siege Yard";
             if (em.HasComponent<RoyalStableTag>(entity)) return "Royal Stable";
             // The emplacement pair. One tag, two buildings — which one it is
@@ -408,12 +408,12 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<SmallNodeTag>(entity)) return "Curse Node";
             // Tags that had no branch and so rendered as bare "Building".
             if (em.HasComponent<WarbrandFoundryTag>(entity)) return "Warbrand Foundry";
-            if (em.HasComponent<ChapelTag>(entity))
-            {
-                // One creator, twelve sects — name from the sect it serves.
-                var sectId = em.GetComponentData<ChapelTag>(entity).SectId;
-                return TheWaningBorder.Core.DisplayNames.Prettify(sectId.ToString()) + " Chapel";
-            }
+            // Anything the list above does not name (the Lookout, 2026-11-18,
+            // and any building added after it): its SO's display name.
+            string soId = TheWaningBorder.Entities.BuildingIds.Of(entity, em);
+            if (!string.IsNullOrEmpty(soId) && TechCatalog.TryGetBuilding(soId, out var soDef)
+                && !string.IsNullOrEmpty(soDef.name))
+                return soDef.name;
             return "Building";
         }
 

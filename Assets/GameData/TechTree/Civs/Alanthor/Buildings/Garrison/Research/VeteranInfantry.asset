@@ -13,20 +13,19 @@ MonoBehaviour:
   m_Name: VeteranInfantry
   m_EditorClassIdentifier: 
   id: VeteranInfantry
-  displayName: Veteran Infantry
+  displayName: Garrison Level 2
   role: Military
   effect: 
-  desc: "Garrison level 2: Garrison infantry gain HP, armour of every type, speed and line of sight."
+  desc: "Every infantryman: +10 HP, +2 bonus damage. Granted by the level."
   researchAt: Barracks
   minBuildingLevel: 2
-  researchTime: 35
-  prerequisites:
-  - SeasonedInfantry
+  researchTime: 40
+  prerequisites: []
   culture: Alanthor
   cost:
     Supplies: 0
-    Iron: 80
-    Veilstone: 270
+    Iron: 0
+    Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -38,32 +37,16 @@ MonoBehaviour:
   - Target: "unit:Spearman"
     Stat: Hp
     Op: Add
-    Value: 20
-  - Target: "unit:Spearman"
-    Stat: DefenseAll
-    Op: Add
-    Value: 1
-  - Target: "unit:Spearman"
-    Stat: Speed
-    Op: Pct
-    Value: 3
-  - Target: "unit:Spearman"
-    Stat: LineOfSight
-    Op: Add
-    Value: 1
+    Value: 10
   - Target: "unit:Alanthor_Swordsman"
     Stat: Hp
     Op: Add
-    Value: 20
-  - Target: "unit:Alanthor_Swordsman"
-    Stat: DefenseAll
+    Value: 10
+  - Target: "unit:Spearman"
+    Stat: BonusDamage
     Op: Add
-    Value: 1
+    Value: 2
   - Target: "unit:Alanthor_Swordsman"
-    Stat: Speed
-    Op: Pct
-    Value: 3
-  - Target: "unit:Alanthor_Swordsman"
-    Stat: LineOfSight
+    Stat: BonusDamage
     Op: Add
-    Value: 1
+    Value: 2

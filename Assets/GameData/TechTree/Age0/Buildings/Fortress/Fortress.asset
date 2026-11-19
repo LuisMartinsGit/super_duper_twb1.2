@@ -17,15 +17,16 @@ MonoBehaviour:
   role: Capital / HQ / Research Era / Research Economy / Worker upgrades / resource
     drop-off / Supply generation / Objective
   description: The capital - the Shelter in Age 0, the Fortress from age-up. Every
-    player starts the match with one, and more can be raised - one per territory,
-    the most expensive building in the game. Trains Workers and Scouts (and, for
+    player starts the match with one and never has another. Only siege with a large
+    army behind it brings it down; it leaves rubble, and a player whose Fortress is
+    not rebuilt on that rubble in time is out of the match. Trains Workers and Scouts (and, for
     Alanthor, the Ledger and King Lexor), hosts the capital's research, and LOCKS
     its territory so no army can take it while it stands.
-  hp: 3600
+  hp: 5000
   armorType: structure_human
   defense:
-    melee: 12
-    ranged: 18
+    melee: 0
+    ranged: 50
     siege: 2
     magic: 8
   radius: 2
@@ -36,7 +37,7 @@ MonoBehaviour:
   suppliesPerTick: 75
   suppliesInterval: 15
   slotIncomePerMinute: []
-  maxPerFaction: 0
+  maxPerFaction: 1
   minWallLevel: 0
   garrisonSlots: 0
   garrisonArrowsPerOccupant: 0
@@ -47,7 +48,6 @@ MonoBehaviour:
   trains:
   - Worker
   - Scout
-  - Ledger
   - King Lexor
   - Feraldis_Slave
   - Feraldis_Overseer

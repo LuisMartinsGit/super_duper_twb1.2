@@ -1,7 +1,6 @@
 // EntityExtractors.Research.cs
 // Research actions and state: per-building tech buttons (prerequisite and
-// affordability checks), research progress/queue info, and the chapel
-// research stub.
+// affordability checks), research progress/queue info.
 
 using System.Collections.Generic;
 using Unity.Entities;
@@ -20,7 +19,8 @@ namespace TheWaningBorder.UI.Data
         {
             var actions = GetResearchActionsCore(entity, em);
             if (em.HasComponent<TempleOfRidanTag>(entity) && !em.HasComponent<UnderConstruction>(entity)
-                && em.HasComponent<FactionTag>(entity))
+                && em.HasComponent<FactionTag>(entity)
+                && TheWaningBorder.Entities.TempleOffer.OffersPetriarchy(em, em.GetComponentData<FactionTag>(entity).Value))
                 AddPetriarchyActions(actions, em, em.GetComponentData<FactionTag>(entity).Value);
             actions.RemoveAll(a => !TheWaningBorder.Tutorial.TutorialMissionState.AllowsResearch(a.Id));
             return actions;
@@ -71,12 +71,6 @@ namespace TheWaningBorder.UI.Data
             if (em.HasComponent<FactionTag>(entity))
                 faction = em.GetComponentData<FactionTag>(entity).Value;
 
-            // Chapel special case: research action derived from SectConfig, not TechTreeDB
-            if (em.HasComponent<ChapelTag>(entity))
-            {
-                return GetChapelResearchActions(entity, em, faction);
-            }
-
             string buildingId = GetBuildingId(entity, em);
             if (buildingId == null || !TechCatalog.IsReady) return actions;
 
@@ -122,16 +116,18 @@ namespace TheWaningBorder.UI.Data
             // Host building level for level-gated techs (minBuildingLevel).
             // Default L1 for buildings that haven't been stamped with
             // BuildingUpgradeState yet (mirrors the training extractor).
-            int buildingLevel = 1;
-            if (em.HasComponent<BuildingUpgradeState>(entity))
-            {
-                int lv = em.GetComponentData<BuildingUpgradeState>(entity).Level;
-                if (lv > buildingLevel) buildingLevel = lv;
-            }
+            // The Temple's is the highest adopted sect level (decision 77).
+            int buildingLevel = TheWaningBorder.Entities.ResearchHostLevel.Of(em, entity);
+            bool isTemple = em.HasComponent<TempleOfRidanTag>(entity);
 
             foreach (var techId in researchIds)
             {
                 if (!TechCatalog.TryGetTechnology(techId, out var tech)) continue;
+
+                // The Temple shows only what TempleOffer offers at this age
+                // (docs/Design/Age_0.md § Temple of Ridan): not greyed, gone.
+                if (isTemple && !TheWaningBorder.Entities.TempleOffer.OffersResearch(em, faction, techId))
+                    continue;
 
                 // Culture gating: the tech SO's own culture field (the
                 // Alanthor Guild Surveys and the Feraldis Raiding line share
@@ -159,7 +155,7 @@ namespace TheWaningBorder.UI.Data
 
                 // Building-level gating: advanced techs (minBuildingLevel >= 2)
                 // stay locked until the host building reaches the level.
-                int minLv = tech.minBuildingLevel < 1 ? 1 : tech.minBuildingLevel;
+                int minLv = tech.minBuildingLevel;
                 bool levelLocked = buildingLevel < minLv;
 
                 string requirement = null;
@@ -405,17 +401,5 @@ namespace TheWaningBorder.UI.Data
                 ? Loc.T(def.name) : techId;
         }
 
-        /// <summary>
-        /// Get research actions for a chapel entity.
-        /// task-063 phase 1: stub. Sect tech research is gone in the redesign —
-        /// each chapel exposes 4 lever-upgrade buttons (Passive / Building /
-        /// Unit / Active Power) instead. Phase 2 reintroduces upgrade
-        /// actions backed by SectAdoption.TryUpgradeLever; not Tech research.
-        /// </summary>
-        private static List<ActionButton> GetChapelResearchActions(Entity entity, EntityManager em, Faction faction)
-        {
-            _ = entity; _ = em; _ = faction;
-            return new List<ActionButton>();
-        }
     }
 }

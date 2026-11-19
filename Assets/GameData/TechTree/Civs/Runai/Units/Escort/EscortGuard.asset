@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Runai_EscortGuard
   displayName: Escort Guard
   unitClass: human_melee
-  hp: 210
+  hp: 130
   speed: 6.4
   trainingTime: 0
   damage: 11
@@ -51,6 +51,7 @@ MonoBehaviour:
   - Infantry
   - Light
   bonusVsTags: []
+  torchDamage: 10
   preferTargets: []
   abilities: []
   prefab: {fileID: 8418979553366102446, guid: cfe87d0b4a8c3c24884e8aa21f1fdfe8, type: 3}

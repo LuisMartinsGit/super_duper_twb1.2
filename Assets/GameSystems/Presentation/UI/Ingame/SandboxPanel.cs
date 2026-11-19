@@ -294,12 +294,11 @@ namespace TheWaningBorder.UI.Ingame
             if (id.StartsWith("Feraldis_")) return CatFeraldis;
 
             // All sect content is prefixed: units are "Sect_<Unit>"
-            // (SectConfig.UnitIdFor), chapels are "Chapel_<SectId>"
-            // (SectConfig.ChapelIdFor), and the five sect BUILDINGS are
+            // (SectConfig.UnitIdFor), and the five sect BUILDINGS are
             // "Sect_Reliquary" / "Sect_Stonehold" / "Sect_Treasury" /
             // "Sect_MendingHall" / "Sect_MusterYard" -- their folder names drop
             // the prefix, their ids do not.
-            if (id.StartsWith("Sect_") || id.StartsWith("Chapel_")) return CatSects;
+            if (id.StartsWith("Sect_")) return CatSects;
 
             if (!isBuilding && CurseIds.Contains(id)) return CatCurse;
 

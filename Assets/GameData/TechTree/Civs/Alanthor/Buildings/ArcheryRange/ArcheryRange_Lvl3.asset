@@ -38,7 +38,5 @@ MonoBehaviour:
     siegeShotDamage: 0
   lineOfSight: 0
   grantsTechs:
-  - ShardTippedArrows
-  - ShardBrigandine
   - EliteArchers
   prefab: {fileID: 1201453078148912283, guid: 99b302ed1476c0947aef127ea04a26c8, type: 3}

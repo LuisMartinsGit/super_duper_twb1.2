@@ -316,6 +316,105 @@ auto-level systems stamp it on new buildings.
 
 ---
 
+## The actions panel is a 4 x 4 grid, for every building (2026-11-18)
+
+Developer: "all buildings should preserve the 4x4 action grid." Selecting any
+building — capital, trainer, Temple, sect building, Market, Vault, Farm, Mine,
+wall, gate, tower — shows the same square of **4 columns x 4 rows**, the same
+size and cells as the Worker's build palette. All sixteen cells are always
+there: an empty one is drawn empty and keeps its place, so the grid never
+grows, shrinks or slides as units unlock, research is started or a chain runs
+out. This replaces the older 3 x 5 rule (row 0 units, rows 1-2 research, the
+level-up in the last free cell) and the five-column building grid of
+2026-11-13.
+
+- **Row 0 — what the building makes or does:** the units it trains, or its own
+  commands (wall / gate / hut conversions, Forge bays, Reliquary powers, the
+  Market's buy row, the Vault's deposits). Blank when it has none; more than
+  four wrap onto the next row.
+- **Rows 1-2 — research**, from the first row after row 0's content. A tech
+  ladder holds ONE cell and shows its next tier the moment the current one is
+  started; a spent ladder leaves its cell empty. Another culture's research
+  takes no cell.
+- **Row 3 — overflow**; its **last cell (bottom right) is always the
+  building's level-up**, on every building.
+- **More than fifteen cells: pages.** Rows 0-2 show twelve cells a page and
+  row 3 begins with a page button (it shows "page / pages" and turns to the
+  next page); the level-up stays bottom right. Nothing is ever dropped.
+- **Authored layouts** keep their own rows inside the same sixteen: the
+  Garrison is the building row (Conscription and its three ladders), the
+  Spearman row and the Swordsman row, each unit followed by its skills
+  (Age_1_Alanthor.md § The Garrison); the Market is one column per good
+  (buy / price / sell) and the Vault one column per resource (Age_0.md
+  § Vault of Almiérra).
+- **Colours** are unchanged: green economy, blue defences, brown research
+  (the level-up and the page button too), red military, purple religion, gold
+  the Temple.
+
+### Units: formations on top, stances at the bottom (2026-11-18)
+
+Units keep the panel's own 3 x 5. Developer: "top row should be for
+Formation, bottom row for stance." **Top row**: the four formations (Box,
+Line, Wedge, Stagger). **Bottom row**: the three stances, Aggressive /
+Standard / Defensive ([Stances.md § 9](Stances.md) — display names only).
+**Middle row**: the Shardroot bearer's Enshrine and Drop, moved out of the
+bottom row so nothing collides.
+
+### The Worker has two build panels (2026-11-18)
+
+Developer: "draw another panel to the side. the worker now has two build
+panels, one for normal buildings and one for religion buildings", and "age-up
+buildings should be in another 3x4 building panel, then be replaced by the
+sect buildings". Both panels show whenever a Worker is selected; neither has
+hotkeys.
+
+**Panel 1 — the build palette, 4 x 4, one FIXED row per category.** A row
+keeps its place even when it is empty, so nothing moves as buildings unlock.
+The developer's Age 1 Alanthor layout:
+
+| Row | Category (colour) | Alanthor, Age 1 |
+|-----|-------------------|-----------------|
+| 1 | Economy (green) | Farm, House, Market |
+| 2 | Military (red) | Garrison, Archery Range, Royal Stable, Siege Yard |
+| 3 | Defense (blue) | Palisade, Watch Tower, Wall, Battle Tower |
+| 4 | Research (purple) | **reserved, empty** — developer: "maybe a building with super advanced expensive tech, and a blacksmith". Not decided |
+
+- **Watch Tower** is the Age 0 sight-only tower (id `Lookout`, [Age_0.md
+  § Watch Tower](Age_0.md)); **Battle Tower** is the Alanthor tower that shoots,
+  garrisons and levels (id `Alanthor_Tower`, renamed for display only).
+- **Alanthor keep the Palisade after the age-up** (the developer's row 3;
+  [Age_0.md § Palisade](Age_0.md)). Runai still lose it.
+- Age 0 uses the same rows: House; Barracks; Palisade and Watch Tower.
+- Feraldis and Runai (editions B / C) have no layout from the developer yet:
+  their buildings sit in the same category rows (row 4 holds the Feraldis War
+  Totem until they get one).
+- The Fortress is never placed from the palette (decision 69), and the
+  extractors are built from the button over their node.
+
+**Panel 2 — the religion panel, 3 columns x 4 rows, beside the palette.**
+- **Age 0**: the three age-up landmarks on the top row, each under its
+  culture's column (Vault of Almiérra, Fiendstone Keep, Thessara's Crossing; a
+  landmark the edition does not ship is greyed), and the Temple of Ridan in the
+  middle of the second row.
+- **Age 1**: one column per culture's sect cluster — **Alanthor** (blue / silver
+  frame), **Feraldis** (black / red), **Runai** (dark green / golden) — one row
+  per sect, in the sect roster's order. A sect building the faction cannot build
+  yet is shown locked with its reason (adopt the sect, a standing Temple, the
+  per-faction cap); a sect with no building yet, or one the edition strips, is
+  a greyed placeholder, so the 3 x 4 always reads whole. **Until religion is
+  unlocked** (a standing Temple or an adopted sect — the Religion menu's rule)
+  **panel 2 shows only the Temple**, in its Age 0 cell (developer, 2026-11-18:
+  "panel 2 shows only a temple until it is built and religion is unlocked").
+  A fallen Temple is rebuilt from the button over its rubble. The frame colours are data, in
+  `ActionsPanelPrefabBinder.asset`.
+
+Code: `ActionsPanelPrefabBinder.Render.cs` (`RenderBuilding`, `PaintSections`,
+`PaintPaged`, `RenderUpgradeSlot`, `RenderBuilder`),
+`ActionsPanelPrefabBinder.ReligionPanel.cs` (the second panel), the authored
+grids in `UI/Data/BuildingActionLayouts.cs`.
+
+---
+
 ## Resource carry — Veilsteel Frenzy (Feraldis-only)
 
 Earlier code defined two cross-faction "carry resource → unit attack bonus"
@@ -524,6 +623,9 @@ War**. The other nine show "(Coming soon)" in every adoption UI and are
 refused authoritatively (AI included). Each adopted sect's unit is recruited
 **at its chapel** ([Religion.md](Religion.md) §4). The gate lives in
 `SectConfig.IsImplemented` — widen it as sects land.
+
+> **2026-11-18, decision 80: the Temple has no chapels or chapel sites** — what follows about
+> chapels, sites and statues is history.
 
 **Temple architecture & chapel rework (2026-08-02).** The Temple of Ridan is
 a **seven-sided cathedral**: one face carries a **large door** (the temple

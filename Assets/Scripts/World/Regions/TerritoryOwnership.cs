@@ -439,6 +439,11 @@ namespace TheWaningBorder.World.Regions
             int owner = OwnerOf(t);
             if (owner == (int)faction) return PlacementRefusal.None;
 
+            // The Watch Tower (Lookout, Age_0.md § Watch Tower; developer
+            // 2026-11-18: buildable outside your own territory) goes on any
+            // ground — it only sees.
+            if (buildingId == "Lookout") return PlacementRefusal.None;
+
             // EVERY building goes on ground you own (Territory_Claims.md §5).
             // There is no claim structure any more: ground is taken by
             // standing on it, so nothing may be raised outside it.

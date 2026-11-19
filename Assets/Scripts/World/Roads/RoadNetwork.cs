@@ -126,8 +126,8 @@ namespace TheWaningBorder.World.Roads
             ComponentType.ReadOnly<LocalTransform>(), ComponentType.ReadOnly<FactionTag>(),
             ComponentType.Exclude<WallTag>(), ComponentType.Exclude<WallSegmentTag>(),
             ComponentType.Exclude<WallHubTag>(), ComponentType.Exclude<WallGateTag>(),
-            ComponentType.Exclude<WallTowerTag>(), ComponentType.Exclude<ChapelTag>(),
-            ComponentType.Exclude<ChapelSmallTag>(), ComponentType.Exclude<BorderMainNodeTag>(),
+            ComponentType.Exclude<WallTowerTag>(),
+            ComponentType.Exclude<BorderMainNodeTag>(),
             ComponentType.Exclude<SmallNodeTag>(),
         };
         static readonly ComponentType[] QT_Veilstone = { ComponentType.ReadOnly<VeilstoneOutcroppingTag>(), ComponentType.ReadOnly<LocalTransform>() };

@@ -18,11 +18,13 @@ MonoBehaviour:
   microMinUnitsPerFrame: 16
   kiteTriggerDistance: 4
   kiteStepDistance: 4.5
-  kiteMinReloadSeconds: 0.35
+  kiteGroupRadius: 12
+  kiteLineSearchRadius: 25
+  kiteBehindLine: 4
+  kiteMaxStep: 10
   kiteSpeedRatio: 0.9
-  kiteMaxDrift: 24
+  kiteMaxDrift: 12
   kiteAnchorResetSeconds: 15
-  kiteMaxPerTick: 24
   dangerScale: 3
   finishScale: 0.1
   fragileScale: 0.02

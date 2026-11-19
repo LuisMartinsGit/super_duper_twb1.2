@@ -321,7 +321,11 @@ namespace TheWaningBorder.AI
                 var pers = PersonalityOf(faction);
                 float share = profile.VaultDepositShare * (pers != null ? UnityEngine.Mathf.Max(0f, pers.vaultAppetite) : 1f);
                 if (share <= 0f) continue;
-                if (!PickVaultDeposit(em, faction, share, out int type, out int amt)) continue;
+                int lvlNow = TheWaningBorder.Systems.Economy.VaultBars.LevelOf(em, vault);
+                var storeNow = store;
+                if (!PickVaultDeposit(em, faction, share,
+                        t => TheWaningBorder.Systems.Economy.VaultBars.Room(storeNow, faction, lvlNow, t),
+                        out int type, out int amt)) continue;
                 // Each bar takes one resource (decision 60): the room is the
                 // open bars of the resource being paid in.
                 int room = TheWaningBorder.Systems.Economy.VaultBars.Room(store, faction,
@@ -368,15 +372,18 @@ namespace TheWaningBorder.AI
         /// above the keep floor and every pending savings goal, never what
         /// the army is waiting on. Any resource fills a bar one for one.</summary>
         private static bool PickVaultDeposit(EntityManager em, Faction faction,
-            float depositShare, out int type, out int amount)
+            float depositShare, System.Func<int, int> roomOf, out int type, out int amount)
         {
             type = 0; amount = 0;
             if (!FactionEconomy.TryGetResources(em, faction, out var bank)) return false;
             var goals = AIPivotalReserve.PendingTotal(faction);
 
             int bestType = 0, bestSurplus = 0;
+            // Only a resource some open bar takes (decision 85: iron and
+            // veilstone in any bar, supplies in the last).
             for (int t = 1; t <= 3; t++)
             {
+                if (roomOf(t) <= 0) continue;
                 if (AIBudget.IsMilitaryShort(faction, t - 1)) continue;
                 int have = t == 1 ? bank.Supplies : t == 2 ? bank.Iron : bank.Veilstone;
                 int keep = t == 1 ? Cfg.vaultKeepSupplies + goals.Supplies

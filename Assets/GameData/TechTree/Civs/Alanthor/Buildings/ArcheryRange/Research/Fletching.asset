@@ -16,14 +16,14 @@ MonoBehaviour:
   displayName: Fletching
   role: Military Offense
   effect: 
-  desc: "Improved arrow flight: +5 attack range for every ranged unit."
+  desc: "+1 tile (2 m) range for every ranged unit (not towers)."
   researchAt: ArcheryRange
-  minBuildingLevel: 0
+  minBuildingLevel: 1
   researchTime: 30
   prerequisites: []
   culture: 
   cost:
-    Supplies: 80
+    Supplies: 75
     Iron: 30
     Veilstone: 0
   effects:
@@ -37,8 +37,4 @@ MonoBehaviour:
   - Target: "type:Ranged"
     Stat: AttackRange
     Op: Add
-    Value: 5
-  - Target: "type:Siege"
-    Stat: AttackRange
-    Op: Add
-    Value: 5
+    Value: 2

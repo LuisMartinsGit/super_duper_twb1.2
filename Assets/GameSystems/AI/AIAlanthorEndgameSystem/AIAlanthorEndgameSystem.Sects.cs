@@ -48,13 +48,6 @@ namespace TheWaningBorder.AI
         };
         static CachedEntityQuery QC_AIBrainAISharedKnowledge;
 
-        static readonly ComponentType[] QT_ChapelTagFactionTag =
-        {
-            ComponentType.ReadOnly<ChapelTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        static CachedEntityQuery QC_ChapelTagFactionTag;
-
         static readonly ComponentType[] QT_UnitTypeIdFactionTagHealth =
         {
             ComponentType.ReadOnly<UnitTypeId>(),
@@ -861,48 +854,6 @@ namespace TheWaningBorder.AI
             return false;
         }
 
-        /// <summary>Train each adopted sect's unique unit at its chapel —
-        /// chapels carry a train queue from birth and are the ONLY trainer
-        /// for these (SectConfig.UnitIdFor). One queue attempt per think
-        /// tick across all chapels.</summary>
-        private static void TryTrainSectUnits(Faction faction, EntityManager em)
-        {
-            if (!TechCatalog.IsReady) return;
-            var q = QC_ChapelTagFactionTag.Get(em, QT_ChapelTagFactionTag);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var facs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (facs[i].Value != faction) continue;
-                Entity chapel = ents[i];
-                if (em.HasComponent<UnderConstruction>(chapel)) continue;
-                if (!em.HasBuffer<ProductionQueueItem>(chapel)) continue;
-                if (CommandRouter.GetTrainQueueLength(em, chapel) >= Cfg.maxTrainQueue) continue;
-
-                string sectId = em.GetComponentData<ChapelTag>(chapel).SectId.ToString();
-                // A sect with its own building trains there, never at the
-                // chapel (Religion.md §3.2) — TryTrainSectUnitsAtSectBuildings.
-                if (SectConfig.BuildingIdFor(sectId) != null) continue;
-                string unitId = SectConfig.UnitIdFor(sectId);
-                if (unitId == null) continue;
-                if (CountAliveAndQueued(em, faction, unitId) >= Cfg.sectUnitCap) continue;
-                if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) continue;
-
-                // Affordability CHECK only — TrainCommandDirect spends on
-                // every peer (docs/Multiplayer_LAN_Readiness.md).
-                var cost = AICommon.ToCost(def.cost);
-                if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
-                // Each costs RP; chapels and levels come first (Religion.md §4).
-                if (!FactionReligionPointsHelper.CanAfford(em, faction,
-                        FactionReligionPointsHelper.Cfg.sectUnitRp + FactionReligionPointsHelper.Cfg.aiSectUnitRpReserve)) continue;
-                if (AIPivotalReserve.ShouldHold(em, faction, cost)) continue;
-                CommandRouter.IssueTrain(em, chapel, unitId, CommandSource.AI);
-                AILogger.Log(faction, "MILITARY",
-                    $"Alanthor: queued {unitId} at the {sectId.Substring(5)} chapel");
-                return; // one per tick
-            }
-        }
-
         /// <summary>Living units of the exact type plus copies waiting in any
         /// of this faction's train queues — the sect-unit cap check.</summary>
         private static int CountAliveAndQueued(EntityManager em, Faction faction, string unitId)
@@ -1081,14 +1032,14 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>
-        /// Train each adopted sect's unit at that sect's own BUILDING. Canon
-        /// moved the sect unit off the chapel and onto the sect building
-        /// (docs/Design/Sects.md section 1); TryTrainSectUnits still covers the
-        /// chapel path for the eight sects that have no building yet.
+        /// Train each adopted sect's unit at that sect's own BUILDING. A sect
+        /// with no building yet has no trainer (decision 80 removed the
+        /// Temple's chapels; docs/Design/Sects.md section 1).
         /// </summary>
         private static void TryTrainSectUnitsAtSectBuildings(Faction faction, EntityManager em)
         {
             if (!TechCatalog.IsReady) return;
+            if (!FactionReligionPointsHelper.Cfg.sectUnitsEnabled) return;   // sect units off
 
             for (int i = 0; i < AlanthorSectPriority.Length; i++)
             {

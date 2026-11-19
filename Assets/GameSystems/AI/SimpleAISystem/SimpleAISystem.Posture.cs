@@ -66,6 +66,30 @@ namespace TheWaningBorder.AI
         ///   Develop — everything else.
         /// Also runs the M6 retreat check while an attack wave is out.
         /// </summary>
+        private readonly System.Collections.Generic.HashSet<int> _guardingRubble
+            = new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.Dictionary<int, float> _rubbleRecallAt
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        /// <summary>
+        /// Decision 69's fall clock is running for this faction: every
+        /// keystone (Fortress, Temple, landmark, sect buildings) is down and at
+        /// least one lies as rubble.
+        /// <paramref name="rubble"/> is the heap to guard (the Fortress's
+        /// first).
+        /// </summary>
+        private bool FallClockRunning(EntityManager em, Faction faction, out float3 rubble)
+        {
+            rubble = default;
+            TheWaningBorder.Entities.KeystoneRubbles.All(em, faction, _fallScratch);
+            if (_fallScratch.Count == 0) return false;
+            if (TheWaningBorder.Entities.KeystoneRubbles.AnyFinished(em, faction)) return false;
+            rubble = _fallScratch[0].pos;
+            return true;
+        }
+        private readonly System.Collections.Generic.List<(string id, float3 pos)> _fallScratch
+            = new System.Collections.Generic.List<(string id, float3 pos)>();
+
         private void EvaluatePosture(EntityManager em, Faction faction,
             ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality)
         {
@@ -77,8 +101,28 @@ namespace TheWaningBorder.AI
                 if (prevPosture != AIPosture.Rebuild)
                     AILogger.Log(faction, "POSTURE",
                         $"{prevPosture} -> Rebuild (no Hall standing)");
+                // THE FALL CLOCK RUNS (decision 69: Fortress, Temple and
+                // landmark all down): the rebuild is free, so the fight is
+                // keeping the Workers and the site alive until one stands.
+                // Every army comes home to the rubble — once on entering,
+                // again whenever enemies reach it.
+                if (FallClockRunning(em, faction, out float3 rubble))
+                {
+                    int threat = TacticalQuery.EnemyStrengthInRadius(em, faction, rubble, 30f);
+                    bool first = _guardingRubble.Add((int)faction);
+                    float now = _thinkNow;
+                    if (first || (threat > 0 && (!_rubbleRecallAt.TryGetValue((int)faction, out float t) || now >= t)))
+                    {
+                        _rubbleRecallAt[(int)faction] = now + 15f;
+                        AILogger.Log(faction, "POSTURE",
+                            $"Fortress fallen: every army guards the rubble at ({rubble.x:0},{rubble.z:0}) (enemy strength {threat})");
+                        DisbandAllMissions(faction);
+                        DefendBase(em, faction, rubble, settings, includeCurse: true, recallField: true);
+                    }
+                }
                 return;
             }
+            _guardingRubble.Remove((int)faction);
             float3 hallPos = em.GetComponentData<LocalTransform>(hall).Position;
 
             int aliveMil = CountAliveMilitary(em, faction);
@@ -90,7 +134,12 @@ namespace TheWaningBorder.AI
             // LaunchAttack step (total stagnation). The threat map still
             // drives scout routing and target risk.
             int enemyInBase = TacticalQuery.EnemyStrengthInRadius(em, faction, hallPos, 30f);
-            if (enemyInBase > settings.defendThreatThreshold / 2)
+            // THE ARMY COMES HOME FOR AN ARMY (decision 68): entering Defend
+            // disbands every mission, so it takes defendRecallMinStrength of
+            // enemy — a raiding party is the towers', the home guard's and the
+            // economy defence's. The 0.0.90 bar was about two soldiers.
+            int recallBar = math.max(settings.defendThreatThreshold / 2, Cfg.defendRecallMinStrength);
+            if (enemyInBase > recallBar)
             {
                 // COMMAND FOLLOW-THROUGH: the recall + repair dispatch fires
                 // once on ENTERING Defend, not every think tick — re-issuing
@@ -132,8 +181,15 @@ namespace TheWaningBorder.AI
             // You do not recall the army for a hut: distant outposts defend
             // themselves with auto-acquire or are lost, which is correct RTS
             // play. The home economy stays fully covered.
+            // A REAL ATTACK, NOT A RAIDER (decision 68, 2026-11-16): one soldier
+            // hitting a hut put the AI in Defend, disbanded every mission and
+            // recalled the army (Red: 38 times in 44 minutes, never one wave).
+            // Now the enemy round the building must weigh what the Hall ring
+            // asks (recallBar); a smaller raid is the economy defence's
+            // (SimpleAISystem.EconomyDefence.cs) and the army stays out.
             if (TryFindAttackedBuilding(em, faction, hallPos,
-                    settings.defendRadius * 2.5f, out float3 attackedPos))
+                    settings.defendRadius * 2.5f, out float3 attackedPos)
+                && TacticalQuery.EnemyStrengthInRadius(em, faction, attackedPos, 25f) > recallBar)
             {
                 bool entering = aiState.Posture != AIPosture.Defend;
                 aiState.Posture = AIPosture.Defend;

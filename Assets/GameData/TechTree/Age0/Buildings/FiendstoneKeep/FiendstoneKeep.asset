@@ -18,11 +18,11 @@ MonoBehaviour:
   description: Fortified keep and one of the three Age 0 choice buildings. Trains
     non-religious, non-siege military faster than normal, generates modest Supplies,
     and fires arrow volleys at attackers (Feraldis +50% HP, Alanthor -50%).
-  hp: 1000
+  hp: 3000
   armorType: structure_human
   defense:
-    melee: 4
-    ranged: 10
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 3
   radius: 2.4

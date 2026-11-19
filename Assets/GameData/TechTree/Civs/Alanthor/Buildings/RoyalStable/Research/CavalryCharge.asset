@@ -13,18 +13,19 @@ MonoBehaviour:
   m_Name: CavalryCharge
   m_EditorClassIdentifier: 
   id: CavalryCharge
-  displayName: Charge
+  displayName: Cavalry Charge
   role: Military
   effect: 
   desc: "Cavalry charge: after 5 s out of combat a horseman closes at +50% speed for 2 s and his first blow in that window deals +30%. Miss the window and it resets."
-  researchAt: Alanthor_RoyalStable
-  minBuildingLevel: 1
-  researchTime: 35
-  prerequisites: []
+  researchAt: RoyalStable
+  minBuildingLevel: 2
+  researchTime: 40
+  prerequisites:
+  - WarHorn
   culture: Alanthor
   cost:
-    Supplies: 120
-    Iron: 60
+    Supplies: 220
+    Iron: 140
     Veilstone: 0
   effects:
     gatherSpeedMult: 0

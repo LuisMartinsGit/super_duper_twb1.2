@@ -69,7 +69,6 @@ namespace TheWaningBorder.AI
             }
 
             if (now < Cfg.monumentEarliestSeconds) return;
-            if (FinishingVictim(faction, out _)) return;
             if (!VictoryAllowsMonumentSquad(faction)) return;
             using var targets = new NativeList<Entity>(monuments.Length + houses.Length, Allocator.Temp);
             targets.AddRange(monuments);

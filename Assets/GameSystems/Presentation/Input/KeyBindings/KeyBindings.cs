@@ -38,9 +38,12 @@ namespace TheWaningBorder.Input
             new Entry { Action = KeyAction.AttackMove, Label = "Attack-move", Default = c => c.attackMove },
             new Entry { Action = KeyAction.Patrol, Label = "Patrol", Default = c => c.patrol },
             new Entry { Action = KeyAction.Stop, Label = "Stop", Default = c => c.stop },
-            new Entry { Action = KeyAction.HoldPosition, Label = "Hold position", Default = c => c.holdPosition },
+            // Stance labels are DISPLAY names (Stances.md § 9, 2026-11-18):
+            // the Hold stance shows as "Defensive", the Defensive stance as
+            // "Standard". The KeyAction names and saved bindings are unchanged.
             new Entry { Action = KeyAction.AggressiveStance, Label = "Aggressive stance", Default = c => c.aggressiveStance },
-            new Entry { Action = KeyAction.DefensiveStance, Label = "Defensive stance", Default = c => c.defensiveStance },
+            new Entry { Action = KeyAction.DefensiveStance, Label = "Standard stance", Default = c => c.defensiveStance },
+            new Entry { Action = KeyAction.HoldPosition, Label = "Defensive stance", Default = c => c.holdPosition },
             new Entry { Action = KeyAction.CycleFormation, Label = "Cycle formation", Default = c => c.cycleFormation },
             new Entry { Action = KeyAction.CycleIdleWorkers, Label = "Next idle worker", Default = c => c.cycleIdleWorkers },
             new Entry { Action = KeyAction.PlanningMode, Label = "Planning mode", Default = c => c.planningMode },

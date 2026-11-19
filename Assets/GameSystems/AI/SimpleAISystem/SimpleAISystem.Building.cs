@@ -485,6 +485,11 @@ namespace TheWaningBorder.AI
             // job (AICommon.PullWorkersTo). Measured Headless28: "38 sites
             // open, crew 3" refused a Siege Yard rebuild outright.
             if (_rebuildingLostTrainer) return true;
+            // FARMS BEFORE THE REST (decision 84): the supply engine passes the
+            // cap too — the batch-17 AIs refused Farms "3 sites open, crew 3"
+            // while Huts and Mines took the crew. TickFarms keeps at most two
+            // rising at once, and their builders step inside (decision 83).
+            if (buildingId == TheWaningBorder.Entities.Farm.BuildingId) return true;
             int openSites = CountFactionBuildingsUnderConstruction(em, faction);
             int siteCap = math.max(2, crew);
             if (openSites >= siteCap)
@@ -617,9 +622,87 @@ namespace TheWaningBorder.AI
         ///   * no crew: train a Worker; the open-site cap does not apply and
         ///     the site is queued on busy workers when none is idle.
         /// </summary>
+        private readonly System.Collections.Generic.Dictionary<int, float> _nextFortressRebuild
+            = new System.Collections.Generic.Dictionary<int, float>();
+
+        // FALLEN KEYSTONES COME FIRST (decision 69): a faction with its
+        // Fortress, Temple and landmark all down has EliminationSystem's grace
+        // to finish one again on its rubble, or it is out. The rebuild is free
+        // (BuildCosts.For), so it is placed at once and every Worker sent; the
+        // army guards the site (EvaluatePosture). Placement snaps to the
+        // rubble in the router.
+        private readonly System.Collections.Generic.List<(string id, float3 pos)> _rubbleScratch
+            = new System.Collections.Generic.List<(string id, float3 pos)>();
+
+        /// <summary>Every fallen keystone (Fortress, Temple, landmark) of this
+        /// faction is placed again on its rubble — free — and crewed.</summary>
+        private void TryRebuildKeystones(EntityManager em, Faction faction, float now)
+        {
+            int key = (int)faction;
+            if (_nextFortressRebuild.TryGetValue(key, out float next) && now < next) return;
+            _nextFortressRebuild[key] = now + 3f;
+            TheWaningBorder.Entities.KeystoneRubbles.All(em, faction, _rubbleScratch);
+            for (int i = 0; i < _rubbleScratch.Count; i++)
+                RebuildOnRubble(em, faction, _rubbleScratch[i].id, _rubbleScratch[i].pos);
+            CrewLandmarkSite(em, faction);
+        }
+
+        static readonly ComponentType[] QT_LandmarkSite =
+        {
+            ComponentType.ReadOnly<ChoiceBuildingTag>(), ComponentType.ReadOnly<UnderConstruction>(),
+            ComponentType.ReadOnly<FactionTag>(), ComponentType.ReadOnly<LocalTransform>(),
+        };
+        static CachedEntityQuery QC_LandmarkSite;
+
+        /// <summary>
+        /// THE LANDMARK NEEDS A CREW (2026-11-17): the Vault no longer builds
+        /// itself, so an unfinished one keeps idle Workers coming — it is the
+        /// age-up, and a site whose crew was called away would stall it.
+        /// </summary>
+        private void CrewLandmarkSite(EntityManager em, Faction faction)
+        {
+            var q = QC_LandmarkSite.Get(em, QT_LandmarkSite);
+            if (q.IsEmptyIgnoreFilter) return;
+            using var es = q.ToEntityArray(Allocator.Temp);
+            using var fs = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
+            using var xs = q.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+            for (int i = 0; i < es.Length; i++)
+            {
+                if (fs[i].Value != faction) continue;
+                string id = TheWaningBorder.Entities.BuildingIds.Of(es[i], em);
+                AICommon.DispatchWorkersTo(em, faction, es[i], id, xs[i].Position, maxWorkers: 4);
+            }
+        }
+
+        private void RebuildOnRubble(EntityManager em, Faction faction, string id, float3 at)
+        {
+            if (TheWaningBorder.Entities.KeystoneRubbles.Has(em, faction, id))
+            {
+                // The plan or site exists: keep every idle hand on it.
+                AICommon.DispatchWorkersTo(em, faction, Entity.Null, id, at, maxWorkers: 8);
+                return;
+            }
+            var cost = TheWaningBorder.Data.BuildCosts.For(em, faction, id, at);
+            if (!TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction, cost)) return;
+            bool queued = CommandRouter.IssuePlaceBuilding(em, id, at, faction,
+                Entity.Null, out Entity created, CommandSource.AI);
+            InvalidateThinkMemo();
+            if (!queued && created == Entity.Null)
+            {
+                AILogger.Log(faction, "BUILDING", $"{id} fallen: rebuild refused ({CommandRouter.LastPlacementRefusal})");
+                return;
+            }
+            int sent = AICommon.DispatchWorkersTo(em, faction, created, id, at, maxWorkers: 8);
+            if (sent == 0) AICommon.PullWorkersTo(em, faction, created, id, at, maxWorkers: 4);
+            AILogger.Log(faction, "BUILDING", $"{id} fallen: rebuilding it on the rubble at ({at.x:F0},{at.z:F0}), {sent} worker(s)");
+        }
+
         private void EnsureLostTrainersRebuilt(EntityManager em, Faction faction, float now)
         {
             int key = (int)faction;
+
+            // FALLEN KEYSTONES FIRST (decision 69): free, on their rubble.
+            TryRebuildKeystones(em, faction, now);
 
             // NO CAPITAL, NO REBUILD -- quietly. Every placement anchors on
             // the Hall; without one nothing can be placed, and the faction is

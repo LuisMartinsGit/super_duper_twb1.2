@@ -1,7 +1,7 @@
 // UnitHealVfx.cs
 // Plays the heal effect (Lana Studio Regeneration_health) on every UNIT that is
 // healed, whatever healed it: Litharch, Temple aura, Mending Hall,
-// Field Hospital, Hands of Plenty and its regen tail, Second Wind's expiry
+// Healing Ward, Hands of Plenty and its regen tail, Second Wind's expiry
 // heal, Scar Guard's Rapid Mend, the War Totem, Sanctify. There is no heal
 // event in the sim, so — like DamageNumbersUI — this watches Health for rises.
 //

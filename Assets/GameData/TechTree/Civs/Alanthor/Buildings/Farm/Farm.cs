@@ -12,10 +12,17 @@
 //
 // LEVELS (decision 57): Farm_Lvl1..3 in this folder, faction-wide like every
 // level (BuildingUpgradeable, FactionBuildingLevels; ladder id = BuildingId).
-// Every number is on Farm.asset and those level SOs. Its model is placeholder
+// Every number is on Farm.asset and those level SOs.
+//
+// ITS OWN HANDS (decision 83, 2026-11-19): a finished Farm with a free slot
+// produces one Worker every garrisonWorkerSeconds, free, straight into the
+// slot (FarmSystem, while its owner has population room), and the Workers
+// that finish building it go inside unless they have something queued
+// (BuildingConstructionSystem -> StepInBuilders). Its model is placeholder
 // art: the Alanthor Guild's level-1 prefab, on all three levels, until the
 // Farm gets its own.
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -59,6 +66,7 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(ecb, entity, default(FarmTag));
             EntityBuild.Add(ecb, entity, default(FarmPay));
             EntityBuild.Add(ecb, entity, default(FarmField));
+            EntityBuild.Add(ecb, entity, default(FarmWorkerClock));
             EntityBuild.Add(ecb, entity, default(BuildingUpgradeable));
             EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
             EntityBuild.AddBuffer<WallGarrisonSlot>(ecb, entity);
@@ -82,6 +90,7 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(em, entity, default(FarmTag));
             EntityBuild.Add(em, entity, default(FarmPay));
             EntityBuild.Add(em, entity, default(FarmField));
+            EntityBuild.Add(em, entity, default(FarmWorkerClock));
             EntityBuild.Add(em, entity, default(BuildingUpgradeable));
             EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
         }
@@ -94,6 +103,34 @@ namespace TheWaningBorder.Entities
             if (!em.HasComponent<UnitTag>(unit) || em.HasComponent<BuildingTag>(unit)) return false;
             if (!em.HasComponent<WorkerTag>(unit)) return false;
             return !em.HasComponent<HeroLevel>(unit);
+        }
+
+        /// <summary>
+        /// A Worker that finished building a Farm goes into it (decision 83)
+        /// unless it has something else queued: a shift-queued build site or a
+        /// queued command.
+        /// </summary>
+        public static bool HasQueuedAction(EntityManager em, Entity worker)
+        {
+            if (em.HasBuffer<QueuedBuildSite>(worker) && em.GetBuffer<QueuedBuildSite>(worker).Length > 0) return true;
+            return em.HasBuffer<QueuedCommand>(worker) && em.GetBuffer<QueuedCommand>(worker).Length > 0;
+        }
+
+        /// <summary>Puts the builders of finished Farms inside them
+        /// (decision 83): each pair is a Worker and the Farm it was building.
+        /// Structural - call outside any query iteration. A full Farm, or a
+        /// Worker with something queued, is left alone.</summary>
+        public static void StepInBuilders(EntityManager em, NativeList<Entity> workers, NativeList<Entity> farms)
+        {
+            for (int i = 0; i < workers.Length; i++)
+            {
+                var w = workers[i];
+                var f = farms[i];
+                if (!em.Exists(w) || !em.Exists(f) || HasQueuedAction(em, w)) continue;
+                if (em.HasComponent<Health>(w) && em.GetComponentData<Health>(w).Value <= 0) continue;
+                if (!WallGarrison.CanGarrison(em, w, f)) continue;
+                WallGarrison.Enter(em, w, f);
+            }
         }
 
         /// <summary>Supplies a minute this Farm pays right now: Workers inside

@@ -440,6 +440,13 @@ namespace TheWaningBorder.Systems.Combat
                             // dealt this frame — effectively nullifying it.
                             em.SetComponentData(healTarget, targetHealth);
 
+                            // TWIN BLESSING (decision 77, Age_0.md § Litharch
+                            // upgrades): each heal also mends the most-wounded
+                            // other ally within the Litharch's heal range.
+                            if (TwinBlessing.Researched(myFaction))
+                                TwinBlessing.HealSecond(em, entity, healTarget, myPos, myFaction,
+                                    canHeal.HealRange, healAmount, candEntities, candXf, candFaction);
+
                             // If fully healed, clear target
                             if (targetHealth.Value >= targetHealth.Max)
                             {

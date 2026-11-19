@@ -136,7 +136,7 @@ military units over economy units when both are inside the box.
 >
 > **The arrow keys pan (2026-10-11); WASD does not.** WASD panning was removed
 > (2026-08-28) so **A** stays unambiguously attack-move and **D** unambiguously the
-> Defensive stance; the arrow keys clash with neither. They pan relative to where the
+> Standard stance; the arrow keys clash with neither. They pan relative to where the
 > camera looks, also while paused, and not while you are typing in a text field.
 > Speed is `keyPanSpeed` in `CameraController.asset`.
 >
@@ -155,11 +155,11 @@ group keys, F1-F6 and the modifiers are fixed.
 | **A** | Enter Attack-Move mode — next right-click is an attack-move order. |
 | **P** | Enter Patrol mode — next right-click sets a patrol endpoint. |
 | **S** | Stop — clear all commands on selected units. |
-| **H** | Stance: **Hold Position** — stop, and from now on stay completely passive: never moves on its own and does not even return fire. Your orders still work. |
-| **D** | Stance: **Defensive** (the default for your units) — returns fire on whatever attacks it, if it can reach it from where it stands; never pursues. |
-| **G** | Stance: **Aggressive** — engages anything it can see and pursues it up to 30 m from its post, then walks back. |
+| **H** | Stance: **Defensive** (called Hold Position until 2026-11-18) — stop, and from now on stay completely passive: never moves on its own and does not even return fire. Your orders still work. |
+| **D** | Stance: **Standard** (called Defensive until 2026-11-18) — returns fire on whatever attacks it, if it can reach it from where it stands; never pursues. |
+| **G** | Stance: **Aggressive** (the default for your units) — engages anything it can see and pursues it up to 30 m from its post, then walks back. |
 | **X** | Cycle formation shape: Box → Line → Wedge → Staggered. Re-slots the current selection immediately (AoE4-style). |
-| **B** | Cycle through idle Workers and center the camera. The **Idle builders** button above the bottom-left panel does the same and shows how many stand idle. |
+| **B** | Cycle through idle Workers and center the camera. The **Idle** button in the resource panel, under the housing count, does the same and shows how many stand idle. |
 | **Z** | Enter / exit Planning Mode (queue commands visually, execute on confirm). |
 | **Esc** | Cascading: close menu → exit mode → clear selection → open menu. |
 | **1–9** | Recall control group. |
@@ -175,7 +175,7 @@ Right-click does whatever makes sense for the target:
 |---|---|
 | Ground | Move (in formation: units hold their shape en route — melee front, ranged back — at the slowest member's speed, slows included, with a +40% catch-up boost for stragglers; workers and far-away outliers path independently). The rear ranks keep formation right up to their own slots after the front has arrived. On an attack-move a unit that steps out of rank to fight falls back in once its fight is over. Formations hold their shape in multiplayer too. |
 | Your own / allied stone wall (any piece, foot units) | Climb onto its wall-walk at the spot nearest the click — they go up at the nearest hub, wall tower or gate on their side. |
-| Your own Watch Tower (foot units) | Garrison: they walk there and go inside on arrival (up to 4). |
+| Your own Battle Tower (foot units) | Garrison: they walk there and go inside on arrival (up to 4). |
 | Your own finished Farm (Workers, Alanthor) | Put them to work: they walk there and go inside on arrival (up to 5); each one inside pays supplies every minute. A damaged Farm is repaired instead. |
 | Overpass bridge deck | Send the selection OVER the bridge — any unit type; they climb a ramp, cross the deck, and descend the far side. Units not ordered onto the deck simply walk UNDER the span. |
 | Enemy unit / building | Attack. |
@@ -240,11 +240,12 @@ the camera.
 
 | Panel | Location | Contents |
 |---|---|---|
-| **Resource HUD** | Top / Bottom-right | Supplies, Iron, Veilstone, Religion Points — live values. |
+| **Resource HUD** | Bottom-left | Housing (with the **Idle** builders button under it), then Supplies, Iron, Veilstone and Religion Points. Under each amount, in the same type, is its net income **per minute** (green rising, red draining, grey flat; Religion only while it flows — from a standing Temple, held monuments and held Sanctums). Hover anywhere on a row for where that income comes from, source by source. |
+| **Religion Menu** | Right edge | Sects, powers and the Tithe (**R**). Locked in Age 0: the tab stands dimmed reading "Age 1" until you age up; from Age 1 it opens once a Temple of Ridan is finished. |
 | **Match Clock** | Top-center | Match time (sim time). While a **timed victory** runs — **Sanctum dominion** (one side holds every Sanctum) or **Shardroot ascension** (a Temple enshrines the Shardroot) — its countdown sits beside the clock for every player and spectator: "Your dominion: 07:32" in green when your side is winning, "Blue — Shardroot ascension 07:32" in red when you stand to lose. Two countdowns sit either side of the clock. A warning notice comes at the start, every 2.5 minutes of time left, at 1:00 and 0:30, and when the countdown is broken. |
 | **Game Stats** | Bottom-center | Population, unit count, building count, focus count. |
 | **Entity Info Panel** | Left | Portrait, HP, stats; or multi-selection grid for big groups. |
-| **Entity Action Panel** | Left | Build buttons, train queue, research. With units selected: the four formation shapes (top row) and the three stances (second row). The stance the whole selection shares is lit gold; in a mixed selection every stance present is lit dimmer and its tooltip says how many units hold it. |
+| **Entity Action Panel** | Left | Build buttons, train queue, research. With a building selected: always a 4 x 4 grid — units it trains (or its own commands) on the top row, research below, the building's level-up in the bottom-right cell; a building with more than fits shows a page button at the start of the bottom row. With units selected: the four formation shapes (top row) and the three stances (second row). The stance the whole selection shares is lit gold; in a mixed selection every stance present is lit dimmer and its tooltip says how many units hold it. |
 | **Spell Panel** | Left | Active sect abilities with cooldowns (only after adopting a sect). |
 | **Minimap** | Corner | Terrain, fog of war, ally / enemy markers; click to pan. |
 
@@ -296,12 +297,16 @@ Idle units pick their own targets by **stance** (see
 
 | Stance | Picks a fight with | Returns fire | Pursues (from its post) |
 |---|---|---|---|
-| **Aggressive** (AI default) | anything inside its line of sight | yes | up to 30 m, then walks back |
-| **Defensive** (your default) | only an enemy attacking it, inside its reach | yes | never |
-| **Hold Position** | nothing | no | never |
+| **Aggressive** (G, everyone's default) | anything inside its line of sight | yes | up to 30 m, then walks back |
+| **Standard** (D) | only an enemy attacking it, inside its reach | yes | never |
+| **Defensive** (H) | nothing | no | never |
+
+The stance buttons are the bottom row of a unit selection's actions panel,
+under the formations. (Until 2026-11-18 Standard was called Defensive and
+Defensive was called Hold Position; the keys did not change.)
 
 - **Your orders always win.** An attack order is carried out on every
-  stance — a unit on Hold walks over and fights the target you gave it.
+  stance — a unit on Defensive walks over and fights the target you gave it.
   Stances only decide what a unit does *on its own*.
 - **Emplaced engines** (Ballista / Trebuchet emplacements) are fixed
   mounts: they always shoot whatever comes into range and never move.
@@ -311,7 +316,7 @@ Idle units pick their own targets by **stance** (see
   not in melee, and steps away when an enemy gets close.
 
 - A unit's **post** is where it was last sent: a finished move, its rally
-  point, or where you put it on Hold.
+  point, or where you put it on Defensive.
 - A stance is a mode, not an order: it survives every order — including
   **Stop** — until you pick another.
 - **Explicit player move orders pause auto-acquire** — a unit you sent
@@ -321,8 +326,8 @@ Idle units pick their own targets by **stance** (see
 - **Attack-move and patrol** fight their way along with the Aggressive rules,
   whatever the stance, and resume the march after each fight.
 - **Soldiers stand by their neighbours.** When one of your units is hit,
-  your idle soldiers standing right next to it (Aggressive or Defensive,
-  not Hold) go for the attacker, then walk back to their post. Units that
+  your idle soldiers standing right next to it (Aggressive or Standard,
+  not Defensive) go for the attacker, then walk back to their post. Units that
   are fighting or that you sent somewhere carry on; workers, scouts and
   healers stay put; allies' units do not join in.
 - **Shooting gives a shooter away.** When an arrow, bolt or siege shot hits
@@ -348,7 +353,7 @@ Idle units pick their own targets by **stance** (see
 Engages at ~1.5 unit range. Melee chases targets that flee — always for a
 target you ordered; for a target it picked itself only on Aggressive (and
 attack-move / patrol), as far as the 30 m leash allows, then it returns to
-its post and will not re-engage for a moment. A Defensive unit lets a
+its post and will not re-engage for a moment. A Standard unit lets a
 fleeing attacker go.
 
 **Flanking.** A melee blow that lands on a unit's side or back deals extra
@@ -377,8 +382,8 @@ damage on hit.
 - **Cleanse** — every Litharch's aimed spell: pick a point in reach and the Litharch plants a **Cleansing Ward** there. The ward clears the cursed ground in a 15 m wide circle at once, then **pulses every two seconds**, each pulse pushing the curse back a little farther (you see a ring and hear a burst with every pulse) until the circle reaches its full size. It stands until it is destroyed — and **the curse goes for wards first**, so defend it. A team keeps at most six wards standing, 15 m apart; a cast past that is refused and costs no cooldown. The Litharch is free as soon as the ward lands ([Territory_Claims.md §6.9.7](docs/Design/Territory_Claims.md)).
 - **Cursed ground rots buildings** — a finished building standing on cursed ground loses HP every second, takes more damage from every hit and works at half speed (training, research, extraction). Cleanse the ground or lose the building ([Territory_Claims.md §6.9.9](docs/Design/Territory_Claims.md)).
 - **A blocked claim shows what blocks it** — while your soldiers are taking a territory and the meter will not move because its owner's Fortress or node buildings lock it (or because the territory has cursed ground in it), those structures are revealed to you through the fog and marked with a diamond (an arrow on the screen edge when off screen), for as long as the block lasts. When it is the curse that blocks you, you also see **all the cursed ground in that territory** through the fog, so you know exactly what to cleanse, plus its curse nodes. Your team-mates see them too ([Territory_Claims.md §3.1](docs/Design/Territory_Claims.md)).
-- **Field Hospitals are capped** — a team may keep two standing at once, at least 30 m apart; a cast past that is refused and costs no cooldown.
-- **Watch Tower garrison** (Alanthor) — up to 4 foot units inside a Watch Tower; each adds one target to its volley. Units ordered in from afar walk to the tower and go in on arrival; inside they leave the selection, and an **n/max** badge over the tower shows how many are in it. If the tower is destroyed they are put out alive around it.
+- **Healing Ward** (Sect of Renewal research at the Mending Hall) — your Litharchs can plant a Healing Ward: a small one-cell ward placed like a building within the Litharch's reach. It stands until it is destroyed and pulses every few seconds, healing your and your allies' wounded units around it. **Its long cooldown is shared by all your Litharchs**: once any of them plants a ward, every Litharch — including ones you train afterwards — waits out the same cooldown. A team keeps at most two wards standing, 30 m apart; a cast past that is refused and costs no cooldown ([Sects.md](docs/Design/Sects.md), Renewal).
+- **Battle Tower garrison** (Alanthor; called the Watch Tower until 2026-11-18) — up to 4 foot units inside a Battle Tower; each adds one target to its volley. Units ordered in from afar walk to the tower and go in on arrival; inside they leave the selection, and an **n/max** badge over the tower shows how many are in it. If the tower is destroyed they are put out alive around it.
 - **Spell Buffs** — Temporary status effects from sect spells (damage, cooldown, invulnerability).
 - **Mind Control** — Flips a unit's allegiance for a duration, then returns it.
 - **Summons** — Spawned units expire on timer or when the summoner dies.
@@ -689,12 +694,13 @@ match starts.
 | Need to… | Do this |
 |---|---|
 | Get iron | Select a Worker, point at an iron node in ground you hold and click the Mine button that appears over it; it pays straight into your stockpile. Supply spots (Gatherer's Hut / Guild) and veilstone outcroppings (Veilstone Mine) work the same way — these buildings are not in the build palette. Workers only build and repair. |
-| Build a wall | Pick the Palisade (Age 0) or Stone Wall (Alanthor) and **drag** the line; hubs and sections are laid along it. |
+| Build a wall | Pick the Palisade (every culture in Age 0; Alanthor and Feraldis after) or Stone Wall (Alanthor) and **drag** the line; hubs and sections are laid along it. |
+| Build | Select a Worker: two build panels open. The left one is a fixed grid of rows — economy, military, defence (Palisade, **Watch Tower** — a cheap sight-only tower every culture builds — Wall, Battle Tower) and a reserved fourth row. The panel beside it holds the religion buildings: in Age 0 the three age-up landmarks and the Temple; after the age-up one column of sect buildings per culture (Alanthor, Feraldis, Runai), locked until you can build them. |
 | Convert a wall section | Select the section: **Gate** (needs 4 clear sections; the gatehouse takes 3) or **Hub**; on a stone wall also **Tower** (3 clear sections), **Mount Ballista** (wall level 2+) or **Mount Trebuchet** (wall level 3) — emplacements are built by workers. |
 | Raise the stone wall's level | Select any Wall Hub and research **Battlements**, then **Shielded Ramparts** — every wall you own is re-clad at once. |
-| Garrison a Watch Tower (Alanthor) | Right-click it with **foot units** selected: they walk to it and up to **4** go inside on arrival; each one adds a target to the tower's volley. The **n/max** badge over the tower shows who is in it; **Empty** puts them out. A destroyed tower puts its men out alive. |
-| Earn supplies without a node (Alanthor) | Build a **Farm** (up to 6, on your own ground, never on a resource node) and right-click it with **Workers** selected: up to **5** go inside, and each one pays supplies every minute — an empty Farm pays nothing. **Its pay is scaled by its crop ring**: the ground around it free of buildings, rough terrain, nodes and other Farms' rings (where two rings overlap, both Farms lose it). While placing, the cursor shows **Yield NN%** for a Farm and **Farm 84% → 71%** for each of your Farms a building would cut into; a Farm's badge shows its field. Farms level L1-L3 (more supplies per Worker). Workers inside still count against population. **Empty** puts them out; a destroyed Farm puts them out alive. |
-| Buy iron or veilstone (Alanthor) | Build the **Market** (one per player) and select it: **Iron −/+** and **Veilstone −/+** set how much it buys a minute (Shift: five steps; click the rate itself to stop buying). It pays supplies at a fixed price (the tooltip shows it and the supplies a minute the setting costs); when you cannot pay, nothing is bought that moment. The Economy panel shows the Farms and the Market as their own lines. |
+| Garrison a Battle Tower (Alanthor) | Right-click it with **foot units** selected: they walk to it and up to **4** go inside on arrival; each one adds a target to the tower's volley. The **n/max** badge over the tower shows who is in it; **Empty** puts them out. A destroyed tower puts its men out alive. |
+| Earn supplies without a node (Alanthor) | Build a **Farm** (up to 4, on your own ground, never on a resource node) and right-click it with **Workers** selected: up to **5** go inside, and each one pays supplies every minute — an empty Farm pays nothing. **Its pay is scaled by its crop ring**: the ground around it free of buildings, rough terrain, nodes and other Farms' rings (where two rings overlap, both Farms lose it). While placing, the cursor shows **Yield NN%** for a Farm and **Farm 84% → 71%** for each of your Farms a building would cut into; a Farm's badge shows its field. Farms level L1-L3 (more supplies per Worker). Workers inside still count against population. **Empty** puts them out; a destroyed Farm puts them out alive. |
+| Trade at the Market (Alanthor) | Build the **Market** (one per player) and select it. Each resource has a column: **+** buys a lot of it with veilstone, **−** sells a lot for veilstone, and the number under the icon is what a lot costs now (Shift: five lots, Ctrl: twenty). **Every player shares the same prices**: buying pushes a price up, selling pushes it down, and it drifts back over time — so supplies somebody else dumped are cheap for you. A sale pays less than a purchase costs. |
 | Man the battlements (Alanthor stone wall) | Right-click any part of your (or an ally's) stone wall with **foot units** selected: they climb at the nearest hub, wall tower or gate on their side and stand on the wall-walk, where you can see, select and move them. Up there they fight whatever is in reach and never chase off: troops on the wall deal +15% damage and have +15% of their armour on top (hover the stats panel to see it), and bowmen also shoot further from the height. Right-click the ground to bring them down. Palisades have no wall-walk. |
 | Heal a friendly unit | Right-click it with a Litharch selected. |
 | Convert a Veilstone Main Node | Channel **Acolyte** (Runai) on an active node. |

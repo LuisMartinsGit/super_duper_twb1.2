@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 'Godsplinter'
   displayName: 'Godsplinter'
   unitClass: 'siege'
-  hp: 670
+  hp: 420
   speed: 1.8
   trainingTime: 30
   damage: 34

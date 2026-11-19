@@ -13,24 +13,28 @@ MonoBehaviour:
   m_Name: StoneTippedArrows
   m_EditorClassIdentifier: 
   id: StoneTippedArrows
-  displayName: Stone-Tipped Arrows
+  displayName: Stone Arrows
   role: Military Offense
   effect: 
-  desc: "Weighted stone tips: ranged units gain +2 damage. (Interim faction-wide bump until per-battalion upgrades ship.)"
+  desc: "+1 damage for every archer (not towers)."
   researchAt: ArcheryRange
-  minBuildingLevel: 0
-  researchTime: 25
+  minBuildingLevel: 1
+  researchTime: 30
   prerequisites: []
   culture: 
   cost:
-    Supplies: 80
-    Iron: 20
+    Supplies: 75
+    Iron: 30
     Veilstone: 0
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
     meleeDefenseAdd: 0
     meleeDamageAdd: 0
-    rangedDamageAdd: 2
+    rangedDamageAdd: 0
     archerRangeMult: 0
-  effectsList: []
+  effectsList:
+  - Target: "type:Ranged"
+    Stat: Damage
+    Op: Add
+    Value: 1

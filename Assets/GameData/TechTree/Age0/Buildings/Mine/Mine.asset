@@ -17,11 +17,11 @@ MonoBehaviour:
   role: Workerless ore extraction - build next to an iron or veilstone patch
   description: Works every iron and veilstone node in range with no workers at all.
     Slower than mining by hand, but it never depletes the ore.
-  hp: 700
+  hp: 1200
   armorType: structure_human
   defense:
-    melee: 1
-    ranged: 1
+    melee: 0
+    ranged: 50
     siege: 0
     magic: 0
   radius: 1.5

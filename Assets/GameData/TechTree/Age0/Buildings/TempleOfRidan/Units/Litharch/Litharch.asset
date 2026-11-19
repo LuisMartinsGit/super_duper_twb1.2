@@ -15,8 +15,8 @@ MonoBehaviour:
   id: Litharch
   displayName: Litharch
   unitClass: human_support
-  hp: 155
-  speed: 5.5
+  hp: 70
+  speed: 3.6
   trainingTime: 16.8
   damage: 0
   damageType: magic
@@ -35,14 +35,14 @@ MonoBehaviour:
   trajectory: 
   projectileSpeed: 0
   cost:
-    Supplies: 55
-    Iron: 14
+    Supplies: 80
+    Iron: 30
     Veilstone: 0
   populationCost: 1
   minBuildingLevel: 0
   buildSpeed: 0
   gatheringSpeed: 0
-  healsPerSecond: 6
+  healsPerSecond: 3
   healRange: 10
   siegeRange: 0
   siegeCooldown: 0
@@ -50,6 +50,7 @@ MonoBehaviour:
   tags:
   - Ranged
   bonusVsTags: []
+  torchDamage: 0
   abilities:
   - Cleanse
   - Cleanse Pulse

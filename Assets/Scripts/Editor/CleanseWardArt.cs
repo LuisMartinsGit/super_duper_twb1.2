@@ -1,11 +1,11 @@
 // CleanseWardArt.cs
 // Builds the Cleansing Ward's prefab (Territory_Claims.md §6.9.7) from two
 // Synty Fantasy Kingdom pieces — a statue plinth with a crystal standing on
-// it, the crystal given a holy cyan-white emissive — copies the Lana
-// "Burst_rings" effect in as the ward's pulse aura (through PackVfxImport,
-// which converts the vendor materials for URP), and binds both to
-// CleanseWardSystem.asset. Idempotent: run it again and it rebuilds the same
-// two assets in place.
+// it, the crystal given a holy cyan-white emissive — and binds it, with the
+// ward's blue aura (CleanseWard_Aura.prefab, a hand-recoloured copy of the
+// Field Hospital's healing-area loop, 2026-11-18; the old Lana Burst_rings
+// pulse is retired), to CleanseWardSystem.asset. Idempotent: run it again and
+// it rebuilds the ward prefab in place; the aura prefab is never rewritten.
 
 using UnityEditor;
 using UnityEngine;
@@ -16,11 +16,10 @@ namespace TheWaningBorder.EditorTools
     {
         const string Folder = "Assets/GameData/TechTree/Age0/Buildings/TempleOfRidan/Units/Litharch/Abilities/Cleanse/";
         const string PrefabPath = Folder + "CleanseWard.prefab";
-        const string PulsePath = Folder + "CleanseWard_Pulse.prefab";
+        const string AuraPath = Folder + "CleanseWard_Aura.prefab";
         const string ConfigPath = Folder + "CleanseWardSystem.asset";
         const string PlinthFbx = "Assets/Synty/PolygonFantasyKingdom/Models/Bonus/SM_Prop_Statue_Plinth_05.fbx";
         const string CrystalFbx = "Assets/Synty/PolygonFantasyKingdom/Models/SM_Item_Crystal_01.fbx";
-        const string PulseSource = "Assets/Tools/Lana Studio/Casual RPG VFX/Prefabs/Burst/Burst_rings.prefab";
 
         [MenuItem("Waning Border/Art/Build Cleansing Ward Prefab")]
         public static void Build()
@@ -81,25 +80,16 @@ namespace TheWaningBorder.EditorTools
                 Object.DestroyImmediate(root);
             }
 
-            // The pulse aura: the vendor burst copied beside the ability and
-            // converted for URP, exactly as every other pack effect.
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(PulsePath) == null)
-            {
-                if (AssetDatabase.LoadAssetAtPath<GameObject>(PulseSource) == null)
-                    Debug.LogWarning("[CleanseWardArt] vendor burst not found: " + PulseSource);
-                else PackVfxImport.ImportAll();   // the table row for CleanseWard_Pulse
-            }
-
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             var cfg = AssetDatabase.LoadAssetAtPath<TheWaningBorder.Systems.Border.CleanseWardSystemConfig>(ConfigPath);
             if (cfg == null) { Debug.LogError("[CleanseWardArt] no config at " + ConfigPath); return; }
             cfg.wardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
-            cfg.pulsePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PulsePath);
+            cfg.auraPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(AuraPath);
             EditorUtility.SetDirty(cfg);
             AssetDatabase.SaveAssets();
-            Debug.Log($"[CleanseWardArt] built {PrefabPath}; pulse={(cfg.pulsePrefab != null ? PulsePath : "none")}; bound to {ConfigPath}");
+            Debug.Log($"[CleanseWardArt] built {PrefabPath}; aura={(cfg.auraPrefab != null ? AuraPath : "none")}; bound to {ConfigPath}");
         }
     }
 }

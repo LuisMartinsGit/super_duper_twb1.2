@@ -136,21 +136,16 @@ namespace TheWaningBorder.Systems.Combat
 
                 if (edgeDist < minRange)
                 {
-                    // RETREAT (a fixed mount drops the target instead).
-                    if (TargetingSystem.IsFixedMount(in Lk, entity))
-                    {
-                        archer.AimTimer = 0;
-                        archer.IsRetreating = 0;
-                        Drop(entity, ref p);
-                        p.Archer = archer;
-                        return;
-                    }
-
-                    archer.IsRetreating = 1;
+                    // INSIDE THE MINIMUM RANGE (2026-11-18, Combat_Pacing.md §
+                    // Minimum range): the engine never walks away. It drops
+                    // the target — an explicit order on it included — and the
+                    // targeting system offers it one beyond its minimum range
+                    // (AcquireRules.MinRange); with none, it stands and leaves
+                    // the close enemy to its escort. Backing off from the
+                    // nearest enemy used to keep siege on the move all fight.
                     archer.AimTimer = 0;
-                    var retreatDir = math.normalize(myPos - targetPos);
-                    p.DestKind = DestGoTo;
-                    p.DestPos = myPos + retreatDir * (minRange - edgeDist + 3f);
+                    archer.IsRetreating = 0;
+                    Drop(entity, ref p);
                     p.Archer = archer;
                     return;
                 }

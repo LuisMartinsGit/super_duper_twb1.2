@@ -169,30 +169,8 @@ namespace TheWaningBorder.Systems.Sect
         // CreateEntityQuery registers a NEW query with the world on every
         // call and this one was never disposed. See Core/CachedEntityQuery.cs.
 
-        static readonly ComponentType[] QT_TempleOfRidanTagFactionTag =
-        {
-            ComponentType.ReadOnly<TempleOfRidanTag>(),
-            ComponentType.ReadOnly<FactionTag>(),
-        };
-        static CachedEntityQuery QC_TempleOfRidanTagFactionTag;
 
         #endregion
-        /// <summary>
-        /// Returns the remaining cooldown for the faction's sect Active
-        /// Power, or 0 if ready (or if the lever isn't bought).
-        /// </summary>
-        /// <summary>True if the faction's Temple has ShardrootAllocated == 1 on the slot whose SectId matches.</summary>
-        public static bool HasShardrootAllocated(EntityManager em, Faction faction, string sectId)
-        {
-            if (!TryGetFactionTemple(em, faction, out var temple)) return false;
-            if (!em.HasBuffer<TempleChapelSlot>(temple)) return false;
-            var buf = em.GetBuffer<TempleChapelSlot>(temple);
-            for (int i = 0; i < buf.Length; i++)
-            {
-                if (buf[i].SectId.ToString() == sectId) return buf[i].ShardrootAllocated == 1;
-            }
-            return false;
-        }
 
         /// <summary>True if this faction has adopted the sect (any AdoptedAtAge != 0).</summary>
         public static bool IsAdopted(EntityManager em, Faction faction, string sectId)
@@ -201,73 +179,6 @@ namespace TheWaningBorder.Systems.Sect
             if (!em.HasComponent<SectAdoptionState>(bank)) return false;
             var sect = em.GetComponentData<SectAdoptionState>(bank).Get(sectId);
             return sect.IsAdopted;
-        }
-
-        /// <summary>
-        /// Allocate 1 Shardroot from the Temple's ShardrootStored to the matching sect's
-        /// shrine slot. No-op if Shardroot is already allocated, the sect isn't
-        /// adopted, or the Temple has no Shardroot to spend.
-        /// </summary>
-        public static bool AllocateShardroot(EntityManager em, Faction faction, string sectId)
-        {
-            if (!IsAdopted(em, faction, sectId)) return false;
-            if (!TryGetFactionTemple(em, faction, out var temple)) return false;
-            if (!em.HasComponent<ShardrootStored>(temple)) return false;
-            if (!em.HasBuffer<TempleChapelSlot>(temple)) return false;
-
-            var stored = em.GetComponentData<ShardrootStored>(temple);
-            if (stored.Amount <= 0) return false;
-
-            var buf = em.GetBuffer<TempleChapelSlot>(temple);
-            for (int i = 0; i < buf.Length; i++)
-            {
-                if (buf[i].SectId.ToString() != sectId) continue;
-                if (buf[i].ShardrootAllocated == 1) return false;  // no stacking
-                var slot = buf[i];
-                slot.ShardrootAllocated = 1;
-                buf[i] = slot;
-                stored.Amount -= 1;
-                em.SetComponentData(temple, stored);
-                return true;
-            }
-            return false;
-        }
-
-        /// <summary>Deallocate 1 Shardroot from this sect's shrine (refunded to the Temple's ShardrootStored).</summary>
-        public static bool DeallocateShardroot(EntityManager em, Faction faction, string sectId)
-        {
-            if (!TryGetFactionTemple(em, faction, out var temple)) return false;
-            if (!em.HasComponent<ShardrootStored>(temple)) return false;
-            if (!em.HasBuffer<TempleChapelSlot>(temple)) return false;
-
-            var buf = em.GetBuffer<TempleChapelSlot>(temple);
-            for (int i = 0; i < buf.Length; i++)
-            {
-                if (buf[i].SectId.ToString() != sectId) continue;
-                if (buf[i].ShardrootAllocated == 0) return false;
-                var slot = buf[i];
-                slot.ShardrootAllocated = 0;
-                buf[i] = slot;
-                var stored = em.GetComponentData<ShardrootStored>(temple);
-                stored.Amount += 1;
-                em.SetComponentData(temple, stored);
-                return true;
-            }
-            return false;
-        }
-
-        /// <summary>Look up the faction's TempleOfRidan entity, if any.</summary>
-        private static bool TryGetFactionTemple(EntityManager em, Faction faction, out Entity temple)
-        {
-            temple = Entity.Null;
-            var q = QC_TempleOfRidanTagFactionTag.Get(em, QT_TempleOfRidanTagFactionTag);
-            using var ents = q.ToEntityArray(Allocator.Temp);
-            using var tags = q.ToComponentDataArray<FactionTag>(Allocator.Temp);
-            for (int i = 0; i < ents.Length; i++)
-            {
-                if (tags[i].Value == faction) { temple = ents[i]; return true; }
-            }
-            return false;
         }
 
         public static float CooldownRemaining(EntityManager em, Faction faction, string sectId, int tier = 1)
@@ -528,8 +439,8 @@ namespace TheWaningBorder.Systems.Sect
         /// <summary>
         /// The cooldown a cast of a power authored at
         /// <paramref name="specCooldown"/> actually charges this faction: the
-        /// authored number (there is no hidden global scale), x0.7 with the
-        /// Shardroot enshrined for the sect. Fire charges exactly this, and
+        /// authored number (there is no hidden global scale), less the
+        /// Reliquary and Sanctum cuts. Fire charges exactly this, and
         /// the Religion panel shows
         /// exactly this. docs/Design/Spells.md section 5.
         /// </summary>
@@ -537,8 +448,6 @@ namespace TheWaningBorder.Systems.Sect
             float specCooldown)
         {
             float cooldown = specCooldown;
-            if (HasShardrootAllocated(em, faction, sectId))
-                cooldown *= SectLeverEffects.ShardrootCooldownScale;
             // A standing Reliquary (Antiquity's building) recharges every
             // sect power faster (Sects.md §4).
             cooldown *= AlanthorSectEconomy.CooldownScale(em, faction);

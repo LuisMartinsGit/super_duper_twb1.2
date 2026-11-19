@@ -17,11 +17,11 @@ MonoBehaviour:
   role: Antiquity sect building. Trains the Artificer, recruits the Archivist of
     Hours.
   description: 
-  hp: 900
+  hp: 1800
   armorType: structure_human
   defense:
     melee: 0
-    ranged: 0
+    ranged: 50
     siege: 0
     magic: 0
   radius: 1.6

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_ArchivistAdept
   displayName: Archivist Adept
   unitClass: magic
-  hp: 300
+  hp: 230
   speed: 5
   trainingTime: 21
   damage: 36

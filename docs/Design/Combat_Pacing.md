@@ -214,7 +214,7 @@ ORDER and the reason for each row:
 | Outrider | light, both columns | |
 | Cataphract | heavy (barded) | Heavy — but the Spearman's and Crossbowman's bonuses land AFTER armor and ignore it, so the counters still hit in full |
 | Trebuchet | no melee armour, high ranged armour | Arrows bounce; swords do not. You cannot shoot a siege line down, you send something at it |
-| Battering Ram | some melee, very high ranged | Armoured shell. An Archer does the minimum to it |
+| Battering Ram | **no melee armour, ever**; very high ranged | Armoured shell against arrows, open to swords. An Archer does the minimum to it; infantry is what kills it. The Siege Yard's platings raise only its RANGED armour (2026-11-18, decision 75: three platings had given it melee armour and made it a sponge for a whole melee line) |
 | King Lexor | heavy across the board | |
 
 **Siege armor is 0 on every unit** — the mobile engines and the wall
@@ -225,38 +225,65 @@ own counter unreliable. *(The 0 is the rule, not a tuning value.)*
 
 ### Buildings
 
+> **2026-11-18, [Unification decision 79](Unification_Decisions_2026-10-03.md): the Age of
+> Empires IV model.** Soldiers BURN a building with a torch, arrows scratch it, siege demolishes
+> it. It replaces decision 62's damage shares.
+
 The shape of every building row is one statement: **arrows do almost nothing,
-infantry chips slowly, siege goes through.** Classes in rising order; the
-values are on each building SO:
+a soldier's torch burns slowly, siege goes through.**
 
-| Class | Members |
+- **The torch.** A melee hit on a building does not use the unit's damage: it lands the unit's
+  **torch** (`torchDamage` on the unit SO) less the building's melee armour. The torch is set by
+  role, not by anti-unit damage, so a heavy cavalryman with a huge lance burns no faster than a
+  heavy footman: Workers and Scouts the least, light soldiers more, heavy soldiers more again,
+  sect soldiers above those, heroes the most. A unit with a torch of 0 cannot burn (the Litharch,
+  caravans, the Mirage riders). Weapon research does not raise it.
+- **The torch is thrown** ([decision 82](Unification_Decisions_2026-10-03.md), 2026-11-19): a
+  melee unit with a torch attacks a building from a short range — the reach is on
+  `MeleeCombatSystem.asset`, in build-grid cells — not from blade reach, so a whole raiding
+  party burns at once instead of the few who fit against the wall. It takes no attack slot
+  (Navigation_And_Formations.md § 4.1). The hit lands on the throw; the player sees a burning
+  torch with a red-orange streak and a light fly in, and a flash where it lands. The torch
+  values sit on the Age of Empires IV scale.
+- **Arrows.** A building's ranged armour is set **at or above a bow's entire attack**, so every
+  arrow and bolt lands the minimum one point. A bow line cannot take a base.
+- **Siege.** Siege armour stays at or near 0, so a siege engine's damage and its bonus vs
+  Building land in full. Siege is what takes a base, and a few engines take a production
+  building in the time a whole line of soldiers needs.
+- **Melee armour is 0** on the Age 0, Alanthor and sect buildings: the torch value alone sets
+  the pace.
+- **Not scaled:** magic and true damage, and the curse's units (their pressure on a base is part
+  of the curse's design). The curse's ranged unit carries a bonus vs Building so the armour
+  above does not take that pressure away.
+- **The one Fortress** (decision 69) then scales whatever is left by damage type, so soldiers do
+  next to nothing to it and only a siege force brings it down.
+
+Armour comes from the building's SO for every building (`BuildingFactory` stamps it; until
+2026-11-18 most factories never did, and buildings fought at 0 whatever their SO said).
+
+**Hit points, by role** (values on each building SO). The capital is the sturdiest thing on
+the map, the keystones next, production buildings are all alike, economy smaller, and light
+outposts the least:
+
+| Tier | Members |
 |---|---|
-| Light | Gatherer's Hut |
-| Standard | Hut, Archery Range, Royal Stable, the landmarks |
-| Military / industrial | Barracks, Siege Yard |
-| Core | Temple; the Fortress (the capital carries its own defence block on its SO) |
-| Fortification | Watch Tower, Wall, Wall Tower, Gate |
-
-Ranged armor is set **at or above a bow's entire attack** — so an Archer does
-the minimum 1 to a wall and a bow line simply *cannot* take a base. That is
-what makes the Siege Yard a necessary building rather than an optional one.
-Siege armor stays 0 everywhere, so a siege engine's damage and its bonus vs
-Building land in full.
-
-Infantry keeps a slow path in on purpose: a Swordsman can take a Barracks down,
-in a great many swings. Possible, never efficient — the AoE relationship.
-
-**The share rule (2026-11-15, [Unification decision 62](Unification_Decisions_2026-10-03.md)).**
-On top of a building's armour, a melee or ranged (non-siege) hit on a building lands only a
-share of its damage (`meleeVsBuilding`, `rangedVsBuilding` on `MeleeCombatSystem.asset`), and
-**the "at least 1 per hit" floor does not apply to buildings**: the leftover fraction is
-carried on the building to the next hit. A bow line therefore cannot add up to a tower, and
-a line of swords takes long enough that the defender can answer. Siege, magic and true damage
-land in full. The curse's units are not scaled.
+| Capital | Fortress (its levels multiply from there) |
+| Keystones | Temple of Ridan; the landmarks (Vault of Almierra, Fiendstone Keep, Thessara's Crossing); Renewal's raised Fortress |
+| Sect buildings | the sect's own building; Fortitude's Stonehold the toughest |
+| Production | Barracks, Archery Range, Royal Stable, Siege Yard (all equal) |
+| Defences | Battle Tower, the emplacements |
+| Economy | Market, Mine, Veilstone Mine, Hut (House), Farm, Gatherer's Hut |
+| Outposts | Watch Tower (the Lookout) |
+| Walls | Palisade, Stone Wall, Gate, Wall Tower: unchanged, siege-only (§ The Wall Rule) |
 
 ---
 
 ## Counter table (which `bonusVsTags` each unit carries)
+
+> **2026-11-17, decision 71:** bonuses follow Age of Empires IV — Spearman vs Cavalry, Archer and
+> Longbowman vs LIGHT infantry (`Light+Infantry`, both tags), Crossbowman vs Heavy, Outrider vs
+> Ranged, siege vs Building — and grow with the building levels. Upgrades are flat; nothing
+> compounds. The tables below predate it where they disagree.
 
 The amounts are on the unit SOs (`bonusVsTags`); this table is which TAG each
 unit is bonused against and the beat it delivers.
@@ -370,6 +397,17 @@ zone — an engine that cannot depress its arc is modelling something real; an
 archer backing away from a swordsman is not. In play it cost about a third of
 every engagement: the bow lines walked backwards to satisfy a dead zone instead
 of shooting, and read as though they were refusing to fight.
+
+**Inside its minimum range an engine does not back away** (2026-11-18,
+developer: the constant moving "penalizes catapults ... who need to constantly
+keep moving to hit targets"). It used to walk away from its target until it was
+past the dead zone; targeting offered it the NEAREST enemy, which in a melee is
+the one already at it, so it backed off all fight instead of shooting. Now the
+rule, for every player: a target inside the dead zone is dropped — an explicit
+order on it included — and the engine is offered only targets beyond its
+minimum range (`AcquireRules.MinRange`, the unit's own `minAttackRange` from its
+SO); with none, it stands and leaves the close enemy to its escort. Siege is the
+spearhead the army protects, not a unit that fends for itself.
 
 Note for anyone re-authoring this: **`minAttackRange: 0` used to mean 10 m.**
 `RangedCombatSystem` applied a `DefaultMinRange` of 10 whenever the unit's own

@@ -13,20 +13,20 @@ MonoBehaviour:
   m_Name: VeilstoneTippedArrows
   m_EditorClassIdentifier: 
   id: VeilstoneTippedArrows
-  displayName: Veilstone-Tipped Arrows
+  displayName: Veilstone Arrows
   role: Military
   effect: 
-  desc: "Arrow tier 3: ranged units deal a further +30% damage."
+  desc: "+1 damage for every archer."
   researchAt: ArcheryRange
-  minBuildingLevel: 2
-  researchTime: 45
+  minBuildingLevel: 3
+  researchTime: 50
   prerequisites:
   - IronTippedArrows
   culture: Alanthor
   cost:
-    Supplies: 0
-    Iron: 0
-    Veilstone: 366
+    Supplies: 250
+    Iron: 150
+    Veilstone: 100
   effects:
     gatherSpeedMult: 0
     meleeAttackSpeedMult: 0
@@ -37,5 +37,5 @@ MonoBehaviour:
   effectsList:
   - Target: "type:Ranged"
     Stat: Damage
-    Op: Pct
-    Value: 30
+    Op: Add
+    Value: 1

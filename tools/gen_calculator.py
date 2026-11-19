@@ -151,7 +151,6 @@ BUILDING_STATS = [
     ["Supplies interval", "seconds"],
     ["Slot income per min (L1/L2/L3)", "per minute"],
     ["Vault bar capacity", "resource"],
-    ["Vault bar bonus", "fraction of income"],
     ["Vault sub-bars per bar", "count"],
     ["Max per faction", "count"],
     ["Min wall level", "level"],
@@ -220,6 +219,9 @@ EFFECT_STATS = {
     "Speed": ["Speed"],
     "AttackCooldown": ["Attack cooldown"],
     "DefenseAll": ["Melee defense", "Ranged defense", "Siege defense", "Magic defense"],
+    "DefenseMelee": ["Melee defense"],
+    "DefenseRanged": ["Ranged defense"],
+    "BonusDamage": ["Bonus vs tags"],
 }
 EFFECT_OPS = {"Add": "+", "Pct": "+%", "Set": "set"}
 
@@ -233,7 +235,7 @@ EFFECT_KINDS = {
     7: "HP never drops below {v}", 8: "+{v} charge damage", 9: "reveals fog (radius {v})",
     10: "+{v}% resource yield", 11: "cannot be automated", 12: "line of sight ramps while still",
     13: "+{v}% damage on the next charge", 14: "cannot attack while buffed",
-    15: "deploys a field hospital", 16: "summons the pledge army (level-scaled)",
+    15: "plants a Healing Ward (cooldown shared by every Litharch)", 16: "summons the pledge army (level-scaled)",
     17: "+{v}% fire rate", 18: "Shardbound Fury (hurls enemies, damages buildings)",
 }
 
@@ -325,7 +327,6 @@ def building_stats(b, btype, trains_names, research_names):
              ["Supplies interval", num(b.get("suppliesInterval"))],
              ["Slot income per min (L1/L2/L3)", " / ".join(num(x) for x in slots) if slots else "0"],
              ["Vault bar capacity", " / ".join(num(x) for x in (b.get("vaultBarCapacity") or [])) or "0"],
-             ["Vault bar bonus", num(b.get("vaultBarBonus"))],
              ["Vault sub-bars per bar", num(b.get("vaultSubBars"))],
              ["Max per faction", num(b.get("maxPerFaction"))],
              ["Min wall level", num(b.get("minWallLevel"))],

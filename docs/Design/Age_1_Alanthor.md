@@ -77,7 +77,7 @@ under the cultured name:
 | `Mine` | Mine | `Mine/Mine_Lvl1..3` |
 | `VaultOfAlmierra` | Vault of Almiérra | `VaultOfAlmierra/VaultOfAlmierra_Lvl1..3` |
 | `Alanthor_RoyalStable` | Royal Stable | `RoyalStable/RoyalStable_Lvl1..3` |
-| `Alanthor_Tower` | Watch Tower | `Tower/WatchTower_Lvl1..3` |
+| `Alanthor_Tower` | Battle Tower | `Tower/WatchTower_Lvl1..3` |
 | `Alanthor_SiegeYard` | Siege Yard | `SiegeYard/SiegeYard_Lvl1..3` |
 | `Alanthor_Farm` (Age 1 only) | Farm | `Farm/Farm_Lvl1..3` (decision 57) |
 | `Alanthor_Wall` — Stone Wall | Stone / Battlemented / Shielded | `Wall/Wall_Lvl1..3` |
@@ -206,6 +206,12 @@ research.
 
 ### Garrison — cultured Barracks
 
+> **2026-11-17, decision 71 ([Unification_Decisions](Unification_Decisions_2026-10-03.md)):
+> the Garrison, Archery Range, Royal Stable and Siege Yard rosters, unlock levels, upgrade
+> ladders and skills were redone AoE-style — flat upgrades, three tiers, no Shard tier, units
+> unlocked by building level. Where this section disagrees, decision 71 wins.**
+
+
 **Code id:** `Barracks` — the Alanthor Garrison is the same entity as the
 Age 0 Barracks, renamed and reskinned. Its research files under
 `Civs/Alanthor/Buildings/Garrison/Research/` (still `researchAt: Barracks`).
@@ -240,6 +246,12 @@ tiers are **granted by the Garrison's levels**, not researched
 ---
 
 ### Archery Range — Age 1, no cultured rename
+
+> **2026-11-17, decision 71 ([Unification_Decisions](Unification_Decisions_2026-10-03.md)):
+> the Garrison, Archery Range, Royal Stable and Siege Yard rosters, unlock levels, upgrade
+> ladders and skills were redone AoE-style — flat upgrades, three tiers, no Shard tier, units
+> unlocked by building level. Where this section disagrees, decision 71 wins.**
+
 
 The Archery Range is `minEra: 2` and never appears in Age 0, so for Alanthor
 there is nothing to rename: it is the Archery Range (SO
@@ -377,6 +389,12 @@ These exist only after the player picks Alanthor at age-up.
 
 ### Royal Stable — `Alanthor_RoyalStable`
 
+> **2026-11-17, decision 71 ([Unification_Decisions](Unification_Decisions_2026-10-03.md)):
+> the Garrison, Archery Range, Royal Stable and Siege Yard rosters, unlock levels, upgrade
+> ladders and skills were redone AoE-style — flat upgrades, three tiers, no Shard tier, units
+> unlocked by building level. Where this section disagrees, decision 71 wins.**
+
+
 Alanthor's cavalry trainer (cavalry left the Garrison for it). Levels
 `RoyalStable/RoyalStable_Lvl1..3`.
 
@@ -435,6 +453,12 @@ none is stated here. Code: `Civs/Alanthor/AlanthorGallop*.cs`.
 
 ### Siege Yard — `Alanthor_SiegeYard`
 
+> **2026-11-17, decision 71 ([Unification_Decisions](Unification_Decisions_2026-10-03.md)):
+> the Garrison, Archery Range, Royal Stable and Siege Yard rosters, unlock levels, upgrade
+> ladders and skills were redone AoE-style — flat upgrades, three tiers, no Shard tier, units
+> unlocked by building level. Where this section disagrees, decision 71 wins.**
+
+
 Levels `SiegeYard/SiegeYard_Lvl1..3`. **Two engines, one job each**
 (decision 52, 2026-11-11 — the Ballista and the Catapult left the roster;
 their SOs and factories are parked for old saves and replays, and the wall's
@@ -457,12 +481,19 @@ a spotter (scout or ally vision) plus an explicit attack order.
 | **Ranging Shot** | L2 | an active: after standing still, the next shot hits much harder | |
 | **Counterweight Tuning** | L3 | the Trebuchet reaches further | |
 | **Siege Screens** | L3 | a stationary ranged-defence passive for engines | Ranging Shot |
+| **Field Repair** | L3 | every siege engine repairs itself over time, all the time (rate on `FieldRepair.asset`, `RepairHpPerSecond`; `SiegeYard/FieldRepairSystem.cs`) — decision 75 | Iron-Shod Ram |
+
+The plating tiers add melee AND ranged armour to the Ballista, Catapult and
+Trebuchet (and the emplaced engines), but **ranged armour only to the Battering
+Ram** — the Ram stays open to swords (decision 75, Combat_Pacing.md § Armour).
 
 The shot tiers, the plating tiers and the crew veterancy tiers are **granted
 by the Yard's levels** ([§ Building levels](#building-levels-2026-10-02--canonical-for-where-level-numbers-live));
 Reinforced Bolts is cut with the Ballista (decision 53).
 
-### Watch Tower — `Alanthor_Tower`
+### Battle Tower — `Alanthor_Tower`
+
+*(Shown as the Watch Tower until 2026-11-18; renamed when the Age 0 Watch Tower — `Lookout`, Age_0.md — took the name.)*
 
 A stand-alone defensive tower, built directly from the worker palette (no
 hut conversion). Levels `Tower/WatchTower_Lvl1..3`: each level raises its
@@ -470,7 +501,7 @@ fire rate, range and sight, and the top level adds targets and a ballista
 bolt (a `BuildingSiegeShot`, so it may hit a wall piece). Every number is on
 `Tower.asset` and the level SOs.
 
-**Garrison (decision 24).** The Watch Tower has **4 garrison slots**
+**Garrison (decision 24).** The Battle Tower has **4 garrison slots**
 (`garrisonSlots`). Only **foot units** may enter — infantry and archers; not
 cavalry, siege, workers or heroes. **Each occupant adds one target to the
 tower's volley** (`garrisonArrowsPerOccupant`): a full tower shoots at more
@@ -503,6 +534,16 @@ Watch Tower:
 
 ### Farm — `Alanthor_Farm` (decisions 55 and 57, 2026-11-11)
 
+> **2026-11-19, [decision 83](Unification_Decisions_2026-10-03.md): THE FARM GROWS ITS OWN
+> HANDS.** A finished Farm that is not full produces one Worker every
+> `garrisonWorkerSeconds` (`Farm.asset`), free of charge, who **starts inside it**. It needs
+> population room like any unit; with none, the Farm waits and produces as soon as there is
+> room. A full Farm produces nothing, and when a slot frees up the next Worker takes the whole
+> interval. **The Workers who build a Farm go inside it when it is finished**, unless they
+> have something else queued (a shift-queued build or command); they no longer move on to the
+> next unfinished site by themselves. Code: `FarmSystem.GrowFarmhands`, `FarmWorkerClock`,
+> `Farm.StepInBuilders` (called by `BuildingConstructionSystem`).
+
 Supplies from **Workers**, paid in proportion to the **free ground around the
 Farm**. Every number — price, footprint, HP, the crop ring's width, the cap and
 the slots — is on `Civs/Alanthor/Buildings/Farm/Farm.asset`; the supplies per
@@ -511,7 +552,7 @@ folder.
 
 - **Placement:** built by Workers from the build palette, on the player's own
   ground like every building, and **never on or over a resource node**.
-- **Cap:** at most `maxPerFaction` Farms per player (six), counting finished
+- **Cap:** at most `maxPerFaction` Farms per player (four), counting finished
   Farms, sites and plans. At the cap the palette shows the Farm greyed and a
   placement is refused.
 - **Workers inside:** a Farm holds up to `garrisonSlots` Workers (five) and
@@ -548,7 +589,7 @@ folder.
 - **Pays:** every minute, **Workers inside × supplies per Worker (the Farm's
   level) × the free share**, rounded down. An empty or unfinished Farm pays
   nothing. It is its own income line (`IncomeSource.Farm`), shown as
-  **Farms** in the Economy panel (with the Farms' mean field), and the Vault's
+  **Farms** among the incomes (the Economy panel that listed it was removed 2026-11-17), and the Vault's
   full supply bars raise it like any income.
 - **Levels (decision 57):** L1-L3, like every Alanthor level — one asset per
   level (`Farm_Lvl1..3`), L1 free at age-up, the level **faction-wide** for
@@ -668,40 +709,60 @@ the piece length, the opening widths and the art — is on
   folder; the nav stamp is a pass of `CostFieldStampSystem`; a dead piece is
   removed by `DeathSystem` with no death record.
 
-### Market — `Alanthor_Market` (decision 55, 2026-11-11)
+### Market — `Alanthor_Market` (decision 67, 2026-11-16; first built by decision 55)
 
-Iron and veilstone for supplies, at a price that never moves. Every number —
-price, footprint, HP, the two prices, the rate ceiling and the rate step — is
-on `Civs/Alanthor/Buildings/Market/Market.asset`.
+**Veilstone is the money.** The Market buys and sells **supplies** and **iron** for
+veilstone, at prices **every player shares**. Every number — cost, footprint, HP, the lot
+sizes, the starting prices, the price step, the seller's share, the floor and ceiling, the
+drift — is on `Civs/Alanthor/Buildings/Market/Market.asset`.
 
-- **One per player** (`maxPerFaction`), built by Workers on owned ground.
-- **The player sets two rates:** how much **iron** and how much **veilstone**
-  it buys a minute, with **no ceiling** (decision 56: the bank is the only limit), in steps of
-  `rateStep`. A new Market buys nothing until a rate is set.
-- **Surplus to iron (decision 59, 2026-11-15):** the player may also set a supply
-  **reserve** (a new Market starts at `marketReserveDefault`, moved in steps of
-  `marketReserveStep`) and switch the surplus mode on. While it is on, every second,
-  after the set rates are bought, every supply above the reserve is turned into iron at
-  the same fixed price. Off by default.
-- **The panel (decision 59):** one column per resource — **+** on top, the resource's
-  icon with its rate under it (click it to stop buying), **−** below — for iron and
-  veilstone, and a third column for the surplus mode (**+** / **−** move the reserve;
-  the supplies icon, labelled On / Off and the reserve, switches it). A click moves one
-  step, Shift five, Ctrl twenty. The level-up takes the last cell.
-- **Fixed prices:** it pays `suppliesPerIron` supplies for each iron and
-  `suppliesPerVeilstone` for each veilstone. The price never changes with the
-  nodes a player holds, the Market's age, or anything else.
-- **No debt:** the purchase runs every second, prorated from the rates; when
-  the bank cannot pay for a resource that second, none of it is bought.
-- **Intent (decision 55 (e)):** Farms and the Market let a player live with no
-  node at all, but nodes stay by far the richer income — a Mine's iron costs
-  several full Farms' worth of supplies at the Market.
-- The rates and the surplus setting are lockstep commands (`SetMarketRate`,
-  `SetMarketSurplus`) and live on the Market (`MarketRates`), so they ride saves and replays. Purchases are booked as
-  `IncomeSource.Market` (the **Market** line of the Economy panel shows what
-  it buys and the supplies it spends) and are never raised by the Vault.
-- Code: `Market.cs`, `MarketComponents.cs`, `MarketSystem.cs` in that folder,
-  `CommandRouter.Market.cs`, the panel in `ActionsPanelPrefabBinder.Market.cs`.
+- **One per player** (`maxPerFaction`), built by Workers on owned ground. A faction trades
+  only through its own finished Market.
+- **Trades are instant and by the lot.** A lot is a fixed amount of a resource
+  (`marketSuppliesLot`, `marketIronLot`). Buying a lot pays its price in veilstone and
+  credits the resource; selling a lot takes the resource and pays veilstone. Nothing runs
+  by itself: there are no rates and no surplus mode (decisions 55-59 are withdrawn on
+  this point).
+- **Every resource can be bought with veilstone and sold for veilstone.** Veilstone itself
+  is not traded — it is what trades are paid in.
+- **The prices move.** Each lot bought raises that resource's price and each lot sold
+  lowers it, by `marketPriceStepPermille` of the price, lot by lot — the twentieth lot of
+  one click is dearer (or pays less) than the first.
+- **The prices are shared.** There is one price per resource for the whole match
+  (`MarketPrices`). A player who dumps supplies makes supplies cheap for everybody else;
+  a player who buys up iron makes iron dear for everybody else, and worth selling.
+- **A sale pays less than a purchase costs** (`marketSellPercent` of the price), so
+  buying and selling back always loses veilstone: the Market cannot be milked alone, only
+  by reading what the others do.
+- **Bounds and drift.** A price stays between `marketPriceFloorPercent` and
+  `marketPriceCeilingPercent` of its starting price (`marketSuppliesLotPrice`,
+  `marketIronLotPrice`), and every `marketDriftSeconds` it closes `marketDriftPermille`
+  of the gap back to the starting price — a dump marks the prices for minutes, not for
+  the match.
+- **The floor never stops a sale** (decision 81, developer: "The market being at the floor
+  price should not stop the players from selling. They just have to sell more of it.").
+  At the floor each further lot pays the floor price; a seller wanting more veilstone sells
+  more lots. No player, human or AI, is refused a sale for the price.
+- **No debt:** a trade stops at the first lot the bank cannot pay for (veilstone on a
+  purchase, the resource on a sale).
+- **The panel:** one column per resource — **+** (buy a lot) on top, the resource's icon
+  with the current price of a lot under it (green while cheaper than its starting price,
+  red while dearer), **−** (sell a lot) below. A click trades one lot, Shift five, Ctrl
+  twenty; the tooltips quote what the click costs or pays. The level-up takes the
+  bottom-right cell of the 4 x 4 grid (Overview.md § The actions panel).
+- **The AI watches the prices** ([Game_AI.md § 2j](Game_AI.md)): it sells a glut and
+  sells into a price somebody drove up, buys what it is short of, and buys what
+  somebody dumped cheap.
+- **Intent:** resources become convertible. A faction rich in one resource and starved
+  of another (the 15 Nov match: Expert AIs with tens of thousands of iron and no
+  supplies) can rebalance, at a cost, and what it does is visible to and usable by every
+  other faction.
+- The trade is a lockstep command (`MarketTrade`); the shared prices live on one entity,
+  so they ride saves and replays. Trades are booked as `IncomeSource.Market` /
+  `SpendCategory.Trade` and are never raised by the Vault or by an AI's cheat.
+- Code: `Market.cs` (the trade and price rules), `MarketComponents.cs`,
+  `MarketSystem.cs` (the drift) in that folder, `CommandRouter.Market.cs`, the panel in
+  `ActionsPanelPrefabBinder.Market.cs`, the AI in `SimpleAISystem.Farms.cs`.
   The model is the retired Trading Outpost's art (`Market/Art/`).
 
 ### ~~Trading Outpost — `Alanthor_TradingOutpost` (L1-L3, decision 42, 2026-11-09)~~
@@ -1305,10 +1366,12 @@ lists for the Garrison only. Every value is on the unit and tech SOs.
 - **The Age 0 Spearman is the Militia.** Same unit SO (`Spearman`): its display
   name is Militia until the faction has a culture and Spearman from then on.
 - **The Swordsman does not exist in Age 0.**
-- **Panel**: row 1 the building (level-up, Conscription, the weapon tier cell);
-  row 2 the Spearman, then Charge and Shield Wall one cell to the right; row 3
-  the Swordsman, Parry, Counter, Reckless Attack
-  (`BuildingActionLayouts`, key `Barracks`). Unit cells show a rendered picture
+- **Panel** (the 4 x 4 grid every building uses, Overview.md § The actions
+  panel, 2026-11-18): row 1 the building (Conscription and its research
+  ladders, one cell each); row 2 the Spearman followed by his skills; row 3
+  the Swordsman followed by his; row 4 free, its last cell the level-up
+  (`BuildingActionLayouts`, key `Barracks`; which skills are listed there is
+  the layout's, the SOs gate them). Unit cells show a rendered picture
   of the unit at the building's level, the weapon cell a picture of the weapon
   (`ActionIcons`, rendered by `UnitGearIcons`). A building's menu uses the
   builder's grid.

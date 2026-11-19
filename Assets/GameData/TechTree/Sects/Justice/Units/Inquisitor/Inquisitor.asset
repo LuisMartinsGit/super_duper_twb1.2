@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Inquisitor
   displayName: Inquisitor
   unitClass: support
-  hp: 145
+  hp: 110
   speed: 3.2
   trainingTime: 21
   damage: 0
@@ -52,6 +52,7 @@ MonoBehaviour:
   - Light
   - Religious
   bonusVsTags: []
+  torchDamage: 5
   preferTargets: []
   abilities: []
   prefab: {fileID: 6886602278709499003, guid: 9130634f8c57e575880230244514fa52, type: 3}

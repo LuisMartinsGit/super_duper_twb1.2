@@ -1,4 +1,4 @@
-﻿// Temple of Ridan — Age 2+ religion hub; carries the 6 chapel slots.
+﻿// Temple of Ridan — the religion hub (no chapels since decision 80).
 //
 // Extracted from BuildingFactory (2026-08-12): each building's creation
 // code lives with its data, per the TechTree co-location convention.
@@ -18,7 +18,6 @@ namespace TheWaningBorder.Entities
     {
         /// <summary>
         /// Create Temple of Ridan — available to ALL cultures at Era 2.
-        /// Has 8 BFME2-style expansion slots for sect chapels.
         /// Houses all sect unit training and tech research.
         /// </summary>
         public static Entity Create(EntityManager em, float3 position, Faction faction)
@@ -64,29 +63,10 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(em, entity, new ProductionState { Busy = 0, Remaining = 0 });
             EntityBuild.AddBuffer<ProductionQueueItem>(em, entity);
 
-            // Initialize 6 empty chapel slots — one per ground decal around the
-            // Temple. Six matches SectConfig.MaxAdoptedSects (= the design cap).
-            EntityBuild.AddBuffer<TempleChapelSlot>(em, entity);
-
             // Combat type tags
             EntityBuild.Add(em, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
-            // Commit the build (one structural change), THEN fill the slots.
-            EntityBuild.Done(entity);
-            var slotBuffer = em.GetBuffer<TempleChapelSlot>(entity);
-            for (int i = 0; i < SectConfig.MaxAdoptedSects; i++)
-            {
-                slotBuffer.Add(new TempleChapelSlot
-                {
-                    Chapel = Entity.Null,
-                    SectId = default,
-                    State = 0,
-                    BuildProgress = 0f,
-                    BuildTime = 0f
-                });
-            }
-
-            return entity;
+            return EntityBuild.Done(entity);
         }
 
         public static Entity Create(EntityCommandBuffer ecb, float3 position, Faction faction)
@@ -119,27 +99,9 @@ namespace TheWaningBorder.Entities
             EntityBuild.Add(ecb, entity, new ProductionState { Busy = 0, Remaining = 0 });
             EntityBuild.AddBuffer<ProductionQueueItem>(ecb, entity);
 
-            // Initialize 6 empty chapel slots — matches SectConfig.MaxAdoptedSects.
-            EntityBuild.AddBuffer<TempleChapelSlot>(ecb, entity);
             EntityBuild.Add(ecb, entity, new ArmorTypeData { Value = ArmorType.StructureHuman });
 
-            // Commit the build, THEN fill the slots (SetBuffer plays back
-            // after the build's adds).
-            EntityBuild.Done(entity);
-            var slotBuffer = ecb.SetBuffer<TempleChapelSlot>(entity);
-            for (int i = 0; i < SectConfig.MaxAdoptedSects; i++)
-            {
-                slotBuffer.Add(new TempleChapelSlot
-                {
-                    Chapel = Entity.Null,
-                    SectId = default,
-                    State = 0,
-                    BuildProgress = 0f,
-                    BuildTime = 0f
-                });
-            }
-
-            return entity;
+            return EntityBuild.Done(entity);
         }
     }
 }
