@@ -29,23 +29,23 @@ MonoBehaviour:
   unlockWildcardRp: 2
   chapelLevel2Rp: 2
   chapelLevel3Rp: 3
-  heroRp: 1
+  heroRp: 4
   sectStepRp:
   - 1
   - 2
   - 2
   - 2
   - 3
-  sectUnitRp: 1
-  sectUnitsEnabled: 0
+  sectUnitRp: 2
+  sectUnitsEnabled: 1
   aiSectUnitRpReserve: 0
   sectDamagePerRp: 3000
   supportSupplies: 250
   supportIron: 120
   supportVeilstone: 60
-  armySmallRp: 5
-  armyMediumRp: 10
-  armyLargeRp: 20
+  armySmallRp: 10
+  armyMediumRp: 20
+  armyLargeRp: 40
   armySmallUnits: 6
   armyMediumUnits: 14
   armyLargeUnits: 32

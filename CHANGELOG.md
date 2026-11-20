@@ -9,7 +9,17 @@ build always name the same number.
 
 ---
 
-## [Unreleased] — 2026-11-16
+## [0.0.91] — 2026-11-20
+
+### Sects are fully open (decision 92, 2026-11-20)
+- **Every sect feature is back on:** sect units, all of the Temple's research, and the Petriarchy's support and armies.
+
+### Sect units are heroic (decision 93, 2026-11-20)
+- **Every sect unit has about a third more health.**
+- **They cost more Religion Points:** a sect unit costs two points, a sect hero four, and the Petriarchy's armies cost twice what they did.
+
+### Hero levels make heroes stronger (decision 94, 2026-11-20)
+- **Each hero level now raises the hero's health and weapon damage**, on top of the abilities it unlocks. A hero at level 1 is unchanged; at level 10 it has about twice the health and damage and is worth a small army by itself. A hero that returns after falling keeps its level and its strength.
 
 ### Computer opponents press an attack home (decision 91, 2026-11-19)
 - **One army, kept supplied**: fresh soldiers leave home in formed groups and join the army in the field, instead of each wave starting again from scratch.
@@ -70,7 +80,6 @@ build always name the same number.
 - **The Religion menu unlocks in Age 1.**
 - **Two build panels for Workers**: the usual grid (Economy, Military, Defense rows) and a religion panel beside it: the age-up landmarks and the Temple in Age 0, then every sect building by culture.
 - **New Watch Tower** in Age 0: cheap, sees far, cannot attack, stays buildable all game. The Alanthor stone tower is now the **Battle Tower**. Alanthor keep the Palisade after age-up.
-- **The Temple only trains Litharchs** (and offers Warrior Priests from Age 1). Its other research and the Petriarchy purchases are switched off for now.
 - **Litharchs have no spells in Age 0.** The ability bar no longer appears for Scouts or over the build menu.
 - **Units**: formations on the top row, stances on the bottom; stances are now Aggressive / Standard / Defensive.
 

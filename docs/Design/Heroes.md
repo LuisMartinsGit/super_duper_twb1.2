@@ -50,7 +50,12 @@ victim's total resource cost in XP; the killer takes all of it and allied heroes
 nearby take a share. Temporary summons are worth nothing as killer or victim. The
 step between levels widens every level.
 
-Levels unlock abilities. They grant no stat increase.
+Levels unlock abilities **and grant stats (2026-11-20, decision 94)**: each level above
+the first adds a fixed share of the hero's level-1 health and weapon damage
+(`healthPerLevel`, `damagePerLevel` on `HeroLevelSystem.asset`), applied by
+`HeroLevelSystem` the moment the level is held, a revived hero included. The yardstick:
+fighting alone and surrounded, without abilities, a level-1 hero is worth a handful of
+Swordsmen and a level-10 hero **20 to 30 Swordsmen**.
 
 **Level and progress are public.** Every hero wears its own small bar, whoever owns it
 and whatever the health-bar setting: health, XP toward the next level, and the level

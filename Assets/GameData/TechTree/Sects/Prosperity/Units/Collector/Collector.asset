@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Collector
   displayName: Bounty Hunter
   unitClass: melee
-  hp: 240
+  hp: 325
   speed: 6.4
   trainingTime: 18
   damage: 22

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_Chaincaster
   displayName: Chaincaster
   unitClass: magic
-  hp: 220
+  hp: 295
   speed: 5
   trainingTime: 21
   damage: 34

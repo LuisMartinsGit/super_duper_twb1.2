@@ -63,3 +63,14 @@ public struct TemporarySummon : IComponentData
 {
     public float TimeToLive;
 }
+
+/// <summary>
+/// The level whose stat growth is already in this hero's Health and Damage
+/// (Heroes.md § 2, decision 94). Absent = level 1. HeroLevelSystem rescales
+/// the hero whenever this differs from <see cref="HeroLevel"/>, so a level
+/// gained in the field and a level restored by a revival take the same path.
+/// </summary>
+public struct HeroLevelApplied : IComponentData
+{
+    public byte Value;
+}

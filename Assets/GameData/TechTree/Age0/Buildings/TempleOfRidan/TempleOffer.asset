@@ -14,6 +14,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   age0Research: []
   research:
+  - BlessedVestments
+  - EliteLitharchs
+  - FervoredMasses
+  - HeightenedMasses
+  - LinenVestments
+  - Litany
+  - LongReach
+  - PiousMasses
+  - PrayerBeads
+  - Psalter
+  - SwiftRites
+  - TwinBlessing
+  - VeteranLitharchs
   - WarriorPriests
-  sectUnits: 0
-  petriarchy: 0
+  - WoolVestments
+  sectUnits: 1
+  petriarchy: 1

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Sect_GlassmarkArcanist
   displayName: Glassmark Arcanist
   unitClass: magic
-  hp: 210
+  hp: 285
   speed: 5
   trainingTime: 21
   damage: 40

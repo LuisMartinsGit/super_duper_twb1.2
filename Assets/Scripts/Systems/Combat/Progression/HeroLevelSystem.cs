@@ -120,6 +120,53 @@ namespace TheWaningBorder.Systems.Combat
                 byte earned = HeroProgressionConfig.LevelForXp(xp.ValueRO.Xp);
                 if (earned > lvl.ValueRO.Value) lvl.ValueRW = new HeroLevel { Value = earned };
             }
+
+            // ── 4. A level is worth stats (Heroes.md § 2, decision 94) ───
+            //
+            // Health and weapon damage grow by a share of their level-1 value
+            // per level (HeroLevelSystem.asset). The hero is rescaled by the
+            // ratio between the level it holds and the level already in its
+            // stats, so research and buffs already folded into them carry
+            // over, and a revived hero (level written directly) grows here too.
+            var cfg = HeroLevelSystemConfig.I;
+            var grow = new NativeList<Entity>(Allocator.Temp);
+            foreach (var (lvl, e) in SystemAPI.Query<RefRO<HeroLevel>>().WithAll<Health>().WithEntityAccess())
+            {
+                byte have = em.HasComponent<HeroLevelApplied>(e)
+                    ? em.GetComponentData<HeroLevelApplied>(e).Value : HeroProgressionConfig.MinLevel;
+                if (have != lvl.ValueRO.Value) grow.Add(e);
+            }
+            for (int i = 0; i < grow.Length; i++)
+            {
+                Entity e = grow[i];
+                int now = em.GetComponentData<HeroLevel>(e).Value;
+                int was = em.HasComponent<HeroLevelApplied>(e)
+                    ? em.GetComponentData<HeroLevelApplied>(e).Value : HeroProgressionConfig.MinLevel;
+                float hpRatio = (1f + cfg.healthPerLevel * (now - 1)) / (1f + cfg.healthPerLevel * (was - 1));
+                float dmgRatio = (1f + cfg.damagePerLevel * (now - 1)) / (1f + cfg.damagePerLevel * (was - 1));
+
+                var hp = em.GetComponentData<Health>(e);
+                if (hp.Value > 0)
+                {
+                    hp.Max = math.max(1, (int)math.round(hp.Max * hpRatio));
+                    hp.Value = math.clamp((int)math.round(hp.Value * hpRatio), 1, hp.Max);
+                    em.SetComponentData(e, hp);
+                }
+                if (em.HasComponent<Damage>(e))
+                {
+                    var d = em.GetComponentData<Damage>(e);
+                    if (d.Value > 0)
+                    {
+                        d.Value = math.max(1, (int)math.round(d.Value * dmgRatio));
+                        em.SetComponentData(e, d);
+                    }
+                }
+
+                var applied = new HeroLevelApplied { Value = (byte)now };
+                if (em.HasComponent<HeroLevelApplied>(e)) em.SetComponentData(e, applied);
+                else em.AddComponentData(e, applied);
+            }
+            grow.Dispose();
         }
 
         /// <summary>

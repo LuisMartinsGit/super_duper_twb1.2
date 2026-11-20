@@ -9,6 +9,29 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+94. **Hero levels grant stats; level 10 is worth 20 to 30 Swordsmen (2026-11-20, developer:
+    "Heroes themselves should be worth around 20-30 units themselves when at max level", then
+    "Swordsman, grow by level").** Each level above the first adds a share of the hero's
+    level-1 health and weapon damage (`HeroLevelSystem.asset`); level 1 is unchanged. The
+    growth is applied by `HeroLevelSystem` from `HeroLevel` against a new `HeroLevelApplied`
+    marker, so levelling in the field and returning from a death at a kept level take the same
+    path. Ability damage does not grow. Heroes.md § 2.
+93. **Sect units are heroic: tougher and dearer in religion points (2026-11-20, developer:
+    "They are heroic units so they should have 30-40% more effective hit points ... Make them
+    cost more religion points").** Every sect line unit's health is raised by about a third on
+    its unit SO (armour is a flat subtraction, so health is effective health). The religion
+    price of a sect unit (`sectUnitRp`), of a sect hero (`heroRp`) and of the Petriarchy's three
+    armies (`armySmallRp` / `armyMediumRp` / `armyLargeRp`) is raised on
+    `FactionReligionPoints.asset`; the armies moved with the unit price so an army never
+    undercuts the same units bought singly. **Open:** a hero at level 10 is to be worth 20 to 30
+    units — settled by decision 94.
+92. **Every sect feature is switched on (2026-11-20, developer: "Turn on all sect features").**
+    Sect line units and sect heroes can be trained again (`sectUnitsEnabled` on
+    `FactionReligionPoints.asset`), and from Age 1 the Temple offers the adopted sects' units,
+    the Petriarchy's Support and Army and its whole research list (the Masses ladder, the
+    Litharch ladder, Warrior Priests) — `TempleOffer.asset`. Age 0 is unchanged: the Litharch
+    only. Reverses decision 78 (e)'s "leave hidden" and the 2026-11-17 switch-off. **Open:**
+    the sect units still carry their pre-decision-71 stats.
 91. **One army, fed in the field, razing inward (2026-11-19, developer: "Do it", to the findings
     of the version-by-version investigation; and his insight: "the AI (at higher levels) must
     secure the newly acquired territories with towers before proceeding and take the enemy's
