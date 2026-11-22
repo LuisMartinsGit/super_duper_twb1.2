@@ -65,6 +65,9 @@ namespace TheWaningBorder.AI
                 Entity e = roster.E[i];
                 if (e == king || roster.Verb(i) || IsClaimSquadMember(e)) continue;
                 if (s.Roster.Contains(e) || _shardrootFree.Contains(e)) continue;
+                // The wave is the whole army (decision 111): only a countdown
+                // (want = everyone) takes soldiers out of it.
+                if (Cfg.sendWholeArmy && want != int.MaxValue && IsEnrolledInMission(faction, e)) continue;
                 busy.Add((math.distancesq(em.GetComponentData<LocalTransform>(e).Position.xz, pos.xz), i, e));
             }
             busy.Sort((a, b) => a.Dist != b.Dist ? a.Dist.CompareTo(b.Dist) : a.Order.CompareTo(b.Order));

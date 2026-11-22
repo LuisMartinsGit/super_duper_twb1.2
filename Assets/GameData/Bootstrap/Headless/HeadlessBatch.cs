@@ -175,6 +175,9 @@ namespace TheWaningBorder.Bootstrap
             float speed = CommandLine.Int(args, "-twbSpeed", 3);
             int seed = CommandLine.Int(args, "-twbSeed", UnityEngine.Random.Range(1, 99999));
             _rich = CommandLine.Has(args, "-twbRich");
+            // -twbMaxStart: every bank STARTS at the cap (the lobby option) and is
+            // never topped up - scarcity out of the way of a military test.
+            if (CommandLine.Has(args, "-twbMaxStart")) GameSettings.MaxStartingResources = true;
             // -twbSaveAt <sim seconds>: write a saved game mid-match (the match
             // carries on, recording its replay) — the input to -twbOracle.
             _saveAt = CommandLine.Int(args, "-twbSaveAt", 0);

@@ -11,6 +11,12 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.93] — 2026-11-22
+
+### Computer opponents attack with everything (decision 111, 2026-11-22)
+- **An attack is the whole army.** A computer opponent no longer keeps soldiers back as raiding parties, second armies, claim squads, guards or stragglers when it attacks: every soldier it has marches, except those garrisoned inside a tower.
+- **No raiding parties.**
+
 ## [0.0.92] — 2026-11-22
 
 ### The Shardroot victory is contested (decisions 107 to 109, 2026-11-20)

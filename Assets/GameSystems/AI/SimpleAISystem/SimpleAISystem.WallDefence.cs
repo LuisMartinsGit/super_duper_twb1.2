@@ -95,6 +95,11 @@ namespace TheWaningBorder.AI
 
         /// <summary>True while <paramref name="e"/> holds an AI tower or wall
         /// post — it is out of every draft (see the file header).</summary>
+        /// <summary>Garrisoned inside a tower: the one soldier a whole-army wave
+        /// leaves (decision 111).</summary>
+        private static bool IsTowerPosted(Entity e)
+            => _wallPostEpoch == SimCadence.Epoch && _wallPosts.TryGetValue(e, out var p) && p.Kind == PostTower;
+
         internal static bool IsWallPosted(Entity e)
         {
             if (_wallPostEpoch != SimCadence.Epoch) return false;

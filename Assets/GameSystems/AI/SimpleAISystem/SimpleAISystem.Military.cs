@@ -656,6 +656,8 @@ namespace TheWaningBorder.AI
             AISettingsSO settings, AISettingsSO.PersonalityBlock personality, float now)
         {
             if (personality == null || !personality.raidingEnabled || personality.raidIntervalSeconds <= 0f) return;
+            // THE WHOLE ARMY, NO EXCEPTIONS (decision 111): no raiding parties.
+            if (Cfg.sendWholeArmy) return;
             if (GameSettings.TutorialActive) return;
             if (GameSettings.IsPassiveAI(faction)) return;
             if (_raidEpoch != SimCadence.Epoch) { _raidEpoch = SimCadence.Epoch; _nextRaidAt.Clear(); _raidRepelled.Clear(); }
@@ -1688,9 +1690,16 @@ namespace TheWaningBorder.AI
             // Units already enrolled in a living mission are never re-drafted.
             var enrolled = _scratchEnrolled;   // pooled, cleared per use
             enrolled.Clear();
-            foreach (var m in MissionsFor(faction))
-                foreach (var member in m.Members)
-                    enrolled.Add(member);
+            // THE WHOLE ARMY, NO EXCEPTIONS (decision 111): with no wave out,
+            // every soldier is drafted - raiders, claim squads, Sanctum and
+            // monument squads, economy responders, wall posts, units in a
+            // fight. Only a unit inside a tower stays (StripOtherDuties takes
+            // the drafted off their old duty once the wave is formed).
+            bool everyone = Cfg.sendWholeArmy && aiState.WaveActive == 0;
+            if (!everyone)
+                foreach (var m in MissionsFor(faction))
+                    foreach (var member in m.Members)
+                        enrolled.Add(member);
 
             var idleMilitary = new System.Collections.Generic.List<Entity>();
             // STANDING ARMY (Game_AI.md 6a): every draftable combat unit not
@@ -1702,7 +1711,7 @@ namespace TheWaningBorder.AI
                 Entity e = roster.E[i];
                 if (roster.UnderConstruction(i)) continue;
                 if (roster.Verb(i)) continue;   // ritualists are not army
-                if (IsClaimSquadMember(e)) continue;   // holding ground for a claim
+                if (everyone ? IsTowerPosted(e) : IsClaimSquadMember(e)) continue;   // holding ground for a claim
                 // Uncommandable bodies (Feraldis House Raiders) cannot be sent
                 // anywhere — FeraldisRaiderPatrolSystem owns them and
                 // overrides any order the same frame. Drafting them inflates
@@ -1725,7 +1734,7 @@ namespace TheWaningBorder.AI
                 // body this brain already owns and may re-task.
                 if (enrolled.Contains(e)) continue;          // serving already
                 standing++;
-                if (TransientState.Active<AttackCommand>(em, e)) continue;  // in a fight
+                if (!everyone && TransientState.Active<AttackCommand>(em, e)) continue;  // in a fight
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;  // player's
                 idleMilitary.Add(e);
             }
@@ -2532,7 +2541,7 @@ namespace TheWaningBorder.AI
             // objective. Two simultaneous pressure points instead of one blob.
             var missions = MissionsFor(faction);
             int raidSize = RaidPartySize(personality);
-            if (!rerouted && personality.raidingEnabled
+            if (!rerouted && personality.raidingEnabled && !Cfg.sendWholeArmy
                 && idleMilitary.Count >= minUnits + raidSize + Cfg.raidSurplus)
             {
                 Entity raidTarget = ChooseAttackTargetScored(
@@ -2589,7 +2598,7 @@ namespace TheWaningBorder.AI
             // retreated, and it could not beat a passive stand-in in an hour.
             // ...and no raiding parties while a hostile countdown runs: the
             // whole wave goes at the clock (iteration 2, 2026-11-17).
-            if (armies > 1 && !rerouted && !HostileCountdownRunning(em, faction)
+            if (armies > 1 && !rerouted && !Cfg.sendWholeArmy && !HostileCountdownRunning(em, faction)
                 && idleMilitary.Count >= math.max(1, Cfg.sisterMinWaveUnits))
                 PickSisterTargets(em, brainEntity, faction, originPos, target, targetPos, waveVictim, now,
                     idleMilitary, armies, armies - 1,
@@ -2643,6 +2652,7 @@ namespace TheWaningBorder.AI
             attack.Members.AddRange(pool);
             launched.Add(attack);
             launchedSize = idleMilitary.Count;
+            if (everyone) StripOtherDuties(faction, idleMilitary, launched);
             if (_lastFloor > 0)
                 AILogger.Log(faction, "WAVE",
                     $"standing floor {_lastFloor} kept ({standing - launchedSize} standing at home, " +
@@ -3360,7 +3370,9 @@ namespace TheWaningBorder.AI
                         // formed body (ReinforceActiveWave) and merge in the field.
                         int left = 0;
                         float r2 = gatherRadius * gatherRadius;
-                        for (int i = mission.Members.Count - 1; i >= 0; i--)
+                        // ...unless the whole army goes (decision 111): nobody is
+                        // left out, the late ones march with the order below.
+                        for (int i = Cfg.sendWholeArmy ? -1 : mission.Members.Count - 1; i >= 0; i--)
                         {
                             var u = mission.Members[i];
                             if (!em.HasComponent<LocalTransform>(u)) continue;
@@ -4277,6 +4289,37 @@ namespace TheWaningBorder.AI
 
         /// <summary>Take an engine out of every mission of this faction that is
         /// not engaged (§ 6x); false when it serves in a fight.</summary>
+        /// <summary>THE WHOLE ARMY, NO EXCEPTIONS (decision 111): the soldiers
+        /// just drafted into a wave leave every other duty - older missions and
+        /// raids, claim squads (curse sorties too), Sanctum armies, the monument
+        /// squad, economy responders, wall posts and the Shardroot strike - so
+        /// none of those calls them back.</summary>
+        private void StripOtherDuties(Faction faction, System.Collections.Generic.List<Entity> drafted,
+            System.Collections.Generic.List<Mission> launched)
+        {
+            var set = new System.Collections.Generic.HashSet<Entity>(drafted);
+            int fk = (int)faction;
+            foreach (var m in MissionsFor(faction))
+            {
+                if (launched.Contains(m)) continue;
+                m.Members.RemoveAll(set.Contains);
+                m.Flankers.RemoveAll(set.Contains);
+            }
+            var squads = ClaimSquadsOf(fk);
+            for (int i = squads.Count - 1; i >= 0; i--) ReleaseClaimSquad(squads[i]);
+            squads.Clear();
+            foreach (var a in SanctumArmiesOf(faction)) a.Members.RemoveAll(set.Contains);
+            if (_monumentSquads.TryGetValue(fk, out var mon)) mon.Members.RemoveAll(set.Contains);
+            foreach (var r in EconResponsesOf(fk)) r.Members.RemoveAll(set.Contains);
+            for (int i = 0; i < drafted.Count; i++)
+            {
+                _sanctumGuards.Remove(drafted[i]);
+                _econResponders.Remove(drafted[i]);
+                _wallPosts.Remove(drafted[i]);
+            }
+            ShardrootFor(faction).Roster.RemoveAll(set.Contains);
+        }
+
         private bool ReleaseEngineFromMissions(Faction faction, Entity e)
         {
             var missions = MissionsFor(faction);

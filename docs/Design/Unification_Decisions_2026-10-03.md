@@ -9,6 +9,19 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+111. **A wave is the whole army, no exceptions (2026-11-22, developer: "waves must be comprised
+     of the full army. no exceptions.").** In a 149-minute match two Rush Experts held 200 to
+     290 soldiers each and attacked with 20 to 60: the rest were raiding parties, sister
+     armies, claim squads, Sanctum and monument squads, economy responders, wall posts,
+     Shardroot strikes, soldiers who were in a fight when the wave formed and soldiers late
+     to the muster. With `sendWholeArmy` (`SimpleAISystem.asset`) a wave that forms while no
+     other is out now drafts every soldier the faction has and takes each off its old duty
+     (`StripOtherDuties`); it never splits into a raid party or sister armies; nobody is left
+     at the muster; the raid timer is off; and a Shardroot strike no longer pulls soldiers
+     out of a live wave (only the countdown strike of decision 110 does). The one soldier
+     left is a unit garrisoned inside a tower. Units trained while the wave is out still
+     follow it as reinforcement groups. The headless harness gained `-twbMaxStart`
+     (`twb-run.ps1 -MaxStart`): every bank starts at the cap, as the lobby option does.
 110. **The countdown strike owns the army (2026-11-22, batch 28).** Decision 108 sent every
     soldier at an enshrined Shardroot, and the wave machinery called them back: "108 more join
     the group of 171 still mustering", "132 unit(s) not at the muster point stay for the next

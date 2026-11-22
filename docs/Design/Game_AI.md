@@ -4237,6 +4237,12 @@ tier profiles.
   the Shardroot strike drafts every soldier and goes whatever the odds; idle members are re-sent
   each think. The strike owns the army meanwhile (decision 110): no wave, muster, wall guard,
   Sanctum army or curse sortie runs for that faction.
+- **A wave is the whole army, no exceptions** (decision 111, `sendWholeArmy`): a wave formed
+  while none is out drafts every soldier — raiders, claim squads (curse sorties too), Sanctum
+  and monument squads, economy responders, wall posts, soldiers in a fight — and takes them off
+  that duty (`StripOtherDuties`). No raid split, no sister armies, no raid timer, nobody left at
+  the muster, and a Shardroot strike takes nobody out of a live wave. Only a unit garrisoned in
+  a tower stays. Units trained meanwhile follow as reinforcement groups.
 - **Production buildings stop at `productionMaxTotal`** (decision 107), on every path.
 - **Landlocked by the curse** (decision 105): after a claim round with nothing claimable, the
   curse sortie (§ 5b) runs while a wave is out, at an unseen node, drafts before the wave, and

@@ -86,6 +86,7 @@ param(
     [string]$Map = "",          # "" = rotate MapRotation; else pin one
     [string[]]$MapRotation = @("FiendstonePass", "YielLymwerra", "Moatwatch", "Highfold", "BrokenOath", "TrineHollow"),
     [int]$Age = 0,
+    [switch]$MaxStart,          # every faction STARTS at the resource cap (the lobby option)
     [switch]$Rich,              # every faction pinned at the resource cap (diagnostic)
     [switch]$Trace,             # accepted for old command lines: every match is traced now
     [int]$TracePeriod = 0,      # seconds per trace frame; 0 = auto (1, or 2 past an hour)
@@ -254,6 +255,7 @@ function Invoke-Single {
                 "-twbMap", $thisMap
             )
             if ($Rich) { $argList += "-twbRich" }
+            if ($MaxStart) { $argList += "-twbMaxStart" }
             $argList += (RunTagArgs)
             # EVERY MATCH IS TRACED (2026-11-07, developer: never run matches without
             # traces). Muster Rolls reports traced matches only.
@@ -310,6 +312,7 @@ function Invoke-Mp {
         # switch is off, and Start-Process refuses null ArgumentList items.
         if ($Monkey) { $argList += "-twbMpMonkey" }
         if ($Rich)   { $argList += "-twbRich" }
+        if ($MaxStart) { $argList += "-twbMaxStart" }
         # THE REPLAY FEED, HOST ONLY. MapTrace.txt is what the report's map
         # replay is drawn from: every unit's position, name and state once a
         # second, plus buildings with real footprints, the region partition
