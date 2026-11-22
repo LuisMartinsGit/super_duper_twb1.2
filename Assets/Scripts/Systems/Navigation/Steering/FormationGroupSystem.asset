@@ -21,7 +21,7 @@ MonoBehaviour:
   splitMaxFormations: 8
   repeatOrderKeepRadius: 20
   columnLagMetres: 12
-  columnWaitFraction: 0
-  columnWaitSpeed: 0
+  columnWaitFraction: 0.2
+  columnWaitSpeed: 0.5
   openGroundShare: 0.9
   convoyGapMetres: 25

@@ -425,7 +425,7 @@ namespace TheWaningBorder.AI
             // siegeTrainFloor engines stay the minimum.
             if (plan.Active && Cfg.siegeMaxArmyShare > 0f)
                 floorWanted = math.min(floorWanted, math.max(Cfg.siegeTrainFloor,
-                    (int)math.ceil(Cfg.siegeMaxArmyShare * math.max(plan.Army, Cfg.basicsFloor))));
+                    (int)math.floor(Cfg.siegeMaxArmyShare * math.max(plan.Army, Cfg.basicsFloor))));
             if (siegeHeld >= floorWanted) return;
             if (TryTrainUnitBudgeted(em, faction, engine, AIBudgetCategory.Military))
                 AILogger.Log(faction, "MILITARY", $"siege program: {engine} queued ({siegeHeld + 1}/{floorWanted})");
@@ -902,7 +902,7 @@ namespace TheWaningBorder.AI
                     // lives in ResearchCommandDirect on every peer
                     // (docs/Multiplayer_LAN_Readiness.md).
                     var cost = AICommon.ToCost(tech.cost);
-                    if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                    if (!AIBudget.CanAffordLeavingSavings(em, faction, cost)) continue;
 
                     // VEILSTONE-HELD SURPLUS (Game_AI.md 5e): the surplus is
                     // supplies and iron — while the army waits on veilstone a
@@ -957,7 +957,7 @@ namespace TheWaningBorder.AI
                 if (research != null && research.HasResearched(faction, techId)) continue;
                 if (IsResearchInFlight(em, faction, techId)) continue;
                 if (!TechCatalog.TryGetTechnology(techId, out var def) || def == null) continue;
-                if (FactionEconomy.CanAfford(em, faction, AICommon.ToCost(def.cost))) return true;
+                if (AIBudget.CanAffordLeavingSavings(em, faction, AICommon.ToCost(def.cost))) return true;
             }
             return false;
         }
@@ -1243,7 +1243,7 @@ namespace TheWaningBorder.AI
                 AIPivotalReserve.Clear(faction, FirstTrainerReserveKey);
             if (firstLine > 0)
             {
-                if (!FactionEconomy.CanAfford(em, faction, cost))
+                if (!AIBudget.CanAffordLeavingSavings(em, faction, cost))
                 {
                     AIPivotalReserve.Set(faction, FirstTrainerReserveKey, cost, strict: true);
                     reason = "bank short (saving for the line's first trainer)";

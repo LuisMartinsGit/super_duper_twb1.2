@@ -82,5 +82,15 @@ namespace TheWaningBorder.AI
         /// wallets. (The share of income it takes is the tier's:
         /// AIDifficultyProfileSO.savingsIncomeShare.)</summary>
         public float savingsGoalSeconds;
+
+        /// <summary>BORROWING HAS A LIMIT (decision 104): a wallet short of a
+        /// price may owe the other two at most this share of what they hold,
+        /// per resource, counting what it already owes.</summary>
+        public float walletOverspendShare;
+
+        /// <summary>...AND IS PAID BACK (decision 104): while a wallet owes,
+        /// this share of its own income goes to its lenders before it may
+        /// spend it.</summary>
+        public float walletDebtRepayShare;
     }
 }

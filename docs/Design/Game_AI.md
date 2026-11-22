@@ -1141,7 +1141,9 @@ Implementation: `SimpleAISystem.Composition.cs`; every number is in an asset.
 7. **The siege cap** (decision 73, developer: "I just don't think siege
    should take up 30-50% of an army"). Every siege role together (Ram,
    Catapult, Trebuchet, Ballista) holds at most `siegeMaxArmyShare` of the
-   plan; the excess goes to the other role lines in proportion (to the basics
+   plan (one engine for every twenty soldiers since decision 96, rounded down
+   wherever it becomes a count, and applied again to each wave and
+   reinforcement group as it leaves: surplus engines stay home); the excess goes to the other role lines in proportion (to the basics
    only when no other role line is trainable). The siege program's engine
    floor (`siegeTrainFloor`, raised for a walled victim, § 6x) never asks for
    more engines than that share of the army, `siegeTrainFloor` itself staying
@@ -1206,7 +1208,7 @@ Cavalry+Heavy and Siege, the Catapult the densest knot of enemies) —
 never overridden.
 
 **Veilstone priority (the army's earmark).** The wallets were not the problem
-— Military already borrows from both other wallets. What was missing was
+— Military already borrows from both other wallets. (Since decision 104 that borrowing is limited to `walletOverspendShare` of what the lenders hold and is repaid out of the borrower's income at `walletDebtRepayShare`; every bank-direct spender leaves the savings pot whole, `AIBudget.CanAffordLeavingSavings`.) What was missing was
 priority. While a veilstone role is below its share of the army or King Lexor
 is owed, and there is population to spawn into, `militaryVeilstoneShare` of
 every think window's veilstone income is earmarked for the army
@@ -1540,7 +1542,11 @@ order. It places at most one building per walk:
    other lines go on. This floor replaces the economy's redundant-Barracks
    floor (§ 6c); there is one rule, not two.
 5. **More coverage towers in each province**, up to
-   `towersPerProvinceMax`, sited by the same coverage rule. This step comes
+   `towersPerProvinceMax`, sited by the same coverage rule. **No territory, the
+   home included, holds more than `towersPerTerritoryCap` Watch Towers**
+   (decision 97): every tower rule (home ring, coverage, emergency defence,
+   Sanctum fortification, the Alanthor endgame's towers) asks
+   `TowerCapReached` first. This step comes
    **after** the province's production building, and is **army first**: it
    waits while the alive army is below `towerExtraArmyFraction` of its
    target. Towers are not production buildings, and they must never starve
@@ -1759,8 +1765,10 @@ AIs should be able to use the market"). The Vault pass runs
   room left. A bar that starts filling boosts the resource the army is short of, among
   those its Accounts research opened; supplies otherwise.
 - **Withdraw in an emergency, on every tier** (which empties every bar): the Vault is
-  damaged below `vaultDamagedFraction` of its health (it would be lost), the economy is in
-  distress, or the army is short of any resource while the home is under attack (Defend) or
+  damaged below `vaultDamagedFraction` of its health (it would be lost), the supply income has
+  COLLAPSED and the army is short of any resource (decision 102: an extractor owed a rebuild
+  or a defended base is not a collapse, and no longer empties the Vault or stops deposits),
+  or the army is short of any resource while the home is under attack (Defend) or
   the army has been lost (Rebuild). `vaultHoldSeconds` and `vaultWithdrawOnNeed` are gone.
 
 Difficulty scales how much is deposited and how cleverly it is withdrawn,
@@ -2131,11 +2139,13 @@ wall in the way (2026-10-05).** Three findings from Mirror Marches M1-M6:
   march alone took 500-1500 s, so missions timed out on arrival. A mission's
   deadline is now the flat timeout plus the march at
   `missionMarchSpeedForTimeout`, re-armed at every chain.
-- **The army musters COMPLETELY** (2026-11-17, developer: "Armies must muster
-  completely near their base, then march in formation"): `musterGatherFraction` is 1 —
-  it leaves only with every member at the muster point. When the wait below runs out,
-  the members not there are taken out of the army and stay home for the next one; the
-  army never marches with stragglers behind it (Navigation_And_Formations.md § 2).
+- **The army leaves when most of it has mustered** (decision 95, 2026-11-20; it
+  mustered completely from 2026-11-17, and half the musters timed out with a third of
+  the army left at home): it goes as soon as `musterGatherFraction` of it stands at the
+  muster point, or when the wait below runs out. Whoever is not there when it goes is
+  taken out of the army, so it never marches with stragglers behind it
+  (Navigation_And_Formations.md § 2), and the next reinforcement group is due at once:
+  they follow as a formed body and merge with the army in the field.
 - **The muster waits for its farthest man** (2026-10-25). Its wait was a flat
   `musterTimeoutSeconds`, less than the walk of a soldier drafted from a far
   territory, so a third of the musters on Fiendstone Pass left without part of
@@ -3003,7 +3013,27 @@ attack the same faction.
    never fires, and the duel is decided by point 1 — the economy that can
    keep buying past the old cap.
 
+> **Not kited (decision 100, 2026-11-20; tiers with tactics skill).** A threat under
+> `engageMinThreatFraction` never takes over the army, even when its members are being
+> hit: a detachment of the shooters and cavalry that can reach it answers
+> (`AnswerHarasser`, `harassAnswerOdds`), foot that ran after it is called back, and the
+> army marches on. Every engagement keeps a ledger of health lost against hostile health
+> destroyed (`ChaseNotPaying`); after `chaseReviewSeconds`, against a foe under
+> `chaseWeakFraction` of its strength or on cursed ground it was not sent to, an army
+> that has lost more than `chaseLossRatio` times what it destroyed breaks off, resumes
+> its march and passes weak hostiles by for `chaseIgnoreSeconds`.
+
 ## 6k. Armies march round the curse (2026-10-07)
+
+> **2026-11-20 (decision 99).** Every leg of an army's march goes through the planner,
+> the strike leg from the stage point, a close-range launch and a reinforcement group's
+> strike included; a regroup re-forms the army on its current leg of the route. The
+> tactics layer engages only a target that at least one member has inside its own line
+> of sight; until then the army steers as a formation. A target standing on cursed
+> ground is weighed first, unless the army's objective is on cursed ground too: the fight
+> is taken only when the hostile health it destroys, times `curseFightWorth`, is at least
+> the health the curse would take from the soldiers going in for as long as the fight
+> lasts (`CurseFightWorthIt`). A threat to the army's engines is always answered.
 
 **Developer report:** "AI is marching through cursed territories and losing
 their army to the DOT." Cursed ground is a radius (`nodeAuraRadius`) round
@@ -4193,8 +4223,24 @@ tier profiles.
   of the target and has population room, its budget gives the military at least
   `rateDeficitMilWeight`, every surplus spender (levels, research, Vault deposits) yields to the
   army, and an extra production building passes the saturation gate whenever the bank can pay
-  for it. A RATE line a minute logs the measured rate against the target.
+  for it **and the trainers it already has are busy** at the tier's
+  `productionSaturationThreshold` (decision 101: idle trainers mean money is the limit, and a
+  further building only takes that money from the units). A RATE line a minute logs the measured rate against the target.
 - **Armies still grow and leave whole** (developer: trickle-feeding is out; "armies must grow").
+- **A wave is sized against the army it has seen** (decision 105): it waits, and the army target
+  rises, while it is weaker than `waveVsArmyRatio` times the strongest hostile field army sighted
+  in the last `waveVsArmySightingSeconds`; released after `waveVsArmyMaxHoldSeconds` or at a full
+  population; a Rush's first wave is exempt. Raids wait on the same test. Soldiers who miss the
+  muster stay for the next group. Logs: `WAVE: wave N growing — strength a against X's field
+  army of b`, `WAVE: wave N goes short`.
+- **An enshrined Shardroot is a clock** (decision 108): while a hostile ascension countdown runs,
+  the Shardroot strike drafts every soldier and goes whatever the odds; idle members are re-sent
+  each think. The strike owns the army meanwhile (decision 110): no wave, muster, wall guard,
+  Sanctum army or curse sortie runs for that faction.
+- **Production buildings stop at `productionMaxTotal`** (decision 107), on every path.
+- **Landlocked by the curse** (decision 105): after a claim round with nothing claimable, the
+  curse sortie (§ 5b) runs while a wave is out, at an unseen node, drafts before the wave, and
+  is not dissolved by it (`curseClearLandlockedSeconds`).
 - **A war holds until its victim falls** (`warHoldsUntilFall`): only the attacker beating the AI,
   a game-ending threat (a countdown, a Shardbound King) or the Shardroot holder interrupts it,
   and while it is on no Sanctum wave detours (off the Sanctum road). A war is abandoned after

@@ -180,7 +180,7 @@ namespace TheWaningBorder.AI
             var cost = TheWaningBorder.Data.BuildCosts.Exists(buildingId)
                 ? TheWaningBorder.Data.BuildCosts.For(em, faction, buildingId)
                 : AICommon.ToCost(def.cost);
-            if (!FactionEconomy.CanAfford(em, faction, cost))
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, cost))
             {
                 // Refusal strings are built only when a log can read them —
                 // this path refuses many times per think.
@@ -280,6 +280,14 @@ namespace TheWaningBorder.AI
                 // nothing, so only a COMPLETE failure is remembered.
                 if (inconclusive) reason = "site search budget spent this think";
                 else RememberFailedSiteSearch(em, faction, buildingId, anchor, reason);
+                return false;
+            }
+
+            // THE TOWER CAP (decision 97): no tower rule puts more than
+            // towersPerTerritoryCap in one territory.
+            if (buildingId == TowerId && TowerCapReached(em, faction, pos))
+            {
+                reason = "territory tower cap";
                 return false;
             }
 
@@ -683,7 +691,7 @@ namespace TheWaningBorder.AI
                 return;
             }
             var cost = TheWaningBorder.Data.BuildCosts.For(em, faction, id, at);
-            if (!TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction, cost)) return;
+            if (!TheWaningBorder.AI.AIBudget.CanAffordLeavingSavings(em, faction, cost)) return;
             bool queued = CommandRouter.IssuePlaceBuilding(em, id, at, faction,
                 Entity.Null, out Entity created, CommandSource.AI);
             InvalidateThinkMemo();

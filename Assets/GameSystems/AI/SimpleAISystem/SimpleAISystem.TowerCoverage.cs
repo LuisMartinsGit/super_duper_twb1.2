@@ -110,6 +110,8 @@ namespace TheWaningBorder.AI
             float towerScale = math.max(0f, PersonalityOf(faction).towerCoverageScale) * VictoryTowerScale(faction);
             int max = (int)math.round(math.max(0, Cfg.towersPerProvinceMax) * towerScale);
             if (!extras) max = math.min(max, (int)math.round(math.max(0, Cfg.towersProvinceFirst) * towerScale));
+            // No territory holds more than the cap, whatever the scales say (decision 97).
+            if (Cfg.towersPerTerritoryCap > 0) max = math.min(max, Cfg.towersPerTerritoryCap);
             if (max <= 0) return false;
             if (StepBlocked(faction, r, step, now)) return false;
             // Cut-off ground is wearing down: no new tower there.

@@ -110,7 +110,7 @@ namespace TheWaningBorder.AI
             if (owned < want && owned - finished < 2)
             {
                 var farmCost = TheWaningBorder.Data.BuildCosts.For(em, faction, Farm.BuildingId);
-                if (!FactionEconomy.CanAfford(em, faction, farmCost))
+                if (!AIBudget.CanAffordLeavingSavings(em, faction, farmCost))
                     AIPivotalReserve.Set(faction, FarmReserveKey, farmCost, strict: true);
                 if (TryBuildBuildingWithReason(em, faction, Farm.BuildingId, out string why))
                 {
@@ -138,17 +138,27 @@ namespace TheWaningBorder.AI
                 && queuedWorkers < queueWant)
             {
                 int trained = 0;
+                string noWorker = null;
                 for (int q = queuedWorkers; q < queueWant; q++)
                 {
                     if (FactionEconomy.TryGetResources(em, faction, out var now2)
-                        && now2.Supplies < Cfg.farmTrainWorkerMinSupplies) break;
-                    if (!TryTrainUnitWithReason(em, faction, "Worker", out _)) break;
+                        && now2.Supplies < Cfg.farmTrainWorkerMinSupplies)
+                    { noWorker = $"supplies under {Cfg.farmTrainWorkerMinSupplies}"; break; }
+                    if (!TryTrainUnitWithReason(em, faction, "Worker", out string whyNot)) { noWorker = whyNot; break; }
                     trained++;
                 }
                 if (trained > 0)
                     AILogger.Log(faction, "FARM", $"training {trained} Worker(s) for {vacancies} empty Farm slot(s)");
+                else if (noWorker != null && queuedWorkers == 0 && AILogger.Enabled
+                         && (!_farmNoWorkerLogAt.TryGetValue(faction, out float nl) || (float)SimClock.Now >= nl))
+                {
+                    _farmNoWorkerLogAt[faction] = (float)SimClock.Now + 60f;
+                    AILogger.Log(faction, "FARM", $"no Worker trained for {vacancies} empty Farm slot(s): {noWorker}");
+                }
             }
         }
+
+        private readonly Dictionary<Faction, float> _farmNoWorkerLogAt = new Dictionary<Faction, float>();
 
         private const string FarmReserveKey = "Farm";
         private const string MarketReserveKey = "Market";
@@ -260,7 +270,7 @@ namespace TheWaningBorder.AI
                          || (Cfg.marketBuildIron > 0 && bank.Iron >= Cfg.marketBuildIron);
                 if (bank.Supplies < Cfg.marketBuildMinSupplies && !glut) return;
                 var marketCost = TheWaningBorder.Data.BuildCosts.For(em, faction, Market.BuildingId);
-                if (glut && !FactionEconomy.CanAfford(em, faction, marketCost))
+                if (glut && !AIBudget.CanAffordLeavingSavings(em, faction, marketCost))
                     AIPivotalReserve.Set(faction, MarketReserveKey, marketCost, strict: true);
                 if (TryBuildBuildingWithReason(em, faction, Market.BuildingId, out string why))
                 {
@@ -302,10 +312,17 @@ namespace TheWaningBorder.AI
             if (AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone)) veilSpare = 0;
 
             // (good, held, short level, glut level, army waiting on it)
+            // WHAT IS BEING SAVED IS NOT A GLUT (decision 106, 2026-11-20). The
+            // Shardroot's enshrine price is more supplies than the glut level,
+            // so a bearer's bank was sold back down to the glut level every
+            // think (289 sales in one match) and the price never formed: the
+            // bearer waited at home for 55 minutes. Every pending savings goal
+            // is added to the level a sale keeps.
+            var saving = AIPivotalReserve.PendingTotal(faction);
             var sup = (Good: Market.GoodSupplies, Held: bank.Supplies, Short: Cfg.marketSuppliesShort,
-                Glut: Cfg.marketSuppliesGlut, Starved: AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies));
+                Glut: Cfg.marketSuppliesGlut + saving.Supplies, Starved: AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies));
             var iro = (Good: Market.GoodIron, Held: bank.Iron, Short: Cfg.marketIronShort,
-                Glut: Cfg.marketIronGlut, Starved: AIBudget.IsMilitaryShort(faction, AIBudget.ResIron));
+                Glut: Cfg.marketIronGlut + saving.Iron, Starved: AIBudget.IsMilitaryShort(faction, AIBudget.ResIron));
 
             for (int pass = 0; pass < 2; pass++)
             {
@@ -373,11 +390,12 @@ namespace TheWaningBorder.AI
                 }
 
                 // A need and no veilstone: raise it from the other resource.
-                // Only from a stock well above its own short level; at any
-                // price (decision 81).
+                // Down to its own short level (decision 105: it kept twice
+                // that, and an AI short of supplies sat on 1,400 iron it never
+                // sold); at any price (decision 81).
                 if (!need || o.Starved) continue;
                 int oPrice = Market.PriceOf(prices, o.Good);
-                int oLots = math.min(maxLots, (o.Held - o.Short * 2) / Market.LotSize(o.Good));
+                int oLots = math.min(maxLots, (o.Held - o.Short) / Market.LotSize(o.Good));
                 if (oLots <= 0 || Market.SellPay(oPrice) <= 0) continue;
                 CommandRouter.IssueMarketTrade(em, market, o.Good, oLots, false, CommandSource.AI);
                 AILogger.Log(faction, "MARKET",

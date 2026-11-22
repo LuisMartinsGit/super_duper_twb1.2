@@ -154,7 +154,7 @@ namespace TheWaningBorder.AI
             const int TargetTotems = 3;
             if (CountFactionWith<WarTotemTag>(em, faction) >= TargetTotems) return;
             if (!BuildCosts.TryGet("Feraldis_WarTotem", out var cost)) return;
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return;
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, cost)) return;
             if (!TheWaningBorder.Influence.BloodMap.Ready) return;
 
             if (!TryFindBloodSpot(em, faction, hallPos, out float3 spot)) return;
@@ -275,7 +275,7 @@ namespace TheWaningBorder.AI
             {
                 var fc = TechCatalog.Building("Feraldis_GreatForge").cost;
                 var forgeCost = Cost.Of(fc.Supplies, fc.Iron, fc.Veilstone);
-                if (!FactionEconomy.CanAfford(em, faction, forgeCost))
+                if (!AIBudget.CanAffordLeavingSavings(em, faction, forgeCost))
                     AIBudget.Reserve(faction, forgeCost, SimClock.Now, 60f, 1);
                 else
                 {

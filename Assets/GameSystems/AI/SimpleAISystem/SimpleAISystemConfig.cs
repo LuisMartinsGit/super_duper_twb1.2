@@ -834,6 +834,43 @@ namespace TheWaningBorder.AI
         /// Game_AI.md § 6e). 0 = off.</summary>
         public int engageFloorUnits;
 
+        /// <summary>NOT KITED (decision 100, 2026-11-20; tiers with tactics
+        /// skill only). An engagement is judged once it has lasted this many
+        /// seconds (SimpleAISystem.ChaseNotPaying). 0 = never.</summary>
+        public float chaseReviewSeconds;
+        /// <summary>The judgement applies against a foe whose live strength is
+        /// under this share of the army's own (a stronger foe is the fall-back
+        /// rule's business), and always on cursed ground the army was not
+        /// sent to.</summary>
+        public float chaseWeakFraction;
+        /// <summary>The army breaks off when the health it has lost exceeds
+        /// this times the hostile health it has destroyed.</summary>
+        public float chaseLossRatio;
+        /// <summary>After breaking off, the army marches past weak hostiles
+        /// for this many seconds.</summary>
+        public float chaseIgnoreSeconds;
+        /// <summary>A harasser too weak to stop the army is answered by a
+        /// detachment whose strength is this many times the threat
+        /// (SimpleAISystem.AnswerHarasser).</summary>
+        public float harassAnswerOdds;
+        /// <summary>Seconds between two detachment orders against a harasser.</summary>
+        public float harassAnswerInterval;
+
+        /// <summary>A WAVE IS SIZED AGAINST THE ARMY IT HAS SEEN (decision
+        /// 105): a wave waits at home, and the army grows, while its strength
+        /// is below this multiple of the strongest hostile field army sighted
+        /// in the last waveVsArmySightingSeconds. Raids wait on the same test,
+        /// read on the whole army. 0 turns it off.</summary>
+        public float waveVsArmyRatio;
+
+        /// <summary>How old a sighting of a hostile soldier may be and still
+        /// count toward that field army.</summary>
+        public float waveVsArmySightingSeconds;
+
+        /// <summary>The wave goes anyway once it has waited this long (or
+        /// the population is full): a hold that cannot be met must end.</summary>
+        public float waveVsArmyMaxHoldSeconds;
+
         /// <summary>
         /// Once engaged, the army stays engaged while a target is anywhere
         /// inside this. Wider than <see cref="FocusRadius"/> on purpose: with
@@ -853,6 +890,15 @@ namespace TheWaningBorder.AI
         /// point keeps the whole army fighting the same local battle.
         /// </summary>
         public float focusRadius;
+
+        /// <summary>THE PRICE OF A FIGHT ON CURSED GROUND (decision 99,
+        /// 2026-11-20): an army whose objective is not on cursed ground follows
+        /// a target onto it only when the hostile health it would destroy
+        /// there, times this, is at least the health the curse would take from
+        /// the soldiers going in for as long as the fight lasts
+        /// (SimpleAISystem.CurseFightWorthIt). 1 = a point of hostile health is
+        /// worth a point of ours; lower = more reluctant; 0 = never follow.</summary>
+        public float curseFightWorth;
 
         /// <summary>
         /// A member further than this from the centroid has left the army and
@@ -1093,6 +1139,14 @@ namespace TheWaningBorder.AI
         /// towerExtraArmyFraction of its target.</summary>
         public int towersPerProvinceMax;
 
+        /// <summary>THE TOWER CAP (decision 97, 2026-11-20): the most Watch
+        /// Towers one faction stands (or has planned) in ONE territory, the
+        /// home included, whichever rule asks for the tower: the home ring,
+        /// province coverage, emergency defence, Sanctum fortification or the
+        /// Alanthor endgame's defensive towers. Wall Towers are not counted.
+        /// 0 = no cap.</summary>
+        public int towersPerTerritoryCap;
+
         /// <summary>Fraction (0..1) of a province's weighted important points
         /// inside some own tower's reach at which its towers stop.</summary>
         public float towerCoverageTarget;
@@ -1153,6 +1207,10 @@ namespace TheWaningBorder.AI
         /// <summary>Seconds between "PRODUCTION: extra held" lines per
         /// faction.</summary>
         public float productionLogInterval;
+
+        /// <summary>Most production buildings a faction may own, on every
+        /// path (decision 107). 0 = no cap.</summary>
+        public int productionMaxTotal;
 
         /// <summary>Territories one un-anchored production-building request
         /// may try before it gives up this think (least-equipped, frontier
@@ -1311,6 +1369,11 @@ namespace TheWaningBorder.AI
         /// <summary>The sortie goes only when its power is at least this
         /// multiple of the curse's at the node it attacks first.</summary>
         public float curseClearPowerMargin;
+
+        /// <summary>LANDLOCKED BY THE CURSE (decision 105): for this long
+        /// after a claim round found nothing claimable, the curse sortie goes
+        /// even while a wave is out, and at a node it has not seen yet.</summary>
+        public float curseClearLandlockedSeconds;
 
         // ── Curse node intel (Game_AI.md § 5i rule 2; SimpleAISystem.CurseIntel.cs) ──
 

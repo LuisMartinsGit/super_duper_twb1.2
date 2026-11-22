@@ -822,7 +822,13 @@ namespace TheWaningBorder.AI
             // stretch gets no curtain: the way stays open between its two
             // tower hubs. Engine geometry, not tuning.
             float gateSpan = span / segs;
-            bool gateFits = (int)math.ceil(gateSpan / TheWaningBorder.Entities.AlanthorWall.InstanceSpacing)
+            // The modules stand BETWEEN the two hubs (2026-11-20, decision 101):
+            // the hub footprints are not curtain, so they come off the span,
+            // and a part module does not count. Measured hub to hub and
+            // rounded up, a 15 m ramp passed this test with three real
+            // modules and was sealed all the same (batch 25, Fiendstone Pass).
+            float curtain = gateSpan - hubSize.x;
+            bool gateFits = (int)math.floor(curtain / TheWaningBorder.Entities.AlanthorWall.InstanceSpacing)
                             >= TheWaningBorder.Entities.AlanthorWall.FreeRunForGate;
 
             for (int i = 0; i < hubCount; i++)

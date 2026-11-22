@@ -317,9 +317,9 @@ namespace TheWaningBorder.AI
             var ai = TheWaningBorder.AI.SimpleAISystemConfig.I;
             int below = ai.petriarchyTradeBelow;
             var short1 = ReligionPurchaseKind.Tithe;
-            if (!FactionEconomy.CanAfford(em, faction, Cost.Of(iron: below))) short1 = ReligionPurchaseKind.SupportIron;
-            else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(supplies: below))) short1 = ReligionPurchaseKind.SupportSupplies;
-            else if (!FactionEconomy.CanAfford(em, faction, Cost.Of(veilstone: below))) short1 = ReligionPurchaseKind.SupportVeilstone;
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, Cost.Of(iron: below))) short1 = ReligionPurchaseKind.SupportIron;
+            else if (!AIBudget.CanAffordLeavingSavings(em, faction, Cost.Of(supplies: below))) short1 = ReligionPurchaseKind.SupportSupplies;
+            else if (!AIBudget.CanAffordLeavingSavings(em, faction, Cost.Of(veilstone: below))) short1 = ReligionPurchaseKind.SupportVeilstone;
             // SECT UNITS BEFORE SUPPORT (2026-11-14): a point traded for iron
             // is a sect unit not trained. 731 support trades against 30 sect
             // line units in 84 faction-games - the trade ran every time a point
@@ -353,7 +353,7 @@ namespace TheWaningBorder.AI
         {
             var price = FactionReligionPointsHelper.TitheCost(em, faction);
             var doubled = Cost.Of(price.Supplies * 2, price.Iron * 2, price.Veilstone * 2);
-            if (!FactionEconomy.CanAfford(em, faction, doubled)) return;
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, doubled)) return;
             if (CommandRouter.IssueReligionPurchase(em, faction, ReligionPurchaseKind.Tithe, null,
                     CommandSource.AI))
                 AILogger.Log(faction, "STRATEGY", "bought a Religion Point through the Tithe");

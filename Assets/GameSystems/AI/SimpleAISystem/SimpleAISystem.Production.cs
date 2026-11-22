@@ -319,7 +319,7 @@ namespace TheWaningBorder.AI
             // Affordability CHECK only — TrainCommandDirect spends on every
             // peer (docs/Multiplayer_LAN_Readiness.md); an AI-side Spend
             // here would double-charge the host and charge clients nothing.
-            if (!FactionEconomy.CanAfford(em, faction, cost))
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, cost))
             { blockReason = "bank short"; return false; }
 
             // Through CommandRouter (CommandSource.AI) so host-AI training
@@ -564,7 +564,7 @@ namespace TheWaningBorder.AI
 
             // Affordability CHECK only — ResearchCommandDirect spends on
             // every peer (docs/Multiplayer_LAN_Readiness.md).
-            if (!FactionEconomy.CanAfford(em, faction, cost))
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, cost))
             { blockReason = "bank short"; return false; }
 
             // Through CommandRouter (CommandSource.AI) so host-AI research
@@ -951,7 +951,7 @@ namespace TheWaningBorder.AI
             // the siege cap (siegeMaxArmyShare, siegeTrainFloor engines at least).
             int armyAfter = planned ? math.max(p.Army + budget, Cfg.basicsFloor) : 0;
             int siegeCap = planned
-                ? math.max(Cfg.siegeTrainFloor, (int)math.ceil(Cfg.siegeMaxArmyShare * armyAfter))
+                ? math.max(Cfg.siegeTrainFloor, (int)math.floor(Cfg.siegeMaxArmyShare * armyAfter))
                 : 0;
 
             int trained = 0, basicsAdded = 0;
@@ -1352,7 +1352,7 @@ namespace TheWaningBorder.AI
                 return false;
             }
             if (TechCatalog.TryGetUnit(unitId, out var def) && def != null
-                && FactionEconomy.CanAfford(em, faction, AICommon.ToCost(def.cost)))
+                && AIBudget.CanAffordLeavingSavings(em, faction, AICommon.ToCost(def.cost)))
                 return false;
             return true;
         }

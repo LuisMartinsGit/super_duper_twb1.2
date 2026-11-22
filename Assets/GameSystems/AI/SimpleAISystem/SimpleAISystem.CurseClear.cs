@@ -37,6 +37,10 @@ namespace TheWaningBorder.AI
     {
         private readonly Dictionary<int, float> _nextCurseClear = new Dictionary<int, float>();
         private readonly Dictionary<int, float> _nextCurseClearLog = new Dictionary<int, float>();
+        /// <summary>Per faction: when a claim round last found nothing
+        /// claimable (LaunchClaimRound). Match-relative, reset per match.</summary>
+        private readonly Dictionary<int, float> _claimLandlockedAt = new Dictionary<int, float>();
+        private int _claimLandlockedEpoch = -1;
 
         // Host scratch (main thread only).
         private readonly List<(int Region, float3 Node, int Power, float Dist)> _curseClearCands
@@ -62,7 +66,14 @@ namespace TheWaningBorder.AI
             // Claims open at age-up; a defence need or a wave out owns the army.
             if (!HasAgedUp(em, faction)) return;
             if (aiState.Posture == AIPosture.Defend) return;
-            if (aiState.WaveActive != 0) return;
+            // LANDLOCKED (decision 105): with nothing else to claim, the curse
+            // next door is the only way to grow, so the sortie goes while a
+            // wave is out and at a node not yet seen (the veil shows where the
+            // curse stands).
+            bool landlocked = _claimLandlockedEpoch == SimCadence.Epoch
+                && _claimLandlockedAt.TryGetValue(key, out float lockedAt)
+                && now - lockedAt <= Cfg.curseClearLandlockedSeconds;
+            if (aiState.WaveActive != 0 && !landlocked) return;
             if (EconResponsesOf(key).Count > 0) return;
             var squads = ClaimSquadsOf(key);
             for (int i = 0; i < squads.Count; i++)
@@ -84,13 +95,21 @@ namespace TheWaningBorder.AI
                 for (int s = 0; s < squads.Count && !targeted; s++) targeted = squads[s].Territory == r;
                 if (targeted) continue;
                 // Only a node it has SEEN (TryNearestCurseNodeIn, knownOnly).
-                if (!TryNearestCurseNodeIn(em, r, true, faction, home, out float3 node)) continue;
+                if (!TryNearestCurseNodeIn(em, r, !landlocked, faction, home, out float3 node)) continue;
                 // The curse estimate, not the bare reading (CurseIntel.cs).
                 int seenNow = AIEngagement.Assess(em, faction, node, Cfg.claimCurseAssessRadius).EnemyMobilePower;
                 int power = CurseNodePowerEstimate(em, faction, node, Cfg.claimCurseAssessRadius, now, seenNow);
                 _curseClearCands.Add((r, node, power, math.distance(node.xz, home.xz)));
             }
-            if (_curseClearCands.Count == 0) return;
+            if (_curseClearCands.Count == 0)
+            {
+                if (landlocked && (!_nextCurseClearLog.TryGetValue(key, out float nl0) || now >= nl0))
+                {
+                    _nextCurseClearLog[key] = now + Cfg.claimLogInterval;
+                    AILogger.Log(faction, "CURSE CLEAR", "landlocked, and no curse-held territory borders Fortress-linked ground");
+                }
+                return;
+            }
             _curseClearCands.Sort((a, b) =>
             {
                 int c = a.Power.CompareTo(b.Power);

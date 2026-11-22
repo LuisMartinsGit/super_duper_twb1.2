@@ -398,7 +398,8 @@ namespace TheWaningBorder.AI
                     EvaluatePosture(em, brain.Owner, ref aiState, settings, personality);
                     // THE WALL GUARD (Game_AI.md § 3b): a Turtle posts part of its
                     // idle army at the home ring's gates.
-                    TickWallGuard(em, brainEntity, brain.Owner, in aiState, personality, now);
+                    if (!CountdownStrikeOwnsArmy(brain.Owner, now))
+                        TickWallGuard(em, brainEntity, brain.Owner, in aiState, personality, now);
                     break;
                 }
                 case 8:
@@ -417,17 +418,21 @@ namespace TheWaningBorder.AI
                     // § 6t; moved ahead of the waves 2026-11-02): it reserves
                     // its soldiers before the waves below take everything idle.
                     TickVictoryPlan(em, brainEntity, brain.Owner, now);
+                    // AN ENSHRINED SHARDROOT (decision 110): the strike owns the
+                    // army; nothing below may muster, garrison or divert it.
+                    if (CountdownStrikeOwnsArmy(brain.Owner, now)) break;
                     TickSanctumArmies(em, brain.Owner, ref aiState, now);
                     TickMonuments(em, brain.Owner, ref aiState, now);
-
-                    TickAttackWaves(em, brainEntity, brain.Owner, ref aiState,
-                        settings, personality, profile, now);
 
                     // THE IDLE ARMY CLEARS THE CURSE (Game_AI.md § 5b): no wave
                     // out, no defence need, surplus above the standing floor —
                     // march on the weakest curse-held neighbour so it can be
-                    // claimed.
+                    // claimed. BEFORE the wave drafts (decision 105): the wave
+                    // takes everyone idle, and left the sortie nobody.
                     TryClearAdjacentCurse(em, brain.Owner, aiState, profile, now);
+
+                    TickAttackWaves(em, brainEntity, brain.Owner, ref aiState,
+                        settings, personality, profile, now);
                     break;
                 }
                 case 9:

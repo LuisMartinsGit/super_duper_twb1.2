@@ -53,6 +53,10 @@ namespace TheWaningBorder.AI
         private sealed class BrainBudget
         {
             public readonly float[,] Wallets = new float[Categories, Resources];
+            /// <summary>What wallet [borrower] owes wallet [lender], per
+            /// resource (decision 104): borrowed in TryAfford, repaid out of
+            /// the borrower's income in Tick.</summary>
+            public readonly float[,,] Debt = new float[Categories, Categories, Resources];
             public readonly float[] IncomeEma = new float[Resources]; // per second
             /// <summary>The caller's clock at the previous Tick (-1 = none):
             /// the income window is the real time since then.</summary>
@@ -248,9 +252,27 @@ namespace TheWaningBorder.AI
                 if (b.Saved[r] > b.SaveGoal[r]) b.Saved[r] = b.SaveGoal[r];
                 if (b.Saved[r] > bank[r]) b.Saved[r] = System.Math.Max(0, bank[r]);
 
-                // 1. Split this window's income by the weights.
+                // 1. Split this window's income by the weights. A wallet in
+                //    debt pays its lenders first (decision 104): more units
+                //    now is fewer units later.
+                float repayShare = Cfg.walletDebtRepayShare < 0f ? 0f
+                                 : Cfg.walletDebtRepayShare > 1f ? 1f : Cfg.walletDebtRepayShare;
                 for (int c = 0; c < Categories; c++)
-                    b.Wallets[c, r] += gross * weights[c];
+                {
+                    float share = gross * weights[c];
+                    float pay = share * repayShare;
+                    for (int l = 0; l < Categories && pay > 0f; l++)
+                    {
+                        float owed = b.Debt[c, l, r];
+                        if (owed <= 0f) continue;
+                        float give = System.Math.Min(pay, owed);
+                        b.Debt[c, l, r] = owed - give;
+                        b.Wallets[l, r] += give;
+                        share -= give;
+                        pay -= give;
+                    }
+                    b.Wallets[c, r] += share;
+                }
 
                 // 2. RECONCILE — THE INVARIANT (2026-08-18):
                 //        wallet[adv] + wallet[mil] + wallet[eco] == bank
@@ -304,10 +326,33 @@ namespace TheWaningBorder.AI
                     for (int c = 0; c < Categories; c++)
                         b.Wallets[c, r] = actual * weights[c];
                 }
+                else if (actual >= sum)
+                {
+                    // Money the wallets did not know of (a refund, a grant):
+                    // shared as income is.
+                    for (int c = 0; c < Categories; c++) b.Wallets[c, r] += (actual - sum) * weights[c];
+                }
                 else
                 {
-                    float scale = actual / sum;
-                    for (int c = 0; c < Categories; c++) b.Wallets[c, r] *= scale;
+                    // Money spent past the wallets (a purchase paid from the
+                    // bank). It used to be taken from each wallet in
+                    // proportion to what it HELD, so the wallet that had
+                    // saved paid most of everyone else's spending (decision
+                    // 104). It is charged as income is shared; only what a
+                    // wallet cannot cover falls on the others.
+                    float missing = sum - actual;
+                    for (int c = 0; c < Categories; c++)
+                    {
+                        float take = System.Math.Min(missing * weights[c], b.Wallets[c, r]);
+                        if (take > 0f) b.Wallets[c, r] -= take;
+                    }
+                    float left = 0f;
+                    for (int c = 0; c < Categories; c++) left += b.Wallets[c, r];
+                    if (left > actual && left > 0.0001f)
+                    {
+                        float scale = actual / left;
+                        for (int c = 0; c < Categories; c++) b.Wallets[c, r] *= scale;
+                    }
                 }
             }
 
@@ -318,6 +363,7 @@ namespace TheWaningBorder.AI
                     $"w(adv/mil/eco)=({adv:0.00}/{mil:0.00}/{eco:0.00}) " +
                     $"S[{W(b, 0)} | {W(b, 1)} | {W(b, 2)}] " +
                     $"emaS={b.IncomeEma[0]:0.0}/s emaI={b.IncomeEma[1]:0.0}/s" +
+                    DebtNote(b) +
                     (b.SaveKey != null
                         ? $" pot[{b.SaveKey}]={(int)b.Saved[0]}/{(int)b.SaveGoal[0]}s,{(int)b.Saved[1]}/{(int)b.SaveGoal[1]}i,{(int)b.Saved[2]}/{(int)b.SaveGoal[2]}v"
                         : ""));
@@ -383,6 +429,54 @@ namespace TheWaningBorder.AI
 
         /// <summary>Supplies in the pot, for logs.</summary>
         public static int SavedSupplies(Faction faction) => (int)GetBrain(faction).Saved[0];
+
+        /// <summary>" owes[adv 0s,0i,0v | mil ... | eco ...]" while any wallet owes.</summary>
+        private static string DebtNote(BrainBudget b)
+        {
+            float any = 0f;
+            foreach (float d in b.Debt) any += d;
+            if (any < 1f) return "";
+            var sb = new System.Text.StringBuilder(" owes[");
+            for (int c = 0; c < Categories; c++)
+            {
+                if (c > 0) sb.Append(" | ");
+                for (int r = 0; r < Resources; r++)
+                {
+                    float o = 0f;
+                    for (int l = 0; l < Categories; l++) o += b.Debt[c, l, r];
+                    sb.Append((int)o).Append(r == 0 ? "s," : r == 1 ? "i," : "v");
+                }
+            }
+            return sb.Append(']').ToString();
+        }
+
+        /// <summary>How much more of resource <paramref name="r"/> wallet
+        /// <paramref name="c"/> may borrow now (decision 104): the overspend
+        /// share of what the other wallets hold, less what it already owes.</summary>
+        private static float BorrowRoom(BrainBudget b, int c, int r)
+        {
+            float others = 0f, owes = 0f;
+            for (int l = 0; l < Categories; l++)
+            {
+                if (l == c) continue;
+                others += System.Math.Max(0f, b.Wallets[l, r]);
+                owes += b.Debt[c, l, r];
+            }
+            float share = Cfg.walletOverspendShare < 0f ? 0f
+                        : Cfg.walletOverspendShare > 1f ? 1f : Cfg.walletOverspendShare;
+            // What it owes was lent out of those wallets: the limit is on the
+            // whole of it, not on each new loan.
+            float room = (others + owes) * share - owes;
+            if (room < 0f) room = 0f;
+            return System.Math.Min(room, others);
+        }
+
+        /// <summary>Can the bank pay <paramref name="cost"/> and leave the
+        /// savings pot whole? What every AI spender that pays the bank
+        /// directly asks instead of FactionEconomy.CanAfford (decision 104);
+        /// the spender the pot is saving for asks the bank itself.</summary>
+        public static bool CanAffordLeavingSavings(EntityManager em, Faction faction, Cost cost)
+            => FactionEconomy.CanAfford(em, faction, cost) && LeavesSavings(em, faction, cost);
 
         private static string W(BrainBudget b, int c)
             => $"{(int)b.Wallets[c, 0]}s,{(int)b.Wallets[c, 1]}i,{(int)b.Wallets[c, 2]}v";
@@ -499,9 +593,10 @@ namespace TheWaningBorder.AI
             for (int r = 0; r < Resources; r++)
             {
                 float held = honourReservation ? ReservedAmount(b, r, now) : 0f;
-                float available = b.Wallets[c, r];
-                for (int i = 0; i < lenderCount; i++) available += b.Wallets[lenders[i], r];
-                available -= held;
+                float whole = b.Wallets[c, r];
+                for (int i = 0; i < lenderCount; i++) whole += b.Wallets[lenders[i], r];
+                // Its own money, plus what it may still borrow (decision 104).
+                float available = System.Math.Min(whole - held, b.Wallets[c, r] + BorrowRoom(b, c, r));
                 if (available < want[r]) return false;
             }
 
@@ -517,6 +612,7 @@ namespace TheWaningBorder.AI
                     if (take <= 0f) continue;
                     b.Wallets[l, r] -= take;
                     b.Wallets[c, r] += take;
+                    b.Debt[c, l, r] += take;
                     shortfall -= take;
                 }
             }

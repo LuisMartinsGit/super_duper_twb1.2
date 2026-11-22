@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &49863503
+--- !u!1 &11881424
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,54 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 49863504}
-  - component: {fileID: 49863505}
+  - component: {fileID: 11881425}
+  - component: {fileID: 11881426}
+  m_Layer: 0
+  m_Name: P1 Start (Blue) - Gullhold
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &11881425
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 11881424}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -148.12, y: 10.770428, z: 1.12}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 770518770}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &11881426
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 11881424}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 995a3f5e761151a42bc21c9181a4d382, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  Faction: 0
+--- !u!1 &66207876
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 66207877}
+  - component: {fileID: 66207878}
   m_Layer: 0
   m_Name: "Region 05 - West Lymw\xE9rra"
   m_TagString: Untagged
@@ -136,28 +182,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &49863504
+--- !u!4 &66207877
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 49863503}
+  m_GameObject: {fileID: 66207876}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -33, y: 3.308156, z: -30.38}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 531750026}
+  m_Father: {fileID: 1133051592}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &49863505
+--- !u!114 &66207878
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 49863503}
+  m_GameObject: {fileID: 66207876}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -229,7 +275,7 @@ MonoBehaviour:
   Resources: 5
   CurseStaysHere: 0
   BuildableShallows: 1
---- !u!1 &177140207
+--- !u!1 &145857210
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -237,8 +283,1546 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 177140208}
-  - component: {fileID: 177140209}
+  - component: {fileID: 145857211}
+  - component: {fileID: 145857212}
+  m_Layer: 0
+  m_Name: Region 10 - Easterly Downs
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &145857211
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 145857210}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 50.62, y: 9.068742, z: 34.88}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &145857212
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 145857210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Easterly Downs
+  ValueMultiplier: 1
+  Shape:
+  - {x: 87.75, y: -0.56}
+  - {x: 73.88, y: -0.19}
+  - {x: 59.62, y: 4.31}
+  - {x: 53.25, y: 4.31}
+  - {x: 48.38, y: 3.19}
+  - {x: 44.44, y: 10.5}
+  - {x: 40.69, y: 13.88}
+  - {x: 40.31, y: 16.12}
+  - {x: 28.31, y: 30.38}
+  - {x: 27.19, y: 33.38}
+  - {x: 24.19, y: 35.25}
+  - {x: 22.31, y: 53.25}
+  - {x: 24.38, y: 54.56}
+  - {x: 28.5, y: 54.94}
+  - {x: 29.44, y: 57.38}
+  - {x: 32.25, y: 59.44}
+  - {x: 36, y: 59.06}
+  - {x: 36.75, y: 60.56}
+  - {x: 43.12, y: 61.31}
+  - {x: 45.75, y: 60.94}
+  - {x: 50.25, y: 55.69}
+  - {x: 52.88, y: 54.56}
+  - {x: 54.38, y: 54.56}
+  - {x: 56.25, y: 56.06}
+  - {x: 61.12, y: 54.94}
+  - {x: 63, y: 57.56}
+  - {x: 65.25, y: 57.19}
+  - {x: 69.38, y: 57.94}
+  - {x: 73.12, y: 59.81}
+  - {x: 79.5, y: 61.69}
+  - {x: 84.75, y: 66.56}
+  - {x: 87.75, y: 66.94}
+  - {x: 92.25, y: 72.56}
+  - {x: 94.5, y: 72.56}
+  - {x: 96, y: 73.69}
+  - {x: 104.62, y: 73.69}
+  - {x: 106.5, y: 72.56}
+  - {x: 109.12, y: 72.19}
+  - {x: 109.88, y: 70.69}
+  - {x: 111, y: 72.56}
+  - {x: 115.12, y: 72.94}
+  - {x: 120, y: 70.69}
+  - {x: 125.25, y: 65.06}
+  - {x: 126, y: 64.69}
+  - {x: 127.5, y: 66.19}
+  - {x: 128.62, y: 66.19}
+  - {x: 129.19, y: 64.88}
+  - {x: 128.44, y: 63.38}
+  - {x: 129.19, y: 61.88}
+  - {x: 126.19, y: 52.5}
+  - {x: 123.19, y: 46.88}
+  - {x: 117.94, y: 40.12}
+  - {x: 111.56, y: 30}
+  - {x: 107.44, y: 21.75}
+  - {x: 99.19, y: 0.38}
+  - {x: 98.62, y: -0.19}
+  Kind: 0
+  Resources: 4
+  CurseStaysHere: 0
+  BuildableShallows: 0
+--- !u!1 &214643490
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 214643491}
+  - component: {fileID: 214643492}
+  m_Layer: 0
+  m_Name: Region 11 - Tern Bluff
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &214643491
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214643490}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 81.75, y: 9.557031, z: -34.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &214643492
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214643490}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Tern Bluff
+  ValueMultiplier: 1
+  Shape:
+  - {x: 104.62, y: -68.44}
+  - {x: 103.12, y: -68.44}
+  - {x: 102, y: -66.94}
+  - {x: 98.25, y: -65.06}
+  - {x: 96.19, y: -63.38}
+  - {x: 95.25, y: -61.31}
+  - {x: 93.38, y: -60.19}
+  - {x: 91.12, y: -60.56}
+  - {x: 89.62, y: -62.44}
+  - {x: 84.38, y: -62.06}
+  - {x: 80.25, y: -62.81}
+  - {x: 77.62, y: -61.31}
+  - {x: 70.5, y: -61.69}
+  - {x: 65.25, y: -59.06}
+  - {x: 62.25, y: -59.06}
+  - {x: 59.06, y: -55.5}
+  - {x: 58.69, y: -53.62}
+  - {x: 56.62, y: -51.94}
+  - {x: 55.69, y: -52.12}
+  - {x: 55.69, y: -53.25}
+  - {x: 54.75, y: -54.19}
+  - {x: 53.25, y: -54.19}
+  - {x: 51.38, y: -52.31}
+  - {x: 39.75, y: -52.31}
+  - {x: 36, y: -50.06}
+  - {x: 33, y: -50.06}
+  - {x: 31.12, y: -48.19}
+  - {x: 27.19, y: -47.25}
+  - {x: 36.38, y: -46.69}
+  - {x: 42.38, y: -43.31}
+  - {x: 44.25, y: -43.31}
+  - {x: 47.06, y: -39.75}
+  - {x: 47.06, y: -37.88}
+  - {x: 49.31, y: -33.38}
+  - {x: 51.94, y: -32.62}
+  - {x: 52.69, y: -31.12}
+  - {x: 52.69, y: -28.12}
+  - {x: 56.81, y: -24.38}
+  - {x: 56.81, y: -19.5}
+  - {x: 55.31, y: -17.25}
+  - {x: 53.81, y: -11.62}
+  - {x: 50.81, y: -7.5}
+  - {x: 50.81, y: -3.75}
+  - {x: 49.69, y: -2.25}
+  - {x: 48.38, y: 3.19}
+  - {x: 53.25, y: 4.31}
+  - {x: 59.62, y: 4.31}
+  - {x: 70.5, y: 0.56}
+  - {x: 76.12, y: -0.56}
+  - {x: 98.81, y: -0.38}
+  - {x: 101.06, y: -6.38}
+  - {x: 102.94, y: -17.62}
+  - {x: 104.44, y: -22.12}
+  - {x: 109.31, y: -31.88}
+  - {x: 112.69, y: -40.5}
+  - {x: 124.31, y: -62.62}
+  - {x: 124.31, y: -63.38}
+  - {x: 121.5, y: -65.44}
+  - {x: 119.62, y: -63.19}
+  - {x: 115.12, y: -61.31}
+  - {x: 112.88, y: -63.94}
+  - {x: 110.25, y: -65.44}
+  - {x: 107.25, y: -65.81}
+  - {x: 106.69, y: -67.5}
+  Kind: 0
+  Resources: 3
+  CurseStaysHere: 0
+  BuildableShallows: 0
+--- !u!1 &234195581
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 234195584}
+  - component: {fileID: 234195583}
+  - component: {fileID: 234195582}
+  m_Layer: 0
+  m_Name: Directional Light
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &234195582
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 234195581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Version: 3
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_LightLayerMask: 1
+  m_RenderingLayers: 1
+  m_CustomShadowLayers: 0
+  m_ShadowLayerMask: 1
+  m_ShadowRenderingLayers: 1
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+--- !u!108 &234195583
+Light:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 234195581}
+  m_Enabled: 1
+  serializedVersion: 11
+  m_Type: 1
+  m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
+  m_Intensity: 1
+  m_Range: 10
+  m_SpotAngle: 30
+  m_InnerSpotAngle: 21.80208
+  m_CookieSize: 10
+  m_Shadows:
+    m_Type: 2
+    m_Resolution: -1
+    m_CustomResolution: -1
+    m_Strength: 1
+    m_Bias: 0.05
+    m_NormalBias: 0.4
+    m_NearPlane: 0.2
+    m_CullingMatrixOverride:
+      e00: 1
+      e01: 0
+      e02: 0
+      e03: 0
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    m_UseCullingMatrixOverride: 0
+  m_Cookie: {fileID: 0}
+  m_DrawHalo: 0
+  m_Flare: {fileID: 0}
+  m_RenderMode: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingLayerMask: 1
+  m_Lightmapping: 4
+  m_LightShadowCasterMode: 0
+  m_AreaSize: {x: 1, y: 1}
+  m_BounceIntensity: 1
+  m_ColorTemperature: 6570
+  m_UseColorTemperature: 0
+  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_UseBoundingSphereOverride: 0
+  m_UseViewFrustumForShadowCasterCull: 1
+  m_ForceVisible: 0
+  m_ShadowRadius: 0
+  m_ShadowAngle: 0
+  m_LightUnit: 1
+  m_LuxAtDistance: 1
+  m_EnableSpotReflector: 1
+--- !u!4 &234195584
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 234195581}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
+  m_LocalPosition: {x: 0, y: 3, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!1 &265650465
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 265650466}
+  - component: {fileID: 265650467}
+  m_Layer: 0
+  m_Name: Region 09 - Ternhold
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &265650466
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 265650465}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 148.12, y: 10.770428, z: 1.12}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &265650467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 265650465}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Ternhold
+  ValueMultiplier: 1
+  Shape:
+  - {x: 125.25, y: -63.19}
+  - {x: 124.31, y: -63}
+  - {x: 116.81, y: -48.75}
+  - {x: 104.44, y: -22.12}
+  - {x: 102.94, y: -17.62}
+  - {x: 101.06, y: -6.38}
+  - {x: 98.81, y: 0}
+  - {x: 103.69, y: 10.88}
+  - {x: 107.44, y: 21.75}
+  - {x: 114.19, y: 34.5}
+  - {x: 124.31, y: 48.75}
+  - {x: 126.94, y: 54.38}
+  - {x: 129.19, y: 62.25}
+  - {x: 130.12, y: 62.44}
+  - {x: 131.06, y: 61.5}
+  - {x: 131.06, y: 60.38}
+  - {x: 129.56, y: 59.25}
+  - {x: 130.12, y: 57.56}
+  - {x: 131.25, y: 57.56}
+  - {x: 132.38, y: 58.69}
+  - {x: 133.5, y: 57.56}
+  - {x: 135, y: 57.56}
+  - {x: 137.62, y: 60.19}
+  - {x: 140.25, y: 60.19}
+  - {x: 141.75, y: 59.44}
+  - {x: 142.5, y: 60.56}
+  - {x: 151.88, y: 58.31}
+  - {x: 152.62, y: 56.44}
+  - {x: 157.69, y: 53.62}
+  - {x: 158.62, y: 49.69}
+  - {x: 160.5, y: 49.31}
+  - {x: 162, y: 50.06}
+  - {x: 165.38, y: 47.81}
+  - {x: 169.12, y: 48.19}
+  - {x: 170.25, y: 47.06}
+  - {x: 172.12, y: 47.06}
+  - {x: 175.12, y: 49.69}
+  - {x: 178.5, y: 50.06}
+  - {x: 183.38, y: 47.44}
+  - {x: 186.38, y: 47.81}
+  - {x: 188.62, y: 46.69}
+  - {x: 191.62, y: 47.06}
+  - {x: 192.19, y: 46.5}
+  - {x: 192.19, y: -45}
+  - {x: 188.62, y: -45.56}
+  - {x: 185.62, y: -43.69}
+  - {x: 182.25, y: -43.31}
+  - {x: 179.62, y: -45.56}
+  - {x: 175.12, y: -45.19}
+  - {x: 173.25, y: -47.06}
+  - {x: 171.75, y: -45.94}
+  - {x: 169.88, y: -45.94}
+  - {x: 167.06, y: -49.88}
+  - {x: 164.62, y: -51.19}
+  - {x: 161.62, y: -48.19}
+  - {x: 159.38, y: -47.81}
+  - {x: 155.25, y: -44.44}
+  - {x: 151.88, y: -44.44}
+  - {x: 151.31, y: -46.5}
+  - {x: 149.06, y: -48.38}
+  - {x: 148.12, y: -51.19}
+  - {x: 143.62, y: -52.31}
+  - {x: 140.62, y: -54.94}
+  - {x: 136.5, y: -54.94}
+  - {x: 134.62, y: -57.19}
+  - {x: 130.5, y: -59.06}
+  Kind: 1
+  Resources: 1
+  CurseStaysHere: 0
+  BuildableShallows: 0
+--- !u!1 &510399906
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 510399907}
+  - component: {fileID: 510399908}
+  m_Layer: 0
+  m_Name: Region 12 - Tern Strand
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &510399907
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 510399906}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 92.25, y: 4.4690623, z: -71.62}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &510399908
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 510399906}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Tern Strand
+  ValueMultiplier: 1
+  Shape:
+  - {x: 112.88, y: -81.56}
+  - {x: 109.88, y: -81.56}
+  - {x: 108.38, y: -80.81}
+  - {x: 97.88, y: -81.19}
+  - {x: 96.38, y: -80.44}
+  - {x: 90, y: -79.69}
+  - {x: 83.25, y: -76.69}
+  - {x: 81, y: -74.81}
+  - {x: 78.75, y: -74.44}
+  - {x: 76.5, y: -72.56}
+  - {x: 69.38, y: -71.44}
+  - {x: 57.38, y: -66.94}
+  - {x: 51, y: -67.69}
+  - {x: 49.5, y: -66.56}
+  - {x: 48, y: -67.31}
+  - {x: 42.38, y: -66.56}
+  - {x: 39.38, y: -67.69}
+  - {x: 37.5, y: -66.94}
+  - {x: 35.62, y: -65.06}
+  - {x: 31.88, y: -64.31}
+  - {x: 21.75, y: -64.69}
+  - {x: 19.31, y: -63.75}
+  - {x: 17.06, y: -59.62}
+  - {x: 15.94, y: -55.88}
+  - {x: 15.94, y: -50.25}
+  - {x: 22.5, y: -49.31}
+  - {x: 24, y: -47.81}
+  - {x: 27, y: -47.06}
+  - {x: 31.12, y: -48.19}
+  - {x: 33, y: -50.06}
+  - {x: 36, y: -50.06}
+  - {x: 39.75, y: -52.31}
+  - {x: 51.38, y: -52.31}
+  - {x: 53.25, y: -54.19}
+  - {x: 54.75, y: -54.19}
+  - {x: 55.69, y: -53.25}
+  - {x: 55.69, y: -52.12}
+  - {x: 56.62, y: -51.94}
+  - {x: 58.69, y: -53.62}
+  - {x: 59.06, y: -55.5}
+  - {x: 63, y: -59.44}
+  - {x: 65.25, y: -59.06}
+  - {x: 70.5, y: -61.69}
+  - {x: 77.62, y: -61.31}
+  - {x: 80.25, y: -62.81}
+  - {x: 84.38, y: -62.06}
+  - {x: 89.62, y: -62.44}
+  - {x: 91.12, y: -60.56}
+  - {x: 93.38, y: -60.19}
+  - {x: 94.88, y: -60.94}
+  - {x: 96.19, y: -63.38}
+  - {x: 98.25, y: -65.06}
+  - {x: 102, y: -66.94}
+  - {x: 103.12, y: -68.44}
+  - {x: 104.62, y: -68.44}
+  - {x: 106.12, y: -68.06}
+  - {x: 107.25, y: -65.81}
+  - {x: 110.25, y: -65.44}
+  - {x: 112.88, y: -63.94}
+  - {x: 115.12, y: -61.31}
+  - {x: 119.62, y: -63.19}
+  - {x: 121.5, y: -65.44}
+  - {x: 122.25, y: -65.06}
+  - {x: 130.5, y: -59.06}
+  - {x: 134.62, y: -57.19}
+  - {x: 136.5, y: -54.94}
+  - {x: 140.62, y: -54.94}
+  - {x: 142.88, y: -52.69}
+  - {x: 148.12, y: -51.19}
+  - {x: 149.06, y: -48.38}
+  - {x: 151.31, y: -46.5}
+  - {x: 151.88, y: -44.44}
+  - {x: 155.25, y: -44.44}
+  - {x: 159.38, y: -47.81}
+  - {x: 161.62, y: -48.19}
+  - {x: 164.62, y: -51.19}
+  - {x: 166.12, y: -50.81}
+  - {x: 169.88, y: -45.94}
+  - {x: 171.75, y: -45.94}
+  - {x: 173.25, y: -47.06}
+  - {x: 175.12, y: -45.19}
+  - {x: 179.62, y: -45.56}
+  - {x: 182.25, y: -43.31}
+  - {x: 185.62, y: -43.69}
+  - {x: 188.62, y: -45.56}
+  - {x: 192.19, y: -45.38}
+  - {x: 192, y: -59.81}
+  - {x: 189.75, y: -59.06}
+  - {x: 186, y: -55.69}
+  - {x: 179.62, y: -56.06}
+  - {x: 174.75, y: -60.56}
+  - {x: 170.25, y: -63.19}
+  - {x: 166.88, y: -66.19}
+  - {x: 162.75, y: -66.56}
+  - {x: 154.5, y: -63.94}
+  - {x: 153, y: -65.81}
+  - {x: 151.12, y: -66.56}
+  - {x: 143.62, y: -67.69}
+  - {x: 138.75, y: -72.94}
+  - {x: 136.88, y: -74.06}
+  - {x: 132.38, y: -74.81}
+  Kind: 0
+  Resources: 7
+  CurseStaysHere: 0
+  BuildableShallows: 0
+--- !u!1 &546111805
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 546111806}
+  - component: {fileID: 546111807}
+  m_Layer: 0
+  m_Name: Region 06 - Stormcairn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &546111806
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 546111805}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 12.500191, z: 75}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &546111807
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 546111805}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Stormcairn
+  ValueMultiplier: 1
+  Shape:
+  - {x: 6, y: 61.69}
+  - {x: 3.38, y: 65.06}
+  - {x: 0.38, y: 63.94}
+  - {x: -3.38, y: 65.06}
+  - {x: -6.19, y: 61.88}
+  - {x: -6.19, y: 66.75}
+  - {x: -8.44, y: 68.62}
+  - {x: -9.94, y: 71.62}
+  - {x: -10.31, y: 82.12}
+  - {x: -9.56, y: 84.38}
+  - {x: -6, y: 86.81}
+  - {x: -0.38, y: 85.31}
+  - {x: 6, y: 86.81}
+  - {x: 9.94, y: 83.62}
+  - {x: 9.94, y: 71.62}
+  - {x: 8.44, y: 68.62}
+  - {x: 6.19, y: 66.75}
+  Kind: 0
+  Resources: 8
+  CurseStaysHere: 0
+  BuildableShallows: 0
+--- !u!1 &546876706
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 546876707}
+  - component: {fileID: 546876708}
+  m_Layer: 0
+  m_Name: Region 04 - Gull Strand
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &546876707
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 546876706}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -92.25, y: 4.4690623, z: -71.62}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &546876708
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 546876706}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Gull Strand
+  ValueMultiplier: 1
+  Shape:
+  - {x: -109.88, y: -81.56}
+  - {x: -112.88, y: -81.56}
+  - {x: -132.38, y: -74.81}
+  - {x: -136.88, y: -74.06}
+  - {x: -138.75, y: -72.94}
+  - {x: -143.62, y: -67.69}
+  - {x: -151.12, y: -66.56}
+  - {x: -153, y: -65.81}
+  - {x: -154.5, y: -63.94}
+  - {x: -162.75, y: -66.56}
+  - {x: -166.88, y: -66.19}
+  - {x: -170.25, y: -63.19}
+  - {x: -174.75, y: -60.56}
+  - {x: -179.62, y: -56.06}
+  - {x: -186, y: -55.69}
+  - {x: -189.75, y: -59.06}
+  - {x: -192, y: -59.81}
+  - {x: -192.19, y: -45.38}
+  - {x: -188.62, y: -45.56}
+  - {x: -185.62, y: -43.69}
+  - {x: -182.25, y: -43.31}
+  - {x: -179.62, y: -45.56}
+  - {x: -175.12, y: -45.19}
+  - {x: -173.25, y: -47.06}
+  - {x: -171.75, y: -45.94}
+  - {x: -169.88, y: -45.94}
+  - {x: -167.06, y: -49.88}
+  - {x: -164.62, y: -51.19}
+  - {x: -161.62, y: -48.19}
+  - {x: -159.38, y: -47.81}
+  - {x: -155.25, y: -44.44}
+  - {x: -151.88, y: -44.44}
+  - {x: -151.31, y: -46.5}
+  - {x: -149.06, y: -48.38}
+  - {x: -148.12, y: -51.19}
+  - {x: -143.62, y: -52.31}
+  - {x: -140.62, y: -54.94}
+  - {x: -136.5, y: -54.94}
+  - {x: -134.62, y: -57.19}
+  - {x: -130.5, y: -59.06}
+  - {x: -122.25, y: -65.06}
+  - {x: -121.5, y: -65.44}
+  - {x: -119.62, y: -63.19}
+  - {x: -115.12, y: -61.31}
+  - {x: -112.88, y: -63.94}
+  - {x: -110.25, y: -65.44}
+  - {x: -107.25, y: -65.81}
+  - {x: -106.69, y: -67.5}
+  - {x: -104.62, y: -68.44}
+  - {x: -103.12, y: -68.44}
+  - {x: -102, y: -66.94}
+  - {x: -98.25, y: -65.06}
+  - {x: -96.19, y: -63.38}
+  - {x: -95.25, y: -61.31}
+  - {x: -93.38, y: -60.19}
+  - {x: -91.12, y: -60.56}
+  - {x: -89.62, y: -62.44}
+  - {x: -84.38, y: -62.06}
+  - {x: -80.25, y: -62.81}
+  - {x: -77.62, y: -61.31}
+  - {x: -70.5, y: -61.69}
+  - {x: -65.25, y: -59.06}
+  - {x: -63, y: -59.44}
+  - {x: -59.06, y: -55.5}
+  - {x: -58.69, y: -53.62}
+  - {x: -56.62, y: -51.94}
+  - {x: -55.69, y: -52.12}
+  - {x: -55.69, y: -53.25}
+  - {x: -54.75, y: -54.19}
+  - {x: -53.25, y: -54.19}
+  - {x: -51.38, y: -52.31}
+  - {x: -39.75, y: -52.31}
+  - {x: -36, y: -50.06}
+  - {x: -33, y: -50.06}
+  - {x: -31.12, y: -48.19}
+  - {x: -27, y: -47.06}
+  - {x: -24.75, y: -47.44}
+  - {x: -22.5, y: -49.31}
+  - {x: -15.94, y: -50.25}
+  - {x: -15.94, y: -55.88}
+  - {x: -17.06, y: -59.62}
+  - {x: -19.5, y: -63.94}
+  - {x: -21.75, y: -64.69}
+  - {x: -31.88, y: -64.31}
+  - {x: -35.62, y: -65.06}
+  - {x: -37.5, y: -66.94}
+  - {x: -39.38, y: -67.69}
+  - {x: -42.38, y: -66.56}
+  - {x: -46.12, y: -67.31}
+  - {x: -49.5, y: -66.56}
+  - {x: -51, y: -67.69}
+  - {x: -57.38, y: -66.94}
+  - {x: -69.38, y: -71.44}
+  - {x: -76.5, y: -72.56}
+  - {x: -78.75, y: -74.44}
+  - {x: -81, y: -74.81}
+  - {x: -83.25, y: -76.69}
+  - {x: -90, y: -79.69}
+  - {x: -96.38, y: -80.44}
+  - {x: -97.88, y: -81.19}
+  - {x: -108.38, y: -80.81}
+  Kind: 0
+  Resources: 7
+  CurseStaysHere: 0
+  BuildableShallows: 0
+--- !u!1 &619526992
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 619526993}
+  - component: {fileID: 619526994}
+  m_Layer: 0
+  m_Name: Region 07 - Yiel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &619526993
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 619526992}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -12.75, y: 5.4688334, z: -3.75}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &619526994
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 619526992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Yiel
+  ValueMultiplier: 1
+  Shape:
+  - {x: 16.5, y: -22.31}
+  - {x: 12.38, y: -22.31}
+  - {x: 6.38, y: -21.19}
+  - {x: 3.75, y: -19.69}
+  - {x: -3.75, y: -19.69}
+  - {x: -6.38, y: -21.19}
+  - {x: -12.38, y: -22.31}
+  - {x: -16.5, y: -22.31}
+  - {x: -24, y: -18.94}
+  - {x: -27.19, y: -15.75}
+  - {x: -29.44, y: -10.88}
+  - {x: -34.31, y: -4.12}
+  - {x: -33.56, y: 1.12}
+  - {x: -31.69, y: 4.88}
+  - {x: -24.75, y: 12.56}
+  - {x: -18.38, y: 15.19}
+  - {x: -8.62, y: 13.69}
+  - {x: -0.38, y: 15.56}
+  - {x: 6.75, y: 13.69}
+  - {x: 18.38, y: 15.19}
+  - {x: 24.75, y: 12.56}
+  - {x: 31.69, y: 4.88}
+  - {x: 33.56, y: 1.12}
+  - {x: 34.31, y: -4.12}
+  - {x: 29.44, y: -10.88}
+  - {x: 27.19, y: -15.75}
+  - {x: 24, y: -18.94}
+  Kind: 0
+  Resources: 6
+  CurseStaysHere: 1
+  BuildableShallows: 0
+--- !u!1 &623793570
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 623793571}
+  - component: {fileID: 623793572}
+  m_Layer: 0
+  m_Name: Region 02 - Gull Bluff
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &623793571
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 623793570}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -81.75, y: 9.557031, z: -34.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &623793572
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 623793570}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Gull Bluff
+  ValueMultiplier: 1
+  Shape:
+  - {x: -103.12, y: -68.44}
+  - {x: -106.12, y: -68.06}
+  - {x: -107.25, y: -65.81}
+  - {x: -110.25, y: -65.44}
+  - {x: -112.88, y: -63.94}
+  - {x: -115.12, y: -61.31}
+  - {x: -119.62, y: -63.19}
+  - {x: -121.5, y: -65.44}
+  - {x: -124.12, y: -63.56}
+  - {x: -124.31, y: -62.62}
+  - {x: -112.69, y: -40.5}
+  - {x: -109.31, y: -31.88}
+  - {x: -104.44, y: -22.12}
+  - {x: -102.94, y: -17.62}
+  - {x: -101.06, y: -6.38}
+  - {x: -98.81, y: -0.38}
+  - {x: -76.12, y: -0.56}
+  - {x: -70.5, y: 0.56}
+  - {x: -59.62, y: 4.31}
+  - {x: -53.25, y: 4.31}
+  - {x: -48.38, y: 3.19}
+  - {x: -49.69, y: -2.25}
+  - {x: -50.81, y: -3.75}
+  - {x: -50.81, y: -7.5}
+  - {x: -53.06, y: -10.12}
+  - {x: -55.31, y: -17.25}
+  - {x: -56.81, y: -19.5}
+  - {x: -56.81, y: -24.38}
+  - {x: -52.69, y: -28.12}
+  - {x: -52.69, y: -31.12}
+  - {x: -51.94, y: -32.62}
+  - {x: -49.31, y: -33.38}
+  - {x: -47.06, y: -37.88}
+  - {x: -47.06, y: -39.75}
+  - {x: -44.25, y: -43.31}
+  - {x: -42.38, y: -43.31}
+  - {x: -36.38, y: -46.69}
+  - {x: -27.19, y: -47.25}
+  - {x: -31.12, y: -48.19}
+  - {x: -33, y: -50.06}
+  - {x: -36, y: -50.06}
+  - {x: -39.75, y: -52.31}
+  - {x: -51.38, y: -52.31}
+  - {x: -53.25, y: -54.19}
+  - {x: -54.75, y: -54.19}
+  - {x: -55.69, y: -53.25}
+  - {x: -55.69, y: -52.12}
+  - {x: -56.62, y: -51.94}
+  - {x: -58.69, y: -53.62}
+  - {x: -59.06, y: -55.5}
+  - {x: -62.25, y: -59.06}
+  - {x: -65.25, y: -59.06}
+  - {x: -70.5, y: -61.69}
+  - {x: -77.62, y: -61.31}
+  - {x: -80.25, y: -62.81}
+  - {x: -84.38, y: -62.06}
+  - {x: -89.62, y: -62.44}
+  - {x: -91.12, y: -60.56}
+  - {x: -93.38, y: -60.19}
+  - {x: -95.44, y: -61.5}
+  - {x: -96.75, y: -63.94}
+  - {x: -102, y: -66.94}
+  Kind: 0
+  Resources: 3
+  CurseStaysHere: 0
+  BuildableShallows: 0
+--- !u!1 &770518769
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 770518770}
+  m_Layer: 0
+  m_Name: PlayerStarts
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &770518770
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 770518769}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 11881425}
+  - {fileID: 2050620844}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &877250531
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 877250532}
+  - component: {fileID: 877250533}
+  m_Layer: 0
+  m_Name: Region 01 - Westerly Downs
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &877250532
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 877250531}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -50.62, y: 9.068742, z: 34.88}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &877250533
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 877250531}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Westerly Downs
+  ValueMultiplier: 1
+  Shape:
+  - {x: -76.12, y: -0.56}
+  - {x: -98.62, y: -0.19}
+  - {x: -99.19, y: 0.38}
+  - {x: -107.44, y: 21.75}
+  - {x: -111.56, y: 30}
+  - {x: -117.94, y: 40.12}
+  - {x: -123.19, y: 46.88}
+  - {x: -126.19, y: 52.5}
+  - {x: -129.19, y: 61.88}
+  - {x: -128.44, y: 63.38}
+  - {x: -129.19, y: 64.88}
+  - {x: -128.62, y: 66.19}
+  - {x: -127.5, y: 66.19}
+  - {x: -126, y: 64.69}
+  - {x: -120, y: 70.69}
+  - {x: -115.12, y: 72.94}
+  - {x: -111, y: 72.56}
+  - {x: -109.88, y: 70.69}
+  - {x: -109.12, y: 72.19}
+  - {x: -107.62, y: 72.19}
+  - {x: -104.62, y: 73.69}
+  - {x: -96, y: 73.69}
+  - {x: -94.5, y: 72.56}
+  - {x: -92.25, y: 72.56}
+  - {x: -87.75, y: 66.94}
+  - {x: -84.75, y: 66.56}
+  - {x: -79.5, y: 61.69}
+  - {x: -73.12, y: 59.81}
+  - {x: -69.38, y: 57.94}
+  - {x: -65.25, y: 57.19}
+  - {x: -63, y: 57.56}
+  - {x: -61.12, y: 54.94}
+  - {x: -56.25, y: 56.06}
+  - {x: -54.38, y: 54.56}
+  - {x: -52.88, y: 54.56}
+  - {x: -50.25, y: 55.69}
+  - {x: -45.75, y: 60.94}
+  - {x: -43.12, y: 61.31}
+  - {x: -36.75, y: 60.56}
+  - {x: -36, y: 59.06}
+  - {x: -32.25, y: 59.44}
+  - {x: -29.44, y: 57.38}
+  - {x: -28.5, y: 54.94}
+  - {x: -24.38, y: 54.56}
+  - {x: -22.31, y: 53.25}
+  - {x: -24.19, y: 35.25}
+  - {x: -27.19, y: 33.38}
+  - {x: -28.31, y: 30.38}
+  - {x: -40.31, y: 16.12}
+  - {x: -40.69, y: 13.88}
+  - {x: -44.44, y: 10.5}
+  - {x: -47.81, y: 3.75}
+  - {x: -49.12, y: 3.19}
+  - {x: -53.25, y: 4.31}
+  - {x: -59.62, y: 4.31}
+  - {x: -70.5, y: 0.56}
+  Kind: 0
+  Resources: 4
+  CurseStaysHere: 0
+  BuildableShallows: 0
+--- !u!1 &1035652102
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1035652106}
+  - component: {fileID: 1035652105}
+  - component: {fileID: 1035652104}
+  - component: {fileID: 1035652103}
+  m_Layer: 0
+  m_Name: Water
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!23 &1035652103
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1035652102}
+  m_Enabled: 1
+  m_CastShadows: 0
+  m_ReceiveShadows: 0
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: d866070446ff6434ab432a0d4be52cc0, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &1035652104
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1035652102}
+  m_Mesh: {fileID: 2045044710}
+--- !u!114 &1035652105
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1035652102}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 78ace25e1fb431b4db32a83484392b23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shallowColor: {r: 0.3, g: 0.6, b: 0.7, a: 0.6}
+  deepColor: {r: 0.08, g: 0.22, b: 0.35, a: 0.95}
+  foamColor: {r: 0.95, g: 0.98, b: 1, a: 0.9}
+  waterLevel: 3.6
+  wadeDepth: 0.5
+  flowSpeed: 0.06
+  flowStrength: 0.25
+  rippleScale: 0.05
+  rippleSpeed: 0.4
+  bumpiness: 0.35
+  foamScale: 0.07
+  foamThreshold: 0.55
+  foamIntensity: 1.2
+  specularPower: 64
+  specularIntensity: 0.35
+--- !u!4 &1035652106
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1035652102}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1101580644
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1101580645}
+  - component: {fileID: 1101580646}
+  m_Layer: 0
+  m_Name: "Region 13 - East Lymw\xE9rra"
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1101580645
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1101580644}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 33, y: 3.308156, z: -30.38}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1101580646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1101580644}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: "East Lymw\xE9rra"
+  ValueMultiplier: 1
+  Shape:
+  - {x: 12, y: -75.56}
+  - {x: 6.75, y: -73.31}
+  - {x: 0.19, y: -73.12}
+  - {x: 0.19, y: -19.88}
+  - {x: 3.75, y: -19.69}
+  - {x: 6.38, y: -21.19}
+  - {x: 12.38, y: -22.31}
+  - {x: 16.5, y: -22.31}
+  - {x: 20.62, y: -20.81}
+  - {x: 24, y: -18.94}
+  - {x: 27.19, y: -15.75}
+  - {x: 29.44, y: -10.88}
+  - {x: 33.94, y: -4.88}
+  - {x: 34.31, y: -1.88}
+  - {x: 31.69, y: 4.88}
+  - {x: 24.75, y: 12.56}
+  - {x: 18.38, y: 15.19}
+  - {x: 6.75, y: 13.69}
+  - {x: 0.19, y: 15.75}
+  - {x: 0.19, y: 32.62}
+  - {x: 1.5, y: 33.56}
+  - {x: 3.75, y: 32.81}
+  - {x: 9, y: 33.56}
+  - {x: 14.62, y: 36.94}
+  - {x: 19.5, y: 37.31}
+  - {x: 27.19, y: 33.38}
+  - {x: 28.31, y: 30.38}
+  - {x: 40.31, y: 16.12}
+  - {x: 40.69, y: 13.88}
+  - {x: 45.19, y: 9.38}
+  - {x: 46.69, y: 5.62}
+  - {x: 47.81, y: 4.5}
+  - {x: 49.69, y: -2.25}
+  - {x: 50.81, y: -3.75}
+  - {x: 50.81, y: -7.5}
+  - {x: 54.19, y: -12.38}
+  - {x: 55.31, y: -17.25}
+  - {x: 56.81, y: -19.5}
+  - {x: 57.19, y: -22.88}
+  - {x: 56.44, y: -25.12}
+  - {x: 52.69, y: -28.12}
+  - {x: 52.69, y: -31.12}
+  - {x: 51.94, y: -32.62}
+  - {x: 49.31, y: -33.38}
+  - {x: 47.06, y: -37.88}
+  - {x: 47.06, y: -39.75}
+  - {x: 44.25, y: -43.31}
+  - {x: 42.38, y: -43.31}
+  - {x: 36.38, y: -46.69}
+  - {x: 26.25, y: -47.06}
+  - {x: 24, y: -47.81}
+  - {x: 22.5, y: -49.31}
+  - {x: 15.94, y: -50.25}
+  - {x: 15.94, y: -55.88}
+  - {x: 17.06, y: -59.62}
+  - {x: 19.31, y: -63.38}
+  - {x: 15.38, y: -62.81}
+  - {x: 11.81, y: -61.12}
+  Kind: 0
+  Resources: 5
+  CurseStaysHere: 0
+  BuildableShallows: 1
+--- !u!1 &1133051591
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1133051592}
+  m_Layer: 0
+  m_Name: Regions
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1133051592
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1133051591}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1365089782}
+  - {fileID: 877250532}
+  - {fileID: 623793571}
+  - {fileID: 1835148763}
+  - {fileID: 546876707}
+  - {fileID: 66207877}
+  - {fileID: 546111806}
+  - {fileID: 619526993}
+  - {fileID: 1902789757}
+  - {fileID: 265650466}
+  - {fileID: 145857211}
+  - {fileID: 214643491}
+  - {fileID: 510399907}
+  - {fileID: 1101580645}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1275435476
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1275435478}
+  - component: {fileID: 1275435477}
+  m_Layer: 0
+  m_Name: Sun
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!108 &1275435477
+Light:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1275435476}
+  m_Enabled: 1
+  serializedVersion: 11
+  m_Type: 1
+  m_Color: {r: 1, g: 0.957, b: 0.882, a: 1}
+  m_Intensity: 1.15
+  m_Range: 10
+  m_SpotAngle: 30
+  m_InnerSpotAngle: 21.80208
+  m_CookieSize: 10
+  m_Shadows:
+    m_Type: 2
+    m_Resolution: -1
+    m_CustomResolution: -1
+    m_Strength: 1
+    m_Bias: 0.05
+    m_NormalBias: 0.4
+    m_NearPlane: 0.2
+    m_CullingMatrixOverride:
+      e00: 1
+      e01: 0
+      e02: 0
+      e03: 0
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    m_UseCullingMatrixOverride: 0
+  m_Cookie: {fileID: 0}
+  m_DrawHalo: 0
+  m_Flare: {fileID: 0}
+  m_RenderMode: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingLayerMask: 1
+  m_Lightmapping: 4
+  m_LightShadowCasterMode: 0
+  m_AreaSize: {x: 1, y: 1}
+  m_BounceIntensity: 1
+  m_ColorTemperature: 6570
+  m_UseColorTemperature: 0
+  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_UseBoundingSphereOverride: 0
+  m_UseViewFrustumForShadowCasterCull: 1
+  m_ForceVisible: 0
+  m_ShadowRadius: 0
+  m_ShadowAngle: 0
+  m_LightUnit: 1
+  m_LuxAtDistance: 1
+  m_EnableSpotReflector: 1
+--- !u!4 &1275435478
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1275435476}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.14002554, y: 0.8593653, z: -0.36477894, w: 0.32987946}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1365089781
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1365089782}
+  - component: {fileID: 1365089783}
   m_Layer: 0
   m_Name: Region 00 - Gullhold
   m_TagString: Untagged
@@ -246,28 +1830,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &177140208
+--- !u!4 &1365089782
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 177140207}
+  m_GameObject: {fileID: 1365089781}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -148.12, y: 10.770428, z: 1.12}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 531750026}
+  m_Father: {fileID: 1133051592}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &177140209
+--- !u!114 &1365089783
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 177140207}
+  m_GameObject: {fileID: 1365089781}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -349,7 +1933,7 @@ MonoBehaviour:
   Resources: 1
   CurseStaysHere: 0
   BuildableShallows: 0
---- !u!1 &215192765
+--- !u!1 &1715777615
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -357,613 +1941,92 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 215192766}
-  - component: {fileID: 215192767}
+  - component: {fileID: 1715777618}
+  - component: {fileID: 1715777617}
+  - component: {fileID: 1715777616}
   m_Layer: 0
-  m_Name: Region 09 - Ternhold
+  m_Name: Terrain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
---- !u!4 &215192766
-Transform:
+--- !u!154 &1715777616
+TerrainCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 215192765}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 148.12, y: 10.770428, z: 1.12}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &215192767
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 215192765}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Ternhold
-  ValueMultiplier: 1
-  Shape:
-  - {x: 125.25, y: -63.19}
-  - {x: 124.31, y: -63}
-  - {x: 116.81, y: -48.75}
-  - {x: 104.44, y: -22.12}
-  - {x: 102.94, y: -17.62}
-  - {x: 101.06, y: -6.38}
-  - {x: 98.81, y: 0}
-  - {x: 103.69, y: 10.88}
-  - {x: 107.44, y: 21.75}
-  - {x: 114.19, y: 34.5}
-  - {x: 124.31, y: 48.75}
-  - {x: 126.94, y: 54.38}
-  - {x: 129.19, y: 62.25}
-  - {x: 130.12, y: 62.44}
-  - {x: 131.06, y: 61.5}
-  - {x: 131.06, y: 60.38}
-  - {x: 129.56, y: 59.25}
-  - {x: 130.12, y: 57.56}
-  - {x: 131.25, y: 57.56}
-  - {x: 132.38, y: 58.69}
-  - {x: 133.5, y: 57.56}
-  - {x: 135, y: 57.56}
-  - {x: 137.62, y: 60.19}
-  - {x: 140.25, y: 60.19}
-  - {x: 141.75, y: 59.44}
-  - {x: 142.5, y: 60.56}
-  - {x: 151.88, y: 58.31}
-  - {x: 152.62, y: 56.44}
-  - {x: 157.69, y: 53.62}
-  - {x: 158.62, y: 49.69}
-  - {x: 160.5, y: 49.31}
-  - {x: 162, y: 50.06}
-  - {x: 165.38, y: 47.81}
-  - {x: 169.12, y: 48.19}
-  - {x: 170.25, y: 47.06}
-  - {x: 172.12, y: 47.06}
-  - {x: 175.12, y: 49.69}
-  - {x: 178.5, y: 50.06}
-  - {x: 183.38, y: 47.44}
-  - {x: 186.38, y: 47.81}
-  - {x: 188.62, y: 46.69}
-  - {x: 191.62, y: 47.06}
-  - {x: 192.19, y: 46.5}
-  - {x: 192.19, y: -45}
-  - {x: 188.62, y: -45.56}
-  - {x: 185.62, y: -43.69}
-  - {x: 182.25, y: -43.31}
-  - {x: 179.62, y: -45.56}
-  - {x: 175.12, y: -45.19}
-  - {x: 173.25, y: -47.06}
-  - {x: 171.75, y: -45.94}
-  - {x: 169.88, y: -45.94}
-  - {x: 167.06, y: -49.88}
-  - {x: 164.62, y: -51.19}
-  - {x: 161.62, y: -48.19}
-  - {x: 159.38, y: -47.81}
-  - {x: 155.25, y: -44.44}
-  - {x: 151.88, y: -44.44}
-  - {x: 151.31, y: -46.5}
-  - {x: 149.06, y: -48.38}
-  - {x: 148.12, y: -51.19}
-  - {x: 143.62, y: -52.31}
-  - {x: 140.62, y: -54.94}
-  - {x: 136.5, y: -54.94}
-  - {x: 134.62, y: -57.19}
-  - {x: 130.5, y: -59.06}
-  Kind: 1
-  Resources: 1
-  CurseStaysHere: 0
-  BuildableShallows: 0
---- !u!1 &263922246
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 263922247}
-  - component: {fileID: 263922248}
-  m_Layer: 0
-  m_Name: Region 02 - Gull Bluff
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &263922247
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 263922246}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -81.75, y: 9.557031, z: -34.5}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &263922248
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 263922246}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Gull Bluff
-  ValueMultiplier: 1
-  Shape:
-  - {x: -103.12, y: -68.44}
-  - {x: -106.12, y: -68.06}
-  - {x: -107.25, y: -65.81}
-  - {x: -110.25, y: -65.44}
-  - {x: -112.88, y: -63.94}
-  - {x: -115.12, y: -61.31}
-  - {x: -119.62, y: -63.19}
-  - {x: -121.5, y: -65.44}
-  - {x: -124.12, y: -63.56}
-  - {x: -124.31, y: -62.62}
-  - {x: -112.69, y: -40.5}
-  - {x: -109.31, y: -31.88}
-  - {x: -104.44, y: -22.12}
-  - {x: -102.94, y: -17.62}
-  - {x: -101.06, y: -6.38}
-  - {x: -98.81, y: -0.38}
-  - {x: -76.12, y: -0.56}
-  - {x: -70.5, y: 0.56}
-  - {x: -59.62, y: 4.31}
-  - {x: -53.25, y: 4.31}
-  - {x: -48.38, y: 3.19}
-  - {x: -49.69, y: -2.25}
-  - {x: -50.81, y: -3.75}
-  - {x: -50.81, y: -7.5}
-  - {x: -53.06, y: -10.12}
-  - {x: -55.31, y: -17.25}
-  - {x: -56.81, y: -19.5}
-  - {x: -56.81, y: -24.38}
-  - {x: -52.69, y: -28.12}
-  - {x: -52.69, y: -31.12}
-  - {x: -51.94, y: -32.62}
-  - {x: -49.31, y: -33.38}
-  - {x: -47.06, y: -37.88}
-  - {x: -47.06, y: -39.75}
-  - {x: -44.25, y: -43.31}
-  - {x: -42.38, y: -43.31}
-  - {x: -36.38, y: -46.69}
-  - {x: -27.19, y: -47.25}
-  - {x: -31.12, y: -48.19}
-  - {x: -33, y: -50.06}
-  - {x: -36, y: -50.06}
-  - {x: -39.75, y: -52.31}
-  - {x: -51.38, y: -52.31}
-  - {x: -53.25, y: -54.19}
-  - {x: -54.75, y: -54.19}
-  - {x: -55.69, y: -53.25}
-  - {x: -55.69, y: -52.12}
-  - {x: -56.62, y: -51.94}
-  - {x: -58.69, y: -53.62}
-  - {x: -59.06, y: -55.5}
-  - {x: -62.25, y: -59.06}
-  - {x: -65.25, y: -59.06}
-  - {x: -70.5, y: -61.69}
-  - {x: -77.62, y: -61.31}
-  - {x: -80.25, y: -62.81}
-  - {x: -84.38, y: -62.06}
-  - {x: -89.62, y: -62.44}
-  - {x: -91.12, y: -60.56}
-  - {x: -93.38, y: -60.19}
-  - {x: -95.44, y: -61.5}
-  - {x: -96.75, y: -63.94}
-  - {x: -102, y: -66.94}
-  Kind: 0
-  Resources: 3
-  CurseStaysHere: 0
-  BuildableShallows: 0
---- !u!1 &269381869
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 269381873}
-  - component: {fileID: 269381872}
-  - component: {fileID: 269381871}
-  - component: {fileID: 269381870}
-  m_Layer: 0
-  m_Name: Water
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!23 &269381870
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 269381869}
-  m_Enabled: 1
-  m_CastShadows: 0
-  m_ReceiveShadows: 0
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RayTracingAccelStructBuildFlagsOverride: 0
-  m_RayTracingAccelStructBuildFlags: 1
-  m_SmallMeshCulling: 1
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: d866070446ff6434ab432a0d4be52cc0, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_AdditionalVertexStreams: {fileID: 0}
---- !u!33 &269381871
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 269381869}
-  m_Mesh: {fileID: 802689756}
---- !u!114 &269381872
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 269381869}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 78ace25e1fb431b4db32a83484392b23, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  shallowColor: {r: 0.3, g: 0.6, b: 0.7, a: 0.6}
-  deepColor: {r: 0.08, g: 0.22, b: 0.35, a: 0.95}
-  foamColor: {r: 1, g: 1, b: 1, a: 0.9}
-  waterLevel: 3.35
-  wadeDepth: 0.5
-  flowSpeed: 0.06
-  flowStrength: 0.25
-  rippleScale: 0.22
-  rippleSpeed: 0.4
-  bumpiness: 0.33
-  foamScale: 0.71
-  foamThreshold: 3.4
-  foamIntensity: 0.88
-  specularPower: 72.62
-  specularIntensity: 37
---- !u!4 &269381873
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 269381869}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &304006093
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 304006094}
-  - component: {fileID: 304006095}
-  m_Layer: 0
-  m_Name: Region 06 - Stormcairn
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &304006094
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 304006093}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 12.500191, z: 75}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &304006095
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 304006093}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Stormcairn
-  ValueMultiplier: 1
-  Shape:
-  - {x: 6, y: 61.69}
-  - {x: 3.38, y: 65.06}
-  - {x: 0.38, y: 63.94}
-  - {x: -3.38, y: 65.06}
-  - {x: -6.19, y: 61.88}
-  - {x: -6.19, y: 66.75}
-  - {x: -8.44, y: 68.62}
-  - {x: -9.94, y: 71.62}
-  - {x: -10.31, y: 82.12}
-  - {x: -9.56, y: 84.38}
-  - {x: -6, y: 86.81}
-  - {x: -0.38, y: 85.31}
-  - {x: 6, y: 86.81}
-  - {x: 9.94, y: 83.62}
-  - {x: 9.94, y: 71.62}
-  - {x: 8.44, y: 68.62}
-  - {x: 6.19, y: 66.75}
-  Kind: 0
-  Resources: 8
-  CurseStaysHere: 0
-  BuildableShallows: 0
---- !u!1 &501498297
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 501498298}
-  m_Layer: 0
-  m_Name: PlayerStarts
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &501498298
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 501498297}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1844634934}
-  - {fileID: 1268513106}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &531750025
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 531750026}
-  m_Layer: 0
-  m_Name: Regions
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &531750026
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 531750025}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 177140208}
-  - {fileID: 1264427614}
-  - {fileID: 263922247}
-  - {fileID: 1809810524}
-  - {fileID: 1460850690}
-  - {fileID: 49863504}
-  - {fileID: 304006094}
-  - {fileID: 1414334344}
-  - {fileID: 635313190}
-  - {fileID: 215192766}
-  - {fileID: 709724937}
-  - {fileID: 998858085}
-  - {fileID: 1737086384}
-  - {fileID: 1948930655}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &584466398
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 584466400}
-  - component: {fileID: 584466399}
-  - component: {fileID: 584466401}
-  m_Layer: 0
-  m_Name: Directional Light
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!108 &584466399
-Light:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 584466398}
-  m_Enabled: 1
-  serializedVersion: 11
-  m_Type: 1
-  m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
-  m_Intensity: 1
-  m_Range: 10
-  m_SpotAngle: 30
-  m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
-  m_Shadows:
-    m_Type: 2
-    m_Resolution: -1
-    m_CustomResolution: -1
-    m_Strength: 1
-    m_Bias: 0.05
-    m_NormalBias: 0.4
-    m_NearPlane: 0.2
-    m_CullingMatrixOverride:
-      e00: 1
-      e01: 0
-      e02: 0
-      e03: 0
-      e10: 0
-      e11: 1
-      e12: 0
-      e13: 0
-      e20: 0
-      e21: 0
-      e22: 1
-      e23: 0
-      e30: 0
-      e31: 0
-      e32: 0
-      e33: 1
-    m_UseCullingMatrixOverride: 0
-  m_Cookie: {fileID: 0}
-  m_DrawHalo: 0
-  m_Flare: {fileID: 0}
-  m_RenderMode: 0
-  m_CullingMask:
+  m_GameObject: {fileID: 1715777615}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_TerrainData: {fileID: 15600000, guid: 3b552ec8b7c13db41a35087b68f7cf97, type: 2}
+  m_EnableTreeColliders: 1
+--- !u!218 &1715777617
+Terrain:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1715777615}
+  m_Enabled: 1
+  serializedVersion: 6
+  m_TerrainData: {fileID: 15600000, guid: 3b552ec8b7c13db41a35087b68f7cf97, type: 2}
+  m_TreeDistance: 260
+  m_TreeBillboardDistance: 120
+  m_TreeCrossFadeLength: 5
+  m_TreeMaximumFullLODCount: 50
+  m_DetailObjectDistance: 110
+  m_DetailObjectDensity: 0.8
+  m_HeightmapPixelError: 8
+  m_SplatMapDistance: 220
+  m_HeightmapMinimumLODSimplification: 0
+  m_HeightmapMaximumLOD: 0
+  m_ShadowCastingMode: 2
+  m_DrawHeightmap: 1
+  m_DrawInstanced: 1
+  m_DrawTreesAndFoliage: 1
+  m_StaticShadowCaster: 0
+  m_IgnoreQualitySettings: 0
+  m_ReflectionProbeUsage: 1
+  m_MaterialTemplate: {fileID: 2100000, guid: c5d8e1f2a3b44c67890d1e2f3a4b5c6d, type: 2}
+  m_BakeLightProbesForTrees: 1
+  m_PreserveTreePrototypeLayers: 0
+  m_DeringLightProbesForTrees: 1
+  m_ReceiveGI: 1
+  m_ScaleInLightmap: 0.094280906
+  m_LightmapParameters: {fileID: 15203, guid: 0000000000000000f000000000000000, type: 0}
+  m_GroupingID: 0
   m_RenderingLayerMask: 1
-  m_Lightmapping: 4
-  m_LightShadowCasterMode: 0
-  m_AreaSize: {x: 1, y: 1}
-  m_BounceIntensity: 1
-  m_ColorTemperature: 6570
-  m_UseColorTemperature: 0
-  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
-  m_UseBoundingSphereOverride: 0
-  m_UseViewFrustumForShadowCasterCull: 1
-  m_ForceVisible: 0
-  m_ShadowRadius: 0
-  m_ShadowAngle: 0
-  m_LightUnit: 1
-  m_LuxAtDistance: 1
-  m_EnableSpotReflector: 1
---- !u!4 &584466400
+  m_AllowAutoConnect: 1
+  m_EnableHeightmapRayTracing: 1
+  m_EnableTreesAndDetailsRayTracing: 0
+  m_TreeMotionVectorModeOverride: 3
+--- !u!4 &1715777618
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 584466398}
+  m_GameObject: {fileID: 1715777615}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
-  m_LocalPosition: {x: 0, y: 3, z: 0}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -192, y: 0, z: -96}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
---- !u!114 &584466401
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 584466398}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Version: 3
-  m_UsePipelineSettings: 1
-  m_AdditionalLightsShadowResolutionTier: 2
-  m_LightLayerMask: 1
-  m_RenderingLayers: 1
-  m_CustomShadowLayers: 0
-  m_ShadowLayerMask: 1
-  m_ShadowRenderingLayers: 1
-  m_LightCookieSize: {x: 1, y: 1}
-  m_LightCookieOffset: {x: 0, y: 0}
-  m_SoftShadowQuality: 0
---- !u!1 &635313189
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1835148762
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -971,8 +2034,89 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 635313190}
-  - component: {fileID: 635313191}
+  - component: {fileID: 1835148763}
+  - component: {fileID: 1835148764}
+  m_Layer: 0
+  m_Name: Region 03 - Bayhead
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1835148763
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1835148762}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 9.211566, z: 48}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1133051592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1835148764
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1835148762}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SnapToTerrain: 1
+  RegionName: Bayhead
+  ValueMultiplier: 1
+  Shape:
+  - {x: 4.88, y: 32.81}
+  - {x: 2.62, y: 33.56}
+  - {x: 0.38, y: 32.81}
+  - {x: -1.5, y: 33.56}
+  - {x: -3.75, y: 32.81}
+  - {x: -7.12, y: 33.19}
+  - {x: -9.75, y: 33.94}
+  - {x: -14.62, y: 36.94}
+  - {x: -18.75, y: 37.31}
+  - {x: -24, y: 35.06}
+  - {x: -24.19, y: 39}
+  - {x: -22.69, y: 46.88}
+  - {x: -22.31, y: 53.25}
+  - {x: -19.12, y: 53.44}
+  - {x: -15.38, y: 56.06}
+  - {x: -13.88, y: 54.56}
+  - {x: -12.75, y: 54.56}
+  - {x: -3.38, y: 65.06}
+  - {x: -0.38, y: 63.94}
+  - {x: 3.38, y: 65.06}
+  - {x: 12.75, y: 54.56}
+  - {x: 13.88, y: 54.56}
+  - {x: 15.38, y: 56.06}
+  - {x: 19.12, y: 53.44}
+  - {x: 22.12, y: 53.44}
+  - {x: 24.19, y: 35.25}
+  - {x: 19.5, y: 37.31}
+  - {x: 14.62, y: 36.94}
+  - {x: 9, y: 33.56}
+  Kind: 0
+  Resources: 2
+  CurseStaysHere: 0
+  BuildableShallows: 0
+--- !u!1 &1902789756
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1902789757}
+  - component: {fileID: 1902789758}
   m_Layer: 0
   m_Name: Region 08 - Tidestone
   m_TagString: Untagged
@@ -980,28 +2124,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &635313190
+--- !u!4 &1902789757
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 635313189}
+  m_GameObject: {fileID: 1902789756}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -1.5, y: 5.488365, z: -83.25}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 531750026}
+  m_Father: {fileID: 1133051592}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &635313191
+--- !u!114 &1902789758
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 635313189}
+  m_GameObject: {fileID: 1902789756}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
@@ -1029,115 +2173,7 @@ MonoBehaviour:
   Resources: 8
   CurseStaysHere: 0
   BuildableShallows: 0
---- !u!1 &709724936
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 709724937}
-  - component: {fileID: 709724938}
-  m_Layer: 0
-  m_Name: Region 10 - Easterly Downs
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &709724937
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 709724936}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 50.62, y: 9.068742, z: 34.88}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &709724938
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 709724936}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Easterly Downs
-  ValueMultiplier: 1
-  Shape:
-  - {x: 87.75, y: -0.56}
-  - {x: 73.88, y: -0.19}
-  - {x: 59.62, y: 4.31}
-  - {x: 53.25, y: 4.31}
-  - {x: 48.38, y: 3.19}
-  - {x: 44.44, y: 10.5}
-  - {x: 40.69, y: 13.88}
-  - {x: 40.31, y: 16.12}
-  - {x: 28.31, y: 30.38}
-  - {x: 27.19, y: 33.38}
-  - {x: 24.19, y: 35.25}
-  - {x: 22.31, y: 53.25}
-  - {x: 24.38, y: 54.56}
-  - {x: 28.5, y: 54.94}
-  - {x: 29.44, y: 57.38}
-  - {x: 32.25, y: 59.44}
-  - {x: 36, y: 59.06}
-  - {x: 36.75, y: 60.56}
-  - {x: 43.12, y: 61.31}
-  - {x: 45.75, y: 60.94}
-  - {x: 50.25, y: 55.69}
-  - {x: 52.88, y: 54.56}
-  - {x: 54.38, y: 54.56}
-  - {x: 56.25, y: 56.06}
-  - {x: 61.12, y: 54.94}
-  - {x: 63, y: 57.56}
-  - {x: 65.25, y: 57.19}
-  - {x: 69.38, y: 57.94}
-  - {x: 73.12, y: 59.81}
-  - {x: 79.5, y: 61.69}
-  - {x: 84.75, y: 66.56}
-  - {x: 87.75, y: 66.94}
-  - {x: 92.25, y: 72.56}
-  - {x: 94.5, y: 72.56}
-  - {x: 96, y: 73.69}
-  - {x: 104.62, y: 73.69}
-  - {x: 106.5, y: 72.56}
-  - {x: 109.12, y: 72.19}
-  - {x: 109.88, y: 70.69}
-  - {x: 111, y: 72.56}
-  - {x: 115.12, y: 72.94}
-  - {x: 120, y: 70.69}
-  - {x: 125.25, y: 65.06}
-  - {x: 126, y: 64.69}
-  - {x: 127.5, y: 66.19}
-  - {x: 128.62, y: 66.19}
-  - {x: 129.19, y: 64.88}
-  - {x: 128.44, y: 63.38}
-  - {x: 129.19, y: 61.88}
-  - {x: 126.19, y: 52.5}
-  - {x: 123.19, y: 46.88}
-  - {x: 117.94, y: 40.12}
-  - {x: 111.56, y: 30}
-  - {x: 107.44, y: 21.75}
-  - {x: 99.19, y: 0.38}
-  - {x: 98.62, y: -0.19}
-  Kind: 0
-  Resources: 4
-  CurseStaysHere: 0
-  BuildableShallows: 0
---- !u!43 &802689756
+--- !u!43 &2045044710
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1302,7 +2338,7 @@ Mesh:
     offset: 0
     size: 0
     path: 
---- !u!1 &998858084
+--- !u!1 &2050620843
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1310,464 +2346,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 998858085}
-  - component: {fileID: 998858086}
-  m_Layer: 0
-  m_Name: Region 11 - Tern Bluff
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &998858085
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 998858084}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 81.75, y: 9.557031, z: -34.5}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &998858086
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 998858084}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Tern Bluff
-  ValueMultiplier: 1
-  Shape:
-  - {x: 104.62, y: -68.44}
-  - {x: 103.12, y: -68.44}
-  - {x: 102, y: -66.94}
-  - {x: 98.25, y: -65.06}
-  - {x: 96.19, y: -63.38}
-  - {x: 95.25, y: -61.31}
-  - {x: 93.38, y: -60.19}
-  - {x: 91.12, y: -60.56}
-  - {x: 89.62, y: -62.44}
-  - {x: 84.38, y: -62.06}
-  - {x: 80.25, y: -62.81}
-  - {x: 77.62, y: -61.31}
-  - {x: 70.5, y: -61.69}
-  - {x: 65.25, y: -59.06}
-  - {x: 62.25, y: -59.06}
-  - {x: 59.06, y: -55.5}
-  - {x: 58.69, y: -53.62}
-  - {x: 56.62, y: -51.94}
-  - {x: 55.69, y: -52.12}
-  - {x: 55.69, y: -53.25}
-  - {x: 54.75, y: -54.19}
-  - {x: 53.25, y: -54.19}
-  - {x: 51.38, y: -52.31}
-  - {x: 39.75, y: -52.31}
-  - {x: 36, y: -50.06}
-  - {x: 33, y: -50.06}
-  - {x: 31.12, y: -48.19}
-  - {x: 27.19, y: -47.25}
-  - {x: 36.38, y: -46.69}
-  - {x: 42.38, y: -43.31}
-  - {x: 44.25, y: -43.31}
-  - {x: 47.06, y: -39.75}
-  - {x: 47.06, y: -37.88}
-  - {x: 49.31, y: -33.38}
-  - {x: 51.94, y: -32.62}
-  - {x: 52.69, y: -31.12}
-  - {x: 52.69, y: -28.12}
-  - {x: 56.81, y: -24.38}
-  - {x: 56.81, y: -19.5}
-  - {x: 55.31, y: -17.25}
-  - {x: 53.81, y: -11.62}
-  - {x: 50.81, y: -7.5}
-  - {x: 50.81, y: -3.75}
-  - {x: 49.69, y: -2.25}
-  - {x: 48.38, y: 3.19}
-  - {x: 53.25, y: 4.31}
-  - {x: 59.62, y: 4.31}
-  - {x: 70.5, y: 0.56}
-  - {x: 76.12, y: -0.56}
-  - {x: 98.81, y: -0.38}
-  - {x: 101.06, y: -6.38}
-  - {x: 102.94, y: -17.62}
-  - {x: 104.44, y: -22.12}
-  - {x: 109.31, y: -31.88}
-  - {x: 112.69, y: -40.5}
-  - {x: 124.31, y: -62.62}
-  - {x: 124.31, y: -63.38}
-  - {x: 121.5, y: -65.44}
-  - {x: 119.62, y: -63.19}
-  - {x: 115.12, y: -61.31}
-  - {x: 112.88, y: -63.94}
-  - {x: 110.25, y: -65.44}
-  - {x: 107.25, y: -65.81}
-  - {x: 106.69, y: -67.5}
-  Kind: 0
-  Resources: 3
-  CurseStaysHere: 0
-  BuildableShallows: 0
---- !u!1 &1000158983
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1000158985}
-  - component: {fileID: 1000158984}
-  - component: {fileID: 1000158986}
-  m_Layer: 0
-  m_Name: Sun
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!108 &1000158984
-Light:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1000158983}
-  m_Enabled: 1
-  serializedVersion: 11
-  m_Type: 1
-  m_Color: {r: 1, g: 0.957, b: 0.882, a: 1}
-  m_Intensity: 1.15
-  m_Range: 10
-  m_SpotAngle: 30
-  m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
-  m_Shadows:
-    m_Type: 2
-    m_Resolution: -1
-    m_CustomResolution: -1
-    m_Strength: 1
-    m_Bias: 0.05
-    m_NormalBias: 0.4
-    m_NearPlane: 0.2
-    m_CullingMatrixOverride:
-      e00: 1
-      e01: 0
-      e02: 0
-      e03: 0
-      e10: 0
-      e11: 1
-      e12: 0
-      e13: 0
-      e20: 0
-      e21: 0
-      e22: 1
-      e23: 0
-      e30: 0
-      e31: 0
-      e32: 0
-      e33: 1
-    m_UseCullingMatrixOverride: 0
-  m_Cookie: {fileID: 0}
-  m_DrawHalo: 0
-  m_Flare: {fileID: 0}
-  m_RenderMode: 0
-  m_CullingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_RenderingLayerMask: 1
-  m_Lightmapping: 4
-  m_LightShadowCasterMode: 0
-  m_AreaSize: {x: 1, y: 1}
-  m_BounceIntensity: 1
-  m_ColorTemperature: 6570
-  m_UseColorTemperature: 0
-  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
-  m_UseBoundingSphereOverride: 0
-  m_UseViewFrustumForShadowCasterCull: 1
-  m_ForceVisible: 0
-  m_ShadowRadius: 0
-  m_ShadowAngle: 0
-  m_LightUnit: 1
-  m_LuxAtDistance: 1
-  m_EnableSpotReflector: 1
---- !u!4 &1000158985
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1000158983}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.14002554, y: 0.8593653, z: -0.36477894, w: 0.32987946}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1000158986
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1000158983}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Version: 3
-  m_UsePipelineSettings: 1
-  m_AdditionalLightsShadowResolutionTier: 2
-  m_LightLayerMask: 1
-  m_RenderingLayers: 1
-  m_CustomShadowLayers: 0
-  m_ShadowLayerMask: 1
-  m_ShadowRenderingLayers: 1
-  m_LightCookieSize: {x: 1, y: 1}
-  m_LightCookieOffset: {x: 0, y: 0}
-  m_SoftShadowQuality: 0
---- !u!1 &1094493708
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1094493711}
-  - component: {fileID: 1094493710}
-  - component: {fileID: 1094493709}
-  - component: {fileID: 1094493712}
-  m_Layer: 0
-  m_Name: Terrain
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 2147483647
-  m_IsActive: 1
---- !u!154 &1094493709
-TerrainCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1094493708}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_TerrainData: {fileID: 15600000, guid: 3b552ec8b7c13db41a35087b68f7cf97, type: 2}
-  m_EnableTreeColliders: 1
---- !u!218 &1094493710
-Terrain:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1094493708}
-  m_Enabled: 1
-  serializedVersion: 6
-  m_TerrainData: {fileID: 15600000, guid: 3b552ec8b7c13db41a35087b68f7cf97, type: 2}
-  m_TreeDistance: 260
-  m_TreeBillboardDistance: 120
-  m_TreeCrossFadeLength: 5
-  m_TreeMaximumFullLODCount: 50
-  m_DetailObjectDistance: 110
-  m_DetailObjectDensity: 0.8
-  m_HeightmapPixelError: 8
-  m_SplatMapDistance: 220
-  m_HeightmapMinimumLODSimplification: 0
-  m_HeightmapMaximumLOD: 0
-  m_ShadowCastingMode: 2
-  m_DrawHeightmap: 1
-  m_DrawInstanced: 1
-  m_DrawTreesAndFoliage: 1
-  m_StaticShadowCaster: 0
-  m_IgnoreQualitySettings: 0
-  m_ReflectionProbeUsage: 1
-  m_MaterialTemplate: {fileID: 2100000, guid: c5d8e1f2a3b44c67890d1e2f3a4b5c6d, type: 2}
-  m_BakeLightProbesForTrees: 1
-  m_PreserveTreePrototypeLayers: 0
-  m_DeringLightProbesForTrees: 1
-  m_ReceiveGI: 1
-  m_ScaleInLightmap: 0.094280906
-  m_LightmapParameters: {fileID: 15203, guid: 0000000000000000f000000000000000, type: 0}
-  m_GroupingID: 0
-  m_RenderingLayerMask: 1
-  m_AllowAutoConnect: 1
-  m_EnableHeightmapRayTracing: 1
-  m_EnableTreesAndDetailsRayTracing: 0
-  m_TreeMotionVectorModeOverride: 3
---- !u!4 &1094493711
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1094493708}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -192, y: 0, z: -96}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1094493712
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1094493708}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bcfc7b268461c414a8849f2c1589954f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  antiTile: 1
-  antiTileCells: 0.45
-  macroVariation: 0.13
-  macroCells: {x: 12.8, y: 6.4}
-  cliffProjection: 1
---- !u!1 &1264427613
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1264427614}
-  - component: {fileID: 1264427615}
-  m_Layer: 0
-  m_Name: Region 01 - Westerly Downs
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1264427614
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1264427613}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -50.62, y: 9.068742, z: 34.88}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1264427615
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1264427613}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Westerly Downs
-  ValueMultiplier: 1
-  Shape:
-  - {x: -76.12, y: -0.56}
-  - {x: -98.62, y: -0.19}
-  - {x: -99.19, y: 0.38}
-  - {x: -107.44, y: 21.75}
-  - {x: -111.56, y: 30}
-  - {x: -117.94, y: 40.12}
-  - {x: -123.19, y: 46.88}
-  - {x: -126.19, y: 52.5}
-  - {x: -129.19, y: 61.88}
-  - {x: -128.44, y: 63.38}
-  - {x: -129.19, y: 64.88}
-  - {x: -128.62, y: 66.19}
-  - {x: -127.5, y: 66.19}
-  - {x: -126, y: 64.69}
-  - {x: -120, y: 70.69}
-  - {x: -115.12, y: 72.94}
-  - {x: -111, y: 72.56}
-  - {x: -109.88, y: 70.69}
-  - {x: -109.12, y: 72.19}
-  - {x: -107.62, y: 72.19}
-  - {x: -104.62, y: 73.69}
-  - {x: -96, y: 73.69}
-  - {x: -94.5, y: 72.56}
-  - {x: -92.25, y: 72.56}
-  - {x: -87.75, y: 66.94}
-  - {x: -84.75, y: 66.56}
-  - {x: -79.5, y: 61.69}
-  - {x: -73.12, y: 59.81}
-  - {x: -69.38, y: 57.94}
-  - {x: -65.25, y: 57.19}
-  - {x: -63, y: 57.56}
-  - {x: -61.12, y: 54.94}
-  - {x: -56.25, y: 56.06}
-  - {x: -54.38, y: 54.56}
-  - {x: -52.88, y: 54.56}
-  - {x: -50.25, y: 55.69}
-  - {x: -45.75, y: 60.94}
-  - {x: -43.12, y: 61.31}
-  - {x: -36.75, y: 60.56}
-  - {x: -36, y: 59.06}
-  - {x: -32.25, y: 59.44}
-  - {x: -29.44, y: 57.38}
-  - {x: -28.5, y: 54.94}
-  - {x: -24.38, y: 54.56}
-  - {x: -22.31, y: 53.25}
-  - {x: -24.19, y: 35.25}
-  - {x: -27.19, y: 33.38}
-  - {x: -28.31, y: 30.38}
-  - {x: -40.31, y: 16.12}
-  - {x: -40.69, y: 13.88}
-  - {x: -44.44, y: 10.5}
-  - {x: -47.81, y: 3.75}
-  - {x: -49.12, y: 3.19}
-  - {x: -53.25, y: 4.31}
-  - {x: -59.62, y: 4.31}
-  - {x: -70.5, y: 0.56}
-  Kind: 0
-  Resources: 4
-  CurseStaysHere: 0
-  BuildableShallows: 0
---- !u!1 &1268513105
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1268513106}
-  - component: {fileID: 1268513107}
+  - component: {fileID: 2050620844}
+  - component: {fileID: 2050620845}
   m_Layer: 0
   m_Name: P2 Start (Red) - Ternhold
   m_TagString: Untagged
@@ -1775,28 +2355,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1268513106
+--- !u!4 &2050620844
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1268513105}
+  m_GameObject: {fileID: 2050620843}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 148.12, y: 10.770428, z: 1.12}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 501498298}
+  m_Father: {fileID: 770518770}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1268513107
+--- !u!114 &2050620845
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1268513105}
+  m_GameObject: {fileID: 2050620843}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 995a3f5e761151a42bc21c9181a4d382, type: 3}
@@ -1804,635 +2384,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SnapToTerrain: 1
   Faction: 1
---- !u!1 &1414334343
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1414334344}
-  - component: {fileID: 1414334345}
-  m_Layer: 0
-  m_Name: Region 07 - Yiel
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1414334344
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1414334343}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -12.75, y: 5.4688334, z: -3.75}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1414334345
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1414334343}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Yiel
-  ValueMultiplier: 1
-  Shape:
-  - {x: 16.5, y: -22.31}
-  - {x: 12.38, y: -22.31}
-  - {x: 6.38, y: -21.19}
-  - {x: 3.75, y: -19.69}
-  - {x: -3.75, y: -19.69}
-  - {x: -6.38, y: -21.19}
-  - {x: -12.38, y: -22.31}
-  - {x: -16.5, y: -22.31}
-  - {x: -24, y: -18.94}
-  - {x: -27.19, y: -15.75}
-  - {x: -29.44, y: -10.88}
-  - {x: -34.31, y: -4.12}
-  - {x: -33.56, y: 1.12}
-  - {x: -31.69, y: 4.88}
-  - {x: -24.75, y: 12.56}
-  - {x: -18.38, y: 15.19}
-  - {x: -8.62, y: 13.69}
-  - {x: -0.38, y: 15.56}
-  - {x: 6.75, y: 13.69}
-  - {x: 18.38, y: 15.19}
-  - {x: 24.75, y: 12.56}
-  - {x: 31.69, y: 4.88}
-  - {x: 33.56, y: 1.12}
-  - {x: 34.31, y: -4.12}
-  - {x: 29.44, y: -10.88}
-  - {x: 27.19, y: -15.75}
-  - {x: 24, y: -18.94}
-  Kind: 0
-  Resources: 6
-  CurseStaysHere: 1
-  BuildableShallows: 0
---- !u!1 &1460850689
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1460850690}
-  - component: {fileID: 1460850691}
-  m_Layer: 0
-  m_Name: Region 04 - Gull Strand
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1460850690
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1460850689}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -92.25, y: 4.4690623, z: -71.62}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1460850691
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1460850689}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Gull Strand
-  ValueMultiplier: 1
-  Shape:
-  - {x: -109.88, y: -81.56}
-  - {x: -112.88, y: -81.56}
-  - {x: -132.38, y: -74.81}
-  - {x: -136.88, y: -74.06}
-  - {x: -138.75, y: -72.94}
-  - {x: -143.62, y: -67.69}
-  - {x: -151.12, y: -66.56}
-  - {x: -153, y: -65.81}
-  - {x: -154.5, y: -63.94}
-  - {x: -162.75, y: -66.56}
-  - {x: -166.88, y: -66.19}
-  - {x: -170.25, y: -63.19}
-  - {x: -174.75, y: -60.56}
-  - {x: -179.62, y: -56.06}
-  - {x: -186, y: -55.69}
-  - {x: -189.75, y: -59.06}
-  - {x: -192, y: -59.81}
-  - {x: -192.19, y: -45.38}
-  - {x: -188.62, y: -45.56}
-  - {x: -185.62, y: -43.69}
-  - {x: -182.25, y: -43.31}
-  - {x: -179.62, y: -45.56}
-  - {x: -175.12, y: -45.19}
-  - {x: -173.25, y: -47.06}
-  - {x: -171.75, y: -45.94}
-  - {x: -169.88, y: -45.94}
-  - {x: -167.06, y: -49.88}
-  - {x: -164.62, y: -51.19}
-  - {x: -161.62, y: -48.19}
-  - {x: -159.38, y: -47.81}
-  - {x: -155.25, y: -44.44}
-  - {x: -151.88, y: -44.44}
-  - {x: -151.31, y: -46.5}
-  - {x: -149.06, y: -48.38}
-  - {x: -148.12, y: -51.19}
-  - {x: -143.62, y: -52.31}
-  - {x: -140.62, y: -54.94}
-  - {x: -136.5, y: -54.94}
-  - {x: -134.62, y: -57.19}
-  - {x: -130.5, y: -59.06}
-  - {x: -122.25, y: -65.06}
-  - {x: -121.5, y: -65.44}
-  - {x: -119.62, y: -63.19}
-  - {x: -115.12, y: -61.31}
-  - {x: -112.88, y: -63.94}
-  - {x: -110.25, y: -65.44}
-  - {x: -107.25, y: -65.81}
-  - {x: -106.69, y: -67.5}
-  - {x: -104.62, y: -68.44}
-  - {x: -103.12, y: -68.44}
-  - {x: -102, y: -66.94}
-  - {x: -98.25, y: -65.06}
-  - {x: -96.19, y: -63.38}
-  - {x: -95.25, y: -61.31}
-  - {x: -93.38, y: -60.19}
-  - {x: -91.12, y: -60.56}
-  - {x: -89.62, y: -62.44}
-  - {x: -84.38, y: -62.06}
-  - {x: -80.25, y: -62.81}
-  - {x: -77.62, y: -61.31}
-  - {x: -70.5, y: -61.69}
-  - {x: -65.25, y: -59.06}
-  - {x: -63, y: -59.44}
-  - {x: -59.06, y: -55.5}
-  - {x: -58.69, y: -53.62}
-  - {x: -56.62, y: -51.94}
-  - {x: -55.69, y: -52.12}
-  - {x: -55.69, y: -53.25}
-  - {x: -54.75, y: -54.19}
-  - {x: -53.25, y: -54.19}
-  - {x: -51.38, y: -52.31}
-  - {x: -39.75, y: -52.31}
-  - {x: -36, y: -50.06}
-  - {x: -33, y: -50.06}
-  - {x: -31.12, y: -48.19}
-  - {x: -27, y: -47.06}
-  - {x: -24.75, y: -47.44}
-  - {x: -22.5, y: -49.31}
-  - {x: -15.94, y: -50.25}
-  - {x: -15.94, y: -55.88}
-  - {x: -17.06, y: -59.62}
-  - {x: -19.5, y: -63.94}
-  - {x: -21.75, y: -64.69}
-  - {x: -31.88, y: -64.31}
-  - {x: -35.62, y: -65.06}
-  - {x: -37.5, y: -66.94}
-  - {x: -39.38, y: -67.69}
-  - {x: -42.38, y: -66.56}
-  - {x: -46.12, y: -67.31}
-  - {x: -49.5, y: -66.56}
-  - {x: -51, y: -67.69}
-  - {x: -57.38, y: -66.94}
-  - {x: -69.38, y: -71.44}
-  - {x: -76.5, y: -72.56}
-  - {x: -78.75, y: -74.44}
-  - {x: -81, y: -74.81}
-  - {x: -83.25, y: -76.69}
-  - {x: -90, y: -79.69}
-  - {x: -96.38, y: -80.44}
-  - {x: -97.88, y: -81.19}
-  - {x: -108.38, y: -80.81}
-  Kind: 0
-  Resources: 7
-  CurseStaysHere: 0
-  BuildableShallows: 0
---- !u!1 &1737086383
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1737086384}
-  - component: {fileID: 1737086385}
-  m_Layer: 0
-  m_Name: Region 12 - Tern Strand
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1737086384
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1737086383}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 92.25, y: 4.4690623, z: -71.62}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1737086385
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1737086383}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Tern Strand
-  ValueMultiplier: 1
-  Shape:
-  - {x: 112.88, y: -81.56}
-  - {x: 109.88, y: -81.56}
-  - {x: 108.38, y: -80.81}
-  - {x: 97.88, y: -81.19}
-  - {x: 96.38, y: -80.44}
-  - {x: 90, y: -79.69}
-  - {x: 83.25, y: -76.69}
-  - {x: 81, y: -74.81}
-  - {x: 78.75, y: -74.44}
-  - {x: 76.5, y: -72.56}
-  - {x: 69.38, y: -71.44}
-  - {x: 57.38, y: -66.94}
-  - {x: 51, y: -67.69}
-  - {x: 49.5, y: -66.56}
-  - {x: 48, y: -67.31}
-  - {x: 42.38, y: -66.56}
-  - {x: 39.38, y: -67.69}
-  - {x: 37.5, y: -66.94}
-  - {x: 35.62, y: -65.06}
-  - {x: 31.88, y: -64.31}
-  - {x: 21.75, y: -64.69}
-  - {x: 19.31, y: -63.75}
-  - {x: 17.06, y: -59.62}
-  - {x: 15.94, y: -55.88}
-  - {x: 15.94, y: -50.25}
-  - {x: 22.5, y: -49.31}
-  - {x: 24, y: -47.81}
-  - {x: 27, y: -47.06}
-  - {x: 31.12, y: -48.19}
-  - {x: 33, y: -50.06}
-  - {x: 36, y: -50.06}
-  - {x: 39.75, y: -52.31}
-  - {x: 51.38, y: -52.31}
-  - {x: 53.25, y: -54.19}
-  - {x: 54.75, y: -54.19}
-  - {x: 55.69, y: -53.25}
-  - {x: 55.69, y: -52.12}
-  - {x: 56.62, y: -51.94}
-  - {x: 58.69, y: -53.62}
-  - {x: 59.06, y: -55.5}
-  - {x: 63, y: -59.44}
-  - {x: 65.25, y: -59.06}
-  - {x: 70.5, y: -61.69}
-  - {x: 77.62, y: -61.31}
-  - {x: 80.25, y: -62.81}
-  - {x: 84.38, y: -62.06}
-  - {x: 89.62, y: -62.44}
-  - {x: 91.12, y: -60.56}
-  - {x: 93.38, y: -60.19}
-  - {x: 94.88, y: -60.94}
-  - {x: 96.19, y: -63.38}
-  - {x: 98.25, y: -65.06}
-  - {x: 102, y: -66.94}
-  - {x: 103.12, y: -68.44}
-  - {x: 104.62, y: -68.44}
-  - {x: 106.12, y: -68.06}
-  - {x: 107.25, y: -65.81}
-  - {x: 110.25, y: -65.44}
-  - {x: 112.88, y: -63.94}
-  - {x: 115.12, y: -61.31}
-  - {x: 119.62, y: -63.19}
-  - {x: 121.5, y: -65.44}
-  - {x: 122.25, y: -65.06}
-  - {x: 130.5, y: -59.06}
-  - {x: 134.62, y: -57.19}
-  - {x: 136.5, y: -54.94}
-  - {x: 140.62, y: -54.94}
-  - {x: 142.88, y: -52.69}
-  - {x: 148.12, y: -51.19}
-  - {x: 149.06, y: -48.38}
-  - {x: 151.31, y: -46.5}
-  - {x: 151.88, y: -44.44}
-  - {x: 155.25, y: -44.44}
-  - {x: 159.38, y: -47.81}
-  - {x: 161.62, y: -48.19}
-  - {x: 164.62, y: -51.19}
-  - {x: 166.12, y: -50.81}
-  - {x: 169.88, y: -45.94}
-  - {x: 171.75, y: -45.94}
-  - {x: 173.25, y: -47.06}
-  - {x: 175.12, y: -45.19}
-  - {x: 179.62, y: -45.56}
-  - {x: 182.25, y: -43.31}
-  - {x: 185.62, y: -43.69}
-  - {x: 188.62, y: -45.56}
-  - {x: 192.19, y: -45.38}
-  - {x: 192, y: -59.81}
-  - {x: 189.75, y: -59.06}
-  - {x: 186, y: -55.69}
-  - {x: 179.62, y: -56.06}
-  - {x: 174.75, y: -60.56}
-  - {x: 170.25, y: -63.19}
-  - {x: 166.88, y: -66.19}
-  - {x: 162.75, y: -66.56}
-  - {x: 154.5, y: -63.94}
-  - {x: 153, y: -65.81}
-  - {x: 151.12, y: -66.56}
-  - {x: 143.62, y: -67.69}
-  - {x: 138.75, y: -72.94}
-  - {x: 136.88, y: -74.06}
-  - {x: 132.38, y: -74.81}
-  Kind: 0
-  Resources: 7
-  CurseStaysHere: 0
-  BuildableShallows: 0
---- !u!1 &1809810523
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1809810524}
-  - component: {fileID: 1809810525}
-  m_Layer: 0
-  m_Name: Region 03 - Bayhead
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1809810524
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1809810523}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 9.211566, z: 48}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1809810525
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1809810523}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: Bayhead
-  ValueMultiplier: 1
-  Shape:
-  - {x: 4.88, y: 32.81}
-  - {x: 2.62, y: 33.56}
-  - {x: 0.38, y: 32.81}
-  - {x: -1.5, y: 33.56}
-  - {x: -3.75, y: 32.81}
-  - {x: -7.12, y: 33.19}
-  - {x: -9.75, y: 33.94}
-  - {x: -14.62, y: 36.94}
-  - {x: -18.75, y: 37.31}
-  - {x: -24, y: 35.06}
-  - {x: -24.19, y: 39}
-  - {x: -22.69, y: 46.88}
-  - {x: -22.31, y: 53.25}
-  - {x: -19.12, y: 53.44}
-  - {x: -15.38, y: 56.06}
-  - {x: -13.88, y: 54.56}
-  - {x: -12.75, y: 54.56}
-  - {x: -3.38, y: 65.06}
-  - {x: -0.38, y: 63.94}
-  - {x: 3.38, y: 65.06}
-  - {x: 12.75, y: 54.56}
-  - {x: 13.88, y: 54.56}
-  - {x: 15.38, y: 56.06}
-  - {x: 19.12, y: 53.44}
-  - {x: 22.12, y: 53.44}
-  - {x: 24.19, y: 35.25}
-  - {x: 19.5, y: 37.31}
-  - {x: 14.62, y: 36.94}
-  - {x: 9, y: 33.56}
-  Kind: 0
-  Resources: 2
-  CurseStaysHere: 0
-  BuildableShallows: 0
---- !u!1 &1844634933
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1844634934}
-  - component: {fileID: 1844634935}
-  m_Layer: 0
-  m_Name: P1 Start (Blue) - Gullhold
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1844634934
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1844634933}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -148.12, y: 10.770428, z: 1.12}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 501498298}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1844634935
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1844634933}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 995a3f5e761151a42bc21c9181a4d382, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  Faction: 0
---- !u!1 &1948930654
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1948930655}
-  - component: {fileID: 1948930656}
-  m_Layer: 0
-  m_Name: "Region 13 - East Lymw\xE9rra"
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1948930655
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1948930654}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 33, y: 3.308156, z: -30.38}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 531750026}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1948930656
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1948930654}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa2f86affd8fa0c4490602a585a06e6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SnapToTerrain: 1
-  RegionName: "East Lymw\xE9rra"
-  ValueMultiplier: 1
-  Shape:
-  - {x: 12, y: -75.56}
-  - {x: 6.75, y: -73.31}
-  - {x: 0.19, y: -73.12}
-  - {x: 0.19, y: -19.88}
-  - {x: 3.75, y: -19.69}
-  - {x: 6.38, y: -21.19}
-  - {x: 12.38, y: -22.31}
-  - {x: 16.5, y: -22.31}
-  - {x: 20.62, y: -20.81}
-  - {x: 24, y: -18.94}
-  - {x: 27.19, y: -15.75}
-  - {x: 29.44, y: -10.88}
-  - {x: 33.94, y: -4.88}
-  - {x: 34.31, y: -1.88}
-  - {x: 31.69, y: 4.88}
-  - {x: 24.75, y: 12.56}
-  - {x: 18.38, y: 15.19}
-  - {x: 6.75, y: 13.69}
-  - {x: 0.19, y: 15.75}
-  - {x: 0.19, y: 32.62}
-  - {x: 1.5, y: 33.56}
-  - {x: 3.75, y: 32.81}
-  - {x: 9, y: 33.56}
-  - {x: 14.62, y: 36.94}
-  - {x: 19.5, y: 37.31}
-  - {x: 27.19, y: 33.38}
-  - {x: 28.31, y: 30.38}
-  - {x: 40.31, y: 16.12}
-  - {x: 40.69, y: 13.88}
-  - {x: 45.19, y: 9.38}
-  - {x: 46.69, y: 5.62}
-  - {x: 47.81, y: 4.5}
-  - {x: 49.69, y: -2.25}
-  - {x: 50.81, y: -3.75}
-  - {x: 50.81, y: -7.5}
-  - {x: 54.19, y: -12.38}
-  - {x: 55.31, y: -17.25}
-  - {x: 56.81, y: -19.5}
-  - {x: 57.19, y: -22.88}
-  - {x: 56.44, y: -25.12}
-  - {x: 52.69, y: -28.12}
-  - {x: 52.69, y: -31.12}
-  - {x: 51.94, y: -32.62}
-  - {x: 49.31, y: -33.38}
-  - {x: 47.06, y: -37.88}
-  - {x: 47.06, y: -39.75}
-  - {x: 44.25, y: -43.31}
-  - {x: 42.38, y: -43.31}
-  - {x: 36.38, y: -46.69}
-  - {x: 26.25, y: -47.06}
-  - {x: 24, y: -47.81}
-  - {x: 22.5, y: -49.31}
-  - {x: 15.94, y: -50.25}
-  - {x: 15.94, y: -55.88}
-  - {x: 17.06, y: -59.62}
-  - {x: 19.31, y: -63.38}
-  - {x: 15.38, y: -62.81}
-  - {x: 11.81, y: -61.12}
-  Kind: 0
-  Resources: 5
-  CurseStaysHere: 0
-  BuildableShallows: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 584466400}
-  - {fileID: 1094493711}
-  - {fileID: 1000158985}
-  - {fileID: 269381873}
-  - {fileID: 501498298}
-  - {fileID: 531750026}
+  - {fileID: 234195584}
+  - {fileID: 1715777618}
+  - {fileID: 1275435478}
+  - {fileID: 1035652106}
+  - {fileID: 770518770}
+  - {fileID: 1133051592}

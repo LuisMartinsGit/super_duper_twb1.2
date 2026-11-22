@@ -9,6 +9,194 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+110. **The countdown strike owns the army (2026-11-22, batch 28).** Decision 108 sent every
+    soldier at an enshrined Shardroot, and the wave machinery called them back: "108 more join
+    the group of 171 still mustering", "132 unit(s) not at the muster point stay for the next
+    group" within a minute of the march order, so four armies of 150 to 190 never stood at the
+    Temple together and the bearer ascended. While the strike is on, the wall guard, the
+    Sanctum army, monuments, the curse sortie and the attack waves do not run for that faction
+    (`CountdownStrikeOwnsArmy`, `SimpleAISystem.cs`). The enshrine price was raised in the same
+    pass (iron and veilstone, `ShardrootEmpowerment.asset`): batch 28's bearers formed the
+    decision 109 price as fast as the old one.
+109. **The enshrine price asks for iron too (2026-11-20, batch 27).** With the price reachable
+    again (decision 106) all twelve matches of batch 27 ended by ascension, median minute 52:
+    supplies and veilstone alone form too easily in a late economy. The price now has an iron
+    part (`enshrineIron` on `ShardrootEmpowerment.asset`, beside `enshrineSupplies` and
+    `enshrineVeilstone`), which is the resource the army also wants, so enshrining costs
+    soldiers. The AI's save, its price ETA and the order's refusal text already read the whole
+    price.
+108. **An enshrined Shardroot is a clock: every rival soldier marches (2026-11-20, batch 27).**
+    On Fiendstone Pass five rivals with armies of a hundred and more each logged "saving an
+    army for the Shardroot" against the Temple's defenders and lost together. Each weighed
+    only its own idle soldiers against the defence. While a hostile ascension countdown runs
+    and the Shardroot is in an enemy Temple, the AI's Shardroot strike drafts every combat
+    unit (claim squads and verb units excepted), ignores the launch margin, the minimum party
+    and the tier's wave cap, and re-sends idle members every think
+    (`SimpleAISystem.Shardroot.cs`, `TickShardroot`). Game_AI.md § 6l.
+107. **A hard cap on production buildings (2026-11-20, batch 27).** Decision 101 bounded the
+    rate governor's waiver but the other paths (province step, home floor, rebuilt trainers)
+    still added trainers: Experts ended with 35 to 41 for two hundred units. Past
+    `productionMaxTotal` (`SimpleAISystem.asset`) no path places another production building
+    (`ProductionGate`). Checked in the same batch and NOT bugs: every "gateless" wall is a
+    choke left open between its tower hubs (decision 81) and every such player's army left
+    home; "trainer queue full" on empty Farm slots is the Fortress already training Workers
+    as fast as it can (the log line now appears only when none is queued).
+106. **What is being saved is not a glut (2026-11-20, batch 26, Yiel Lymwérra).** The AI's
+    Market sold any resource above its glut level, and the Shardroot's enshrine price asks for
+    more supplies than that level: a bearer's supplies were sold back down every think (289
+    sales in one match), the price never formed, and the bearer waited at home for 55 minutes
+    with a full-population army and one wave in an hour. Every pending savings goal
+    (`AIPivotalReserve.PendingTotal`) is now added to the level a glut sale keeps
+    (`SimpleAISystem.TickMarket`).
+
+105. **An army that can win, and an economy behind it (2026-11-20, a developer match against an
+    Expert Rush: "an aggressive AI that never made a meaningful attack").** It sent 22, 23 and 29
+    soldiers at a player it had itself counted at 47, in bodies of three to twelve, from one
+    territory and a bank short of supplies beside idle iron.
+    (a) **A wave is sized against the army it has seen.** A wave waits at home, and the army
+    target rises, while its strength is below `waveVsArmyRatio` times the strongest hostile
+    field army sighted in the last `waveVsArmySightingSeconds` (soldiers seen and alive, summed
+    per faction). This is the enemy's ARMY, not the defence at the objective, which is the hold
+    decision 91 removed; it ends after `waveVsArmyMaxHoldSeconds` or at a full population, and a
+    Rush's first wave goes regardless.
+    (b) **No raids while the army is the weaker one** (the same test, on the whole army).
+    (c) **Whoever misses the muster stays for the next group** (amends decision 95: sent after
+    the army at once, they marched as a body of four or eleven).
+    (d) **A curse sortie when landlocked.** For `curseClearLandlockedSeconds` after a claim round
+    finds nothing claimable, the curse sortie goes while a wave is out and at a node not yet
+    seen; it picks its soldiers before the wave drafts, and a wave no longer dissolves it.
+    (e) **The market raises veilstone from the other resource down to its short level** (it kept
+    twice that, so iron under double the level was never sold for the supplies the army lacked).
+    (f) **The Vault takes what the army cannot use**: a resource is idle, whatever the army's
+    size or the unit rate, while the army's purchases are stopped for a different resource.
+    (g) The Farm staffing logs why no Worker was trained for an empty slot.
+    All on `SimpleAISystem.asset`. Code: `SimpleAISystem.Military.cs` (`KnownFieldArmy`,
+    `TryLaunchAttack`, `TickRaids`), `CurseClear.cs`, `Farms.cs`, `EconomyDrive.cs`.
+
+104. **A wallet borrows a limited share and pays it back; the savings pot is nobody's to spend
+    (2026-11-20, developer: "a pot can only overspend a percentage of what's available. There
+    must also be a payback... having more units now will mean having less later on, which is
+    what happens to a human").** The AI's three wallets (advancement, military, economy) lent to
+    each other without limit and were rescaled to the bank every think, so each could spend the
+    whole bank and a wallet that held back lost its share to the one that overspent; and of all
+    the AI's spenders only the building-level buyer left the savings pot alone, so a pot filled
+    and was emptied again (a developer match: the production-level pot twice within reach of its
+    price, twice drained by sect buildings and towers, neither level bought).
+    (a) **Limit.** A wallet short of a price may owe the other two at most
+    `walletOverspendShare` of what they hold, per resource, counting what it already owes.
+    (b) **Payback.** What it borrows is a debt to the wallet that lent it. While it owes,
+    `walletDebtRepayShare` of its own income goes to its lenders before it may spend it. The
+    BUDGET log line names what each wallet owes.
+    (c) **Spending past the wallets** (a purchase paid from the bank) is charged to the wallets
+    as income is shared, no longer in proportion to what each holds.
+    (d) **The pot.** Every AI spender that pays the bank directly asks
+    `AIBudget.CanAffordLeavingSavings`: the price must be payable with the pot left whole. The
+    exceptions pay from the whole bank: the purchase the pot is saving for, the gate of a wall
+    that would otherwise seal its owner in, and the Shardroot. Both values are on
+    `AIBudget.asset`; the pot's share of income stays the tier's `savingsIncomeShare`.
+
+103. **Economic upgrades are bought (2026-11-20, developer: "economic upgrades always compensate
+    their cost").** The AI refused the Farm and Mine levels whenever the added income would not
+    repay the price inside a short window, and in a developer match an Expert refused the Farm
+    level several hundred times and the Mine level over a thousand. The windows
+    (`farmLevelPaybackMinutes`, `mineLevelPaybackMinutes` on `AIBuildingUpgradeSystem.asset`) are
+    lengthened so that any level a normal match repays is bought; the test stays only to refuse
+    a level with next to nothing to improve.
+
+102. **The AI keeps its Vault bars (2026-11-20, developer: "that vault is there explicitly to
+    allow players to have a reliable income in the late game").** The AI withdrew, losing every
+    bar, whenever its savings were paused, and savings pause for one extractor owed a rebuild or
+    for a defended base. Batch 25: 269 withdrawals across 56 players, 259 of them for "economy
+    in distress" and nearly all with the income holding; 42 players filled a first bar at some
+    point and 16 still held one at the end. The AI now withdraws only when the Vault is falling,
+    when its supply income has COLLAPSED and the army cannot be paid, or (as before) when it
+    defends or rebuilds a lost army and the bank cannot pay. An extractor owed a rebuild no
+    longer stops deposits either; a collapsed income still does (`SimpleAISystem.TickVault`,
+    `VaultWithdrawReason`).
+
+101. **Idle trainers buy no more trainers; a gate must fit between the hubs (2026-11-20, batch 25,
+    developer: "it has more buildings than units").** Two corrections, no new rule.
+    (a) The Expert unit-rate governor (decision 86) let an extra production building pass the
+    saturation gate whenever the rate was behind and the bank could pay. Behind for want of iron,
+    it spent the iron on a further building, fell further behind and built again (one Expert
+    ended with more production buildings than a Hard player has buildings of every kind). The
+    waiver now also needs the trainers the faction HAS to be busy at the tier's
+    `productionSaturationThreshold`: idle trainers mean money is the limit
+    (`SimpleAISystem.ProductionGate`).
+    (b) Decision 81's "a gate must fit or the way stays open" measured the gate stretch hub
+    centre to hub centre and rounded up, so a narrow ramp passed with fewer real modules than
+    a gatehouse takes and was sealed (the same two seats in both Fiendstone Pass matches). The
+    test now takes the hub footprint off the stretch and counts whole modules only
+    (`AIWallPlanner.EmitChokeLine`).
+
+100. **A tier that can fight is not kited (2026-11-20, developer: "Having a 30hp unit kite
+    lots of 10 HP units and killing them all is too broken to be allowed by a hard/hardest
+    AI").** On the tiers whose profile carries tactics skill, in `SimpleAISystem.Tactics.cs`:
+    (a) a weak threat never takes over the army. One member hit and fighting back used to
+    put the whole army into the engagement; the threat is now weighed all the same, and one
+    under `engageMinThreatFraction` gets a DETACHMENT (`AnswerHarasser`): the shooters and
+    cavalry that can reach it, nearest first, until they outweigh it by `harassAnswerOdds`,
+    while foot that ran out of the formation is called back and the army marches on.
+    (b) every engagement keeps a LEDGER (`ChaseNotPaying`): health lost against hostile
+    health destroyed, read off the last health seen for each member and each hostile in the
+    fight (a hostile that walks away counts nothing). After `chaseReviewSeconds`, against a
+    foe under `chaseWeakFraction` of its strength, or on cursed ground it was not sent to,
+    an army that has lost more than `chaseLossRatio` times what it destroyed breaks off,
+    resumes its march and passes weak hostiles by for `chaseIgnoreSeconds`. The ledger is
+    what judges a fight on cursed ground once it has begun; `CurseFightWorthIt` (decision
+    99) only decides whether to start one. All values on `SimpleAISystem.asset`. Lower tiers
+    keep the old behaviour: being kited is the bad play they are meant to show
+    (Game_AI.md § 2a). Not covered: the skilled target assignment may still give a foot
+    soldier a target it cannot catch during a full engagement. Game_AI.md § 6e.
+99. **An army fights only what its soldiers see, and keeps off cursed ground (2026-11-20,
+    developer: "AI is sending armies directly into cursed ground and they run around
+    aimlessly there until they die. Armies should avoid cursed ground unless they are aimed
+    at a target inside the cursed area", then "The army should only attack when the target
+    is within LOS of the units that make up the army. Until then it should steer as a
+    formation").** Three changes in `SimpleAISystem`: (a) the legs the route planner never
+    saw now go through it (`March`): the strike leg from the stage point, a close-range
+    launch and a reinforcement group's direct strike; (b) a regroup re-forms the army on its
+    current route leg instead of re-planning it straight at the destination; (c) the tactics
+    layer takes a target only when at least one member has it inside its own line of sight
+    (`SeenByArmy`), and one standing on cursed ground only when the fight pays for itself,
+    unless the army's objective is on cursed ground too (developer: "the AI must evaluate if
+    the risk is worth it. 10 soldiers in the curse are losing a total 30 HP per second, to
+    kill an enemy that might not be worth the HP loss"). `CurseFightWorthIt` prices it: the
+    hostile health round the target, over the weapon damage a second of the members who
+    would go in, is the length of the fight; past the curse's grace window each of them
+    loses the mean exposure damage a second; the fight is taken when the hostile health
+    destroyed, times `curseFightWorth` (`SimpleAISystem.asset`), is at least that loss. A
+    flank point is pushed off cursed ground. A threat to the army's engines is always
+    answered. Not covered yet: defence responses and recalls home go in straight lines, and
+    a kiting step is not checked against cursed ground. Game_AI.md § 6k.
+98. **A waiting formation slows down, it does not stop (2026-11-20, developer: "Sometimes
+    issuing a command causes the formation to stop completely"; applies to every formation,
+    the player's and the AI's).** The re-form wait and the convoy wait of 2026-11-17 set the
+    leader's speed to nothing while any one member was off its spot, or while a sister
+    formation was behind. Both now walk at `columnWaitSpeed` of the group's pace, and the
+    re-form wait starts only when more than `columnWaitFraction` of the members lag
+    (`FormationGroupSystem.asset`). Navigation_And_Formations.md § 2.
+97. **At most `towersPerTerritoryCap` Watch Towers per territory (2026-11-20, developer:
+    "limit to 3 towers per territory").** One cap per faction per territory, the home
+    included, asked by every rule that builds a tower: the home ring, province coverage,
+    emergency defence, Sanctum fortification and the Alanthor endgame's defensive towers
+    (`SimpleAISystem.TowerCapReached`, `SimpleAISystem.asset`). Standing and planned towers
+    count; Wall Towers do not. Game_AI.md § 5g.
+96. **Siege engines: one for every twenty soldiers at most (2026-11-20, developer: "attack
+    waves ... have too many battering rams, should be 1 per every 20 soldiers max").**
+    `siegeMaxArmyShare` is lowered to that ratio and is now rounded DOWN where the siege
+    program and the production spread turn it into a count; the fixed engine floor
+    (`siegeTrainFloor`) and the war's engine demand (`keystoneSiegeMin`) drop to one engine.
+    The same share is applied to the body that marches: a wave or a reinforcement group
+    leaves its surplus engines at home (`TrimSiegeToShare`). Game_AI.md § 4.
+95. **The army leaves when most of it has mustered; the rest follow as a formed group
+    (2026-11-20, developer: "attack waves are too small", "AI keeps all troops in their
+    main base at all times").** Measured on batch 24: half the musters timed out and left a
+    median of 17 soldiers at home. `musterGatherFraction` is lowered, so the army goes as
+    soon as that share stands at the muster point; whoever is not there when it goes is left
+    out of it (never trailing as a straggler) and the next reinforcement group is due at
+    once, so they follow as a formed body and merge with the army in the field. Supersedes
+    "the army musters completely" (2026-11-17). Game_AI.md § 6.
 94. **Hero levels grant stats; level 10 is worth 20 to 30 Swordsmen (2026-11-20, developer:
     "Heroes themselves should be worth around 20-30 units themselves when at max level", then
     "Swordsman, grow by level").** Each level above the first adds a share of the hero's

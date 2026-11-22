@@ -83,6 +83,241 @@ namespace TheWaningBorder.AI
         /// </summary>
         /// <summary>Decision 88: the most pressing hostile within
         /// siegeEscortRadius of any of this army's engines, or Entity.Null.</summary>
+        /// <summary>Is <paramref name="target"/> inside the line of sight of
+        /// at least one member of the army (decision 99)?</summary>
+        private static bool SeenByArmy(EntityManager em, Mission mission, Entity target)
+        {
+            if (!em.Exists(target) || !em.HasComponent<LocalTransform>(target)) return false;
+            float2 t = em.GetComponentData<LocalTransform>(target).Position.xz;
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (!em.Exists(u) || !em.HasComponent<LocalTransform>(u) || !em.HasComponent<LineOfSight>(u)) continue;
+                float los = em.GetComponentData<LineOfSight>(u).Radius;
+                if (math.distancesq(em.GetComponentData<LocalTransform>(u).Position.xz, t) <= los * los) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// IS A FIGHT ON CURSED GROUND WORTH ITS PRICE? (decision 99,
+        /// 2026-11-20, developer: "10 soldiers in the curse are losing a total
+        /// 30 HP per second, to kill an enemy that might not be worth the HP
+        /// loss".) True for a target on clean ground and for an army whose
+        /// objective is itself on cursed ground. Otherwise the fight is priced:
+        /// the members within <paramref name="reach"/> of the target are the
+        /// ones who would go in; the time they need is the health of the
+        /// hostile units round the target over their combined weapon damage a
+        /// second; past the grace window of the curse each of them loses the
+        /// mean exposure damage a second for that time. The fight is taken when
+        /// the hostile health destroyed, times curseFightWorth, is at least the
+        /// health the curse would take.
+        /// </summary>
+        private bool CurseFightWorthIt(EntityManager em, Faction faction, Mission mission, Entity target,
+            float reach, float now)
+        {
+            if (!em.Exists(target) || !em.HasComponent<LocalTransform>(target)) return true;
+            float3 at = em.GetComponentData<LocalTransform>(target).Position;
+            if (!AICurseRoute.InCurse(em, at) || AICurseRoute.InCurse(em, mission.TargetPos)) return true;
+
+            float r2 = reach * reach;
+            int goingIn = 0;
+            float ownDps = 0f;
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (!em.Exists(u) || !em.HasComponent<LocalTransform>(u)) continue;
+                if (math.distancesq(em.GetComponentData<LocalTransform>(u).Position.xz, at.xz) > r2) continue;
+                if (em.HasComponent<BuildingsOnlyAttacker>(u)) continue;
+                goingIn++;
+                if (!em.HasComponent<Damage>(u)) continue;
+                float cd = em.HasComponent<AttackCooldown>(u) ? em.GetComponentData<AttackCooldown>(u).Cooldown : 1f;
+                ownDps += em.GetComponentData<Damage>(u).Value / math.max(0.1f, cd);
+            }
+            if (goingIn == 0 || ownDps <= 0f) return false;
+
+            AIStrengthMap.HostileUnitCandidates(em, faction, at, Cfg.contactRadius, _tacticsScratch);
+            float hostileHp = 0f;
+            float c2 = Cfg.contactRadius * Cfg.contactRadius;
+            for (int i = 0; i < _tacticsScratch.Count; i++)
+            {
+                var e = _tacticsScratch[i];
+                if (!AITactics.IsLiveHostileUnit(em, faction, e)) continue;
+                if (math.distancesq(em.GetComponentData<LocalTransform>(e).Position.xz, at.xz) > c2) continue;
+                hostileHp += em.GetComponentData<Health>(e).Value;
+            }
+            if (hostileHp <= 0f && em.HasComponent<Health>(target))
+                hostileHp = em.GetComponentData<Health>(target).Value;
+
+            float seconds = hostileHp / ownDps;
+            float cursedSeconds = math.max(0f, seconds - TheWaningBorder.Core.Config.VeilCrustConstants.ExposureGraceSeconds);
+            float curseDps = 0.5f * (TheWaningBorder.Core.Config.VeilCrustConstants.ExposureDpsMin
+                                     + TheWaningBorder.Core.Config.VeilCrustConstants.ExposureDpsMax);
+            float curseLoss = goingIn * curseDps * cursedSeconds;
+            bool worth = hostileHp * math.max(0f, Cfg.curseFightWorth) >= curseLoss;
+            if (!worth && now >= mission.IgnoreLogAt)
+            {
+                mission.IgnoreLogAt = now + 30f;
+                AILogger.Log(faction, "TACTICS",
+                    $"not following into the curse at ({at.x:F0},{at.z:F0}): {hostileHp:F0} hostile health there, " +
+                    $"{seconds:F0}s of fighting would cost {goingIn} soldier(s) {curseLoss:F0} health to the curse");
+            }
+            return worth;
+        }
+
+        private readonly System.Collections.Generic.List<Entity> _ledgerKeys =
+            new System.Collections.Generic.List<Entity>(64);
+        private readonly System.Collections.Generic.List<(float d, Entity e)> _harassPick =
+            new System.Collections.Generic.List<(float d, Entity e)>(32);
+        private readonly System.Collections.Generic.List<Entity> _harassRecall =
+            new System.Collections.Generic.List<Entity>(16);
+
+        /// <summary>
+        /// THE ENGAGEMENT LEDGER (decision 100). Adds what this army lost and
+        /// what it destroyed since the last tactics tick (the fall in health of
+        /// every member and of every hostile unit in the fight; a death counts
+        /// its last health; a hostile that walked away counts nothing), then
+        /// judges the fight once it has run chaseReviewSeconds: against a foe
+        /// under chaseWeakFraction of its own strength, or on cursed ground it
+        /// was not sent to, an army that has lost more than chaseLossRatio
+        /// times what it destroyed is being kited or bled. It breaks off,
+        /// resumes its march and passes weak hostiles by for
+        /// chaseIgnoreSeconds. True when it broke off.
+        /// Assumes _tacticsScratch holds the hostiles round the centroid
+        /// (LivePowerAround was just called).
+        /// </summary>
+        private bool ChaseNotPaying(EntityManager em, Faction faction, Mission mission, float3 centroid,
+            int myPower, int enemyPower, bool marching, float now)
+        {
+            if (Cfg.chaseReviewSeconds <= 0f) return false;
+            var own = mission.LedgerOwn; var foe = mission.LedgerFoe;
+
+            _ledgerKeys.Clear();
+            foreach (var kv in own) _ledgerKeys.Add(kv.Key);
+            for (int i = 0; i < _ledgerKeys.Count; i++)
+            {
+                var k = _ledgerKeys[i];
+                if (em.Exists(k) && em.HasComponent<Health>(k) && em.GetComponentData<Health>(k).Value > 0) continue;
+                mission.LedgerLost += own[k];
+                own.Remove(k);
+            }
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (!em.Exists(u) || !em.HasComponent<Health>(u)) continue;
+                int hp = em.GetComponentData<Health>(u).Value;
+                if (hp <= 0) continue;
+                if (own.TryGetValue(u, out int last) && hp < last) mission.LedgerLost += last - hp;
+                own[u] = hp;
+            }
+
+            _ledgerKeys.Clear();
+            foreach (var kv in foe) _ledgerKeys.Add(kv.Key);
+            for (int i = 0; i < _ledgerKeys.Count; i++)
+            {
+                var k = _ledgerKeys[i];
+                if (em.Exists(k) && em.HasComponent<Health>(k) && em.GetComponentData<Health>(k).Value > 0) continue;
+                mission.LedgerDestroyed += foe[k];
+                foe.Remove(k);
+            }
+            for (int i = 0; i < _tacticsScratch.Count; i++)
+            {
+                var e = _tacticsScratch[i];
+                if (!AITactics.IsLiveHostileUnit(em, faction, e) || !em.HasComponent<Health>(e)) continue;
+                int hp = em.GetComponentData<Health>(e).Value;
+                if (foe.TryGetValue(e, out int last) && hp < last) mission.LedgerDestroyed += last - hp;
+                foe[e] = hp;
+            }
+
+            if (now - mission.LedgerStart < Cfg.chaseReviewSeconds) return false;
+            bool cursed = AICurseRoute.InCurse(em, centroid) && !AICurseRoute.InCurse(em, mission.TargetPos);
+            bool weakFoe = enemyPower < myPower * Cfg.chaseWeakFraction;
+            if (!cursed && !weakFoe) return false;
+            if (mission.LedgerLost <= mission.LedgerDestroyed * math.max(0f, Cfg.chaseLossRatio)) return false;
+
+            mission.Engaged = false;
+            mission.Focus = Entity.Null;
+            EndFlank(mission);
+            mission.IgnoreFoesUntil = now + math.max(0f, Cfg.chaseIgnoreSeconds);
+            float3 resume = mission.Phase == MissionPhase.Mustering ? mission.MusterPos
+                          : mission.Phase == MissionPhase.Staging ? mission.StagePos
+                          : mission.TargetPos;
+            if (mission.Phase == MissionPhase.Mustering)
+                CommandRouter.IssueFormationMove(em, mission.Members, resume, FormationShape.Box, CommandSource.AI);
+            else
+                March(em, faction, mission, resume, !marching, centroid);
+            AILogger.Log(faction, "TACTICS",
+                $"breaking off at ({centroid.x:F0},{centroid.z:F0}): {mission.LedgerLost:F0} health lost for " +
+                $"{mission.LedgerDestroyed:F0} destroyed in {now - mission.LedgerStart:F0}s " +
+                $"({(cursed ? "on cursed ground" : "a weak foe that will not stand")}) — back on the march");
+            return true;
+        }
+
+        /// <summary>
+        /// A DETACHMENT ANSWERS A HARASSER (decision 100): the army keeps its
+        /// march and sends only the members that can reach the attacker, its
+        /// shooters and its cavalry, nearest first, until they outweigh the
+        /// threat by harassAnswerOdds (with neither in the army, its nearest
+        /// soldiers). Foot soldiers that have run out of the formation after
+        /// it are called back.
+        /// </summary>
+        private void AnswerHarasser(EntityManager em, Faction faction, Mission mission, Entity focus,
+            int threat, float3 centroid, float now)
+        {
+            if (now < mission.NextHarassAnswerAt) return;
+            mission.NextHarassAnswerAt = now + math.max(0.5f, Cfg.harassAnswerInterval);
+            if (!em.Exists(focus) || !em.HasComponent<LocalTransform>(focus)) return;
+            float2 at = em.GetComponentData<LocalTransform>(focus).Position.xz;
+
+            for (int pass = 0; pass < 2; pass++)
+            {
+                _harassPick.Clear();
+                for (int i = 0; i < mission.Members.Count; i++)
+                {
+                    var u = mission.Members[i];
+                    if (!em.Exists(u) || !em.HasComponent<LocalTransform>(u)) continue;
+                    if (em.HasComponent<BuildingsOnlyAttacker>(u)) continue;
+                    bool reaches = !AITactics.IsMelee(em, u) || em.HasComponent<CavalryTag>(u);
+                    if (pass == 0 && !reaches) continue;
+                    _harassPick.Add((math.distancesq(em.GetComponentData<LocalTransform>(u).Position.xz, at), u));
+                }
+                if (_harassPick.Count > 0) break;
+            }
+            _harassPick.Sort((a, b) => a.d != b.d ? a.d.CompareTo(b.d) : a.e.Index.CompareTo(b.e.Index));
+
+            int need = (int)math.ceil(threat * math.max(1f, Cfg.harassAnswerOdds)), have = 0, sent = 0;
+            for (int i = 0; i < _harassPick.Count; i++)
+            {
+                if (sent > 0 && have >= need) break;
+                var u = _harassPick[i].e;
+                have += AITactics.StrengthVsArmy(em, u);
+                sent++;
+                if (TransientState.Active<AttackCommand>(em, u)
+                    && em.GetComponentData<AttackCommand>(u).Target == focus) continue;
+                CommandRouter.IssueAttack(em, u, focus, CommandSource.AI);
+            }
+
+            // Foot that ran after it comes back to the body.
+            _harassRecall.Clear();
+            float cohesionSq = Cfg.armyCohesionRadius * Cfg.armyCohesionRadius;
+            for (int i = 0; i < mission.Members.Count; i++)
+            {
+                var u = mission.Members[i];
+                if (!em.Exists(u) || !em.HasComponent<LocalTransform>(u)) continue;
+                if (!AITactics.IsMelee(em, u) || em.HasComponent<CavalryTag>(u)) continue;
+                if (TransientState.Active<AttackCommand>(em, u)) continue;   // sent above
+                if (math.distancesq(em.GetComponentData<LocalTransform>(u).Position.xz, centroid.xz) <= cohesionSq) continue;
+                _harassRecall.Add(u);
+            }
+            if (_harassRecall.Count > 0)
+                CommandRouter.IssueFormationMove(em, _harassRecall, centroid, FormationShape.Box, CommandSource.AI);
+
+            if (now >= mission.IgnoreLogAt)
+                AILogger.Log(faction, "TACTICS",
+                    $"harassed: {sent} of {mission.Members.Count} answer (power {have} vs {threat}), " +
+                    $"{_harassRecall.Count} called back, the army marches on");
+        }
+
         private static Entity EngineThreat(EntityManager em, Faction faction, Mission mission)
         {
             if (Cfg.siegeEscortRadius <= 0f) return Entity.Null;
@@ -158,6 +393,35 @@ namespace TheWaningBorder.AI
                 Entity escortFocus = EngineThreat(em, faction, mission);
                 var focus = escortFocus != Entity.Null ? escortFocus
                           : AIEngagement.PickPriorityTarget(em, faction, centroid, reach);
+                // AN ARMY FIGHTS WHAT ITS SOLDIERS CAN SEE (decision 99,
+                // 2026-11-20, developer: "The army should only attack when the
+                // target is within LOS of the units that make up the army.
+                // Until then it should steer as a formation"). A target no
+                // member has in its line of sight is not a fight: the army
+                // keeps (or resumes) its march.
+                // AND INTO THE CURSE ONLY WHEN IT PAYS: a target standing on
+                // cursed ground is weighed (CurseFightWorthIt) unless this
+                // army's objective is in the curse too ("armies should avoid
+                // cursed ground unless they are aimed at a target inside the
+                // cursed area"; "the AI must evaluate if the risk is worth it").
+                // What threatens the engines is always answered.
+                if (focus != Entity.Null && escortFocus == Entity.Null
+                    && (!SeenByArmy(em, mission, focus)
+                        || !CurseFightWorthIt(em, faction, mission, focus, reach, now)))
+                    focus = Entity.Null;
+                // A TIER THAT CAN FIGHT IS NOT KITED (decision 100).
+                bool antiKite = skill.counterTargetWeight > 0f || skill.focusFireWeight > 0f
+                                || skill.rangedBehindMelee;
+                // It broke off a fight that was not paying: it marches past
+                // those hostiles for a while, unless a real body stands there.
+                if (focus != Entity.Null && escortFocus == Entity.Null && !mission.Engaged
+                    && now < mission.IgnoreFoesUntil)
+                {
+                    AITactics.LivePowerAround(em, faction, centroid, reach, _tacticsScratch, out _, out _, out _, out _);
+                    if (Cfg.engageFloorUnits <= 0
+                        || CombatUnitsAround(em, faction, centroid, reach, _tacticsScratch) < Cfg.engageFloorUnits)
+                        focus = Entity.Null;
+                }
                 // ON THE WAY, ONLY SOLDIERS (decision 89, 2026-11-19): a
                 // mustering or staging army fights enemy soldiers (and whatever
                 // comes at its engines, above) — never a lone worker, scout or
@@ -232,7 +496,15 @@ namespace TheWaningBorder.AI
                         ? CombatUnitsAround(em, faction, centroid, reach, _tacticsScratch) : 0;
                     bool floor = Cfg.engageFloorUnits > 0 && combatInReach >= Cfg.engageFloorUnits;
                     bool fighting = !floor && AnyMemberFighting(em, faction, mission, soldiersOnly);
-                    if (!floor && !fighting)
+                    // A WEAK THREAT NEVER TAKES OVER THE ARMY (decision 100,
+                    // 2026-11-20, developer: "having a 30hp unit kite lots of
+                    // 10 HP units and killing them all is too broken to be
+                    // allowed by a hard/hardest AI"). One soldier hit and
+                    // fighting back used to put the WHOLE army into the
+                    // engagement. On a tier with tactics the threat is weighed
+                    // all the same; a weak one gets a detachment (AnswerHarasser)
+                    // and the army keeps its march.
+                    if (!floor && (!fighting || antiKite))
                     {
                         float3 fight = em.HasComponent<LocalTransform>(focus)
                             ? em.GetComponentData<LocalTransform>(focus).Position : centroid;
@@ -248,6 +520,7 @@ namespace TheWaningBorder.AI
                         }
                         if (threat < own * Cfg.engageMinThreatFraction)
                         {
+                            if (fighting) AnswerHarasser(em, faction, mission, focus, threat, centroid, now);
                             if (now >= mission.IgnoreLogAt)
                             {
                                 mission.IgnoreLogAt = now + 30f;
@@ -311,6 +584,10 @@ namespace TheWaningBorder.AI
                 {
                     mission.Engaged = true;
                     mission.Route.Clear();   // the fight owns the army now (§ 6k)
+                    mission.LedgerStart = now;
+                    mission.LedgerLost = mission.LedgerDestroyed = 0f;
+                    mission.LedgerOwn.Clear();
+                    mission.LedgerFoe.Clear();
                     AILogger.Log(faction, "TACTICS",
                         $"army in contact at ({centroid.x:F0},{centroid.z:F0}) — " +
                         $"{body.Count} in formation, {strays.Count} recalled");
@@ -326,6 +603,11 @@ namespace TheWaningBorder.AI
                 for (int i = 0; i < mission.Members.Count; i++)
                     myPower += AITactics.LiveStrength(em, mission.Members[i]);
                 AITactics.ReportFightSite(em, faction, centroid, myPower, enemyPower);
+
+                // ── IS THIS FIGHT PAYING? (decision 100) ──
+                if (antiKite && escortFocus == Entity.Null
+                    && ChaseNotPaying(em, faction, mission, centroid, myPower, enemyPower, marching, now))
+                    continue;
 
                 // ── FALL BACK? ──
                 if (TryStartFallback(em, faction, mission, centroid, enemyCentroid,
@@ -760,6 +1042,9 @@ namespace TheWaningBorder.AI
             mission.FlankPhase = 1;
             mission.FlankStart = now;
             mission.FlankPoint = new float3(point.x, enemyCentroid.y, point.y);
+            // A flank never swings through cursed ground unless the objective is there (decision 99).
+            if (!AICurseRoute.InCurse(em, mission.TargetPos))
+                mission.FlankPoint = AICurseRoute.OutOfCurse(em, mission.FlankPoint);
 
             // Plain move: they must not stop to brawl on the way round.
             CommandRouter.IssueFormationMove(em, mission.Flankers, mission.FlankPoint,

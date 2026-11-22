@@ -27,6 +27,6 @@ MonoBehaviour:
   soldiersPerEconomyBuilding: 4
   soldiersPerOtherBuilding: 4
   surplusIgnoresValue: 1
-  farmLevelPaybackMinutes: 6
-  mineLevelPaybackMinutes: 15
+  farmLevelPaybackMinutes: 30
+  mineLevelPaybackMinutes: 30
   capitalSavingsArmyShare: 0.5

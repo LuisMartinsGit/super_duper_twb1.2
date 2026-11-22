@@ -148,6 +148,19 @@ namespace TheWaningBorder.AI
             /// </summary>
             public bool Engaged;
             public float NextTacticsTime;
+            // THE ENGAGEMENT LEDGER (decision 100, SimpleAISystem.Tactics.cs):
+            // health this army has lost and hostile health it has destroyed
+            // since the current engagement began, read off the last health
+            // seen for every member and every hostile unit in the fight.
+            public float LedgerStart, LedgerLost, LedgerDestroyed;
+            public readonly System.Collections.Generic.Dictionary<Entity, int> LedgerOwn
+                = new System.Collections.Generic.Dictionary<Entity, int>();
+            public readonly System.Collections.Generic.Dictionary<Entity, int> LedgerFoe
+                = new System.Collections.Generic.Dictionary<Entity, int>();
+            /// <summary>Until then the army marches past weak hostiles: it
+            /// broke off a fight that was not paying.</summary>
+            public float IgnoreFoesUntil;
+            public float NextHarassAnswerAt;
 
             // ── In-fight skills (SimpleAISystem.Tactics.cs, Game_AI.md § 6e). ──
             /// <summary>Fast melee detached to hit the enemy's side / rear.
@@ -656,6 +669,13 @@ namespace TheWaningBorder.AI
             // a base under attack keeps its army.
             if (!HasAgedUp(em, faction)) return;
             if (aiState.Posture == AIPosture.Defend) return;
+            // NO RAIDS WHILE THE ARMY IS THE WEAKER ONE (decision 105): the
+            // raiders are soldiers the army needs to become the stronger.
+            if (Cfg.waveVsArmyRatio > 0f)
+            {
+                int foe = KnownFieldArmy(em, brainEntity, faction, out _);
+                if (foe > 0 && OwnArmyPower(em, faction) < foe * Cfg.waveVsArmyRatio) return;
+            }
 
             var missions = MissionsFor(faction);
             int liveRaids = 0;
@@ -1056,8 +1076,8 @@ namespace TheWaningBorder.AI
             {
                 mission.Phase = MissionPhase.Striking;
                 mission.LegStartTime = now;
-                CommandRouter.IssueFormationAttackMove(
-                    em, mission.Members, targetPos, FormationShape.Box, CommandSource.AI);
+                // Round the curse like every other leg (decision 99).
+                March(em, MissionFaction(em, mission), mission, targetPos, true, originPos);
             }
             mission.Deadline = DeadlineFor(now, originPos, targetPos);
             mission.LastCentroid = originPos;
@@ -1316,6 +1336,30 @@ namespace TheWaningBorder.AI
             = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.HashSet<Entity>>();
         private int _heldEpoch = -1;
 
+        /// <summary>
+        /// ENGINES ARE A SHARE OF THE BODY THAT MARCHES (decision 96,
+        /// 2026-11-20, developer: "too many battering rams, should be 1 per
+        /// every 20 soldiers max"). A wave or reinforcement group takes at most
+        /// siegeMaxArmyShare of its soldiers in siege engines, and never fewer
+        /// than siegeTrainFloor when it has any; the engines over that stay
+        /// home. The last-listed engines are the ones left.
+        /// </summary>
+        private static void TrimSiegeToShare(EntityManager em, System.Collections.Generic.List<Entity> body)
+        {
+            float share = Cfg.siegeMaxArmyShare;
+            if (share <= 0f) return;
+            int engines = 0;
+            for (int i = 0; i < body.Count; i++)
+                if (em.Exists(body[i]) && em.HasComponent<SiegeTag>(body[i])) engines++;
+            int allowed = math.max(Cfg.siegeTrainFloor, (int)math.floor(share * (body.Count - engines)));
+            for (int i = body.Count - 1; i >= 0 && engines > allowed; i--)
+            {
+                if (!em.Exists(body[i]) || !em.HasComponent<SiegeTag>(body[i])) continue;
+                body.RemoveAt(i);
+                engines--;
+            }
+        }
+
         private System.Collections.Generic.HashSet<Entity> HeldForNextWave(Faction f)
         {
             if (_heldEpoch != SimCadence.Epoch)
@@ -1512,6 +1556,50 @@ namespace TheWaningBorder.AI
         /// launches only when the army's power reaches strengthWaveRatio x the
         /// best known defence at the objective, overdue or not (Game_AI.md
         /// 6a).</param>
+        private readonly System.Collections.Generic.Dictionary<int, float> _fieldArmyHoldSince
+            = new System.Collections.Generic.Dictionary<int, float>();
+        private int _fieldArmyEpoch = -1;
+        private readonly System.Collections.Generic.List<Entity> _ownArmyScratch
+            = new System.Collections.Generic.List<Entity>();
+
+        /// <summary>The strongest hostile FIELD ARMY this brain has seen in the
+        /// last waveVsArmySightingSeconds: per hostile faction, the summed
+        /// strength of its soldiers sighted and still alive (decision 105).</summary>
+        private static int KnownFieldArmy(EntityManager em, Entity brainEntity, Faction faction, out Faction owner)
+        {
+            owner = faction;
+            if (!em.HasBuffer<EnemySightingRecord>(brainEntity)) return 0;
+            var buf = em.GetBuffer<EnemySightingRecord>(brainEntity);
+            float simNow = (float)TheWaningBorder.Core.SimClock.Now;
+            float maxAge = math.max(1f, Cfg.waveVsArmySightingSeconds);
+            System.Span<int> sums = stackalloc int[16];
+            for (int i = 0; i < buf.Length; i++)
+            {
+                var srec = buf[i];
+                if (srec.Category != IntelCategory.MilitaryUnit) continue;
+                int o = (int)srec.OwnerFaction;
+                if (o < 0 || o >= sums.Length || o >= GameSettings.TotalPlayers) continue;
+                if (!Alliances.AreHostile(faction, srec.OwnerFaction)) continue;
+                if (simNow - srec.LastSeenTime > maxAge) continue;
+                if (srec.Enemy == Entity.Null || !em.Exists(srec.Enemy)) continue;
+                sums[o] += math.max(0, srec.EstStrength);
+            }
+            int best = 0;
+            for (int o = 0; o < sums.Length; o++)
+                if (sums[o] > best) { best = sums[o]; owner = (Faction)o; }
+            return best;
+        }
+
+        /// <summary>The power of every soldier the faction has, home and away.</summary>
+        private int OwnArmyPower(EntityManager em, Faction faction)
+        {
+            var roster = OwnCombatRoster(em, faction);
+            _ownArmyScratch.Clear();
+            for (int i = 0; i < roster.Count; i++)
+                if (!roster.UnderConstruction(i) && !roster.Verb(i)) _ownArmyScratch.Add(roster.E[i]);
+            return AIEngagement.PowerOf(em, _ownArmyScratch);
+        }
+
         private bool TryLaunchAttack(EntityManager em, Entity brainEntity, Faction faction, int minUnits,
             bool strengthGate, ref SimpleAIState aiState, AISettingsSO settings, AISettingsSO.PersonalityBlock personality,
             AIDifficultyProfile profile, float now, out int launchedSize)
@@ -1746,6 +1834,8 @@ namespace TheWaningBorder.AI
                     return false;
                 }
             }
+
+            TrimSiegeToShare(em, idleMilitary);
 
             // THE TIER'S LARGEST WAVE (Game_AI.md § 2): Easy never brings a big army.
             if (profile.MaxWaveUnits > 0)
@@ -2208,6 +2298,49 @@ namespace TheWaningBorder.AI
                     AILogger.Log(faction, "WAVE", $"wave {aiState.WaveNumber + 1} held — only {capitalOwner}'s capital is known, and it has not attacked us");
                     return false;
                 }
+            }
+
+            // SIZED AGAINST THE ARMY IT HAS SEEN (decision 105, 2026-11-20). A
+            // Rush launched as soon as twenty stood idle: 23 and then 29
+            // soldiers into a player it had itself logged at 47, each wave
+            // destroyed in turn. The wave waits at home, and the army target
+            // rises, while it is weaker than the strongest hostile FIELD ARMY
+            // sighted lately — not the defence at the objective, which is the
+            // hold decision 91 removed — bounded by waveVsArmyMaxHoldSeconds
+            // and by a full population. A Rush's first wave goes regardless.
+            if (Cfg.waveVsArmyRatio > 0f && !kingLeads && !countdownRush && !profile.AttacksBlind)
+            {
+                if (_fieldArmyEpoch != SimCadence.Epoch) { _fieldArmyEpoch = SimCadence.Epoch; _fieldArmyHoldSince.Clear(); }
+                int fk = (int)faction;
+                bool firstRush = aiState.WaveNumber == 0
+                    && AIPersonalityLookup.TryGet(em, faction, out var firstWho) && firstWho == AIPersonality.Rush;
+                int foe = KnownFieldArmy(em, brainEntity, faction, out Faction foeOwner);
+                int mine = AIEngagement.PowerOf(em, idleMilitary);
+                float needPower = foe * Cfg.waveVsArmyRatio;
+                PopulationHelper.TryGetFactionPopulation(faction, out int faPop, out int faMax);
+                bool faFull = faMax > 0 && faMax - faPop <= Cfg.waveFullPopSlack;
+                if (!firstRush && !faFull && foe > 0 && mine < needPower)
+                {
+                    if (!_fieldArmyHoldSince.TryGetValue(fk, out float since)) _fieldArmyHoldSince[fk] = since = now;
+                    if (now - since < Cfg.waveVsArmyMaxHoldSeconds)
+                    {
+                        int perUnit = math.max(1, mine / math.max(1, idleMilitary.Count));
+                        int want = CountAliveMilitary(em, faction)
+                                   + math.max(1, (int)math.ceil((needPower - mine) / perUnit));
+                        want = math.min(want, math.max(1, profile.SustainArmyCap));
+                        if (aiState.DesiredMilitary < want) aiState.DesiredMilitary = want;
+                        if ((int)(now / 60f) != (int)((now - Cfg.waveRetrySeconds) / 60f))
+                            AILogger.Log(faction, "WAVE",
+                                $"wave {aiState.WaveNumber + 1} growing — strength {mine} ({idleMilitary.Count} soldiers) " +
+                                $"against {foeOwner}'s field army of {foe} seen in the last {Cfg.waveVsArmySightingSeconds:0}s " +
+                                $"(needs x{Cfg.waveVsArmyRatio:0.00}; goes anyway in {Cfg.waveVsArmyMaxHoldSeconds - (now - since):0}s)");
+                        return false;
+                    }
+                    AILogger.Log(faction, "WAVE",
+                        $"wave {aiState.WaveNumber + 1} goes short — strength {mine} against {foeOwner}'s {foe} " +
+                        $"after {now - since:0}s of growing");
+                }
+                _fieldArmyHoldSince.Remove(fk);
             }
 
             var assault = AIEngagement.AssessAssault(em, faction, idleMilitary, targetPos);
@@ -2737,6 +2870,8 @@ namespace TheWaningBorder.AI
             if (tierNow.MaxWaveUnits > 0 && reinforcements.Count > tierNow.MaxWaveUnits)
                 reinforcements.RemoveRange(tierNow.MaxWaveUnits, reinforcements.Count - tierNow.MaxWaveUnits);
 
+            TrimSiegeToShare(em, reinforcements);
+
             // Too few to be an army: they wait, whichever trigger fired. At the
             // population cap every death is replaced at once, and each small group
             // left as its own column (72 in an hour on Trine Hollow), so there the
@@ -2799,8 +2934,7 @@ namespace TheWaningBorder.AI
             else
             {
                 column.Phase = MissionPhase.Striking;
-                CommandRouter.IssueFormationAttackMove(
-                    em, column.Members, aiState.WaveTarget, FormationShape.Box, CommandSource.AI);
+                March(em, faction, column, aiState.WaveTarget, true, from);
             }
             MissionsFor(faction).Add(column);
             aiState.NextReinforceArmyTime = now + tierNow.AttackWaveIntervalSeconds;
@@ -3213,16 +3347,19 @@ namespace TheWaningBorder.AI
                     float fraction = FractionWithin(em, mission, mission.MusterPos, gatherRadius);
                     bool musterTimedOut = now - mission.LegStartTime
                         > math.max(Cfg.musterTimeoutSeconds, mission.MusterWait);
-                    if (musterTimedOut && fraction < Cfg.musterGatherFraction)
+                    if (fraction >= Cfg.musterGatherFraction || musterTimedOut)
                     {
+                        // THE ARMY LEAVES WHEN MOST OF IT STANDS READY (decision
+                        // 95, 2026-11-20). It used to wait for every soldier and,
+                        // when the wait ran out, march without the absent ones:
+                        // half the musters of batch 24 timed out and left a
+                        // median of 17 soldiers at home. Whoever is not at the
+                        // muster point when the army goes is left out of it,
+                        // never trailing it as a straggler, and the next
+                        // reinforcement group is due at once: they follow as a
+                        // formed body (ReinforceActiveWave) and merge in the field.
                         int left = 0;
                         float r2 = gatherRadius * gatherRadius;
-                        // HELD UNTIL THE NEXT WAVE (2026-11-18): removed from
-                        // Members alone, they were drafted again within one
-                        // reinforcement tick and walked after the army as a
-                        // column. ReinforceActiveWave skips the held set; the
-                        // next wave launch clears it.
-                        var held = HeldForNextWave(faction);
                         for (int i = mission.Members.Count - 1; i >= 0; i--)
                         {
                             var u = mission.Members[i];
@@ -3231,17 +3368,19 @@ namespace TheWaningBorder.AI
                             float ddx = up.x - mission.MusterPos.x, ddz = up.z - mission.MusterPos.z;
                             if (ddx * ddx + ddz * ddz <= r2) continue;
                             mission.Members.RemoveAt(i);
-                            held.Add(u);
                             left++;
                         }
                         if (left > 0)
+                        {
+                            // ...AND WAIT FOR THE NEXT GROUP (decision 105): sent
+                            // after it at once they were a body of four or eleven
+                            // walking into the enemy alone. They stay home and
+                            // leave with the next reinforcement group at its time.
                             AILogger.Log(faction, "WAVE",
-                                $"muster timed out — {left} unit(s) not at the muster point stay home");
+                                $"{left} unit(s) not at the muster point stay for the next group" +
+                                (musterTimedOut ? " (muster timed out)" : ""));
+                        }
                         if (mission.Members.Count == 0) continue;
-                        fraction = 1f;
-                    }
-                    if (fraction >= Cfg.musterGatherFraction || musterTimedOut)
-                    {
                         mission.Phase = MissionPhase.Staging;
                         mission.LegStartTime = now;
                         March(em, faction, mission, mission.StagePos, false, centroid);
@@ -3293,8 +3432,10 @@ namespace TheWaningBorder.AI
                     {
                         mission.Phase = MissionPhase.Striking;
                         mission.LegStartTime = now;
-                        CommandRouter.IssueFormationAttackMove(
-                            em, mission.Members, mission.TargetPos, FormationShape.Box, CommandSource.AI);
+                        // THE STRIKE LEG GOES ROUND THE CURSE TOO (decision 99,
+                        // 2026-11-20): it was a straight attack-move from the
+                        // stage point, the one leg the route planner never saw.
+                        March(em, faction, mission, mission.TargetPos, true, centroid);
                         // Reinforcements now flow to the front, not the
                         // (abandoned) form-up ground — the main army's front (6f).
                         if (OwnsWaveTarget(missions, mission)) aiState.WaveTarget = mission.TargetPos;
@@ -3455,6 +3596,14 @@ namespace TheWaningBorder.AI
             float3 dest = mission.Phase == MissionPhase.Mustering ? mission.MusterPos
                         : mission.Phase == MissionPhase.Staging ? mission.StagePos
                         : mission.TargetPos;
+            // ON A ROUTE ROUND THE CURSE THE ARMY RE-FORMS ON ITS CURRENT LEG
+            // (decision 99): re-planned straight at the destination, the
+            // regroup threw the detour away and the army cut through the curse.
+            if (mission.Route.Count > 0 && mission.RouteIdx < mission.Route.Count)
+            {
+                dest = mission.Route[mission.RouteIdx];
+                attackMove = attackMove && mission.RouteIdx == mission.Route.Count - 1;
+            }
             // A FORCED RE-PLAN (2026-11-18): through the repeat-order filter
             // only the loose units took this order — the marching members were
             // skipped as "already going there" — so the strays formed a second

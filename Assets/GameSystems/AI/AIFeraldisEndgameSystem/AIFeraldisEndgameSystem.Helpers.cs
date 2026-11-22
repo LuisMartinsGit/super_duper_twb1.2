@@ -96,7 +96,7 @@ namespace TheWaningBorder.AI
             // — the category wallet only gets a share of income and never
             // held its whole price (2026-10-13 headless 1v1s).
             if (!bankOnly && !AIBudget.CanSpend(faction, cat, cost)) return;
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return;
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, cost)) return;
 
             var size = BuildingSizeConfig.GetSize(buildingId);
             if (!TryFindSpot(em, anchor, size, rmin, rmax, out float3 pos))

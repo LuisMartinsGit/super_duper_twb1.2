@@ -25,7 +25,8 @@
 # of SHALLOWS (wadeable, and BUILDABLE: a territory you can claim you can
 # build in, 2026-10-19), ringed by cliffs, open to the sea
 # in the south, with the cursed ISLAND Yiel in its middle. Two ramps lead
-# down into the bay; the beaches are reached only through the bay. A Sanctum
+# down into the bay; each beach has a ramp down from its Bluff (2026-11-20)
+# and is otherwise reached through the bay. A Sanctum
 # pocket sits up in the mountains, one ramp down to the Crown.
 import os
 from collections import deque
@@ -49,6 +50,7 @@ MTN_Z = 36.0                 # mean foot of the northern mountains
 BAY_RAMPS = [138.0]          # degrees from east, west half; mirrored to 42
 RAMP_HALF = 5.0              # 10 m wide ramps into the bay
 RAMP_DEPTH = 8.0             # m each side of the bay rim
+BEACH_RAMP_X, BEACH_RAMP_HALF, BEACH_RAMP_DEPTH = -72.0, 5.0, 5.0   # the Bluff's ramp down to its beach (west; mirrored)
 POCKET = (0.0, 53.0, 13.0, 8.0)          # the Sanctum pocket in the mountains
 POCKET_RAMP_Z, POCKET_RAMP_HALF, POCKET_RAMP_DEPTH = 44.0, 4.0, 8.0
 # TIDESTONE (2026-11-03): the SECOND Sanctum — a rock islet in the sea south
@@ -189,6 +191,17 @@ for deg in BAY_RAMPS:
     ramp_h = np.where(zone, H_SHALLOW + (H_GRASS - H_SHALLOW) * t, ramp_h)
     ramp_mask |= zone
     ramp_centres.append((px, pz))
+# THE BEACH RAMP (2026-11-20): a way down from the Bluff's outer end to its
+# beach, so each side has a fourth territory it can take without wading past
+# the cursed island. The two beaches still meet only at the bay mouth.
+for rz_ in np.arange(-10.0, COAST_Z - 5, -0.25):
+    if beach[int((SZ / 2 - rz_) * M), int((BEACH_RAMP_X + SX / 2) * M)]: break
+along = wz - rz_                                        # + = up onto the plateau
+zone = (np.abs(along) <= BEACH_RAMP_DEPTH) & (np.abs(wx - BEACH_RAMP_X) <= BEACH_RAMP_HALF) & (grass | beach)
+t = np.clip((along + BEACH_RAMP_DEPTH) / (2 * BEACH_RAMP_DEPTH), 0, 1)
+ramp_h = np.where(zone, (H_BEACH1 - 0.2) + (H_GRASS - H_BEACH1 + 0.2) * t, ramp_h)
+ramp_mask |= zone
+ramp_centres.append((BEACH_RAMP_X, rz_))
 # the Sanctum's ramp down to the Crown
 along = wz - POCKET_RAMP_Z
 zone = (np.abs(along) <= POCKET_RAMP_DEPTH) & (np.abs(wx) <= POCKET_RAMP_HALF)
@@ -500,7 +513,7 @@ for line in ["Start: the plateau beside the bay.",
              "Crown: shared, above both bay ramps.",
              "Sanctum: mountain pocket, one ramp.",
              "Tidestone: a sea rock past the mouth, by a waded bar.",
-             "Beach: reached ONLY through the bay.",
+             "Beach: a ramp down from the Bluff, or the bay.",
              "Shallows: claimable AND buildable.",
              "Yiel: the curse's home, in the shallows."]:
     d.text((lx, y), line, fill=(0, 0, 0), font=font); y += 18

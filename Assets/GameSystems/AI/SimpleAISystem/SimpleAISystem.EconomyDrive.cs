@@ -316,8 +316,9 @@ namespace TheWaningBorder.AI
                 // army TARGET is a ceiling the AI rarely reaches, so "at x % of
                 // target" never let anyone bank: 0 deposits in 50 min.)
                 if (posture != AIPosture.Develop && posture != AIPosture.Pressure) continue;
-                // An economy in distress banks nothing (Game_AI.md § 5i).
-                if (EconomyDistressed(faction)) continue;
+                // A COLLAPSED income banks nothing (Game_AI.md § 5i). An
+                // extractor owed a rebuild is not a collapse (decision 102).
+                if (_supplyCollapsed.Contains((int)faction)) continue;
                 var pers = PersonalityOf(faction);
                 float share = profile.VaultDepositShare * (pers != null ? UnityEngine.Mathf.Max(0f, pers.vaultAppetite) : 1f);
                 if (share <= 0f) continue;
@@ -357,10 +358,16 @@ namespace TheWaningBorder.AI
             }
             // Paid-in money is what a collapsing economy rebuilds with
             // (Game_AI.md § 5i).
-            if (EconomyDistressed(faction)) return "economy in distress";
             bool short_ = AIBudget.IsMilitaryShort(faction, AIBudget.ResSupplies)
                        || AIBudget.IsMilitaryShort(faction, AIBudget.ResIron)
                        || AIBudget.IsMilitaryShort(faction, AIBudget.ResVeilstone);
+            // THE BARS ARE THE LATE-GAME INCOME (decision 102, 2026-11-20,
+            // developer). "Distress" used to mean any paused saving - one
+            // Gatherer's Hut owed a rebuild, or a defended base - and each
+            // one emptied the Vault: 259 withdrawals in batch 25, nearly all
+            // with the income holding. Only a COLLAPSED income the bank
+            // cannot answer takes the bars now.
+            if (_supplyCollapsed.Contains((int)faction) && short_) return "income collapsed and the army is short";
             // The home is under attack and the army cannot be paid for.
             if (posture == AIPosture.Defend && short_) return "home under attack and the army is short";
             // The army was lost and cannot be rebuilt from the bank.
@@ -395,6 +402,13 @@ namespace TheWaningBorder.AI
                 // target could spend right now is not surplus.
                 var asCost = t == 1 ? Cost.Of(supplies: surplus) : t == 2 ? Cost.Of(iron: surplus)
                            : Cost.Of(veilstone: surplus);
+                // ...UNLESS THE ARMY IS STOPPED FOR ANOTHER RESOURCE (decision
+                // 105): iron the army cannot spend for want of supplies is idle
+                // whatever the army's size or the unit rate.
+                bool stuckElsewhere = false;
+                for (int o = 0; o < 3 && !stuckElsewhere; o++)
+                    stuckElsewhere = o != t - 1 && AIBudget.IsMilitaryShort(faction, o);
+                if (stuckElsewhere) { bestSurplus = surplus; bestType = t; continue; }
                 if (AIBudget.ArmyFirstYield(em, faction, asCost) != null) continue;
                 // UNITS BEFORE ECONOMY (Game_AI.md 5h): on a tier that says
                 // so, money an idle trainer could still turn into units is

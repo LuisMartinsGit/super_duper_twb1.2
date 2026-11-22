@@ -26,3 +26,5 @@ MonoBehaviour:
   armyFirstStatusMaxAge: 30
   armyFirstLogInterval: 60
   savingsGoalSeconds: 180
+  walletOverspendShare: 0.5
+  walletDebtRepayShare: 0.5

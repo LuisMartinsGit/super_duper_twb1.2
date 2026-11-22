@@ -168,14 +168,19 @@ namespace TheWaningBorder.AI
             int held = 0;
             for (int i = 0; i < squads.Count; i++) held += squads[i].Members.Count;
             if (held < shortBy) return 0;
-            int freed = 0;
-            for (int i = 0; i < squads.Count; i++)
+            int freed = 0, count = 0;
+            for (int i = squads.Count - 1; i >= 0; i--)
             {
+                // A curse sortie finishes its node (decision 105): the ground
+                // it frees is the only ground a landlocked faction can take.
+                if (squads[i].CurseAssault) continue;
                 freed += squads[i].Members.Count;
+                count++;
                 ReleaseClaimSquad(squads[i]);
+                squads.RemoveAt(i);
             }
-            AILogger.Log(faction, "WAVE", $"{squads.Count} claim squad(s) released into the army ({freed} unit(s)) — {why}");
-            squads.Clear();
+            if (count > 0)
+                AILogger.Log(faction, "WAVE", $"{count} claim squad(s) released into the army ({freed} unit(s)) — {why}");
             return freed;
         }
 
@@ -372,6 +377,8 @@ namespace TheWaningBorder.AI
             if (_claimCandidates.Count == 0)
             {
                 LogClaimBlocked(faction, now, "no claimable territory next to Fortress-linked ground");
+                if (_claimLandlockedEpoch != SimCadence.Epoch) { _claimLandlockedEpoch = SimCadence.Epoch; _claimLandlockedAt.Clear(); }
+                _claimLandlockedAt[key] = now;   // the curse sortie's cue (CurseClear.cs)
                 return;
             }
 
@@ -1463,7 +1470,7 @@ namespace TheWaningBorder.AI
             // reserve is a buffer the goal keeps, not a second price on top.
             var need = cost + Cost.Of(Cfg.fortressReserveSupplies, Cfg.fortressReserveIron,
                                       Cfg.fortressReserveVeilstone);
-            if (!FactionEconomy.CanAfford(em, faction, cost))
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, cost))
             {
                 AIPivotalReserve.Set(faction, FortressReserveKey, need);
                 // THE POT IS A BUDGET RESERVATION TOO (2026-10-05, v4 M2):

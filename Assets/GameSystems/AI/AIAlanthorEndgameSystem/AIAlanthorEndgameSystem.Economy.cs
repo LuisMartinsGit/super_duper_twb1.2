@@ -86,7 +86,7 @@ namespace TheWaningBorder.AI
         {
             if (!BuildCosts.Exists(buildingId)) return false;
             var cost = BuildCosts.For(em, faction, buildingId);
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, cost)) return false;
             // Discretionary callers (houses, sect buildings) yield to the
             // pivotal savings hold when this building spends a resource the
             // save is short on. The age-2 ladder is never held.

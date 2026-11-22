@@ -39,6 +39,9 @@ namespace TheWaningBorder.AI
             public float NextLog;
             public bool KingRetreat;
             public readonly List<Entity> Roster = new List<Entity>();
+            /// <summary>While now is below this the countdown strike owns the
+            /// whole army (decision 110): no wave, muster, guard or sortie.</summary>
+            public float CountdownUntil;
         }
 
         private readonly Dictionary<int, ShardrootStrike> _shardroot = new Dictionary<int, ShardrootStrike>();
@@ -119,6 +122,15 @@ namespace TheWaningBorder.AI
                 return;
             }
 
+            // AN ENSHRINED SHARDROOT IS A CLOCK (decision 108, 2026-11-20). Each
+            // rival used to weigh its own idle soldiers against the Temple's
+            // defenders and wait for a stronger army — five armies of a hundred
+            // each "saving" while the countdown ran out. Waiting loses the
+            // game, so while a hostile countdown runs every soldier goes, at
+            // once, whatever the odds, and stragglers are sent again each think.
+            bool countdown = where == AIShardroot.Where.Hostile
+                && em.HasComponent<TempleOfRidanTag>(holder) && HostileCountdownRunning(em, faction);
+
             // Free combat units, as for the first-RP hunt.
             _shardrootFree.Clear();
             var roster = OwnCombatRoster(em, faction);
@@ -131,8 +143,28 @@ namespace TheWaningBorder.AI
                 if (TransientState.Active<MoveCommand>(em, e)) continue;
                 if (TransientState.Active<AttackCommand>(em, e)) continue;
                 if (TransientState.Active<UserMoveOrder>(em, e)) continue;
-                if (s.Roster.Contains(e)) continue;
+                if (!countdown && s.Roster.Contains(e)) continue;
                 _shardrootFree.Add(e);
+            }
+
+            if (countdown)
+            {
+                PruneDeadUnits(em, s.Roster);
+                DraftForTheShardroot(em, faction, king, pos, int.MaxValue, s);
+                if (_shardrootFree.Count > 0)
+                {
+                    AICommon.IssueGroupOrder(em, _shardrootFree, pos, attackMove: true, Cfg.waveArrivedRadius);
+                    for (int i = 0; i < _shardrootFree.Count; i++)
+                        if (!s.Roster.Contains(_shardrootFree[i])) s.Roster.Add(_shardrootFree[i]);
+                }
+                if (s.LaunchedAt < 0f || math.distance(s.Target.xz, pos.xz) > cfg.assessRadius)
+                    AILogger.Log(faction, "SHARDROOT",
+                        $"the Shardroot is enshrined at ({pos.x:0},{pos.z:0}) and the countdown runs — " +
+                        $"every soldier marches ({s.Roster.Count}), whatever the odds");
+                s.LaunchedAt = now; s.Target = pos;
+                s.CountdownUntil = now + math.max(1f, cfg.thinkInterval) * 3f;
+                SendKingOnto(em, king, pos, where);
+                return;
             }
 
             // TOLD WHERE IT LIES (Game_AI.md § 6l, 2026-11-06): do not wait for idle units,
@@ -424,6 +456,12 @@ namespace TheWaningBorder.AI
         }
 
         /// <summary>Our carrier stops being a soldier: no mission re-orders it.</summary>
+        /// <summary>Is the whole army on the march against an enshrined
+        /// Shardroot (decision 110)? The wave machinery stands aside: it
+        /// called the marching soldiers back to a muster point.</summary>
+        private bool CountdownStrikeOwnsArmy(Faction faction, float now)
+            => ShardrootFor(faction).CountdownUntil > now;
+
         private void ReleaseFromMissions(Faction faction, Entity unit)
         {
             foreach (var m in MissionsFor(faction))

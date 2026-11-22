@@ -774,7 +774,7 @@ namespace TheWaningBorder.AI
         {
             if (!TechCatalog.TryGetUnit(unitId, out var def) || def == null) return false;
             var cost = AICommon.ToCost(def.cost);
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return false;
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, cost)) return false;
             if (MilitaryHold(em, faction, unitId, cost)) return false;
             return LexorGate(em, faction, unitId, cost, p) == null;
         }

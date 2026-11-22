@@ -9,6 +9,45 @@ build always name the same number.
 
 ---
 
+## [Unreleased]
+
+## [0.0.92] — 2026-11-22
+
+### The Shardroot victory is contested (decisions 107 to 109, 2026-11-20)
+- **Enshrining the Shardroot now costs iron** as well as supplies and veilstone.
+- **Computer opponents all march on an enshrined Shardroot** as soon as the countdown starts, with every soldier, instead of each waiting for a stronger army, and nothing calls them back to regroup on the way.
+- **Computer opponents stop at a fixed number of production buildings** and spend the rest on units and upgrades.
+
+### Computer opponents attack in strength (decisions 95 to 97, 2026-11-20)
+- **Their armies are bigger and leave home.** An army marches once most of it has gathered instead of waiting for every last soldier, and the soldiers who missed it follow as a formed group rather than staying in the base.
+- **Fewer siege engines:** at most one engine for every twenty soldiers, in the army and in each attack.
+- **At most three towers in a territory.**
+
+### Computer opponents attack to win (decision 105, 2026-11-20)
+- **An attack waits until it can beat the army it has seen.** A computer opponent no longer sends twenty soldiers at an army of fifty; it grows first, for a limited time.
+- **No raiding parties while its army is the weaker one**, and soldiers who miss the muster wait for the next group instead of walking in alone.
+- **A computer opponent hemmed in by the curse clears a curse territory** to have ground to take.
+- **It sells idle iron for the supplies it lacks, and banks what its army cannot use in the Vault.**
+- **A computer opponent holding the Shardroot can now pay to enshrine it** (decision 106): its market no longer sells the supplies it is saving for the price.
+
+### Computer opponents stop wasting iron and stop walling themselves in (decision 101, 2026-11-20)
+- **Expert opponents no longer build endless production buildings.** They add one only while the ones they have are busy.
+- **A chokepoint too narrow for a gate is left open** between its two towers instead of being walled shut.
+- **Computer opponents keep their Vault bars** (decision 102): they no longer empty the Vault over one lost extractor or a defended base, only when their income has truly collapsed.
+- **Computer opponents buy their Farm and Mine upgrades** (decision 103) instead of refusing them as too slow to pay back.
+- **Computer opponents budget like a player** (decision 104): spending more on one thing now means less for it later, and money being saved for an upgrade is no longer taken by other purchases.
+
+### Hard and Expert opponents cannot be kited (decision 100, 2026-11-20)
+- **One harasser no longer drags a whole army after it.** The army keeps marching and sends only the archers and cavalry that can catch the attacker.
+- **An army gives up a chase that is not paying:** if it is losing more health than it destroys against an enemy that will not stand, it breaks off and goes back to its objective.
+
+### Armies keep off cursed ground (decision 99, 2026-11-20)
+- **Computer opponents march round cursed ground on every leg of an attack**, and follow an enemy into it only when the kill is worth the health the curse would cost them.
+- **An army attacks only what its own soldiers can see**; until then it stays in formation on its march.
+
+### Formations keep moving (decision 98, 2026-11-20)
+- **A formation no longer stops dead on a new order.** It slows down for soldiers who are out of place and for groups behind it, and carries on.
+
 ## [0.0.91] — 2026-11-20
 
 ### Sects are fully open (decision 92, 2026-11-20)

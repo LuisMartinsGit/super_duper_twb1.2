@@ -85,18 +85,20 @@ for sources. Where this doc and code disagree, this doc wins.
 >    catch-up multiplier below no longer lifts anyone past their own speed; the wheel
 >    rate is sized from what the leader gives up in a turn (`WheelSpeedFloor`), and a
 >    pivot from the group speed.
-> 2. **The army musters completely** near its base before it marches
->    (`musterGatherFraction` 1 on `SimpleAISystem.asset`, Game_AI.md). When the muster
->    wait runs out, whoever has not arrived is LEFT OUT of that army — it does not
->    trail the march.
+> 2. **The army musters** near its base before it marches and leaves when
+>    `musterGatherFraction` of it has gathered (`SimpleAISystem.asset`, Game_AI.md;
+>    decision 95). Whoever has not arrived is LEFT OUT of that army — it does not
+>    trail the march, it follows with the next reinforcement group.
 > 3. **Re-form after a narrow spot.** While more than `1 - openGroundShare` of the
 >    formation's spots stand in rock or water it is squeezing through a ramp or ford and
->    walks on as a column; back on open ground the leader **stands**
->    (`columnWaitSpeed` 0) until no member is more than `columnLagMetres` from its spot
->    (`columnWaitFraction` 0), then continues. A member that makes NO progress toward
+>    walks on as a column; back on open ground the leader **slows to
+>    `columnWaitSpeed` of its pace** while more than `columnWaitFraction` of the members
+>    are over `columnLagMetres` from their spots, then continues (decision 98: it used to
+>    stand still for a single laggard, which froze a formation on a fresh order). A member that makes NO progress toward
 >    its spot is still dropped by the tether fuse, so a wedged unit cannot hold an army.
 >    The formations one split order makes march as a **convoy**: one more than
->    `convoyGapMetres` nearer the destination than the hindmost waits for it. All on
+>    `convoyGapMetres` nearer the destination than the hindmost slows to the same
+>    `columnWaitSpeed` until the hindmost closes up. All on
 >    `FormationGroupSystem.asset`.
 
 When N ≥ 2 movable units receive one move / attack-move order:

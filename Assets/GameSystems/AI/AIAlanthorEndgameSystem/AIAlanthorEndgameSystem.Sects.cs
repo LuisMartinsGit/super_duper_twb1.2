@@ -983,7 +983,7 @@ namespace TheWaningBorder.AI
                     // Affordability CHECK only — ResearchCommandDirect spends
                     // on every peer (docs/Multiplayer_LAN_Readiness.md).
                     var cost = AICommon.ToCost(tdef.cost);
-                    if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                    if (!AIBudget.CanAffordLeavingSavings(em, faction, cost)) continue;
                 // Each costs RP; chapels and levels come first (Religion.md §4).
                 if (!FactionReligionPointsHelper.CanAfford(em, faction,
                         FactionReligionPointsHelper.Cfg.sectUnitRp + FactionReligionPointsHelper.Cfg.aiSectUnitRpReserve)) continue;
@@ -1061,7 +1061,7 @@ namespace TheWaningBorder.AI
                     && FactionReligionPointsHelper.CanAfford(em, faction, SectHeroes.RpDue(em, faction, sectId)))
                 {
                     var heroCost = AICommon.ToCost(heroDef.cost);
-                    if (FactionEconomy.CanAfford(em, faction, heroCost) && !AIPivotalReserve.ShouldHold(em, faction, heroCost))
+                    if (AIBudget.CanAffordLeavingSavings(em, faction, heroCost) && !AIPivotalReserve.ShouldHold(em, faction, heroCost))
                     {
                         CommandRouter.IssueTrain(em, host, heroId, CommandSource.AI);
                         AILogger.Log(faction, "MILITARY",
@@ -1078,7 +1078,7 @@ namespace TheWaningBorder.AI
                 // Affordability CHECK only — TrainCommandDirect spends on
                 // every peer (docs/Multiplayer_LAN_Readiness.md).
                 var cost = AICommon.ToCost(def.cost);
-                if (!FactionEconomy.CanAfford(em, faction, cost)) continue;
+                if (!AIBudget.CanAffordLeavingSavings(em, faction, cost)) continue;
                 // Each costs RP; chapels and levels come first (Religion.md §4).
                 if (!FactionReligionPointsHelper.CanAfford(em, faction,
                         FactionReligionPointsHelper.Cfg.sectUnitRp + FactionReligionPointsHelper.Cfg.aiSectUnitRpReserve)) continue;

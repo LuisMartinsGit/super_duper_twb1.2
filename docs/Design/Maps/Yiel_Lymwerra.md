@@ -165,3 +165,10 @@ ocean material's own values band into stripes across a sea this size.
   (`TerrainSpec.SizeZ`), and the lobby image, thumbnail outlines, Muster Rolls
   map and road mask were made rectangle-safe; the rest of the runtime (nav,
   passability, fog, camera, curse field, minimap) already measured each axis.
+
+## The beach ramps (2026-11-20)
+
+Each Bluff has a ramp down to its beach at its outer end (`BEACH_RAMP_X` in `layout.py`), so a
+side has four territories it can take without wading past the cursed island: the start, the
+Highland, the Bluff and the beach. The beaches used to be reached only through the bay. The two
+beaches still meet only at the bay mouth.

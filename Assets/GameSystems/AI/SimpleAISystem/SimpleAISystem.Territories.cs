@@ -310,7 +310,7 @@ namespace TheWaningBorder.AI
                         if (snap.OverlapsOwnPlan(faction, _devNodes[n], size)) continue;
                         free++;
                         var cost = AICommon.ToCost(def.cost);
-                        if (!FactionEconomy.CanAfford(em, faction, cost))
+                        if (!AIBudget.CanAffordLeavingSavings(em, faction, cost))
                         {
                             // The extractors are what this territory waits on.
                             moneyHold = true;
@@ -571,7 +571,7 @@ namespace TheWaningBorder.AI
             {
                 if (firstOfLine)
                 {
-                    if (FactionEconomy.CanAfford(em, faction, firstCost))
+                    if (AIBudget.CanAffordLeavingSavings(em, faction, firstCost))
                     {
                         // Its own hold must not refuse it.
                         AIPivotalReserve.Clear(faction, FirstTrainerReserveKey);
@@ -1021,11 +1021,21 @@ namespace TheWaningBorder.AI
             extra = false;
             detail = null;
             if (!BuildSiteSnapshot.IsProductionId(buildingId)) return null;
-            if (_provinceProductionStep || _homeProductionFloor || _rebuildingLostTrainer || _siegeYardFloor
-                || _firstTrainerPass) return null;
-
             int total = 0;
             for (int l = 0; l < LostTrainerLines.Length; l++) total += CountLine(em, faction, l);
+
+            // THE HARD CAP (decision 107, 2026-11-20). Every path below found a
+            // reason for one more trainer, and Experts ended matches with 35 to
+            // 41 of them for an army of two hundred. Past productionMaxTotal
+            // no path places another: the money goes to units and levels.
+            if (Cfg.productionMaxTotal > 0 && total >= Cfg.productionMaxTotal)
+            {
+                detail = "production cap";
+                return $"production: cap reached ({total}/{Cfg.productionMaxTotal})";
+            }
+
+            if (_provinceProductionStep || _homeProductionFloor || _rebuildingLostTrainer || _siegeYardFloor
+                || _firstTrainerPass) return null;
             // The opening: a faction with no production at all gets its Barracks.
             if (total == 0 && buildingId == LostTrainerLines[0]) return null;
 
@@ -1071,8 +1081,12 @@ namespace TheWaningBorder.AI
 
             // THE RATE GOVERNOR (decision 86): behind the tier's unit rate, an
             // extra production building goes up whenever the bank can pay.
+            // Only while the trainers it HAS are busy (2026-11-20, decision 101):
+            // idle trainers mean money is the limit, and a further building
+            // would only take that money from the units.
             if (held != null && RateBehind(faction)
-                && TheWaningBorder.Economy.FactionEconomy.CanAfford(em, faction,
+                && busyFrac >= cap.ProductionSaturationThreshold
+                && TheWaningBorder.AI.AIBudget.CanAffordLeavingSavings(em, faction,
                     TheWaningBorder.Data.BuildCosts.For(em, faction, buildingId)))
                 held = null;
 
@@ -1285,6 +1299,21 @@ namespace TheWaningBorder.AI
             for (int i = 0; i < facs.Length; i++)
                 if (facs[i].Value == faction && RegionMap.RegionAt(xfs[i].Position.x, xfs[i].Position.z) == r) n++;
             return n;
+        }
+
+        /// <summary>
+        /// THE TOWER CAP (decision 97, 2026-11-20, developer: "limit to 3
+        /// towers per territory"): true when this faction already stands or
+        /// has planned towersPerTerritoryCap Watch Towers in the territory at
+        /// <paramref name="pos"/>. Every tower rule asks here before it builds.
+        /// </summary>
+        internal static bool TowerCapReached(EntityManager em, Faction faction, float3 pos)
+        {
+            int cap = Cfg.towersPerTerritoryCap;
+            if (cap <= 0) return false;
+            int r = RegionMap.RegionAt(pos.x, pos.z);
+            if (r == RegionMap.None) return false;
+            return CountInRegion<WatchTowerTag>(em, faction, r) + CountPlansIn(em, faction, r, TowerId) >= cap;
         }
 
         private static int CountPlansIn(EntityManager em, Faction faction, int r, string buildingId)

@@ -62,7 +62,7 @@ MonoBehaviour:
   emergencyBankFloor: 800
   emergencyTowerCap: 12
   emergencyRetrySeconds: 25
-  siegeTrainFloor: 3
+  siegeTrainFloor: 1
   siegeTrainRetrySeconds: 20
   siegeYardAfterTrainers: 3
   economyWorkerFloor: 3
@@ -123,7 +123,7 @@ MonoBehaviour:
   strengthWaveMinArmy: 20
   stagingGatherRadius: 12
   musterDistance: 22
-  musterGatherFraction: 1
+  musterGatherFraction: 0.8
   musterTimeoutSeconds: 45
   musterWalkSpeed: 3
   musterTimeoutMaxSeconds: 120
@@ -165,8 +165,18 @@ MonoBehaviour:
   workerStallSeconds: 20
   engageMinThreatFraction: 0.1
   engageFloorUnits: 15
+  chaseReviewSeconds: 8
+  chaseWeakFraction: 0.5
+  chaseLossRatio: 1
+  chaseIgnoreSeconds: 30
+  harassAnswerOdds: 3
+  harassAnswerInterval: 3
+  waveVsArmyRatio: 1
+  waveVsArmySightingSeconds: 180
+  waveVsArmyMaxHoldSeconds: 300
   contactRadius: 34
   focusRadius: 22
+  curseFightWorth: 0.5
   armyCohesionRadius: 28
   curseCorridorHeavyFraction: 0.35
   curseCorridorSampleStep: 8
@@ -316,7 +326,7 @@ MonoBehaviour:
   basicsFloor: 16
   basicsMinShare: 0.12
   basicsMaxShare: 0.45
-  siegeMaxArmyShare: 0.12
+  siegeMaxArmyShare: 0.05
   surplusClaimOutcropScale: 2
   surplusClaimIntervalScale: 0.5
   surplusFortressOutcropScale: 2
@@ -345,6 +355,7 @@ MonoBehaviour:
   towerShelfSearchRadius: 40
   towersProvinceFirst: 2
   towersPerProvinceMax: 6
+  towersPerTerritoryCap: 3
   towerCoverageTarget: 0.85
   towerMinSpacingRangeFraction: 1
   towerExtraArmyFraction: 0.75
@@ -359,6 +370,7 @@ MonoBehaviour:
   towerWeightBorder: 1
   homeProductionFloorAfterSeconds: 90
   productionLogInterval: 60
+  productionMaxTotal: 16
   productionSiteTerritoriesPerCall: 3
   fortressAfterResources: 1
   territoryReportInterval: 60
@@ -397,6 +409,7 @@ MonoBehaviour:
   curseClearInterval: 30
   curseClearMinUnits: 6
   curseClearPowerMargin: 1.5
+  curseClearLandlockedSeconds: 180
   curseIntelLastSeenHalfLifeSeconds: 300
   curseIntelLookSeconds: 90
   curseIntelStaleFactor: 1.25
@@ -511,7 +524,7 @@ MonoBehaviour:
   siegeEscortRadius: 14
   marchFightsSoldiersOnly: 1
   warTargetsKeystones: 0
-  keystoneSiegeMin: 3
+  keystoneSiegeMin: 1
   warRetreatRatio: 3
   noTimeoutWhileFighting: 1
   rateBehindShare: 0.9

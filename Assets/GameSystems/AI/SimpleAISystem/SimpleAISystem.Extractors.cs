@@ -242,7 +242,7 @@ namespace TheWaningBorder.AI
                     continue;
                 }
                 var planCost = AICommon.ToCost(def.cost);
-                if (!FactionEconomy.CanAfford(em, faction, planCost))
+                if (!AIBudget.CanAffordLeavingSavings(em, faction, planCost))
                 {
                     if (AILogger.Enabled) blocked += $" | {buildingId}: bank short";
                     continue;

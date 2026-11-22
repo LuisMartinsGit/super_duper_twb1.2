@@ -139,7 +139,7 @@ namespace TheWaningBorder.AI
 
             if (!BuildCosts.Exists(towerId)) return;
             var cost = BuildCosts.For(em, faction, towerId);
-            if (!FactionEconomy.CanAfford(em, faction, cost)) return;
+            if (!AIBudget.CanAffordLeavingSavings(em, faction, cost)) return;
             // Pivotal savings hold, resource-aware.
             if (AIPivotalReserve.ShouldHold(em, faction, cost)) return;
             // UNITS BEFORE ECONOMY (Game_AI.md 5h): the endgame's extra
@@ -155,6 +155,7 @@ namespace TheWaningBorder.AI
             // Own tower positions — the anti-clump constraint.
             var ownTowers = new NativeList<float3>(Allocator.Temp);
             CollectOwnTowerPositions(em, faction, ownTowers);
+            _spotFaction = faction;
 
             // Threat bearing (fog-honest): freshest remembered enemy sighting,
             // base sightings preferred; pre-contact, claim toward map center.
@@ -189,6 +190,9 @@ namespace TheWaningBorder.AI
                 if (found) threatHint = pos;
             }
             else found = TryFindTowerSpot(em, hallPos, threatHint, ownTowers, towerSize, out pos);
+            // The shelf and drawn-slot picks never pass IsTowerSpotOk: the
+            // per-territory tower cap is asked here (decision 97).
+            if (found && SimpleAISystem.TowerCapReached(em, faction, pos)) found = false;
             // HUT COVERAGE (endgame completeness): when the chokepoint /
             // directed-ring passes come up empty (anti-clump spacing
             // saturates the threat arc over a long match), spend the
@@ -197,7 +201,7 @@ namespace TheWaningBorder.AI
             if (!found)
                 found = TryFindHutCoverageSpot(em, faction, hallPos, ownTowers, towerSize, out pos);
             ownTowers.Dispose();
-            if (!found) return;
+            if (!found || SimpleAISystem.TowerCapReached(em, faction, pos)) return;
 
             // No AI-side Spend: PlaceBuildingDirect charges the cost on
             // every peer (docs/Multiplayer_LAN_Readiness.md).
@@ -420,6 +424,9 @@ namespace TheWaningBorder.AI
         /// just cleared (2026-08-18: "towers on top of the Hall").
         /// </summary>
         private static string _spotWhy = "";
+        /// <summary>Whose tower the spot search below is for (set beside the
+        /// own-tower collection), for the per-territory tower cap.</summary>
+        private static Faction _spotFaction;
         private static readonly System.Collections.Generic.Dictionary<string, int> _spotWhyCount =
             new System.Collections.Generic.Dictionary<string, int>();
 
@@ -435,6 +442,8 @@ namespace TheWaningBorder.AI
                 float dz = pos.z - ownTowers[i].z;
                 if (dx * dx + dz * dz < Cfg.minTowerSpacing * Cfg.minTowerSpacing) { _spotWhy = "spacing"; return false; }
             }
+            // The per-territory tower cap (decision 97).
+            if (SimpleAISystem.TowerCapReached(em, _spotFaction, pos)) { _spotWhy = "territory tower cap"; return false; }
             // The border band the wall runs along stays clear.
             if (borderBand && !AIWallPlanner.FootprintClearOfBorder(em, pos, size)) { _spotWhy = "border band"; return false; }
             // …and off the reserved home wall corridor (AIWallCorridor).

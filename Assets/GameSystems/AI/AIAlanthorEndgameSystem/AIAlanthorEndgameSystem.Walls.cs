@@ -446,7 +446,7 @@ namespace TheWaningBorder.AI
         /// </summary>
         private static bool WallSpendAllowed(EntityManager em, Faction faction, Cost cost)
             => (_drawnRingSpend || AIBudget.CanSpend(faction, AIBudgetCategory.EconomyExpansion, cost))
-               && FactionEconomy.CanAfford(em, faction, cost);
+               && AIBudget.CanAffordLeavingSavings(em, faction, cost);
 
         /// <summary>This think's wall doctrine is building a drawn base ring
         /// (AIBaseTemplate): it spends whatever the bank holds (set at the top

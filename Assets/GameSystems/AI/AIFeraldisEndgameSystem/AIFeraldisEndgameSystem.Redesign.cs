@@ -123,7 +123,7 @@ namespace TheWaningBorder.AI
             else if (!FeraldisEconomy.SlaveCapReached(em, faction))
             {
                 if (TechCatalog.TryGetUnit(FeraldisEconomy.SlaveId, out var sd) && sd.cost != null
-                    && FactionEconomy.CanAfford(em, faction, Cost.Of(sd.cost.Supplies, sd.cost.Iron, sd.cost.Veilstone))
+                    && AIBudget.CanAffordLeavingSavings(em, faction, Cost.Of(sd.cost.Supplies, sd.cost.Iron, sd.cost.Veilstone))
                     && CommandRouter.CanTrainAtBuilding(em, fortress, FeraldisEconomy.SlaveId, out _, out _))
                     CommandRouter.IssueTrain(em, fortress, FeraldisEconomy.SlaveId, CommandSource.AI);
             }
@@ -138,7 +138,7 @@ namespace TheWaningBorder.AI
                 if (FeraldisEconomy.CountLiveOrQueued(em, faction, id) > 0) continue;
                 if (!CommandRouter.CanTrainAtBuilding(em, fortress, id, out _, out _)) continue;
                 if (!TechCatalog.TryGetUnit(id, out var ud) || ud.cost == null) continue;
-                if (!FactionEconomy.CanAfford(em, faction, Cost.Of(ud.cost.Supplies, ud.cost.Iron, ud.cost.Veilstone))) continue;
+                if (!AIBudget.CanAffordLeavingSavings(em, faction, Cost.Of(ud.cost.Supplies, ud.cost.Iron, ud.cost.Veilstone))) continue;
                 CommandRouter.IssueTrain(em, fortress, id, CommandSource.AI);
                 AILogger.Log(faction, "MILITARY", $"{id} queued at the Fortress");
             }
