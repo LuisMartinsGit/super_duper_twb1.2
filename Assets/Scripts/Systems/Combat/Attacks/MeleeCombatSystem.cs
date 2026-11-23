@@ -179,7 +179,7 @@ namespace TheWaningBorder.Systems.Combat
 
             // A thrown torch (decision 82): the hit lands now, the presentation
             // draws the torch flying to the building's edge afterwards.
-            if (lk.Building.HasComponent(target) && lk.ThrowsTorch(entity))
+            if (lk.TakesTorch(target) && lk.ThrowsTorch(entity))
                 TorchThrows.Post(myPos, lk.Extent(target).ApproachPoint(myPos, 0f));
 
             // --- Batch-read attacker components once ---

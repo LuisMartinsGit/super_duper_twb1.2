@@ -292,7 +292,10 @@ namespace TheWaningBorder.Systems.Core
                 // fortressRebuildGraceSeconds to finish one again on its
                 // rubble; its other buildings, Workers, army and ground no
                 // longer keep it in the match. ──
-                if (cfg.fortressRebuildGraceSeconds > 0f)
+                // INSTANT since decision 120 (2026-11-23): the grace is 0, so
+                // the faction falls on the pass that finds its last keystone
+                // gone. A negative grace switches the rule off.
+                if (cfg.fortressRebuildGraceSeconds >= 0f)
                 {
                     if (hasHall[fi]) _everHadFortress[fi] = true;
                     if (_everHadFortress[fi])
@@ -303,6 +306,12 @@ namespace TheWaningBorder.Systems.Core
                                 TheWaningBorder.AI.AILogger.Log(f, "VICTORY",
                                     $"KEYSTONE REBUILT at {_matchSeconds:0}s - the fall clock stops.");
                             _fortressLostSince[fi] = -1f;
+                            continue;
+                        }
+                        if (cfg.fortressRebuildGraceSeconds <= 0f)
+                        {
+                            newly.Add(f);
+                            reason[f] = "its keystones (Fortress, Temple, landmark, sect buildings) all fell.";
                             continue;
                         }
                         if (_fortressLostSince[fi] < 0f)

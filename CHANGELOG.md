@@ -11,6 +11,17 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.95] — 2026-11-23
+
+### Move orders, siege, torches and instant defeat (decisions 117-120, 2026-11-23)
+- **Watch Towers are weaker.** The Watch Tower has 30% less health.
+- **Your units obey a move order while fighting.** A unit already in a fight used to drop the order and keep attacking. Turning on an attacker while on the move is now something only computer opponents do.
+- **Catapult and trebuchet stones land where they were aimed.** The stone flies to the spot its target stood on when it was thrown and damages everything hostile in its blast. Troops that move out of the way are missed.
+- **The burst and the damage happen together.** The stone you see is now the one that does the damage, and it no longer bursts on the engine that threw it.
+- **Infantry and cavalry burn siege engines.** Melee units now throw their torches at rams, catapults, trebuchets and ballistas, as they do at buildings, so a whole squad attacks an engine at once and it falls much faster (decision 119).
+- **Losing every keystone is instant defeat.** A player whose Fortress, Temple, landmark and sect buildings have all fallen is out at once; the five-minute window to rebuild one is gone (decision 120).
+- **Destroyed siege engines fall apart** instead of standing frozen and vanishing.
+
 ## [0.0.94] — 2026-11-23
 
 ### Computer opponents contest a countdown and attack together (decision 114, 2026-11-22)

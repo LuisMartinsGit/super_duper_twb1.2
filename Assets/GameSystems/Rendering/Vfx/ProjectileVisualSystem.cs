@@ -82,6 +82,13 @@ namespace TheWaningBorder.Rendering
         private GameObject _godsplinterTemplate;  // arcane-purple MEGA missile, straight beam
         private GameObject _impactTemplate;       // tiny arcane explosion, spawned on Veilstinger hit
         private GameObject _fireballTemplate;     // Synty catapult fire FX, scaled way down (Feraldis Firethrower)
+        // A lobbed siege stone and its burst (SiegeStoneFx, decision 118).
+        private GameObject _stoneTemplate;
+        private GameObject _stoneImpactTemplate;
+        /// <summary>How long a landed stone's smoke is left to thin out.</summary>
+        private const float StoneSmokeSeconds = 3f;
+        /// <summary>How long a stone's burst plays before it is recycled.</summary>
+        private const float StoneImpactSeconds = 5f;
 
         /// <summary>Scale applied to the Synty catapult shot effect when it is
         /// reused as a Firethrower fireball. The authored effect is a siege
@@ -108,6 +115,7 @@ namespace TheWaningBorder.Rendering
             _impactTemplate      = LoadAuthoredTemplate("Prefabs/Border/Effects/VeilstingerImpact", "VeilstingerImpactTemplate");
             // Feraldis Firethrower reuses the Synty catapult fire effect.
             _fireballTemplate    = LoadAuthoredTemplate("Prefabs/Effects/FX_CatapultShot", "FirethrowerFxTemplate");
+            SiegeStoneFx.Build(out _stoneTemplate, out _stoneImpactTemplate);
             // Generic laser falls back to the Veilstinger missile if present,
             // else to the procedural cylinder. Anything that still tags itself
             // LaserProjectileTag without a more-specific tag (e.g. building
@@ -215,6 +223,25 @@ namespace TheWaningBorder.Rendering
                         _liveImpacts.Add(new PendingImpact { Visual = impact, ReturnAt = Time.time + ImpactLifetime });
                     }
 
+                    // A SIEGE STONE BURSTS WHERE IT WAS LAST SEEN, the frame its
+                    // projectile died — the same frame the blast's damage landed.
+                    if (pv != null && go != null && _stoneTemplate != null && pv.Template == _stoneTemplate)
+                    {
+                        if (_stoneImpactTemplate != null)
+                        {
+                            var burst = Rent(_stoneImpactTemplate);
+                            burst.Go.transform.SetPositionAndRotation(go.transform.position, Quaternion.identity);
+                            burst.Go.SetActive(true);
+                            SiegeStoneFx.Burst(burst.Go);
+                            _liveImpacts.Add(new PendingImpact { Visual = burst, ReturnAt = Time.time + StoneImpactSeconds });
+                        }
+                        SiegeStoneFx.Land(go);
+                        _liveImpacts.Add(new PendingImpact { Visual = pv, ReturnAt = Time.time + StoneSmokeSeconds });
+                        _visuals.Remove(entity);
+                        _impactScales.Remove(entity);
+                        continue;
+                    }
+
                     // An arrow that landed keeps its trails and tip alive long
                     // enough to fade where it stopped, instead of vanishing.
                     // It stays out of the pool meanwhile, so the archer's next
@@ -248,34 +275,19 @@ namespace TheWaningBorder.Rendering
                 float impactScale = 0f; // 0 = no impact
 
                 bool bolt = _em.HasComponent<BallistaBoltTag>(entity) && _ballistaBoltTemplate != null;
-                // TREBUCHET STONES fly the Synty catapult FX, like the
-                // catapult's — but the procedural Trebuchet and the emplacement
-                // carry no CatapultVisual to launch it, so it is launched here,
-                // once, from the ECS stone's own start / end / flight time. The
-                // ECS projectile only carries the damage.
-                if (!bolt && _em.HasComponent<TrebuchetStoneTag>(entity)
-                    && _em.HasComponent<Projectile>(entity))
-                {
-                    var shot = _em.GetComponentData<Projectile>(entity);
-                    CatapultVisual.FireSyntyStone(shot.Start, shot.End, shot.FlightTime);
-                    _visuals[entity] = null;
-                    continue;
-                }
-
-                if (!bolt && _em.HasComponent<CatapultShotTag>(entity))
-                {
-                    // Catapult shots have NO per-entity visual: CatapultVisual
-                    // fires the self-contained Synty FX (stone + trail +
-                    // impact) from the engine itself, aimed by distance. The
-                    // ECS projectile only carries the damage. Remember the
-                    // entity so this check doesn't repeat every frame.
-                    _visuals[entity] = null;
-                    continue;
-                }
+                // LOBBED SIEGE STONES (catapult, trebuchet, Keep emplacement)
+                // are drawn per entity: the stone on screen is the projectile
+                // that carries the damage (decision 118).
+                bool stone = !bolt && _stoneTemplate != null
+                    && (_em.HasComponent<TrebuchetStoneTag>(entity) || _em.HasComponent<CatapultShotTag>(entity));
 
                 if (bolt)
                 {
                     template = _ballistaBoltTemplate;
+                }
+                else if (stone)
+                {
+                    template = _stoneTemplate;
                 }
                 else if (_em.HasComponent<FirethrowerShotTag>(entity) && _fireballTemplate != null)
                 {
@@ -327,6 +339,7 @@ namespace TheWaningBorder.Rendering
                 // own trail is still handled here.
                 var spawnTrail = pooled.Trail;
                 if (spawnTrail != null) spawnTrail.Clear();
+                if (stone) SiegeStoneFx.Launch(go);
 
                 // Scale up siege projectiles (ballista bolts) for visual distinction —
                 // only applies to plain arrows, not to the specialised tags above.
@@ -392,6 +405,13 @@ namespace TheWaningBorder.Rendering
                 if (_visuals.TryGetValue(entities[i], out var pv) && pv != null && pv.Go != null)
                 {
                     // Direct position sync — NO terrain height snapping
+                    if (pv.Template == _stoneTemplate && _stoneTemplate != null)
+                    {
+                        // A stone tumbles; it does not point along its flight.
+                        pv.Go.transform.position = (Vector3)transforms[i].Position;
+                        SiegeStoneFx.Tumble(pv.Go, Time.deltaTime);
+                        continue;
+                    }
                     pv.Go.transform.SetPositionAndRotation(
                         (Vector3)transforms[i].Position, transforms[i].Rotation);
                 }

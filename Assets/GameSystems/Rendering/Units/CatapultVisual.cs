@@ -41,10 +41,6 @@ namespace TheWaningBorder.Rendering
 
         public GameObject ShotFxTemplate;
 
-        private GameObject _shotFx;
-        private float _stoneSpeed = 20f;
-        private float _stoneGravity = 9.81f;
-
         private Transform _arm;
         private Transform _bolt;
         private Quaternion _armedPose;
@@ -63,29 +59,9 @@ namespace TheWaningBorder.Rendering
             _em = world.EntityManager;
             _entityRef = GetComponent<EntityReference>();
 
-            _shotFx = ShotFxTemplate != null
-                ? ShotFxTemplate
-                : Resources.Load<GameObject>("Prefabs/Effects/FX_CatapultShot");
-
-            // The template is a spawn blueprint — keep it dormant even if it
-            // was left active while being authored/previewed in the editor.
+            // The nested shot template is a leftover authoring blueprint:
+            // keep it dormant.
             if (ShotFxTemplate != null) ShotFxTemplate.SetActive(false);
-
-            // Read the STONE's ballistics off the template (the stone is the
-            // one system with world collision) so pitch solving tracks any
-            // start-speed / gravity tweaks made on the authored FX.
-            if (_shotFx != null)
-            {
-                foreach (var ps in _shotFx.GetComponentsInChildren<ParticleSystem>(true))
-                {
-                    if (!ps.collision.enabled) continue;
-                    var m = ps.main;
-                    if (m.startSpeed.constant > 0.1f) _stoneSpeed = m.startSpeed.constant;
-                    float gMod = Mathf.Abs(m.gravityModifier.constant);
-                    if (gMod > 0.01f) _stoneGravity = gMod * Mathf.Abs(Physics.gravity.y);
-                    break;
-                }
-            }
 
             if (!string.IsNullOrEmpty(ArmChildName)) _arm = FindDeep(transform, ArmChildName);
             if (!string.IsNullOrEmpty(BoltChildName)) _bolt = FindDeep(transform, BoltChildName);
@@ -105,12 +81,12 @@ namespace TheWaningBorder.Rendering
             float cd = archer.CooldownTimer;
             if (_prevCooldown >= 0f && cd > _prevCooldown + 0.5f)
             {
+                // Arm only. The stone (or bolt) in the air is the simulation's
+                // own projectile, drawn by ProjectileVisualSystem (decision
+                // 118) — the engine used to launch a second, unsynchronised
+                // particle stone here, which could burst on the engine itself
+                // and landed apart from the damage.
                 _releaseTime = Time.time;
-                // Flat-trajectory siege (the Ballista): the ECS bolt renders
-                // itself via ProjectileVisualSystem, so the canned stone FX
-                // would be a second, unsynchronised projectile. Arm only.
-                if (archer.Trajectory != ShotTrajectory.Flat)
-                    SpawnShotFx(e);
             }
             _prevCooldown = cd;
 
@@ -135,207 +111,6 @@ namespace TheWaningBorder.Rendering
                 if (_bolt.gameObject.activeSelf != loaded) _bolt.gameObject.SetActive(loaded);
             }
         }
-
-        /// <summary>
-        /// Fire the self-contained Synty catapult FX (stone + trail + impact
-        /// are all inside the prefab — used as-is, per design). Only the
-        /// launch angle changes: yaw faces the target, and pitch is blended
-        /// between the near/far offsets by target distance so the canned
-        /// stone lands closer or farther.
-        /// </summary>
-        private void SpawnShotFx(Entity e)
-        {
-            if (_shotFx == null) return;
-
-            Vector3 pivot = transform.position;
-            Quaternion bodyYaw = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
-            Quaternion yawDelta = Quaternion.identity; // extra yaw from body facing to the target
-            bool hasTargetPos = false;
-            Vector3 targetPos = Vector3.zero;
-
-            if (_em.HasComponent<Target>(e))
-            {
-                var tgt = _em.GetComponentData<Target>(e).Value;
-                if (tgt != Entity.Null && _em.Exists(tgt)
-                    && _em.HasComponent<Unity.Transforms.LocalTransform>(tgt))
-                {
-                    targetPos = (Vector3)_em.GetComponentData<Unity.Transforms.LocalTransform>(tgt).Position;
-                    hasTargetPos = true;
-                    Vector3 flat = targetPos - pivot;
-                    flat.y = 0f;
-                    if (flat.sqrMagnitude > 0.01f)
-                        yawDelta = Quaternion.LookRotation(flat.normalized, Vector3.up)
-                                   * Quaternion.Inverse(bodyYaw);
-                }
-            }
-
-            Vector3 origin;
-            Quaternion rot;
-            if (ShotFxTemplate != null)
-            {
-                // Use the authored template pose VERBATIM — only swing it
-                // around the catapult to face the target, then pitch by the
-                // ballistic solve below. Whatever orientation/position was
-                // tuned on the nested template is what fires.
-                origin = pivot + yawDelta * (ShotFxTemplate.transform.position - pivot);
-                rot = yawDelta * ShotFxTemplate.transform.rotation;
-            }
-            else
-            {
-                // Resources fallback: synthetic muzzle clear of the collider.
-                var aim = yawDelta * bodyYaw;
-                origin = pivot + Vector3.up * MuzzleHeight + (aim * Vector3.forward) * MuzzleForward;
-                rot = aim;
-            }
-
-            // Impact-synchronised solve. The DAMAGE lands when the ECS
-            // projectile does — RangedCombatSystem gives catapult lobs a hang
-            // time of clamp(distance/9, 2..3) s. Solve the stone's launch
-            // speed AND pitch so it covers the muzzle→target trajectory in
-            // exactly that time:  vx = x/T,  vy = (y + g*T^2/2) / T.
-            // The visible impact then coincides with the Health write instead
-            // of trailing it by seconds (the old fixed-speed solve).
-            float pitch = PitchTrim;
-            float launchSpeed = _stoneSpeed;
-            if (hasTargetPos)
-            {
-                float g = _stoneGravity;
-                Vector3 d3 = targetPos - origin;
-                float x = new Vector2(d3.x, d3.z).magnitude;
-                float y = d3.y;
-                if (x > 0.5f)
-                {
-                    float simDistance = Vector3.Distance(targetPos, pivot);
-                    float T = Mathf.Clamp(simDistance / 9f, 2f, 3f);
-                    float vx = x / T;
-                    float vy = (y + 0.5f * g * T * T) / T;
-                    launchSpeed = Mathf.Sqrt(vx * vx + vy * vy);
-                    float theta = Mathf.Atan2(vy, vx);
-                    pitch = TemplateElevation - theta * Mathf.Rad2Deg + PitchTrim;
-                }
-            }
-            rot = Quaternion.AngleAxis(pitch, rot * Vector3.right) * rot;
-
-            var fx = Instantiate(_shotFx, origin, rot);
-            fx.SetActive(true); // the template ships inactive
-
-            // Push the solved speed into the stone particle (the one system
-            // with collision) so the clone actually flies the solved arc.
-            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
-            {
-                if (!ps.collision.enabled) continue;
-                var stoneMain = ps.main;
-                stoneMain.startSpeed = launchSpeed;
-                break;
-            }
-
-            // ONE volley per shot: the Synty FX is authored looping for its
-            // demo scene — a looping clone left behind would keep lobbing
-            // stones from the old spot after the catapult moves away.
-            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
-            {
-                var psMain = ps.main;
-                psMain.loop = false;
-            }
-
-            Destroy(fx, 12f); // stone particle lifetime is 10 s
-        }
-
-        // ── Shared launcher for engines with no CatapultVisual of their own ──
-
-        private static GameObject _sharedFx;
-        private static float _sharedSpeed = 20f, _sharedGravity = 9.81f;
-
-        /// <summary>
-        /// Fire the Synty catapult FX (stone + trail + impact) from
-        /// <paramref name="origin"/> so it lands on <paramref name="target"/>
-        /// after <paramref name="flightSeconds"/> — the same solve and the same
-        /// one-volley handling as <see cref="SpawnShotFx"/>, on the Resources
-        /// template. For siege engines that draw no CatapultVisual: the
-        /// procedural Trebuchet and the Trebuchet emplacement, whose ECS stone
-        /// only carries the damage (ProjectileVisualSystem calls this once per
-        /// stone, with the projectile's own start, end and flight time).
-        /// </summary>
-        public static void FireSyntyStone(Vector3 origin, Vector3 target, float flightSeconds)
-        {
-            // The ECS shot starts at the shooter's own position — ground level,
-            // inside the engine's collider. Launched from there, the stone's
-            // collision module hit the terrain / the trebuchet on its first
-            // frame and the impact burst played at the machine (2026-09-30).
-            // Lift it to a muzzle point, as SpawnShotFx's fallback does.
-            {
-                Vector3 toward = target - origin;
-                toward.y = 0f;
-                toward = toward.sqrMagnitude > 0.01f ? toward.normalized : Vector3.forward;
-                origin += Vector3.up * SharedMuzzleHeight + toward * SharedMuzzleForward;
-            }
-
-            if (_sharedFx == null)
-            {
-                _sharedFx = Resources.Load<GameObject>("Prefabs/Effects/FX_CatapultShot");
-                if (_sharedFx == null) return;
-                foreach (var ps in _sharedFx.GetComponentsInChildren<ParticleSystem>(true))
-                {
-                    if (!ps.collision.enabled) continue;
-                    var m = ps.main;
-                    if (m.startSpeed.constant > 0.1f) _sharedSpeed = m.startSpeed.constant;
-                    float gMod = Mathf.Abs(m.gravityModifier.constant);
-                    if (gMod > 0.01f) _sharedGravity = gMod * Mathf.Abs(Physics.gravity.y);
-                    break;
-                }
-            }
-
-            Vector3 d3 = target - origin;
-            Vector3 flat = new Vector3(d3.x, 0f, d3.z);
-            float x = flat.magnitude;
-            Quaternion rot = x > 0.01f
-                ? Quaternion.LookRotation(flat / x, Vector3.up)
-                : Quaternion.identity;
-
-            // Same impact-synchronised solve as SpawnShotFx, against the
-            // template's authored 30 deg elevation (the Resources fallback's).
-            const float templateElevation = 30f;
-            float launchSpeed = _sharedSpeed;
-            float pitch = 0f;
-            if (x > 0.5f)
-            {
-                float T = Mathf.Max(0.5f, flightSeconds);
-                float g = _sharedGravity;
-                float vx = x / T;
-                float vy = (d3.y + 0.5f * g * T * T) / T;
-                launchSpeed = Mathf.Sqrt(vx * vx + vy * vy);
-                pitch = templateElevation - Mathf.Atan2(vy, vx) * Mathf.Rad2Deg;
-            }
-            rot = Quaternion.AngleAxis(pitch, rot * Vector3.right) * rot;
-
-            var fx = Instantiate(_sharedFx, origin, rot);
-            fx.SetActive(true);
-            // The stone collides with the TERRAIN only: the engine's own
-            // selection collider (and any unit or building on the arc) must
-            // not end the flight early. It still bursts where it lands.
-            int terrainMask = Terrain.activeTerrain != null
-                ? 1 << Terrain.activeTerrain.gameObject.layer : ~0;
-            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
-            {
-                if (!ps.collision.enabled) continue;
-                var stoneMain = ps.main;
-                stoneMain.startSpeed = launchSpeed;
-                var col = ps.collision;
-                col.collidesWith = terrainMask;
-                break;
-            }
-            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
-            {
-                var psMain = ps.main;
-                psMain.loop = false;
-            }
-            Destroy(fx, 12f);
-        }
-
-        /// <summary>Muzzle point for <see cref="FireSyntyStone"/>, above and
-        /// ahead of the shooter's position.</summary>
-        private const float SharedMuzzleHeight = 3f;
-        private const float SharedMuzzleForward = 1.5f;
 
         private static Transform FindDeep(Transform root, string childName)
         {

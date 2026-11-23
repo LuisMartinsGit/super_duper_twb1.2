@@ -145,7 +145,8 @@ namespace TheWaningBorder.Systems.Combat
                 // with a torch attacks a building from TorchReach — a short
                 // ranged attack — and stands wherever it first reaches that
                 // band, so it takes no slot round the building.
-                bool torch = Lk.Building.HasComponent(tgt) && Lk.ThrowsTorch(entity);
+                // A siege engine takes the torch too (decision 119).
+                bool torch = Lk.TakesTorch(tgt) && Lk.ThrowsTorch(entity);
                 float reach = torch ? TorchReach : MeleeRange;
 
                 // Every other attacker of a building (a ram, a unit with no

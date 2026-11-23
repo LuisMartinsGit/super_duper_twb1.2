@@ -138,6 +138,11 @@ namespace TheWaningBorder.Systems.Combat
         public bool DealsSiege(Entity attacker)
             => DamageType.TryGetComponent(attacker, out var d) && d.Value == global::DamageType.Siege;
 
+        /// <summary><see cref="CombatDamageHelper.TakesTorch(EntityManager, Entity)"/>
+        /// through the lookups.</summary>
+        public bool TakesTorch(Entity target)
+            => Building.HasComponent(target) || Siege.HasComponent(target);
+
         /// <summary><see cref="CombatDamageHelper.ThrowsTorch(EntityManager, Entity)"/>
         /// through the lookups.</summary>
         public bool ThrowsTorch(Entity attacker)
@@ -945,6 +950,14 @@ namespace TheWaningBorder.Systems.Combat
         /// takes no attack slot round it. Its hit is the torch
         /// (<see cref="ScaleVsBuilding"/>).
         /// </summary>
+        /// <summary>
+        /// What a torch is thrown at: a building, or a siege engine (decision
+        /// 119, 2026-11-23 - a ram is timber too, and only three or four men
+        /// fit round one with swords).
+        /// </summary>
+        public static bool TakesTorch(EntityManager em, Entity target)
+            => em.HasComponent<BuildingTag>(target) || em.HasComponent<SiegeTag>(target);
+
         public static bool ThrowsTorch(EntityManager em, Entity attacker)
             => em.HasComponent<TorchDamage>(attacker)
                && em.GetComponentData<TorchDamage>(attacker).Value > 0
@@ -957,7 +970,7 @@ namespace TheWaningBorder.Systems.Combat
         {
             if (damage <= 0) return damage;
             if (type == DamageType.Melee
-                && em.HasComponent<BuildingTag>(target)
+                && TakesTorch(em, target)
                 && attacker != Entity.Null && em.Exists(attacker)
                 && !em.HasComponent<BorderUnitTag>(attacker)
                 && em.HasComponent<TorchDamage>(attacker))

@@ -9,6 +9,35 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+120. **A player falls the moment its last keystone does (2026-11-23, developer: "remove the
+     clock or set it to 0. I need this to be instant").** `fortressRebuildGraceSeconds`
+     (`EliminationSystem.asset`) is 0 and 0 now means at once (a negative value switches the
+     keystone rule off): with the Fortress, the Temple, the landmark and every sect building
+     down, the faction is eliminated on the next elimination pass, with no rebuild window.
+     Rubble still lets a fallen keystone be rebuilt while another one stands.
+     Territory_Claims.md § 7. Same day: the Watch Tower's health is cut by 30 %
+     (`Civs/Alanthor/Buildings/Tower/Tower.asset`; developer: "reduce tower HP by 30%").
+119. **Siege engines take the torch (2026-11-23, developer: "Use the torch!!").** A melee unit
+     with a torch throws it at a siege engine (`SiegeTag`: Ram, Catapult, Trebuchet,
+     Ballista) exactly as at a building: its `torchDamage` less the engine's melee armour,
+     from the torch reach, taking no place round it. Only three or four men fit round a ram
+     with swords, so a squad took far too long to break one; now the whole squad hits it.
+     `CombatDamageHelper.TakesTorch`. Combat_Pacing.md § Buildings.
+118. **A lobbed siege stone lands where it was aimed (2026-11-23, developer: "Projectiles must
+     be sent to target's position and do area damage on projectile explosion").** Catapult,
+     Trebuchet and Keep-emplacement stones no longer follow their target: the stone flies to
+     the point aimed at when it left the engine and bursts there, and every hostile within
+     the engine's `aoeRadius` (its SO) of the landing point takes the stone's hit - a
+     building measured to its footprint edge. There is no guaranteed hit: a target that
+     walked out of the blast is missed. The stone on screen is the simulation's projectile
+     (`SiegeStoneFx`, `ProjectileVisualSystem`), so the burst and the damage are the same
+     frame and the old second, physics-driven particle stone (which could burst on the
+     engine itself) is gone. A destroyed siege engine falls apart (`SiegeDismantle`).
+     Combat_Pacing.md § Lobbed stones.
+117. **A human's move order always wins (2026-11-23, developer: "this rule is only for the
+     AI. human players need to order retaliation if they want it").** Retaliation on the
+     move (Stances.md §5a) applies to computer opponents only; a unit of a human-played
+     faction under a move order never turns on its attacker (`StanceSettings.HumanFactionMask`).
 116. **Research does not wait behind the army for ever (2026-11-22, developer: "Yes").** The
      army-first rule refuses a research while the army is below its target and soldiers are
      affordable; the army never reaches its target, so no AI bought a level 3 research

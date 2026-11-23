@@ -86,8 +86,12 @@ namespace TheWaningBorder.Systems.Combat
 
         private void PublishSettings(EntityManager em)
         {
+            int humans = 0;
+            for (int f = 0; f < 8; f++)
+                if (GameSettings.IsFactionHumanControlled((Faction)f)) humans |= 1 << f;
             var s = new StanceSettings
             {
+                HumanFactionMask = humans,
                 AggressiveLeash = _cfg.aggressiveLeash,
                 FormationMeleeEngage = _cfg.formationMeleeEngage,
                 RetaliationWindow = _cfg.retaliationWindow,

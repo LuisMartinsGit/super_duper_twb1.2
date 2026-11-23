@@ -245,6 +245,11 @@ a soldier's torch burns slowly, siege goes through.**
   (Navigation_And_Formations.md § 4.1). The hit lands on the throw; the player sees a burning
   torch with a red-orange streak and a light fly in, and a flash where it lands. The torch
   values sit on the Age of Empires IV scale.
+- **Siege engines take the torch too** ([decision 119](Unification_Decisions_2026-10-03.md),
+  2026-11-23): against anything with `SiegeTag` (Ram, Catapult, Trebuchet, Ballista) a melee
+  unit throws its torch exactly as at a building - torch damage less the engine's melee
+  armour, from the torch reach, with no place to take round it - so a whole squad burns an
+  engine at once. `CombatDamageHelper.TakesTorch`.
 - **Arrows.** A building's ranged armour is set **at or above a bow's entire attack**, so every
   arrow and bolt lands the minimum one point. A bow line cannot take a base.
 - **Fire Arrows** ([decision 112](Unification_Decisions_2026-10-03.md), 2026-11-22): the
@@ -467,6 +472,30 @@ Range's levels (decision 53).
 Implementation: `GameSystems/Rendering/Vfx/ArrowTrailTiers.cs`. The tech id for
 tier 4 is `ShardTippedArrows`, not "VeilsteelTipped" — older name, same tier,
 and Veilsteel is what it costs.
+
+### Lobbed stones land where they were aimed (2026-11-23, decision 118)
+
+Arrows and bolts follow their target and always hit. A **lobbed siege stone**
+(Catapult, Trebuchet, the Keep's Trebuchet emplacement) does not:
+
+- It flies to the point it was aimed at when it left the engine, and bursts
+  there.
+- Every hostile within the engine's `aoeRadius` (on its SO) of the landing
+  point takes the stone's hit, through the same damage rules as a direct hit
+  (armour, tag bonus, the Wall Rule, the Fortress rule). A building is
+  measured to the edge of its footprint, a unit to its centre. Allies are
+  never hurt.
+- There is no primary target and no guaranteed hit: a target that walked out
+  of the blast is missed. Stones are for buildings and for troops that stand
+  still.
+- The stone on screen is the projectile that carries the damage, so the burst
+  and the damage happen in the same frame, at the same place.
+
+Code: `ProjectileSystem` (`IsGround`, `ApplyGroundBlast`), `SiegeStoneFx`,
+`ProjectileVisualSystem`.
+
+A destroyed siege engine (anything with `SiegeTag`) falls apart where it
+stood and its wreckage dissolves (`SiegeDismantle`); presentation only.
 
 ### A shot gives the shooter away (2026-10-25)
 

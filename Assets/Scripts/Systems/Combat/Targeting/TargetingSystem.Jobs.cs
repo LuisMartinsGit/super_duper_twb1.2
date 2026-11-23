@@ -564,8 +564,14 @@ namespace TheWaningBorder.Systems.Combat
                     // "hit recently": it could never be pulled out of a fight
                     // or carry the Shardroot home - each order ended in the
                     // next retaliation.
-                    bool orderedHero = hasUserMoveOrder && Lk.HeroLevels.HasComponent(entity);
-                    if (hitRecently && !orderedHero) PlanRetaliation(entity, cls, myPos, ref plan);
+                    //
+                    // A HUMAN'S MOVE ORDER ALWAYS WINS (2026-11-23, decision
+                    // 117): retaliation on the move is the computer
+                    // opponents' rule. A player who wants the fight orders it.
+                    bool obeys = hasUserMoveOrder
+                        && (Lk.HeroLevels.HasComponent(entity)
+                            || (Settings.HumanFactionMask & (1 << (int)Lk.Faction[entity].Value)) != 0);
+                    if (hitRecently && !obeys) PlanRetaliation(entity, cls, myPos, ref plan);
                     return;
                 }
 

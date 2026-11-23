@@ -844,6 +844,11 @@ left and at the final marks (`countdownFinalWarnings`) — config values on
 cancelled. Details in § 11.4 and
 [Curse_And_Shardroot.md §3.1c](Curse_And_Shardroot.md).
 
+**2026-11-23 (decision 120): the fall is instant.** `fortressRebuildGraceSeconds` is 0: a
+faction that has had its Fortress is eliminated the moment its last keystone falls. There
+is no rebuild window and no clock; rubble still lets a fallen keystone be rebuilt while
+another keystone stands. Where the paragraph below speaks of the grace, read it as zero.
+
 **2026-11-17 (decision 69): a player falls with its keystones.** The
 keystones are the Fortress, the Temple of Ridan, the culture's landmark
 (the Vault of Almierra for Alanthor) and every sect building: one of each, ever. A faction that has

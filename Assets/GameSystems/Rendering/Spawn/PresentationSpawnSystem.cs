@@ -381,7 +381,14 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                     var outcroppingAnim = go.GetComponent<TheWaningBorder.Rendering.VeilstoneOutcroppingCrystalAnimator>();
                     var disassembly = go.GetComponent<TheWaningBorder.Rendering.LedgerDisassembly>();
                     var corpse = go.GetComponent<CorpseDissolver>();
-                    if (disassembly != null)
+                    var dismantle = go.GetComponent<TheWaningBorder.Rendering.SiegeDismantle>();
+                    if (dismantle != null)
+                    {
+                        // Siege engine: it is already falling apart (it began
+                        // when the engine died); it owns the wreckage from here.
+                        dismantle.BeginDeath();
+                    }
+                    else if (disassembly != null)
                     {
                         // Ledger: scatter the parts, let them fall, and only
                         // then hand the wreckage to CorpseDissolver. Checked
@@ -498,6 +505,10 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             {
                 if (EntityViewManager.Instance != null)
                     EntityViewManager.Instance.RegisterView(entity, go);
+                // A siege engine comes apart when it is destroyed.
+                if (_em.HasComponent<SiegeTag>(entity) && _em.HasComponent<UnitTag>(entity)
+                    && go.GetComponent<TheWaningBorder.Rendering.SiegeDismantle>() == null)
+                    go.AddComponent<TheWaningBorder.Rendering.SiegeDismantle>();
                 _spawnedEntities.Add(entity);
                 _tagScratch.Add(entity);
                 spawned++;

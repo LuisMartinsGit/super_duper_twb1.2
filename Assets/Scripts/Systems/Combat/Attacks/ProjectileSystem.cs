@@ -33,6 +33,12 @@ namespace TheWaningBorder.Systems.Combat
         // Maximum pitch angle in radians (60 degrees)
         private const float MaxPitchAngle = 1.047f;
 
+        // A lobbed siege stone (decision 118) leaves from this height above the
+        // ground under its engine and lands this far above the ground it was
+        // aimed at. Flight shape only, like the arc constants above.
+        private const float StoneMuzzleHeight = 2.6f;
+        private const float StoneLandHeight = 0.3f;
+
         // Terrain collision margin above ground for lasers
         private const float TerrainCollisionMargin = 0.5f;
 
@@ -127,6 +133,8 @@ namespace TheWaningBorder.Systems.Combat
                 Piercing = SystemAPI.GetComponentLookup<PiercingProjectile>(true),
                 HighArc = SystemAPI.GetComponentLookup<HighArcProjectile>(true),
                 Aoe = SystemAPI.GetComponentLookup<AOEProjectile>(true),
+                CatapultShot = SystemAPI.GetComponentLookup<CatapultShotTag>(true),
+                TrebuchetStone = SystemAPI.GetComponentLookup<TrebuchetStoneTag>(true),
                 Health = SystemAPI.GetComponentLookup<Health>(true),
                 Transforms = SystemAPI.GetComponentLookup<LocalTransform>(true),
                 Storage = SystemAPI.GetEntityStorageInfoLookup(),
@@ -154,6 +162,7 @@ namespace TheWaningBorder.Systems.Combat
 
                 var arrowPos = trans.Position;
                 var shouldDestroy = false;
+                bool groundBlast = false;
 
                 // Calculate elapsed time since spawn
                 var elapsed = (float)(time - proj.StartTime);
@@ -229,6 +238,13 @@ namespace TheWaningBorder.Systems.Combat
                         LiveTarget(in plan, in liveHealth, targetEntity, in proj,
                             out bool targetIsAlive, out float3 targetPos);
 
+                        // A LOBBED STONE DOES NOT FOLLOW ITS TARGET (decision
+                        // 118): it flies to the point it was aimed at when it
+                        // left the engine and bursts there. Whoever stands in
+                        // the blast is hit; a target that walked away is not.
+                        bool isGround = plan.IsGround != 0;
+                        if (isGround) targetPos = proj.End;
+
                         float distToTarget = math.length(targetPos - arrowPos);
 
                         bool isPiercing = plan.IsPiercing != 0;
@@ -268,6 +284,19 @@ namespace TheWaningBorder.Systems.Combat
                                 if (t > 1.5f) shouldDestroy = true;
                             }
                         }
+                        else if (!shouldDestroy && isGround)
+                        {
+                            if (t >= 1f)
+                            {
+                                // Landed: the blast below is measured from here.
+                                trans.Position = new float3(targetPos.x,
+                                    TerrainUtility.GetHeight(targetPos.x, targetPos.z) + StoneLandHeight,
+                                    targetPos.z);
+                                groundBlast = true;
+                                shouldDestroy = true;
+                            }
+                            else MoveOnArc(ref trans, ref arr, in proj, in plan, targetPos, t, flightTime, true);
+                        }
                         else if (!shouldDestroy && (t >= 0.95f || distToTarget < HitRadius))
                         {
                             ApplyDamage(em, ecb, proj, targetEntity, targetIsAlive, arr.Shooter, time, entity);
@@ -275,46 +304,7 @@ namespace TheWaningBorder.Systems.Combat
                         }
                         else if (!shouldDestroy)
                         {
-                            // Use terrain-sampled heights for slope-accurate start/end
-                            float3 startPos = proj.Start; // Already offset +1.5f at creation
-                            float terrainAtStart = TerrainUtility.GetHeight(startPos.x, startPos.z);
-                            // Chest height above terrain, except a building's shot,
-                            // which leaves from its own muzzle (a tower top).
-                            if (proj.KeepStartHeight == 0) startPos.y = terrainAtStart + 1.5f;
-
-                            float terrainAtEnd = TerrainUtility.GetHeight(targetPos.x, targetPos.z);
-                            targetPos.y = terrainAtEnd + 1.0f; // Target center above terrain
-
-                            float3 midpoint = (startPos + targetPos) * 0.5f;
-                            float horizontalDist = math.length(new float2(targetPos.x - startPos.x, targetPos.z - startPos.z));
-                            // The arc scales with the shot, so every range keeps the
-                            // same parabola. HighArcProjectile sets a shot's own shape:
-                            // longbows and siege lob higher, flat bolts use 0.
-                            float arcFraction = plan.HasHighArc != 0 ? plan.ArcFraction : DefaultArcFraction;
-                            float dynamicArcHeight = horizontalDist * arcFraction;
-                            float3 controlPoint = midpoint + new float3(0, dynamicArcHeight, 0);
-
-                            float oneMinusT = 1f - t;
-                            float3 newPosition =
-                                oneMinusT * oneMinusT * startPos +
-                                2f * oneMinusT * t * controlPoint +
-                                t * t * targetPos;
-
-                            float3 velocity =
-                                2f * oneMinusT * (controlPoint - startPos) +
-                                2f * t * (targetPos - controlPoint);
-
-                            velocity = math.normalize(velocity) * (horizontalDist / flightTime);
-
-                            trans.Position = newPosition;
-
-                            if (math.lengthsq(velocity) > 0.001f)
-                            {
-                                CalculateArrowRotation(in velocity, out var rot);
-                                trans.Rotation = rot;
-                            }
-
-                            arr.Velocity = velocity;
+                            MoveOnArc(ref trans, ref arr, in proj, in plan, targetPos, t, flightTime, false);
                         }
                     }
                 }
@@ -325,8 +315,9 @@ namespace TheWaningBorder.Systems.Combat
                     // (docs/Design/Age_1_Feraldis.md §7.5).
                     TheWaningBorder.Feraldis.FeraldisSiegeImpacts.OnImpact(em, ecb, entity, trans.Position, proj.Faction);
 
-                    // AOE splash damage on impact
-                    if (plan.IsAoe != 0)
+                    // AOE splash damage on impact. A lobbed stone has no primary
+                    // target: it only blasts, and only if it actually landed.
+                    if (plan.IsAoe != 0 && (plan.IsGround == 0 || groundBlast))
                     {
                         if (!aoeSnap.Taken)
                         {
@@ -335,9 +326,14 @@ namespace TheWaningBorder.Systems.Combat
                             aoeSnap.Factions = _aoeTargetQuery.ToComponentDataArray<FactionTag>(Allocator.Temp);
                             aoeSnap.Taken = true;
                         }
-                        ApplyAOEDamage(em, ecb, proj, em.GetComponentData<AOEProjectile>(entity),
-                            trans.Position, arrow.ValueRO.Shooter,
-                            aoeSnap.Entities, aoeSnap.Transforms, aoeSnap.Factions);
+                        if (groundBlast)
+                            ApplyGroundBlast(em, ecb, proj, em.GetComponentData<AOEProjectile>(entity).Radius,
+                                trans.Position, arrow.ValueRO.Shooter, time, entity,
+                                aoeSnap.Entities, aoeSnap.Transforms, aoeSnap.Factions);
+                        else
+                            ApplyAOEDamage(em, ecb, proj, em.GetComponentData<AOEProjectile>(entity),
+                                trans.Position, arrow.ValueRO.Shooter,
+                                aoeSnap.Entities, aoeSnap.Transforms, aoeSnap.Factions);
                     }
 
                     ecb.DestroyEntity(entity);
@@ -347,12 +343,66 @@ namespace TheWaningBorder.Systems.Combat
             aoeSnap.Dispose();
         }
 
+        /// <summary>
+        /// One step along the arched (quadratic Bezier) flight towards
+        /// <paramref name="targetPos"/>. <paramref name="stone"/> = a lobbed
+        /// siege stone: it leaves from its engine's throwing height and comes
+        /// down onto the ground it was aimed at.
+        /// </summary>
+        private static void MoveOnArc(ref LocalTransform trans, ref ArrowProjectile arr, in Projectile proj,
+            in ProjectilePlan plan, float3 targetPos, float t, float flightTime, bool stone)
+        {
+            // Use terrain-sampled heights for slope-accurate start/end
+            float3 startPos = proj.Start; // Already offset +1.5f at creation
+            float terrainAtStart = TerrainUtility.GetHeight(startPos.x, startPos.z);
+            // Chest height above terrain, except a building's shot,
+            // which leaves from its own muzzle (a tower top).
+            if (proj.KeepStartHeight == 0) startPos.y = terrainAtStart + (stone ? StoneMuzzleHeight : 1.5f);
+
+            float terrainAtEnd = TerrainUtility.GetHeight(targetPos.x, targetPos.z);
+            targetPos.y = terrainAtEnd + (stone ? StoneLandHeight : 1.0f); // Target center above terrain
+
+            float3 midpoint = (startPos + targetPos) * 0.5f;
+            float horizontalDist = math.length(new float2(targetPos.x - startPos.x, targetPos.z - startPos.z));
+            // The arc scales with the shot, so every range keeps the
+            // same parabola. HighArcProjectile sets a shot's own shape:
+            // longbows and siege lob higher, flat bolts use 0.
+            float arcFraction = plan.HasHighArc != 0 ? plan.ArcFraction : DefaultArcFraction;
+            float dynamicArcHeight = horizontalDist * arcFraction;
+            float3 controlPoint = midpoint + new float3(0, dynamicArcHeight, 0);
+
+            float oneMinusT = 1f - t;
+            float3 newPosition =
+                oneMinusT * oneMinusT * startPos +
+                2f * oneMinusT * t * controlPoint +
+                t * t * targetPos;
+
+            float3 velocity =
+                2f * oneMinusT * (controlPoint - startPos) +
+                2f * t * (targetPos - controlPoint);
+
+            velocity = math.normalize(velocity) * (horizontalDist / flightTime);
+
+            trans.Position = newPosition;
+
+            if (math.lengthsq(velocity) > 0.001f)
+            {
+                CalculateArrowRotation(in velocity, out var rot);
+                trans.Rotation = rot;
+            }
+
+            arr.Velocity = velocity;
+        }
+
         /// <summary>One projectile's top-of-loop reads (see OnUpdate).</summary>
         private struct ProjectilePlan
         {
             public byte IsLaser;
             public byte IsPiercing;
             public byte IsAoe;
+            /// <summary>A lobbed siege stone (catapult / trebuchet, AOE): flies
+            /// to the point aimed at launch and only blasts (decision 118).</summary>
+            public byte IsGround;
             public byte HasHighArc;
             public float ArcFraction;
             /// <summary>The target was alive when the loop began.</summary>
@@ -370,6 +420,8 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public ComponentLookup<PiercingProjectile> Piercing;
             [ReadOnly] public ComponentLookup<HighArcProjectile> HighArc;
             [ReadOnly] public ComponentLookup<AOEProjectile> Aoe;
+            [ReadOnly] public ComponentLookup<CatapultShotTag> CatapultShot;
+            [ReadOnly] public ComponentLookup<TrebuchetStoneTag> TrebuchetStone;
             [ReadOnly] public ComponentLookup<Health> Health;
             [ReadOnly] public ComponentLookup<LocalTransform> Transforms;
             [ReadOnly] public EntityStorageInfoLookup Storage;
@@ -386,6 +438,8 @@ namespace TheWaningBorder.Systems.Combat
                     IsAoe = (byte)(Aoe.HasComponent(e) ? 1 : 0),
                     TargetPos = proj.End,
                 };
+                p.IsGround = (byte)(p.IsAoe != 0 && p.IsLaser == 0
+                    && (CatapultShot.HasComponent(e) || TrebuchetStone.HasComponent(e)) ? 1 : 0);
                 if (HighArc.TryGetComponent(e, out var ha))
                 {
                     p.HasHighArc = 1;
@@ -413,6 +467,8 @@ namespace TheWaningBorder.Systems.Combat
                 IsAoe = (byte)(em.HasComponent<AOEProjectile>(e) ? 1 : 0),
                 TargetPos = proj.End,
             };
+            p.IsGround = (byte)(p.IsAoe != 0 && p.IsLaser == 0
+                && (em.HasComponent<CatapultShotTag>(e) || em.HasComponent<TrebuchetStoneTag>(e)) ? 1 : 0);
             if (em.HasComponent<HighArcProjectile>(e))
             {
                 p.HasHighArc = 1;
@@ -747,6 +803,51 @@ namespace TheWaningBorder.Systems.Combat
                     else
                         TransientState.Set(ecb, entities[i], new LastAttackerEntity { Value = shooter });
                 }
+            }
+        }
+
+        /// <summary>
+        /// A lobbed stone's blast (decision 118): every hostile within
+        /// <paramref name="radius"/> of where it LANDED takes the stone's full
+        /// hit through the direct-hit pipeline. A building is measured to the
+        /// edge of its footprint, a unit to its centre, on the ground plane.
+        /// There is no primary target: whoever the engine aimed at is hit only
+        /// if it is still inside the blast.
+        /// </summary>
+        private static void ApplyGroundBlast(EntityManager em, EntityCommandBuffer ecb, in Projectile proj,
+            float radius, float3 impactPos, Entity shooter, double time, Entity projectileEntity,
+            NativeArray<Entity> entities, NativeArray<LocalTransform> transforms,
+            NativeArray<FactionTag> factions)
+        {
+            bool hitsFlying = shooter != Entity.Null && em.Exists(shooter)
+                && TheWaningBorder.Systems.Combat.TargetingSystem.CanHitFlying(em, shooter);
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (!Alliances.AreHostile(proj.Faction, factions[i].Value)) continue;
+
+                var victim = entities[i];
+                float dx = math.abs(transforms[i].Position.x - impactPos.x);
+                float dz = math.abs(transforms[i].Position.z - impactPos.z);
+                if (em.HasComponent<BuildingSize>(victim))
+                {
+                    var size = em.GetComponentData<BuildingSize>(victim);
+                    dx = math.max(0f, dx - size.Width * 0.5f);
+                    dz = math.max(0f, dz - size.Height * 0.5f);
+                }
+                else if (em.HasComponent<BuildingTag>(victim) && em.HasComponent<Radius>(victim))
+                {
+                    float r = em.GetComponentData<Radius>(victim).Value;
+                    dx = math.max(0f, math.sqrt(dx * dx + dz * dz) - r);
+                    dz = 0f;
+                }
+                if (dx * dx + dz * dz > radius * radius) continue;
+
+                // A blast on the ground passes under a FLYING unit unless the
+                // engine can hit the air (docs/Design/Age_1_Runai.md §6.4).
+                if (!hitsFlying && em.HasComponent<FlyingTag>(victim)) continue;
+                if (em.GetComponentData<Health>(victim).Value <= 0) continue;
+
+                ApplyDamage(em, ecb, proj, victim, true, shooter, time, projectileEntity);
             }
         }
 

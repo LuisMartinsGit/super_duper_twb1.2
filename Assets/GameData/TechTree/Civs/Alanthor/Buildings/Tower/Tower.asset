@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Battle Tower
   role: Defensive tower with long range
   description: 
-  hp: 1500
+  hp: 1050
   armorType: structure_human
   defense:
     melee: 0

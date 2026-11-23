@@ -92,4 +92,7 @@ public struct StanceSettings : IComponentData
     /// <summary>Stances.md §1c — how long after a hit the struck unit still
     /// counts as attacked (s).</summary>
     public float AssistWindow;
+    /// <summary>Bit per Faction: set where a human plays it. A human's move
+    /// order is never dropped to retaliate (Stances.md §5a, decision 117).</summary>
+    public int HumanFactionMask;
 }

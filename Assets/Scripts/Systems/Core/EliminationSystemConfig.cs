@@ -28,9 +28,10 @@ namespace TheWaningBorder.Systems.Core
         /// sim seconds is eliminated. 0 or below = the rule is off.</summary>
         public float noTerritoryGraceSeconds;
 
-        /// <summary>Seconds a faction whose Fortress has fallen has to finish
-        /// a new one on its rubble before it is eliminated (decision 69,
-        /// Territory_Claims.md § 7). 0 turns the Fortress rule off.</summary>
+        /// <summary>Seconds a faction whose keystones have all fallen has to
+        /// finish one again on its rubble before it is eliminated (decision
+        /// 69, Territory_Claims.md § 7). 0 = eliminated at once (decision
+        /// 120); below 0 turns the keystone rule off.</summary>
         public float fortressRebuildGraceSeconds;
     }
 }

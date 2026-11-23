@@ -254,6 +254,13 @@ stance's **return-fire** reach:
   of a fight, and a Shardroot bearer ordered home turned round at the first
   arrow. A hero under a move order (the player's or the AI's) never
   retaliates on the move; a hero walking back to its guard point still does.
+- **A human's move order always wins** (2026-11-23, decision 117).
+  Retaliation on the move is the computer opponents' rule. A unit of a
+  human-played faction under a move order never turns on its attacker: a
+  unit already in a fight has always just been hit, so every order to pull
+  it out was dropped at once. A player who wants the fight orders it
+  (attack, attack-move). A unit walking back to its guard point with no
+  order still retaliates.
 - The AI's tactics layer treats an army whose members are fighting back as
   **engaged** ([Game_AI.md § 6e.1](Game_AI.md)) and takes the fight over.
 
