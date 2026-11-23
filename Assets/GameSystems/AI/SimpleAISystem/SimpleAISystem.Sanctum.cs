@@ -365,6 +365,36 @@ namespace TheWaningBorder.AI
                 return true;
             }
 
+            // THE DOMINION CLOCK COMES FIRST (decision 114): while a hostile
+            // faction counts down to dominion, the wave goes to the nearest
+            // Sanctum its side holds - whatever the war, the road, the size of
+            // the wave or the distance.
+            if (HostileDominionRunning(em, faction, out var domHolder))
+            {
+                var dq = QC_SanctumCrystals.Get(em, QT_SanctumCrystals);
+                if (!dq.IsEmptyIgnoreFilter)
+                {
+                    using var dcr = dq.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                    int dBest = -1; float3 dPos = default; float dD = float.MaxValue;
+                    for (int i = 0; i < dcr.Length; i++)
+                    {
+                        float3 p = dcr[i].Position;
+                        int t = RegionMap.RegionAt(p.x, p.z);
+                        if (t == RegionMap.None || !TerritoryResources.IsSanctum(t)) continue;
+                        int owner = TerritoryOwnership.OwnerOf(t);
+                        if (owner < 0 || owner >= 8 || !Alliances.AreHostile(faction, (Faction)owner)) continue;
+                        float d = math.distancesq(origin.xz, p.xz);
+                        if (d < dD) { dD = d; dBest = t; dPos = p; }
+                    }
+                    if (dBest >= 0)
+                    {
+                        territory = dBest; pos = dPos;
+                        why = $"break {domHolder}'s dominion countdown at the Sanctum {RegionMap.NameOf(dBest)}";
+                        return true;
+                    }
+                }
+            }
+
             // A WAR IS NOT INTERRUPTED BY A SANCTUM (decision 86): off the
             // Sanctum road, while a war is on, the wave goes to its victim.
             if (Cfg.warHoldsUntilFall

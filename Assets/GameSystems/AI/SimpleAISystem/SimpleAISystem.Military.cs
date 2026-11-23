@@ -1665,9 +1665,18 @@ namespace TheWaningBorder.AI
             // unless it is broken: the all-in goes under any strength floor
             // (iteration 2, 2026-11-17 — every BrokenOath all-in held at
             // "strength under the floor" while Purple's Temple ran out the clock).
-            bool countdownRush = allIn && Cfg.allInCountdownIgnoresFloor && HostileCountdownRunning(em, faction);
+            // ...ALL-IN OR NOT (decision 114): the countdown outranks every
+            // gate on the wave - posture, the growing size bar, the Sanctum
+            // claim head count, the field-army comparison, the strength test.
+            bool countdownRush = Cfg.allInCountdownIgnoresFloor && HostileCountdownRunning(em, faction);
             bool kingLeads = _kingLeads != Entity.Null;
-            if (aiState.Posture == AIPosture.Defend && !overdue && !allIn && !kingLeads)
+            // ALLIES STRIKE TOGETHER (decision 114): an allied computer
+            // opponent's wave just left - ours leaves now, for the same
+            // objective, without waiting to grow.
+            Faction rallyAlly = faction; float3 rallyPos = default;
+            bool rally = !kingLeads && !countdownRush && aiState.WaveActive == 0
+                && TryAlliedRally(faction, now, out rallyAlly, out rallyPos);
+            if (aiState.Posture == AIPosture.Defend && !overdue && !allIn && !kingLeads && !countdownRush)
                 return false;
 
             // Pressure posture commits with a slightly smaller wave.
@@ -1854,14 +1863,16 @@ namespace TheWaningBorder.AI
                     idleMilitary.RemoveRange(profile.MaxWaveUnits, idleMilitary.Count - profile.MaxWaveUnits);
             }
 
-            if (idleMilitary.Count < minUnits)
+            // The wave's minimum is in population, like the army (decision 115).
+            int idlePop = PopulationOf(em, idleMilitary);
+            if (idlePop < minUnits)
             {
                 // THE FORWARD PERSONALITIES COMMIT THEIR CLAIM SQUADS (decision
                 // 84): the next try drafts them.
                 if (AIPersonalityLookup.TryGet(em, faction, out var fwd)
                     && (fwd == AIPersonality.Rush || fwd == AIPersonality.Aggressive))
-                    ReleaseClaimSquadsForWave(faction, minUnits - idleMilitary.Count,
-                        $"the wave is short ({idleMilitary.Count} of {minUnits})");
+                    ReleaseClaimSquadsForWave(faction, minUnits - idlePop,
+                        $"the wave is short ({idlePop} of {minUnits} population)");
                 return false; // wait for the army
             }
 
@@ -1886,13 +1897,16 @@ namespace TheWaningBorder.AI
             // population bar; the plain minimum above still holds.
             bool rushEarly = now < Cfg.rushWaveGrowthFromSeconds
                 && AIPersonalityLookup.TryGet(em, faction, out var rushWho) && rushWho == AIPersonality.Rush;
-            if (!kingLeads && !rushEarly && Cfg.waveMinPopPerMinute > 0f)
+            if (!kingLeads && !rushEarly && !countdownRush && !rally && Cfg.waveMinPopPerMinute > 0f)
             {
-                int wavePop = 0;
-                for (int i = 0; i < idleMilitary.Count; i++)
-                    wavePop += em.HasComponent<PopulationCost>(idleMilitary[i])
-                        ? math.max(1, em.GetComponentData<PopulationCost>(idleMilitary[i]).Amount) : 1;
+                int wavePop = idlePop;
                 int needPop = (int)(Cfg.waveMinPopBase + Cfg.waveMinPopPerMinute * now / 60f);
+                // The bar stops rising at a share of the army the faction can
+                // house (decision 115): past that it asked for more than a
+                // late army could ever be, and nothing left home.
+                if (Cfg.waveMinPopCapShare > 0f)
+                    needPop = math.min(needPop,
+                        (int)(HousableArmyPopulation(em, faction) * Cfg.waveMinPopCapShare));
                 PopulationHelper.TryGetFactionPopulation(faction, out int popUsed, out int popMax);
                 bool full = popMax > 0 && popMax - popUsed <= Cfg.waveFullPopSlack;
                 bool trimmed = profile.MaxWaveUnits > 0 && idleMilitary.Count >= profile.MaxWaveUnits;
@@ -1911,7 +1925,7 @@ namespace TheWaningBorder.AI
             // Sanctum and could not take it ("25 soldiers, the claim needs 30"
             // in every iteration-1 match), so it grows to the claim plus
             // sanctumWaveMargin first — unless population is full or the tier trims it.
-            if (!kingLeads && !allIn && Cfg.victoryPlanEnabled && VictoryPlanOf(faction).Path == VictoryPath.Sanctums)
+            if (!kingLeads && !allIn && !countdownRush && !rally && Cfg.victoryPlanEnabled && VictoryPlanOf(faction).Path == VictoryPath.Sanctums)
             {
                 int needHeads = TerritoryOwnership.SanctumClaimUnits + math.max(0, Cfg.sanctumWaveMargin);
                 PopulationHelper.TryGetFactionPopulation(faction, out int sUsed, out int sMax);
@@ -2250,6 +2264,16 @@ namespace TheWaningBorder.AI
                 sanctumT = sT;
                 _lastDoctrine = sWhy;
             }
+            // ALLIES STRIKE TOGETHER (decision 114): the ally's objective.
+            if (rally)
+            {
+                target = Entity.Null;
+                targetPos = rallyPos;
+                scored = false;
+                sightingObjective = true;
+                sanctumT = -1;
+                _lastDoctrine = $"with {rallyAlly}: its wave marches on this objective";
+            }
 
             // Nothing scored, nothing sighted: there is no war to march to.
             if (target == Entity.Null && !sightingObjective) return false;
@@ -2317,7 +2341,7 @@ namespace TheWaningBorder.AI
             // sighted lately — not the defence at the objective, which is the
             // hold decision 91 removed — bounded by waveVsArmyMaxHoldSeconds
             // and by a full population. A Rush's first wave goes regardless.
-            if (Cfg.waveVsArmyRatio > 0f && !kingLeads && !countdownRush && !profile.AttacksBlind)
+            if (Cfg.waveVsArmyRatio > 0f && !kingLeads && !countdownRush && !rally && !profile.AttacksBlind)
             {
                 if (_fieldArmyEpoch != SimCadence.Epoch) { _fieldArmyEpoch = SimCadence.Epoch; _fieldArmyHoldSince.Clear(); }
                 int fk = (int)faction;
@@ -2413,7 +2437,7 @@ namespace TheWaningBorder.AI
                 // allInStrengthFloor of it; held, it raises the army target.
                 bool allInGo = allIn && (countdownRush || known < assault.MyPower * math.max(1f, Cfg.allInMaxEnemyRatio)
                                && assault.MyPower >= need * math.max(0f, Cfg.allInStrengthFloor));
-                if (assault.MyPower < need && !atCeiling && !allInGo)
+                if (assault.MyPower < need && !atCeiling && !allInGo && !countdownRush && !rally)
                 {
                     // At least as large as the defence demands, so the army
                     // the faction keeps growing is the one that can win.
@@ -2652,6 +2676,8 @@ namespace TheWaningBorder.AI
             attack.Members.AddRange(pool);
             launched.Add(attack);
             launchedSize = idleMilitary.Count;
+            // A wave of our own choosing calls the allies (a joiner does not).
+            if (!rally && !kingLeads) PostRally(faction, targetPos, now);
             if (everyone) StripOtherDuties(faction, idleMilitary, launched);
             if (_lastFloor > 0)
                 AILogger.Log(faction, "WAVE",
@@ -4752,7 +4778,12 @@ namespace TheWaningBorder.AI
                     return;
                 }
             }
-            if (now < aiState.NextWaveTime && kingLead == Entity.Null) return;
+            // The wave timer yields, with no wave out, to a hostile countdown
+            // and to an ally's wave that just left (decision 114).
+            bool timerYields = aiState.WaveActive == 0
+                && ((Cfg.allInCountdownIgnoresFloor && HostileCountdownRunning(em, faction))
+                    || TryAlliedRally(faction, now, out _, out _));
+            if (now < aiState.NextWaveTime && kingLead == Entity.Null && !timerYields) return;
 
             // CLAIMS OUTRANK WAVES while open ground waits for soldiers and
             // nothing threatens home (Game_AI.md § 5b) — bounded, so a wave
@@ -4900,7 +4931,7 @@ namespace TheWaningBorder.AI
                                $"{aiState.Posture}, desired {aiState.DesiredMilitary})");
                     AILogger.Log(faction, "WAVE",
                         $"wave {aiState.WaveNumber + 1} BLOCKED at {(int)now}s " +
-                        $"(need {minUnits} idle above standing floor {standFloor}, posture {aiState.Posture}, " +
+                        $"(need {minUnits} population idle above standing floor {standFloor}, posture {aiState.Posture}, " +
                         $"desired {aiState.DesiredMilitary})");
                 }
             }

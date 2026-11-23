@@ -232,6 +232,11 @@ namespace TheWaningBorder.AI
                     // The Sanctum armies (§ 6t) are on top of the tier's army.
                     if (profile.ArmyCapFixed == 0)
                         profile.SustainArmyCap += SanctumArmyCapBonus(brain.Owner);
+                    // ...AND NEVER ABOVE WHAT CAN BE HOUSED (decision 115): the
+                    // target is in population, and no AI saves or borrows for
+                    // soldiers its population ceiling has no room for.
+                    profile.SustainArmyCap = math.min(profile.SustainArmyCap,
+                        HousableArmyPopulation(em, brain.Owner));
                     if (staged) _stageProfile[owner] = profile;
                 }
                 NoteProfile(brain.Owner, profile, brain.Personality);

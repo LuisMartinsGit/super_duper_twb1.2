@@ -317,6 +317,56 @@ namespace TheWaningBorder.AI
             return false;
         }
 
+        /// <summary>A hostile faction runs the ASCENSION countdown (an enshrined
+        /// Shardroot) - not the Sanctum one.</summary>
+        private static bool HostileAscensionRunning(EntityManager em, Faction faction)
+            => TheWaningBorder.Systems.Border.ShardrootSystem.TryAscensionCountdown(em, out var a, out _)
+               && a != faction && a != Faction.Border && Alliances.AreHostile(faction, a);
+
+        /// <summary>A hostile faction runs the Sanctum DOMINION countdown.</summary>
+        private static bool HostileDominionRunning(EntityManager em, Faction faction, out Faction holder)
+            => TheWaningBorder.Systems.Economy.SanctumSystem.TryCountdown(em, out holder, out _)
+               && holder != faction && holder != Faction.Border && Alliances.AreHostile(faction, holder);
+
+        // ALLIES STRIKE TOGETHER (decision 114): where and when each faction's
+        // last wave of its own choosing left. Per match (epoch-reset).
+        private static readonly float3[] _rallyPos = new float3[ProfileSlots];
+        private static readonly float[] _rallyAt = new float[ProfileSlots];
+        private static int _rallyEpoch = -1;
+
+        private static void RallyEpoch()
+        {
+            if (_rallyEpoch == SimCadence.Epoch) return;
+            _rallyEpoch = SimCadence.Epoch;
+            for (int i = 0; i < ProfileSlots; i++) _rallyAt[i] = -1f;
+        }
+
+        private static void PostRally(Faction faction, float3 pos, float now)
+        {
+            RallyEpoch();
+            int fk = (int)faction;
+            if (fk < 0 || fk >= ProfileSlots) return;
+            _rallyPos[fk] = pos; _rallyAt[fk] = now;
+        }
+
+        /// <summary>The newest wave an allied computer opponent launched within
+        /// alliedWaveJoinSeconds: its objective is ours too.</summary>
+        private static bool TryAlliedRally(Faction faction, float now, out Faction ally, out float3 pos)
+        {
+            ally = faction; pos = default;
+            if (Cfg.alliedWaveJoinSeconds <= 0f) return false;
+            RallyEpoch();
+            float best = -1f;
+            for (int f = 0; f < ProfileSlots; f++)
+            {
+                if (f == (int)faction || _rallyAt[f] < 0f) continue;
+                if (Alliances.AreHostile(faction, (Faction)f)) continue;
+                if (now - _rallyAt[f] > Cfg.alliedWaveJoinSeconds || _rallyAt[f] <= best) continue;
+                best = _rallyAt[f]; ally = (Faction)f; pos = _rallyPos[f];
+            }
+            return best >= 0f;
+        }
+
         private static readonly ComponentType[] QT_AscendedHeros =
         {
             ComponentType.ReadOnly<TheWaningBorder.Entities.AscendedHero>(),

@@ -109,6 +109,7 @@ param(
     # Colours that build and defend but never attack: "Blue,Red" (a new-player stand-in).
     [string]$FactionPassive = "",
     [string]$FactionStart = "",   # "Blue=0,Red=3": start position per colour
+    [string]$FactionTeam = "",    # "Blue=1,Red=1,Green=2": lobby team per colour (single mode)
     [switch]$NoCurse,             # control arm: the match raises no curse node
     [string]$Label = "",
 
@@ -185,6 +186,7 @@ function RunTagArgs {
     if ($FactionCulture -ne "")    { $a += @("-twbFactionCulture", (Quote-Arg ($FactionCulture -replace '\s', ''))) }
     if ($FactionPassive -ne "")    { $a += @("-twbFactionPassive", (Quote-Arg $FactionPassive)) }
     if ($FactionStart -ne "")      { $a += @("-twbFactionStart", (Quote-Arg $FactionStart)) }
+    if ($FactionTeam -ne "")       { $a += @("-twbFactionTeam", (Quote-Arg $FactionTeam)) }
     if ($NoCurse)                  { $a += "-twbNoCurse" }
     if ($Label -ne "")             { $a += @("-twbLabel", (Quote-Arg $Label)) }
     return ,$a

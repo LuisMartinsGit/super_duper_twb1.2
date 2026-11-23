@@ -249,6 +249,11 @@ stance's **return-fire** reach:
   move), galloping riders, scouts, workers, economy and zero-damage units, and
   the curse's units (their wave logic drives them, §4). A buildings-only
   engine (the Battering Ram) can only turn on a building.
+- **A hero obeys its move order** (2026-11-22). Every enemy in sight goes
+  for a hero, so a hero was always "hit recently": it could not be pulled out
+  of a fight, and a Shardroot bearer ordered home turned round at the first
+  arrow. A hero under a move order (the player's or the AI's) never
+  retaliates on the move; a hero walking back to its guard point still does.
 - The AI's tactics layer treats an army whose members are fighting back as
   **engaged** ([Game_AI.md § 6e.1](Game_AI.md)) and takes the fight over.
 

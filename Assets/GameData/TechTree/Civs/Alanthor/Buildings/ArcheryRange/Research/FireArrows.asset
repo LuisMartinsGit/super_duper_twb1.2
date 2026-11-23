@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Fire Arrows
   role: Military
   effect: 
-  desc: "Longbowman skill: his arrows set buildings alight. (Mechanic coming in the next build.)"
+  desc: "Archers and Longbowmen shoot fire arrows: their arrows hit buildings as siege damage, past the building's arrow armour. Walls are not affected."
   researchAt: ArcheryRange
   minBuildingLevel: 3
   researchTime: 50

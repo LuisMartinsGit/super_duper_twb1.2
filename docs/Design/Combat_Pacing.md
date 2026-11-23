@@ -247,6 +247,14 @@ a soldier's torch burns slowly, siege goes through.**
   values sit on the Age of Empires IV scale.
 - **Arrows.** A building's ranged armour is set **at or above a bow's entire attack**, so every
   arrow and bolt lands the minimum one point. A bow line cannot take a base.
+- **Fire Arrows** ([decision 112](Unification_Decisions_2026-10-03.md), 2026-11-22): the
+  Archery Range research `FireArrows` makes the arrows of **Archers and Longbowmen** land on a
+  building as **siege** damage — the building's siege armour answers, not its ranged armour, and
+  the one Fortress takes them at its siege share. The Crossbowman is not included, walls are not
+  affected (an archer never targets a wall piece), and an arrow whose shooter died in flight is
+  a plain arrow. Cost, time and level gate are on the tech SO. Code:
+  `ArcheryRange/Abilities/FireArrows/FireArrows.cs`, read where the arrow lands
+  (`ProjectileSystem`).
 - **Siege.** Siege armour stays at or near 0, so a siege engine's damage and its bonus vs
   Building land in full. Siege is what takes a base, and a few engines take a production
   building in the time a whole line of soldiers needs.

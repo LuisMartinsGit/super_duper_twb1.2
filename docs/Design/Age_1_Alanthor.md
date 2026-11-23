@@ -279,6 +279,7 @@ minimum range) are in [Combat_Pacing.md § The ranged ladder](Combat_Pacing.md).
 | **Fletching** | — | more attack range for every ranged unit | |
 | **Arrow Volley** | — | permanent faster fire for every ranged unit | |
 | **Deploy Stakes** | L3 | the first cavalry charge against an archer is blunted and partly reflected; the stakes re-plant | |
+| **Fire Arrows** | SO `minBuildingLevel` | Archers' and Longbowmen's arrows hit buildings as siege damage ([Combat_Pacing.md § Buildings](Combat_Pacing.md)) | |
 
 The arrow tiers (Stone at L1, Iron and Veilstone at L2, Shard at L3), the
 brigandine tiers and the archer veterancy tiers are **granted by the Range's

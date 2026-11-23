@@ -11,6 +11,26 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.94] — 2026-11-23
+
+### Computer opponents contest a countdown and attack together (decision 114, 2026-11-22)
+- **A countdown is answered.** While an enemy counts down to a Sanctum or Shardroot victory, computer opponents march on it at once with what they have instead of waiting for a bigger army. Before, a Sanctum countdown could be mistaken for a Shardroot one and sent them at the wrong target.
+- **Allied computer opponents attack together.** When one launches an attack, its computer allies launch at the same objective straight away.
+
+### Computer opponents research their late upgrades (decision 116, 2026-11-22)
+- **Late researches are bought.** Computer opponents used to put every coin into soldiers and never bought the most expensive researches, Fire Arrows included. A research that has waited long enough is now bought.
+
+### Computer opponents size their army by population (decision 115, 2026-11-22)
+- **No saving for soldiers that cannot be housed.** A computer opponent's army target is now in population and never above what its population limit has room for.
+- **Late attacks no longer wait for an impossible army.** The minimum size of an attack stops growing at a share of the army the opponent can house.
+
+### Fixes and Fire Arrows (decisions 112 and 113, 2026-11-22)
+- **Heroes obey move orders.** A hero that was being attacked kept turning back to fight instead of walking where it was sent; it now goes.
+- **The whole team wins.** In a team game every member of the winning team sees VICTORY; before, only one of them did and the others were told they had lost.
+- **The match stops when it is won.** The world freezes at the deciding moment behind the end screen; you stay in the match until you choose to leave.
+- **The post-game survives a player leaving.** If the host or anyone else leaves after the match ends, the others keep their end screen and Game Review.
+- **Fire Arrows** (Archery Range research): Archers' and Longbowmen's arrows hit buildings as siege damage. Walls are not affected.
+
 ## [0.0.93] — 2026-11-22
 
 ### Computer opponents attack with everything (decision 111, 2026-11-22)

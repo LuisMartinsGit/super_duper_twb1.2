@@ -162,7 +162,11 @@ namespace TheWaningBorder.AI
             // Shardbound King) forced every AI onto Conquest from minute ~13 in every
             // match, so no AI ever walked the Sanctum road (155 forced switches in
             // iterations 1-2). The carrier is still hunted by the all-in (§ 6o).
-            else if (rivalHolds && HostileCountdownRunning(em, faction))
+            // The ASCENSION clock only (decision 114): a Sanctum dominion countdown
+            // used to read as "a rival is ascending" here whenever a rival's hero
+            // carried the Shardroot, and forced the war road - so nobody marched on
+            // the Sanctum while its countdown ran out.
+            else if (rivalHolds && HostileAscensionRunning(em, faction))
             { forced = VictoryPath.Conquest; why = "a rival is ascending with the Shardroot: everyone against it"; }
             else if (rivalDominion) { forced = VictoryPath.Sanctums; why = "a rival holds every Sanctum: take one back"; }
             // …but not off a Sanctum road one Sanctum short of dominion (iteration 5,

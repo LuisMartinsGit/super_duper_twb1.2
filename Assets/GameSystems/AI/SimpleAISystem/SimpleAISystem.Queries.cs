@@ -126,6 +126,33 @@ namespace TheWaningBorder.AI
             return c;
         }
 
+        /// <summary>A unit id's population cost from its SO (at least 1), cached
+        /// so the queue walk does not allocate a string per slot.</summary>
+        private static readonly System.Collections.Generic.Dictionary<FixedString64Bytes, int>
+            _popById = new System.Collections.Generic.Dictionary<FixedString64Bytes, int>();
+
+        private static int PopulationOfId(in FixedString64Bytes id)
+        {
+            if (!_popById.TryGetValue(id, out int p))
+            {
+                p = TechCatalog.TryGetUnit(id.ToString(), out var def) && def != null
+                    ? math.max(1, def.populationCost) : 1;
+                _popById[id] = p;
+            }
+            return p;
+        }
+
+        /// <summary>The population these units take (decision 115): what an
+        /// army, a wave and their bars are measured in.</summary>
+        private static int PopulationOf(EntityManager em, System.Collections.Generic.List<Entity> units)
+        {
+            int pop = 0;
+            for (int i = 0; i < units.Count; i++)
+                pop += em.HasComponent<PopulationCost>(units[i])
+                    ? math.max(1, em.GetComponentData<PopulationCost>(units[i]).Amount) : 1;
+            return pop;
+        }
+
         /// <summary>Least-queued completed trainer of the given tag — this is
         /// what makes multiple Barracks/Ranges train in PARALLEL (the old
         /// first-found lookup funneled every order into one building's
@@ -412,9 +439,25 @@ namespace TheWaningBorder.AI
                 // Scholar/Acolyte/Corruptor here would let a single 300-supply
                 // caster satisfy part of the army floor.
                 if (IsVerbUnit(em, ents[i])) continue;
-                n++;
+                // THE ARMY IS COUNTED IN POPULATION (decision 115): a Catapult
+                // is five of the army, a Spearman one - the same unit the
+                // population cap, the army target and the wave bar are in.
+                n += em.HasComponent<PopulationCost>(ents[i])
+                    ? math.max(1, em.GetComponentData<PopulationCost>(ents[i]).Amount) : 1;
             }
             return n;
+        }
+
+        /// <summary>The largest army, in population, this faction could ever
+        /// house (decision 115): its absolute population ceiling less the
+        /// population its workers, support units and everything else that is
+        /// not army already take. The army target is never above it.</summary>
+        private static int HousableArmyPopulation(EntityManager em, Faction faction)
+        {
+            int ceiling = TheWaningBorder.Economy.FactionPopulation.AbsoluteMaxFor(faction);
+            PopulationHelper.TryGetFactionPopulation(faction, out int used, out _);
+            int notArmy = math.max(0, used - CountAliveMilitary(em, faction));
+            return math.max(1, ceiling - notArmy);
         }
 
         /// <summary>
@@ -468,7 +511,8 @@ namespace TheWaningBorder.AI
                 {
                     if (buffer[j].Kind != ProductionKind.Train) continue;
                     UnitClass cls = ClassOf(buffer[j].Id);   // no string per slot
-                    if (isCombat && IsCombatClass(cls)) n++;
+                    // Army in training counts in population, as the army does (decision 115).
+                    if (isCombat && IsCombatClass(cls)) n += PopulationOfId(buffer[j].Id);
                     // The Worker trains as UnitClass.Economy. Without this
                     // branch a queued Worker would not count, and the AI
                     // would keep queuing past the worker rule.

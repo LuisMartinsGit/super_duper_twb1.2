@@ -1695,6 +1695,17 @@ namespace TheWaningBorder.AI
         /// <summary>Decision 88 (developer: "Send all of the army to attack"):
         /// no standing home guard, and the claim squads join the wave.</summary>
         public bool sendWholeArmy;
+        /// <summary>Decision 114: an allied computer opponent's wave that left
+        /// within this many seconds is joined at once, for the same objective,
+        /// by an ally with no wave out. 0 = allies never join.</summary>
+        public float alliedWaveJoinSeconds;
+        /// <summary>Decision 115: the growing wave bar (waveMinPopBase +
+        /// waveMinPopPerMinute) never asks for more than this share of the
+        /// army the faction can house, in population. 0 = no ceiling.</summary>
+        public float waveMinPopCapShare;
+        /// <summary>Decision 116: a research the army-first rule has refused for
+        /// this many seconds is bought anyway. 0 = it yields for ever.</summary>
+        public float researchArmyFirstMaxWaitSeconds;
         /// <summary>Decision 88 (developer: "marching armies escort the siege
         /// engines and attack anything that comes close to them"): a hostile
         /// within this many metres of one of the army's engines is fought at

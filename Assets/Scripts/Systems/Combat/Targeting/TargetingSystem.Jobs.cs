@@ -99,6 +99,7 @@ namespace TheWaningBorder.Systems.Combat
             [ReadOnly] public ComponentLookup<AttackMoveTag> AttackMove;
             [ReadOnly] public ComponentLookup<PatrolTag> Patrol;
             [ReadOnly] public ComponentLookup<UserMoveOrder> UserMove;
+            [ReadOnly] public ComponentLookup<HeroLevel> HeroLevels;
             [ReadOnly] public ComponentLookup<FormationMemberState> Formation;
             [ReadOnly] public ComponentLookup<GuardPoint> Guard;
             [ReadOnly] public ComponentLookup<QueuedMoveStep> Queued;
@@ -240,6 +241,7 @@ namespace TheWaningBorder.Systems.Combat
             AttackMove = SystemAPI.GetComponentLookup<AttackMoveTag>(true),
             Patrol = SystemAPI.GetComponentLookup<PatrolTag>(true),
             UserMove = SystemAPI.GetComponentLookup<UserMoveOrder>(true),
+            HeroLevels = SystemAPI.GetComponentLookup<HeroLevel>(true),
             Formation = SystemAPI.GetComponentLookup<FormationMemberState>(true),
             Guard = SystemAPI.GetComponentLookup<GuardPoint>(true),
             Queued = SystemAPI.GetComponentLookup<QueuedMoveStep>(true),
@@ -557,7 +559,13 @@ namespace TheWaningBorder.Systems.Combat
                 // ignored on the move.
                 if (!isActiveScanner && (hasUserMoveOrder || (hasDest && dd.Has != 0)))
                 {
-                    if (hitRecently) PlanRetaliation(entity, cls, myPos, ref plan);
+                    // A HERO OBEYS ITS MOVE ORDER (2026-11-22, Stances.md §5a).
+                    // Every enemy in sight goes for a hero, so it was always
+                    // "hit recently": it could never be pulled out of a fight
+                    // or carry the Shardroot home - each order ended in the
+                    // next retaliation.
+                    bool orderedHero = hasUserMoveOrder && Lk.HeroLevels.HasComponent(entity);
+                    if (hitRecently && !orderedHero) PlanRetaliation(entity, cls, myPos, ref plan);
                     return;
                 }
 

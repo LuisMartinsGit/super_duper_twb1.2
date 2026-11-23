@@ -504,7 +504,9 @@ namespace TheWaningBorder.Systems.Combat
             }
 
             int baseDamage = proj.Damage;
-            DamageType dmgType = proj.DmgType;
+            // Fire Arrows (decision 112): a researched Archer's / Longbowman's
+            // arrow lands on a building as siege.
+            DamageType dmgType = FireArrows.TypeOnImpact(em, shooter, targetEntity, proj.DmgType);
 
             // Get target's armor type (default InfantryLight if missing)
             ArmorType armorType = ArmorType.InfantryLight;

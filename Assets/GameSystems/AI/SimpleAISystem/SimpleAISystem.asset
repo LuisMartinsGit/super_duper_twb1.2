@@ -521,6 +521,9 @@ MonoBehaviour:
   warHoldsUntilFall: 1
   waveStrengthHolds: 0
   sendWholeArmy: 1
+  alliedWaveJoinSeconds: 60
+  waveMinPopCapShare: 0.35
+  researchArmyFirstMaxWaitSeconds: 240
   siegeEscortRadius: 14
   marchFightsSoldiersOnly: 1
   warTargetsKeystones: 0

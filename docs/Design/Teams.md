@@ -113,6 +113,13 @@ The match ends when exactly one **team** remains, counting unteamed factions
 as teams of one. Eliminating an ally's last building does not advance you
 toward victory on your own.
 
+**Every living member of the winning team wins** (2026-11-22, Unification
+decision 113): the verdict names one faction of the winning side, and each
+teammate still in the match sees VICTORY. The world stops at that moment
+(no further tick runs) and each player stays on the end screen until they
+leave; a player leaving afterwards, the host included, changes nothing for
+the others.
+
 Elimination is **per faction** ([Territory_Claims.md § 7](Territory_Claims.md)):
 a faction that holds no territory of its own for the grace period is
 eliminated even while its allies hold plenty. Allies do not pool territory to

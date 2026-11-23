@@ -62,6 +62,12 @@ namespace TheWaningBorder.AI
         /// one per territory, the Feraldis floor, the per-age difficulty
         /// curve and an open-site-driven crew, which disagreed.)
         /// </summary>
+        /// <summary>When each research first yielded to the army-first rule
+        /// (decision 116). Per match.</summary>
+        private static readonly System.Collections.Generic.Dictionary<(int, string), float> _researchYieldSince
+            = new System.Collections.Generic.Dictionary<(int, string), float>();
+        private static int _researchYieldEpoch = -1;
+
         private static int WorkerFloorFor(EntityManager em, Faction faction)
             => Cfg.economyWorkerFloor
                + Cfg.workersPerConqueredTerritory * math.max(0,
@@ -921,12 +927,29 @@ namespace TheWaningBorder.AI
                     // ARMY FIRST (2026-10-04, Game_AI.md 5f): the sweep yields
                     // to an army below its target that could spend the money
                     // (AIBudget.ArmyFirstYield).
+                    // ...BUT NOT FOR EVER (decision 116): the army never reaches
+                    // its target, so the dearer researches (every level 3 one,
+                    // Fire Arrows among them) yielded for the whole match. A
+                    // research that has yielded for researchArmyFirstMaxWaitSeconds
+                    // is bought.
                     {
                         string armyFirst = AIBudget.ArmyFirstYield(em, faction, cost);
                         if (armyFirst != null)
                         {
-                            AIBudget.NoteArmyFirstYield(faction, "research " + techId, armyFirst);
-                            continue;
+                            if (_researchYieldEpoch != SimCadence.Epoch)
+                            { _researchYieldEpoch = SimCadence.Epoch; _researchYieldSince.Clear(); }
+                            var yk = ((int)faction, techId);
+                            if (!_researchYieldSince.TryGetValue(yk, out float since))
+                                _researchYieldSince[yk] = since = now;
+                            if (Cfg.researchArmyFirstMaxWaitSeconds <= 0f
+                                || now - since < Cfg.researchArmyFirstMaxWaitSeconds)
+                            {
+                                AIBudget.NoteArmyFirstYield(faction, "research " + techId, armyFirst);
+                                continue;
+                            }
+                            _researchYieldSince.Remove(yk);
+                            AILogger.Log(faction, "RESEARCH",
+                                $"{techId} has yielded to the army for {now - since:0}s - bought now");
                         }
                     }
 

@@ -9,6 +9,65 @@ Standing rules (user):
 - Remove code-side stat tables wherever an SO holds the value.
 
 ## Decisions
+116. **Research does not wait behind the army for ever (2026-11-22, developer: "Yes").** The
+     army-first rule refuses a research while the army is below its target and soldiers are
+     affordable; the army never reaches its target, so no AI bought a level 3 research
+     (Fire Arrows among them) in two 90-minute matches - Choreographed Volleys was refused
+     hundreds of times at "army 44/247". A research that has yielded for
+     `researchArmyFirstMaxWaitSeconds` (`SimpleAISystem.asset`) is now bought. Game_AI.md
+     § 6ai.
+115. **The AI's army is counted in population (2026-11-22, developer: "it's about the AI
+     reserving resources for population it cannot have. Make all targets relative to
+     population count and adjust the wave bar").** The army target was a count of UNITS that
+     climbed to the tier's cap of 300 while the population ceiling was 210 to 300 and includes
+     workers, support units and 2 to 5 population for cavalry and siege: an army that could
+     never be housed, which the military wallet kept borrowing for. (a) **The army is its
+     population.** `CountAliveMilitary` sums `PopulationCost` (a Catapult is five of the army,
+     a Spearman one), so the army target, the tier's `sustainArmyCap`, the personality floors,
+     `armyPerTerritory`, the posture tests and the army-first rule are all in population.
+     (b) **The target is never above what can be housed.** Every think the cap is cut to the
+     faction's absolute population ceiling less the population everything that is not army
+     already takes (`HousableArmyPopulation`). (c) **The wave bar has a ceiling.** The bar
+     that rises with the clock (`waveMinPopBase` + `waveMinPopPerMinute`) stops at
+     `waveMinPopCapShare` of that housable army; at minute 88 it had asked a faction with 92
+     population of army for 144. (d) The plain minimum a wave needs and the army queued in
+     training are in population too (`PopulationOf`, `PopulationOfId`). Still in heads: the
+     tier's largest-wave trim (`MaxWaveUnits`), which cuts a list. Game_AI.md § 6ai.
+114. **A countdown outranks the wave's gates; allies strike together (2026-11-22, developer:
+     "I want both").** From a 47-minute 3v2 on Broken Oath v2 (three Normal AIs against two
+     players): the players' Sanctum countdown ran its full length and no AI marched on the
+     Sanctum. (a) **The plan bug.** With a rival hero carrying the Shardroot, a Sanctum
+     DOMINION countdown read as "a rival is ascending" in the victory plan and forced the
+     Conquest road; that test is now the ascension countdown only
+     (`HostileAscensionRunning`), so the existing "a rival holds every Sanctum: take one
+     back" rule applies. (b) **The countdown outranks the gates.** While a hostile ascension
+     or dominion countdown runs - all-in or not - a wave ignores the Defend posture, the
+     growing size bar, the Sanctum claim head count, the field-army comparison and the
+     strength test, and the wave timer yields when no wave is out. Under a dominion
+     countdown the Sanctum objective is the nearest Sanctum the hostile side holds, whatever
+     the war, the road, the wave's size or the distance (`TrySanctumObjective`). (c) **Allies
+     strike together.** A wave a computer opponent launches of its own choosing posts its
+     objective; an allied computer opponent with no wave out launches at once for the same
+     objective, skipping its timer, the size bar, the field-army comparison and the strength
+     test (`alliedWaveJoinSeconds` on `SimpleAISystem.asset`; `PostRally` /
+     `TryAlliedRally`). A joiner does not call further allies. The three AIs had sent 54, 90
+     and 65 at the same Sanctum three minutes apart and lost each in turn. The headless
+     runner gained `-FactionTeam` (`-twbFactionTeam`). Game_AI.md § 6ai.
+113. **The world stops at the verdict; the whole team wins (2026-11-22, developer).** (a) Once
+     a side has won, no further tick runs on any peer (`LockstepManager.FreezeAtVerdict`, called
+     by `VictoryConditionSystem`): the board stays as it stood behind the end screen, the
+     player stays in the match scene until they choose to leave, and a replay ends there too.
+     A frozen peer keeps answering the network so a peer a few ticks behind still reaches the
+     deciding tick. (b) Liveness is no longer watched after the verdict, so a peer leaving the
+     post-game - the host included - changes nothing for the others; and a disconnect during a
+     live match no longer replaces the end screen of a player who was already out. (c) The
+     verdict names one faction of the winning side; every living member of that team now gets
+     VICTORY, not only the one named (Teams.md § 4).
+112. **Fire Arrows; a hero obeys its move order (2026-11-22, developer).** (a) The Archery
+     Range research `FireArrows` (a stub since decision 69) is live: Archers' and Longbowmen's
+     arrows land on buildings as siege damage (Combat_Pacing.md § Buildings). (b) A hero under
+     a move order no longer retaliates on the move (Stances.md § 5a): it could never be
+     withdrawn, and a Shardroot bearer ordered home turned to fight.
 111. **A wave is the whole army, no exceptions (2026-11-22, developer: "waves must be comprised
      of the full army. no exceptions.").** In a 149-minute match two Rush Experts held 200 to
      290 soldiers each and attacked with 20 to 60: the rest were raiding parties, sister

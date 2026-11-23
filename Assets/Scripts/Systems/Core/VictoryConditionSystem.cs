@@ -129,7 +129,10 @@ namespace TheWaningBorder.Systems.Core
 
         void Update()
         {
-            if (!_initialized || _gameOver) return;
+            if (!_initialized) return;
+            // The local player is out but the match went on: the end screen is
+            // up already, and the world still has to stop when a side wins.
+            if (_gameOver) { FreezeOnceDecided(); return; }
             if (GameStatsTracker.Instance != null && GameStatsTracker.Instance.GameEnded) return;
 
             // THE CLOCK IS RESET AFTER START (2026-10-28). Start() captures
@@ -165,6 +168,35 @@ namespace TheWaningBorder.Systems.Core
         }
 
         private int _announcedEliminations;
+        private bool _frozen;
+
+        /// <summary>THE WORLD STOPS AT THE VERDICT (2026-11-22): once a side
+        /// has won, no further tick runs - the board stays as it was at the
+        /// deciding moment behind the end screen, for every player, and a
+        /// peer leaving afterwards changes nothing for the others.</summary>
+        private void FreezeOnceDecided()
+        {
+            if (_frozen) return;
+            var q = QC_MatchVerdict.Get(_em, QT_MatchVerdict);
+            if (q.IsEmptyIgnoreFilter) return;
+            using var ents = q.ToEntityArray(Unity.Collections.Allocator.Temp);
+            if (_em.GetComponentData<MatchVerdictState>(ents[0]).Decided == 0) return;
+            FreezeWorld();
+        }
+
+        private void FreezeWorld()
+        {
+            if (_frozen) return;
+            _frozen = true;
+            var lockstep = TheWaningBorder.Multiplayer.LockstepManager.Instance;
+            if (lockstep != null) lockstep.FreezeAtVerdict();
+        }
+
+        /// <summary>The local player is the winner or on the winner's team -
+        /// the verdict names ONE faction of the winning side.</summary>
+        private static bool LocalOnWinningSide(Faction? winner)
+            => winner is { } w && (w == GameSettings.LocalPlayerFaction
+                                   || Alliances.AreAllied(w, GameSettings.LocalPlayerFaction));
 
         private void ObserveEliminationVerdict()
         {
@@ -453,7 +485,7 @@ namespace TheWaningBorder.Systems.Core
             }
             else
             {
-                result = winner == GameSettings.LocalPlayerFaction ? "VICTORY" : "DEFEAT";
+                result = LocalOnWinningSide(winner) ? "VICTORY" : "DEFEAT";
             }
             string how = localPlayerResigned ? ", resigned" : "";
 
@@ -478,12 +510,13 @@ namespace TheWaningBorder.Systems.Core
                 ? string.Format(Loc.T("{0} WINS"), Loc.T(winnerName))
                 : Loc.T(result);
             bool localWon = !localPlayerDefeated && winner is not null
-                && (GameSettings.IsObserver || winner == GameSettings.LocalPlayerFaction);
+                && (GameSettings.IsObserver || LocalOnWinningSide(winner));
             string subtitle = winner is { } w
                 ? string.Format(Loc.T("Winner: {0}"), Loc.T(w.ToString()))
                 : Loc.T("The match goes on without you.");
             if (localPlayerResigned) subtitle = Loc.T("You resigned.") + "  " + subtitle;
             SimSignals.MatchEnded(displayResult, subtitle, localWon);
+            if (winner is not null) FreezeWorld();
         }
 
         /// <summary>Retirement is TOTAL: every remaining unit and building

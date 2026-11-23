@@ -4270,6 +4270,41 @@ tier profiles.
 > newly held province before its extractors (`secureProvincesFirst`); a wave with its size is
 > not held at home by a strength reading (`waveStrengthHolds`).
 
+## 6ai. Countdowns and allies (2026-11-22, decision 114)
+
+- **A hostile countdown outranks the wave.** While a faction hostile to the AI
+  runs the ascension or the Sanctum dominion countdown, a wave ignores the
+  Defend posture, the growing size bar, the Sanctum claim head count, the
+  field-army comparison and the strength test, and does not wait for its
+  timer when no wave is out. It needs only the plain minimum head count.
+- **Dominion: the objective is the Sanctum.** Under a hostile dominion
+  countdown the wave marches on the nearest Sanctum the hostile side holds,
+  whatever war or road the AI is on. The victory plan forces the war road
+  only for the ASCENSION countdown; a dominion countdown used to be mistaken
+  for it whenever a rival hero carried the Shardroot.
+- **Allies strike together.** A wave an AI launches of its own choosing posts
+  its objective. Each allied AI with no wave out launches at once for that
+  objective (within `alliedWaveJoinSeconds`, `SimpleAISystem.asset`), past
+  its timer, size bar, field-army comparison and strength test. A joining
+  wave calls nobody else. Not yet covered: the armies leave together but
+  arrive by their own distance; a wave already out is not redirected.
+
+### Research behind the army (decision 116)
+
+- The research sweep still yields to an army below its target, but a
+  research that has yielded for `researchArmyFirstMaxWaitSeconds`
+  (`SimpleAISystem.asset`) is bought anyway.
+
+### The army is counted in population (decision 115)
+
+- The army, its target and the tier's cap are in **population**, not units:
+  each soldier counts for its `PopulationCost`. Workers, Scouts, support
+  units and free bodies are not army.
+- The target is never above the **housable army**: the faction's absolute
+  population ceiling less the population of everything that is not army.
+- The growing wave bar stops at `waveMinPopCapShare` of the housable army
+  (`SimpleAISystem.asset`).
+
 ## 8. Tech / age / culture
 
 - Age-up is a utility request (§5). Culture choice remains **Alanthor for

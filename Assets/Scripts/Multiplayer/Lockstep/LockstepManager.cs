@@ -488,7 +488,11 @@ namespace TheWaningBorder.Multiplayer
 
         void Update()
         {
-            if (!_isSimulationRunning) return;
+            if (!_isSimulationRunning)
+            {
+                if (_frozenAtVerdict) ServePeersAfterVerdict();
+                return;
+            }
 
             ReceiveNetworkMessages();
             MaintainLiveness();
@@ -850,6 +854,11 @@ namespace TheWaningBorder.Multiplayer
             // packet arrives while the end-of-match panel is coming up.
             StopSimulation();
 
+            // This player's end screen is already up (beaten or resigned while
+            // the others played on): the match stops and the world stays held; the post-game they
+            // are looking at is not replaced by a disconnect notice.
+            if (TheWaningBorder.Core.MatchLifecycle.MatchDecided) return;
+
             // The world is frozen behind the fixed-step driver, which only
             // steps on a requested tick — and no more are coming. Hand it back
             // so the menu and the panel animate normally.
@@ -1183,6 +1192,7 @@ namespace TheWaningBorder.Multiplayer
             DesyncTick = 0;
             PeerLost = false;
             _endedOnDisconnect = false;
+            _frozenAtVerdict = false;
             BlockedOnPlayer = -1;
             BlockedSeconds = 0f;
             _nextPingAt = 0f;
@@ -1222,6 +1232,50 @@ namespace TheWaningBorder.Multiplayer
                 _confirmedTicks[playerIndex] = _currentTick + INPUT_DELAY_TICKS;
             }
             
+        }
+
+        /// <summary>The match was decided and this peer stopped ticking
+        /// (<see cref="FreezeAtVerdict"/>).</summary>
+        private bool _frozenAtVerdict;
+
+        /// <summary>
+        /// THE WORLD STOPS AT THE VERDICT (2026-11-22). Called by the victory
+        /// observer once a side has won: no further tick runs here. The
+        /// fixed-step driver stays installed, so the world is held exactly as
+        /// it stood; the end screen and the Game Review are plain UI and run
+        /// on. Liveness is no longer watched - a peer that leaves after the
+        /// verdict (the host included) ends nothing for those still looking at
+        /// the post-game.
+        /// </summary>
+        public void FreezeAtVerdict()
+        {
+            if (!_isSimulationRunning || _frozenAtVerdict) return;
+            _frozenAtVerdict = true;
+            if (_replayFeed)
+            {
+                // A replay: the recording is over where the match was.
+                FinishReplay();
+                _isSimulationRunning = false;
+                return;
+            }
+            StopSimulation();
+        }
+
+        /// <summary>
+        /// A frozen peer still answers the network: every peer stops on the
+        /// frame it SEES the verdict, so one a few ticks behind still needs our
+        /// last ticks to reach the deciding one - and a datagram lost now would
+        /// otherwise never be repaired, leaving it stalled short of its own
+        /// end screen. Wall-clock only; no simulation state is touched.
+        /// </summary>
+        private void ServePeersAfterVerdict()
+        {
+            if (_udpClient == null || _expectedPlayers.Count == 0) return;
+            ReceiveNetworkMessages();
+            float now = Time.realtimeSinceStartup;
+            if (now < _nextStallResendAt) return;
+            _nextStallResendAt = now + StallResendInterval;
+            ResendRecentTicks();
         }
 
         /// <summary>
