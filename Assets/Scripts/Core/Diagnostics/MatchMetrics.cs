@@ -25,7 +25,13 @@
 //                          hits and flank hits landed (fed by
 //                          MeleeCombatSystem; Combat_Pacing.md § Flanking)
 //   Metrics_Deaths.csv     every unit death as an EVENT: time, victim,
-//                          killer, position — where the battles were
+//                          killer, position — where the battles were —
+//                          and (2026-11-24) the victim's unit id and the id
+//                          of the unit or building that last hit it
+//   Metrics_Damage.csv     end of match: damage LANDED, summed per attacking
+//                          faction, attacker id, target id and kind (melee /
+//                          torch / Ranged / Siege / splash ...): hits and
+//                          total damage (2026-11-24)
 //   Metrics_UnitPositions.csv  every unit's position, sampled every other
 //                          tick (30 s) — the match unfolding on the map
 //   Metrics_Income.csv     per sample: GROSS income by source and spending
@@ -133,13 +139,50 @@ namespace TheWaningBorder.Core.Diagnostics
         // so a session still in flight has them too (the placement ledger's
         // dump-only lesson, learned the hard way on the replay panel).
         private static readonly List<(float t, int victim, int killer,
-            bool attributed, int x, int z)> _deathEvents = new();
+            bool attributed, int x, int z, string victimId, string killerId)> _deathEvents = new();
+
+        // ── damage ledger: what each kind of unit or building actually
+        // landed on what, summed over the match (2026-11-24). Diagnostics
+        // only; nothing in the simulation reads it.
+        private static readonly Dictionary<(int faction, string attacker, string target, string kind),
+            (int hits, long damage)> _damage = new();
+        private static readonly Dictionary<FixedString64Bytes, string> _idNames = new();
+
+        /// <summary>The tech-tree id of a unit or building entity, for the
+        /// logs: "" when it no longer exists, "other" when it has none.</summary>
+        public static string IdOf(EntityManager em, Entity e)
+        {
+            if (e == Entity.Null || !em.Exists(e)) return "";
+            if (em.HasComponent<UnitTypeId>(e))
+            {
+                var v = em.GetComponentData<UnitTypeId>(e).Value;
+                if (!_idNames.TryGetValue(v, out var s)) { s = v.ToString(); _idNames[v] = s; }
+                return s;
+            }
+            if (em.HasComponent<BuildingTag>(e))
+                return TheWaningBorder.Entities.BuildingIds.Of(e, em) ?? "building";
+            return "other";
+        }
+
+        /// <summary>One hit landed for <paramref name="damage"/> (the final
+        /// amount, after armour). No-op unless metrics are on.</summary>
+        public static void RecordDamage(EntityManager em, Entity attacker, Entity target,
+            int damage, string kind)
+        {
+            if (!Enabled || damage <= 0) return;
+            if (attacker == Entity.Null || !em.Exists(attacker) || !em.Exists(target)) return;
+            int f = em.HasComponent<FactionTag>(attacker)
+                ? (int)em.GetComponentData<FactionTag>(attacker).Value : -1;
+            var key = (f, IdOf(em, attacker), IdOf(em, target), kind);
+            _damage.TryGetValue(key, out var v);
+            _damage[key] = (v.hits + 1, v.damage + damage);
+        }
 
         /// <summary>One unit died. <paramref name="killer"/> is credited only
         /// when the death was attributed to a hostile faction. Position is
         /// where it fell — clusters of these ARE the battles.</summary>
         public static void RecordUnitDeath(Faction victim, Faction killer, bool attributed,
-            float x, float z)
+            float x, float z, string victimId = "", string killerId = "")
         {
             if (!Enabled) return;
             int minute = (int)(MatchTime / 60f);
@@ -151,7 +194,7 @@ namespace TheWaningBorder.Core.Diagnostics
                 _kills[kk] = _kills.TryGetValue(kk, out int k) ? k + 1 : 1;
             }
             _deathEvents.Add((MatchTime, (int)victim, (int)killer, attributed,
-                (int)x, (int)z));
+                (int)x, (int)z, victimId, killerId));
         }
 
         private void OnEnable()
@@ -162,6 +205,7 @@ namespace TheWaningBorder.Core.Diagnostics
             _meleeHits.Clear();
             _flankHits.Clear();
             _deathEvents.Clear();
+            _damage.Clear();
             _walkPrev.Clear();
             EconomyLedger.Reset();
             _prevBankValid = false;
@@ -205,7 +249,7 @@ namespace TheWaningBorder.Core.Diagnostics
                 "t,faction,pop,popMax,supplies,iron,veilstone,veilsteel,territories,units,buildings\n");
             Write("Metrics_Units.csv", "t,faction,unitId,count\n");
             Write("Metrics_Buildings.csv", "t,faction,buildingId,count\n");
-            Write("Metrics_Deaths.csv", "t,victim,killer,attributed,x,z\n");
+            Write("Metrics_Deaths.csv", "t,victim,killer,attributed,x,z,victimUnit,killerUnit\n");
             Write("Metrics_UnitPositions.csv", "t,faction,x,z\n");
             Write("Metrics_BuildingEvents.csv", "t,faction,buildingId,x,z,event\n");
             Write("Metrics_Income.csv",
@@ -418,7 +462,8 @@ namespace TheWaningBorder.Core.Diagnostics
                       .Append((Faction)e.victim).Append(',')
                       .Append((Faction)e.killer).Append(',')
                       .Append(e.attributed ? 1 : 0).Append(',')
-                      .Append(e.x).Append(',').Append(e.z).Append('\n');
+                      .Append(e.x).Append(',').Append(e.z).Append(',')
+                      .Append(e.victimId).Append(',').Append(e.killerId).Append('\n');
                 }
                 Write("Metrics_Deaths.csv", sb.ToString());
                 _deathsFlushed = _deathEvents.Count;
@@ -597,6 +642,15 @@ namespace TheWaningBorder.Core.Diagnostics
                       .Append(',').Append(mh).Append(',').Append(fh).Append('\n');
             }
             Write("Metrics_Combat.csv", combat.ToString());
+
+            // ── damage landed, by attacker and target kind ──
+            var dmg = new StringBuilder("faction,attacker,target,kind,hits,damage\n");
+            foreach (var kv in _damage)
+                dmg.Append(kv.Key.faction < 0 ? "none" : ((Faction)kv.Key.faction).ToString()).Append(',')
+                   .Append(kv.Key.attacker).Append(',').Append(kv.Key.target).Append(',')
+                   .Append(kv.Key.kind).Append(',').Append(kv.Value.hits).Append(',')
+                   .Append(kv.Value.damage).Append('\n');
+            Write("Metrics_Damage.csv", dmg.ToString());
         }
 
         private static void Write(string file, string text)

@@ -183,8 +183,17 @@ namespace TheWaningBorder.Systems.Combat
                         var dpos = state.EntityManager.HasComponent<Unity.Transforms.LocalTransform>(dead)
                             ? state.EntityManager.GetComponentData<Unity.Transforms.LocalTransform>(dead).Position
                             : default;
+                        // Unit ids for the death log (diagnostics only).
+                        string victimId = "", killerId = "";
+                        if (TheWaningBorder.Core.Diagnostics.MatchMetrics.Enabled)
+                        {
+                            victimId = TheWaningBorder.Core.Diagnostics.MatchMetrics.IdOf(state.EntityManager, dead);
+                            if (attributed && TransientState.Active<LastAttackerEntity>(state.EntityManager, dead))
+                                killerId = TheWaningBorder.Core.Diagnostics.MatchMetrics.IdOf(state.EntityManager,
+                                    state.EntityManager.GetComponentData<LastAttackerEntity>(dead).Value);
+                        }
                         TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordUnitDeath(
-                            victim, killer, attributed, dpos.x, dpos.z);
+                            victim, killer, attributed, dpos.x, dpos.z, victimId, killerId);
                         TheWaningBorder.Core.Diagnostics.MatchScore.NoteUnitDeath(victim, killer, attributed);
                         // The post-game Muster Rolls map (every match, in memory).
                         TheWaningBorder.Core.Diagnostics.MatchRecording.MatchRecorder.NoteUnitDeath(

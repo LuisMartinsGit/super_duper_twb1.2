@@ -632,6 +632,9 @@ namespace TheWaningBorder.Systems.Combat
             // Match-long damage ledger — Wrath's Spite pools this and pays it
             // back (docs/Design/Sects.md).
             CombatDamageHelper.RecordDamageDealt(em, ecb, shooter, appliedDamage);
+            if (TheWaningBorder.Core.Diagnostics.MatchMetrics.Enabled)
+                TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordDamage(em, shooter, targetEntity,
+                    appliedDamage, dmgType.ToString());
 
             // A shot gives the shooter away (docs/Design/Combat_Pacing.md).
             RevealShooter(em, ecb, shooter, targetEntity, appliedDamage);
@@ -782,6 +785,9 @@ namespace TheWaningBorder.Systems.Combat
                 // Match-long damage ledger — Wrath's Spite pools this and pays
                 // it back (docs/Design/Sects.md).
                 CombatDamageHelper.RecordDamageDealt(em, ecb, shooter, splashDmg);
+                if (TheWaningBorder.Core.Diagnostics.MatchMetrics.Enabled)
+                    TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordDamage(em, shooter, entities[i],
+                        splashDmg, "splash");
                 RevealShooter(em, ecb, shooter, entities[i], splashDmg);
 
                 // Track last damager for kill credit

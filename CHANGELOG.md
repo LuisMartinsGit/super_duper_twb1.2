@@ -11,6 +11,12 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.96] — 2026-11-24
+
+### Match logs name the units (2026-11-24)
+- **The death log says what died and what killed it.** `Metrics_Deaths.csv` gains two columns, `victimUnit` and `killerUnit` (the unit or building that landed the last hit).
+- **A new damage table.** `Metrics_Damage.csv` is written at the end of every logged match: damage landed per attacking faction, attacker, target and kind (melee, torch, ranged, siege, splash), with the number of hits. Logs only; nothing in the game reads it.
+
 ## [0.0.95] — 2026-11-23
 
 ### Move orders, siege, torches and instant defeat (decisions 117-120, 2026-11-23)

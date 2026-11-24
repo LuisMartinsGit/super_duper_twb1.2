@@ -309,6 +309,10 @@ namespace TheWaningBorder.Systems.Combat
             // Match-long damage ledger — what Wrath's Spite pools
             // and pays back (docs/Design/Sects.md).
             CombatDamageHelper.RecordDamageDealt(em, ecb, entity, finalDamage);
+            if (TheWaningBorder.Core.Diagnostics.MatchMetrics.Enabled)
+                TheWaningBorder.Core.Diagnostics.MatchMetrics.RecordDamage(em, entity, tgt.Value, finalDamage,
+                    dmgType == DamageType.Melee && CombatDamageHelper.TakesTorch(em, tgt.Value)
+                        && CombatDamageHelper.ThrowsTorch(em, entity) ? "torch" : dmgType.ToString());
 
             // Diagnostics only (no-op unless metrics are on):
             // melee / flank hit counts per attacking faction.
