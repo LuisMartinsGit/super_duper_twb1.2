@@ -878,7 +878,7 @@ GameObject:
   - component: {fileID: 6746676397785522867}
   - component: {fileID: 3805929441227541357}
   m_Layer: 0
-  m_Name: SM_Prop_Camp_Brazier_Wood_
+  m_Name: K_SM_Prop_Camp_Brazier_Wood_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1480,7 +1480,7 @@ GameObject:
   - component: {fileID: 6845441966091741022}
   - component: {fileID: 1296387678963473463}
   m_Layer: 0
-  m_Name: SM_Prop_Camp_Brazier_Wood_
+  m_Name: K_SM_Prop_Camp_Brazier_Wood_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

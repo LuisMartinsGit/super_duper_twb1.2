@@ -8,5 +8,6 @@ namespace TheWaningBorder.Rendering
     public sealed class UnitWorldScaleConfig : ScriptableObject, IComponentConfig
     {
         public float unitScale;
+        public float eliteScale;
     }
 }

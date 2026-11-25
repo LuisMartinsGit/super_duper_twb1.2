@@ -40,8 +40,8 @@ namespace TheWaningBorder.EditorTools
         };
         static readonly string[] Rocks =
         {
-            FK + "Environments/SM_Env_Rock_Chunk_01.prefab", FK + "Environments/SM_Env_Rock_Chunk_02.prefab",
-            FK + "Environments/SM_Env_Rock_Chunk_03.prefab",
+            FK + "Environments/K_SM_Env_Rock_Chunk_01.prefab", FK + "Environments/K_SM_Env_Rock_Chunk_02.prefab",
+            FK + "Environments/K_SM_Env_Rock_Chunk_03.prefab",
         };
 
         [MenuItem("Waning Border/Art/Units/Author Crystalling")]

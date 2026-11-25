@@ -692,7 +692,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // 201 Swordsman: its SO prefab is the Synty kit now
                 // (SwordsmanSyntyAuthor, 2026-11-13).
                 // 202 Archer: no procedural case - its SO prefab is the Synty
-                // kit (ArcherSyntyAuthor, 2026-11-13).
+                // kit (ArcheryKit).
                 case 349: authored = TheWaningBorder.Rendering.OutriderVisual.Build(entity.Index + 349); break;
                 case 336: authored = TheWaningBorder.Rendering.CataphractVisual.Build(entity.Index + 336); break;
                 case 251: authored = TheWaningBorder.Rendering.KingLexorVisual.Build(entity.Index + 251); break;
@@ -719,18 +719,12 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // Sect buildings (561-564) — one per sect, capped at 5 per
                 // faction. Alanthor cluster; the other eight land with their
                 // pass. docs/Design/Sects.md section 1.
-                // Sect units. These pids already had PrefabPaths rows pointing
-                // at borrowed Synty/Litharch stand-ins; this switch runs first,
-                // so the authored rigs win without touching that dictionary.
+                // Sect units and sect heroes: their SO prefabs (EliteKit).
                 // The Cleansing Ward (Territory_Claims.md §6.9.7): its prefab on
                 // CleanseWardSystem.asset, raised pre-built like the tent.
                 case TheWaningBorder.Entities.CleanseWard.PresentationID:
                     authored = TheWaningBorder.Rendering.CleanseWardVisual.Build();
                     authoredIsBuilding = true; spawnsFinished = true; break;
-                case 370: authored = TheWaningBorder.Rendering.ScarGuardVisual.Build(entity.Index + 370); break;
-                case 371: authored = TheWaningBorder.Rendering.CollectorVisual.Build(entity.Index + 371); break;
-                case 372: authored = TheWaningBorder.Rendering.SallyguardVisual.Build(entity.Index + 372); break;
-                case 387: authored = TheWaningBorder.Rendering.ArtificerVisual.Build(entity.Index + 387); break;
 
             }
 
@@ -1417,7 +1411,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
             sync.View = go;
             sync.ScaleTag = go.GetComponent<ProceduralScaleTag>();
             sync.WorldScale = _em.HasComponent<UnitTag>(entity)
-                ? TheWaningBorder.Rendering.UnitWorldScale.Value : 1f;
+                ? TheWaningBorder.Rendering.UnitWorldScale.For(_em, entity) : 1f;
             sync.Rise = go.GetComponent<TheWaningBorder.Rendering.BuildingRiseData>();
             sync.Sink = go.GetComponent<TheWaningBorder.Rendering.BuildingVisualSinkDepth>();
             sync.KeepSimY = _em.HasComponent<EmplacedEngineTag>(entity);

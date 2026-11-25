@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   sunPitch: 42
   sunHeading: -35
-  sunColor: {r: 0.784, g: 0.831, b: 0.902, a: 1}
-  sunIntensity: 1.45
-  shadowStrength: 0.55
-  ambientSkyColor: {r: 0.42, g: 0.5, b: 0.63, a: 1}
+  sunColor: {r: 1, g: 0.95, b: 0.87, a: 1}
+  sunIntensity: 1.5
+  shadowStrength: 0.75
+  ambientSkyColor: {r: 0.36, g: 0.45, b: 0.62, a: 1}
   ambientEquatorColor: {r: 0.34, g: 0.42, b: 0.46, a: 1}
   ambientGroundColor: {r: 0.24, g: 0.25, b: 0.29, a: 1}
   fogColor: {r: 0.16, g: 0.2, b: 0.3, a: 1}
@@ -29,12 +29,12 @@ MonoBehaviour:
   vignetteIntensity: 0.12
   vignetteColor: {r: 0, g: 0, b: 0, a: 1}
   vignetteSmoothness: 0.5
-  bloomIntensity: 1.4
-  bloomThreshold: 0.55
-  bloomScatter: 0.82
+  bloomIntensity: 0.9
+  bloomThreshold: 0.9
+  bloomScatter: 0.65
   postExposure: 0
-  saturation: 22
-  contrast: 8
+  saturation: 18
+  contrast: 16
   smhShadowsTint: {r: 0.9, g: 0.94, b: 1.12, a: 1}
   smhHighlightsTint: {r: 1.08, g: 1.04, b: 0.96, a: 1}
   filmGrainIntensity: 0

@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: UnitWorldScale
   m_EditorClassIdentifier:
   unitScale: 1
+  eliteScale: 1.18

@@ -199,7 +199,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1069983557862476, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_Name
-      value: HallWallNa
+      value: K_HallWallNa
       objectReference: {fileID: 0}
     - target: {fileID: 4019230386164288, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_LocalScale.x
@@ -278,7 +278,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingN
+      value: K_RingN
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -357,7 +357,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1526384252657966, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_Name
-      value: Lamp
+      value: K_Lamp
       objectReference: {fileID: 0}
     - target: {fileID: 4314332775548574, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_LocalScale.x
@@ -436,7 +436,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1256372721743920, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_Name
-      value: HallSlopeN
+      value: K_HallSlopeN
       objectReference: {fileID: 0}
     - target: {fileID: 4391937466002270, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_LocalScale.x
@@ -519,7 +519,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1845186741148988, guid: cf8caeea3d1893e4aaa47bd95d17bb2a, type: 3}
       propertyPath: m_Name
-      value: Bush
+      value: K_Bush
       objectReference: {fileID: 0}
     - target: {fileID: 4858612123339038, guid: cf8caeea3d1893e4aaa47bd95d17bb2a, type: 3}
       propertyPath: m_LocalScale.x
@@ -598,7 +598,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: HallWallSa
+      value: K_HallWallSa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -685,7 +685,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: HallTrimSE
+      value: K_HallTrimSE
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -764,7 +764,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingW
+      value: K_RingW
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -843,7 +843,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: HallColumn
+      value: K_HallColumn
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -922,7 +922,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1172911467984758, guid: 41ce1a831a1f83a4596a986fb3c31ea6, type: 3}
       propertyPath: m_Name
-      value: HallWallSb
+      value: K_HallWallSb
       objectReference: {fileID: 0}
     - target: {fileID: 4559523984779670, guid: 41ce1a831a1f83a4596a986fb3c31ea6, type: 3}
       propertyPath: m_LocalScale.x
@@ -1001,7 +1001,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: HallTrimNE
+      value: K_HallTrimNE
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -1080,7 +1080,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1526384252657966, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_Name
-      value: Lamp
+      value: K_Lamp
       objectReference: {fileID: 0}
     - target: {fileID: 4314332775548574, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_LocalScale.x
@@ -1159,7 +1159,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1845186741148988, guid: cf8caeea3d1893e4aaa47bd95d17bb2a, type: 3}
       propertyPath: m_Name
-      value: Bush
+      value: K_Bush
       objectReference: {fileID: 0}
     - target: {fileID: 4858612123339038, guid: cf8caeea3d1893e4aaa47bd95d17bb2a, type: 3}
       propertyPath: m_LocalScale.x
@@ -1238,7 +1238,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1994484627499024, guid: c3360c3fb9c0cdc4990ef237d7a54c15, type: 3}
       propertyPath: m_Name
-      value: Bell
+      value: K_Bell
       objectReference: {fileID: 0}
     - target: {fileID: 4342907903665912, guid: c3360c3fb9c0cdc4990ef237d7a54c15, type: 3}
       propertyPath: m_LocalScale.x
@@ -1317,7 +1317,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: HallWallWa
+      value: K_HallWallWa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -1404,7 +1404,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingSa
+      value: K_RingSa
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1483,7 +1483,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1492571825730028, guid: 23aa4d104ed75f14dad4e00917536a8a, type: 3}
       propertyPath: m_Name
-      value: Bath
+      value: K_Bath
       objectReference: {fileID: 0}
     - target: {fileID: 1760172298148434, guid: 23aa4d104ed75f14dad4e00917536a8a, type: 3}
       propertyPath: m_Name
@@ -1570,7 +1570,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingSb
+      value: K_RingSb
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1649,7 +1649,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: HallColumn
+      value: K_HallColumn
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1728,7 +1728,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: HallWallEa
+      value: K_HallWallEa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -1815,7 +1815,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: HallTrimSW
+      value: K_HallTrimSW
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -1894,7 +1894,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: HallTrimNW
+      value: K_HallTrimNW
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -1973,7 +1973,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: HallWallNb
+      value: K_HallWallNb
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -2060,7 +2060,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1251308812279270, guid: 314fa1bbb83dd6b4193fc6ff042c1111, type: 3}
       propertyPath: m_Name
-      value: Candles
+      value: K_Candles
       objectReference: {fileID: 0}
     - target: {fileID: 4862103290996452, guid: 314fa1bbb83dd6b4193fc6ff042c1111, type: 3}
       propertyPath: m_LocalScale.x
@@ -2139,7 +2139,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1962414162455570, guid: 2cec3e36c100660409a207648fb52105, type: 3}
       propertyPath: m_Name
-      value: Stair
+      value: K_Stair
       objectReference: {fileID: 0}
     - target: {fileID: 4894876195635582, guid: 2cec3e36c100660409a207648fb52105, type: 3}
       propertyPath: m_LocalScale.x
@@ -2218,7 +2218,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: HallColumn
+      value: K_HallColumn
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -2297,7 +2297,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingE
+      value: K_RingE
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -2376,7 +2376,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1256372721743920, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_Name
-      value: HallSlopeS
+      value: K_HallSlopeS
       objectReference: {fileID: 0}
     - target: {fileID: 4391937466002270, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_LocalScale.x
@@ -2459,7 +2459,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -2534,7 +2534,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: HallColumn
+      value: K_HallColumn
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x

@@ -62,7 +62,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SkullB1
+      value: K_SkullB1
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -141,7 +141,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1593866378480804, guid: 5f7ec75a3f8d78c42880c82882f09a34, type: 3}
       propertyPath: m_Name
-      value: AntlerB
+      value: K_AntlerB
       objectReference: {fileID: 0}
     - target: {fileID: 4140266536734590, guid: 5f7ec75a3f8d78c42880c82882f09a34, type: 3}
       propertyPath: m_LocalScale.x
@@ -220,7 +220,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1435142936610516, guid: 9d0ef9296c713c8408cb2f66334f698c, type: 3}
       propertyPath: m_Name
-      value: Blood
+      value: K_Blood
       objectReference: {fileID: 0}
     - target: {fileID: 4579403661286842, guid: 9d0ef9296c713c8408cb2f66334f698c, type: 3}
       propertyPath: m_LocalScale.x
@@ -299,7 +299,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SkullA2
+      value: K_SkullA2
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -378,7 +378,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: ChainAC
+      value: K_ChainAC
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -449,7 +449,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SkullC2
+      value: K_SkullC2
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -528,7 +528,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: ChainAB
+      value: K_ChainAB
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -599,7 +599,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_BannerB
+      value: K_PlayerColor_BannerB
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -678,7 +678,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1059324005299654, guid: 376345897d6d74943b526b2a98771d8f, type: 3}
       propertyPath: m_Name
-      value: Head
+      value: K_Head
       objectReference: {fileID: 0}
     - target: {fileID: 4035729621778588, guid: 376345897d6d74943b526b2a98771d8f, type: 3}
       propertyPath: m_LocalScale.x
@@ -757,7 +757,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SkullB2
+      value: K_SkullB2
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -836,7 +836,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_BannerA
+      value: K_PlayerColor_BannerA
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -915,7 +915,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1092251644890200, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
-      value: BrazierA
+      value: K_BrazierA
       objectReference: {fileID: 0}
     - target: {fileID: 1103747753272718, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
@@ -1002,7 +1002,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1092251644890200, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
-      value: BrazierB
+      value: K_BrazierB
       objectReference: {fileID: 0}
     - target: {fileID: 1103747753272718, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
@@ -1089,7 +1089,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1849171192356266, guid: d20bd7de6f81e5943a6c52850942d84f, type: 3}
       propertyPath: m_Name
-      value: TotemC
+      value: K_TotemC
       objectReference: {fileID: 0}
     - target: {fileID: 4408855321177182, guid: d20bd7de6f81e5943a6c52850942d84f, type: 3}
       propertyPath: m_LocalScale.x
@@ -1168,7 +1168,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1849171192356266, guid: d20bd7de6f81e5943a6c52850942d84f, type: 3}
       propertyPath: m_Name
-      value: TotemB
+      value: K_TotemB
       objectReference: {fileID: 0}
     - target: {fileID: 4408855321177182, guid: d20bd7de6f81e5943a6c52850942d84f, type: 3}
       propertyPath: m_LocalScale.x
@@ -1243,7 +1243,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1755461556253098, guid: f78d7c1232b00e34488c544fcb9448fe, type: 3}
       propertyPath: m_Name
-      value: Spear
+      value: K_Spear
       objectReference: {fileID: 0}
     - target: {fileID: 4422459101006316, guid: f78d7c1232b00e34488c544fcb9448fe, type: 3}
       propertyPath: m_LocalScale.x
@@ -1322,7 +1322,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SkullC1
+      value: K_SkullC1
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -1401,7 +1401,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1849171192356266, guid: d20bd7de6f81e5943a6c52850942d84f, type: 3}
       propertyPath: m_Name
-      value: TotemA
+      value: K_TotemA
       objectReference: {fileID: 0}
     - target: {fileID: 4408855321177182, guid: d20bd7de6f81e5943a6c52850942d84f, type: 3}
       propertyPath: m_LocalScale.x
@@ -1480,7 +1480,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1593866378480804, guid: 5f7ec75a3f8d78c42880c82882f09a34, type: 3}
       propertyPath: m_Name
-      value: AntlerA
+      value: K_AntlerA
       objectReference: {fileID: 0}
     - target: {fileID: 4140266536734590, guid: 5f7ec75a3f8d78c42880c82882f09a34, type: 3}
       propertyPath: m_LocalScale.x
@@ -1559,7 +1559,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1593866378480804, guid: 5f7ec75a3f8d78c42880c82882f09a34, type: 3}
       propertyPath: m_Name
-      value: AntlerC
+      value: K_AntlerC
       objectReference: {fileID: 0}
     - target: {fileID: 4140266536734590, guid: 5f7ec75a3f8d78c42880c82882f09a34, type: 3}
       propertyPath: m_LocalScale.x
@@ -1638,7 +1638,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SkullA1
+      value: K_SkullA1
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x

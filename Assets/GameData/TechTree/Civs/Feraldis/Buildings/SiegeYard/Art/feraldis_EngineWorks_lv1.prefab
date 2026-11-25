@@ -276,7 +276,7 @@ GameObject:
   - component: {fileID: 2080355771301822613}
   - component: {fileID: 1281222337584348876}
   m_Layer: 0
-  m_Name: SM_Wep_Catapult_Wheel_fl
+  m_Name: K_SM_Wep_Catapult_Wheel_fl
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1103,7 +1103,7 @@ GameObject:
   - component: {fileID: 6170928068284431918}
   - component: {fileID: 2823461998763428487}
   m_Layer: 0
-  m_Name: SM_Wep_Catapult_Wheel_rr
+  m_Name: K_SM_Wep_Catapult_Wheel_rr
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1361,7 +1361,7 @@ GameObject:
   - component: {fileID: 5485994565385144008}
   - component: {fileID: 2892229248756471156}
   m_Layer: 0
-  m_Name: SM_Wep_Catapult_Wheel_rl
+  m_Name: K_SM_Wep_Catapult_Wheel_rl
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1533,7 +1533,7 @@ GameObject:
   - component: {fileID: 24833687261178372}
   - component: {fileID: 722675286725616916}
   m_Layer: 0
-  m_Name: SM_Wep_Catapult_Arm_
+  m_Name: K_SM_Wep_Catapult_Arm_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1769,7 +1769,7 @@ GameObject:
   - component: {fileID: 4652146365520999041}
   - component: {fileID: 2656118123980958453}
   m_Layer: 0
-  m_Name: SM_Prop_Camp_Brazier_Wood_
+  m_Name: K_SM_Prop_Camp_Brazier_Wood_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1941,7 +1941,7 @@ GameObject:
   - component: {fileID: 7140900234980523379}
   - component: {fileID: 3624062854906657148}
   m_Layer: 0
-  m_Name: SM_Wep_Catapult_Crank_
+  m_Name: K_SM_Wep_Catapult_Crank_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2113,7 +2113,7 @@ GameObject:
   - component: {fileID: 7743763633843166823}
   - component: {fileID: 4300306294714824932}
   m_Layer: 0
-  m_Name: SM_Wep_Catapult_Wheel_fr
+  m_Name: K_SM_Wep_Catapult_Wheel_fr
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

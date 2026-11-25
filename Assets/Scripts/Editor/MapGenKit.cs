@@ -427,7 +427,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
 
             var treePrefabs = FindPrefabs(new[]
             {
-                "SM_Env_Tree_", "SM_Env_Big_Tree_01", "SM_Env_Pine_", "SM_Env_Dead_Tree_",
+                "K_SM_Env_Tree_", "K_SM_Env_Big_Tree_01", "K_SM_Env_Pine_", "K_SM_Env_Dead_Tree_",
             }, 14);
             // Bushes and boulders ride in the TREE layer, not the detail layer:
             // they are prop-scale meshes, and the detail layer is reserved for
@@ -435,7 +435,7 @@ namespace TheWaningBorder.Core.Maps.EditorTools
             // Terrain trees also give distance culling and billboarding free.
             var rockPrefabs = FindPrefabs(new[]
             {
-                "SM_Env_Rock_", "SM_Env_Boulder_", "SM_Env_Bush_",
+                "K_SM_Env_Rock_", "K_SM_Env_Boulder_", "K_SM_Env_Bush_",
             }, 12);
 
             var protoPrefabs = new List<GameObject>();

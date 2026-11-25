@@ -27,7 +27,9 @@ MonoBehaviour:
   maxTargets: 0
   populationProvided: 0
   slotIncomePerMinute: 0
-  tradeRateMultiplier: 0
+  vaultBarCapacity: 
+  vaultBarIncomePerMinute: 
+  suppliesPerWorkerPerMinute: 0
   attack:
     enabled: 0
     damage: 12
@@ -36,7 +38,8 @@ MonoBehaviour:
     cooldown: 1.5
     maxTargets: 1
     siegeShotDamage: 0
+  firePoints: []
   lineOfSight: 0
   grantsTechs:
   - VeteranArchers
-  prefab: {fileID: 1201453078148912283, guid: 9c52cadbb9929cc4dbc9d405539dbea8, type: 3}
+  prefab: {fileID: 1435027818078621703, guid: a64aefe2f22ce7b4188ce49fa2952a64, type: 3}

@@ -27,7 +27,9 @@ MonoBehaviour:
   maxTargets: 0
   populationProvided: 0
   slotIncomePerMinute: 0
-  tradeRateMultiplier: 0
+  vaultBarCapacity: 
+  vaultBarIncomePerMinute: 
+  suppliesPerWorkerPerMinute: 0
   attack:
     enabled: 0
     damage: 12
@@ -36,6 +38,7 @@ MonoBehaviour:
     cooldown: 1.5
     maxTargets: 1
     siegeShotDamage: 0
+  firePoints: []
   lineOfSight: 0
   grantsTechs: []
-  prefab: {fileID: 1201453078148912283, guid: 8dc495ad9d4f03944a94924d6d74d963, type: 3}
+  prefab: {fileID: 1435027818078621703, guid: a000d6b9fe6f2f04bb9e99d7fe3cbd1b, type: 3}

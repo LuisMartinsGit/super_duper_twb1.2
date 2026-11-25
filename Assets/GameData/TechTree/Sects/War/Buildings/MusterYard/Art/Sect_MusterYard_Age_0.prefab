@@ -201,7 +201,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179592125756304, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_FlagW
+      value: K_PlayerColor_FlagW
       objectReference: {fileID: 0}
     - target: {fileID: 4489196261048372, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_LocalScale.x
@@ -280,7 +280,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -359,7 +359,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingE
+      value: K_RingE
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -438,7 +438,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1256372721743920, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_Name
-      value: YardSlopeS
+      value: K_YardSlopeS
       objectReference: {fileID: 0}
     - target: {fileID: 4391937466002270, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_LocalScale.x
@@ -521,7 +521,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -600,7 +600,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1845186741148988, guid: cf8caeea3d1893e4aaa47bd95d17bb2a, type: 3}
       propertyPath: m_Name
-      value: Bush
+      value: K_Bush
       objectReference: {fileID: 0}
     - target: {fileID: 4858612123339038, guid: cf8caeea3d1893e4aaa47bd95d17bb2a, type: 3}
       propertyPath: m_LocalScale.x
@@ -679,7 +679,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: YardTrimSW
+      value: K_YardTrimSW
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -758,7 +758,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1494063338527334, guid: 9503cbc23bd18cc4d9fc81a358f4dce7, type: 3}
       propertyPath: m_Name
-      value: RackB
+      value: K_RackB
       objectReference: {fileID: 0}
     - target: {fileID: 4834406918623170, guid: 9503cbc23bd18cc4d9fc81a358f4dce7, type: 3}
       propertyPath: m_LocalScale.x
@@ -837,7 +837,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: YardTrimNW
+      value: K_YardTrimNW
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -916,7 +916,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingSb
+      value: K_RingSb
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -995,7 +995,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingW
+      value: K_RingW
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1074,7 +1074,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingSa
+      value: K_RingSa
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1153,7 +1153,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1232,7 +1232,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1311,7 +1311,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1212770861226662, guid: 5037be3324f8a0c4a8aa6184a0560d33, type: 3}
       propertyPath: m_Name
-      value: DummyB
+      value: K_DummyB
       objectReference: {fileID: 0}
     - target: {fileID: 4840805334924898, guid: 5037be3324f8a0c4a8aa6184a0560d33, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1378,7 +1378,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1494063338527334, guid: 9503cbc23bd18cc4d9fc81a358f4dce7, type: 3}
       propertyPath: m_Name
-      value: RackA
+      value: K_RackA
       objectReference: {fileID: 0}
     - target: {fileID: 4834406918623170, guid: 9503cbc23bd18cc4d9fc81a358f4dce7, type: 3}
       propertyPath: m_LocalScale.x
@@ -1457,7 +1457,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: FlagEMast
+      value: K_FlagEMast
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -1536,7 +1536,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1212770861226662, guid: 5037be3324f8a0c4a8aa6184a0560d33, type: 3}
       propertyPath: m_Name
-      value: DummyA
+      value: K_DummyA
       objectReference: {fileID: 0}
     - target: {fileID: 4840805334924898, guid: 5037be3324f8a0c4a8aa6184a0560d33, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1603,7 +1603,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingN
+      value: K_RingN
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1682,7 +1682,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: YardTrimSE
+      value: K_YardTrimSE
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -1761,7 +1761,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1840,7 +1840,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1256372721743920, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_Name
-      value: YardSlopeN
+      value: K_YardSlopeN
       objectReference: {fileID: 0}
     - target: {fileID: 4391937466002270, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_LocalScale.x
@@ -1923,7 +1923,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -2002,7 +2002,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: YardTrimNE
+      value: K_YardTrimNE
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -2081,7 +2081,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -2160,7 +2160,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1011661159361116, guid: c103ebf99ffb5574fbce89d35563224c, type: 3}
       propertyPath: m_Name
-      value: Hero
+      value: K_Hero
       objectReference: {fileID: 0}
     - target: {fileID: 4967982475322330, guid: c103ebf99ffb5574fbce89d35563224c, type: 3}
       propertyPath: m_LocalScale.x
@@ -2240,7 +2240,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179592125756304, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_FlagE
+      value: K_PlayerColor_FlagE
       objectReference: {fileID: 0}
     - target: {fileID: 4489196261048372, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_LocalScale.x
@@ -2319,7 +2319,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1962414162455570, guid: 2cec3e36c100660409a207648fb52105, type: 3}
       propertyPath: m_Name
-      value: Stair
+      value: K_Stair
       objectReference: {fileID: 0}
     - target: {fileID: 4894876195635582, guid: 2cec3e36c100660409a207648fb52105, type: 3}
       propertyPath: m_LocalScale.x
@@ -2398,7 +2398,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -2477,7 +2477,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -2552,7 +2552,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1845186741148988, guid: cf8caeea3d1893e4aaa47bd95d17bb2a, type: 3}
       propertyPath: m_Name
-      value: Bush
+      value: K_Bush
       objectReference: {fileID: 0}
     - target: {fileID: 4858612123339038, guid: cf8caeea3d1893e4aaa47bd95d17bb2a, type: 3}
       propertyPath: m_LocalScale.x
@@ -2631,7 +2631,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: FlagWMast
+      value: K_FlagWMast
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x

@@ -26,12 +26,12 @@ MonoBehaviour:
     ranged: 3
     siege: 0
     magic: 1
-  attackCooldown: 1.0
-  attackRange: 1.0
+  attackCooldown: 1
+  attackRange: 1
   minAttackRange: 0
   lineOfSight: 18
-  radius: 0.45
   aimTime: 0
+  radius: 0.45
   trajectory: 
   projectileSpeed: 0
   cost:
@@ -41,17 +41,20 @@ MonoBehaviour:
   populationCost: 1
   minBuildingLevel: 0
   buildSpeed: 0
+  repairSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
   tags:
-  - 'Infantry'
-  - 'Light'
+  - Infantry
+  - Light
   bonusVsTags: []
   torchDamage: 21
+  preferTargets: []
   abilities: []
   prefab: {fileID: 122908383832175, guid: 07dc6767e48d386dd2d2cdde551e3f20, type: 3}
   presentationId: 371
-  animatorController: {fileID: 0}
+  animatorController: {fileID: 9100000, guid: 293a4091120097a4cb81861b908434c5, type: 2}

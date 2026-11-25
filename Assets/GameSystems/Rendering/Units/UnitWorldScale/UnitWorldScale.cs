@@ -29,6 +29,7 @@
 //   walk-cycle playback       UnitAnimationSync.asset (moveClipReferenceSpeed)
 // Change the factor and those have to move with it.
 
+using Unity.Entities;
 using TheWaningBorder.Core.Settings;
 
 namespace TheWaningBorder.Rendering
@@ -41,5 +42,19 @@ namespace TheWaningBorder.Rendering
 
         /// <summary>The factor every unit view is drawn at.</summary>
         public static float Value => Cfg != null && Cfg.unitScale > 0.001f ? Cfg.unitScale : 1f;
+
+        /// <summary>How much larger an elite is drawn: heroes and sect units
+        /// (developer, 2026-11-25: "15~20% larger than the rest").</summary>
+        public static float EliteValue => Cfg != null && Cfg.eliteScale > 0.001f ? Cfg.eliteScale : 1f;
+
+        /// <summary>The factor this unit's view is drawn at.</summary>
+        public static float For(EntityManager em, Entity unit)
+        {
+            if (em.HasComponent<HeroLevel>(unit)) return Value * EliteValue;
+            if (em.HasComponent<PresentationId>(unit)
+                && TechCatalog.TryGetUnitId(em.GetComponentData<PresentationId>(unit).Id, out var id)
+                && id.StartsWith("Sect_", System.StringComparison.Ordinal)) return Value * EliteValue;
+            return Value;
+        }
     }
 }

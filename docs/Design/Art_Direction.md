@@ -32,6 +32,21 @@
 
 ---
 
+> **Buildings pop (2026-11-25, developer: "I need buildings to pop. the golden
+> highlights look dull"; "do all three").** Supersedes the cool sun and the
+> flat black ink wherever the text below still states them. Three changes:
+> 1. **Coloured ink** - a line is its own surface's colour darkened
+>    (`PencilOutline.asset` `surfaceInk` / `surfaceShade`); only silhouettes
+>    keep dark ink (`silhouetteInk`). Black lines were as wide as the gold trim
+>    and covered it.
+> 2. **Warm key, cool shade** - the sun is warm and slightly stronger, shadows
+>    are deeper, and bloom starts higher so bright ground no longer veils the
+>    picture. The cool side of the dusk now lives in the ambient and the
+>    shadows split-tone only. Values: `DayNightCycle.asset`.
+> 3. **Gold glow** - the gold texels of the roof and prop textures carry a
+>    baked emission (`Art/GoldGlow/`, menu *Waning Border > Art > Bake Gold
+>    Glow*; run it again after re-importing Synty, whose folder is not in git).
+
 ## 1. The target in one paragraph
 
 A **stylized low-poly RTS at dusk**. Cool blue-teal ambient, one weak
@@ -89,7 +104,7 @@ move out of code into `DayNightCycle.asset` (§11, Pass 1, task 1).
 | Field | Now | Target start | Note |
 |---|---|---|---|
 | `sunPitch` / `sunHeading` | 50 / −30 | **42 / −35** | lower = longer shadows, more form on buildings |
-| `sunColor` | `#FFF4E0` | **`#C8D4E6`** | cool, NOT saturated blue. `#8FA6C8` @ 0.75 was the first draft: on screen it was simply dark — night, not dusk — and desaturating the base on top of it left nothing to pop |
+| `sunColor` | `#FFF4E0` | **`#C8D4E6`** | **superseded 2026-11-25: warm, see the header.** cool, NOT saturated blue. `#8FA6C8` @ 0.75 was the first draft: on screen it was simply dark — night, not dusk — and desaturating the base on top of it left nothing to pop |
 | `sunIntensity` | 1.5 | **1.45** | the mood is in the COLOUR of the light, not its absence. Same strength as before, cool instead of warm |
 | `ambientSkyColor` | `#B3BFCC` | **`#4A5F88`** | navy |
 | `ambientEquatorColor` | `#808080` | **`#335161`** | teal-navy; this is the colour of "night" |

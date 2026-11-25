@@ -10731,6 +10731,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 30acee0a284e6f3459ea35123004f848, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  TogglePrefab: {fileID: 1508758403866968506, guid: 85beb5c23db947e489f3c5e4a2391bde, type: 3}
 --- !u!114 &1546954361
 MonoBehaviour:
   m_ObjectHideFlags: 0

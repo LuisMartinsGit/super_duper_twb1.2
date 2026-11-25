@@ -79,13 +79,13 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         /// bases are set pieces, not woodland.</summary>
         static readonly string[] ForestSpecies =
         {
-            "SM_Env_Tree_Large_", "SM_Env_Tree_Round_", "SM_Env_Tree_Thin_", "SM_Env_Tree_Pine_",
+            "K_SM_Env_Tree_Large_", "K_SM_Env_Tree_Round_", "K_SM_Env_Tree_Thin_", "K_SM_Env_Tree_Pine_",
         };
 
         /// <summary>Of those, the ones that belong on a mountain.</summary>
         static readonly string[] MountainSpecies =
         {
-            "SM_Env_Tree_Pine_", "SM_Env_Tree_Thin_",
+            "K_SM_Env_Tree_Pine_", "K_SM_Env_Tree_Thin_",
         };
 
         [MenuItem("Waning Border/Maps/Plant Trees From Regions")]

@@ -54387,7 +54387,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1342074438938624, guid: 1b236a9844af1ad4a9bcd6dc1c326910, type: 3}
       propertyPath: m_Name
-      value: KioskDome
+      value: K_KioskDome
       objectReference: {fileID: 0}
     - target: {fileID: 4520208866922270, guid: 1b236a9844af1ad4a9bcd6dc1c326910, type: 3}
       propertyPath: m_LocalScale.x
@@ -54470,7 +54470,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1127286786139158, guid: a0aee1f7af63f124babaf086221f90bf, type: 3}
       propertyPath: m_Name
-      value: SignHang
+      value: K_SignHang
       objectReference: {fileID: 0}
     - target: {fileID: 4699931583840100, guid: a0aee1f7af63f124babaf086221f90bf, type: 3}
       propertyPath: m_LocalScale.x
@@ -54549,7 +54549,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1215189710832584, guid: 1e270f35422977343b7db1dde4b6bca7, type: 3}
       propertyPath: m_Name
-      value: KioskDomeFinial
+      value: K_KioskDomeFinial
       objectReference: {fileID: 0}
     - target: {fileID: 4780634489536692, guid: 1e270f35422977343b7db1dde4b6bca7, type: 3}
       propertyPath: m_LocalScale.x
@@ -54632,7 +54632,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048225187755482, guid: c18d85f77ba48674890d06566dd90f90, type: 3}
       propertyPath: m_Name
-      value: Awning
+      value: K_Awning
       objectReference: {fileID: 0}
     - target: {fileID: 4294495475187658, guid: c18d85f77ba48674890d06566dd90f90, type: 3}
       propertyPath: m_LocalScale.x
@@ -54714,7 +54714,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132459846934932, guid: a8761a642ebc59c40ad2bacbd2f83921, type: 3}
       propertyPath: m_Name
-      value: RackPelt
+      value: K_RackPelt
       objectReference: {fileID: 0}
     - target: {fileID: 4230089641382246, guid: a8761a642ebc59c40ad2bacbd2f83921, type: 3}
       propertyPath: m_LocalScale.x
@@ -54793,7 +54793,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1816290431027912, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_Name
-      value: Post
+      value: K_Post
       objectReference: {fileID: 0}
     - target: {fileID: 4028456588922094, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_LocalScale.x
@@ -54864,7 +54864,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1793482622933152, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_Name
-      value: Sacks
+      value: K_Sacks
       objectReference: {fileID: 0}
     - target: {fileID: 4765925423086604, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_LocalScale.x
@@ -54943,7 +54943,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1816290431027912, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_Name
-      value: LeanPostB
+      value: K_LeanPostB
       objectReference: {fileID: 0}
     - target: {fileID: 4028456588922094, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_LocalScale.y
@@ -55010,7 +55010,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048225187755482, guid: c18d85f77ba48674890d06566dd90f90, type: 3}
       propertyPath: m_Name
-      value: Awning
+      value: K_Awning
       objectReference: {fileID: 0}
     - target: {fileID: 4294495475187658, guid: c18d85f77ba48674890d06566dd90f90, type: 3}
       propertyPath: m_LocalScale.x
@@ -55092,7 +55092,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1213523179954766, guid: 7f45e3a1f54810147abe84119dc5b840, type: 3}
       propertyPath: m_Name
-      value: GableEB
+      value: K_GableEB
       objectReference: {fileID: 0}
     - target: {fileID: 4153270064474154, guid: 7f45e3a1f54810147abe84119dc5b840, type: 3}
       propertyPath: m_LocalScale.x
@@ -55163,7 +55163,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1530386955774776, guid: 179aa7a826ac871499602de107b21af9, type: 3}
       propertyPath: m_Name
-      value: WallEa
+      value: K_WallEa
       objectReference: {fileID: 0}
     - target: {fileID: 4319865780712640, guid: 179aa7a826ac871499602de107b21af9, type: 3}
       propertyPath: m_LocalPosition.x
@@ -55226,7 +55226,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1793482622933152, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_Name
-      value: Sacks
+      value: K_Sacks
       objectReference: {fileID: 0}
     - target: {fileID: 4765925423086604, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_LocalScale.x
@@ -55305,7 +55305,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1368288559030512, guid: 2cb1b4b63f7bf794aa992126b6f64580, type: 3}
       propertyPath: m_Name
-      value: Stakes
+      value: K_Stakes
       objectReference: {fileID: 0}
     - target: {fileID: 4327213005671532, guid: 2cb1b4b63f7bf794aa992126b6f64580, type: 3}
       propertyPath: m_LocalScale.x
@@ -55384,7 +55384,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1683090170962812, guid: 3bb89720f4b542c4b905900c987572fe, type: 3}
       propertyPath: m_Name
-      value: PotA
+      value: K_PotA
       objectReference: {fileID: 0}
     - target: {fileID: 4091233938190534, guid: 3bb89720f4b542c4b905900c987572fe, type: 3}
       propertyPath: m_LocalScale.x
@@ -55463,7 +55463,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1293739682876146, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_Name
-      value: RackBeam
+      value: K_RackBeam
       objectReference: {fileID: 0}
     - target: {fileID: 4161301448876890, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_LocalScale.x
@@ -55538,7 +55538,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1252223868853454, guid: cf78b8bf36ea4054ca05e622c8dc2c75, type: 3}
       propertyPath: m_Name
-      value: WallSa
+      value: K_WallSa
       objectReference: {fileID: 0}
     - target: {fileID: 1603634003072948, guid: cf78b8bf36ea4054ca05e622c8dc2c75, type: 3}
       propertyPath: m_Name
@@ -55606,7 +55606,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1965543983390552, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_Name
-      value: Logs
+      value: K_Logs
       objectReference: {fileID: 0}
     - target: {fileID: 4855288998742498, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_LocalScale.x
@@ -55685,7 +55685,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1816290431027912, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_Name
-      value: LeanPost
+      value: K_LeanPost
       objectReference: {fileID: 0}
     - target: {fileID: 4028456588922094, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_LocalScale.y
@@ -55756,7 +55756,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1445818318589366, guid: 7c83d425474b3174fa642068ecbdcf15, type: 3}
       propertyPath: m_Name
-      value: TentB
+      value: K_TentB
       objectReference: {fileID: 0}
     - target: {fileID: 4626360381197176, guid: 7c83d425474b3174fa642068ecbdcf15, type: 3}
       propertyPath: m_LocalScale.x
@@ -55835,7 +55835,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1892720095914000, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_Name
-      value: LeanTo
+      value: K_LeanTo
       objectReference: {fileID: 0}
     - target: {fileID: 4852906826152256, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_LocalScale.x
@@ -55910,7 +55910,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1102096560517042, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_Name
-      value: Cage
+      value: K_Cage
       objectReference: {fileID: 0}
     - target: {fileID: 4095041027925210, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_LocalScale.x
@@ -55989,7 +55989,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048225187755482, guid: c18d85f77ba48674890d06566dd90f90, type: 3}
       propertyPath: m_Name
-      value: Awning
+      value: K_Awning
       objectReference: {fileID: 0}
     - target: {fileID: 4294495475187658, guid: c18d85f77ba48674890d06566dd90f90, type: 3}
       propertyPath: m_LocalScale.x
@@ -56071,7 +56071,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1536124472867078, guid: ef66b18ba8891374199827e83dd8d05f, type: 3}
       propertyPath: m_Name
-      value: Stall
+      value: K_Stall
       objectReference: {fileID: 0}
     - target: {fileID: 1850300567865682, guid: ef66b18ba8891374199827e83dd8d05f, type: 3}
       propertyPath: m_Name
@@ -56158,7 +56158,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -56237,7 +56237,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1215189710832584, guid: 1e270f35422977343b7db1dde4b6bca7, type: 3}
       propertyPath: m_Name
-      value: KioskDomeFinial
+      value: K_KioskDomeFinial
       objectReference: {fileID: 0}
     - target: {fileID: 4780634489536692, guid: 1e270f35422977343b7db1dde4b6bca7, type: 3}
       propertyPath: m_LocalScale.x
@@ -56320,7 +56320,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Kiosk
+      value: K_Kiosk
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -56481,7 +56481,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1892720095914000, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_Name
-      value: LeanTo
+      value: K_LeanTo
       objectReference: {fileID: 0}
     - target: {fileID: 4852906826152256, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_LocalScale.x
@@ -56560,7 +56560,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalPosition.x
@@ -56627,7 +56627,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1892720095914000, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_Name
-      value: ThatchN
+      value: K_ThatchN
       objectReference: {fileID: 0}
     - target: {fileID: 4852906826152256, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_LocalScale.x
@@ -56698,7 +56698,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: Skull
+      value: K_Skull
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -56777,7 +56777,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1713024454304430, guid: e9c97c2141ed77d4d9f0a6daea37e75b, type: 3}
       propertyPath: m_Name
-      value: Cap
+      value: K_Cap
       objectReference: {fileID: 0}
     - target: {fileID: 4582537180579758, guid: e9c97c2141ed77d4d9f0a6daea37e75b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -56840,7 +56840,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1213523179954766, guid: 7f45e3a1f54810147abe84119dc5b840, type: 3}
       propertyPath: m_Name
-      value: GableEA
+      value: K_GableEA
       objectReference: {fileID: 0}
     - target: {fileID: 4153270064474154, guid: 7f45e3a1f54810147abe84119dc5b840, type: 3}
       propertyPath: m_LocalScale.y
@@ -56907,7 +56907,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -56986,7 +56986,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1447858342129874, guid: 3a73eda4c89d632449e4cc126b304185, type: 3}
       propertyPath: m_Name
-      value: WallWa
+      value: K_WallWa
       objectReference: {fileID: 0}
     - target: {fileID: 4964199815754984, guid: 3a73eda4c89d632449e4cc126b304185, type: 3}
       propertyPath: m_LocalPosition.x
@@ -57049,7 +57049,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -57128,7 +57128,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1892720095914000, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_Name
-      value: ThatchS
+      value: K_ThatchS
       objectReference: {fileID: 0}
     - target: {fileID: 4852906826152256, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_LocalScale.x
@@ -57199,7 +57199,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1793482622933152, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_Name
-      value: Sacks
+      value: K_Sacks
       objectReference: {fileID: 0}
     - target: {fileID: 4765925423086604, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_LocalScale.x
@@ -57278,7 +57278,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: RackPostB
+      value: K_RackPostB
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -57357,7 +57357,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1685244815529056, guid: 5a56bea0910e46946a878d51da37757f, type: 3}
       propertyPath: m_Name
-      value: BasketA
+      value: K_BasketA
       objectReference: {fileID: 0}
     - target: {fileID: 4259726223605416, guid: 5a56bea0910e46946a878d51da37757f, type: 3}
       propertyPath: m_LocalScale.x
@@ -57432,7 +57432,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: RackPostA
+      value: K_RackPostA
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -57511,7 +57511,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1719569932363254, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_Name
-      value: Crate
+      value: K_Crate
       objectReference: {fileID: 0}
     - target: {fileID: 4586611713910306, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_LocalScale.x
@@ -57590,7 +57590,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: RackPostB
+      value: K_RackPostB
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -57669,7 +57669,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1342074438938624, guid: 1b236a9844af1ad4a9bcd6dc1c326910, type: 3}
       propertyPath: m_Name
-      value: SignCrown
+      value: K_SignCrown
       objectReference: {fileID: 0}
     - target: {fileID: 4520208866922270, guid: 1b236a9844af1ad4a9bcd6dc1c326910, type: 3}
       propertyPath: m_LocalScale.x
@@ -57752,7 +57752,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1719569932363254, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_Name
-      value: Crate
+      value: K_Crate
       objectReference: {fileID: 0}
     - target: {fileID: 4586611713910306, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_LocalScale.x
@@ -57831,7 +57831,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Kiosk
+      value: K_Kiosk
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -57910,7 +57910,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: OverseerPost
+      value: K_OverseerPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -58063,7 +58063,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1793482622933152, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_Name
-      value: Sacks
+      value: K_Sacks
       objectReference: {fileID: 0}
     - target: {fileID: 4765925423086604, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_LocalScale.x
@@ -58142,7 +58142,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -58221,7 +58221,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1177926268367656, guid: 9113b902fee41e840a16886b937e28d9, type: 3}
       propertyPath: m_Name
-      value: Hay
+      value: K_Hay
       objectReference: {fileID: 0}
     - target: {fileID: 4558434971780384, guid: 9113b902fee41e840a16886b937e28d9, type: 3}
       propertyPath: m_LocalScale.x
@@ -58296,7 +58296,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1816290431027912, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_Name
-      value: Post
+      value: K_Post
       objectReference: {fileID: 0}
     - target: {fileID: 4028456588922094, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_LocalScale.x
@@ -58367,7 +58367,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1213523179954766, guid: 7f45e3a1f54810147abe84119dc5b840, type: 3}
       propertyPath: m_Name
-      value: GableWA
+      value: K_GableWA
       objectReference: {fileID: 0}
     - target: {fileID: 4153270064474154, guid: 7f45e3a1f54810147abe84119dc5b840, type: 3}
       propertyPath: m_LocalScale.y
@@ -58434,7 +58434,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1965543983390552, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_Name
-      value: Logs
+      value: K_Logs
       objectReference: {fileID: 0}
     - target: {fileID: 4855288998742498, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_LocalScale.x
@@ -58513,7 +58513,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: SkullPost
+      value: K_SkullPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -58592,7 +58592,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1816290431027912, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_Name
-      value: Post
+      value: K_Post
       objectReference: {fileID: 0}
     - target: {fileID: 4028456588922094, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_LocalScale.x
@@ -58663,7 +58663,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1892720095914000, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_Name
-      value: LeanTo
+      value: K_LeanTo
       objectReference: {fileID: 0}
     - target: {fileID: 4852906826152256, guid: cf80c8e9d57b66e4aa3533a2eadf270c, type: 3}
       propertyPath: m_LocalScale.x
@@ -58742,7 +58742,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -58821,7 +58821,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1685244815529056, guid: 5a56bea0910e46946a878d51da37757f, type: 3}
       propertyPath: m_Name
-      value: BasketB
+      value: K_BasketB
       objectReference: {fileID: 0}
     - target: {fileID: 4259726223605416, guid: 5a56bea0910e46946a878d51da37757f, type: 3}
       propertyPath: m_LocalScale.x
@@ -58896,7 +58896,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: RackPostA
+      value: K_RackPostA
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -58975,7 +58975,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -59054,7 +59054,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1342074438938624, guid: 1b236a9844af1ad4a9bcd6dc1c326910, type: 3}
       propertyPath: m_Name
-      value: KioskDome
+      value: K_KioskDome
       objectReference: {fileID: 0}
     - target: {fileID: 4520208866922270, guid: 1b236a9844af1ad4a9bcd6dc1c326910, type: 3}
       propertyPath: m_LocalScale.x
@@ -59137,7 +59137,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1816290431027912, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_Name
-      value: LeanPostA
+      value: K_LeanPostA
       objectReference: {fileID: 0}
     - target: {fileID: 4028456588922094, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_LocalScale.y
@@ -59204,7 +59204,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1793482622933152, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_Name
-      value: Sacks
+      value: K_Sacks
       objectReference: {fileID: 0}
     - target: {fileID: 4765925423086604, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_LocalScale.x
@@ -59283,7 +59283,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1445818318589366, guid: 7c83d425474b3174fa642068ecbdcf15, type: 3}
       propertyPath: m_Name
-      value: Tent
+      value: K_Tent
       objectReference: {fileID: 0}
     - target: {fileID: 4626360381197176, guid: 7c83d425474b3174fa642068ecbdcf15, type: 3}
       propertyPath: m_LocalScale.x
@@ -59362,7 +59362,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1106348561825838, guid: d509b713087e7a2438a9651f4ee59feb, type: 3}
       propertyPath: m_Name
-      value: OverseerChain
+      value: K_OverseerChain
       objectReference: {fileID: 0}
     - target: {fileID: 4485909151940292, guid: d509b713087e7a2438a9651f4ee59feb, type: 3}
       propertyPath: m_LocalPosition.x
@@ -59429,7 +59429,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1445818318589366, guid: 7c83d425474b3174fa642068ecbdcf15, type: 3}
       propertyPath: m_Name
-      value: Tent
+      value: K_Tent
       objectReference: {fileID: 0}
     - target: {fileID: 4626360381197176, guid: 7c83d425474b3174fa642068ecbdcf15, type: 3}
       propertyPath: m_LocalScale.x
@@ -59508,7 +59508,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1719569932363254, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_Name
-      value: Crate
+      value: K_Crate
       objectReference: {fileID: 0}
     - target: {fileID: 4586611713910306, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_LocalScale.x
@@ -59587,7 +59587,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -59666,7 +59666,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1116480936608546, guid: 34e521243b9550c4c84ff680ba49613d, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_House_Wall_Window__Glass
+      value: K_SM_Bld_House_Wall_Window__Glass
       objectReference: {fileID: 0}
     - target: {fileID: 1286600521495456, guid: 34e521243b9550c4c84ff680ba49613d, type: 3}
       propertyPath: m_Name
@@ -59741,7 +59741,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1536124472867078, guid: ef66b18ba8891374199827e83dd8d05f, type: 3}
       propertyPath: m_Name
-      value: Stall
+      value: K_Stall
       objectReference: {fileID: 0}
     - target: {fileID: 1850300567865682, guid: ef66b18ba8891374199827e83dd8d05f, type: 3}
       propertyPath: m_Name
@@ -59828,7 +59828,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132459846934932, guid: a8761a642ebc59c40ad2bacbd2f83921, type: 3}
       propertyPath: m_Name
-      value: RackPelt
+      value: K_RackPelt
       objectReference: {fileID: 0}
     - target: {fileID: 4230089641382246, guid: a8761a642ebc59c40ad2bacbd2f83921, type: 3}
       propertyPath: m_LocalScale.x
@@ -59907,7 +59907,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -59982,7 +59982,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1683090170962812, guid: 3bb89720f4b542c4b905900c987572fe, type: 3}
       propertyPath: m_Name
-      value: PotA
+      value: K_PotA
       objectReference: {fileID: 0}
     - target: {fileID: 4091233938190534, guid: 3bb89720f4b542c4b905900c987572fe, type: 3}
       propertyPath: m_LocalScale.x
@@ -60061,7 +60061,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -60140,7 +60140,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -60219,7 +60219,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1683090170962812, guid: 3bb89720f4b542c4b905900c987572fe, type: 3}
       propertyPath: m_Name
-      value: PotA
+      value: K_PotA
       objectReference: {fileID: 0}
     - target: {fileID: 4091233938190534, guid: 3bb89720f4b542c4b905900c987572fe, type: 3}
       propertyPath: m_LocalScale.x
@@ -60298,7 +60298,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1816290431027912, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_Name
-      value: LeanPost
+      value: K_LeanPost
       objectReference: {fileID: 0}
     - target: {fileID: 4028456588922094, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_LocalScale.y
@@ -60369,7 +60369,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1793482622933152, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_Name
-      value: Sacks
+      value: K_Sacks
       objectReference: {fileID: 0}
     - target: {fileID: 4765925423086604, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_LocalScale.x
@@ -60448,7 +60448,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1816290431027912, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_Name
-      value: Post
+      value: K_Post
       objectReference: {fileID: 0}
     - target: {fileID: 4028456588922094, guid: 965791a6a06b9ef459fb58c8a0ce2d30, type: 3}
       propertyPath: m_LocalScale.x
@@ -60519,7 +60519,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1293739682876146, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_Name
-      value: RackBeam
+      value: K_RackBeam
       objectReference: {fileID: 0}
     - target: {fileID: 4161301448876890, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_LocalScale.x
@@ -60594,7 +60594,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1965543983390552, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_Name
-      value: Logs
+      value: K_Logs
       objectReference: {fileID: 0}
     - target: {fileID: 4855288998742498, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_LocalScale.x
@@ -60673,7 +60673,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1102096560517042, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_Name
-      value: Cage
+      value: K_Cage
       objectReference: {fileID: 0}
     - target: {fileID: 4095041027925210, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_LocalScale.x
@@ -60752,7 +60752,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -60831,7 +60831,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalPosition.x
@@ -60898,7 +60898,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1793482622933152, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_Name
-      value: Sacks
+      value: K_Sacks
       objectReference: {fileID: 0}
     - target: {fileID: 4765925423086604, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_LocalScale.x
@@ -60973,7 +60973,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1445818318589366, guid: 7c83d425474b3174fa642068ecbdcf15, type: 3}
       propertyPath: m_Name
-      value: Tent
+      value: K_Tent
       objectReference: {fileID: 0}
     - target: {fileID: 4626360381197176, guid: 7c83d425474b3174fa642068ecbdcf15, type: 3}
       propertyPath: m_LocalScale.x
@@ -61052,7 +61052,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalPosition.x
@@ -61119,7 +61119,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1127286786139158, guid: a0aee1f7af63f124babaf086221f90bf, type: 3}
       propertyPath: m_Name
-      value: SignTetherb
+      value: K_SignTetherb
       objectReference: {fileID: 0}
     - target: {fileID: 4699931583840100, guid: a0aee1f7af63f124babaf086221f90bf, type: 3}
       propertyPath: m_LocalScale.x
@@ -61198,7 +61198,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1127286786139158, guid: a0aee1f7af63f124babaf086221f90bf, type: 3}
       propertyPath: m_Name
-      value: SignTethera
+      value: K_SignTethera
       objectReference: {fileID: 0}
     - target: {fileID: 4699931583840100, guid: a0aee1f7af63f124babaf086221f90bf, type: 3}
       propertyPath: m_LocalScale.x
@@ -61277,7 +61277,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1536124472867078, guid: ef66b18ba8891374199827e83dd8d05f, type: 3}
       propertyPath: m_Name
-      value: Stall
+      value: K_Stall
       objectReference: {fileID: 0}
     - target: {fileID: 1850300567865682, guid: ef66b18ba8891374199827e83dd8d05f, type: 3}
       propertyPath: m_Name
@@ -61364,7 +61364,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1213523179954766, guid: 7f45e3a1f54810147abe84119dc5b840, type: 3}
       propertyPath: m_Name
-      value: GableWB
+      value: K_GableWB
       objectReference: {fileID: 0}
     - target: {fileID: 4153270064474154, guid: 7f45e3a1f54810147abe84119dc5b840, type: 3}
       propertyPath: m_LocalScale.x

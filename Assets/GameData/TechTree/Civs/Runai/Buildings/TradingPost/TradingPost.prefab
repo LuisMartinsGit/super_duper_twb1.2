@@ -47,7 +47,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1264048913705278, guid: e0d64ef55673ae34a95e9971018b162e, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Tent_Single_01
+      value: K_SM_Bld_Tent_Single_01
       objectReference: {fileID: 0}
     - target: {fileID: 4139642320894240, guid: e0d64ef55673ae34a95e9971018b162e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -110,7 +110,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1588419836231922, guid: 98d1c0fb8c14f684ba730de310ba6677, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Sign_Wood_03
+      value: K_SM_Prop_Sign_Wood_03
       objectReference: {fileID: 0}
     - target: {fileID: 4225288164573004, guid: 98d1c0fb8c14f684ba730de310ba6677, type: 3}
       propertyPath: m_LocalPosition.x
@@ -173,7 +173,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048619644081910, guid: 14657c6b12c9e4048b8d9ee04156c2bc, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Crate_Stack_02
+      value: K_SM_Prop_Crate_Stack_02
       objectReference: {fileID: 0}
     - target: {fileID: 4495016704618416, guid: 14657c6b12c9e4048b8d9ee04156c2bc, type: 3}
       propertyPath: m_LocalPosition.x
@@ -237,7 +237,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1989754097958104, guid: 7ca34a6afd5cc3049a707cfdafb11b67, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Sack_01
+      value: K_SM_Prop_Sack_01
       objectReference: {fileID: 0}
     - target: {fileID: 4058735147989746, guid: 7ca34a6afd5cc3049a707cfdafb11b67, type: 3}
       propertyPath: m_LocalPosition.x
@@ -300,7 +300,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1536124472867078, guid: ef66b18ba8891374199827e83dd8d05f, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Market_Stall_01
+      value: K_SM_Prop_Market_Stall_01
       objectReference: {fileID: 0}
     - target: {fileID: 4691956040868422, guid: ef66b18ba8891374199827e83dd8d05f, type: 3}
       propertyPath: m_LocalScale.x
@@ -375,7 +375,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x

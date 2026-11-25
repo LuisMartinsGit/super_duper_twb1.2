@@ -4,7 +4,7 @@
 // an emissive finial (the rig's single glow accent). Player color lands on
 // the cape lining and the banner cloth via KingLexorAnimator, which drives
 // the shared 4-beat gait plus a slow cape sway and banner flutter. Root
-// carries ProceduralScaleTag BaseScale 1.15 so the king reads larger.
+// is drawn at the elite scale (UnitWorldScale), as every hero.
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -19,7 +19,6 @@ namespace TheWaningBorder.Rendering
         {
             var rng = new System.Random(seed);
             var root = new GameObject("KingLexorVisual");
-            root.AddComponent<ProceduralScaleTag>().BaseScale = 1.15f;
 
             // Palette — midnight coat, brass and gold over dark iron.
             var coat        = new Color(0.12f, 0.10f, 0.10f);
@@ -92,117 +91,13 @@ namespace TheWaningBorder.Rendering
             rider.transform.localPosition = new Vector3(0f, 1.42f, -0.08f);
             var r = rider.transform;
 
-            Part(PrimitiveType.Cube, "Torso", r,
-                new Vector3(0f, 0.30f, 0f), new Vector3(0.35f, 0.45f, 0.24f),
-                Quaternion.Euler(HorseRigBuilder.Jitter(rng, 1.5f), 0f, HorseRigBuilder.Jitter(rng, 1.5f)),
-                ironDark, 0.80f, 0.45f);
-            Part(PrimitiveType.Cube, "Breastplate", r,
-                new Vector3(0f, 0.33f, 0.125f), new Vector3(0.31f, 0.35f, 0.035f),
-                Quaternion.identity, steel, 0.90f, 0.60f);
-            Part(PrimitiveType.Cube, "GorgetTrim", r,
-                new Vector3(0f, 0.52f, 0.09f), new Vector3(0.24f, 0.045f, 0.05f),
-                Quaternion.identity, gold, 0.90f, 0.65f);
-            Part(PrimitiveType.Cube, "Tasset_L", r,
-                new Vector3(-0.155f, 0.05f, 0.02f), new Vector3(0.13f, 0.16f, 0.24f),
-                Quaternion.Euler(0f, 0f, -8f), ironDark, 0.80f, 0.45f);
-            Part(PrimitiveType.Cube, "Tasset_R", r,
-                new Vector3(0.155f, 0.05f, 0.02f), new Vector3(0.13f, 0.16f, 0.24f),
-                Quaternion.Euler(0f, 0f, 8f), ironDark, 0.80f, 0.45f);
-            Part(PrimitiveType.Sphere, "RiderHead", r,
-                new Vector3(0f, 0.64f, 0.02f), new Vector3(0.19f, 0.20f, 0.19f),
-                Quaternion.identity, ironDark, 0.60f, 0.35f);
-            Part(PrimitiveType.Sphere, "HelmDome", r,
-                new Vector3(0f, 0.70f, 0.02f), new Vector3(0.22f, 0.17f, 0.22f),
-                Quaternion.identity, steel, 0.90f, 0.60f);
-            Part(PrimitiveType.Cube, "FacePlate", r,
-                new Vector3(0f, 0.63f, 0.115f), new Vector3(0.16f, 0.14f, 0.03f),
-                Quaternion.Euler(-6f, 0f, 0f), steel * 0.95f, 0.85f, 0.55f);
-            Part(PrimitiveType.Cube, "EyeSlit", r,
-                new Vector3(0f, 0.665f, 0.132f), new Vector3(0.12f, 0.018f, 0.012f),
-                Quaternion.Euler(-6f, 0f, 0f), new Color(0.05f, 0.05f, 0.06f), 0.20f, 0.10f);
-            // Crown: a brass circlet ringed by five gold spikes.
-            Part(PrimitiveType.Cylinder, "CrownBand", r,
-                new Vector3(0f, 0.755f, 0.02f), new Vector3(0.20f, 0.022f, 0.20f),
-                Quaternion.identity, brass, 0.90f, 0.65f);
-            for (int i = 0; i < 5; i++)
+            // The king himself is the unit's prefab (EliteKit): a seated figure
+            // from the Synty kits, his seat at the origin.
+            if (TechCatalog.TryGetPrefab(251, out var king) && king != null)
             {
-                float ang = i * Mathf.PI * 2f / 5f + 0.25f;
-                Part(PrimitiveType.Cube, $"CrownSpike_{i + 1}", r,
-                    new Vector3(Mathf.Sin(ang) * 0.095f, 0.815f, 0.02f + Mathf.Cos(ang) * 0.095f),
-                    new Vector3(0.028f, 0.075f, 0.028f),
-                    Quaternion.Euler(Mathf.Cos(ang) * 10f, 0f, -Mathf.Sin(ang) * 10f),
-                    gold, 0.90f, 0.65f);
+                var figure = Object.Instantiate(king, r, false);
+                figure.name = "King";
             }
-            Part(PrimitiveType.Sphere, "Pauldron_L", r,
-                new Vector3(-0.21f, 0.47f, 0f), new Vector3(0.15f, 0.13f, 0.15f),
-                Quaternion.identity, steel, 0.90f, 0.55f);
-            Part(PrimitiveType.Sphere, "Pauldron_R", r,
-                new Vector3(0.21f, 0.47f, 0f), new Vector3(0.15f, 0.13f, 0.15f),
-                Quaternion.identity, steel, 0.90f, 0.55f);
-            HorseRigBuilder.Strut("Arm_L", r,
-                new Vector3(-0.21f, 0.44f, 0.02f), new Vector3(-0.15f, 0.28f, 0.24f),
-                0.055f, ironDark, 0.75f, 0.40f);
-            Part(PrimitiveType.Sphere, "Gauntlet_L", r,
-                new Vector3(-0.15f, 0.26f, 0.25f), new Vector3(0.085f, 0.085f, 0.085f),
-                Quaternion.identity, brass, 0.85f, 0.55f);
-            HorseRigBuilder.Strut("Arm_R", r,
-                new Vector3(0.21f, 0.44f, 0.02f), new Vector3(0.30f, 0.18f, 0.06f),
-                0.055f, ironDark, 0.75f, 0.40f);
-            Part(PrimitiveType.Sphere, "Gauntlet_R", r,
-                new Vector3(0.30f, 0.16f, 0.07f), new Vector3(0.085f, 0.085f, 0.085f),
-                Quaternion.identity, brass, 0.85f, 0.55f);
-            HorseRigBuilder.Strut("Cuisse_L", r,
-                new Vector3(-0.17f, 0.05f, 0.02f), new Vector3(-0.29f, -0.12f, 0.22f),
-                0.065f, ironDark, 0.75f, 0.40f);
-            HorseRigBuilder.Strut("Greave_L", r,
-                new Vector3(-0.29f, -0.12f, 0.22f), new Vector3(-0.31f, -0.38f, 0.16f),
-                0.05f, steel, 0.85f, 0.50f);
-            Part(PrimitiveType.Cube, "Sabaton_L", r,
-                new Vector3(-0.31f, -0.42f, 0.21f), new Vector3(0.09f, 0.07f, 0.18f),
-                Quaternion.identity, brass, 0.85f, 0.55f);
-            HorseRigBuilder.Strut("Cuisse_R", r,
-                new Vector3(0.17f, 0.05f, 0.02f), new Vector3(0.29f, -0.12f, 0.22f),
-                0.065f, ironDark, 0.75f, 0.40f);
-            HorseRigBuilder.Strut("Greave_R", r,
-                new Vector3(0.29f, -0.12f, 0.22f), new Vector3(0.31f, -0.38f, 0.16f),
-                0.05f, steel, 0.85f, 0.50f);
-            Part(PrimitiveType.Cube, "Sabaton_R", r,
-                new Vector3(0.31f, -0.42f, 0.21f), new Vector3(0.09f, 0.07f, 0.18f),
-                Quaternion.identity, brass, 0.85f, 0.55f);
-
-            // ── Royal sword sheathed at the left hip (the king points, his
-            //    army fights). ──
-            Part(PrimitiveType.Cube, "Scabbard", r,
-                new Vector3(-0.20f, -0.02f, -0.10f), new Vector3(0.045f, 0.42f, 0.07f),
-                Quaternion.Euler(8f, 0f, 14f), leather * 0.8f, 0.10f, 0.35f);
-            Part(PrimitiveType.Cube, "SwordHilt", r,
-                new Vector3(-0.255f, 0.22f, -0.135f), new Vector3(0.12f, 0.028f, 0.03f),
-                Quaternion.Euler(8f, 0f, 14f), gold, 0.90f, 0.65f);
-
-            // ── Cape: three angled slabs flowing over the rump; the lining
-            //    slab is the tint accent. Hung from a sway pivot. ──
-            var cape = new GameObject("Cape");
-            cape.transform.SetParent(r, false);
-            cape.transform.localPosition = new Vector3(0f, 0.50f, -0.12f);
-            var cp = cape.transform;
-            Part(PrimitiveType.Cube, "CapeUpper", cp,
-                new Vector3(0f, -0.14f, -0.10f), new Vector3(0.42f, 0.30f, 0.022f),
-                Quaternion.Euler(-24f, 0f, HorseRigBuilder.Jitter(rng, 2f)), capeOuter, 0.05f, 0.18f);
-            Part(PrimitiveType.Cube, "CapeMid", cp,
-                new Vector3(0f, -0.40f, -0.24f), new Vector3(0.48f, 0.32f, 0.02f),
-                Quaternion.Euler(-38f, 0f, HorseRigBuilder.Jitter(rng, 2f)), capeOuter * 0.92f, 0.05f, 0.16f);
-            Part(PrimitiveType.Cube, "CapeLower", cp,
-                new Vector3(0f, -0.62f, -0.42f), new Vector3(0.52f, 0.30f, 0.02f),
-                Quaternion.Euler(-52f, 0f, HorseRigBuilder.Jitter(rng, 3f)), capeOuter * 0.85f, 0.05f, 0.15f);
-            Part(PrimitiveType.Cube, "CapeLining", cp,
-                new Vector3(0f, -0.40f, -0.215f), new Vector3(0.44f, 0.30f, 0.012f),
-                Quaternion.Euler(-38f, 0f, 0f), accentBase, 0.05f, 0.25f);
-            Part(PrimitiveType.Sphere, "CapeClasp_L", cp,
-                new Vector3(-0.17f, 0.005f, 0.02f), new Vector3(0.05f, 0.05f, 0.05f),
-                Quaternion.identity, gold, 0.90f, 0.65f);
-            Part(PrimitiveType.Sphere, "CapeClasp_R", cp,
-                new Vector3(0.17f, 0.005f, 0.02f), new Vector3(0.05f, 0.05f, 0.05f),
-                Quaternion.identity, gold, 0.90f, 0.65f);
 
             // ── Tall back-banner: pole socketed behind the saddle, tinted
             //    cloth on a flutter pivot, emissive finial at the tip. ──
@@ -387,6 +282,11 @@ namespace TheWaningBorder.Rendering
             _factionColor = FactionColors.Get(_em.GetComponentData<FactionTag>(e).Value);
             for (int i = 0; i < _tintMats.Count; i++)
                 _tintMats[i].SetColor("_BaseColor", Color.Lerp(_factionColor, Color.white, 0.10f));
+            var faction = _em.GetComponentData<FactionTag>(e).Value;
+            var kit = GetComponentInChildren<UnitAgeKit>();
+            if (kit != null) kit.Bind(faction);
+            var cloth = GetComponentInChildren<UnitPlayerColor>();
+            if (cloth != null) cloth.Apply(_factionColor);
             _tinted = true;
         }
 

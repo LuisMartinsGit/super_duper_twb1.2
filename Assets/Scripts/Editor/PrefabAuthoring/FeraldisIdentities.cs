@@ -41,16 +41,16 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
 {
     public static partial class FeraldisKitAuthor
     {
-        const string C_Batt = "Castle/SM_Bld_Castle_Battlements_01";
-        const string C_Wall1 = "Castle/SM_Bld_Castle_Wall_01";
-        const string Bld_TentOpen = "Buildings/SM_Bld_Tent_Open_01";
-        const string Bld_TentSmall = "Buildings/SM_Bld_Tent_Small_01";
-        const string P_Tether = "Props/SM_Prop_Tether_Beam_01";
-        const string P_WindmillBig = "Props/SM_Prop_Windmill_03";
-        const string P_WindmillSmall = "Props/SM_Prop_Windmill_01";
-        const string P_Bath = "Props/Furniture/SM_Prop_Bath_01";
-        const string B_DummyArchery = "Props/BattleGround/SM_Prop_Dummy_Archery_01";
-        const string FX_Fire = "FX/FX_Fire_01";
+        const string C_Batt = "Castle/K_SM_Bld_Castle_Battlements_01";
+        const string C_Wall1 = "Castle/K_SM_Bld_Castle_Wall_01";
+        const string Bld_TentOpen = "Buildings/K_SM_Bld_Tent_Open_01";
+        const string Bld_TentSmall = "Buildings/K_SM_Bld_Tent_Small_01";
+        const string P_Tether = "Props/K_SM_Prop_Tether_Beam_01";
+        const string P_WindmillBig = "Props/K_SM_Prop_Windmill_03";
+        const string P_WindmillSmall = "Props/K_SM_Prop_Windmill_01";
+        const string P_Bath = "Props/Furniture/K_SM_Prop_Bath_01";
+        const string B_DummyArchery = "Props/BattleGround/K_SM_Prop_Dummy_Archery_01";
+        const string FX_Fire = "FX/K_FX_Fire_01";
 
         static Material _ferHide, _ferIron, _ferTurf, _ferRune, _ferHideDark, _ferCanvas;
 

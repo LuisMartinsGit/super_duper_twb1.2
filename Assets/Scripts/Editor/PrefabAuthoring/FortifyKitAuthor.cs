@@ -41,20 +41,20 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         /// scale as the other Alanthor buildings (Watch Tower 0.39, House 0.40).</summary>
         const float FortHalf = 7.5f;
 
-        const string FK_CrownS = "Castle/SM_Bld_Castle_Battlements_S_Corner_01";
-        const string FK_Wall = "Castle/SM_Bld_Castle_Wall_01";
-        const string FK_Floor = "Castle/SM_Bld_Castle_Floor_Stone_01";
-        const string FK_Cone = "Castle/SM_Bld_Castle_Roof_Cap_Round_04";
-        const string FK_Pyramid = "Castle/SM_Bld_Castle_Roof_Cap_Square_04";
-        const string FK_WallSlit = "Castle/SM_Bld_Castle_Wall_Arrowslit_01";
-        const string FK_WallDoor = "Castle/SM_Bld_Castle_Wall_Door_01";
-        const string FK_Block = "Castle/SM_Bld_Castle_Wall_Block_01";
-        const string FK_Batt = "Castle/SM_Bld_Castle_Battlements_01";
-        const string FK_BattPillar = "Castle/SM_Bld_Castle_Battlements_Pillar_01";
-        const string FK_Corbels = "Castle/SM_Bld_Castle_Wall_Corbels_01";
-        const string FK_Banner = "Props/Banners/SM_Prop_Flag_01";
-        const string FK_Lamp = "Props/SM_Prop_Bracket_Lamp_01";
-        const string FK_Brazier = "Props/BattleGround/SM_Prop_Camp_Brazier_01";
+        const string FK_CrownS = "Castle/K_SM_Bld_Castle_Battlements_S_Corner_01";
+        const string FK_Wall = "Castle/K_SM_Bld_Castle_Wall_01";
+        const string FK_Floor = "Castle/K_SM_Bld_Castle_Floor_Stone_01";
+        const string FK_Cone = "Castle/K_SM_Bld_Castle_Roof_Cap_Round_04";
+        const string FK_Pyramid = "Castle/K_SM_Bld_Castle_Roof_Cap_Square_04";
+        const string FK_WallSlit = "Castle/K_SM_Bld_Castle_Wall_Arrowslit_01";
+        const string FK_WallDoor = "Castle/K_SM_Bld_Castle_Wall_Door_01";
+        const string FK_Block = "Castle/K_SM_Bld_Castle_Wall_Block_01";
+        const string FK_Batt = "Castle/K_SM_Bld_Castle_Battlements_01";
+        const string FK_BattPillar = "Castle/K_SM_Bld_Castle_Battlements_Pillar_01";
+        const string FK_Corbels = "Castle/K_SM_Bld_Castle_Wall_Corbels_01";
+        const string FK_Banner = "Props/Banners/K_SM_Prop_Flag_01";
+        const string FK_Lamp = "Props/K_SM_Prop_Bracket_Lamp_01";
+        const string FK_Brazier = "Props/BattleGround/K_SM_Prop_Camp_Brazier_01";
 
         static Material _fkRoof, _fkFlag, _fkWhite, _fkGold;
 
@@ -233,10 +233,10 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
                     string kind = courses[c] == "Door" && k != doorQuarter ? "Wall" : courses[c];
                     string piece = kind switch
                     {
-                        "Slit" => $"Castle/SM_Bld_Castle_Wall_Corner_{size}_Arrowslit_01",
-                        "Door" => $"Castle/SM_Bld_Castle_Wall_Corner_{size}_Door_01",
-                        "Half" => $"Castle/SM_Bld_Castle_Wall_Half_Corner_{size}_01",
-                        _ => $"Castle/SM_Bld_Castle_Wall_Corner_{size}_01",
+                        "Slit" => $"Castle/K_SM_Bld_Castle_Wall_Corner_{size}_Arrowslit_01",
+                        "Door" => $"Castle/K_SM_Bld_Castle_Wall_Corner_{size}_Door_01",
+                        "Half" => $"Castle/K_SM_Bld_Castle_Wall_Half_Corner_{size}_01",
+                        _ => $"Castle/K_SM_Bld_Castle_Wall_Corner_{size}_01",
                     };
                     var rot = Quaternion.Euler(0f, k * 90f, 0f);
                     var go = Put(parent, piece, $"Course{Letter(c)}{Letter(k)}",
@@ -249,7 +249,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             }
             for (int k = 0; k < 4; k++)
             {
-                var f = Put(parent, $"Castle/SM_Bld_Castle_Floor_Stone_Round_{size}_01", "Floor" + Letter(k),
+                var f = Put(parent, $"Castle/K_SM_Bld_Castle_Floor_Stone_Round_{size}_01", "Floor" + Letter(k),
                             new Vector3(baseAt.x, y - 0.03f, baseAt.z), k * 90f, Vector3.one, Style.Neutral);
                 Restyle(f, wall);
             }
@@ -262,7 +262,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         static float Gallery(Transform parent, Vector3 at, bool medium)
         {
             float reach = medium ? 3.75f : 2.5f;
-            string piece = medium ? "Castle/SM_Bld_Castle_Hoarding_Corner_M_01" : "Castle/SM_Bld_Castle_Hoarding_Corner_S_01";
+            string piece = medium ? "Castle/K_SM_Bld_Castle_Hoarding_Corner_M_01" : "Castle/K_SM_Bld_Castle_Hoarding_Corner_S_01";
             for (int k = 0; k < 4; k++)
             {
                 var rot = Quaternion.Euler(0f, k * 90f, 0f);
@@ -511,26 +511,26 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
 
         static readonly string[] FortifyMeasureList =
         {
-            "Castle/SM_Bld_Castle_Wall_Corner_S_01", "Castle/SM_Bld_Castle_Wall_Corner_S_Arrowslit_01",
-            "Castle/SM_Bld_Castle_Wall_Corner_S_Door_01", "Castle/SM_Bld_Castle_Wall_Half_Corner_S_01",
-            "Castle/SM_Bld_Castle_Hoarding_Corner_S_01", "Castle/SM_Bld_Castle_Battlements_S_Corner_01",
-            "Castle/SM_Bld_Castle_Wall_Corner_M_01", "Castle/SM_Bld_Castle_Wall_Half_Corner_M_01",
-            "Castle/SM_Bld_Castle_Roof_Cap_Round_01", "Castle/SM_Bld_Castle_Roof_Cap_Round_02",
-            "Castle/SM_Bld_Castle_Roof_Cap_Round_03", "Castle/SM_Bld_Castle_Roof_Cap_Round_04",
-            "Castle/SM_Bld_Castle_Roof_Cap_Square_01", "Castle/SM_Bld_Castle_Roof_Cap_Square_02",
-            "Castle/SM_Bld_Castle_Roof_Cap_Square_03", "Castle/SM_Bld_Castle_Roof_Cap_Square_04",
-            "Castle/SM_Bld_Castle_Floor_Stone_01", "Castle/SM_Bld_Castle_Floor_Stone_Round_S_01",
-            "Castle/SM_Bld_Castle_Battlements_01", "Castle/SM_Bld_Castle_Battlements_01_Half",
-            "Castle/SM_Bld_Castle_Battlements_03", "Castle/SM_Bld_Castle_Battlements_Pillar_01",
-            "Castle/SM_Bld_Castle_Wall_01", "Castle/SM_Bld_Castle_Wall_04", "Castle/SM_Bld_Castle_Wall_Arrowslit_01",
-            "Castle/SM_Bld_Castle_Wall_Door_01", "Castle/SM_Bld_Castle_Wall_Block_01", "Castle/SM_Bld_Castle_Wall_Bottom_01",
-            "Castle/SM_Bld_Castle_Wall_Tower_S_01", "Castle/SM_Bld_Castle_Wall_Corbels_01",
-            "Castle/SM_Bld_Castle_Hoarding_01", "Castle/SM_Bld_Castle_Hoarding_Corner_M_01",
-            "Castle/SM_Bld_Castle_Pillar_Stone_01", "Castle/SM_Bld_Keep_Pillar_01",
-            "Castle/SM_Bld_Castle_Door_Single_01", "Castle/SM_Bld_Stairs_Straight_01",
-            "Props/Banners/SM_Prop_Banner_01", "Props/Banners/SM_Prop_Flag_01", "Props/Banners/SM_Prop_Flag_12",
-            "Props/Banners/SM_Prop_Flag_Wall_Attachment_01", "Props/Banners/SM_Prop_Flag_Pole_01",
-            "Props/SM_Prop_Bracket_Lamp_01", "Props/SM_Prop_Torch_01", "Props/BattleGround/SM_Prop_Camp_Brazier_01",
+            "Castle/K_SM_Bld_Castle_Wall_Corner_S_01", "Castle/K_SM_Bld_Castle_Wall_Corner_S_Arrowslit_01",
+            "Castle/K_SM_Bld_Castle_Wall_Corner_S_Door_01", "Castle/K_SM_Bld_Castle_Wall_Half_Corner_S_01",
+            "Castle/K_SM_Bld_Castle_Hoarding_Corner_S_01", "Castle/K_SM_Bld_Castle_Battlements_S_Corner_01",
+            "Castle/K_SM_Bld_Castle_Wall_Corner_M_01", "Castle/K_SM_Bld_Castle_Wall_Half_Corner_M_01",
+            "Castle/K_SM_Bld_Castle_Roof_Cap_Round_01", "Castle/K_SM_Bld_Castle_Roof_Cap_Round_02",
+            "Castle/K_SM_Bld_Castle_Roof_Cap_Round_03", "Castle/K_SM_Bld_Castle_Roof_Cap_Round_04",
+            "Castle/K_SM_Bld_Castle_Roof_Cap_Square_01", "Castle/K_SM_Bld_Castle_Roof_Cap_Square_02",
+            "Castle/K_SM_Bld_Castle_Roof_Cap_Square_03", "Castle/K_SM_Bld_Castle_Roof_Cap_Square_04",
+            "Castle/K_SM_Bld_Castle_Floor_Stone_01", "Castle/K_SM_Bld_Castle_Floor_Stone_Round_S_01",
+            "Castle/K_SM_Bld_Castle_Battlements_01", "Castle/K_SM_Bld_Castle_Battlements_01_Half",
+            "Castle/K_SM_Bld_Castle_Battlements_03", "Castle/K_SM_Bld_Castle_Battlements_Pillar_01",
+            "Castle/K_SM_Bld_Castle_Wall_01", "Castle/K_SM_Bld_Castle_Wall_04", "Castle/K_SM_Bld_Castle_Wall_Arrowslit_01",
+            "Castle/K_SM_Bld_Castle_Wall_Door_01", "Castle/K_SM_Bld_Castle_Wall_Block_01", "Castle/K_SM_Bld_Castle_Wall_Bottom_01",
+            "Castle/K_SM_Bld_Castle_Wall_Tower_S_01", "Castle/K_SM_Bld_Castle_Wall_Corbels_01",
+            "Castle/K_SM_Bld_Castle_Hoarding_01", "Castle/K_SM_Bld_Castle_Hoarding_Corner_M_01",
+            "Castle/K_SM_Bld_Castle_Pillar_Stone_01", "Castle/K_SM_Bld_Keep_Pillar_01",
+            "Castle/K_SM_Bld_Castle_Door_Single_01", "Castle/K_SM_Bld_Stairs_Straight_01",
+            "Props/Banners/K_SM_Prop_Banner_01", "Props/Banners/K_SM_Prop_Flag_01", "Props/Banners/K_SM_Prop_Flag_12",
+            "Props/Banners/K_SM_Prop_Flag_Wall_Attachment_01", "Props/Banners/K_SM_Prop_Flag_Pole_01",
+            "Props/K_SM_Prop_Bracket_Lamp_01", "Props/K_SM_Prop_Torch_01", "Props/BattleGround/K_SM_Prop_Camp_Brazier_01",
         };
 
         [MenuItem("Waning Border/Art/Measure Fortify Pieces")]

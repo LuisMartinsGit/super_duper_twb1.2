@@ -11,6 +11,21 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.97] — 2026-11-25
+
+### New soldiers (2026-11-25)
+- **Every Alanthor infantry and ranged unit has a new look**, mixed from Roman, samurai and knightly armour. The Militia, Spearman, Swordsman, Archer and Crossbowman change with their building's level: plain at level 1, brass at level 2, shining gold at level 3.
+- **The Longbowman is a Yumi archer** with the tall Japanese bow.
+- **Weapons show their research.** Stone, iron, veilstone and shard weapons each look different, and veilstone and shard blades glow. Bows follow the bow researches; quivers and crossbows follow the arrow researches.
+- **The Worker, the Scout and the Litharch are new.** The Scout carries a lantern that lights the ground around it; the Litharch is a priest in white and gold.
+- **Sect units and heroes are elite.** New looks for the sect units and heroes of the House of Vaelith and for King Lexor's rider, full gold, and every sect unit and hero is drawn 18% larger than other units. Only their weapon changes, with the weapon researches.
+- **New unit and weapon pictures on the buttons.**
+
+### Buildings stand out (2026-11-25)
+- **Gold on roofs and ornaments glows**, ink lines take the colour of the surface they outline, and the sun is warmer with deeper shadows.
+- **The Garrison and the Archery Range have new models.**
+- **Settings**: the ON / OFF options use the menu's switches.
+
 ## [0.0.96] — 2026-11-24
 
 ### Match logs name the units (2026-11-24)

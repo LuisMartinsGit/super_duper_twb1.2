@@ -26,10 +26,11 @@ MonoBehaviour:
     ranged: 3
     siege: 0
     magic: 3
-  attackCooldown: 3.0
+  attackCooldown: 3
   attackRange: 16
   minAttackRange: 0
   lineOfSight: 22
+  aimTime: 0.8
   radius: 0.5
   trajectory: 
   projectileSpeed: 0
@@ -40,18 +41,22 @@ MonoBehaviour:
   populationCost: 1
   minBuildingLevel: 0
   buildSpeed: 0
+  repairSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
   tags:
-  - 'Infantry'
-  - 'Ranged'
+  - Infantry
+  - Ranged
   bonusVsTags:
-  - 'Heavy'
+  - vsTag: 
+    amount: 0
+  torchDamage: 0
+  preferTargets: []
   abilities: []
   prefab: {fileID: 71139012203055, guid: 7e73618de32aef9ad02cbbb7d1e48e27, type: 3}
   presentationId: 387
-  animatorController: {fileID: 0}
-  aimTime: 0.8
+  animatorController: {fileID: 9100000, guid: 5d2fbc5ac298ee04389b2d385854a98e, type: 2}

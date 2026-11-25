@@ -49,7 +49,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -128,7 +128,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1514739886903468, guid: 7f0ed641ec143f6468b3c5b1d12ed117, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Ladder_Tied_01
+      value: K_SM_Prop_Ladder_Tied_01
       objectReference: {fileID: 0}
     - target: {fileID: 4660044266783012, guid: 7f0ed641ec143f6468b3c5b1d12ed117, type: 3}
       propertyPath: m_LocalPosition.x
@@ -191,7 +191,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1549083794311288, guid: efe9aff527910ec48866a9de4bd0ef34, type: 3}
       propertyPath: m_Name
-      value: SM_Wep_Hammer_05
+      value: K_SM_Wep_Hammer_05
       objectReference: {fileID: 0}
     - target: {fileID: 4413805474454742, guid: efe9aff527910ec48866a9de4bd0ef34, type: 3}
       propertyPath: m_LocalScale.x
@@ -266,7 +266,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1719569932363254, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Crate_Wood_01
+      value: K_SM_Prop_Crate_Wood_01
       objectReference: {fileID: 0}
     - target: {fileID: 4586611713910306, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -329,7 +329,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1483384962007444, guid: 61df32cedfee2194f905350fbc7ca7e3, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Tether_Beam_01
+      value: K_SM_Prop_Tether_Beam_01
       objectReference: {fileID: 0}
     - target: {fileID: 4140443580887780, guid: 61df32cedfee2194f905350fbc7ca7e3, type: 3}
       propertyPath: m_LocalPosition.x
@@ -392,7 +392,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1182772678762234, guid: 3a5b3d2f509664a468dd1bfc16c5a3d5, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Tether_Beam_03
+      value: K_SM_Prop_Tether_Beam_03
       objectReference: {fileID: 0}
     - target: {fileID: 4712494698669080, guid: 3a5b3d2f509664a468dd1bfc16c5a3d5, type: 3}
       propertyPath: m_LocalPosition.x
@@ -455,7 +455,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1178839390041156, guid: 6c5ef2069e909a94584b81b4c6972569, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Grinding_Wheel_01
+      value: K_SM_Prop_Grinding_Wheel_01
       objectReference: {fileID: 0}
     - target: {fileID: 4232909312842960, guid: 6c5ef2069e909a94584b81b4c6972569, type: 3}
       propertyPath: m_LocalScale.x
@@ -530,7 +530,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1343065651200246, guid: febd13426f0060647a3bd08de7e4fbed, type: 3}
       propertyPath: m_Name
-      value: SM_Wep_Siege_Tower_Fallen_01
+      value: K_SM_Wep_Siege_Tower_Fallen_01
       objectReference: {fileID: 0}
     - target: {fileID: 4819070245284742, guid: febd13426f0060647a3bd08de7e4fbed, type: 3}
       propertyPath: m_LocalScale.x

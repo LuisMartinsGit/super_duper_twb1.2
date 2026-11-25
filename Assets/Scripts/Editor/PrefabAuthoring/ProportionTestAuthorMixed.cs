@@ -40,10 +40,10 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
     public static partial class FeraldisKitAuthor
     {
         const string PtSwordsmanSo = TT + "Civs/Alanthor/Buildings/Garrison/Units/Swordsman/Swordsman.asset";
-        const string PK_DoorWall = "Castle/SM_Bld_Castle_Wall_Door_01";
-        const string PK_DoorLeaf = "Castle/SM_Bld_Castle_Door_Single_01";
-        const string PK_Coping = "Castle/SM_Bld_Castle_Battlements_02_Half";
-        const string PK_Knob = "Castle/SM_Bld_Castle_Battlements_Pillar_03";
+        const string PK_DoorWall = "Castle/K_SM_Bld_Castle_Wall_Door_01";
+        const string PK_DoorLeaf = "Castle/K_SM_Bld_Castle_Door_Single_01";
+        const string PK_Coping = "Castle/K_SM_Bld_Castle_Battlements_02_Half";
+        const string PK_Knob = "Castle/K_SM_Bld_Castle_Battlements_Pillar_03";
 
         /// <summary>Ring wall centre line, kit metres from the plinth centre.</summary>
         const float P2Ring = 5.9f;

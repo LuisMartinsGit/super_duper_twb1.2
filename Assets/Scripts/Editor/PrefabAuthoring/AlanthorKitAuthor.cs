@@ -40,19 +40,19 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         const string AlaPreviewDir = "Temp/alanthor-kit-previews";
 
         // extra pieces
-        const string C_Batt1 = "Castle/SM_Bld_Castle_Battlements_01";
-        const string C_BattCornerS = "Castle/SM_Bld_Castle_Battlements_S_Corner_01";
-        const string C_Spire = "Castle/SM_Bld_Castle_Roof_Cap_Square_05";
-        const string P_MarketStall = "Props/SM_Prop_Market_Stall_01";
-        const string P_WeaponRack5 = "Props/SM_Prop_Weapon_Rack_05";
-        const string P_StatueKnight = "Props/SM_Prop_Statue_Knight_01";
-        const string P_StatueHero = "Props/SM_Prop_Statue_Hero_01";
-        const string P_Books = "Props/SM_Prop_Books_01";
-        const string P_HayCart = "Props/SM_Prop_Hay_Cart_01";
-        const string P_CrateStack2 = "Props/SM_Prop_Crate_Stack_02";
-        const string Bld_TentSquare = "Buildings/SM_Bld_Tent_Square_01";
-        const string V_Wheelbarrow = "Vehicles/SM_Veh_Wheelbarrow_01";
-        const string P_Ladder = "Props/SM_Prop_Ladder_01";
+        const string C_Batt1 = "Castle/K_SM_Bld_Castle_Battlements_01";
+        const string C_BattCornerS = "Castle/K_SM_Bld_Castle_Battlements_S_Corner_01";
+        const string C_Spire = "Castle/K_SM_Bld_Castle_Roof_Cap_Square_05";
+        const string P_MarketStall = "Props/K_SM_Prop_Market_Stall_01";
+        const string P_WeaponRack5 = "Props/K_SM_Prop_Weapon_Rack_05";
+        const string P_StatueKnight = "Props/K_SM_Prop_Statue_Knight_01";
+        const string P_StatueHero = "Props/K_SM_Prop_Statue_Hero_01";
+        const string P_Books = "Props/K_SM_Prop_Books_01";
+        const string P_HayCart = "Props/K_SM_Prop_Hay_Cart_01";
+        const string P_CrateStack2 = "Props/K_SM_Prop_Crate_Stack_02";
+        const string Bld_TentSquare = "Buildings/K_SM_Bld_Tent_Square_01";
+        const string V_Wheelbarrow = "Vehicles/K_SM_Veh_Wheelbarrow_01";
+        const string P_Ladder = "Props/K_SM_Prop_Ladder_01";
 
         static Material _age0DarkStone, _age0Slate, _alCloth, _age0Veil;
 

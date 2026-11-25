@@ -1293,7 +1293,7 @@ GameObject:
   - component: {fileID: 6642757956225197492}
   - component: {fileID: 7611908597963219445}
   m_Layer: 0
-  m_Name: SM_Prop_Camp_Weapon_Rack_Spears_
+  m_Name: K_SM_Prop_Camp_Weapon_Rack_Spears_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2067,7 +2067,7 @@ GameObject:
   - component: {fileID: 8356392778423315630}
   - component: {fileID: 399526600565696161}
   m_Layer: 0
-  m_Name: SM_Prop_Camp_Brazier_Wood_
+  m_Name: K_SM_Prop_Camp_Brazier_Wood_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2842,7 +2842,7 @@ GameObject:
   - component: {fileID: 7329074996448639205}
   - component: {fileID: 3359307754119491533}
   m_Layer: 0
-  m_Name: SM_Prop_Camp_Brazier_Wood_
+  m_Name: K_SM_Prop_Camp_Brazier_Wood_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4111,7 +4111,7 @@ GameObject:
   - component: {fileID: 5273636248319620087}
   - component: {fileID: 7238190051879942629}
   m_Layer: 0
-  m_Name: SM_Prop_Camp_Weapon_Rack_Spears_
+  m_Name: K_SM_Prop_Camp_Weapon_Rack_Spears_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

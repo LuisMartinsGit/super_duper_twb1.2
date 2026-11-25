@@ -37,10 +37,9 @@ namespace TheWaningBorder.UI.Menus.Panels
         /// <summary>Seconds the "settings applied" line stays up.</summary>
         const float StatusSeconds = 2f;
 
-        // Same pill palette as SkirmishPanel: the menu's gold when on, cold
-        // steel when off.
-        private static readonly Color PillOn  = new Color(0.690f, 0.525f, 0.173f);
-        private static readonly Color PillOff = new Color(0.086f, 0.118f, 0.141f);
+        /// <summary>The Synty toggle the two ON / OFF options are dressed with
+        /// (MenuToggleSwitch.Replace); unwired, the authored tracks are driven.</summary>
+        public GameObject TogglePrefab;
 
         TMP_InputField _playerName;
         TMP_Dropdown _quality;
@@ -48,15 +47,10 @@ namespace TheWaningBorder.UI.Menus.Panels
         TMP_Dropdown _healthBars;
         TMP_Dropdown _dragPriority;
         TMP_Dropdown _hudScale;
-        Button _fullscreenToggle;
-        TMP_Text _fullscreenState;
-        Button _inkToggle;
-        TMP_Text _inkState;
+        MenuToggleSwitch _fullscreenSwitch, _inkSwitch;
         Slider _master, _music;
         TMP_Text _masterValue, _musicValue, _status;
 
-        bool _fullscreen;
-        bool _ink;
         Resolution[] _resolutions = Array.Empty<Resolution>();
         float _statusTimer;
 
@@ -151,10 +145,8 @@ namespace TheWaningBorder.UI.Menus.Panels
             _healthBars       = Find<TMP_Dropdown>("HealthBarsDropdown");
             _dragPriority     = Find<TMP_Dropdown>("DragPriorityDropdown");
             _hudScale         = BuildHudScaleRow();
-            _fullscreenToggle = Find<Button>("FullscreenToggle");
-            _fullscreenState  = Find<TMP_Text>("FullscreenState");
-            _inkToggle        = Find<Button>("InkOutlinesToggle");
-            _inkState         = Find<TMP_Text>("InkOutlinesState");
+            _fullscreenSwitch = FindSwitch("FullscreenToggle", "FullscreenState");
+            _inkSwitch        = FindSwitch("InkOutlinesToggle", "InkOutlinesState");
             _master           = Find<Slider>("MasterSlider");
             _music            = Find<Slider>("MusicSlider");
             _masterValue      = Find<TMP_Text>("MasterValue");
@@ -167,23 +159,6 @@ namespace TheWaningBorder.UI.Menus.Panels
             Bind("BackButton", () => SceneManager.LoadScene(TheWaningBorder.Core.SceneNames.Menu));
             Bind("EnglishButton", () => SetLanguage(false));
             Bind("PortugueseButton", () => SetLanguage(true));
-
-            // A Button with a state label, not a uGUI Toggle: the skirmish
-            // screen's pills work this way (the binder owns the bool, the pill
-            // only paints it), and reusing its cell means reusing its click.
-            if (_fullscreenToggle != null)
-                _fullscreenToggle.onClick.AddListener(() =>
-                {
-                    _fullscreen = !_fullscreen;
-                    SyncPill(_fullscreenToggle, _fullscreenState, _fullscreen);
-                });
-
-            if (_inkToggle != null)
-                _inkToggle.onClick.AddListener(() =>
-                {
-                    _ink = !_ink;
-                    SyncPill(_inkToggle, _inkState, _ink);
-                });
 
             if (_master != null) _master.onValueChanged.AddListener(v => Show(_masterValue, v));
             if (_music != null) _music.onValueChanged.AddListener(v => Show(_musicValue, v));
@@ -266,19 +241,11 @@ namespace TheWaningBorder.UI.Menus.Panels
             if (label != null) label.text = $"{Mathf.RoundToInt(percent)}%";
         }
 
-        /// <summary>Same paint rule as SkirmishPanel.SyncPill, so a pill on
-        /// this screen and one on the lobby read identically.</summary>
-        static void SyncPill(Button toggle, TMP_Text state, bool on)
-        {
-            if (state != null) state.text = Loc.T(on ? "ON" : "OFF");
-            if (toggle == null) return;
-
-            var sw = toggle.GetComponent<MenuToggleSwitch>();
-            if (sw != null) { sw.SetOn(on); return; }
-
-            if (toggle.targetGraphic is Image img)
-                img.color = on ? PillOn : PillOff;
-        }
+        /// <summary>An ON / OFF option, through the lobbies' own switch: the
+        /// authored tracks ship with raycastTarget off and never answer a
+        /// click by themselves.</summary>
+        MenuToggleSwitch FindSwitch(string track, string state)
+            => MenuToggleSwitch.Replace(Find<Button>(track), Find<TMP_Text>(state), TogglePrefab);
 
         #endregion
 
@@ -313,14 +280,13 @@ namespace TheWaningBorder.UI.Menus.Panels
                 _hudScale.SetValueWithoutNotify(HudScaleIndex(PlayerProfile.HudScale));
             }
 
-            _fullscreen = PlayerProfile.Fullscreen >= 0
-                ? PlayerProfile.Fullscreen == 1 : Screen.fullScreen;
-            SyncPill(_fullscreenToggle, _fullscreenState, _fullscreen);
+            if (_fullscreenSwitch != null)
+                _fullscreenSwitch.SetOn(PlayerProfile.Fullscreen >= 0
+                    ? PlayerProfile.Fullscreen == 1 : Screen.fullScreen);
 
             // Shows what is actually drawn, which before the player has chosen
             // is PencilOutline.asset's own switch.
-            _ink = PencilOutline.Active;
-            SyncPill(_inkToggle, _inkState, _ink);
+            if (_inkSwitch != null) _inkSwitch.SetOn(PencilOutline.Active);
 
             if (_master != null) _master.SetValueWithoutNotify(PlayerProfile.MasterVolume);
             if (_music != null) _music.SetValueWithoutNotify(PlayerProfile.MusicVolume);
@@ -438,7 +404,7 @@ namespace TheWaningBorder.UI.Menus.Panels
                 PlayerProfile.GraphicsQuality = level;
             }
 
-            bool fullscreen = _fullscreenToggle != null ? _fullscreen : Screen.fullScreen;
+            bool fullscreen = _fullscreenSwitch != null ? _fullscreenSwitch.IsOn : Screen.fullScreen;
 
             if (_resolution != null && _resolution.value >= 0 && _resolution.value < _resolutions.Length)
             {
@@ -457,10 +423,10 @@ namespace TheWaningBorder.UI.Menus.Panels
             }
             PlayerProfile.Fullscreen = fullscreen ? 1 : 0;
 
-            if (_inkToggle != null)
+            if (_inkSwitch != null)
             {
-                PlayerProfile.InkOutlines = _ink ? 1 : 0;
-                GameSettings.InkOutlines = _ink;
+                PlayerProfile.InkOutlines = _inkSwitch.IsOn ? 1 : 0;
+                GameSettings.InkOutlines = _inkSwitch.IsOn;
             }
 
             if (_master != null)

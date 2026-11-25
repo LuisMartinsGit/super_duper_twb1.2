@@ -234,7 +234,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("Trebuchet");
-                var body = Add(root, "SiegeEngines/SM_Wep_Trebuchet_01.prefab", Vector3.zero, 0, 0.7f);
+                var body = Add(root, "SiegeEngines/K_SM_Wep_Trebuchet_01.prefab", Vector3.zero, 0, 0.7f);
                 var vis = root.AddComponent<TheWaningBorder.Rendering.CatapultVisual>();
                 vis.ArmChildName = "SM_Wep_Trebuchet_Arm_01";
                 vis.ReleasedAngle = 70f; vis.MuzzleHeight = 3.2f; vis.MuzzleForward = 0.8f;
@@ -252,8 +252,8 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("Catapult");
-                Add(root, "SiegeEngines/SM_Wep_Catapult_01.prefab", Vector3.zero, 0, 0.7f);
-                Add(root, "Props/Banners/SM_Prop_Flag_05.prefab", new Vector3(-0.9f, 0.6f, -1.2f), 0, 0.6f);
+                Add(root, "SiegeEngines/K_SM_Wep_Catapult_01.prefab", Vector3.zero, 0, 0.7f);
+                Add(root, "Props/Banners/K_SM_Prop_Flag_05.prefab", new Vector3(-0.9f, 0.6f, -1.2f), 0, 0.6f);
                 var vis = root.AddComponent<TheWaningBorder.Rendering.CatapultVisual>();
                 vis.ArmChildName = "SM_Wep_Catapult_Arm_01";
                 vis.ReleasedAngle = 75f; vis.MuzzleHeight = 2.4f; vis.MuzzleForward = 1.2f;
@@ -270,12 +270,12 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("CorpseEngine");
-                Add(root, "SiegeEngines/SM_Wep_Catapult_01.prefab", Vector3.zero, 0, 0.7f);
+                Add(root, "SiegeEngines/K_SM_Wep_Catapult_01.prefab", Vector3.zero, 0, 0.7f);
                 // The ammunition: a corpse pile on the deck and a caged man slung off the back.
-                Add(root, "Props/DeadBodies/SM_Prop_Dead_Body_Pile_01.prefab", new Vector3(0.7f, 0.55f, -0.9f), 35, 0.6f);
-                Add(root, "Props/SM_Prop_Cage_Man_01.prefab", new Vector3(-0.8f, 0.55f, -1.1f), 180, 0.55f);
-                Add(root, "Props/SM_Prop_Candle_Skull_01.prefab", new Vector3(0.0f, 0.75f, -1.5f), 0, 1.0f);
-                Add(root, "Props/SM_Prop_BloodPool_02.prefab", new Vector3(0.3f, 0.02f, -0.6f), 0, 0.8f);
+                Add(root, "Props/DeadBodies/K_SM_Prop_Dead_Body_Pile_01.prefab", new Vector3(0.7f, 0.55f, -0.9f), 35, 0.6f);
+                Add(root, "Props/K_SM_Prop_Cage_Man_01.prefab", new Vector3(-0.8f, 0.55f, -1.1f), 180, 0.55f);
+                Add(root, "Props/K_SM_Prop_Candle_Skull_01.prefab", new Vector3(0.0f, 0.75f, -1.5f), 0, 1.0f);
+                Add(root, "Props/K_SM_Prop_BloodPool_02.prefab", new Vector3(0.3f, 0.02f, -0.6f), 0, 0.8f);
                 var vis = root.AddComponent<TheWaningBorder.Rendering.CatapultVisual>();
                 vis.ArmChildName = "SM_Wep_Catapult_Arm_01";
                 vis.ReleasedAngle = 75f; vis.MuzzleHeight = 2.4f; vis.MuzzleForward = 1.2f;
@@ -293,10 +293,10 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             {
                 var root = new GameObject("RamRig");
                 // A fireworks cart IS an explosive on wheels; pile powder barrels on it.
-                Add(root, "Vehicles/SM_Veh_Cart_Fireworks_01_Preset.prefab", Vector3.zero, 0, 0.75f);
-                Add(root, "Props/SM_Prop_Barrel_Stack_01.prefab", new Vector3(0, 0.55f, -0.3f), 0, 0.55f);
-                Add(root, "Props/SM_Prop_Torch_02.prefab", new Vector3(0.55f, 0.6f, -1.0f), 0, 0.8f);
-                Add(root, "Props/SM_Prop_Candle_Skull_01.prefab", new Vector3(-0.5f, 0.6f, -1.0f), 0, 1.0f);
+                Add(root, "Vehicles/K_SM_Veh_Cart_Fireworks_01_Preset.prefab", Vector3.zero, 0, 0.75f);
+                Add(root, "Props/K_SM_Prop_Barrel_Stack_01.prefab", new Vector3(0, 0.55f, -0.3f), 0, 0.55f);
+                Add(root, "Props/K_SM_Prop_Torch_02.prefab", new Vector3(0.55f, 0.6f, -1.0f), 0, 0.8f);
+                Add(root, "Props/K_SM_Prop_Candle_Skull_01.prefab", new Vector3(-0.5f, 0.6f, -1.0f), 0, 1.0f);
                 var prefab = Save(root, f + "RamRig.prefab");
                 WireSo(f + "RamRig.asset", prefab, 422, null, "Feraldis_RamRig");
             }
@@ -309,12 +309,12 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("HarpoonRig");
-                Add(root, "SiegeEngines/SM_Wep_Ballista_Mobile_01.prefab", Vector3.zero, 0, 0.75f);
+                Add(root, "SiegeEngines/K_SM_Wep_Ballista_Mobile_01.prefab", Vector3.zero, 0, 0.75f);
                 // Barbed-wire coils and spare harpoons hung off the frame.
-                Add(root, "Props/SM_Prop_Chain_Hanging_02.prefab", new Vector3(0.6f, 1.3f, -0.6f), 0, 0.7f);
-                Add(root, "Props/SM_Prop_Chain_Hanging_03.prefab", new Vector3(-0.6f, 1.3f, -0.6f), 0, 0.7f);
-                Add(root, "Weapons/SM_Wep_Spear_06.prefab", new Vector3(-0.75f, 0.5f, -0.3f), 0, 0.8f, new Vector3(80, 0, 0));
-                Add(root, "Weapons/SM_Wep_Spear_06.prefab", new Vector3(0.75f, 0.5f, -0.3f), 0, 0.8f, new Vector3(80, 0, 0));
+                Add(root, "Props/K_SM_Prop_Chain_Hanging_02.prefab", new Vector3(0.6f, 1.3f, -0.6f), 0, 0.7f);
+                Add(root, "Props/K_SM_Prop_Chain_Hanging_03.prefab", new Vector3(-0.6f, 1.3f, -0.6f), 0, 0.7f);
+                Add(root, "Weapons/K_SM_Wep_Spear_06.prefab", new Vector3(-0.75f, 0.5f, -0.3f), 0, 0.8f, new Vector3(80, 0, 0));
+                Add(root, "Weapons/K_SM_Wep_Spear_06.prefab", new Vector3(0.75f, 0.5f, -0.3f), 0, 0.8f, new Vector3(80, 0, 0));
                 var vis = root.AddComponent<TheWaningBorder.Rendering.CatapultVisual>();
                 vis.BoltChildName = "SM_Wep_Ballista_Mobile_Bolt_01";
                 vis.ReleasedAngle = 0f; vis.MuzzleHeight = 1.4f; vis.MuzzleForward = 1.2f;
@@ -332,16 +332,16 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
                 var root = new GameObject("WarRig");
                 // A furnace-driven land-ship: an armoured wagon, a cannon turret on the roof,
                 // a smokestack, a ram log at the bow and shields along the flanks.
-                Add(root, "Vehicles/SM_Veh_TraderWagon_01.prefab", Vector3.zero, 0, 0.9f);
-                Add(root, "SiegeEngines/SM_Wep_Cannon_01.prefab", new Vector3(0, 2.35f, 0.3f), 0, 0.55f);
-                Add(root, "Buildings/House/SM_Bld_House_Chimney_Stone_01.prefab", new Vector3(0, 2.3f, -1.5f), 0, 0.55f);
-                Add(root, "FX/FX_Smoke_Chimney_01.prefab", new Vector3(0, 3.4f, -1.5f), 0, 0.6f);
-                Add(root, "SiegeEngines/SM_Wep_Rammer_Alt_Cap_01.prefab", new Vector3(0, 0.9f, 2.4f), 0, 0.6f);
-                Add(root, "Weapons/SM_Wep_Shield_05.prefab", new Vector3(1.25f, 1.2f, 0.6f), 90, 0.9f);
-                Add(root, "Weapons/SM_Wep_Shield_05.prefab", new Vector3(1.25f, 1.2f, -0.6f), 90, 0.9f);
-                Add(root, "Weapons/SM_Wep_Shield_05.prefab", new Vector3(-1.25f, 1.2f, 0.6f), -90, 0.9f);
-                Add(root, "Weapons/SM_Wep_Shield_05.prefab", new Vector3(-1.25f, 1.2f, -0.6f), -90, 0.9f);
-                Add(root, "Props/Banners/SM_Prop_Battle_Banner_02.prefab", new Vector3(0.9f, 2.2f, -1.9f), 0, 0.6f);
+                Add(root, "Vehicles/K_SM_Veh_TraderWagon_01.prefab", Vector3.zero, 0, 0.9f);
+                Add(root, "SiegeEngines/K_SM_Wep_Cannon_01.prefab", new Vector3(0, 2.35f, 0.3f), 0, 0.55f);
+                Add(root, "Buildings/House/K_SM_Bld_House_Chimney_Stone_01.prefab", new Vector3(0, 2.3f, -1.5f), 0, 0.55f);
+                Add(root, "FX/K_FX_Smoke_Chimney_01.prefab", new Vector3(0, 3.4f, -1.5f), 0, 0.6f);
+                Add(root, "SiegeEngines/K_SM_Wep_Rammer_Alt_Cap_01.prefab", new Vector3(0, 0.9f, 2.4f), 0, 0.6f);
+                Add(root, "Weapons/K_SM_Wep_Shield_05.prefab", new Vector3(1.25f, 1.2f, 0.6f), 90, 0.9f);
+                Add(root, "Weapons/K_SM_Wep_Shield_05.prefab", new Vector3(1.25f, 1.2f, -0.6f), 90, 0.9f);
+                Add(root, "Weapons/K_SM_Wep_Shield_05.prefab", new Vector3(-1.25f, 1.2f, 0.6f), -90, 0.9f);
+                Add(root, "Weapons/K_SM_Wep_Shield_05.prefab", new Vector3(-1.25f, 1.2f, -0.6f), -90, 0.9f);
+                Add(root, "Props/Banners/K_SM_Prop_Battle_Banner_02.prefab", new Vector3(0.9f, 2.2f, -1.9f), 0, 0.6f);
                 var prefab = Save(root, f + "WarRig.prefab");
                 WireSo(f + "WarRig.asset", prefab, 424, null, "Feraldis_WarRig");
             }
@@ -354,8 +354,8 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("SiegeRam");
-                Add(root, "SiegeEngines/SM_Wep_Rammer_01.prefab", Vector3.zero, 0, 0.7f);
-                Add(root, "Props/SM_Prop_Animal_Head_Boar_01.prefab", new Vector3(0, 1.0f, 2.2f), 0, 0.8f);
+                Add(root, "SiegeEngines/K_SM_Wep_Rammer_01.prefab", Vector3.zero, 0, 0.7f);
+                Add(root, "Props/K_SM_Prop_Animal_Head_Boar_01.prefab", new Vector3(0, 1.0f, 2.2f), 0, 0.8f);
                 var prefab = Save(root, f + "SiegeRam.prefab");
                 WireSo(f + "SiegeRam.asset", prefab, 340, null, "Feraldis_SiegeRam");
             }
@@ -374,11 +374,11 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
                 var rider = BakeOutrider(f + "Materials/", "WarChariot", new Color(0.30f, 0.16f, 0.14f), 0.55f);
                 rider.transform.SetParent(root.transform, false);
                 rider.transform.localPosition = new Vector3(0, 0, 0.9f);
-                var cart = Add(root, "Vehicles/SM_Veh_Cart_02.prefab", new Vector3(0, 0, -1.3f), 0, 0.6f);
-                Add(root, "Weapons/SM_Wep_Axe_07.prefab", new Vector3(0.75f, 0.35f, -1.3f), 0, 1.1f, new Vector3(0, 0, 90));
-                Add(root, "Weapons/SM_Wep_Axe_07.prefab", new Vector3(-0.75f, 0.35f, -1.3f), 0, 1.1f, new Vector3(0, 0, -90));
-                Add(root, "Props/Banners/SM_Prop_Battle_Banner_03.prefab", new Vector3(0, 0.5f, -1.9f), 0, 0.5f);
-                Add(root, "Props/SM_Prop_BloodPool_01.prefab", new Vector3(0, 0.02f, -2.2f), 0, 0.6f);
+                var cart = Add(root, "Vehicles/K_SM_Veh_Cart_02.prefab", new Vector3(0, 0, -1.3f), 0, 0.6f);
+                Add(root, "Weapons/K_SM_Wep_Axe_07.prefab", new Vector3(0.75f, 0.35f, -1.3f), 0, 1.1f, new Vector3(0, 0, 90));
+                Add(root, "Weapons/K_SM_Wep_Axe_07.prefab", new Vector3(-0.75f, 0.35f, -1.3f), 0, 1.1f, new Vector3(0, 0, -90));
+                Add(root, "Props/Banners/K_SM_Prop_Battle_Banner_03.prefab", new Vector3(0, 0.5f, -1.9f), 0, 0.5f);
+                Add(root, "Props/K_SM_Prop_BloodPool_01.prefab", new Vector3(0, 0.02f, -2.2f), 0, 0.6f);
                 var prefab = Save(root, f + "WarChariot.prefab");
                 WireSo(f + "WarChariot.asset", prefab, 430, null, "Feraldis_WarChariot");
             }
@@ -444,9 +444,9 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("Caravan");
-                Add(root, "Vehicles/SM_Veh_TraderWagon_01.prefab", Vector3.zero, 0, 0.7f);
-                Add(root, "Props/SM_Prop_Sack_Stack_01.prefab", new Vector3(0, 1.75f, -0.4f), 0, 0.6f);
-                Add(root, "Props/Banners/SM_Prop_Flag_09.prefab", new Vector3(0.6f, 1.7f, -1.4f), 0, 0.5f);
+                Add(root, "Vehicles/K_SM_Veh_TraderWagon_01.prefab", Vector3.zero, 0, 0.7f);
+                Add(root, "Props/K_SM_Prop_Sack_Stack_01.prefab", new Vector3(0, 1.75f, -0.4f), 0, 0.6f);
+                Add(root, "Props/Banners/K_SM_Prop_Flag_09.prefab", new Vector3(0.6f, 1.7f, -1.4f), 0, 0.5f);
                 var prefab = Save(root, f + "Caravan.prefab");
                 WireSo(f + "Caravan.asset", prefab, 432, null, "Runai_Caravan");
             }
@@ -459,11 +459,11 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("BazaarWagon");
-                Add(root, "Vehicles/SM_Veh_Cart_03.prefab", Vector3.zero, 0, 0.7f);
-                Add(root, "Props/SM_Prop_Market_Tray_01.prefab", new Vector3(0, 0.6f, -0.2f), 0, 0.6f);
-                Add(root, "Props/SM_Prop_Awning_03.prefab", new Vector3(0, 1.6f, -0.3f), 0, 0.55f);
-                Add(root, "Props/SM_Prop_Rug_02.prefab", new Vector3(0.0f, 0.62f, -0.9f), 0, 0.5f);
-                Add(root, "Props/SM_Prop_Pot_Spice_01.prefab", new Vector3(0.4f, 0.62f, 0.3f), 0, 0.7f);
+                Add(root, "Vehicles/K_SM_Veh_Cart_03.prefab", Vector3.zero, 0, 0.7f);
+                Add(root, "Props/K_SM_Prop_Market_Tray_01.prefab", new Vector3(0, 0.6f, -0.2f), 0, 0.6f);
+                Add(root, "Props/K_SM_Prop_Awning_03.prefab", new Vector3(0, 1.6f, -0.3f), 0, 0.55f);
+                Add(root, "Props/K_SM_Prop_Rug_02.prefab", new Vector3(0.0f, 0.62f, -0.9f), 0, 0.5f);
+                Add(root, "Props/K_SM_Prop_Pot_Spice_01.prefab", new Vector3(0.4f, 0.62f, 0.3f), 0, 0.7f);
                 var prefab = Save(root, f + "BazaarWagon.prefab");
                 WireSo(f + "BazaarWagon.asset", prefab, 410, null, "Runai_BazaarWagon");
             }
@@ -483,11 +483,11 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("Outpost");
-                Add(root, "Buildings/SM_Bld_Wooden_Tower_01.prefab", Vector3.zero, 0, 1f);
-                Add(root, "Buildings/SM_Bld_Tent_Small_01.prefab", new Vector3(4.5f, 0, 1.5f), -40, 1f);
-                Add(root, "Props/SM_Prop_Fence_03.prefab", new Vector3(-3.5f, 0, 3.5f), 0, 1f);
-                Add(root, "Props/SM_Prop_Crate_Stack_01.prefab", new Vector3(-3.0f, 0, -2.5f), 20, 1f);
-                Add(root, "Props/SM_Prop_Torch_01.prefab", new Vector3(2.5f, 0, -2.5f), 0, 1f);
+                Add(root, "Buildings/K_SM_Bld_Wooden_Tower_01.prefab", Vector3.zero, 0, 1f);
+                Add(root, "Buildings/K_SM_Bld_Tent_Small_01.prefab", new Vector3(4.5f, 0, 1.5f), -40, 1f);
+                Add(root, "Props/K_SM_Prop_Fence_03.prefab", new Vector3(-3.5f, 0, 3.5f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Crate_Stack_01.prefab", new Vector3(-3.0f, 0, -2.5f), 20, 1f);
+                Add(root, "Props/K_SM_Prop_Torch_01.prefab", new Vector3(2.5f, 0, -2.5f), 0, 1f);
                 Banner(root, new Vector3(-4.0f, 0, 0.5f), 0);
                 var prefab = Save(root, f + "Outpost.prefab");
                 WireSo(f + "Outpost.asset", prefab, 350, null, "Runai_Outpost");
@@ -501,13 +501,13 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("TradeHub");
-                Add(root, "Buildings/SM_Bld_Tent_Large_01.prefab", Vector3.zero, 0, 1f);
-                Add(root, "Props/SM_Prop_Market_Stall_02.prefab", new Vector3(6.0f, 0, 2.0f), -90, 1f);
-                Add(root, "Props/SM_Prop_Market_Stall_05.prefab", new Vector3(-6.0f, 0, 2.0f), 90, 1f);
-                Add(root, "Vehicles/SM_Veh_TraderWagon_01.prefab", new Vector3(0, 0, -6.0f), 90, 0.9f);
-                Add(root, "Props/SM_Prop_Crate_Stack_03.prefab", new Vector3(3.5f, 0, 5.5f), 0, 1f);
-                Add(root, "Props/SM_Prop_Sack_Stack_02.prefab", new Vector3(-3.5f, 0, 5.5f), 0, 1f);
-                Add(root, "Props/SM_Prop_Rug_03.prefab", new Vector3(0, 0.02f, 5.0f), 0, 1.2f);
+                Add(root, "Buildings/K_SM_Bld_Tent_Large_01.prefab", Vector3.zero, 0, 1f);
+                Add(root, "Props/K_SM_Prop_Market_Stall_02.prefab", new Vector3(6.0f, 0, 2.0f), -90, 1f);
+                Add(root, "Props/K_SM_Prop_Market_Stall_05.prefab", new Vector3(-6.0f, 0, 2.0f), 90, 1f);
+                Add(root, "Vehicles/K_SM_Veh_TraderWagon_01.prefab", new Vector3(0, 0, -6.0f), 90, 0.9f);
+                Add(root, "Props/K_SM_Prop_Crate_Stack_03.prefab", new Vector3(3.5f, 0, 5.5f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Sack_Stack_02.prefab", new Vector3(-3.5f, 0, 5.5f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Rug_03.prefab", new Vector3(0, 0.02f, 5.0f), 0, 1.2f);
                 Banner(root, new Vector3(5.5f, 0, -3.5f), 0);
                 var prefab = Save(root, f + "TradeHub.prefab");
                 WireSo(f + "TradeHub.asset", prefab, 351, null, "Runai_TradeHub");
@@ -521,15 +521,15 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("ThessarasBazaar");
-                Add(root, "Buildings/SM_Bld_Tent_Round_01.prefab", Vector3.zero, 0, 1.1f);
-                Add(root, "Buildings/SM_Bld_Tent_Open_01.prefab", new Vector3(6.5f, 0, 0), -90, 1f);
-                Add(root, "Props/SM_Prop_Market_Stall_07.prefab", new Vector3(-6.0f, 0, 1.0f), 90, 1f);
-                Add(root, "Props/SM_Prop_Market_Stall_09.prefab", new Vector3(0, 0, 6.5f), 180, 1f);
-                Add(root, "Props/SM_Prop_Jewellery_Display_01.prefab", new Vector3(6.3f, 0, 0.3f), 0, 1f);
-                Add(root, "Props/SM_Prop_Rug_01.prefab", new Vector3(0, 0.02f, -5.5f), 0, 1.2f);
-                Add(root, "Props/SM_Prop_Rug_06.prefab", new Vector3(-3.0f, 0.02f, 5.0f), 30, 1f);
-                Add(root, "Props/SM_Prop_Pot_01.prefab", new Vector3(3.0f, 0, -5.5f), 0, 1.2f);
-                Add(root, "Props/SM_Prop_Bunting_01.prefab", new Vector3(0, 3.2f, 3.5f), 0, 1f);
+                Add(root, "Buildings/K_SM_Bld_Tent_Round_01.prefab", Vector3.zero, 0, 1.1f);
+                Add(root, "Buildings/K_SM_Bld_Tent_Open_01.prefab", new Vector3(6.5f, 0, 0), -90, 1f);
+                Add(root, "Props/K_SM_Prop_Market_Stall_07.prefab", new Vector3(-6.0f, 0, 1.0f), 90, 1f);
+                Add(root, "Props/K_SM_Prop_Market_Stall_09.prefab", new Vector3(0, 0, 6.5f), 180, 1f);
+                Add(root, "Props/K_SM_Prop_Jewellery_Display_01.prefab", new Vector3(6.3f, 0, 0.3f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Rug_01.prefab", new Vector3(0, 0.02f, -5.5f), 0, 1.2f);
+                Add(root, "Props/K_SM_Prop_Rug_06.prefab", new Vector3(-3.0f, 0.02f, 5.0f), 30, 1f);
+                Add(root, "Props/K_SM_Prop_Pot_01.prefab", new Vector3(3.0f, 0, -5.5f), 0, 1.2f);
+                Add(root, "Props/K_SM_Prop_Bunting_01.prefab", new Vector3(0, 3.2f, 3.5f), 0, 1f);
                 Banner(root, new Vector3(-5.5f, 0, -4.5f), 0);
                 var prefab = Save(root, f + "ThessarasBazaar.prefab");
                 WireSo(f + "ThessarasBazaar.asset", prefab, 352, null, "ThessarasBazaar");
@@ -543,13 +543,13 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("SiegeWorkshop");
-                Add(root, "Buildings/SM_Bld_Tent_Open_02.prefab", Vector3.zero, 0, 1.1f);
-                Add(root, "SiegeEngines/SM_Wep_Catapult_01.prefab", new Vector3(5.5f, 0, -1.0f), 30, 0.8f);
-                Add(root, "SiegeEngines/SM_Wep_Rock_01.prefab", new Vector3(-5.0f, 0, 3.0f), 0, 1f);
-                Add(root, "Props/SM_Prop_Workbench_Forge_01_Preset.prefab", new Vector3(-5.0f, 0, -2.5f), 90, 1f);
-                Add(root, "Props/SM_Prop_Ladder_01.prefab", new Vector3(2.0f, 0, 4.5f), 180, 1f, new Vector3(-15, 0, 0));
-                Add(root, "Props/SM_Prop_Barrel_Stack_01.prefab", new Vector3(-2.0f, 0, 5.0f), 0, 1f);
-                Add(root, "Props/SM_Prop_Beam_05.prefab", new Vector3(3.0f, 0, 5.0f), 10, 1f);
+                Add(root, "Buildings/K_SM_Bld_Tent_Open_02.prefab", Vector3.zero, 0, 1.1f);
+                Add(root, "SiegeEngines/K_SM_Wep_Catapult_01.prefab", new Vector3(5.5f, 0, -1.0f), 30, 0.8f);
+                Add(root, "SiegeEngines/K_SM_Wep_Rock_01.prefab", new Vector3(-5.0f, 0, 3.0f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Workbench_Forge_01_Preset.prefab", new Vector3(-5.0f, 0, -2.5f), 90, 1f);
+                Add(root, "Props/K_SM_Prop_Ladder_01.prefab", new Vector3(2.0f, 0, 4.5f), 180, 1f, new Vector3(-15, 0, 0));
+                Add(root, "Props/K_SM_Prop_Barrel_Stack_01.prefab", new Vector3(-2.0f, 0, 5.0f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Beam_05.prefab", new Vector3(3.0f, 0, 5.0f), 10, 1f);
                 Banner(root, new Vector3(6.0f, 0, 3.5f), 0);
                 var prefab = Save(root, f + "SiegeWorkshop.prefab");
                 WireSo(f + "SiegeWorkshop.asset", prefab, 353, null, "Runai_SiegeWorkshop");
@@ -563,11 +563,11 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("TradingPost");
-                Add(root, "Props/SM_Prop_Market_Stall_01.prefab", Vector3.zero, 0, 1.2f);
-                Add(root, "Buildings/SM_Bld_Tent_Single_01.prefab", new Vector3(-3.5f, 0, -1.0f), 40, 1f);
-                Add(root, "Props/SM_Prop_Crate_Stack_02.prefab", new Vector3(3.0f, 0, 1.0f), 0, 1f);
-                Add(root, "Props/SM_Prop_Sign_Wood_03.prefab", new Vector3(3.0f, 0, -2.0f), -30, 1f);
-                Add(root, "Props/SM_Prop_Sack_01.prefab", new Vector3(-1.5f, 0, 2.5f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Market_Stall_01.prefab", Vector3.zero, 0, 1.2f);
+                Add(root, "Buildings/K_SM_Bld_Tent_Single_01.prefab", new Vector3(-3.5f, 0, -1.0f), 40, 1f);
+                Add(root, "Props/K_SM_Prop_Crate_Stack_02.prefab", new Vector3(3.0f, 0, 1.0f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Sign_Wood_03.prefab", new Vector3(3.0f, 0, -2.0f), -30, 1f);
+                Add(root, "Props/K_SM_Prop_Sack_01.prefab", new Vector3(-1.5f, 0, 2.5f), 0, 1f);
                 Banner(root, new Vector3(2.0f, 0, 3.0f), 0);
                 var prefab = Save(root, f + "TradingPost.prefab");
                 WireSo(f + "TradingPost.asset", prefab, 355, null, "Runai_TradingPost");
@@ -581,11 +581,11 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("Vault");
-                Add(root, "Buildings/SM_Bld_Tent_Square_01.prefab", Vector3.zero, 0, 1f);
-                Add(root, "Props/SM_Prop_Crate_Stack_04.prefab", new Vector3(4.5f, 0, 1.5f), 0, 1f);
-                Add(root, "Props/SM_Prop_Sack_Stack_01.prefab", new Vector3(-4.5f, 0, 1.5f), 0, 1f);
-                Add(root, "Props/SM_Prop_Barrel_Stack_03.prefab", new Vector3(0, 0, 5.0f), 0, 1f);
-                Add(root, "Props/SM_Prop_Ore_Gold_01.prefab", new Vector3(3.0f, 0, -4.0f), 0, 1f);
+                Add(root, "Buildings/K_SM_Bld_Tent_Square_01.prefab", Vector3.zero, 0, 1f);
+                Add(root, "Props/K_SM_Prop_Crate_Stack_04.prefab", new Vector3(4.5f, 0, 1.5f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Sack_Stack_01.prefab", new Vector3(-4.5f, 0, 1.5f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Barrel_Stack_03.prefab", new Vector3(0, 0, 5.0f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Ore_Gold_01.prefab", new Vector3(3.0f, 0, -4.0f), 0, 1f);
                 Banner(root, new Vector3(-4.0f, 0, -4.0f), 0);
                 var prefab = Save(root, f + "Vault.prefab");
                 WireSo(f + "Vault.asset", prefab, 365, null, "Runai_Vault");
@@ -601,11 +601,11 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("HushVault");
-                Add(root, "Castle/SM_Bld_Castle_Wall_Tower_S_01.prefab", Vector3.zero, 0, 1f);
-                Add(root, "Props/SM_Prop_Gravestone_01.prefab", new Vector3(3.5f, 0, 2.0f), 20, 1f);
-                Add(root, "Props/SM_Prop_Gravestone_03.prefab", new Vector3(-3.5f, 0, 2.0f), -20, 1f);
-                Add(root, "Props/SM_Prop_Candle_Melted_Group_01.prefab", new Vector3(0, 0, 3.5f), 0, 1.2f);
-                Add(root, "Props/SM_Prop_Cross_01.prefab", new Vector3(0, 0, -3.5f), 0, 1f);
+                Add(root, "Castle/K_SM_Bld_Castle_Wall_Tower_S_01.prefab", Vector3.zero, 0, 1f);
+                Add(root, "Props/K_SM_Prop_Gravestone_01.prefab", new Vector3(3.5f, 0, 2.0f), 20, 1f);
+                Add(root, "Props/K_SM_Prop_Gravestone_03.prefab", new Vector3(-3.5f, 0, 2.0f), -20, 1f);
+                Add(root, "Props/K_SM_Prop_Candle_Melted_Group_01.prefab", new Vector3(0, 0, 3.5f), 0, 1.2f);
+                Add(root, "Props/K_SM_Prop_Cross_01.prefab", new Vector3(0, 0, -3.5f), 0, 1f);
                 Banner(root, new Vector3(4.0f, 0, -2.5f), 0);
                 Save(root, f + "HushVault.prefab");
                 Report.Add("OK Sect_HushVault (no SO) -> " + f + "HushVault.prefab");
@@ -619,12 +619,12 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("Tribunal");
-                Add(root, "Props/SM_Prop_Stage_01.prefab", Vector3.zero, 0, 1.3f);
-                Add(root, "Props/SM_Prop_Church_Lectern_01.prefab", new Vector3(0, 1.0f, -1.0f), 0, 1.2f);
-                Add(root, "Props/SM_Prop_Gallows_Single_01.prefab", new Vector3(4.5f, 0, -1.0f), 0, 1f);
-                Add(root, "Props/SM_Prop_Throne_Plinth_01.prefab", new Vector3(-4.5f, 0, -1.0f), 0, 1f);
-                Add(root, "Props/Banners/SM_Prop_Banner_02.prefab", new Vector3(2.5f, 0, 3.5f), 0, 1f);
-                Add(root, "Props/Banners/SM_Prop_Banner_02.prefab", new Vector3(-2.5f, 0, 3.5f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Stage_01.prefab", Vector3.zero, 0, 1.3f);
+                Add(root, "Props/K_SM_Prop_Church_Lectern_01.prefab", new Vector3(0, 1.0f, -1.0f), 0, 1.2f);
+                Add(root, "Props/K_SM_Prop_Gallows_Single_01.prefab", new Vector3(4.5f, 0, -1.0f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Throne_Plinth_01.prefab", new Vector3(-4.5f, 0, -1.0f), 0, 1f);
+                Add(root, "Props/Banners/K_SM_Prop_Banner_02.prefab", new Vector3(2.5f, 0, 3.5f), 0, 1f);
+                Add(root, "Props/Banners/K_SM_Prop_Banner_02.prefab", new Vector3(-2.5f, 0, 3.5f), 0, 1f);
                 Banner(root, new Vector3(0, 0, 4.0f), 0);
                 Save(root, f + "Tribunal.prefab");
                 Report.Add("OK Sect_Tribunal (no SO) -> " + f + "Tribunal.prefab");
@@ -638,9 +638,9 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("ChoirHall");
-                Add(root, "Buildings/Presets/SM_Bld_Preset_Church_01_A_Optimized.prefab", Vector3.zero, 0, 1f);
-                Add(root, "Props/SM_Prop_Bell_01.prefab", new Vector3(5.5f, 0, 2.0f), 0, 1f);
-                Add(root, "Props/SM_Prop_Candle_Melted_Group_01.prefab", new Vector3(-5.5f, 0, 2.0f), 0, 1.2f);
+                Add(root, "Buildings/Presets/K_SM_Bld_Preset_Church_01_A_Optimized.prefab", Vector3.zero, 0, 1f);
+                Add(root, "Props/K_SM_Prop_Bell_01.prefab", new Vector3(5.5f, 0, 2.0f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Candle_Melted_Group_01.prefab", new Vector3(-5.5f, 0, 2.0f), 0, 1.2f);
                 Banner(root, new Vector3(6.0f, 0, -3.0f), 0);
                 Save(root, f + "ChoirHall.prefab");
                 Report.Add("OK Sect_ChoirHall (no SO) -> " + f + "ChoirHall.prefab");
@@ -654,13 +654,13 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("GlassSpire");
-                Add(root, "Buildings/House/SM_Bld_House_Tower_Stone_01.prefab", Vector3.zero, 0, 1f);
-                Add(root, "Buildings/House/SM_Bld_House_Tower_01.prefab", new Vector3(0, 3.0f, 0), 0, 1f);
-                Add(root, "Buildings/House/SM_Bld_House_Tower_Window_01.prefab", new Vector3(0, 6.0f, 0), 0, 1f);
-                Add(root, "Buildings/House/SM_Bld_House_Tower_HeightCap_01.prefab", new Vector3(0, 9.0f, 0), 0, 1f);
-                Add(root, "Items/SM_Item_Crystal_04.prefab", new Vector3(0, 9.4f, 0), 0, 2.2f);
-                Add(root, "Props/SM_Prop_Mirror_01.prefab", new Vector3(2.5f, 0, 2.0f), -40, 1.3f);
-                Add(root, "Props/SM_Prop_Mirror_02.prefab", new Vector3(-2.5f, 0, 2.0f), 40, 1.3f);
+                Add(root, "Buildings/House/K_SM_Bld_House_Tower_Stone_01.prefab", Vector3.zero, 0, 1f);
+                Add(root, "Buildings/House/K_SM_Bld_House_Tower_01.prefab", new Vector3(0, 3.0f, 0), 0, 1f);
+                Add(root, "Buildings/House/K_SM_Bld_House_Tower_Window_01.prefab", new Vector3(0, 6.0f, 0), 0, 1f);
+                Add(root, "Buildings/House/K_SM_Bld_House_Tower_HeightCap_01.prefab", new Vector3(0, 9.0f, 0), 0, 1f);
+                Add(root, "Items/K_SM_Item_Crystal_04.prefab", new Vector3(0, 9.4f, 0), 0, 2.2f);
+                Add(root, "Props/K_SM_Prop_Mirror_01.prefab", new Vector3(2.5f, 0, 2.0f), -40, 1.3f);
+                Add(root, "Props/K_SM_Prop_Mirror_02.prefab", new Vector3(-2.5f, 0, 2.0f), 40, 1.3f);
                 Banner(root, new Vector3(3.0f, 0, -2.5f), 0);
                 Save(root, f + "GlassSpire.prefab");
                 Report.Add("OK Sect_GlassSpire (no SO) -> " + f + "GlassSpire.prefab");
@@ -674,14 +674,14 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("AshPyre");
-                Add(root, "Props/SM_Prop_FirePit_01.prefab", Vector3.zero, 0, 2.2f);
-                Add(root, "Props/SM_Prop_Wood_Pile_02.prefab", new Vector3(3.5f, 0, 1.0f), 0, 1.2f);
-                Add(root, "Environments/SM_Env_Tree_Burnt_01.prefab", new Vector3(-4.0f, 0, 2.0f), 0, 0.8f);
-                Add(root, "Environments/SM_Env_Tree_Burnt_02.prefab", new Vector3(3.0f, 0, -3.5f), 90, 0.7f);
-                Add(root, "Props/SM_Prop_Cauldron_03.prefab", new Vector3(-3.0f, 0, -3.0f), 0, 1.2f);
-                Add(root, "Props/SM_Prop_Candle_Skull_01.prefab", new Vector3(1.8f, 0, 2.6f), 0, 1.3f);
-                Add(root, "Props/SM_Prop_Candle_Skull_01.prefab", new Vector3(-1.8f, 0, 2.6f), 60, 1.3f);
-                Add(root, "Buildings/SM_Bld_Tent_Round_01_Burnt.prefab", new Vector3(0, 0, -5.5f), 180, 0.8f);
+                Add(root, "Props/K_SM_Prop_FirePit_01.prefab", Vector3.zero, 0, 2.2f);
+                Add(root, "Props/K_SM_Prop_Wood_Pile_02.prefab", new Vector3(3.5f, 0, 1.0f), 0, 1.2f);
+                Add(root, "Environments/K_SM_Env_Tree_Burnt_01.prefab", new Vector3(-4.0f, 0, 2.0f), 0, 0.8f);
+                Add(root, "Environments/K_SM_Env_Tree_Burnt_02.prefab", new Vector3(3.0f, 0, -3.5f), 90, 0.7f);
+                Add(root, "Props/K_SM_Prop_Cauldron_03.prefab", new Vector3(-3.0f, 0, -3.0f), 0, 1.2f);
+                Add(root, "Props/K_SM_Prop_Candle_Skull_01.prefab", new Vector3(1.8f, 0, 2.6f), 0, 1.3f);
+                Add(root, "Props/K_SM_Prop_Candle_Skull_01.prefab", new Vector3(-1.8f, 0, 2.6f), 60, 1.3f);
+                Add(root, "Buildings/K_SM_Bld_Tent_Round_01_Burnt.prefab", new Vector3(0, 0, -5.5f), 180, 0.8f);
                 Banner(root, new Vector3(4.5f, 0, 3.5f), 0);
                 Save(root, f + "AshPyre.prefab");
                 Report.Add("OK Sect_AshPyre (no SO) -> " + f + "AshPyre.prefab");
@@ -695,13 +695,13 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("Ruinworks");
-                Add(root, "SiegeEngines/SM_Wep_Siege_Tower_Fallen_01.prefab", Vector3.zero, 0, 0.8f);
-                Add(root, "Props/SM_Prop_Tether_Beam_01.prefab", new Vector3(4.5f, 0, 2.0f), 0, 1f);
-                Add(root, "Props/SM_Prop_Tether_Beam_03.prefab", new Vector3(-4.5f, 0, 2.0f), 0, 1f);
-                Add(root, "Props/SM_Prop_Ladder_Tied_01.prefab", new Vector3(3.0f, 0, -3.5f), 0, 1f, new Vector3(-20, 0, 0));
-                Add(root, "Props/SM_Prop_Grinding_Wheel_01.prefab", new Vector3(-3.0f, 0, -3.5f), 30, 1.2f);
-                Add(root, "Weapons/SM_Wep_Hammer_05.prefab", new Vector3(-2.0f, 0.6f, 4.0f), 0, 1.4f, new Vector3(0, 0, 70));
-                Add(root, "Props/SM_Prop_Crate_Wood_01.prefab", new Vector3(1.5f, 0, 4.5f), 20, 1f);
+                Add(root, "SiegeEngines/K_SM_Wep_Siege_Tower_Fallen_01.prefab", Vector3.zero, 0, 0.8f);
+                Add(root, "Props/K_SM_Prop_Tether_Beam_01.prefab", new Vector3(4.5f, 0, 2.0f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Tether_Beam_03.prefab", new Vector3(-4.5f, 0, 2.0f), 0, 1f);
+                Add(root, "Props/K_SM_Prop_Ladder_Tied_01.prefab", new Vector3(3.0f, 0, -3.5f), 0, 1f, new Vector3(-20, 0, 0));
+                Add(root, "Props/K_SM_Prop_Grinding_Wheel_01.prefab", new Vector3(-3.0f, 0, -3.5f), 30, 1.2f);
+                Add(root, "Weapons/K_SM_Wep_Hammer_05.prefab", new Vector3(-2.0f, 0.6f, 4.0f), 0, 1.4f, new Vector3(0, 0, 70));
+                Add(root, "Props/K_SM_Prop_Crate_Wood_01.prefab", new Vector3(1.5f, 0, 4.5f), 20, 1f);
                 Banner(root, new Vector3(5.0f, 0, -3.0f), 0);
                 Save(root, f + "Ruinworks.prefab");
                 Report.Add("OK Sect_Ruinworks (no SO) -> " + f + "Ruinworks.prefab");
@@ -715,16 +715,16 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             try
             {
                 var root = new GameObject("ChainAltar");
-                Add(root, "Props/SM_Prop_Throne_Plinth_01.prefab", Vector3.zero, 0, 1.5f);
-                Add(root, "Props/SM_Prop_Cross_01.prefab", new Vector3(0, 0.6f, -0.8f), 0, 1.3f);
-                Add(root, "Props/SM_Prop_Cage_Man_01.prefab", new Vector3(3.5f, 0, 1.0f), -30, 1f);
-                Add(root, "Props/SM_Prop_Cage_01.prefab", new Vector3(-3.5f, 0, 1.0f), 30, 1f);
-                Add(root, "Props/SM_Prop_Chain_Hanging_01.prefab", new Vector3(2.0f, 3.0f, -1.0f), 0, 1.2f);
-                Add(root, "Props/SM_Prop_Chain_Hanging_02.prefab", new Vector3(-2.0f, 3.0f, -1.0f), 0, 1.2f);
-                Add(root, "Props/SM_Prop_Chain_Hanging_03.prefab", new Vector3(0, 3.2f, 1.5f), 0, 1.2f);
-                Add(root, "Props/SM_Prop_Candle_Skull_01.prefab", new Vector3(1.5f, 0, 2.8f), 0, 1.3f);
-                Add(root, "Props/SM_Prop_Candle_Skull_01.prefab", new Vector3(-1.5f, 0, 2.8f), 90, 1.3f);
-                Add(root, "Props/SM_Prop_BloodPool_03.prefab", new Vector3(0, 0.02f, 2.0f), 0, 1.5f);
+                Add(root, "Props/K_SM_Prop_Throne_Plinth_01.prefab", Vector3.zero, 0, 1.5f);
+                Add(root, "Props/K_SM_Prop_Cross_01.prefab", new Vector3(0, 0.6f, -0.8f), 0, 1.3f);
+                Add(root, "Props/K_SM_Prop_Cage_Man_01.prefab", new Vector3(3.5f, 0, 1.0f), -30, 1f);
+                Add(root, "Props/K_SM_Prop_Cage_01.prefab", new Vector3(-3.5f, 0, 1.0f), 30, 1f);
+                Add(root, "Props/K_SM_Prop_Chain_Hanging_01.prefab", new Vector3(2.0f, 3.0f, -1.0f), 0, 1.2f);
+                Add(root, "Props/K_SM_Prop_Chain_Hanging_02.prefab", new Vector3(-2.0f, 3.0f, -1.0f), 0, 1.2f);
+                Add(root, "Props/K_SM_Prop_Chain_Hanging_03.prefab", new Vector3(0, 3.2f, 1.5f), 0, 1.2f);
+                Add(root, "Props/K_SM_Prop_Candle_Skull_01.prefab", new Vector3(1.5f, 0, 2.8f), 0, 1.3f);
+                Add(root, "Props/K_SM_Prop_Candle_Skull_01.prefab", new Vector3(-1.5f, 0, 2.8f), 90, 1.3f);
+                Add(root, "Props/K_SM_Prop_BloodPool_03.prefab", new Vector3(0, 0.02f, 2.0f), 0, 1.5f);
                 Banner(root, new Vector3(4.0f, 0, -2.5f), 0);
                 Save(root, f + "ChainAltar.prefab");
                 Report.Add("OK Sect_ChainAltar (no SO) -> " + f + "ChainAltar.prefab");
@@ -757,7 +757,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         /// <summary>The named player-colour slot: a battle banner in a flat material called PlayerColor_Cloth.</summary>
         static void Banner(GameObject parent, Vector3 pos, float yaw)
         {
-            var go = Add(parent, "Props/Banners/SM_Prop_Battle_Banner_01.prefab", pos, yaw, 1.1f, null, "PlayerColor_Banner");
+            var go = Add(parent, "Props/Banners/K_SM_Prop_Battle_Banner_01.prefab", pos, yaw, 1.1f, null, "PlayerColor_Banner");
             if (go == null) return;
             var cloth = Load<Material>(PlayerClothMatPath);
             foreach (var r in go.GetComponentsInChildren<Renderer>(true))

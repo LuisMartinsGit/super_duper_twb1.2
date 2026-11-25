@@ -88,40 +88,40 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         const float PtHallCx = (PtHallW + PtHallE) * 0.5f;
         const float PtTowX = -2.6f, PtTowZ = 2.55f, PtTowHalf = 2f;
 
-        const string PK_DoorBig = "Castle/SM_Bld_Castle_Wall_Door_Big_01";
-        const string PK_Gate = "Castle/SM_Bld_Castle_Wall_Gate_01";
-        const string PK_Slit = "Castle/SM_Bld_Castle_Wall_Arrowslit_03";
-        const string PK_Window = "Castle/SM_Bld_Castle_Wall_Window_01";
-        const string PK_WindowSmall = "Castle/SM_Bld_Castle_Wall_Window_03";
-        const string PK_Bay = "Castle/SM_Bld_Castle_Wall_Cut_04";
-        const string PK_Half = "Castle/SM_Bld_Castle_Wall_Cut_01";
-        const string PK_Low = "Castle/SM_Bld_Castle_Wall_Cut_02";
-        const string PK_LowHalf = "Castle/SM_Bld_Castle_Wall_Cut_03";
-        const string PK_BattHalf = "Castle/SM_Bld_Castle_Battlements_01_Half";
-        const string PK_Slope = "Castle/SM_Bld_Castle_Roof_S_01";
-        const string PK_Verge = "Castle/SM_Bld_Castle_Roof_S_End_01";
-        const string PK_Shed = "Castle/SM_Bld_Castle_Roof_S_Half_01";
-        const string PK_PillarRound = "Castle/SM_Bld_Castle_Pillar_Stone_Round_01";
-        const string PK_PillarSquare = "Castle/SM_Bld_Castle_Pillar_Stone_01";
-        const string PK_Post = "Castle/SM_Bld_Castle_Pillar_Wood_02";
-        const string PK_FlagSide = "Props/Banners/SM_Prop_Flag_Horizontal_01";
-        const string PK_Fence = "Props/SM_Prop_Fence_01";
-        const string PK_Rack = "Props/BattleGround/SM_Prop_Camp_Weapon_Rack_01";
-        const string PK_RackLow = "Props/BattleGround/SM_Prop_Weapon_Rack_02";
-        const string PK_DummyA = "Props/BattleGround/SM_Prop_Dummy_Armour_01";
-        const string PK_DummyB = "Props/BattleGround/SM_Prop_Dummy_Armour_02";
-        const string PK_DummyArch = "Props/BattleGround/SM_Prop_Dummy_Archery_01";
-        const string PK_Barrel = "Props/SM_Prop_Barrel_01";
-        const string PK_BarrelArrows = "Props/SM_Prop_Barrel_Arrows_01";
-        const string PK_Crate = "Props/SM_Prop_Crate_Wood_01";
-        const string PK_Sacks = "Props/SM_Prop_Sack_Stack_01";
-        const string PK_StreetLamp = "Props/SM_Prop_Street_Lamp_01";
-        const string PK_Armor = "Props/SM_Prop_Knight_Armor_01";
-        const string PK_WarTable = "Props/Furniture/SM_Prop_Table_War_Preset_01";
-        const string PK_HayCart = "Props/SM_Prop_Hay_Cart_01";
-        const string PK_Statue = "Props/SM_Prop_Statue_Knight_01";
-        const string PK_StatuePlinth = "Props/SM_Prop_Statue_Plinth_01";
-        const string PK_Ivy = "Environments/SM_Env_Ivy_01";
+        const string PK_DoorBig = "Castle/K_SM_Bld_Castle_Wall_Door_Big_01";
+        const string PK_Gate = "Castle/K_SM_Bld_Castle_Wall_Gate_01";
+        const string PK_Slit = "Castle/K_SM_Bld_Castle_Wall_Arrowslit_03";
+        const string PK_Window = "Castle/K_SM_Bld_Castle_Wall_Window_01";
+        const string PK_WindowSmall = "Castle/K_SM_Bld_Castle_Wall_Window_03";
+        const string PK_Bay = "Castle/K_SM_Bld_Castle_Wall_Cut_04";
+        const string PK_Half = "Castle/K_SM_Bld_Castle_Wall_Cut_01";
+        const string PK_Low = "Castle/K_SM_Bld_Castle_Wall_Cut_02";
+        const string PK_LowHalf = "Castle/K_SM_Bld_Castle_Wall_Cut_03";
+        const string PK_BattHalf = "Castle/K_SM_Bld_Castle_Battlements_01_Half";
+        const string PK_Slope = "Castle/K_SM_Bld_Castle_Roof_S_01";
+        const string PK_Verge = "Castle/K_SM_Bld_Castle_Roof_S_End_01";
+        const string PK_Shed = "Castle/K_SM_Bld_Castle_Roof_S_Half_01";
+        const string PK_PillarRound = "Castle/K_SM_Bld_Castle_Pillar_Stone_Round_01";
+        const string PK_PillarSquare = "Castle/K_SM_Bld_Castle_Pillar_Stone_01";
+        const string PK_Post = "Castle/K_SM_Bld_Castle_Pillar_Wood_02";
+        const string PK_FlagSide = "Props/Banners/K_SM_Prop_Flag_Horizontal_01";
+        const string PK_Fence = "Props/K_SM_Prop_Fence_01";
+        const string PK_Rack = "Props/BattleGround/K_SM_Prop_Camp_Weapon_Rack_01";
+        const string PK_RackLow = "Props/BattleGround/K_SM_Prop_Weapon_Rack_02";
+        const string PK_DummyA = "Props/BattleGround/K_SM_Prop_Dummy_Armour_01";
+        const string PK_DummyB = "Props/BattleGround/K_SM_Prop_Dummy_Armour_02";
+        const string PK_DummyArch = "Props/BattleGround/K_SM_Prop_Dummy_Archery_01";
+        const string PK_Barrel = "Props/K_SM_Prop_Barrel_01";
+        const string PK_BarrelArrows = "Props/K_SM_Prop_Barrel_Arrows_01";
+        const string PK_Crate = "Props/K_SM_Prop_Crate_Wood_01";
+        const string PK_Sacks = "Props/K_SM_Prop_Sack_Stack_01";
+        const string PK_StreetLamp = "Props/K_SM_Prop_Street_Lamp_01";
+        const string PK_Armor = "Props/K_SM_Prop_Knight_Armor_01";
+        const string PK_WarTable = "Props/Furniture/K_SM_Prop_Table_War_Preset_01";
+        const string PK_HayCart = "Props/K_SM_Prop_Hay_Cart_01";
+        const string PK_Statue = "Props/K_SM_Prop_Statue_Knight_01";
+        const string PK_StatuePlinth = "Props/K_SM_Prop_Statue_Plinth_01";
+        const string PK_Ivy = "Environments/K_SM_Env_Ivy_01";
 
         static string PtOut => Environment.GetEnvironmentVariable("TWB_OUT") is { Length: > 0 } s ? s : "Temp/proportion-test";
 
@@ -901,16 +901,16 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         // ═════════════════════════════════════════════════════════════════
         static readonly string[] PtMeasureList =
         {
-            "Castle/SM_Bld_Castle_Wall_Gate_01", "Castle/SM_Bld_Castle_Wall_Gate_L_01", "Castle/SM_Bld_Castle_Wall_Archway_01", "Castle/SM_Bld_Castle_Wall_Archway_02",
-            "Castle/SM_Bld_Castle_Archway_Small_01", "Castle/SM_Bld_Castle_Wall_Archway_Legs_01", "Castle/SM_Bld_Castle_Drawbridge_01",
-            "Castle/SM_Bld_Castle_Wall_Window_Big_01", "Castle/SM_Bld_Castle_Wall_Window_Fancy_01", "Castle/SM_Bld_Castle_Wall_Window_03", "Castle/SM_Bld_Castle_Wall_Window_04",
-            "Castle/SM_Bld_Castle_Wall_Cut_01", "Castle/SM_Bld_Castle_Wall_Cut_03", "Castle/SM_Bld_Castle_Wall_04", "Castle/SM_Bld_Castle_Wall_Fireplace_01",
-            "Castle/SM_Bld_Castle_Battlements_01_Half", "Castle/SM_Bld_Castle_Battlements_03", "Castle/SM_Bld_Castle_Roof_Cap_Round_04",
-            "Castle/SM_Bld_Castle_Roof_Cap_Square_06", "Castle/SM_Bld_Castle_Roof_Cap_Square_07", "Castle/SM_Bld_Castle_Roof_Cap_Square_05",
-            "Props/SM_Prop_Well_01", "Props/SM_Prop_Statue_Knight_01", "Props/SM_Prop_Statue_Plinth_01", "Props/SM_Prop_Horse_Hitching_Post_01", "Props/SM_Prop_Hay_Cart_01",
-            "Props/Furniture/SM_Prop_Table_War_Preset_01", "Props/Banners/SM_Prop_Flag_Pole_02", "Props/Banners/SM_Prop_Banner_01", "Props/Banners/SM_Prop_Battle_Banner_01",
-            "Props/BattleGround/SM_Prop_Target_01", "Props/SM_Prop_Barrel_Stack_01", "Props/SM_Prop_Crate_Stack_02", "Props/SM_Prop_Sack_Stack_01", "Props/SM_Prop_Bracket_Pot_01_Preset_01",
-            "Environments/SM_Env_Ivy_01", "Environments/SM_Env_Bush_01", "Environments/SM_Env_Planter_Base_01",
+            "Castle/K_SM_Bld_Castle_Wall_Gate_01", "Castle/K_SM_Bld_Castle_Wall_Gate_L_01", "Castle/K_SM_Bld_Castle_Wall_Archway_01", "Castle/K_SM_Bld_Castle_Wall_Archway_02",
+            "Castle/K_SM_Bld_Castle_Archway_Small_01", "Castle/K_SM_Bld_Castle_Wall_Archway_Legs_01", "Castle/K_SM_Bld_Castle_Drawbridge_01",
+            "Castle/K_SM_Bld_Castle_Wall_Window_Big_01", "Castle/K_SM_Bld_Castle_Wall_Window_Fancy_01", "Castle/K_SM_Bld_Castle_Wall_Window_03", "Castle/K_SM_Bld_Castle_Wall_Window_04",
+            "Castle/K_SM_Bld_Castle_Wall_Cut_01", "Castle/K_SM_Bld_Castle_Wall_Cut_03", "Castle/K_SM_Bld_Castle_Wall_04", "Castle/K_SM_Bld_Castle_Wall_Fireplace_01",
+            "Castle/K_SM_Bld_Castle_Battlements_01_Half", "Castle/K_SM_Bld_Castle_Battlements_03", "Castle/K_SM_Bld_Castle_Roof_Cap_Round_04",
+            "Castle/K_SM_Bld_Castle_Roof_Cap_Square_06", "Castle/K_SM_Bld_Castle_Roof_Cap_Square_07", "Castle/K_SM_Bld_Castle_Roof_Cap_Square_05",
+            "Props/K_SM_Prop_Well_01", "Props/K_SM_Prop_Statue_Knight_01", "Props/K_SM_Prop_Statue_Plinth_01", "Props/K_SM_Prop_Horse_Hitching_Post_01", "Props/K_SM_Prop_Hay_Cart_01",
+            "Props/Furniture/K_SM_Prop_Table_War_Preset_01", "Props/Banners/K_SM_Prop_Flag_Pole_02", "Props/Banners/K_SM_Prop_Banner_01", "Props/Banners/K_SM_Prop_Battle_Banner_01",
+            "Props/BattleGround/K_SM_Prop_Target_01", "Props/K_SM_Prop_Barrel_Stack_01", "Props/K_SM_Prop_Crate_Stack_02", "Props/K_SM_Prop_Sack_Stack_01", "Props/K_SM_Prop_Bracket_Pot_01_Preset_01",
+            "Environments/K_SM_Env_Ivy_01", "Environments/K_SM_Env_Bush_01", "Environments/K_SM_Env_Planter_Base_01",
         };
 
         /// <summary>Bounds, child renderers and materials of the kit pieces this author uses.</summary>

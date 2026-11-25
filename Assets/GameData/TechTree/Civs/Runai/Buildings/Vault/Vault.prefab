@@ -47,7 +47,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -126,7 +126,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1949185069924860, guid: 602031ca8e3c9d4459b11a6da15c0f60, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Crate_Stack_04
+      value: K_SM_Prop_Crate_Stack_04
       objectReference: {fileID: 0}
     - target: {fileID: 4677213233591896, guid: 602031ca8e3c9d4459b11a6da15c0f60, type: 3}
       propertyPath: m_LocalPosition.x
@@ -189,7 +189,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1793482622933152, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Sack_Stack_01
+      value: K_SM_Prop_Sack_Stack_01
       objectReference: {fileID: 0}
     - target: {fileID: 4765925423086604, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_LocalPosition.x
@@ -252,7 +252,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1337228125781108, guid: 169dd305c6848c246ab712725813f963, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Tent_Square_01
+      value: K_SM_Bld_Tent_Square_01
       objectReference: {fileID: 0}
     - target: {fileID: 4878269847795614, guid: 169dd305c6848c246ab712725813f963, type: 3}
       propertyPath: m_LocalPosition.x
@@ -315,7 +315,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1299982236815214, guid: cbaa1dd953708b947afcaeb2aae7fe67, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Ore_Gold_01
+      value: K_SM_Prop_Ore_Gold_01
       objectReference: {fileID: 0}
     - target: {fileID: 4519616606809268, guid: cbaa1dd953708b947afcaeb2aae7fe67, type: 3}
       propertyPath: m_LocalPosition.x
@@ -378,7 +378,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1114366929200988, guid: 0a9affd0363fb924e9ba59dbac540d35, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Barrel_Stack_03
+      value: K_SM_Prop_Barrel_Stack_03
       objectReference: {fileID: 0}
     - target: {fileID: 4114784312934328, guid: 0a9affd0363fb924e9ba59dbac540d35, type: 3}
       propertyPath: m_LocalPosition.x

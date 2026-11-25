@@ -413,7 +413,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -481,7 +481,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -548,7 +548,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: FlagWMast
+      value: K_FlagWMast
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -627,7 +627,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -695,7 +695,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: NaveTrimSW
+      value: K_NaveTrimSW
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -774,7 +774,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1790448401652942, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
+      value: K_SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
       objectReference: {fileID: 0}
     - target: {fileID: 1820802101663794, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
@@ -861,7 +861,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179592125756304, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_FlagW
+      value: K_PlayerColor_FlagW
       objectReference: {fileID: 0}
     - target: {fileID: 4489196261048372, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_LocalScale.x
@@ -940,7 +940,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1007,7 +1007,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1086,7 +1086,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1154,7 +1154,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1222,7 +1222,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1256372721743920, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_Name
-      value: NaveSlopeS
+      value: K_NaveSlopeS
       objectReference: {fileID: 0}
     - target: {fileID: 4391937466002270, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_LocalScale.x
@@ -1305,7 +1305,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: NaveTrimSE
+      value: K_NaveTrimSE
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -1384,7 +1384,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingSb
+      value: K_RingSb
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -1463,7 +1463,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1968699429545176, guid: 5ab493e6631bb584f96d5562beb3d03d, type: 3}
       propertyPath: m_Name
-      value: Cone
+      value: K_Cone
       objectReference: {fileID: 0}
     - target: {fileID: 4410333653542998, guid: 5ab493e6631bb584f96d5562beb3d03d, type: 3}
       propertyPath: m_LocalScale.x
@@ -1546,7 +1546,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1526384252657966, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_Name
-      value: Lamp
+      value: K_Lamp
       objectReference: {fileID: 0}
     - target: {fileID: 4314332775548574, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_LocalScale.x
@@ -1625,7 +1625,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1692,7 +1692,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1759,7 +1759,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1826,7 +1826,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: NaveTrimNW
+      value: K_NaveTrimNW
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -1905,7 +1905,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1356795975264044, guid: b5034dfe868f9044d9faf1f7d2f90d7a, type: 3}
       propertyPath: m_Name
-      value: AngelE
+      value: K_AngelE
       objectReference: {fileID: 0}
     - target: {fileID: 4371166825212200, guid: b5034dfe868f9044d9faf1f7d2f90d7a, type: 3}
       propertyPath: m_LocalScale.x
@@ -1985,7 +1985,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1299982236815214, guid: cbaa1dd953708b947afcaeb2aae7fe67, type: 3}
       propertyPath: m_Name
-      value: GoldA
+      value: K_GoldA
       objectReference: {fileID: 0}
     - target: {fileID: 4519616606809268, guid: cbaa1dd953708b947afcaeb2aae7fe67, type: 3}
       propertyPath: m_LocalScale.x
@@ -2064,7 +2064,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2131,7 +2131,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1299982236815214, guid: cbaa1dd953708b947afcaeb2aae7fe67, type: 3}
       propertyPath: m_Name
-      value: GoldB
+      value: K_GoldB
       objectReference: {fileID: 0}
     - target: {fileID: 4519616606809268, guid: cbaa1dd953708b947afcaeb2aae7fe67, type: 3}
       propertyPath: m_LocalScale.x
@@ -2210,7 +2210,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1747848062280082, guid: 6d3e81c35ed7f3e4387a7d7205a95bf2, type: 3}
       propertyPath: m_Name
-      value: Dome
+      value: K_Dome
       objectReference: {fileID: 0}
     - target: {fileID: 4993030729954222, guid: 6d3e81c35ed7f3e4387a7d7205a95bf2, type: 3}
       propertyPath: m_LocalScale.x
@@ -2293,7 +2293,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2361,7 +2361,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingE
+      value: K_RingE
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -2440,7 +2440,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2507,7 +2507,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -2586,7 +2586,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2654,7 +2654,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2722,7 +2722,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2789,7 +2789,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2857,7 +2857,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2925,7 +2925,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2992,7 +2992,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3060,7 +3060,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1356795975264044, guid: b5034dfe868f9044d9faf1f7d2f90d7a, type: 3}
       propertyPath: m_Name
-      value: AngelW
+      value: K_AngelW
       objectReference: {fileID: 0}
     - target: {fileID: 4371166825212200, guid: b5034dfe868f9044d9faf1f7d2f90d7a, type: 3}
       propertyPath: m_LocalScale.x
@@ -3140,7 +3140,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3208,7 +3208,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -3287,7 +3287,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3355,7 +3355,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1143561657446812, guid: a9495ed720c4d56408a3d9cbdd3e638e, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Door_Big_Door_
+      value: K_SM_Bld_Castle_Wall_Door_Big_Door_
       objectReference: {fileID: 0}
     - target: {fileID: 1605463164009446, guid: a9495ed720c4d56408a3d9cbdd3e638e, type: 3}
       propertyPath: m_Name
@@ -3452,7 +3452,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1790448401652942, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
+      value: K_SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
       objectReference: {fileID: 0}
     - target: {fileID: 1820802101663794, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
@@ -3539,7 +3539,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3607,7 +3607,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3675,7 +3675,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3742,7 +3742,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3810,7 +3810,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3878,7 +3878,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: FlagEMast
+      value: K_FlagEMast
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -3957,7 +3957,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4024,7 +4024,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4091,7 +4091,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4158,7 +4158,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4226,7 +4226,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1790448401652942, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
+      value: K_SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
       objectReference: {fileID: 0}
     - target: {fileID: 1820802101663794, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
@@ -4313,7 +4313,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4380,7 +4380,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4448,7 +4448,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4515,7 +4515,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingSa
+      value: K_RingSa
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -4594,7 +4594,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: NaveTrimNE
+      value: K_NaveTrimNE
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -4673,7 +4673,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4740,7 +4740,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingN
+      value: K_RingN
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -4819,7 +4819,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4886,7 +4886,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4954,7 +4954,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5021,7 +5021,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -5100,7 +5100,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5167,7 +5167,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1790448401652942, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
+      value: K_SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
       objectReference: {fileID: 0}
     - target: {fileID: 1820802101663794, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
@@ -5254,7 +5254,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5322,7 +5322,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5390,7 +5390,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1968699429545176, guid: 5ab493e6631bb584f96d5562beb3d03d, type: 3}
       propertyPath: m_Name
-      value: Cone
+      value: K_Cone
       objectReference: {fileID: 0}
     - target: {fileID: 4410333653542998, guid: 5ab493e6631bb584f96d5562beb3d03d, type: 3}
       propertyPath: m_LocalScale.x
@@ -5473,7 +5473,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5541,7 +5541,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: Column
+      value: K_Column
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -5620,7 +5620,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5688,7 +5688,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1790448401652942, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
+      value: K_SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
       objectReference: {fileID: 0}
     - target: {fileID: 1820802101663794, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
@@ -5775,7 +5775,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5842,7 +5842,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1810190888800528, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_Name
-      value: Storey
+      value: K_Storey
       objectReference: {fileID: 0}
     - target: {fileID: 4429201741333320, guid: 1956e5175e0a563448b8aae5785385f1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5910,7 +5910,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179592125756304, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_FlagE
+      value: K_PlayerColor_FlagE
       objectReference: {fileID: 0}
     - target: {fileID: 4489196261048372, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_LocalScale.x
@@ -5989,7 +5989,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6056,7 +6056,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6123,7 +6123,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1789392568711668, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_Name
-      value: Floor
+      value: K_Floor
       objectReference: {fileID: 0}
     - target: {fileID: 4473098723319046, guid: 5e2e345c840d36640aa299a45406193a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6190,7 +6190,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1227248379407032, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_Name
-      value: Crown
+      value: K_Crown
       objectReference: {fileID: 0}
     - target: {fileID: 4748393929927680, guid: a6b72d0b6b61f39469873b51c4ced8e2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6257,7 +6257,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1790448401652942, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
+      value: K_SM_Bld_Castle_Wall_Window_Fancy_Tall__Glass
       objectReference: {fileID: 0}
     - target: {fileID: 1820802101663794, guid: 7cf831b528bbe8240b66aa5ca5ed82a0, type: 3}
       propertyPath: m_Name
@@ -6344,7 +6344,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1256372721743920, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_Name
-      value: NaveSlopeN
+      value: K_NaveSlopeN
       objectReference: {fileID: 0}
     - target: {fileID: 4391937466002270, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_LocalScale.x
@@ -6427,7 +6427,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1531237458812776, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_Name
-      value: RingW
+      value: K_RingW
       objectReference: {fileID: 0}
     - target: {fileID: 4350924721974766, guid: 61cd1fa366ad5d64795014f56881d8de, type: 3}
       propertyPath: m_LocalScale.x
@@ -6506,7 +6506,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1526384252657966, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_Name
-      value: Lamp
+      value: K_Lamp
       objectReference: {fileID: 0}
     - target: {fileID: 4314332775548574, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_LocalScale.x

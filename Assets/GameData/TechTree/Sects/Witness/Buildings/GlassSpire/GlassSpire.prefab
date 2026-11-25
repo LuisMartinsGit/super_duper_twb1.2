@@ -49,7 +49,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1980742931153986, guid: acf9299ce88d41647b2be2cfbace578a, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_House_Tower_Window_01
+      value: K_SM_Bld_House_Tower_Window_01
       objectReference: {fileID: 0}
     - target: {fileID: 4040876431821784, guid: acf9299ce88d41647b2be2cfbace578a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -116,7 +116,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1599904995443452, guid: 0dd66251f26e8b345bf33552e22b8454, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Mirror_01
+      value: K_SM_Prop_Mirror_01
       objectReference: {fileID: 0}
     - target: {fileID: 4311266077989220, guid: 0dd66251f26e8b345bf33552e22b8454, type: 3}
       propertyPath: m_LocalScale.x
@@ -191,7 +191,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1068346033358286, guid: 215a65a708a2b0442a061bea5b65a5d8, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_House_Tower_Stone_01
+      value: K_SM_Bld_House_Tower_Stone_01
       objectReference: {fileID: 0}
     - target: {fileID: 4465062912074846, guid: 215a65a708a2b0442a061bea5b65a5d8, type: 3}
       propertyPath: m_LocalPosition.x
@@ -254,7 +254,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -333,7 +333,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1536010231536250, guid: 716528e7391d7714abab5cd412ab898d, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_House_Tower_01
+      value: K_SM_Bld_House_Tower_01
       objectReference: {fileID: 0}
     - target: {fileID: 4249222566141426, guid: 716528e7391d7714abab5cd412ab898d, type: 3}
       propertyPath: m_LocalPosition.x
@@ -400,7 +400,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1395227029894348, guid: 87cee2cf125437b418d9c9410db060fc, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Mirror_02
+      value: K_SM_Prop_Mirror_02
       objectReference: {fileID: 0}
     - target: {fileID: 4677152816136594, guid: 87cee2cf125437b418d9c9410db060fc, type: 3}
       propertyPath: m_LocalScale.x
@@ -475,7 +475,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1777279408064468, guid: f01786fe0532e8048b0a1cba014efa69, type: 3}
       propertyPath: m_Name
-      value: SM_Item_Crystal_04
+      value: K_SM_Item_Crystal_04
       objectReference: {fileID: 0}
     - target: {fileID: 4407748009684010, guid: f01786fe0532e8048b0a1cba014efa69, type: 3}
       propertyPath: m_LocalScale.x
@@ -550,7 +550,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1210966513567062, guid: d16b4f8dca2bf05449174e24300998cd, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_House_Tower_HeightCap_01
+      value: K_SM_Bld_House_Tower_HeightCap_01
       objectReference: {fileID: 0}
     - target: {fileID: 4668746967767392, guid: d16b4f8dca2bf05449174e24300998cd, type: 3}
       propertyPath: m_LocalPosition.x

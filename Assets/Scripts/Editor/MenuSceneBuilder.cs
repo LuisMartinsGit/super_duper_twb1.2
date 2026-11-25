@@ -257,7 +257,8 @@ namespace TheWaningBorder.EditorTools
             var footer = Footer(kit, panel, "< MAIN MENU", "APPLY");
             Req(footer, "ErrorText").name = "Status";
 
-            panel.gameObject.AddComponent<SettingsPanel>();
+            // The lobby's own toggle, which the ON / OFF options are dressed with.
+            panel.gameObject.AddComponent<SettingsPanel>().TogglePrefab = kit.TogglePrefab;
 
             Save(scene, SettingsScene);
         }
@@ -317,7 +318,7 @@ namespace TheWaningBorder.EditorTools
         /// </summary>
         sealed class Kit
         {
-            public GameObject EventSystem, Camera, Canvas, Screenshot;
+            public GameObject EventSystem, Camera, Canvas, Screenshot, TogglePrefab;
             public Image Scrim;
             public Transform LeftColumn, RightColumn, Footer;
             public Transform RosterPlate;
@@ -346,6 +347,8 @@ namespace TheWaningBorder.EditorTools
                         "SkirmishMenu.unity is missing UI_Canvas / EventSystem / Main Camera.");
 
                 var canvas = k.Canvas.transform;
+                var skirmish = k.Canvas.GetComponentInChildren<SkirmishPanel>(true);
+                k.TogglePrefab = skirmish != null ? skirmish.TogglePrefab : null;
                 k.Screenshot = Req(canvas, "SPR_Screenshot").gameObject;
                 var panel = Req(canvas, "Panel_Skirmish");
                 k.Scrim = panel.GetComponent<Image>();

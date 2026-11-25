@@ -1377,6 +1377,46 @@ lists for the Garrison only. Every value is on the unit and tech SOs.
   (`ActionIcons`, rendered by `UnitGearIcons`). A building's menu uses the
   builder's grid.
 
+### The infantry's look (2026-11-25)
+
+Developer: mix items from all kits (Roman, samurai, knight) into something
+unique; levels and weapon tiers must show; the gold shines as on buildings.
+
+- **Body, helmet and shield change at every Garrison level**, each through the
+  dissolve. Level 1 carries no gold, level 2 brass, level 3 gold that glows.
+
+| | Spearman (scutum) | Swordsman (cape) |
+|---|---|---|
+| Age 0 | Militia: peasant, straw hat | - |
+| 1 | ashigaru cuirass, Roman helmet, shoulders and sandals, wooden scutum | knight's coat and helmet, ashigaru sleeves, Roman sandals, round shield |
+| 2 | laced samurai plate, Roman shoulders, knight's boots, kabuto with a Roman crest, white wings | knight's coat under samurai shoulders, sleeves and greaves, moon kabuto, lion shield |
+| 3 | gold-chested samurai, gilded Roman shoulders, horned kabuto with the transverse crest, gold wings | samurai plate over the knight's skirt, mask, mane, gold-rimmed knight's shield |
+
+- **Weapon tiers**: none, stone (dark), iron (cross spear / katana), veilstone
+  (cyan blade), shard (bright blade: naginata / twin-bladed sword).
+- **How it is built**: `InfantryKit.cs` fuses kit parts onto the Roman soldier's
+  skeleton and repaints them into one palette (`Barracks/Units/Art/Infantry.mat`)
+  whose cells are gold, steel, player cloth, glow or matte. Change a recipe
+  there, then *Waning Border > Art > Units > Author Garrison Infantry* and
+  *Render Unit and Weapon Icons*. The prefabs do not need the Synty materials.
+
+### The archers', sect units' and heroes' look (2026-11-25)
+
+- **Archer**: a body and headgear per Archery Range level (kimono; ashigaru
+  cuirass and jingasa; laced plate, gilt jingasa), a bow per bow tech, arrows in
+  the quiver per arrow tech. **Crossbowman** (levels 2 and 3): the crossbow and
+  bolts follow the arrow tech. **Longbowman**: a Yumi archer, one look; the
+  arrows follow the arrow tech.
+- **Sect units and heroes are elite**: full gold, ONE look each, drawn
+  `eliteScale` larger (`UnitWorldScale.asset`; every hero and every sect unit,
+  any culture, the Ledger included). Only their weapon changes, with the
+  Garrison's weapon techs (ranged ones: the arrow techs).
+- King Lexor's rider is a kit figure; his horse is still the code-built one (no
+  pack has a horse).
+- Veilstone and shard weapons are emissive (palette roles `Veil`, `Shard`).
+- Code: `ArcheryKit.cs`, `EliteKit.cs` beside `InfantryKit.cs`; any *Author ...*
+  menu item writes all of them, because they share one palette.
+
 ## Remaining open questions
 
 - ~~**Trading Outpost art**~~ — moot: the Trading Outpost is retired (decision 55).

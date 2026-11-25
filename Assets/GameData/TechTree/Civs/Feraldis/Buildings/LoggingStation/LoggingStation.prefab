@@ -64,7 +64,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1585231307422140, guid: 0666976312b49f643b0ecdb01f1f2fe2, type: 3}
       propertyPath: m_Name
-      value: Axe
+      value: K_Axe
       objectReference: {fileID: 0}
     - target: {fileID: 4274189175477646, guid: 0666976312b49f643b0ecdb01f1f2fe2, type: 3}
       propertyPath: m_LocalScale.x
@@ -143,7 +143,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1106348561825838, guid: d509b713087e7a2438a9651f4ee59feb, type: 3}
       propertyPath: m_Name
-      value: CraneChain
+      value: K_CraneChain
       objectReference: {fileID: 0}
     - target: {fileID: 4485909151940292, guid: d509b713087e7a2438a9651f4ee59feb, type: 3}
       propertyPath: m_LocalScale.x
@@ -222,7 +222,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1965543983390552, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_Name
-      value: PileB
+      value: K_PileB
       objectReference: {fileID: 0}
     - target: {fileID: 4855288998742498, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_LocalScale.x
@@ -301,7 +301,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1092251644890200, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
-      value: Brazier
+      value: K_Brazier
       objectReference: {fileID: 0}
     - target: {fileID: 1103747753272718, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
@@ -388,7 +388,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1514215925128382, guid: e02cf2ee8d0ab1d458be20224b369056, type: 3}
       propertyPath: m_Name
-      value: Stump
+      value: K_Stump
       objectReference: {fileID: 0}
     - target: {fileID: 4730835380107292, guid: e02cf2ee8d0ab1d458be20224b369056, type: 3}
       propertyPath: m_LocalScale.x
@@ -467,7 +467,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: PitFloor
+      value: K_PitFloor
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -546,7 +546,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: SawShedPost
+      value: K_SawShedPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -625,7 +625,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1098222522617662, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_Name
-      value: SawShedDeck
+      value: K_SawShedDeck
       objectReference: {fileID: 0}
     - target: {fileID: 4270316608465070, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_LocalScale.x
@@ -700,7 +700,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1514215925128382, guid: e02cf2ee8d0ab1d458be20224b369056, type: 3}
       propertyPath: m_Name
-      value: Stump
+      value: K_Stump
       objectReference: {fileID: 0}
     - target: {fileID: 4730835380107292, guid: e02cf2ee8d0ab1d458be20224b369056, type: 3}
       propertyPath: m_LocalScale.x
@@ -779,7 +779,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1293739682876146, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_Name
-      value: CraneBoom
+      value: K_CraneBoom
       objectReference: {fileID: 0}
     - target: {fileID: 4161301448876890, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_LocalScale.x
@@ -858,7 +858,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1072320482108522, guid: e3db2661627b1af4a9c8641e808ada6d, type: 3}
       propertyPath: m_Name
-      value: SM_Veh_Cart__Wheel_rl
+      value: K_SM_Veh_Cart__Wheel_rl
       objectReference: {fileID: 0}
     - target: {fileID: 1126206402950622, guid: e3db2661627b1af4a9c8641e808ada6d, type: 3}
       propertyPath: m_Name
@@ -973,7 +973,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: SawShedPost
+      value: K_SawShedPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -1052,7 +1052,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1514215925128382, guid: e02cf2ee8d0ab1d458be20224b369056, type: 3}
       propertyPath: m_Name
-      value: Stump
+      value: K_Stump
       objectReference: {fileID: 0}
     - target: {fileID: 4730835380107292, guid: e02cf2ee8d0ab1d458be20224b369056, type: 3}
       propertyPath: m_LocalScale.x
@@ -1131,7 +1131,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1965543983390552, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_Name
-      value: PileA
+      value: K_PileA
       objectReference: {fileID: 0}
     - target: {fileID: 4855288998742498, guid: 6fdaf579ff0fb174b836e21d6ad95839, type: 3}
       propertyPath: m_LocalScale.x
@@ -1210,7 +1210,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CranePost
+      value: K_CranePost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -1289,7 +1289,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1270400730273450, guid: c5db1147f0437c64d8cb70bfccbad315, type: 3}
       propertyPath: m_Name
-      value: Logs
+      value: K_Logs
       objectReference: {fileID: 0}
     - target: {fileID: 4833820180595372, guid: c5db1147f0437c64d8cb70bfccbad315, type: 3}
       propertyPath: m_LocalScale.x
@@ -1368,7 +1368,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: SawShedPost
+      value: K_SawShedPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -1447,7 +1447,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1483384962007444, guid: 61df32cedfee2194f905350fbc7ca7e3, type: 3}
       propertyPath: m_Name
-      value: CranePulley
+      value: K_CranePulley
       objectReference: {fileID: 0}
     - target: {fileID: 4140443580887780, guid: 61df32cedfee2194f905350fbc7ca7e3, type: 3}
       propertyPath: m_LocalScale.x
@@ -1526,7 +1526,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1080980776002148, guid: cb51336669983dc4dba599d050045908, type: 3}
       propertyPath: m_Name
-      value: PitLog
+      value: K_PitLog
       objectReference: {fileID: 0}
     - target: {fileID: 4260883072083788, guid: cb51336669983dc4dba599d050045908, type: 3}
       propertyPath: m_LocalScale.x
@@ -1605,7 +1605,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: PitRim
+      value: K_PitRim
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -1684,7 +1684,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Yard
+      value: K_Yard
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -1763,7 +1763,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -1842,7 +1842,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: SawShedPost
+      value: K_SawShedPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x

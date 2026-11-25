@@ -27,6 +27,8 @@ MonoBehaviour:
   maxTargets: 0
   populationProvided: 0
   slotIncomePerMinute: 0
+  vaultBarCapacity: 
+  vaultBarIncomePerMinute: 
   suppliesPerWorkerPerMinute: 0
   attack:
     enabled: 1
@@ -41,4 +43,4 @@ MonoBehaviour:
   lineOfSight: 0
   grantsTechs:
   - EliteInfantry
-  prefab: {fileID: 1435027818078621703, guid: 898c0d9e430168e429fda92bbbe61a0b, type: 3}
+  prefab: {fileID: 1435027818078621703, guid: c0f319acd2920de48af913e2fedd8b4c, type: 3}

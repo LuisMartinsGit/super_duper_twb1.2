@@ -544,7 +544,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownNc
+      value: K_TierACrownNc
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -623,7 +623,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierCCrownNa
+      value: K_TierCCrownNa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -702,7 +702,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Plinthcb
+      value: K_Plinthcb
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -773,7 +773,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierAWaa
+      value: K_CoreWinTierAWaa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -856,7 +856,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: TierADeck
+      value: K_TierADeck
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -931,7 +931,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierANba
+      value: K_CoreSlitTierANba
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -1010,7 +1010,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: PorchVergeEF
+      value: K_PorchVergeEF
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -1089,7 +1089,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingSaa
+      value: K_CopingSaa
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -1164,7 +1164,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1880818304468438, guid: 02bec8b3e7ef05e43ba931e4716565b6, type: 3}
       propertyPath: m_Name
-      value: DummyB
+      value: K_DummyB
       objectReference: {fileID: 0}
     - target: {fileID: 4732533162630682, guid: 02bec8b3e7ef05e43ba931e4716565b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -1239,7 +1239,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1965781957458138, guid: 30b37d6757e683347bb6026bd74338fe, type: 3}
       propertyPath: m_Name
-      value: ShoulderCapW
+      value: K_ShoulderCapW
       objectReference: {fileID: 0}
     - target: {fileID: 4784911933853344, guid: 30b37d6757e683347bb6026bd74338fe, type: 3}
       propertyPath: m_LocalScale.x
@@ -1318,7 +1318,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingEc
+      value: K_CopingEc
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -1393,7 +1393,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierBWba
+      value: K_CoreLowTierBWba
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -1472,7 +1472,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingEa
+      value: K_CopingEa
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -1547,7 +1547,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingNd
+      value: K_CopingNd
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -1622,7 +1622,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179592125756304, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_Name
-      value: PortalBannerW
+      value: K_PortalBannerW
       objectReference: {fileID: 0}
     - target: {fileID: 4489196261048372, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_LocalScale.x
@@ -1701,7 +1701,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: PorchVergeWB
+      value: K_PorchVergeWB
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -1780,7 +1780,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Plinthca
+      value: K_Plinthca
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -1851,7 +1851,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: CoreTurretANECone
+      value: K_CoreTurretANECone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -1930,7 +1930,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: RingTurretNECollar
+      value: K_RingTurretNECollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -2009,7 +2009,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingWa
+      value: K_CopingWa
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -2084,7 +2084,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: RingSlitWd
+      value: K_RingSlitWd
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -2155,7 +2155,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1175005079664630, guid: b6d6e17b4d591754f88c4ff48dabafc6, type: 3}
       propertyPath: m_Name
-      value: GateLeaf
+      value: K_GateLeaf
       objectReference: {fileID: 0}
     - target: {fileID: 4358554759922430, guid: b6d6e17b4d591754f88c4ff48dabafc6, type: 3}
       propertyPath: m_LocalScale.x
@@ -2230,7 +2230,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1069983557862476, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_Name
-      value: SkirtN
+      value: K_SkirtN
       objectReference: {fileID: 0}
     - target: {fileID: 4019230386164288, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_LocalScale.x
@@ -2305,7 +2305,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierANab
+      value: K_CoreSlitTierANab
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -2384,7 +2384,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierAWba
+      value: K_CoreSlitTierAWba
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -2463,7 +2463,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierBCrownSb
+      value: K_TierBCrownSb
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -2542,7 +2542,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierANbc
+      value: K_CoreSlitTierANbc
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -2621,7 +2621,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132758553446370, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
-      value: RingWinNd
+      value: K_RingWinNd
       objectReference: {fileID: 0}
     - target: {fileID: 1597595375956298, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
@@ -2696,7 +2696,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierASbc
+      value: K_CoreSlitTierASbc
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -2775,7 +2775,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierCCrownWa
+      value: K_TierCCrownWa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -2854,7 +2854,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierBSaa
+      value: K_CoreWinTierBSaa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -2937,7 +2937,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132758553446370, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
-      value: RingWinWa
+      value: K_RingWinWa
       objectReference: {fileID: 0}
     - target: {fileID: 1597595375956298, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
@@ -3012,7 +3012,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1092251644890200, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
-      value: BrazierE
+      value: K_BrazierE
       objectReference: {fileID: 0}
     - target: {fileID: 1103747753272718, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
@@ -3091,7 +3091,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierBSbb
+      value: K_CoreLowTierBSbb
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -3170,7 +3170,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1256372721743920, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_Name
-      value: PorchSlopeE
+      value: K_PorchSlopeE
       objectReference: {fileID: 0}
     - target: {fileID: 4391937466002270, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_LocalScale.x
@@ -3249,7 +3249,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingNb
+      value: K_CopingNb
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -3324,7 +3324,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: PorchFinial
+      value: K_PorchFinial
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -3403,7 +3403,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1389536613330376, guid: bed59313aebcfd044a3f54100662b506, type: 3}
       propertyPath: m_Name
-      value: SpearRack
+      value: K_SpearRack
       objectReference: {fileID: 0}
     - target: {fileID: 1847282388481404, guid: bed59313aebcfd044a3f54100662b506, type: 3}
       propertyPath: m_Name
@@ -3482,7 +3482,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBSECone
+      value: K_CoreTurretBSECone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -3561,7 +3561,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierBNaa
+      value: K_CoreWinTierBNaa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -3644,7 +3644,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierANac
+      value: K_CoreWinTierANac
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -3727,7 +3727,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1069983557862476, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_Name
-      value: SkirtW
+      value: K_SkirtW
       objectReference: {fileID: 0}
     - target: {fileID: 4019230386164288, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_LocalScale.x
@@ -3802,7 +3802,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierAEaa
+      value: K_CoreWinTierAEaa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -3885,7 +3885,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: RingTurretNECone
+      value: K_RingTurretNECone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -3964,7 +3964,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierANbb
+      value: K_CoreWinTierANbb
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -4047,7 +4047,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: RingTurretSECollar
+      value: K_RingTurretSECollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -4126,7 +4126,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: RingTurretNWShaft
+      value: K_RingTurretNWShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -4205,7 +4205,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierAEab
+      value: K_CoreSlitTierAEab
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -4284,7 +4284,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBSWCone
+      value: K_CoreTurretBSWCone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -4363,7 +4363,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1793482622933152, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_Name
-      value: Sacks
+      value: K_Sacks
       objectReference: {fileID: 0}
     - target: {fileID: 4765925423086604, guid: 0b4b7d63ece7f3d48b599d2dbfee78ff, type: 3}
       propertyPath: m_LocalScale.x
@@ -4438,7 +4438,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: CoreTurretANECollar
+      value: K_CoreTurretANECollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -4517,7 +4517,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownNa
+      value: K_TierACrownNa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -4596,7 +4596,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1894982720226970, guid: b26e035715d763f409a7e837ae204dab, type: 3}
       propertyPath: m_Name
-      value: BarrelB
+      value: K_BarrelB
       objectReference: {fileID: 0}
     - target: {fileID: 4597797110490962, guid: b26e035715d763f409a7e837ae204dab, type: 3}
       propertyPath: m_LocalScale.x
@@ -4671,7 +4671,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingNc
+      value: K_CopingNc
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -4746,7 +4746,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1526384252657966, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_Name
-      value: PortalLampW
+      value: K_PortalLampW
       objectReference: {fileID: 0}
     - target: {fileID: 4314332775548574, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4809,7 +4809,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Plinthbb
+      value: K_Plinthbb
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -4880,7 +4880,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1256372721743920, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_Name
-      value: PorchSlopeW
+      value: K_PorchSlopeW
       objectReference: {fileID: 0}
     - target: {fileID: 4391937466002270, guid: 33b3c8e9481a5914e80712731c404004, type: 3}
       propertyPath: m_LocalScale.x
@@ -4959,7 +4959,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingEd
+      value: K_CopingEd
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -5034,7 +5034,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingNe
+      value: K_CopingNe
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -5109,7 +5109,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierBNab
+      value: K_CoreSlitTierBNab
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -5188,7 +5188,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1143561657446812, guid: a9495ed720c4d56408a3d9cbdd3e638e, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Door_Big_Door_
+      value: K_SM_Bld_Castle_Wall_Door_Big_Door_
       objectReference: {fileID: 0}
     - target: {fileID: 1605463164009446, guid: a9495ed720c4d56408a3d9cbdd3e638e, type: 3}
       propertyPath: m_Name
@@ -5277,7 +5277,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBSWShaft
+      value: K_CoreTurretBSWShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -5356,7 +5356,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132758553446370, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
-      value: RingWinWc
+      value: K_RingWinWc
       objectReference: {fileID: 0}
     - target: {fileID: 1597595375956298, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
@@ -5431,7 +5431,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierCSaa
+      value: K_CoreLowTierCSaa
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -5510,7 +5510,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBNWShaft
+      value: K_CoreTurretBNWShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -5589,7 +5589,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierCNaa
+      value: K_CoreLowTierCNaa
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -5668,7 +5668,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: CoreTurretASWShaft
+      value: K_CoreTurretASWShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -5747,7 +5747,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132758553446370, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
-      value: RingWinSb
+      value: K_RingWinSb
       objectReference: {fileID: 0}
     - target: {fileID: 1597595375956298, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
@@ -5822,7 +5822,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBNEShaft
+      value: K_CoreTurretBNEShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -5901,7 +5901,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: CoreTurretASWCollar
+      value: K_CoreTurretASWCollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -5980,7 +5980,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1172911467984758, guid: 41ce1a831a1f83a4596a986fb3c31ea6, type: 3}
       propertyPath: m_Name
-      value: PortalDoorWall
+      value: K_PortalDoorWall
       objectReference: {fileID: 0}
     - target: {fileID: 4559523984779670, guid: 41ce1a831a1f83a4596a986fb3c31ea6, type: 3}
       propertyPath: m_LocalScale.x
@@ -6059,7 +6059,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingSba
+      value: K_CopingSba
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -6134,7 +6134,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierBCrownNb
+      value: K_TierBCrownNb
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -6213,7 +6213,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingWe
+      value: K_CopingWe
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -6288,7 +6288,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierBEba
+      value: K_CoreLowTierBEba
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -6367,7 +6367,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: RingTurretNWCollar
+      value: K_RingTurretNWCollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -6446,7 +6446,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownSa
+      value: K_TierACrownSa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -6525,7 +6525,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: RingSlitNc
+      value: K_RingSlitNc
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -6596,7 +6596,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBNECone
+      value: K_CoreTurretBNECone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -6675,7 +6675,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: CoreTurretASECone
+      value: K_CoreTurretASECone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -6754,7 +6754,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1898645381966348, guid: e9206c45d7e720a44973fba18dc5dac2, type: 3}
       propertyPath: m_Name
-      value: PortalCheekE
+      value: K_PortalCheekE
       objectReference: {fileID: 0}
     - target: {fileID: 4060807759956106, guid: e9206c45d7e720a44973fba18dc5dac2, type: 3}
       propertyPath: m_LocalScale.x
@@ -6825,7 +6825,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179592125756304, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_Name
-      value: CoreBannerE
+      value: K_CoreBannerE
       objectReference: {fileID: 0}
     - target: {fileID: 4489196261048372, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_LocalScale.x
@@ -6904,7 +6904,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBSECollar
+      value: K_CoreTurretBSECollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -6983,7 +6983,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownWb
+      value: K_TierACrownWb
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -7062,7 +7062,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierBCrownWa
+      value: K_TierBCrownWa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -7141,7 +7141,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierBCrownNa
+      value: K_TierBCrownNa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -7220,7 +7220,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierBNbb
+      value: K_CoreLowTierBNbb
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -7299,7 +7299,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownSb
+      value: K_TierACrownSb
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -7378,7 +7378,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: RingSlitNa
+      value: K_RingSlitNa
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -7449,7 +7449,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: PorchVergeEB
+      value: K_PorchVergeEB
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -7528,7 +7528,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1069983557862476, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_Name
-      value: SkirtE
+      value: K_SkirtE
       objectReference: {fileID: 0}
     - target: {fileID: 4019230386164288, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_LocalScale.x
@@ -7603,7 +7603,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: CoreTurretASWCone
+      value: K_CoreTurretASWCone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -7682,7 +7682,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBSEShaft
+      value: K_CoreTurretBSEShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -7761,7 +7761,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierASbb
+      value: K_CoreWinTierASbb
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -7844,7 +7844,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: RingSlitEd
+      value: K_RingSlitEd
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -7915,7 +7915,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingWd
+      value: K_CopingWd
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -7990,7 +7990,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierASaa
+      value: K_CoreWinTierASaa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -8073,7 +8073,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1894982720226970, guid: b26e035715d763f409a7e837ae204dab, type: 3}
       propertyPath: m_Name
-      value: BarrelA
+      value: K_BarrelA
       objectReference: {fileID: 0}
     - target: {fileID: 4597797110490962, guid: b26e035715d763f409a7e837ae204dab, type: 3}
       propertyPath: m_LocalScale.x
@@ -8148,7 +8148,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownWa
+      value: K_TierACrownWa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -8227,7 +8227,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Plinthcc
+      value: K_Plinthcc
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -8298,7 +8298,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierBNba
+      value: K_CoreLowTierBNba
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -8377,7 +8377,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownNb
+      value: K_TierACrownNb
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -8456,7 +8456,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: RingTurretSWShaft
+      value: K_RingTurretSWShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -8535,7 +8535,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: RingTurretSWCollar
+      value: K_RingTurretSWCollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -8614,7 +8614,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1965781957458138, guid: 30b37d6757e683347bb6026bd74338fe, type: 3}
       propertyPath: m_Name
-      value: ShoulderCapE
+      value: K_ShoulderCapE
       objectReference: {fileID: 0}
     - target: {fileID: 4784911933853344, guid: 30b37d6757e683347bb6026bd74338fe, type: 3}
       propertyPath: m_LocalScale.x
@@ -8693,7 +8693,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132758553446370, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
-      value: RingWinEa
+      value: K_RingWinEa
       objectReference: {fileID: 0}
     - target: {fileID: 1597595375956298, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
@@ -8768,7 +8768,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: RingTurretSEShaft
+      value: K_RingTurretSEShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -8847,7 +8847,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierAWbb
+      value: K_CoreWinTierAWbb
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -8930,7 +8930,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132758553446370, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
-      value: RingWinSa
+      value: K_RingWinSa
       objectReference: {fileID: 0}
     - target: {fileID: 1597595375956298, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
@@ -9005,7 +9005,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownSc
+      value: K_TierACrownSc
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -9084,7 +9084,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingWb
+      value: K_CopingWb
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -9159,7 +9159,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierBEaa
+      value: K_CoreWinTierBEaa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -9242,7 +9242,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierAEbb
+      value: K_CoreWinTierAEbb
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -9325,7 +9325,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132758553446370, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
-      value: RingWinNb
+      value: K_RingWinNb
       objectReference: {fileID: 0}
     - target: {fileID: 1597595375956298, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
@@ -9400,7 +9400,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: CoreTurretASEShaft
+      value: K_CoreTurretASEShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -9479,7 +9479,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierAEba
+      value: K_CoreSlitTierAEba
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -9558,7 +9558,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: TierBDeck
+      value: K_TierBDeck
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -9633,7 +9633,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierBCrownEa
+      value: K_TierBCrownEa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -9712,7 +9712,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179592125756304, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_Name
-      value: CoreBannerW
+      value: K_CoreBannerW
       objectReference: {fileID: 0}
     - target: {fileID: 4489196261048372, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_LocalScale.x
@@ -9791,7 +9791,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierANaa
+      value: K_CoreWinTierANaa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -9874,7 +9874,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Plinthaa
+      value: K_Plinthaa
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -9945,7 +9945,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: CoreTurretASECollar
+      value: K_CoreTurretASECollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -10024,7 +10024,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierCCrownEa
+      value: K_TierCCrownEa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -10103,7 +10103,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierBSab
+      value: K_CoreSlitTierBSab
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -10182,7 +10182,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: RingTurretSWCone
+      value: K_RingTurretSWCone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -10261,7 +10261,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: TierCDeck
+      value: K_TierCDeck
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -10336,7 +10336,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBNWCone
+      value: K_CoreTurretBNWCone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -10415,7 +10415,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierBWaa
+      value: K_CoreWinTierBWaa
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -10498,7 +10498,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Plinthab
+      value: K_Plinthab
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -10569,7 +10569,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: CoreTurretANWCollar
+      value: K_CoreTurretANWCollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -10648,7 +10648,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierBCrownSa
+      value: K_TierBCrownSa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -10727,7 +10727,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: CoreTurretANWShaft
+      value: K_CoreTurretANWShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -10806,7 +10806,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1457900953714586, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_Name
-      value: PorchVergeWF
+      value: K_PorchVergeWF
       objectReference: {fileID: 0}
     - target: {fileID: 4762631427748542, guid: d30d960c71263eb47b06ac010e9eb5f6, type: 3}
       propertyPath: m_LocalScale.y
@@ -10885,7 +10885,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: KeepSpire
+      value: K_KeepSpire
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -10964,7 +10964,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierCEaa
+      value: K_CoreLowTierCEaa
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -11043,7 +11043,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: RingTurretSECone
+      value: K_RingTurretSECone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -11122,7 +11122,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1212770861226662, guid: 5037be3324f8a0c4a8aa6184a0560d33, type: 3}
       propertyPath: m_Name
-      value: DummyA
+      value: K_DummyA
       objectReference: {fileID: 0}
     - target: {fileID: 4840805334924898, guid: 5037be3324f8a0c4a8aa6184a0560d33, type: 3}
       propertyPath: m_LocalScale.x
@@ -11197,7 +11197,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierASba
+      value: K_CoreSlitTierASba
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -11276,7 +11276,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1629976476874234, guid: f775552096f7c4e46a9e0938fce4ca6c, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Gate_Door_L_
+      value: K_SM_Bld_Castle_Wall_Gate_Door_L_
       objectReference: {fileID: 0}
     - target: {fileID: 1629976476874234, guid: f775552096f7c4e46a9e0938fce4ca6c, type: 3}
       propertyPath: m_IsActive
@@ -11370,7 +11370,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingEb
+      value: K_CopingEb
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -11445,7 +11445,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1719569932363254, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_Name
-      value: Crate
+      value: K_Crate
       objectReference: {fileID: 0}
     - target: {fileID: 4586611713910306, guid: 2f8e08a414723f3478184919435f67c0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -11508,7 +11508,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: CoreSlitTierAWab
+      value: K_CoreSlitTierAWab
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -11587,7 +11587,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingEe
+      value: K_CopingEe
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -11662,7 +11662,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1132758553446370, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
-      value: RingWinEc
+      value: K_RingWinEc
       objectReference: {fileID: 0}
     - target: {fileID: 1597595375956298, guid: e9074686cd4208447857dde2a7851668, type: 3}
       propertyPath: m_Name
@@ -11737,7 +11737,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownEa
+      value: K_TierACrownEa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -11816,7 +11816,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierACrownEb
+      value: K_TierACrownEb
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -11895,7 +11895,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBNWCollar
+      value: K_CoreTurretBNWCollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -11974,7 +11974,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179169510983948, guid: bc72ab628c0e69243ba6d91b4db64d46, type: 3}
       propertyPath: m_Name
-      value: ArrowBarrel
+      value: K_ArrowBarrel
       objectReference: {fileID: 0}
     - target: {fileID: 4627615654501652, guid: bc72ab628c0e69243ba6d91b4db64d46, type: 3}
       propertyPath: m_LocalScale.x
@@ -12049,7 +12049,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: RingSlitEb
+      value: K_RingSlitEb
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -12120,7 +12120,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingWc
+      value: K_CopingWc
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -12195,7 +12195,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBNECollar
+      value: K_CoreTurretBNECollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -12274,7 +12274,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Plinthba
+      value: K_Plinthba
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -12345,7 +12345,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1069983557862476, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_Name
-      value: SkirtS
+      value: K_SkirtS
       objectReference: {fileID: 0}
     - target: {fileID: 4019230386164288, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_LocalScale.x
@@ -12420,7 +12420,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: RingTurretNEShaft
+      value: K_RingTurretNEShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -12499,7 +12499,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1898645381966348, guid: e9206c45d7e720a44973fba18dc5dac2, type: 3}
       propertyPath: m_Name
-      value: PortalCheekW
+      value: K_PortalCheekW
       objectReference: {fileID: 0}
     - target: {fileID: 4060807759956106, guid: e9206c45d7e720a44973fba18dc5dac2, type: 3}
       propertyPath: m_LocalScale.x
@@ -12570,7 +12570,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1827432746268454, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_Name
-      value: CoreTurretBSWCollar
+      value: K_CoreTurretBSWCollar
       objectReference: {fileID: 0}
     - target: {fileID: 4899203960213698, guid: ed99f949a4dc1ef46beaed9b70c6d6b6, type: 3}
       propertyPath: m_LocalScale.x
@@ -12649,7 +12649,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Plinthac
+      value: K_Plinthac
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -12720,7 +12720,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1092251644890200, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
-      value: BrazierW
+      value: K_BrazierW
       objectReference: {fileID: 0}
     - target: {fileID: 1103747753272718, guid: 29fd7b3d4b3dabe4388eac10c6617909, type: 3}
       propertyPath: m_Name
@@ -12799,7 +12799,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1526384252657966, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_Name
-      value: PortalLampE
+      value: K_PortalLampE
       objectReference: {fileID: 0}
     - target: {fileID: 4314332775548574, guid: 97adf31c884c9a249ab2c088e03fe681, type: 3}
       propertyPath: m_LocalPosition.x
@@ -12862,7 +12862,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1720920222439796, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_Name
-      value: CopingNa
+      value: K_CopingNa
       objectReference: {fileID: 0}
     - target: {fileID: 4384883109246676, guid: 078e9dd5b0d8d1a4f874921a3ea3c974, type: 3}
       propertyPath: m_LocalScale.x
@@ -12937,7 +12937,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierBSba
+      value: K_CoreLowTierBSba
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -13016,7 +13016,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1848455675612600, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_Name
-      value: CoreLowTierCWaa
+      value: K_CoreLowTierCWaa
       objectReference: {fileID: 0}
     - target: {fileID: 4287472177597850, guid: 031e6e30012afb745b0a530f980f6bc4, type: 3}
       propertyPath: m_LocalScale.x
@@ -13095,7 +13095,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1995842527840632, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_Name
-      value: TierCCrownSa
+      value: K_TierCCrownSa
       objectReference: {fileID: 0}
     - target: {fileID: 4200802212075704, guid: 696d556a80bf28e46aa3eab92f05424f, type: 3}
       propertyPath: m_LocalScale.x
@@ -13174,7 +13174,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1020075419210910, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
-      value: CoreWinTierASac
+      value: K_CoreWinTierASac
       objectReference: {fileID: 0}
     - target: {fileID: 1998132402114296, guid: 5512b573ac86ff54387cdc52c43662c7, type: 3}
       propertyPath: m_Name
@@ -13257,7 +13257,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067833066048802, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_Name
-      value: RingSlitWb
+      value: K_RingSlitWb
       objectReference: {fileID: 0}
     - target: {fileID: 4849336434932628, guid: fc267488fc4a89944bbcf2e86e6ac34f, type: 3}
       propertyPath: m_LocalScale.x
@@ -13328,7 +13328,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1820829452061084, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_Name
-      value: CoreTurretANEShaft
+      value: K_CoreTurretANEShaft
       objectReference: {fileID: 0}
     - target: {fileID: 4981016295605480, guid: 037fbcdd9c2c0f14f89d11758da8f9de, type: 3}
       propertyPath: m_LocalScale.x
@@ -13407,7 +13407,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1093191259624944, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_Name
-      value: Plinthbc
+      value: K_Plinthbc
       objectReference: {fileID: 0}
     - target: {fileID: 4687036833684834, guid: 32ea7ec0924eccb4688c22639285aed1, type: 3}
       propertyPath: m_LocalScale.x
@@ -13478,7 +13478,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: RingTurretNWCone
+      value: K_RingTurretNWCone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -13557,7 +13557,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1304063314482078, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_Name
-      value: CoreTurretANWCone
+      value: K_CoreTurretANWCone
       objectReference: {fileID: 0}
     - target: {fileID: 4799214574363818, guid: e26e022364a361549a9a5bb268cbdb96, type: 3}
       propertyPath: m_LocalScale.x
@@ -13636,7 +13636,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179592125756304, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_Name
-      value: PortalBannerE
+      value: K_PortalBannerE
       objectReference: {fileID: 0}
     - target: {fileID: 4489196261048372, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_LocalScale.x

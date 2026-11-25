@@ -145,7 +145,7 @@ namespace TheWaningBorder.Rendering
         /// hue swap, the level-up dissolve, the placement ghost's blanking —
         /// goes through this list, so a new shader is one entry here.
         /// </summary>
-        public static readonly string[] AlbedoProperties = { "_BaseMap", "_MainTex", "_Albedo_Map" };
+        public static readonly string[] AlbedoProperties = { "_BaseMap", "_MainTex", "_Albedo_Map", "_Trunk_Texture" };
 
         /// <summary>
         /// The albedo texture of <paramref name="mat"/> and its tiling /
@@ -418,6 +418,19 @@ namespace TheWaningBorder.Rendering
         {
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", factionColor);
             else if (mat.HasProperty("_Color")) mat.color = factionColor;
+            // Synty's Foliage graph (the wind-driven Samurai banners).
+            else if (mat.HasProperty("_Trunk_Base_Color")) TintFoliage(mat, factionColor);
+        }
+
+        // The Samurai cloth is the graph's trunk half (its vertex colours say so);
+        // each half blends its base and noise colours, so all of them are set.
+        private static readonly string[] FoliageColors =
+            { "_Trunk_Base_Color", "_Trunk_Noise_Color", "_Leaf_Base_Color", "_Leaf_Noise_Color", "_Leaf_Noise_Large_Color" };
+
+        /// <summary>Every colour Synty's Foliage graph multiplies its textures by.</summary>
+        public static void TintFoliage(Material mat, Color c)
+        {
+            foreach (var p in FoliageColors) if (mat.HasProperty(p)) mat.SetColor(p, c);
         }
 
         // ──────────────────────────────────────────────────────────────────

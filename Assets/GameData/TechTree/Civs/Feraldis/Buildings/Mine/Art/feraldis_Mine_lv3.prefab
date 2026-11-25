@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 7244288277796782723}
   - component: {fileID: 7302001250805252970}
   m_Layer: 0
-  m_Name: SM_Veh_Cart__Wheel_rr
+  m_Name: K_SM_Veh_Cart__Wheel_rr
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1316,7 +1316,7 @@ GameObject:
   - component: {fileID: 1115347992876927645}
   - component: {fileID: 3424481165110182457}
   m_Layer: 0
-  m_Name: SM_Veh_Cart__Wheel_rl
+  m_Name: K_SM_Veh_Cart__Wheel_rl
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1402,7 +1402,7 @@ GameObject:
   - component: {fileID: 2337130999585303620}
   - component: {fileID: 2416022165855771615}
   m_Layer: 0
-  m_Name: SM_Veh_Cart__Wheel_fr
+  m_Name: K_SM_Veh_Cart__Wheel_fr
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1778,7 +1778,7 @@ GameObject:
   - component: {fileID: 3709115815203535457}
   - component: {fileID: 2631580755587717764}
   m_Layer: 0
-  m_Name: SM_Prop_Camp_Brazier_Wood_
+  m_Name: K_SM_Prop_Camp_Brazier_Wood_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3246,7 +3246,7 @@ GameObject:
   - component: {fileID: 3930670897963550148}
   - component: {fileID: 2149623529553505223}
   m_Layer: 0
-  m_Name: SM_Veh_Cart__Wheel_fl
+  m_Name: K_SM_Veh_Cart__Wheel_fl
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

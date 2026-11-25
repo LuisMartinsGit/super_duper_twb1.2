@@ -30,8 +30,8 @@ MonoBehaviour:
   attackRange: 1.2
   minAttackRange: 0
   lineOfSight: 26
-  radius: 0.6
   aimTime: 0
+  radius: 0.6
   trajectory: 
   projectileSpeed: 0
   cost:
@@ -41,23 +41,27 @@ MonoBehaviour:
   populationCost: 3
   minBuildingLevel: 0
   buildSpeed: 0
+  repairSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
   tags:
-  - 'Infantry'
-  - 'Heavy'
-  - 'Hero'
+  - Infantry
+  - Heavy
+  - Hero
   bonusVsTags:
-  - 'Siege'
+  - vsTag: 
+    amount: 0
   torchDamage: 25
+  preferTargets: []
   abilities:
   - Drillmaster
   - Sally Forth
   - Challenge
   - The Realm Holds
-  prefab: {fileID: 12305725100316, guid: 9792701039fdde92073eb07449aaab68, type: 3}
+  prefab: {fileID: 8664630711619026748, guid: 7f987b9842acfb34d903a0331ddcc380, type: 3}
   presentationId: 452
-  animatorController: {fileID: 0}
+  animatorController: {fileID: 9100000, guid: 8bdbf2c57661e1940b913bb1cb179dcd, type: 2}

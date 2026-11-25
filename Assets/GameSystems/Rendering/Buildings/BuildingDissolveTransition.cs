@@ -179,6 +179,7 @@ namespace TheWaningBorder.Rendering
             {
                 if (src.HasProperty("_BaseColor")) baseCol = src.GetColor("_BaseColor");
                 else if (src.HasProperty("_Color")) baseCol = src.GetColor("_Color");
+                else if (src.HasProperty("_Trunk_Base_Color")) baseCol = src.GetColor("_Trunk_Base_Color");
             }
             mat.SetColor("_BaseColor", baseCol);
 

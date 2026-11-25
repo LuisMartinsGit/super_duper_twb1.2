@@ -99,6 +99,18 @@ namespace TheWaningBorder.Rendering
         private float _lastAdvanceAt = float.NegativeInfinity;
         private bool _built;
 
+        // The prefab's own lights: dark until the building is finished, like
+        // the lantern (Art_Direction.md 6.3).
+        private Light[] _lights = System.Array.Empty<Light>();
+        private bool _lightsOn = true;
+
+        private void SetLights(bool on)
+        {
+            if (_lightsOn == on) return;
+            _lightsOn = on;
+            foreach (var l in _lights) if (l != null) l.enabled = on;
+        }
+
         public bool HasSteps => _steps.Count > 0;
 
         // ═════════════════════════════════════════════════════════════════
@@ -175,6 +187,9 @@ namespace TheWaningBorder.Rendering
             _built = true;
 
             var root = transform;
+            var lit = new List<Light>();
+            foreach (var l in GetComponentsInChildren<Light>(true)) if (l.enabled) lit.Add(l);
+            _lights = lit.ToArray();
             var groups = new List<(int order, int sibling, Effect effect, Transform t)>();
             for (int i = 0; i < root.childCount; i++)
             {
@@ -267,6 +282,7 @@ namespace TheWaningBorder.Rendering
         {
             if (ratio > _lastRatio) _lastAdvanceAt = Time.time;
             _lastRatio = ratio;
+            SetLights(ratio >= 1f);
             bool working = Time.time - _lastAdvanceAt < StallSeconds;
 
             for (int i = 0; i < _steps.Count; i++)
@@ -284,6 +300,7 @@ namespace TheWaningBorder.Rendering
         /// <summary>Construction is over: everything at rest, wearing its own materials.</summary>
         public void Complete()
         {
+            SetLights(true);
             bool any = false;
             for (int i = 0; i < _steps.Count; i++)
             {

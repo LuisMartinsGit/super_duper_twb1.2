@@ -48,7 +48,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1129849791485006, guid: c43c5142113b9bb45b4bf35d979c4cd3, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Stage_01
+      value: K_SM_Prop_Stage_01
       objectReference: {fileID: 0}
     - target: {fileID: 4686364630220054, guid: c43c5142113b9bb45b4bf35d979c4cd3, type: 3}
       propertyPath: m_LocalScale.x
@@ -123,7 +123,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1452562883675760, guid: 0619d3be1d821fe4893c0a43bf81c486, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Gallows_Single_01
+      value: K_SM_Prop_Gallows_Single_01
       objectReference: {fileID: 0}
     - target: {fileID: 4401868010160136, guid: 0619d3be1d821fe4893c0a43bf81c486, type: 3}
       propertyPath: m_LocalPosition.x
@@ -188,7 +188,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1927928297609786, guid: 59a699607380574448e0ad9dc03be75b, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Throne_Plinth_01
+      value: K_SM_Prop_Throne_Plinth_01
       objectReference: {fileID: 0}
     - target: {fileID: 4214611815998920, guid: 59a699607380574448e0ad9dc03be75b, type: 3}
       propertyPath: m_LocalPosition.x
@@ -251,7 +251,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1374258666427552, guid: a569e4f0e400f1448932779a3d5777e0, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Church_Lectern_01
+      value: K_SM_Prop_Church_Lectern_01
       objectReference: {fileID: 0}
     - target: {fileID: 4736492451787044, guid: a569e4f0e400f1448932779a3d5777e0, type: 3}
       propertyPath: m_LocalScale.x
@@ -326,7 +326,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1420209282634078, guid: 22d2f05c8db4fa34daedd47e9267619a, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Banner_02
+      value: K_SM_Prop_Banner_02
       objectReference: {fileID: 0}
     - target: {fileID: 4364662411206102, guid: 22d2f05c8db4fa34daedd47e9267619a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -389,7 +389,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1420209282634078, guid: 22d2f05c8db4fa34daedd47e9267619a, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Banner_02
+      value: K_SM_Prop_Banner_02
       objectReference: {fileID: 0}
     - target: {fileID: 4364662411206102, guid: 22d2f05c8db4fa34daedd47e9267619a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -452,7 +452,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x

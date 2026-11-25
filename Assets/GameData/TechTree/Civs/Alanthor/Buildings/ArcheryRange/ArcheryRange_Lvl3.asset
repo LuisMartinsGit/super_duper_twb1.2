@@ -27,7 +27,9 @@ MonoBehaviour:
   maxTargets: 0
   populationProvided: 0
   slotIncomePerMinute: 0
-  tradeRateMultiplier: 0
+  vaultBarCapacity: 
+  vaultBarIncomePerMinute: 
+  suppliesPerWorkerPerMinute: 0
   attack:
     enabled: 0
     damage: 12
@@ -36,7 +38,8 @@ MonoBehaviour:
     cooldown: 1.5
     maxTargets: 1
     siegeShotDamage: 0
+  firePoints: []
   lineOfSight: 0
   grantsTechs:
   - EliteArchers
-  prefab: {fileID: 1201453078148912283, guid: 99b302ed1476c0947aef127ea04a26c8, type: 3}
+  prefab: {fileID: 1435027818078621703, guid: ae3b5a67ec1e75f4f8f74b1a89ec65a1, type: 3}

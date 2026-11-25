@@ -538,7 +538,7 @@ GameObject:
   - component: {fileID: 3033320596497952054}
   - component: {fileID: 6375567265387461435}
   m_Layer: 0
-  m_Name: SM_Prop_Market_Stall__Dressing
+  m_Name: K_SM_Prop_Market_Stall__Dressing
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

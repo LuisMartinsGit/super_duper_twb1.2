@@ -52,7 +52,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1552274099524874, guid: 67c75dacf5f72e8418bf2c478b965030, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_BloodPool_03
+      value: K_SM_Prop_BloodPool_03
       objectReference: {fileID: 0}
     - target: {fileID: 4639934096408886, guid: 67c75dacf5f72e8418bf2c478b965030, type: 3}
       propertyPath: m_LocalScale.x
@@ -127,7 +127,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1927928297609786, guid: 59a699607380574448e0ad9dc03be75b, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Throne_Plinth_01
+      value: K_SM_Prop_Throne_Plinth_01
       objectReference: {fileID: 0}
     - target: {fileID: 4214611815998920, guid: 59a699607380574448e0ad9dc03be75b, type: 3}
       propertyPath: m_LocalScale.x
@@ -202,7 +202,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1158321610226794, guid: a74818deaafdbbf4eb78281d5ea03747, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Cage_01
+      value: K_SM_Prop_Cage_01
       objectReference: {fileID: 0}
     - target: {fileID: 4579814239632620, guid: a74818deaafdbbf4eb78281d5ea03747, type: 3}
       propertyPath: m_LocalPosition.x
@@ -265,7 +265,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1102096560517042, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Cage_Man_01
+      value: K_SM_Prop_Cage_Man_01
       objectReference: {fileID: 0}
     - target: {fileID: 4095041027925210, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_LocalPosition.x
@@ -328,7 +328,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Chain_Hanging_01
+      value: K_SM_Prop_Chain_Hanging_01
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -403,7 +403,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1568910452482286, guid: e64eae5b0402df946af9725485542b70, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Chain_Hanging_02
+      value: K_SM_Prop_Chain_Hanging_02
       objectReference: {fileID: 0}
     - target: {fileID: 4178852880859568, guid: e64eae5b0402df946af9725485542b70, type: 3}
       propertyPath: m_LocalScale.x
@@ -478,7 +478,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Candle_Skull_01
+      value: K_SM_Prop_Candle_Skull_01
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -553,7 +553,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1669015876023708, guid: b990d496e8f28cb4d92ffda9e09764ba, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Cross_01
+      value: K_SM_Prop_Cross_01
       objectReference: {fileID: 0}
     - target: {fileID: 4199515131437222, guid: b990d496e8f28cb4d92ffda9e09764ba, type: 3}
       propertyPath: m_LocalScale.x
@@ -628,7 +628,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1380102051503178, guid: 8a009d4d22e529a4981e07f9ed972701, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Chain_Hanging_03
+      value: K_SM_Prop_Chain_Hanging_03
       objectReference: {fileID: 0}
     - target: {fileID: 4283846786035596, guid: 8a009d4d22e529a4981e07f9ed972701, type: 3}
       propertyPath: m_LocalScale.x
@@ -703,7 +703,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Candle_Skull_01
+      value: K_SM_Prop_Candle_Skull_01
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -778,7 +778,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x

@@ -17,7 +17,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
     public static class FootprintGroupPass
     {
         const string GroupName = "Footprint";
-        const string PlinthPieceName = "SM_Bld_Castle_Floor_Stone_01";
+        const string PlinthPieceName = "K_SM_Bld_Castle_Floor_Stone_01";
         const float GroundTolerance = 0.05f;
 
         [MenuItem("Waning Border/Art/Footprint/Group Plinth: House 1-3")]

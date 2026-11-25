@@ -184,7 +184,7 @@ GameObject:
   - component: {fileID: 6481942788569874058}
   - component: {fileID: 3057021209040132303}
   m_Layer: 0
-  m_Name: SM_Prop_Camp_Weapon_Rack_Spears_
+  m_Name: K_SM_Prop_Camp_Weapon_Rack_Spears_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

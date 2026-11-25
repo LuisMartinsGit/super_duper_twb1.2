@@ -248,8 +248,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         const string RockFolder = "Assets/Synty/PolygonFantasyKingdom/Prefabs/Environments";
         static readonly string[] RockPrefabs =
         {
-            "SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_03", "SM_Env_Rock_04",
-            "SM_Env_Rock_Chunk_01", "SM_Env_Rock_Chunk_02", "SM_Env_Rock_Chunk_03",
+            "K_SM_Env_Rock_01", "K_SM_Env_Rock_02", "K_SM_Env_Rock_03", "K_SM_Env_Rock_04",
+            "K_SM_Env_Rock_Chunk_01", "K_SM_Env_Rock_Chunk_02", "K_SM_Env_Rock_Chunk_03",
         };
 
         static string TreesToRocks(TerrainData data)

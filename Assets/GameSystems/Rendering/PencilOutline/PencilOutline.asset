@@ -15,7 +15,10 @@ MonoBehaviour:
   enabled: 1
   shader: {fileID: 4800000, guid: 55a4066a399c438f970c09a490be23b7, type: 3}
   inkColor: {r: 0.02, g: 0.015, b: 0.018, a: 0.85}
-  lineWidth: 2.5
+  surfaceInk: 1
+  surfaceShade: 0.22
+  silhouetteInk: 0.6
+  lineWidth: 1.8
   minLineWidth: 1
   referenceDistance: 40
   fadeStart: 90
@@ -23,7 +26,7 @@ MonoBehaviour:
   depthThreshold: 0.02
   grazingCompensation: 1
   normalThreshold: 0.4
-  normalWeight: 0.8
+  normalWeight: 0.6
   jitterAmount: 0.6
   jitterScale: 1
   boilFps: 0

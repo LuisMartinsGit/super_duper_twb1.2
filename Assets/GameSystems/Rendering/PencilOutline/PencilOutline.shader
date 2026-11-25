@@ -12,7 +12,8 @@ Shader "Hidden/TWB/PencilOutline"
             ZTest Always
             ZWrite Off
             Cull Off
-            Blend SrcAlpha OneMinusSrcAlpha
+            // Source rgb = flat ink to add, source alpha = how much of the surface survives (see Frag).
+            Blend One SrcAlpha, Zero One
 
             HLSLPROGRAM
             #pragma vertex Vert
@@ -23,6 +24,7 @@ Shader "Hidden/TWB/PencilOutline"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareNormalsTexture.hlsl"
 
             float4 _InkColor;
+            float _SurfaceInk, _SurfaceShade, _SilhouetteInk;
             float4 _PencilScreen; // xy = target size in pixels, zw = 1 / size. Set from C#: _ScreenParams is not reliable inside a render-graph raster pass.
             float _LineWidth, _MinLineWidth, _ReferenceDistance;
             float _FadeStart, _FadeEnd;
@@ -138,7 +140,12 @@ Shader "Hidden/TWB/PencilOutline"
 
                 edge *= 1.0 - smoothstep(_FadeStart, _FadeEnd, dC);
 
-                return half4(_InkColor.rgb, edge * _InkColor.a);
+                // Coloured ink: a line is the colour of its own surface, darkened, so gold trim
+                // draws a bronze line instead of vanishing under black. Silhouettes keep the
+                // flat ink by _SilhouetteInk.
+                float e = edge * _InkColor.a;
+                float coloured = _SurfaceInk * (1.0 - edgeDepth * _SilhouetteInk);
+                return half4(_InkColor.rgb * e * (1.0 - coloured), 1.0 - e + e * coloured * _SurfaceShade);
             }
             ENDHLSL
         }

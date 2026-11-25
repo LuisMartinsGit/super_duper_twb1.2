@@ -455,6 +455,10 @@ namespace TheWaningBorder.EditorTools
         private static void RestoreLeftovers()
         {
             if (!File.Exists(ManifestPath)) return;
+            // An asset-import worker loads its domain in the MIDDLE of a live strip: it
+            // would restore, and delete, the backups the main editor is still writing
+            // (2026-11-25; the DirectoryNotFoundException and the damaged Age 0 prefabs).
+            if (AssetDatabase.IsAssetImportWorkerProcess()) return;
             if (BuildPipeline.isBuildingPlayer) return;   // a live build's own scope will restore
             Debug.LogWarning("[EditionContent] Found an unfinished edition strip from an earlier build — " +
                              "restoring the original catalog and prefabs now.");

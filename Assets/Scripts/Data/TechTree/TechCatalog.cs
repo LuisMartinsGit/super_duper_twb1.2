@@ -39,6 +39,7 @@ public static class TechCatalog
     private static readonly Dictionary<string, TechDefSO> _techSOsById = new();
     // presentationId -> prefab (for the prefab-based spawn path). null prefab = primitive fallback.
     private static readonly Dictionary<int, GameObject> _prefabByPid = new();
+    private static readonly Dictionary<int, string> _unitIdByPid = new();
     // presentationId -> animator controller (assigned at spawn when the prefab's
     // own Animator has no controller, e.g. variant-of-FBX prefabs).
     private static readonly Dictionary<int, RuntimeAnimatorController> _controllerByPid = new();
@@ -103,7 +104,7 @@ public static class TechCatalog
         _unitsById.Clear(); _buildingsById.Clear(); _technologiesById.Clear();
         _unitSOsById.Clear(); _buildingSOsById.Clear(); _techSOsById.Clear(); _buildingLevels.Clear();
         _grantedTechs.Clear(); _grantingLevels.Clear();
-        _prefabByPid.Clear(); _controllerByPid.Clear();
+        _prefabByPid.Clear(); _controllerByPid.Clear(); _unitIdByPid.Clear();
         _eraOverrides.Clear(); _derivedResearch.Clear(); _derivedTrains.Clear();
 
         var catalog = UnityEngine.Resources.Load<TechTreeCatalog>(CatalogResourceName);
@@ -462,6 +463,7 @@ public static class TechCatalog
                 if (so == null || string.IsNullOrEmpty(so.id)) continue;
                 _unitsById[so.id] = so.ToDef();
                 _unitSOsById[so.id] = so;
+                if (so.presentationId != 0) _unitIdByPid[so.presentationId] = so.id;
                 if (so.prefab != null && so.presentationId != 0) _prefabByPid[so.presentationId] = so.prefab;
                 if (so.animatorController != null && so.presentationId != 0)
                     _controllerByPid[so.presentationId] = so.animatorController;
@@ -741,6 +743,13 @@ public static class TechCatalog
         foreach (var kv in _buildingSOsById)
             if (kv.Value != null && kv.Value.presentationId == presentationId) return kv.Key;
         return null;
+    }
+
+    /// <summary>The unit a presentation id draws.</summary>
+    public static bool TryGetUnitId(int presentationId, out string id)
+    {
+        EnsureLoaded();
+        return _unitIdByPid.TryGetValue(presentationId, out id);
     }
 
     public static bool TryGetPrefab(int presentationId, out GameObject prefab)

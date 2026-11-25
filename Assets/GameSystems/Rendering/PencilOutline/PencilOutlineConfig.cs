@@ -27,6 +27,13 @@ namespace TheWaningBorder.Rendering
         /// <summary>Ink colour; alpha is the overall opacity of the lines.</summary>
         public Color inkColor;
 
+        /// <summary>0 = every line is flat <see cref="inkColor"/>; 1 = a line is the colour of its surface times <see cref="surfaceShade"/>.</summary>
+        public float surfaceInk;
+        public float surfaceShade;
+
+        /// <summary>With coloured ink, how much silhouettes keep the flat ink (creases never do).</summary>
+        public float silhouetteInk;
+
         /// <summary>Line width at <see cref="referenceDistance"/>; lines closer than that never grow past it.</summary>
         public float lineWidth;
         public float minLineWidth;

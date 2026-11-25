@@ -47,7 +47,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -126,7 +126,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1711287233219870, guid: 81ed4398cc8b1af4fa512185b3fa7d51, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Gravestone_01
+      value: K_SM_Prop_Gravestone_01
       objectReference: {fileID: 0}
     - target: {fileID: 4157482566914618, guid: 81ed4398cc8b1af4fa512185b3fa7d51, type: 3}
       propertyPath: m_LocalPosition.x
@@ -189,7 +189,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1920849402605650, guid: 74c8606a98822e044bb1cd8a2eaefebb, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Castle_Wall_Tower_S_01
+      value: K_SM_Bld_Castle_Wall_Tower_S_01
       objectReference: {fileID: 0}
     - target: {fileID: 4085686913669812, guid: 74c8606a98822e044bb1cd8a2eaefebb, type: 3}
       propertyPath: m_LocalPosition.x
@@ -252,7 +252,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1692520535717856, guid: 09afb08dd24e74b43aaa9ab84a794ca7, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Gravestone_03
+      value: K_SM_Prop_Gravestone_03
       objectReference: {fileID: 0}
     - target: {fileID: 4983711340407806, guid: 09afb08dd24e74b43aaa9ab84a794ca7, type: 3}
       propertyPath: m_LocalPosition.x
@@ -315,7 +315,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1669015876023708, guid: b990d496e8f28cb4d92ffda9e09764ba, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Cross_01
+      value: K_SM_Prop_Cross_01
       objectReference: {fileID: 0}
     - target: {fileID: 4199515131437222, guid: b990d496e8f28cb4d92ffda9e09764ba, type: 3}
       propertyPath: m_LocalPosition.x
@@ -378,7 +378,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1251308812279270, guid: 314fa1bbb83dd6b4193fc6ff042c1111, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Candle_Melted_Group_01
+      value: K_SM_Prop_Candle_Melted_Group_01
       objectReference: {fileID: 0}
     - target: {fileID: 4862103290996452, guid: 314fa1bbb83dd6b4193fc6ff042c1111, type: 3}
       propertyPath: m_LocalScale.x

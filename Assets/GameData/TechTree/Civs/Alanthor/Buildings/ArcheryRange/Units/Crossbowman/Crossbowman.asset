@@ -30,8 +30,8 @@ MonoBehaviour:
   attackRange: 10
   minAttackRange: 0
   lineOfSight: 16
-  radius: 0.5
   aimTime: 0.35
+  radius: 0.5
   trajectory: flat
   projectileSpeed: 38.5
   cost:
@@ -41,15 +41,22 @@ MonoBehaviour:
   populationCost: 1
   minBuildingLevel: 2
   buildSpeed: 0
+  repairSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
   - Ranged
   - Light
   bonusVsTags:
   - vsTag: Heavy
     amount: 10
+  torchDamage: 0
+  preferTargets: []
+  abilities: []
   prefab: {fileID: 2130948330614242297, guid: 5166d7c3bd9625542b2403b9689e4626, type: 3}
   presentationId: 335
   animatorController: {fileID: 9100000, guid: f7426f3d7d1dece4d9bec86edd11afec, type: 2}

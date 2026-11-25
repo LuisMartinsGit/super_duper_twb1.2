@@ -27,6 +27,8 @@ MonoBehaviour:
   maxTargets: 0
   populationProvided: 0
   slotIncomePerMinute: 0
+  vaultBarCapacity: 
+  vaultBarIncomePerMinute: 
   suppliesPerWorkerPerMinute: 0
   attack:
     enabled: 0
@@ -40,4 +42,4 @@ MonoBehaviour:
   lineOfSight: 0
   grantsTechs:
   - VeteranInfantry
-  prefab: {fileID: 1435027818078621703, guid: 72ce91b8406debd4a9bb6ef4063c21aa, type: 3}
+  prefab: {fileID: 1435027818078621703, guid: 6e92391c172c7114488cffa9def9057f, type: 3}

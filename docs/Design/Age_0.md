@@ -737,3 +737,7 @@ its name.
 
 - **Ward** (planned) — design and price.
 - ~~Thessara's Crossing design~~ — done 2026-10-13, [Age_1_Runai.md §2](Age_1_Runai.md).
+
+## The look of the Worker, the Scout and the Litharch (2026-11-25)
+
+Mixed from the three kits (CivilianKit.cs), one look each. Worker: smith apron, kimono sleeves in the player colour, a hammer in the hand his clips swing. Scout: hooded, straw cape, staff, and a paper lantern that glows, lights the ground and hangs from the hand. Litharch: the healing and cleansing priest - white and gold vestments, mitre, a staff with a pale-gold glowing crystal.

@@ -174,10 +174,10 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 bed = new Look("Fenbed", "Underwater_Rock_Surface_3", 6.0f, 0.70f, 0.80f, 0.62f),
                 blades = 0, bladeHealthy = new Color(0.46f, 0.58f, 0.26f), bladeDry = new Color(0.62f, 0.62f, 0.32f),
                 macroVariation = 0.15f,
-                trees = new[] { "SM_Env_Tree_Thin_01", "SM_Env_Tree_Thin_02", "SM_Env_Tree_Thin_03", "SM_Env_Tree_Thin_04",
-                                "SM_Env_Tree_Thin_05", "SM_Env_Tree_Thin_06", "SM_Env_Tree_Round_02", "SM_Env_Tree_Round_03" },
-                rocks = new[] { "SM_Env_Bush_Cluster_01", "SM_Env_Bush_Cluster_03", "SM_Env_Bush_Cluster_05",
-                                "SM_Env_Bush_04", "SM_Env_Bush_06", "SM_Env_Rock_Chunk_01", "SM_Env_Rock_Chunk_02" },
+                trees = new[] { "K_SM_Env_Tree_Thin_01", "K_SM_Env_Tree_Thin_02", "K_SM_Env_Tree_Thin_03", "K_SM_Env_Tree_Thin_04",
+                                "K_SM_Env_Tree_Thin_05", "K_SM_Env_Tree_Thin_06", "K_SM_Env_Tree_Round_02", "K_SM_Env_Tree_Round_03" },
+                rocks = new[] { "K_SM_Env_Bush_Cluster_01", "K_SM_Env_Bush_Cluster_03", "K_SM_Env_Bush_Cluster_05",
+                                "K_SM_Env_Bush_04", "K_SM_Env_Bush_06", "K_SM_Env_Rock_Chunk_01", "K_SM_Env_Rock_Chunk_02" },
                 rockShare = 0.35f,
             },
             new Biome
@@ -193,10 +193,10 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 bed = new Look("Tarnbed", "Underwater_Rock_Surface_3", 6.4f, 0.80f, 0.90f, 1.00f),
                 blades = 1, bladeHealthy = new Color(0.44f, 0.66f, 0.34f), bladeDry = new Color(0.60f, 0.70f, 0.42f),
                 macroVariation = 0.12f,
-                trees = new[] { "SM_Env_Tree_Pine_Cluster_01", "SM_Env_Tree_Pine_Cluster_02",
-                                "SM_Env_Tree_Pine_Cluster_04", "SM_Env_Tree_Pine_Cluster_05" },
-                rocks = new[] { "SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_03", "SM_Env_Rock_04",
-                                "SM_Env_Rock_Chunk_02", "SM_Env_Rock_Chunk_03" },
+                trees = new[] { "K_SM_Env_Tree_Pine_Cluster_01", "K_SM_Env_Tree_Pine_Cluster_02",
+                                "K_SM_Env_Tree_Pine_Cluster_04", "K_SM_Env_Tree_Pine_Cluster_05" },
+                rocks = new[] { "K_SM_Env_Rock_01", "K_SM_Env_Rock_02", "K_SM_Env_Rock_03", "K_SM_Env_Rock_04",
+                                "K_SM_Env_Rock_Chunk_02", "K_SM_Env_Rock_Chunk_03" },
                 rockShare = 0.25f,
             },
             new Biome
@@ -212,10 +212,10 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 bed = new Look("Wadibed", "Rippled_Sand_2", 6.2f, 0.92f, 0.78f, 0.62f),
                 blades = 1, bladeHealthy = new Color(0.64f, 0.58f, 0.30f), bladeDry = new Color(0.80f, 0.66f, 0.36f),
                 macroVariation = 0.18f,
-                trees = new[] { "SM_Env_Tree_Round_01", "SM_Env_Tree_Round_04", "SM_Env_Tree_Thin_02" },
-                rocks = new[] { "SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_03", "SM_Env_Rock_04",
-                                "SM_Env_Rock_Chunk_01", "SM_Env_Rock_Chunk_02", "SM_Env_Rock_Chunk_03",
-                                "SM_Env_Rock_Cliff_01", "SM_Env_Rock_Cliff_03", "SM_Env_Bush_Small_02" },
+                trees = new[] { "K_SM_Env_Tree_Round_01", "K_SM_Env_Tree_Round_04", "K_SM_Env_Tree_Thin_02" },
+                rocks = new[] { "K_SM_Env_Rock_01", "K_SM_Env_Rock_02", "K_SM_Env_Rock_03", "K_SM_Env_Rock_04",
+                                "K_SM_Env_Rock_Chunk_01", "K_SM_Env_Rock_Chunk_02", "K_SM_Env_Rock_Chunk_03",
+                                "K_SM_Env_Rock_Cliff_01", "K_SM_Env_Rock_Cliff_03", "K_SM_Env_Bush_Small_02" },
                 rockShare = 0.7f,
             },
             new Biome
@@ -231,9 +231,9 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 bed = new Look("Poolbed", "Underwater_Rock_Surface_3", 6.4f, 0.70f, 0.84f, 0.70f),
                 blades = 0, bladeHealthy = new Color(0.34f, 0.56f, 0.26f), bladeDry = new Color(0.46f, 0.62f, 0.30f),
                 macroVariation = 0.13f,
-                trees = new[] { "SM_Env_Tree_Large_01", "SM_Env_Tree_Round_01", "SM_Env_Tree_Round_02", "SM_Env_Tree_Round_03" },
-                rocks = new[] { "SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_03", "SM_Env_Rock_04",
-                                "SM_Env_Rock_Cliff_02", "SM_Env_Rock_Cliff_04", "SM_Env_Bush_Cluster_02" },
+                trees = new[] { "K_SM_Env_Tree_Large_01", "K_SM_Env_Tree_Round_01", "K_SM_Env_Tree_Round_02", "K_SM_Env_Tree_Round_03" },
+                rocks = new[] { "K_SM_Env_Rock_01", "K_SM_Env_Rock_02", "K_SM_Env_Rock_03", "K_SM_Env_Rock_04",
+                                "K_SM_Env_Rock_Cliff_02", "K_SM_Env_Rock_Cliff_04", "K_SM_Env_Bush_Cluster_02" },
                 rockShare = 0.45f,
             },
             new Biome
@@ -249,10 +249,10 @@ namespace TheWaningBorder.Core.Maps.EditorTools
                 bed = new Look("Riverbed", "Underwater_Rock_Surface_3", 6.4f, 0.96f, 0.92f, 0.80f),
                 blades = 0, bladeHealthy = new Color(0.70f, 0.62f, 0.28f), bladeDry = new Color(0.86f, 0.62f, 0.28f),
                 macroVariation = 0.16f,
-                trees = new[] { "SM_Env_Tree_Round_01", "SM_Env_Tree_Round_02", "SM_Env_Tree_Round_03", "SM_Env_Tree_Round_04",
-                                "SM_Env_Tree_Large_01", "SM_Env_Tree_Large_02", "SM_Env_Big_Tree_01" },
-                rocks = new[] { "SM_Env_Rock_01", "SM_Env_Rock_03", "SM_Env_Rock_Chunk_01", "SM_Env_Rock_Chunk_03",
-                                "SM_Env_Bush_Flowers_02", "SM_Env_Bush_Cluster_04" },
+                trees = new[] { "K_SM_Env_Tree_Round_01", "K_SM_Env_Tree_Round_02", "K_SM_Env_Tree_Round_03", "K_SM_Env_Tree_Round_04",
+                                "K_SM_Env_Tree_Large_01", "K_SM_Env_Tree_Large_02", "K_SM_Env_Big_Tree_01" },
+                rocks = new[] { "K_SM_Env_Rock_01", "K_SM_Env_Rock_03", "K_SM_Env_Rock_Chunk_01", "K_SM_Env_Rock_Chunk_03",
+                                "K_SM_Env_Bush_Flowers_02", "K_SM_Env_Bush_Cluster_04" },
                 rockShare = 0.2f,
             },
         };
@@ -538,8 +538,8 @@ namespace TheWaningBorder.Core.Maps.EditorTools
         const string RockFolder = "Assets/Synty/PolygonFantasyKingdom/Prefabs/Environments";
         static readonly string[] RockPrefabs =
         {
-            "SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_03", "SM_Env_Rock_04",
-            "SM_Env_Rock_Chunk_01", "SM_Env_Rock_Chunk_02", "SM_Env_Rock_Chunk_03",
+            "K_SM_Env_Rock_01", "K_SM_Env_Rock_02", "K_SM_Env_Rock_03", "K_SM_Env_Rock_04",
+            "K_SM_Env_Rock_Chunk_01", "K_SM_Env_Rock_Chunk_02", "K_SM_Env_Rock_Chunk_03",
         };
 
         /// <summary>The biome's props (v2 maps): every planted prop is re-dressed

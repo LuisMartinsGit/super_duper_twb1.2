@@ -5514,7 +5514,7 @@ GameObject:
   - component: {fileID: 101023330997412659}
   - component: {fileID: 8053888111584947209}
   m_Layer: 0
-  m_Name: SM_Prop_Bath_Water_
+  m_Name: K_SM_Prop_Bath_Water_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5600,7 +5600,7 @@ GameObject:
   - component: {fileID: 4452187158581735336}
   - component: {fileID: 52533103689145339}
   m_Layer: 0
-  m_Name: SM_Prop_Forge__Flue
+  m_Name: K_SM_Prop_Forge__Flue
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

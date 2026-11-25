@@ -10,6 +10,26 @@
 > Every measurement here is an ART measurement in metres. Game numbers
 > (footprint cells, HP, costs) are on the SOs and are not repeated here.
 
+## Kit prefixes, and no UK pieces (2026-11-24)
+
+Every Synty kit prefab, and every Synty piece inside a building prefab, carries
+the prefix of the kit it comes from:
+
+| Prefix | Kit | Folder |
+|---|---|---|
+| `K_` | Knights (Fantasy Kingdom) | `Assets/Synty/PolygonFantasyKingdom` |
+| `R_` | Ancient Empire | `Assets/Synty/PolygonAncientEmpire` |
+| `J_` | Samurai Empire | `Assets/Synty/PolygonSamuraiEmpire` |
+
+Only the prefabs are prefixed; their FBX, materials and textures keep the Synty
+name. Unit prefabs keep their part names: code finds them by name. A piece with
+a rise number keeps the number first (`1_K_Keep`).
+
+**The unit kit (`UK_*`, `Art/UnitKit/`) is removed** from the project and from
+every building prefab. Anything below that tells you to use a `UK_*` piece no
+longer applies. The player-colour band material and the cut wall meshes stay, in
+`Art/StripeBand/` (`Al_Band_Playercolor.mat`).
+
 ## How to use this guide
 
 1. Read sections 1 to 3 once. They are the rules.
@@ -197,7 +217,7 @@ the build order of section 10: `Footprint`, `Podium`, `CompoundWall`,
 `Colonnade`, `ColonnadeCap`, `Cloth`, `Yard`.
 
 The unit kit holds one prefab per piece (`UK_*.prefab`), three materials
-(`UK_Atlas`, `UK_Band_Playercolor`, `UK_Glow`), the painted texture
+(`UK_Atlas`, `Al_Band_Playercolor`, `UK_Glow`), the painted texture
 `UK_Atlas.png`, and `uk_manifest.json`, which lists every piece with its
 bounds. You may use the kit pieces directly in a hand-made building. This
 guide also shows how to make your own.
@@ -828,7 +848,7 @@ Lathe the round ones with the Screw modifier (8 steps), as for the column.
 | `Glow` | lantern panes | an emissive material |
 
 The unit kit's three materials do exactly this and you may reuse them:
-`UK_Atlas.mat`, `UK_Band_Playercolor.mat`, `UK_Glow.mat` in
+`UK_Atlas.mat`, `Al_Band_Playercolor.mat`, `UK_Glow.mat` in
 `Civs/Alanthor/Buildings/Art/UnitKit/`.
 
 ### 6.2 Synty's atlas way and the painted way
@@ -1173,6 +1193,13 @@ ground patch for a building made with no floor.
   footprint; `Exit_point` must be OUTSIDE it (footprint plus one metre), on
   ground a unit can walk. Units released together leave one after another.
 
+- **`Footprint_center`** (2026-11-25): the middle of the plot, on the prefab
+  root. It counts as one more ground contact point, so a hump inside the plot
+  cannot come through the floor; edge midpoints named `NW_corner`,
+  `SW_corner`, `SE_corner`, `NE_corner` count the same way. Put every marker
+  at the Y of the ground line (for a podium that is the foot of its steps,
+  not its floor). An authored root position is ignored by the game.
+
 The markers are read from the prefab of the level the building shows, so put
 them in every level. A prefab without them behaves as before.
 
@@ -1252,8 +1279,8 @@ What that means for you:
 
 ### 8.6 Player colour: the band and the cloth
 
-**The band.** Material `UK_Band_Playercolor.mat`
-(`Civs/Alanthor/Buildings/Art/UnitKit/`). It sits on the `Band` slot of the
+**The band.** Material `Al_Band_Playercolor.mat`
+(`Civs/Alanthor/Buildings/Art/StripeBand/`). It sits on the `Band` slot of the
 plaster wall pieces. In the editor it shows marker blue; in a match it is
 the owner's colour.
 
@@ -1282,6 +1309,13 @@ Roofs: verdigris, and nothing else. No roof material may match rules 1 or 2.
   orange). If you make your own glow material, copy that one; do not pick an
   emission strength by eye.
 - The glow is warm for every player. It is not a player-colour part.
+- A prefab may bring its own point lights (a `[snap] - Lights` group). On a
+  prefab with an authored sequence they stay dark until the building is
+  finished (`BuildingConstructionSequence`). Garrison and Archery Range do.
+- Moving banners: a Samurai `J_SM_Prop_Banner_02..10` with every slot set to
+  `Art/Banner_Samurai_Player.mat` sways with the wind and takes the player
+  colour. Painted blue stucco stripes (patterns 01 and 02) take it through
+  `Art/StripeBand/Stucco_White_Pattern_0N_Striped.mat`, with no mesh cut.
 - You do not need a Light component. For plots 8 m and up the game adds one
   warm point light by itself, unless the building's id is listed in
   `Assets/GameSystems/Rendering/Buildings/BuildingLanternLight.asset`
@@ -1337,13 +1371,13 @@ Roofs: verdigris, and nothing else. No roof material may match rules 1 or 2.
 - **Painted stripes take the player colour (2026-11-12).** The Ancient
   Empire stucco `Stucco_White_Pattern_01` has its blue stripes painted into
   the texture, and a material is per submesh, so the stripes cannot wear
-  `UK_Band_Playercolor` until they are geometry of their own. After using
+  `Al_Band_Playercolor` until they are geometry of their own. After using
   that stucco on a building, run `Waning Border > Art > Walls > Stucco
-  stripes -> UK_Band_Playercolor`: it cuts every stucco slot of every wall
+  stripes -> Al_Band_Playercolor`: it cuts every stucco slot of every wall
   piece along the stripes' edges, puts the stripe faces in a new last
-  submesh bound to `UK_Band_Playercolor` (the same material as the band on
+  submesh bound to `Al_Band_Playercolor` (the same material as the band on
   the `UK_Plaster_Wall_*_Slit` pieces), and saves the cut meshes in
-  `Art/UnitKit/StripeCut/`. The stripes become straight-edged bands. Safe to
+  `Art/StripeBand/StripeCut/`. The stripes become straight-edged bands. Safe to
   run again. Code: `Scripts/Editor/PrefabAuthoring/StuccoStripeBandPass.cs`.
 
 ### 8.9 Fire points (shooting buildings only)
@@ -1768,7 +1802,7 @@ Tick each; any "no" is a fix.
 - Tiles 22 x 24 cm, painted, verdigris, matte.
 - Stone base leaning in, 1.3 m into the ground, OUTSIDE the `Footprint`
   group.
-- Player colour: `UK_Band_Playercolor` band + `Flag_Symbol_Player` cloth.
+- Player colour: `Al_Band_Playercolor` band + `Flag_Symbol_Player` cloth.
   Never the roof.
 - No "roof" in object names. No `Castle_Roof` / `_Player` / `playercolor`
   in a material name unless you mean it.

@@ -34,31 +34,31 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
 {
     public static partial class FeraldisKitAuthor
     {
-        const string C_WallWinTall = "Castle/SM_Bld_Castle_Wall_Window_Fancy_Tall_01";
-        const string C_DoorBig = "Castle/SM_Bld_Castle_Wall_Door_Big_01";
-        const string C_Archway = "Castle/SM_Bld_Castle_Wall_Archway_01";
-        const string C_CornerS = "Castle/SM_Bld_Castle_Wall_Corner_S_01";
-        const string C_CrownS = "Castle/SM_Bld_Castle_Battlements_S_Corner_01";
-        const string C_FloorRoundS = "Castle/SM_Bld_Castle_Floor_Stone_Round_S_01";
-        const string C_RoofL = "Castle/SM_Bld_Castle_Roof_L_01";
-        const string C_RoofLEnd = "Castle/SM_Bld_Castle_Roof_L_End_01";
-        const string C_ConeRoof = "Castle/SM_Bld_Castle_Roof_Cap_Round_05";
-        const string C_OnionDome = "Castle/SM_Bld_Castle_Roof_Cap_Round_06";
-        const string C_PillarStoneRound = "Castle/SM_Bld_Castle_Pillar_Stone_Round_01";
-        const string P_StatueKing = "Props/SM_Prop_Statue_King_01";
-        const string P_StatueAngel = "Props/SM_Prop_Statue_Angel_01";
-        const string P_StatuePlinth = "Props/SM_Prop_Statue_Plinth_02";
-        const string P_Candles = "Props/SM_Prop_Candle_Melted_Group_01";
-        const string P_Bell = "Props/SM_Prop_Bell_01";
-        const string P_OreGold = "Props/SM_Prop_Ore_Gold_01";
-        const string P_Chest = "Props/Furniture/SM_Prop_Chest_03";
-        const string P_StreetLamp = "Props/SM_Prop_Street_Lamp_02";
-        const string P_HayBale = "Props/SM_Prop_Hay_Bale_01";
-        const string P_Basket = "Props/SM_Prop_Basket_01";
-        const string P_BracketLamp = "Props/SM_Prop_Bracket_Lamp_01";
-        const string I_Crystal3 = "Items/SM_Item_Crystal_03";
-        const string I_Crystal5 = "Items/SM_Item_Crystal_05";
-        const string I_Ingot = "Items/SM_Item_Ingot_Gold_01";
+        const string C_WallWinTall = "Castle/K_SM_Bld_Castle_Wall_Window_Fancy_Tall_01";
+        const string C_DoorBig = "Castle/K_SM_Bld_Castle_Wall_Door_Big_01";
+        const string C_Archway = "Castle/K_SM_Bld_Castle_Wall_Archway_01";
+        const string C_CornerS = "Castle/K_SM_Bld_Castle_Wall_Corner_S_01";
+        const string C_CrownS = "Castle/K_SM_Bld_Castle_Battlements_S_Corner_01";
+        const string C_FloorRoundS = "Castle/K_SM_Bld_Castle_Floor_Stone_Round_S_01";
+        const string C_RoofL = "Castle/K_SM_Bld_Castle_Roof_L_01";
+        const string C_RoofLEnd = "Castle/K_SM_Bld_Castle_Roof_L_End_01";
+        const string C_ConeRoof = "Castle/K_SM_Bld_Castle_Roof_Cap_Round_05";
+        const string C_OnionDome = "Castle/K_SM_Bld_Castle_Roof_Cap_Round_06";
+        const string C_PillarStoneRound = "Castle/K_SM_Bld_Castle_Pillar_Stone_Round_01";
+        const string P_StatueKing = "Props/K_SM_Prop_Statue_King_01";
+        const string P_StatueAngel = "Props/K_SM_Prop_Statue_Angel_01";
+        const string P_StatuePlinth = "Props/K_SM_Prop_Statue_Plinth_02";
+        const string P_Candles = "Props/K_SM_Prop_Candle_Melted_Group_01";
+        const string P_Bell = "Props/K_SM_Prop_Bell_01";
+        const string P_OreGold = "Props/K_SM_Prop_Ore_Gold_01";
+        const string P_Chest = "Props/Furniture/K_SM_Prop_Chest_03";
+        const string P_StreetLamp = "Props/K_SM_Prop_Street_Lamp_02";
+        const string P_HayBale = "Props/K_SM_Prop_Hay_Bale_01";
+        const string P_Basket = "Props/K_SM_Prop_Basket_01";
+        const string P_BracketLamp = "Props/K_SM_Prop_Bracket_Lamp_01";
+        const string I_Crystal3 = "Items/K_SM_Item_Crystal_03";
+        const string I_Crystal5 = "Items/K_SM_Item_Crystal_05";
+        const string I_Ingot = "Items/K_SM_Item_Ingot_Gold_01";
         const string AlGoldMatPath = "Assets/GameData/TechTree/Civs/Alanthor/Buildings/VaultOfAlmierra/Materials/Al_Gold.mat";
 
         static Material _ferVeilstone, _ferEmber, _alGold;

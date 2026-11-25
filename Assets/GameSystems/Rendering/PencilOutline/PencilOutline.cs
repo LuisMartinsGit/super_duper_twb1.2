@@ -78,6 +78,9 @@ namespace TheWaningBorder.Rendering
         static void ApplyConfig(Material m, PencilOutlineConfig c)
         {
             m.SetColor(ShaderIds.InkColor, c.inkColor);
+            m.SetFloat(ShaderIds.SurfaceInk, c.surfaceInk);
+            m.SetFloat(ShaderIds.SurfaceShade, c.surfaceShade);
+            m.SetFloat(ShaderIds.SilhouetteInk, c.silhouetteInk);
             m.SetFloat(ShaderIds.LineWidth, c.lineWidth);
             m.SetFloat(ShaderIds.MinLineWidth, c.minLineWidth);
             m.SetFloat(ShaderIds.ReferenceDistance, c.referenceDistance);
@@ -105,6 +108,9 @@ namespace TheWaningBorder.Rendering
         static class ShaderIds
         {
             public static readonly int InkColor = Shader.PropertyToID("_InkColor");
+            public static readonly int SurfaceInk = Shader.PropertyToID("_SurfaceInk");
+            public static readonly int SurfaceShade = Shader.PropertyToID("_SurfaceShade");
+            public static readonly int SilhouetteInk = Shader.PropertyToID("_SilhouetteInk");
             public static readonly int LineWidth = Shader.PropertyToID("_LineWidth");
             public static readonly int MinLineWidth = Shader.PropertyToID("_MinLineWidth");
             public static readonly int ReferenceDistance = Shader.PropertyToID("_ReferenceDistance");

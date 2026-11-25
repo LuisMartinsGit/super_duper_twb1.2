@@ -432,7 +432,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1442714448557696, guid: 08eb33a5be46b4e49a12e5c059dd6246, type: 3}
       propertyPath: m_Name
-      value: CageB
+      value: K_CageB
       objectReference: {fileID: 0}
     - target: {fileID: 4897511089635296, guid: 08eb33a5be46b4e49a12e5c059dd6246, type: 3}
       propertyPath: m_LocalScale.x
@@ -511,7 +511,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -590,7 +590,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEVent
+      value: K_ChimneyEVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -669,7 +669,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1102096560517042, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_Name
-      value: SlaveCage
+      value: K_SlaveCage
       objectReference: {fileID: 0}
     - target: {fileID: 4095041027925210, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_LocalScale.x
@@ -748,7 +748,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWStack
+      value: K_ChimneyWStack
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -827,7 +827,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1179592125756304, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_GreatFlag
+      value: K_PlayerColor_GreatFlag
       objectReference: {fileID: 0}
     - target: {fileID: 4489196261048372, guid: 8b90f57409c03244198411739f5c4af2, type: 3}
       propertyPath: m_LocalScale.x
@@ -906,7 +906,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1006655534172624, guid: d9735a2663aa77142b7ecd460b31a403, type: 3}
       propertyPath: m_Name
-      value: Bellows
+      value: K_Bellows
       objectReference: {fileID: 0}
     - target: {fileID: 4995533160610988, guid: d9735a2663aa77142b7ecd460b31a403, type: 3}
       propertyPath: m_LocalScale.x
@@ -985,7 +985,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyEPost
+      value: K_CanopyEPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -1064,7 +1064,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEVent
+      value: K_ChimneyEVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -1143,7 +1143,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1450663379226476, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_Name
-      value: ChimneyGreatSmoke
+      value: K_ChimneyGreatSmoke
       objectReference: {fileID: 0}
     - target: {fileID: 4969646306940214, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_LocalScale.x
@@ -1221,7 +1221,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyGreatVent
+      value: K_ChimneyGreatVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -1300,7 +1300,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: StackChainW
+      value: K_StackChainW
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -1375,7 +1375,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -1454,7 +1454,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_BannerE
+      value: K_PlayerColor_BannerE
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -1533,7 +1533,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1069983557862476, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_Name
-      value: BackWall
+      value: K_BackWall
       objectReference: {fileID: 0}
     - target: {fileID: 4019230386164288, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_LocalScale.x
@@ -1608,7 +1608,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -1687,7 +1687,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_BannerE
+      value: K_PlayerColor_BannerE
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -1766,7 +1766,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -1845,7 +1845,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1218801700999714, guid: 92688d9f17f16614497209c890db13ef, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Forge__Flue
+      value: K_SM_Prop_Forge__Flue
       objectReference: {fileID: 0}
     - target: {fileID: 1911556445151452, guid: 92688d9f17f16614497209c890db13ef, type: 3}
       propertyPath: m_Name
@@ -1920,7 +1920,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyGreatVent
+      value: K_ChimneyGreatVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -1999,7 +1999,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWStack
+      value: K_ChimneyWStack
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -2078,7 +2078,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -2157,7 +2157,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1108337065115358, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
-      value: FX_Fire_Embers_
+      value: K_FX_Fire_Embers_
       objectReference: {fileID: 0}
     - target: {fileID: 1584481546719536, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
@@ -2243,7 +2243,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -2322,7 +2322,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEVent
+      value: K_ChimneyEVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -2401,7 +2401,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: Post
+      value: K_Post
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -2480,7 +2480,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: ChainB
+      value: K_ChainB
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -2559,7 +2559,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1098222522617662, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_Name
-      value: CanopyWSheet
+      value: K_CanopyWSheet
       objectReference: {fileID: 0}
     - target: {fileID: 4270316608465070, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_LocalScale.x
@@ -2634,7 +2634,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -2713,7 +2713,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1843292089870526, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_Name
-      value: AnvilB
+      value: K_AnvilB
       objectReference: {fileID: 0}
     - target: {fileID: 4471062299587250, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_LocalScale.x
@@ -2792,7 +2792,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: StackChainE
+      value: K_StackChainE
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -2867,7 +2867,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEVent
+      value: K_ChimneyEVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -2946,7 +2946,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_BannerE
+      value: K_PlayerColor_BannerE
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -3025,7 +3025,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1108337065115358, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
-      value: FX_Fire_Embers_
+      value: K_FX_Fire_Embers_
       objectReference: {fileID: 0}
     - target: {fileID: 1584481546719536, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
@@ -3111,7 +3111,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: ChainA
+      value: K_ChainA
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -3190,7 +3190,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEVent
+      value: K_ChimneyEVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -3269,7 +3269,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Plinth
+      value: K_Plinth
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -3348,7 +3348,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1108337065115358, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
-      value: FX_Fire_Embers_
+      value: K_FX_Fire_Embers_
       objectReference: {fileID: 0}
     - target: {fileID: 1584481546719536, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
@@ -3434,7 +3434,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -3513,7 +3513,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -3592,7 +3592,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -3671,7 +3671,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -3750,7 +3750,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -3829,7 +3829,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -3908,7 +3908,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_BannerW
+      value: K_PlayerColor_BannerW
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -3987,7 +3987,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1492571825730028, guid: 23aa4d104ed75f14dad4e00917536a8a, type: 3}
       propertyPath: m_Name
-      value: Quench
+      value: K_Quench
       objectReference: {fileID: 0}
     - target: {fileID: 1760172298148434, guid: 23aa4d104ed75f14dad4e00917536a8a, type: 3}
       propertyPath: m_Name
@@ -4074,7 +4074,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1006655534172624, guid: d9735a2663aa77142b7ecd460b31a403, type: 3}
       propertyPath: m_Name
-      value: Bellows
+      value: K_Bellows
       objectReference: {fileID: 0}
     - target: {fileID: 4995533160610988, guid: d9735a2663aa77142b7ecd460b31a403, type: 3}
       propertyPath: m_LocalScale.x
@@ -4153,7 +4153,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: GreatFlagMast
+      value: K_GreatFlagMast
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -4232,7 +4232,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEVent
+      value: K_ChimneyEVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -4311,7 +4311,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1843292089870526, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_Name
-      value: AnvilA
+      value: K_AnvilA
       objectReference: {fileID: 0}
     - target: {fileID: 4471062299587250, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_LocalScale.x
@@ -4390,7 +4390,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_BannerW
+      value: K_PlayerColor_BannerW
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -4469,7 +4469,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -4548,7 +4548,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -4627,7 +4627,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -4706,7 +4706,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1802613797325304, guid: e00057df165cf81438a0466ab3345527, type: 3}
       propertyPath: m_Name
-      value: Cauldron
+      value: K_Cauldron
       objectReference: {fileID: 0}
     - target: {fileID: 4563797845237888, guid: e00057df165cf81438a0466ab3345527, type: 3}
       propertyPath: m_LocalScale.x
@@ -4785,7 +4785,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1108337065115358, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
-      value: FX_Fire_Embers_
+      value: K_FX_Fire_Embers_
       objectReference: {fileID: 0}
     - target: {fileID: 1584481546719536, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
@@ -4871,7 +4871,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -4950,7 +4950,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -5029,7 +5029,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1006655534172624, guid: d9735a2663aa77142b7ecd460b31a403, type: 3}
       propertyPath: m_Name
-      value: Bellows
+      value: K_Bellows
       objectReference: {fileID: 0}
     - target: {fileID: 4995533160610988, guid: d9735a2663aa77142b7ecd460b31a403, type: 3}
       propertyPath: m_LocalScale.x
@@ -5108,7 +5108,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1098222522617662, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_Name
-      value: CanopyESheet
+      value: K_CanopyESheet
       objectReference: {fileID: 0}
     - target: {fileID: 4270316608465070, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_LocalScale.x
@@ -5183,7 +5183,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyEPost
+      value: K_CanopyEPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -5262,7 +5262,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: ChainB
+      value: K_ChainB
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -5341,7 +5341,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1098222522617662, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_Name
-      value: CanopyWSheet
+      value: K_CanopyWSheet
       objectReference: {fileID: 0}
     - target: {fileID: 4270316608465070, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_LocalScale.x
@@ -5416,7 +5416,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEStack
+      value: K_ChimneyEStack
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -5495,7 +5495,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: Post
+      value: K_Post
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -5574,7 +5574,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1450663379226476, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_Name
-      value: ChimneyWSmoke
+      value: K_ChimneyWSmoke
       objectReference: {fileID: 0}
     - target: {fileID: 4969646306940214, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_LocalScale.x
@@ -5652,7 +5652,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEVent
+      value: K_ChimneyEVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -5731,7 +5731,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1450663379226476, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_Name
-      value: ChimneyWSmoke
+      value: K_ChimneyWSmoke
       objectReference: {fileID: 0}
     - target: {fileID: 4969646306940214, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_LocalScale.x
@@ -5809,7 +5809,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1843292089870526, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_Name
-      value: AnvilA
+      value: K_AnvilA
       objectReference: {fileID: 0}
     - target: {fileID: 4471062299587250, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_LocalScale.x
@@ -5888,7 +5888,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1492571825730028, guid: 23aa4d104ed75f14dad4e00917536a8a, type: 3}
       propertyPath: m_Name
-      value: Quench
+      value: K_Quench
       objectReference: {fileID: 0}
     - target: {fileID: 1760172298148434, guid: 23aa4d104ed75f14dad4e00917536a8a, type: 3}
       propertyPath: m_Name
@@ -5975,7 +5975,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1218801700999714, guid: 92688d9f17f16614497209c890db13ef, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Forge__Flue
+      value: K_SM_Prop_Forge__Flue
       objectReference: {fileID: 0}
     - target: {fileID: 1911556445151452, guid: 92688d9f17f16614497209c890db13ef, type: 3}
       propertyPath: m_Name
@@ -6050,7 +6050,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -6129,7 +6129,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -6208,7 +6208,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1108337065115358, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
-      value: FX_Fire_Embers_
+      value: K_FX_Fire_Embers_
       objectReference: {fileID: 0}
     - target: {fileID: 1584481546719536, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
@@ -6294,7 +6294,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1450663379226476, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_Name
-      value: ChimneyWSmoke
+      value: K_ChimneyWSmoke
       objectReference: {fileID: 0}
     - target: {fileID: 4969646306940214, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_LocalScale.x
@@ -6372,7 +6372,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1492571825730028, guid: 23aa4d104ed75f14dad4e00917536a8a, type: 3}
       propertyPath: m_Name
-      value: Quench
+      value: K_Quench
       objectReference: {fileID: 0}
     - target: {fileID: 1760172298148434, guid: 23aa4d104ed75f14dad4e00917536a8a, type: 3}
       propertyPath: m_Name
@@ -6459,7 +6459,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -6538,7 +6538,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -6617,7 +6617,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEStack
+      value: K_ChimneyEStack
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -6696,7 +6696,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWStack
+      value: K_ChimneyWStack
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -6775,7 +6775,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Plinth
+      value: K_Plinth
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -6854,7 +6854,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -6933,7 +6933,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1450663379226476, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_Name
-      value: ChimneyESmoke
+      value: K_ChimneyESmoke
       objectReference: {fileID: 0}
     - target: {fileID: 4969646306940214, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_LocalScale.x
@@ -7011,7 +7011,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: Post
+      value: K_Post
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -7090,7 +7090,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyEPost
+      value: K_CanopyEPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -7169,7 +7169,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1178839390041156, guid: 6c5ef2069e909a94584b81b4c6972569, type: 3}
       propertyPath: m_Name
-      value: Grindstone
+      value: K_Grindstone
       objectReference: {fileID: 0}
     - target: {fileID: 1651978686000818, guid: 6c5ef2069e909a94584b81b4c6972569, type: 3}
       propertyPath: m_Name
@@ -7256,7 +7256,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyGreatStack
+      value: K_ChimneyGreatStack
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -7335,7 +7335,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1293739682876146, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_Name
-      value: RafterA
+      value: K_RafterA
       objectReference: {fileID: 0}
     - target: {fileID: 4161301448876890, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_LocalScale.x
@@ -7410,7 +7410,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -7489,7 +7489,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -7568,7 +7568,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -7647,7 +7647,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -7726,7 +7726,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1152765526948104, guid: f0f746eb62ee88047b57e42dd06ecbf8, type: 3}
       propertyPath: m_Name
-      value: Bodies
+      value: K_Bodies
       objectReference: {fileID: 0}
     - target: {fileID: 4264825688478686, guid: f0f746eb62ee88047b57e42dd06ecbf8, type: 3}
       propertyPath: m_LocalScale.x
@@ -7805,7 +7805,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -7884,7 +7884,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -7963,7 +7963,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1218801700999714, guid: 92688d9f17f16614497209c890db13ef, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Forge__Flue
+      value: K_SM_Prop_Forge__Flue
       objectReference: {fileID: 0}
     - target: {fileID: 1911556445151452, guid: 92688d9f17f16614497209c890db13ef, type: 3}
       propertyPath: m_Name
@@ -8038,7 +8038,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyEPost
+      value: K_CanopyEPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -8117,7 +8117,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyEPost
+      value: K_CanopyEPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -8196,7 +8196,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1102096560517042, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_Name
-      value: SlaveCage
+      value: K_SlaveCage
       objectReference: {fileID: 0}
     - target: {fileID: 4095041027925210, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_LocalScale.x
@@ -8275,7 +8275,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: Post
+      value: K_Post
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -8354,7 +8354,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1450663379226476, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_Name
-      value: ChimneyESmoke
+      value: K_ChimneyESmoke
       objectReference: {fileID: 0}
     - target: {fileID: 4969646306940214, guid: 87d947a024774e04ca6ad63ba3d92a98, type: 3}
       propertyPath: m_LocalScale.x
@@ -8432,7 +8432,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Plinth
+      value: K_Plinth
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -8511,7 +8511,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_BannerW
+      value: K_PlayerColor_BannerW
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -8590,7 +8590,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -8669,7 +8669,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -8748,7 +8748,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1239361571515120, guid: db4494761a8a9c3409625774f92f7d8d, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Workbench_Forge__Flue
+      value: K_SM_Prop_Workbench_Forge__Flue
       objectReference: {fileID: 0}
     - target: {fileID: 1813448722691076, guid: db4494761a8a9c3409625774f92f7d8d, type: 3}
       propertyPath: m_Name
@@ -8836,7 +8836,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1178839390041156, guid: 6c5ef2069e909a94584b81b4c6972569, type: 3}
       propertyPath: m_Name
-      value: Grindstone
+      value: K_Grindstone
       objectReference: {fileID: 0}
     - target: {fileID: 1651978686000818, guid: 6c5ef2069e909a94584b81b4c6972569, type: 3}
       propertyPath: m_Name
@@ -8923,7 +8923,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1843292089870526, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_Name
-      value: AnvilA
+      value: K_AnvilA
       objectReference: {fileID: 0}
     - target: {fileID: 4471062299587250, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_LocalScale.x
@@ -9002,7 +9002,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -9081,7 +9081,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyEPost
+      value: K_CanopyEPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -9160,7 +9160,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyEPost
+      value: K_CanopyEPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -9239,7 +9239,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: Plinth
+      value: K_Plinth
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -9318,7 +9318,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -9397,7 +9397,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: ChainA
+      value: K_ChainA
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -9476,7 +9476,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1098222522617662, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_Name
-      value: CanopyWSheet
+      value: K_CanopyWSheet
       objectReference: {fileID: 0}
     - target: {fileID: 4270316608465070, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_LocalScale.x
@@ -9551,7 +9551,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -9630,7 +9630,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -9709,7 +9709,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyGreatVent
+      value: K_ChimneyGreatVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -9788,7 +9788,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyEVent
+      value: K_ChimneyEVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -9867,7 +9867,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1239361571515120, guid: db4494761a8a9c3409625774f92f7d8d, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Workbench_Forge__Flue
+      value: K_SM_Prop_Workbench_Forge__Flue
       objectReference: {fileID: 0}
     - target: {fileID: 1813448722691076, guid: db4494761a8a9c3409625774f92f7d8d, type: 3}
       propertyPath: m_Name
@@ -9955,7 +9955,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1108337065115358, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
-      value: FX_Fire_Embers_
+      value: K_FX_Fire_Embers_
       objectReference: {fileID: 0}
     - target: {fileID: 1584481546719536, guid: 94f55021adc743447972e33009b6eda2, type: 3}
       propertyPath: m_Name
@@ -10041,7 +10041,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -10120,7 +10120,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyWVent
+      value: K_ChimneyWVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -10199,7 +10199,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1069983557862476, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_Name
-      value: BackWall
+      value: K_BackWall
       objectReference: {fileID: 0}
     - target: {fileID: 4019230386164288, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_LocalScale.x
@@ -10274,7 +10274,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1102096560517042, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_Name
-      value: SlaveCage
+      value: K_SlaveCage
       objectReference: {fileID: 0}
     - target: {fileID: 4095041027925210, guid: 45963b78f6502fa4aa1300f1d4c81922, type: 3}
       propertyPath: m_LocalScale.x
@@ -10353,7 +10353,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1733770238498794, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_Name
-      value: ChainA
+      value: K_ChainA
       objectReference: {fileID: 0}
     - target: {fileID: 4569069304741338, guid: 1bbc49ca11cb2214d8097583d56f3e0d, type: 3}
       propertyPath: m_LocalScale.x
@@ -10432,7 +10432,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1442714448557696, guid: 08eb33a5be46b4e49a12e5c059dd6246, type: 3}
       propertyPath: m_Name
-      value: CageB
+      value: K_CageB
       objectReference: {fileID: 0}
     - target: {fileID: 4897511089635296, guid: 08eb33a5be46b4e49a12e5c059dd6246, type: 3}
       propertyPath: m_LocalScale.x
@@ -10511,7 +10511,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1098222522617662, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_Name
-      value: CanopyESheet
+      value: K_CanopyESheet
       objectReference: {fileID: 0}
     - target: {fileID: 4270316608465070, guid: 6e22efa820c49ea459764a5e57edd79b, type: 3}
       propertyPath: m_LocalScale.x
@@ -10586,7 +10586,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1048459307401366, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_Name
-      value: ChimneyGreatVent
+      value: K_ChimneyGreatVent
       objectReference: {fileID: 0}
     - target: {fileID: 4783418220407728, guid: 5763b5c079fc82d4f9eba6bdb64be096, type: 3}
       propertyPath: m_LocalScale.x
@@ -10665,7 +10665,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1293739682876146, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_Name
-      value: RafterB
+      value: K_RafterB
       objectReference: {fileID: 0}
     - target: {fileID: 4161301448876890, guid: 90bd150b288b9ce459f067f295b37784, type: 3}
       propertyPath: m_LocalScale.x
@@ -10740,7 +10740,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyEPost
+      value: K_CanopyEPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -10819,7 +10819,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1069983557862476, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_Name
-      value: BackWall
+      value: K_BackWall
       objectReference: {fileID: 0}
     - target: {fileID: 4019230386164288, guid: a8c3c2fa6519fae4690d44a8ec308088, type: 3}
       propertyPath: m_LocalScale.x
@@ -10894,7 +10894,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1103806503518586, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_Name
-      value: Ore
+      value: K_Ore
       objectReference: {fileID: 0}
     - target: {fileID: 4202186220437166, guid: 3b69a183e4c6c9a4d89cb0e47b491a28, type: 3}
       propertyPath: m_LocalScale.x
@@ -10973,7 +10973,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1183138894557542, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_Name
-      value: CanopyWPost
+      value: K_CanopyWPost
       objectReference: {fileID: 0}
     - target: {fileID: 4402361697355794, guid: 2958471dc0b61d043987636716eaf502, type: 3}
       propertyPath: m_LocalScale.x
@@ -11052,7 +11052,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1843292089870526, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_Name
-      value: AnvilB
+      value: K_AnvilB
       objectReference: {fileID: 0}
     - target: {fileID: 4471062299587250, guid: f02bab0916b694b4fb39ee47ccb08d9a, type: 3}
       propertyPath: m_LocalScale.x

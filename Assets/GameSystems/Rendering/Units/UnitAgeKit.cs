@@ -10,7 +10,7 @@
 //             progress - developer: "I want the spearmen's gear to change to
 //             reflect the type of upgrades they have":
 //               level gear    one option per level of a building ladder
-//                             (helmets, shields: the Garrison's level 1-3)
+//                             (body, helmet, shield: the Garrison's 1-3)
 //               weapon tiers  option 0, then one more per researched tech of
 //                             a list (Iron / Veilstone / Shard-infused)
 //               tech gear     shown once a tech is researched (the cape, for
@@ -44,6 +44,8 @@ namespace TheWaningBorder.Rendering
         /// <summary>Level gear, one array per slot; element 0 is level 1. A
         /// level past the end shows the last element.</summary>
         public GameObject[] helmets;
+        /// <summary>The aged kit's body per level: skinned meshes on ONE skeleton.</summary>
+        public GameObject[] bodies;
         public GameObject[] shields;
         /// <summary>Weapon options: element 0 with none of <see cref="weaponTechs"/>
         /// researched, element n with the n-th.</summary>
@@ -52,16 +54,10 @@ namespace TheWaningBorder.Rendering
         /// shows the last): the Militia's spear changes with Stone Weapons.</summary>
         public GameObject[] firstAgeWeapons;
         public string[] weaponTechs;
-        /// <summary>At <see cref="topLevel"/> the aged body wears
-        /// <see cref="topLevelMesh"/> instead of <see cref="baseMesh"/>: the
-        /// same body with some of its steel mapped onto the atlas's gold
-        /// (developer, 2026-11-13: "in the last upgrade, some metal pieces of
-        /// the armor must turn golden").</summary>
-        public SkinnedMeshRenderer topLevelBody;
-        public Mesh baseMesh;
-        public Mesh topLevelMesh;
-        public int topLevel;
-
+        /// <summary>A second ladder worn beside the weapon: the arrows in the
+        /// quiver, option n with the n-th of <see cref="quiverTechs"/>.</summary>
+        public GameObject[] quivers;
+        public string[] quiverTechs;
         /// <summary>Shown once <see cref="techGearTech"/> is researched.</summary>
         public GameObject techGear;
         public string techGearTech;
@@ -72,7 +68,7 @@ namespace TheWaningBorder.Rendering
         Faction _faction;
         bool _bound;
         int _shown = -1;      // -1 unknown, 0 first age, 1 aged
-        int _helmet = -1, _shield = -1, _weapon = -1, _firstWeapon = -1, _tech = -1;
+        int _body = -1, _helmet = -1, _shield = -1, _weapon = -1, _firstWeapon = -1, _quiver = -1, _tech = -1;
         float _nextCheck;
 
         /// <summary>Called by the spawn system with the unit's faction.</summary>
@@ -97,7 +93,7 @@ namespace TheWaningBorder.Rendering
             // A unit with no first-age kit (the Swordsman) is always its aged one.
             int want = FactionColors.GetFactionCulture(_faction) != 0
                        || firstAge == null || firstAge.Length == 0 ? 1 : 0;
-            int level = 1, weapon = 0, tech = 0;
+            int level = 1, weapon = 0, tech = 0, quiver = 0;
             var research = FactionResearchState.Instance;
             if (research != null)
             {
@@ -105,6 +101,9 @@ namespace TheWaningBorder.Rendering
                 if (weaponTechs != null)
                     for (int i = 0; i < weaponTechs.Length; i++)
                         if (research.HasResearched(_faction, weaponTechs[i])) weapon = i + 1;
+                if (quiverTechs != null)
+                    for (int i = 0; i < quiverTechs.Length; i++)
+                        if (research.HasResearched(_faction, quiverTechs[i])) quiver = i + 1;
                 if (!string.IsNullOrEmpty(techGearTech) && research.HasResearched(_faction, techGearTech)) tech = 1;
             }
             if (want == 1)
@@ -113,7 +112,7 @@ namespace TheWaningBorder.Rendering
                 if (world != null && world.IsCreated && !string.IsNullOrEmpty(levelLadderId))
                     level = Mathf.Max(1, FactionBuildingLevels.Get(world.EntityManager, _faction, levelLadderId));
             }
-            Apply(want == 1, level, weapon, tech, instant);
+            Apply(want == 1, level, weapon, tech, instant, quiver);
         }
 
         /// <summary>Switch the kit at once. Public so an editor preview can drive it.</summary>
@@ -122,7 +121,7 @@ namespace TheWaningBorder.Rendering
         /// <summary>Set the whole look: the kit, the gear of a ladder level
         /// (1-based), a weapon tier (0 = base) and the tech gear (0 / 1).
         /// <paramref name="instant"/> skips the dissolve.</summary>
-        public void Apply(bool agedKit, int level, int weapon, int tech, bool instant)
+        public void Apply(bool agedKit, int level, int weapon, int tech, bool instant, int quiver = 0)
         {
             int kit = agedKit ? 1 : 0;
             bool kitChanged = kit != _shown;
@@ -136,7 +135,7 @@ namespace TheWaningBorder.Rendering
                 _shown = kit;
                 // The gear rides on the kit it belongs to: set it before the
                 // kit appears, so the wave reveals the right pieces.
-                SetGear(level, weapon, tech, instant: true);
+                SetGear(level, weapon, tech, quiver, instant: true);
                 if (wave)
                 {
                     // The animation driver takes the first Animator it finds:
@@ -148,19 +147,16 @@ namespace TheWaningBorder.Rendering
                 if (sync != null) sync.ControllerChanged();
                 return;
             }
-            SetGear(level, weapon, tech, instant);
+            SetGear(level, weapon, tech, quiver, instant);
         }
 
-        void SetGear(int level, int weapon, int tech, bool instant)
+        void SetGear(int level, int weapon, int tech, int quiver, bool instant)
         {
-            if (topLevelBody != null && topLevelMesh != null && baseMesh != null)
-            {
-                var want = topLevel > 0 && level >= topLevel ? topLevelMesh : baseMesh;
-                if (topLevelBody.sharedMesh != want) topLevelBody.sharedMesh = want;
-            }
+            Pick(bodies, level - 1, ref _body, instant);
             Pick(helmets, level - 1, ref _helmet, instant);
             Pick(shields, level - 1, ref _shield, instant);
             Pick(weapons, weapon, ref _weapon, instant);
+            Pick(quivers, quiver, ref _quiver, instant);
             Pick(firstAgeWeapons, weapon, ref _firstWeapon, instant);
             if (techGear != null && tech != _tech)
             {

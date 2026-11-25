@@ -29,17 +29,17 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         const string HousePreviewDir = "Temp/house-kit-previews";
 
         // pieces (KitRoot-relative)
-        const string E_Bush = "Environments/SM_Env_Bush_01";
-        const string P_FenceGateH = "Props/SM_Prop_Fence_Gate_01";
-        const string P_Barrel1 = "Props/SM_Prop_Barrel_01";
-        const string P_StreetLamp1 = "Props/SM_Prop_Street_Lamp_01";
-        const string P_TBeam = "Props/SM_Prop_Beam_01";
-        const string C_WallPlain = "Castle/SM_Bld_Castle_Wall_01";
-        const string C_WallDoorArch = "Castle/SM_Bld_Castle_Wall_Door_01";
-        const string C_WallWindowArch = "Castle/SM_Bld_Castle_Wall_Window_01";
-        const string C_CapSquare1 = "Castle/SM_Bld_Castle_Roof_Cap_Square_01";
-        const string C_FloorStone1 = "Castle/SM_Bld_Castle_Floor_Stone_01";
-        const string H_StairsStone = "Buildings/House/SM_Bld_House_Stairs_Stone_01";
+        const string E_Bush = "Environments/K_SM_Env_Bush_01";
+        const string P_FenceGateH = "Props/K_SM_Prop_Fence_Gate_01";
+        const string P_Barrel1 = "Props/K_SM_Prop_Barrel_01";
+        const string P_StreetLamp1 = "Props/K_SM_Prop_Street_Lamp_01";
+        const string P_TBeam = "Props/K_SM_Prop_Beam_01";
+        const string C_WallPlain = "Castle/K_SM_Bld_Castle_Wall_01";
+        const string C_WallDoorArch = "Castle/K_SM_Bld_Castle_Wall_Door_01";
+        const string C_WallWindowArch = "Castle/K_SM_Bld_Castle_Wall_Window_01";
+        const string C_CapSquare1 = "Castle/K_SM_Bld_Castle_Roof_Cap_Square_01";
+        const string C_FloorStone1 = "Castle/K_SM_Bld_Castle_Floor_Stone_01";
+        const string H_StairsStone = "Buildings/House/K_SM_Bld_House_Stairs_Stone_01";
 
         const float Plot = 2f;             // half-size of the 4 m plot
 

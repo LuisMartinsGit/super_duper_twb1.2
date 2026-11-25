@@ -30,8 +30,8 @@ MonoBehaviour:
   attackRange: 1.2
   minAttackRange: 0
   lineOfSight: 26
-  radius: 0.55
   aimTime: 0
+  radius: 0.55
   trajectory: 
   projectileSpeed: 0
   cost:
@@ -41,21 +41,24 @@ MonoBehaviour:
   populationCost: 3
   minBuildingLevel: 0
   buildSpeed: 0
+  repairSpeed: 0
   gatheringSpeed: 0
   healsPerSecond: 0
+  healRange: 0
   siegeRange: 0
   siegeCooldown: 0
   aoeRadius: 0
   tags:
-  - 'Infantry'
-  - 'Hero'
+  - Infantry
+  - Hero
   bonusVsTags: []
   torchDamage: 25
+  preferTargets: []
   abilities:
   - Cauterize
   - Bloodletting
   - Lancet
   - The Great Rewind
-  prefab: {fileID: 32314801045755, guid: 05f7000860a9b9893ac91fd3aeb3f944, type: 3}
+  prefab: {fileID: 3287079509216927569, guid: a2de9a1849ac9d14293312f784fa4574, type: 3}
   presentationId: 451
-  animatorController: {fileID: 0}
+  animatorController: {fileID: 9100000, guid: f523a602cc9a43848a25c99f543a564a, type: 2}

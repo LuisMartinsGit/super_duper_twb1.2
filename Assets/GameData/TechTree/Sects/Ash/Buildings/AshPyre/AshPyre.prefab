@@ -50,7 +50,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Candle_Skull_01
+      value: K_SM_Prop_Candle_Skull_01
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -125,7 +125,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1559356217227748, guid: a24c59603686061439ac5c3dace1bbc6, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Tent_Round_01_Burnt
+      value: K_SM_Bld_Tent_Round_01_Burnt
       objectReference: {fileID: 0}
     - target: {fileID: 4927186237871848, guid: a24c59603686061439ac5c3dace1bbc6, type: 3}
       propertyPath: m_LocalScale.x
@@ -200,7 +200,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1648112782638166, guid: 9fa21cb0e7034df4d95489b65626057e, type: 3}
       propertyPath: m_Name
-      value: SM_Env_Tree_Burnt_01
+      value: K_SM_Env_Tree_Burnt_01
       objectReference: {fileID: 0}
     - target: {fileID: 4975503061675024, guid: 9fa21cb0e7034df4d95489b65626057e, type: 3}
       propertyPath: m_LocalScale.x
@@ -275,7 +275,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1493270553434964, guid: 60a1f481c70484a448938be56823f867, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Cauldron_03
+      value: K_SM_Prop_Cauldron_03
       objectReference: {fileID: 0}
     - target: {fileID: 4228210869372584, guid: 60a1f481c70484a448938be56823f867, type: 3}
       propertyPath: m_LocalScale.x
@@ -350,7 +350,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1067068272297932, guid: 35ec01bf02e23fb4b858142224c7c08a, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_FirePit_01
+      value: K_SM_Prop_FirePit_01
       objectReference: {fileID: 0}
     - target: {fileID: 4477491247938664, guid: 35ec01bf02e23fb4b858142224c7c08a, type: 3}
       propertyPath: m_LocalScale.x
@@ -425,7 +425,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1947759952715216, guid: 027f251ca0eb48646bd3c1161cae16be, type: 3}
       propertyPath: m_Name
-      value: SM_Env_Tree_Burnt_02
+      value: K_SM_Env_Tree_Burnt_02
       objectReference: {fileID: 0}
     - target: {fileID: 4056278033797816, guid: 027f251ca0eb48646bd3c1161cae16be, type: 3}
       propertyPath: m_LocalScale.x
@@ -500,7 +500,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -579,7 +579,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1407745252308630, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Candle_Skull_01
+      value: K_SM_Prop_Candle_Skull_01
       objectReference: {fileID: 0}
     - target: {fileID: 4390134109709072, guid: f6b2d05ff8be0ea43a20b0a2637bed18, type: 3}
       propertyPath: m_LocalScale.x
@@ -654,7 +654,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1608470037805422, guid: 85f312cbc450e3248b52d13298decf44, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Wood_Pile_02
+      value: K_SM_Prop_Wood_Pile_02
       objectReference: {fileID: 0}
     - target: {fileID: 4820135398584802, guid: 85f312cbc450e3248b52d13298decf44, type: 3}
       propertyPath: m_LocalScale.x

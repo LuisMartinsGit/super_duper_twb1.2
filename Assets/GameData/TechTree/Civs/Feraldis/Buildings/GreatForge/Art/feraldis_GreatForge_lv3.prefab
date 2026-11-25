@@ -98,7 +98,7 @@ GameObject:
   - component: {fileID: 8089411151825083342}
   - component: {fileID: 59688867956517579}
   m_Layer: 0
-  m_Name: SM_Prop_Workbench_Forge__Flue
+  m_Name: K_SM_Prop_Workbench_Forge__Flue
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -270,7 +270,7 @@ GameObject:
   - component: {fileID: 4000148482654260565}
   - component: {fileID: 7870058317940214032}
   m_Layer: 0
-  m_Name: SM_Prop_Bath_Water_
+  m_Name: K_SM_Prop_Bath_Water_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6106,7 +6106,7 @@ GameObject:
   - component: {fileID: 4562136863800870070}
   - component: {fileID: 1870784001968279914}
   m_Layer: 0
-  m_Name: SM_Prop_Grinding_Wheel__Stone
+  m_Name: K_SM_Prop_Grinding_Wheel__Stone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -36768,7 +36768,7 @@ GameObject:
   - component: {fileID: 6610876881937587626}
   - component: {fileID: 6655245873768644053}
   m_Layer: 0
-  m_Name: SM_Prop_Forge__Flue
+  m_Name: K_SM_Prop_Forge__Flue
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

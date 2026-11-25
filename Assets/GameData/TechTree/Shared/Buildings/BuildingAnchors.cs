@@ -20,6 +20,10 @@
 //                 it takes NO footprint fit and NO pivot offset
 //                 (PresentationSpawnSystem.ComputeBuildingViewScale), so a
 //                 marker's local position is its position in the world.
+//   Footprint_center  the middle of the plot, on the root; one more ground
+//                 contact point, so a hump inside the plot cannot come
+//                 through the floor. Edge midpoints are corners too
+//                 (NE_corner, SE_corner, SW_corner, NW_corner).
 //   Unit_spawn    where a trained unit appears (inside the building).
 //   Exit_point    where it walks to before it takes its rally order
 //                 (TrainingSystem.SpawnUnit, BuildingExitSystem).
@@ -40,6 +44,8 @@ namespace TheWaningBorder.Systems.Buildings
     public sealed class BuildingAnchors
     {
         public const string CornerSuffix = "_corner";
+        /// <summary>The middle of the plot: a ground point as the corners are.</summary>
+        public const string FootprintCenterName = "Footprint_center";
         public const string UnitSpawnName = "Unit_spawn";
         public const string ExitPointName = "Exit_point";
 
@@ -79,7 +85,8 @@ namespace TheWaningBorder.Systems.Buildings
                 Vector3 local = child.parent == root
                     ? child.localPosition
                     : root.InverseTransformPoint(child.position);
-                if (n.EndsWith(CornerSuffix, System.StringComparison.OrdinalIgnoreCase))
+                if (n.EndsWith(CornerSuffix, System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(n, FootprintCenterName, System.StringComparison.OrdinalIgnoreCase))
                     corners.Add(local);
                 else if (string.Equals(n, UnitSpawnName, System.StringComparison.OrdinalIgnoreCase))
                 { spawn = local; hasSpawn = true; }

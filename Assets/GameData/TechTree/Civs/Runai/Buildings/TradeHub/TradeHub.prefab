@@ -49,7 +49,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1718018331422158, guid: 1e58e3c5035624042aae44b75036e67a, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Rug_03
+      value: K_SM_Prop_Rug_03
       objectReference: {fileID: 0}
     - target: {fileID: 4480083285837352, guid: 1e58e3c5035624042aae44b75036e67a, type: 3}
       propertyPath: m_LocalScale.x
@@ -123,7 +123,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1225538670376346, guid: 9b74b26f5b0ca284e91f0f89e7b26d86, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Market_Stall_02
+      value: K_SM_Prop_Market_Stall_02
       objectReference: {fileID: 0}
     - target: {fileID: 4377127603086864, guid: 9b74b26f5b0ca284e91f0f89e7b26d86, type: 3}
       propertyPath: m_LocalPosition.x
@@ -187,7 +187,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1976816148809710, guid: 264bf6361c5a75e42ac3650fcec7e20f, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Market_Stall_05
+      value: K_SM_Prop_Market_Stall_05
       objectReference: {fileID: 0}
     - target: {fileID: 4807971326840980, guid: 264bf6361c5a75e42ac3650fcec7e20f, type: 3}
       propertyPath: m_LocalPosition.x
@@ -250,7 +250,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1100549258105922, guid: 5f844e8c56987fd4391fdacdd722793c, type: 3}
       propertyPath: m_Name
-      value: SM_Bld_Tent_Large_01
+      value: K_SM_Bld_Tent_Large_01
       objectReference: {fileID: 0}
     - target: {fileID: 4945341087636826, guid: 5f844e8c56987fd4391fdacdd722793c, type: 3}
       propertyPath: m_LocalPosition.x
@@ -313,7 +313,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1384155886986880, guid: 766ffbfefb79b0144b90ba73778f95f6, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Crate_Stack_03
+      value: K_SM_Prop_Crate_Stack_03
       objectReference: {fileID: 0}
     - target: {fileID: 4499043908711406, guid: 766ffbfefb79b0144b90ba73778f95f6, type: 3}
       propertyPath: m_LocalPosition.x
@@ -376,7 +376,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1122691666720918, guid: 441e6888d5131344a95748f25c4588cb, type: 3}
       propertyPath: m_Name
-      value: SM_Veh_TraderWagon_01
+      value: K_SM_Veh_TraderWagon_01
       objectReference: {fileID: 0}
     - target: {fileID: 4924242273671546, guid: 441e6888d5131344a95748f25c4588cb, type: 3}
       propertyPath: m_LocalScale.x
@@ -455,7 +455,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1003196782519748, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_Name
-      value: PlayerColor_Banner
+      value: K_PlayerColor_Banner
       objectReference: {fileID: 0}
     - target: {fileID: 4406130476050668, guid: f893351fa0c095a49839ad3fd4c320fb, type: 3}
       propertyPath: m_LocalScale.x
@@ -534,7 +534,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1911554474005418, guid: a6f6b35a601310b479d00552ee61d986, type: 3}
       propertyPath: m_Name
-      value: SM_Prop_Sack_Stack_02
+      value: K_SM_Prop_Sack_Stack_02
       objectReference: {fileID: 0}
     - target: {fileID: 4057865797431850, guid: a6f6b35a601310b479d00552ee61d986, type: 3}
       propertyPath: m_LocalPosition.x

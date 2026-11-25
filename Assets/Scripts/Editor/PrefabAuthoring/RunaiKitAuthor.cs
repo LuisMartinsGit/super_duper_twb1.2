@@ -42,21 +42,21 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
         const string RuReportPath = "Temp/runai-kit-report.txt";
 
         // ── kit pieces (measured with Preview Kit Pieces) ──
-        const string R_Col = "Castle/SM_Bld_Castle_Pillar_Stone_Round_03";     // 0.59 w, 5.05 h, pivot at the foot
-        const string R_ColFat = "Castle/SM_Bld_Castle_Pillar_Stone_Round_01";  // 1.65 w, 5.0 h — the drum
-        const string R_Dome = "Castle/SM_Bld_Castle_Roof_Cap_Round_01";        // 2.57 w, 0.81 h — a low dome
-        const string R_Spire = "Castle/SM_Bld_Castle_Roof_Cap_Round_03";       // 2.57 w, 7.2 h — finial / minaret top
-        const string R_Arch = "Castle/SM_Bld_Castle_Wall_Archway_01";          // 5 x 5 x 0.5, pivot at +X end
-        const string R_ArchPt = "Castle/SM_Bld_Castle_Wall_Archway_02";        // pointed iwan arch
-        const string R_Disc = "Castle/SM_Bld_Castle_Floor_Stone_Round_M_01";   // 3.75 disc, pivot at its (+X,-Z) corner
-        const string R_Pavilion = "Buildings/SM_Bld_Tent_Open_02";            // 3.25 w, 4.14 h silk pavilion
-        const string R_Awning = "Props/SM_Prop_Awning_03";                     // 3.44 w awning
-        const string R_Curtain = "Props/SM_Prop_Curtain_Large_01";             // 4.1 w drape
-        const string R_Stall = "Props/SM_Prop_Market_Stall_01";               // 2.7 x 2.9 x 4.25
-        const string R_Rug = "Props/SM_Prop_Rug_01_Draped_01";
-        const string R_Pot = "Props/SM_Prop_Pot_01";
-        const string R_Planter = "Environments/SM_Env_Planter_Pot_01";
-        const string R_Obelisk = "Castle/SM_Bld_Keep_Pillar_Cap_01";           // 1.36 x 3.13 stepped obelisk
+        const string R_Col = "Castle/K_SM_Bld_Castle_Pillar_Stone_Round_03";     // 0.59 w, 5.05 h, pivot at the foot
+        const string R_ColFat = "Castle/K_SM_Bld_Castle_Pillar_Stone_Round_01";  // 1.65 w, 5.0 h — the drum
+        const string R_Dome = "Castle/K_SM_Bld_Castle_Roof_Cap_Round_01";        // 2.57 w, 0.81 h — a low dome
+        const string R_Spire = "Castle/K_SM_Bld_Castle_Roof_Cap_Round_03";       // 2.57 w, 7.2 h — finial / minaret top
+        const string R_Arch = "Castle/K_SM_Bld_Castle_Wall_Archway_01";          // 5 x 5 x 0.5, pivot at +X end
+        const string R_ArchPt = "Castle/K_SM_Bld_Castle_Wall_Archway_02";        // pointed iwan arch
+        const string R_Disc = "Castle/K_SM_Bld_Castle_Floor_Stone_Round_M_01";   // 3.75 disc, pivot at its (+X,-Z) corner
+        const string R_Pavilion = "Buildings/K_SM_Bld_Tent_Open_02";            // 3.25 w, 4.14 h silk pavilion
+        const string R_Awning = "Props/K_SM_Prop_Awning_03";                     // 3.44 w awning
+        const string R_Curtain = "Props/K_SM_Prop_Curtain_Large_01";             // 4.1 w drape
+        const string R_Stall = "Props/K_SM_Prop_Market_Stall_01";               // 2.7 x 2.9 x 4.25
+        const string R_Rug = "Props/K_SM_Prop_Rug_01_Draped_01";
+        const string R_Pot = "Props/K_SM_Prop_Pot_01";
+        const string R_Planter = "Environments/K_SM_Env_Planter_Pot_01";
+        const string R_Obelisk = "Castle/K_SM_Bld_Keep_Pillar_Cap_01";           // 1.36 x 3.13 stepped obelisk
 
         static Material _ruSand, _ruPaving, _ruStucco, _ruKit, _ruSilver, _ruTeal, _ruPurple, _ruDomeTeal, _ruRope, _ruCloth, _ruGlow;
 

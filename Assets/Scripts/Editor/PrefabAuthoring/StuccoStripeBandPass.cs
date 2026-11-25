@@ -6,7 +6,7 @@
 // colour material."
 //
 // The stripes are PIXELS of the wall texture, and a material is per submesh:
-// nothing can wear UK_Band_Playercolor until the stripe is geometry of its
+// nothing can wear Al_Band_Playercolor until the stripe is geometry of its
 // own. This pass makes it so. For every renderer slot that holds the stucco
 // pattern material, in every prefab of the scope:
 //
@@ -15,8 +15,8 @@
 //      constant V; the rows are read from the PNG itself, at the stripes'
 //      widest, so no painted blue is left outside the band);
 //   2. the pieces inside a stripe become a NEW submesh, appended last, bound
-//      to UK_Band_Playercolor; the rest stay in the slot, on the Synty stucco;
-//   3. the cut mesh is saved under Art/UnitKit/StripeCut/ (one per source
+//      to Al_Band_Playercolor; the rest stay in the slot, on the Synty stucco;
+//   3. the cut mesh is saved under Art/StripeBand/StripeCut/ (one per source
 //      mesh + slot, shared by every prefab) and the prefab takes it as a
 //      normal override on the nested Synty instance.
 //
@@ -41,8 +41,8 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
     {
         const string StuccoMatPath = "Assets/Synty/PolygonAncientEmpire/Materials/BuildingAlts/Stucco_White_Pattern_01.mat";
         const string StuccoPngPath = "Assets/Synty/PolygonAncientEmpire/Textures/BuildingAlts/Stucco_White_Pattern_01.png";
-        const string BandMatPath   = "Assets/GameData/TechTree/Civs/Alanthor/Buildings/Art/UnitKit/UK_Band_Playercolor.mat";
-        const string OutFolder     = "Assets/GameData/TechTree/Civs/Alanthor/Buildings/Art/UnitKit/StripeCut";
+        const string BandMatPath   = "Assets/GameData/TechTree/Civs/Alanthor/Buildings/Art/StripeBand/Al_Band_Playercolor.mat";
+        const string OutFolder     = "Assets/GameData/TechTree/Civs/Alanthor/Buildings/Art/StripeBand/StripeCut";
         const string MaterialTag   = "Stucco_White_Pattern_01";   // the Synty material, or a copy of it
         const string CutSuffix     = "_StripeCut";
 
@@ -53,7 +53,7 @@ namespace TheWaningBorder.EditorTools.PrefabAuthoring
             "Assets/GameData/TechTree/Sects",
         };
 
-        [MenuItem("Waning Border/Art/Walls/Stucco stripes -> UK_Band_Playercolor (Age 0 + Alanthor + Sects)")]
+        [MenuItem("Waning Border/Art/Walls/Stucco stripes -> Al_Band_Playercolor (Age 0 + Alanthor + Sects)")]
         public static void Run()
         {
             var stucco = AssetDatabase.LoadAssetAtPath<Material>(StuccoMatPath);

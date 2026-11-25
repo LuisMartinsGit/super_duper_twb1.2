@@ -1,19 +1,19 @@
 // LegionarySpearmanAuthor.cs
 // Builds the Age 0 Spearman as ONE prefab with two kits (UnitAgeKit), each a
 // rig of its own under the root:
-//   Levy       — first age: the Synty POLYGON Fantasy Kingdom peasant with a
-//                plain spear held in both hands. No armour, no shield.
-//   Legionary  — aged up: the POLYGON Ancient Empire Soldier in steel, the
-//                plain helmet, the scutum on the left forearm and a pilum.
-// Each rig has its own Animator and avatar; both play the SAME controller
-// (Idle / Move / Attack / Death): the levy is a reskin of the legionary. Saturated cloth on either takes
-// the player's colour at spawn (UnitPlayerColor).
+//   Levy       first age (the Militia): the peasant and a plain spear.
+//   Legionary  aged up: a body, helmet and scutum per Garrison level and a
+//              spear per weapon tech, mixed from the three Synty kits by
+//              InfantryKit's recipes.
+// Both rigs are the Roman soldier's skeleton and play the SAME controller
+// (Idle / Move / Attack / Death). Cloth takes the player's colour at spawn
+// (UnitPlayerColor). Run it through InfantryKit.AuthorAll, which also writes the
+// palette both infantry units share.
 //
-//   Waning Border > Art > Units > Author Legionary Spearman
+//   Waning Border > Art > Units > Author Garrison Infantry
 //       writes Spearman.prefab and Spearman.controller in the unit folder and points
 //       Spearman.asset at them.
-//   Waning Border > Art > Units > Render Legionary Clip Sheets
-//       Temp/legionary/*.png, both kits sampled along their clips.
+//   Waning Border > Art > Units > Render Garrison Infantry  (Temp/infantry/)
 //
 // The prefab root carries ONE scale factor, measured here, that makes the
 // Spearman's body as tall as the Worker's.
@@ -34,16 +34,11 @@ namespace TheWaningBorder.EditorTools
         const string PrefabPath = UnitDir + "Spearman.prefab";
         const string ControllerPath = UnitDir + "Spearman.controller";
         const string SoPath = UnitDir + "Spearman.asset";
-        const string WorkerPrefab = "Assets/GameData/TechTree/Age0/Buildings/Fortress/Units/Worker/Worker.prefab";
         const string AE = "Assets/Synty/PolygonAncientEmpire/";
         const string KI = "Assets/Tools/Kevin Iglesias/Human Animations/Animations/Male/";
         const string Knight = "Assets/Tools/ExplosiveLLC/Warrior Pack Bundle 2 FREE/Knight Warrior Mecanim Animation Pack/Animations/";
         const string Out = "Temp/legionary/";
 
-        // Levy (first age): the peasant body and a plain spear.
-        const string FK = "Assets/Synty/PolygonFantasyKingdom/Prefabs/";
-        const string LevyBody = FK + "Characters/SM_Chr_Peasant_Male_01.prefab";
-        const string LevySpear = FK + "Weapons/SM_Wep_Spear_01.prefab";
         // ONE set of clips for both kits: the levy is a reskin of the
         // legionary and moves exactly like it.
         internal static readonly string[] Clips =
@@ -63,9 +58,12 @@ namespace TheWaningBorder.EditorTools
         internal static readonly Vector3 ShieldFace = new Vector3(0f, 1f, 0f);
         internal static readonly Vector3 ShieldUp = new Vector3(0f, 0f, 1f);
         // Cape: its top against the upper spine, in the rig's frame.
-        static Vector3 CapeOffset = new Vector3(0f, 0.16f, -0.13f);
+        static Vector3 CapeOffset = new Vector3(0f, 0.16f, -0.165f);
         static Vector3 CapeEuler = new Vector3(0f, 0f, 0f);
         static float CapeScale = 0.9f;
+
+        /// <summary>The height every unit's body is drawn at (the first Worker's).</summary>
+        internal const float UnitHeight = 1.734f;
 
         // The Spearman's root only matches its body to the Worker's. How large
         // units are DRAWN is UnitWorldScale.asset, for every unit at once.
@@ -75,11 +73,7 @@ namespace TheWaningBorder.EditorTools
         [MenuItem("Waning Border/Art/Units/Spearman: match Worker height (root only)")]
         public static void ApplyWorldScale()
         {
-            var workerAsset = AssetDatabase.LoadAssetAtPath<GameObject>(WorkerPrefab);
-            var worker = (GameObject)Object.Instantiate(workerAsset);
-            worker.transform.localScale = Vector3.one;
-            float workerHeight = BodyHeight(worker);
-            Object.DestroyImmediate(worker);
+            float workerHeight = UnitHeight;
             var root = PrefabUtility.LoadPrefabContents(PrefabPath);
             try
             {
@@ -98,7 +92,6 @@ namespace TheWaningBorder.EditorTools
             finally { PrefabUtility.UnloadPrefabContents(root); }
         }
 
-        [MenuItem("Waning Border/Art/Units/Author Legionary Spearman")]
         public static void Author()
         {
             var log = new StringBuilder();
@@ -115,20 +108,12 @@ namespace TheWaningBorder.EditorTools
                 // 2026-11-13): one factor on the prefab root, measured body
                 // to body (skinned meshes only, so the spear does not count).
                 float levyHeight = BodyHeight(go);
-                var workerAsset = AssetDatabase.LoadAssetAtPath<GameObject>(WorkerPrefab);
-                var worker = workerAsset != null ? (GameObject)Object.Instantiate(workerAsset) : null;
-                if (worker != null)
+                if (levyHeight > 0.1f)
                 {
-                    float workerHeight = BodyHeight(worker);
-                    Object.DestroyImmediate(worker);
-                    if (levyHeight > 0.1f && workerHeight > 0.1f)
-                    {
-                        float k = workerHeight / levyHeight * WorldScale;
-                        go.transform.localScale = Vector3.one * k;
-                        log.AppendLine($"worker body {workerHeight:0.000} m, spearman body {levyHeight:0.000} m, world scale {WorldScale} -> root scale {k:0.000}");
-                    }
+                    float k = UnitHeight / levyHeight * WorldScale;
+                    go.transform.localScale = Vector3.one * k;
+                    log.AppendLine($"spearman body {levyHeight:0.000} m -> root scale {k:0.000}");
                 }
-                else log.AppendLine("MISSING " + WorkerPrefab);
                 var saved = PrefabUtility.SaveAsPrefabAsset(go, PrefabPath);
                 var so = AssetDatabase.LoadMainAssetAtPath(SoPath);
                 var ser = new SerializedObject(so);
@@ -220,13 +205,21 @@ namespace TheWaningBorder.EditorTools
             return go;
         }
 
+        /// <summary>The Roman soldier's skeleton, avatar and Animator with none of its meshes.</summary>
+        internal static GameObject Skeleton(string name, Transform parent, RuntimeAnimatorController controller)
+        {
+            var go = Character(AE + "Prefabs/Characters/R_SM_Chr_Soldier_Male_01.prefab", name, parent, controller, true);
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true)) Object.DestroyImmediate(r.gameObject);
+            return go;
+        }
+
         /// <summary>The Ancient Empire cape down a body's back: placed in the
         /// rig's own frame (the body faces +Z), its top at the shoulders. Worn
         /// by the Swordsman, to tell him from the Spearman.</summary>
-        internal static GameObject AttachCape(GameObject root, GameObject body, Material mat, StringBuilder log)
+        internal static GameObject AttachCape(GameObject root, GameObject body, StringBuilder log)
         {
             var spine = Bone(body, "Spine_03", log);
-            var cape = Attach(AE + "Prefabs/Characters/Attach/SM_Chr_Attach_Cape_01.prefab", "Cape", spine, Vector3.zero, Vector3.zero, mat);
+            var cape = InfantryKit.Piece("Swordsman_Cape", spine, Vector3.zero, Vector3.zero, InfantryKit.Role.Gold, InfantryKit.Cape(), log);
             cape.transform.rotation = root.transform.rotation * Quaternion.Euler(CapeEuler);
             cape.transform.localScale = Vector3.one * CapeScale;
             var cb = LegionaryShot.BoundsOf(cape);
@@ -248,80 +241,62 @@ namespace TheWaningBorder.EditorTools
                 }
             var root = new GameObject("Spearman");
 
-            // ── First age: the Fantasy Kingdom peasant and a plain spear ──
-            var levy = Character(LevyBody, "Levy", root.transform, levyController, false);
-            // The Militia's spear: plain, then the Stone Weapons one.
+            // ── First age: the Militia, a peasant in a straw hat ──
+            var levy = Skeleton("Levy", root.transform, levyController);
+            InfantryKit.Body(levy, "Levy_Body", InfantryKit.Role.Matte, InfantryKit.LevyBody(), log);
+            InfantryKit.Piece("Levy_Hat", Bone(levy, "Head", log), Vector3.zero, Vector3.zero, InfantryKit.Role.Matte, InfantryKit.LevyHat(), log);
             var levyHand = Bone(levy, "Hand_R", log);
-            var levyWeapons = new[]
+            var levyWeapons = new GameObject[2];
+            for (int i = 0; i < 2; i++)
             {
-                Attach(LevySpear, "Levy_Spear", levyHand, SpearPos, SpearEuler, null),
-                Attach(FK + "Weapons/SM_Wep_Spear_05.prefab", "Levy_Spear_T1_Stone", levyHand, SpearPos, SpearEuler, null),
-            };
-            foreach (var w in levyWeapons) HoldAtMiddle(w);
-            levyWeapons[1].SetActive(false);
+                levyWeapons[i] = InfantryKit.Piece("Spear_" + InfantryKit.TierNames[i], levyHand, SpearPos, SpearEuler, InfantryKit.Role.Matte, InfantryKit.Spear(i), log);
+                HoldAtMiddle(levyWeapons[i]);
+                levyWeapons[i].SetActive(i == 0);
+            }
 
-            // ── Aged up: the Ancient Empire soldier, helmet, scutum, pilum ──
-            var legion = Character(AE + "Prefabs/Characters/SM_Chr_Soldier_Male_01.prefab", "Legionary", root.transform, legionController, true);
-            var red = AssetDatabase.LoadAssetAtPath<Material>(AE + "Materials/Alts/PolygonAncientEmpire_01_A.mat");
-            foreach (var smr in legion.GetComponentsInChildren<SkinnedMeshRenderer>(true)) smr.sharedMaterial = red;
-            // -- Gear that follows the faction (UnitAgeKit) --
-            // Garrison level 1 / 2 / 3: a plain helmet and a round shield,
-            // then a gold-trimmed crested helmet, then the great crest.
-            // Weapons: the plain spear, then one per researched weapon tech.
+            // ── Aged up: one fused body, helmet and scutum per Garrison
+            // level, one spear per weapon tech (InfantryKit's recipes).
+            var legion = Skeleton("Legionary", root.transform, legionController);
             var head = Bone(legion, "Head", log);
             var hand = Bone(legion, "Hand_R", log);
             var elbow = Bone(legion, "Elbow_L", log);
             Vector3 shieldEuler = Quaternion.LookRotation(ShieldFace, ShieldUp).eulerAngles;
-            var helmets = new[]
-            {
-                Attach(AE + "Prefabs/Characters/Attach/SM_Chr_Attach_Helmet_01.prefab", "Helmet_L1", head, Vector3.zero, Vector3.zero, red),
-                Attach(AE + "Prefabs/Characters/Attach/SM_Chr_Attach_Helmet_03.prefab", "Helmet_L2", head, Vector3.zero, Vector3.zero, red),
-                Attach(AE + "Prefabs/Characters/Attach/SM_Chr_Attach_Helmet_02.prefab", "Helmet_L3", head, Vector3.zero, Vector3.zero, red),
-            };
-            // The scutum at every level: a round shield made him read as the
-            // Swordsman (developer, 2026-11-13).
-            // One scutum per level, the same shield in three paints
-            // (SwordsmanSyntyAuthor.ScutumMesh): wood, white on the player's
-            // colour, gold on the player's colour.
+            var bodies = new GameObject[3];
+            var helmets = new GameObject[3];
             var scuta = new GameObject[3];
             for (int l = 0; l < 3; l++)
             {
-                scuta[l] = Attach(AE + "Prefabs/Weapons/SM_Wep_Shield_04.prefab", "Shield_L" + (l + 1), elbow, ShieldPos, shieldEuler, null);
-                var mf = scuta[l].GetComponentInChildren<MeshFilter>(true);
-                if (mf != null) mf.sharedMesh = SwordsmanSyntyAuthor.ScutumMesh(mf.sharedMesh, l + 1, log);
-                if (l > 0) scuta[l].SetActive(false);
+                var gold = InfantryKit.GoldOf(l + 1);
+                bodies[l] = InfantryKit.Body(legion, "Spearman_Body_L" + (l + 1), gold, InfantryKit.SpearmanBody(l + 1), log);
+                helmets[l] = InfantryKit.Piece("Spearman_Helmet_L" + (l + 1), head, Vector3.zero, Vector3.zero, gold, InfantryKit.SpearmanHelmet(l + 1), log);
+                // The scutum at every level: a round shield made him read as
+                // the Swordsman (developer, 2026-11-13).
+                scuta[l] = InfantryKit.Piece("Spearman_Shield_L" + (l + 1), elbow, ShieldPos, shieldEuler, gold, InfantryKit.SpearmanShield(l + 1), log);
+                bodies[l].SetActive(l == 0);
+                helmets[l].SetActive(l == 0);
+                scuta[l].SetActive(l == 0);
             }
-            var weapons = new[]
+            var weapons = new GameObject[5];
+            for (int i = 0; i < weapons.Length; i++)
             {
-                Attach(AE + "Prefabs/Weapons/SM_Wep_Spear_01.prefab", "Spear_T0", hand, SpearPos, SpearEuler, null),
-                Attach(FK + "Weapons/SM_Wep_Spear_05.prefab", "Spear_T1_Stone", hand, SpearPos, SpearEuler, null),
-                Attach(AE + "Prefabs/Weapons/SM_Wep_Spear_03.prefab", "Spear_T2_Iron", hand, SpearPos, SpearEuler, null),
-                Attach(FK + "Weapons/SM_Wep_Spear_07.prefab", "Spear_T3_Veilstone", hand, SpearPos, SpearEuler, null),
-                Attach(FK + "Weapons/SM_Wep_Spear_10.prefab", "Spear_T4_Shard", hand, SpearPos, SpearEuler, null),
-            };
-            foreach (var w in weapons) HoldAtMiddle(w);
+                weapons[i] = InfantryKit.Piece("Spear_" + InfantryKit.TierNames[i], hand, SpearPos, SpearEuler, InfantryKit.GoldOfTier(i), InfantryKit.Spear(i), log);
+                HoldAtMiddle(weapons[i]);
+                weapons[i].SetActive(i == 0);
+            }
 
             var kit = root.AddComponent<UnitAgeKit>();
             kit.firstAge = new[] { levy };
             kit.aged = new[] { legion };
             kit.levelLadderId = "Barracks";
+            kit.bodies = bodies;
             kit.helmets = helmets;
             kit.shields = scuta;
             kit.weapons = weapons;
             kit.firstAgeWeapons = levyWeapons;
             kit.weaponTechs = new[] { "StoneWeapons", "IronWeapons", "VeilstoneWeapons", "ShardInfusedWeapons" };
-            SwordsmanSyntyAuthor.SetTopLevelBody(kit, legion, log);
-            for (int i = 1; i < helmets.Length; i++) helmets[i].SetActive(false);
-            for (int i = 1; i < weapons.Length; i++) weapons[i].SetActive(false);
 
-            // Saturated cloth and the shield face take the player's colour at spawn.
-            var playerColor = root.AddComponent<UnitPlayerColor>();
-            // The peasant's brown vest and skirt (one swatch of the Fantasy
-            // Kingdom atlas) are the player's colour; the shirt stays linen.
-            var levyBody = levy.GetComponentInChildren<SkinnedMeshRenderer>();
-            if (levyBody != null) playerColor.garmentMaterial = levyBody.sharedMaterial;
-            playerColor.garmentColors = new[] { new Color32(140, 100, 68, 255) };
-            playerColor.garmentTolerance = 9;
+            // The cloth cells take the player's colour at spawn.
+            root.AddComponent<UnitPlayerColor>();
             legion.SetActive(false);
             return root;
         }
@@ -393,118 +368,6 @@ namespace TheWaningBorder.EditorTools
             EditorUtility.SetDirty(c);
             AssetDatabase.SaveAssets();
             return c;
-        }
-
-        /// <summary>One row of the aged Spearman in each gear state (Temp/legionary/gear_states.png):
-        /// level 1, 2, 3, then level 3 with weapon tier 1, 2, 3, then level 2 with the cape.</summary>
-        [MenuItem("Waning Border/Art/Units/Render Spearman Gear States")]
-        public static void GearStates()
-        {
-            Directory.CreateDirectory(Out);
-            var log = new StringBuilder();
-            var stage = new GameObject("GearStage");
-            try
-            {
-                (int level, int weapon, int tech)[] states = { (1, 0, 0), (2, 1, 0), (3, 2, 0), (3, 3, 0), (3, 4, 0) };
-                var clip = Clip(Clips[0]);
-                for (int i = 0; i < states.Length; i++)
-                {
-                    var rig = BuildRig(log, null, null);
-                    rig.transform.SetParent(stage.transform, false);
-                    var kit = rig.GetComponent<UnitAgeKit>();
-                    kit.Apply(true, states[i].level, states[i].weapon, states[i].tech, instant: true);
-                    var shown = kit.aged[0];
-                    if (clip != null) clip.SampleAnimation(shown, 0f);
-                    shown.transform.localPosition = Vector3.zero;
-                    shown.transform.localRotation = Quaternion.identity;
-                    rig.transform.position = new Vector3(-i * 1.9f, 0f, 0f);
-                    foreach (var smr in rig.GetComponentsInChildren<SkinnedMeshRenderer>(true))
-                    {
-                        smr.enabled = false;
-                        if (!smr.gameObject.activeInHierarchy) continue;
-                        var mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-                        smr.BakeMesh(mesh, true);
-                        var bg = new GameObject("Baked");
-                        bg.transform.SetParent(stage.transform, false);
-                        bg.transform.SetPositionAndRotation(smr.transform.position, smr.transform.rotation);
-                        bg.AddComponent<MeshFilter>().sharedMesh = mesh;
-                        bg.AddComponent<MeshRenderer>().sharedMaterials = smr.sharedMaterials;
-                    }
-                }
-                int n = states.Length;
-                var b2 = new Bounds(new Vector3(-(n - 1) * 0.95f, 1.1f, 0f), new Vector3(n * 1.9f, 2.9f, 0.2f));
-                LegionaryShot.Shoot(b2, 205f, 10f, 2800, 760, Out + "gear_states.png", true);
-                LegionaryShot.Shoot(b2, 25f, 10f, 2800, 760, Out + "gear_states_back.png", true);
-            }
-            finally
-            {
-                Object.DestroyImmediate(stage);
-                File.WriteAllText(Out + "gear_states.txt", log.ToString());
-            }
-        }
-
-        [MenuItem("Waning Border/Art/Units/Render Legionary Clip Sheets")]
-        public static void Sheets()
-        {
-            Directory.CreateDirectory(Out);
-            var log = new StringBuilder();
-            var stage = new GameObject("LegionarySheetStage");
-            try
-            {
-                const int N = 6;
-                var rig = new GameObject[N];
-                for (int i = 0; i < N; i++)
-                {
-                    rig[i] = BuildRig(log, null, null);
-                    rig[i].transform.SetParent(stage.transform, false);
-                }
-                var baked = new List<GameObject>();
-                void Row(bool agedKit, string tag, string path)
-                {
-                    foreach (var b in baked) Object.DestroyImmediate(b);
-                    baked.Clear();
-                    var clip = Clip(path);
-                    if (clip == null) { log.AppendLine("MISSING " + path); return; }
-                    for (int i = 0; i < N; i++)
-                    {
-                        var ageKit = rig[i].GetComponent<UnitAgeKit>();
-                        ageKit.Show(agedKit);
-                        var shown = agedKit ? ageKit.aged[0] : ageKit.firstAge[0];
-                        float t = clip.length * i / (clip.isLooping ? N : N - 1);
-                        clip.SampleAnimation(shown, t);
-                        shown.transform.localPosition = Vector3.zero;
-                        shown.transform.localRotation = Quaternion.identity;
-                        rig[i].transform.position = new Vector3(-i * 1.9f, 0f, 0f);
-                        rig[i].transform.rotation = Quaternion.identity;
-                        // The editor skins a mesh once per frame, not per
-                        // render: bake each sampled pose into a plain mesh.
-                        foreach (var smr in rig[i].GetComponentsInChildren<SkinnedMeshRenderer>(true))
-                        {
-                            smr.enabled = false;
-                            if (!smr.gameObject.activeInHierarchy) continue;
-                            var mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-                            smr.BakeMesh(mesh, true);
-                            var bg = new GameObject("Baked");
-                            bg.transform.SetParent(stage.transform, false);
-                            bg.transform.SetPositionAndRotation(smr.transform.position, smr.transform.rotation);
-                            bg.AddComponent<MeshFilter>().sharedMesh = mesh;
-                            bg.AddComponent<MeshRenderer>().sharedMaterials = smr.sharedMaterials;
-                            baked.Add(bg);
-                        }
-                    }
-                    var b2 = new Bounds(new Vector3(-(N - 1) * 0.95f, 1.0f, 0f), new Vector3(N * 1.9f, 2.6f, 0.2f));
-                    LegionaryShot.Shoot(b2, 205f, 10f, 2400, 640, Out + "sheet_" + tag + ".png", true);
-                    log.AppendLine($"{tag}: {clip.name} {clip.length:0.00}s loop={clip.isLooping}");
-                }
-                string[] names = { "idle", "move", "attack", "death" };
-                for (int k = 0; k < 4; k++) Row(false, "levy_" + names[k], Clips[k]);
-                for (int k = 0; k < 4; k++) Row(true, "legion_" + names[k], Clips[k]);
-            }
-            finally
-            {
-                Object.DestroyImmediate(stage);
-                File.WriteAllText(Out + "sheets.txt", log.ToString());
-            }
         }
     }
 }
