@@ -47,6 +47,7 @@ namespace TheWaningBorder.EditorTools
             {
                 float body = L.BodyHeight(go);
                 if (body > 0.1f) go.transform.localScale = Vector3.one * (L.UnitHeight / body);
+                InfantryKit.Grow(go);
                 var saved = PrefabUtility.SaveAsPrefabAsset(go, PrefabPath);
                 var so = AssetDatabase.LoadMainAssetAtPath(SoPath);
                 var ser = new SerializedObject(so);
@@ -75,34 +76,31 @@ namespace TheWaningBorder.EditorTools
             var elbow = L.Bone(body, "Elbow_L", log);
             Vector3 shieldEuler = Quaternion.LookRotation(L.ShieldFace, L.ShieldUp).eulerAngles;
             var bodies = new GameObject[3];
-            var helmets = new GameObject[3];
-            var shields = new GameObject[3];
             for (int l = 0; l < 3; l++)
             {
                 var gold = InfantryKit.GoldOf(l + 1);
                 bodies[l] = InfantryKit.Body(body, "Swordsman_Body_L" + (l + 1), gold, InfantryKit.SwordsmanBody(l + 1), log);
-                helmets[l] = InfantryKit.Piece("Swordsman_Helmet_L" + (l + 1), head, Vector3.zero, Vector3.zero, gold, InfantryKit.SwordsmanHelmet(l + 1), log);
-                shields[l] = InfantryKit.Piece("Swordsman_Shield_L" + (l + 1), elbow, L.ShieldPos, shieldEuler, gold, InfantryKit.SwordsmanShield(l + 1), log);
+                // The cape is his alone: it is what tells him from the Spearman
+                // at a glance (developer, 2026-11-13).
+                InfantryKit.Weld(bodies[l], body,
+                    InfantryKit.Piece("Swordsman_Helmet_L" + (l + 1), head, Vector3.zero, Vector3.zero, gold, InfantryKit.SwordsmanHelmet(l + 1), log),
+                    InfantryKit.Piece("Swordsman_Shield_L" + (l + 1), elbow, L.ShieldPos, shieldEuler, gold, InfantryKit.SwordsmanShield(l + 1), log),
+                    L.AttachCape(root, body, log));
             }
             var swords = new GameObject[5];
             for (int i = 0; i < swords.Length; i++)
                 swords[i] = InfantryKit.Piece("Sword_" + InfantryKit.TierNames[i], hand, SwordPos, SwordEuler, InfantryKit.GoldOfTier(i), InfantryKit.Sword(i), log);
 
-            // The cape is his alone: it is what tells him from the Spearman
-            // at a glance (developer, 2026-11-13).
-            L.AttachCape(root, body, log);
-
             var kit = root.AddComponent<UnitAgeKit>();
             kit.aged = new[] { body };
             kit.levelLadderId = "Barracks";
             kit.bodies = bodies;
-            kit.helmets = helmets;
-            kit.shields = shields;
             kit.weapons = swords;
             kit.weaponTechs = new[] { "StoneWeapons", "IronWeapons", "VeilstoneWeapons", "ShardInfusedWeapons" };
-            for (int i = 1; i < 3; i++) { bodies[i].SetActive(false); helmets[i].SetActive(false); shields[i].SetActive(false); }
+            for (int i = 1; i < 3; i++) bodies[i].SetActive(false);
             for (int i = 1; i < swords.Length; i++) swords[i].SetActive(false);
 
+            InfantryKit.Finish(body);
             root.AddComponent<UnitPlayerColor>();
             return root;
         }
@@ -168,7 +166,7 @@ namespace TheWaningBorder.EditorTools
                     kit.Apply(aged, level, 0, 0, instant: true);
                     var pc = rig.GetComponent<UnitPlayerColor>();
                     if (pc != null) pc.Apply(Neutral);
-                    var shown = aged ? kit.aged[0] : kit.firstAge[0];
+                    var shown = InfantryKit.Rig(kit);
                     Pose(rig, shown, idle, stage.transform);
                     var b = LegionaryShot.BoundsOf(rig);
                     if (!warm) { LegionaryShot.Shoot(b, 200f, 8f, 64, 64, "Temp/icon_warm.png"); warm = true; }
@@ -185,6 +183,16 @@ namespace TheWaningBorder.EditorTools
                     Unit(UnitsDir + "Alanthor_Archer_L" + l + ".png", InfantryKit.ArcherRig(log, null), true, l);
                 for (int l = 2; l <= 3; l++)
                     Unit(UnitsDir + "Alanthor_Crossbowman_L" + l + ".png", InfantryKit.CrossbowRig(log, null), true, l);
+                foreach (var (id, prefab) in InfantryKit.MountPrefabs())
+                    for (int l = 1; l <= (id == "Alanthor_Outrider" ? 3 : 1); l++)
+                    {
+                        var go = InfantryKit.MountPose(prefab, l, 0, l - 1, "Rig_Idle_Center", 0f, false, Neutral);
+                        go.transform.SetParent(stage.transform, true);
+                        go.transform.rotation = Quaternion.Euler(0f, 40f, 0f);
+                        string file = UnitsDir + id + "_L" + (id == "Alanthor_Outrider" ? l : 0) + ".png";
+                        LegionaryShot.Shoot(LegionaryShot.BoundsOf(go), 200f, 8f, 256, 256, file, false, true);
+                        Object.DestroyImmediate(go);
+                    }
                 InfantryKit.EliteIcons((id, rig) => Unit(UnitsDir + id + "_L0.png", rig, true, 1), log);
                 Unit(UnitsDir + "Alanthor_Longbowman_L3.png", InfantryKit.YumiRig(log, null), true, 3);
 

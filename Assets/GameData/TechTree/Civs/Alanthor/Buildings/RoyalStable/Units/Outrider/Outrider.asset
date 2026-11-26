@@ -11,15 +11,15 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Outrider
-  m_EditorClassIdentifier:
-  id: 'Alanthor_Outrider'
-  displayName: 'Outrider'
-  unitClass: 'human_cavalry'
+  m_EditorClassIdentifier: 
+  id: Alanthor_Outrider
+  displayName: Outrider
+  unitClass: human_cavalry
   hp: 130
   speed: 6
   trainingTime: 15.4
   damage: 9
-  damageType: 'melee'
+  damageType: melee
   armorType: cavalry
   defense:
     melee: 1
@@ -30,7 +30,10 @@ MonoBehaviour:
   attackRange: 1.6
   minAttackRange: 0
   lineOfSight: 34
+  aimTime: 0
   radius: 0.55
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 100
     Iron: 20
@@ -38,9 +41,13 @@ MonoBehaviour:
   populationCost: 1
   minBuildingLevel: 0
   buildSpeed: 0
+  repairSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
   - Cavalry
   - Light
@@ -48,4 +55,8 @@ MonoBehaviour:
   - vsTag: Ranged
     amount: 9
   torchDamage: 10
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 1741321459309244929, guid: 4d3ccef616e10f24997b2fd9195dd5e4, type: 3}
   presentationId: 349
+  animatorController: {fileID: 9100000, guid: ff22a392de8547a498b29d19ee941978, type: 2}

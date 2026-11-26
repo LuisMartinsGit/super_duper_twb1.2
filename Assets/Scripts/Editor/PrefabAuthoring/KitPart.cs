@@ -28,7 +28,7 @@ namespace TheWaningBorder.EditorTools
 
         static readonly Dictionary<Texture, (Color32[], int, int)> _cache = new();
 
-        static (Color32[], int, int) Pixels(Texture t)
+        internal static (Color32[], int, int) Pixels(Texture t)
         {
             if (t == null) return (null, 0, 0);
             if (_cache.TryGetValue(t, out var c)) return c;

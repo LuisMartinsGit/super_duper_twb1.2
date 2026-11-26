@@ -274,9 +274,12 @@ namespace TheWaningBorder.Systems.Economy
             using (var ents = uq.ToEntityArray(Allocator.Temp))
             using (var xfs = uq.ToComponentDataArray<LocalTransform>(Allocator.Temp))
             {
+                // A lookup, not em.HasComponent + GetComponentData per unit: those
+                // walk the unit's ~100 component types each (2026-11-26).
+                var radius = GetComponentLookup<Radius>(true);
                 for (int i = 0; i < ents.Length; i++)
                 {
-                    float r = em.HasComponent<Radius>(ents[i]) ? em.GetComponentData<Radius>(ents[i]).Value : 0.5f;
+                    float r = radius.TryGetComponent(ents[i], out var rad) ? rad.Value : 0.5f;
                     _units.Add(new float3(xfs[i].Position.x, xfs[i].Position.z, r));
                 }
             }

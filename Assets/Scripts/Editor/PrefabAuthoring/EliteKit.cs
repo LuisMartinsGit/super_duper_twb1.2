@@ -9,7 +9,7 @@
 //   Fortitude   Sallyguard (mace, tower shield), Warden (war hammer, gold scutum)
 //   Prosperity  Bounty Hunter (two sickles), Guildmaster (rapier and dagger)
 //   Antiquity   Artificer (crossbow), Archivist of Hours (crystal staff)
-//   King Lexor  the rider only: KingLexorVisual sets him on its horse
+//   King Lexor  CavalryKit
 //
 // Written by Author Archery Units / Author Garrison Infantry (one run writes
 // everything: the palette is shared).
@@ -182,10 +182,11 @@ namespace TheWaningBorder.EditorTools
             var rig = L.Skeleton("Body", root.transform, c);
             var kit = root.AddComponent<UnitAgeKit>();
             kit.aged = new[] { rig };
-            Body(rig, e.name + "_Body", e.gold, e.body(), log);
-            Piece(e.name + "_Head", L.Bone(rig, "Head", log), Vector3.zero, Vector3.zero, e.gold, e.head(), log);
+            var body = Body(rig, e.name + "_Body", e.gold, e.body(), log);
+            var worn = new List<GameObject>();
+            worn.Add(Piece(e.name + "_Head", L.Bone(rig, "Head", log), Vector3.zero, Vector3.zero, e.gold, e.head(), log));
             if (e.shield != null)
-                Piece(e.name + "_Shield", L.Bone(rig, "Elbow_L", log), L.ShieldPos, Quaternion.LookRotation(L.ShieldFace, L.ShieldUp).eulerAngles, e.gold, e.shield(), log);
+                worn.Add(Piece(e.name + "_Shield", L.Bone(rig, "Elbow_L", log), L.ShieldPos, Quaternion.LookRotation(L.ShieldFace, L.ShieldUp).eulerAngles, e.gold, e.shield(), log));
             if (e.back != null)
             {
                 var spine = L.Bone(rig, "Spine_03", log);
@@ -194,7 +195,9 @@ namespace TheWaningBorder.EditorTools
                 back.transform.localScale = Vector3.one * e.backScale;
                 var bb = LegionaryShot.BoundsOf(back);
                 back.transform.position += spine.position + e.backAt - new Vector3(bb.center.x, bb.max.y, bb.center.z);
+                worn.Add(back);
             }
+            Weld(body, rig, worn.ToArray());
             int tiers = e.tiers > 0 ? e.tiers : e.ranged ? 4 : 5;
             if (e.main != null)
             {
@@ -210,6 +213,7 @@ namespace TheWaningBorder.EditorTools
             }
             root.AddComponent<UnitPlayerColor>();
             e.after?.Invoke(root, rig, log);
+            Finish(rig);
             return root;
         }
 
@@ -222,95 +226,11 @@ namespace TheWaningBorder.EditorTools
                 var c = L.BuildController(e.dir + e.name + ".controller", e.clips, log);
                 Save(EliteRig(e, c, log), e.dir, e.name, c, log);
             }
-            AuthorLexor(log);
             AssetDatabase.SaveAssets();
             File.WriteAllText("Temp/elite/author.txt", log.ToString());
         }
 
-        // ── King Lexor's rider ─────────────────────────────────────────
-
         const string LexorDir = "Assets/GameData/TechTree/Civs/Alanthor/Units/KingLexor/";
-
-        /// <summary>The king seated, as a still figure with its seat at the origin:
-        /// gold samurai plate, the crown, the mantle, a sword per weapon tech.</summary>
-        static void AuthorLexor(StringBuilder log)
-        {
-            var root = new GameObject("KingLexor");
-            var rig = L.Skeleton("Rider", root.transform, null);
-            try
-            {
-                var body = Body(rig, "Lexor_Pose", Role.Gold, new[]
-                {
-                    Body(KChr + "King_01.prefab", Zone.Head), Body(Samurai1, Zone.Torso | Zone.UpperArm | Zone.ForeArm | Zone.Thigh | Zone.Shin),
-                    Gilded(Shells(RSoldier, RomanShoulders)),
-                }, log).GetComponent<SkinnedMeshRenderer>();
-                Transform B(string n) => L.Bone(rig, n, log);
-                var head = Piece("Lexor_Head", B("Head"), Vector3.zero, Vector3.zero, Role.Gold, new[] { new Part { prefab = KAtt + "King_Crown_01.prefab", scale = 1.1f } }, log);
-                var spine = B("Spine_03");
-                var cape = Piece("Lexor_Back", spine, Vector3.zero, Vector3.zero, Role.Gold, new[] { new Part { prefab = KAtt + "King_Cape_01.prefab" } }, log);
-                cape.transform.rotation = Quaternion.Euler(14f, 0f, 0f);
-                var bb = LegionaryShot.BoundsOf(cape);
-                cape.transform.position += spine.position + new Vector3(0f, 0.16f, -0.12f) - new Vector3(bb.center.x, bb.max.y, bb.max.z);
-                var swords = OnePerLevel(5, t => Piece("Lexor_Sword_T" + (t - 1), B("Hand_R"), new Vector3(0.09f, 0.03f, 0f), new Vector3(-90f, 0f, 0f), Role.Gold, new[] { Armed(K + "Weapons/K_SM_Wep_Sword_16.prefab", t - 1, 0.95f) }, log));
-
-                // Seated: thighs forward and apart, shins down, the sword arm out, the rein hand ahead.
-                void Aim(string bone, string child, Vector3 dir)
-                {
-                    var b = B(bone);
-                    b.rotation = Quaternion.FromToRotation(B(child).position - b.position, dir) * b.rotation;
-                }
-                foreach (int s in new[] { -1, 1 })
-                {
-                    string x = s < 0 ? "_L" : "_R";
-                    // The rig faces +Z: its left is -X.
-                    Aim("UpperLeg" + x, "LowerLeg" + x, new Vector3(0.62f * s, -0.42f, 0.66f));
-                    Aim("LowerLeg" + x, "Ankle" + x, new Vector3(0.1f * s, -1f, -0.2f));
-                    B("Ankle" + x).rotation = Quaternion.Euler(0f, 0f, 0f) * B("Ankle" + x).rotation;
-                }
-                Aim("Shoulder_L", "Elbow_L", new Vector3(-0.45f, -0.85f, 0.35f));
-                Aim("Elbow_L", "Hand_L", new Vector3(0.35f, -0.1f, 0.95f));
-                Aim("Shoulder_R", "Elbow_R", new Vector3(0.75f, -0.6f, 0.15f));
-                Aim("Elbow_R", "Hand_R", new Vector3(0.35f, 0.55f, 0.75f));
-
-                var still = SaveMesh("Lexor_Rider", m =>
-                {
-                    var baked = new Mesh();
-                    body.BakeMesh(baked, true);
-                    m.Clear();
-                    m.SetVertices(baked.vertices);
-                    m.SetNormals(baked.normals);
-                    m.SetUVs(0, baked.uv);
-                    m.SetTriangles(baked.triangles, 0);
-                    m.RecalculateBounds();
-                    Object.DestroyImmediate(baked);
-                });
-                var figure = new GameObject("King");
-                figure.transform.SetParent(root.transform, false);
-                var bodyGo = new GameObject("Body");
-                bodyGo.transform.SetParent(figure.transform, false);
-                bodyGo.AddComponent<MeshFilter>().sharedMesh = still;
-                bodyGo.AddComponent<MeshRenderer>().sharedMaterial = Material();
-                var hips = B("Hips").position;
-                foreach (var g in new[] { head, cape }.Concat(swords)) g.transform.SetParent(figure.transform, true);
-                Object.DestroyImmediate(rig);
-                AssetDatabase.DeleteAsset(ArtDir + "Lexor_Pose.asset");
-                figure.transform.localScale = Vector3.one * 0.82f;
-                figure.transform.localPosition = -(hips + new Vector3(0f, -0.08f, 0f)) * 0.82f;
-
-                var kit = root.AddComponent<UnitAgeKit>();
-                kit.aged = new[] { figure };
-                kit.weapons = swords;
-                kit.weaponTechs = MeleeTechs;
-                root.AddComponent<UnitPlayerColor>();
-                var saved = PrefabUtility.SaveAsPrefabAsset(root, LexorDir + "KingLexor.prefab");
-                var so = AssetDatabase.LoadMainAssetAtPath(LexorDir + "KingLexor.asset");
-                var ser = new SerializedObject(so);
-                ser.FindProperty("prefab").objectReferenceValue = saved;
-                ser.ApplyModifiedPropertiesWithoutUndo();
-                EditorUtility.SetDirty(so);
-            }
-            finally { Object.DestroyImmediate(root); }
-        }
 
         /// <summary>Hands each elite's rig to <paramref name="shoot"/> for its button picture.</summary>
         internal static void EliteIcons(Action<string, GameObject> shoot, StringBuilder log)
@@ -336,13 +256,6 @@ namespace TheWaningBorder.EditorTools
             // Each unit's weapon tiers: the only thing that changes.
             foreach (var e in elites)
                 Row("Temp/elite/" + e.name + "_tiers.png", Enumerable.Range(0, e.ranged ? 4 : 5).Select<int, Func<GameObject>>(t => () => Posed(e.dir + e.name + ".prefab", e.clips[0], 0.2f, 1, t)).ToArray(), false);
-            Row("Temp/elite/lexor.png", Enumerable.Range(0, 5).Select<int, Func<GameObject>>(t => () =>
-            {
-                var go = KingLexorVisual.Build(7);
-                go.GetComponentInChildren<UnitAgeKit>().Apply(true, 1, t, 0, instant: true);
-                go.GetComponentInChildren<UnitPlayerColor>().Apply(new Color(0.12f, 0.35f, 0.85f));
-                return go;
-            }).ToArray(), false, 2.6f, 3.2f);
         }
 
         /// <summary>Every variant of the Archery Range units: level by level, and each tier.</summary>
@@ -370,14 +283,15 @@ namespace TheWaningBorder.EditorTools
             kit.Apply(true, level, weapon, 0, instant: true, quiver: quiver < 0 ? weapon : quiver);
             go.GetComponent<UnitPlayerColor>().Apply(new Color(0.12f, 0.35f, 0.85f));
             var clip = L.Clip(clipPath);
-            if (clip != null) clip.SampleAnimation(kit.aged[0], clip.length * t);
-            kit.aged[0].transform.localPosition = Vector3.zero;
-            kit.aged[0].transform.localRotation = Quaternion.identity;
+            var shown = Rig(kit);
+            if (clip != null) clip.SampleAnimation(shown, clip.length * t);
+            shown.transform.localPosition = Vector3.zero;
+            shown.transform.localRotation = Quaternion.identity;
             UnitGearIcons.Bake(go);
             return go;
         }
 
-        static void Row(string png, Func<GameObject>[] make, bool back, float pitchX = 1.75f, float height = 2.7f)
+        static void Row(string png, Func<GameObject>[] make, bool back, float pitchX = 1.75f, float height = 2.7f, int px = 260)
         {
             var stage = new GameObject("RowStage");
             try
@@ -395,8 +309,8 @@ namespace TheWaningBorder.EditorTools
                 var size = rot * new Vector3(n * pitchX, 0f, 0f);
                 var b = new Bounds(c, new Vector3(Mathf.Abs(size.x), height, Mathf.Abs(size.z)));
                 LegionaryShot.Shoot(b, 205f, 10f, 64, 64, "Temp/kit_warm.png", true);
-                LegionaryShot.Shoot(b, 205f, 10f, n * 260, (int)(260 * height / pitchX * 1.12f), png, true);
-                if (back) LegionaryShot.Shoot(b, 25f, 10f, n * 260, (int)(260 * height / pitchX * 1.12f), png.Replace(".png", "_back.png"), true);
+                LegionaryShot.Shoot(b, 205f, 10f, n * px, (int)(px * height / pitchX * 1.12f), png, true);
+                if (back) LegionaryShot.Shoot(b, 25f, 10f, n * px, (int)(px * height / pitchX * 1.12f), png.Replace(".png", "_back.png"), true);
             }
             finally { Object.DestroyImmediate(stage); }
         }

@@ -63,6 +63,10 @@ namespace TheWaningBorder.EditorTools
             public Func<Vector3, Vector3> warp;
             /// <summary>A hat modelled on the standing body: moved to the head bone's frame.</summary>
             public bool headSpace;
+            /// <summary>The bone a rigid piece hangs on in a fused body (the horse's barding).</summary>
+            public string bone = "Head";
+            /// <summary>Turned and scaled about its own middle, which lands on <see cref="move"/>.</summary>
+            public bool centred;
         }
 
         // ── Palette ────────────────────────────────────────────────────
@@ -286,6 +290,13 @@ namespace TheWaningBorder.EditorTools
                     foreach (int i in p.islands) if (i < shells.Count) tri.AddRange(shells[i]); else log.AppendLine($"no shell {i} in {p.prefab}");
                 }
                 var rot = Quaternion.Euler(p.euler);
+                var middle = Vector3.zero;
+                if (p.centred)
+                {
+                    var mb = new Bounds(k.verts[0], Vector3.zero);
+                    foreach (var x in k.verts) mb.Encapsulate(x);
+                    middle = mb.center;
+                }
                 int[] map = null;
                 if (boneIndex != null && k.weights != null) map = k.bones.Select(boneIndex).ToArray();
                 bool Textured(int i)
@@ -359,13 +370,14 @@ namespace TheWaningBorder.EditorTools
                             var at0 = k.verts[x];
                             if (p.headSpace && k.weights != null) at0 -= HeadAt;
                             if (p.warp != null) at0 = p.warp(at0);
+                            if (p.centred) at0 -= middle;
                             v.Add(rot * (at0 * p.scale) + p.move);
                             n.Add(rot * k.normals[x]);
                             uv.Add(q);
                             if (boneIndex != null)
                             {
                                 var s = k.weights != null ? k.weights[x] : default;
-                                w.Add(map == null ? new BoneWeight { boneIndex0 = boneIndex("Head"), weight0 = 1f } : new BoneWeight
+                                w.Add(map == null ? new BoneWeight { boneIndex0 = boneIndex(p.bone), weight0 = 1f } : new BoneWeight
                                 {
                                     boneIndex0 = map[s.boneIndex0], weight0 = s.weight0,
                                     boneIndex1 = map[s.boneIndex1], weight1 = s.weight1,
@@ -386,6 +398,7 @@ namespace TheWaningBorder.EditorTools
                 m.Clear();
                 m.indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
                 m.SetVertices(v);
+                for (int i = 0; i < n.Count; i++) if (!(n[i].sqrMagnitude > 0.25f)) n[i] = Vector3.up;
                 m.SetNormals(n);
                 m.SetUVs(0, uv);
                 m.SetTriangles(t, 0);
@@ -430,6 +443,7 @@ namespace TheWaningBorder.EditorTools
             var b = new Builder();
             log.AppendLine("  " + name);
             foreach (var p in parts) b.Add(p, gold, Index, log);
+            Grip(rig, b, bones);
             var mesh = SaveMesh(name, m =>
             {
                 b.Fill(m);
@@ -621,6 +635,7 @@ namespace TheWaningBorder.EditorTools
             AuthorArchery();
             AuthorElites();
             AuthorCivilians();
+            AuthorCavalry();
             var log = new StringBuilder();
             WritePalette(log);
             AssetDatabase.SaveAssets();
@@ -659,7 +674,7 @@ namespace TheWaningBorder.EditorTools
                         var kit = rig.GetComponent<TheWaningBorder.Rendering.UnitAgeKit>();
                         kit.Apply(states[i].aged, states[i].level, states[i].weapon, 0, instant: true);
                         rig.GetComponent<TheWaningBorder.Rendering.UnitPlayerColor>().Apply(new Color(0.12f, 0.35f, 0.85f));
-                        var shown = states[i].aged ? kit.aged[0] : kit.firstAge[0];
+                        var shown = Rig(kit);
                         // Each figure a step further through the clip.
                         float t = c == 0 ? 0f : clip.length * i / (states.Length - 1f) * 0.98f;
                         clip.SampleAnimation(shown, t);

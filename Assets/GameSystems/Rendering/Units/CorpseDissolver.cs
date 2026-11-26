@@ -37,6 +37,8 @@ namespace TheWaningBorder.Rendering
 
         private static readonly int DissolveID  = Shader.PropertyToID("_Dissolve");
         private static readonly int BaseMapID   = Shader.PropertyToID("_BaseMap");
+        // Where the corpse's own colours may sit: URP Lit, the Synty shaders, legacy.
+        private static readonly int[] AlbedoIDs = { Shader.PropertyToID("_BaseMap"), Shader.PropertyToID("_Albedo_Map"), Shader.PropertyToID("_MainTex") };
         private static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorID     = Shader.PropertyToID("_Color");
 
@@ -149,14 +151,12 @@ namespace TheWaningBorder.Rendering
                     var srcMat = src[s];
                     var dm = new Material(master);
 
-                    Texture tex = srcMat.HasProperty(BaseMapID)
-                        ? srcMat.GetTexture(BaseMapID)
-                        : srcMat.mainTexture;
-                    if (tex != null)
-                    {
-                        dm.SetTexture(BaseMapID, tex);
-                        dm.mainTexture = tex;
-                    }
+                    // Asked by name only where the shader has it: mainTexture on a
+                    // Synty material logs an error per corpse.
+                    Texture tex = null;
+                    foreach (int id in AlbedoIDs)
+                        if (srcMat.HasProperty(id) && (tex = srcMat.GetTexture(id)) != null) break;
+                    if (tex != null) dm.SetTexture(BaseMapID, tex);
 
                     Color col =
                         srcMat.HasProperty(BaseColorID) ? srcMat.GetColor(BaseColorID) :

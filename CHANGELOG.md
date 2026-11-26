@@ -11,6 +11,23 @@ build always name the same number.
 
 ## [Unreleased]
 
+## [0.0.98] — 2026-11-26
+
+### Faster large matches (2026-11-26)
+- **Soldiers check their gear far less often.** Each soldier used to ask for its faction's level and research on its own twice a second; a faction's answer is now worked out once and shared by all its soldiers. This was the largest single cost in a late 8-player match.
+- **Buildings carry no idle animation components.** The building models brought along empty animation components that the game updated every frame; they are removed when a building appears.
+- **Buildings are drawn more cheaply.** The GPU Resident Drawer is on, so the graphics card draws the many pieces of every building in large batches.
+- **The ground is cheaper to draw.** Layers that are not present on a patch of ground are no longer read, the cliff-side texture work is done only on steep slopes, and the anti-tiling's second read is skipped where it is not used. The ground looks the same.
+- **Shardroot pickups and farm walls are cheaper.** Both used to look at every unit on the map every tick.
+- **The log console no longer opens by itself during a match.** It opened at the first error and stayed open, costing about 8 ms a frame; it now opens by itself only while a match is loading (F1 still opens it, and the hint counts the errors).
+- **Dying units no longer log an error** when their body fades.
+
+### Riders and attacks (2026-11-25)
+- **New cavalry.** The Outrider, the Cataphract and King Lexor ride new horses; the rider strikes from the saddle and the horse falls when it dies.
+- **Mounts stay under their riders.** A cantering horse no longer runs ahead of its unit and snaps back every stride.
+- **Units are lighter to draw.** Each soldier's armour, helmet, shield and cape are one model, and their skeletons are smaller.
+- **No effects on ordinary attacks.** Melee flashes, arrow and bolt hits, arrow trails and glowing arrowheads are gone; charges, abilities, siege stones, torches and the curse's units keep theirs.
+
 ## [0.0.97] — 2026-11-25
 
 ### New soldiers (2026-11-25)

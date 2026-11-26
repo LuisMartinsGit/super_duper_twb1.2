@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6fc2bbfed21e12438424e2ff0b5dd06, type: 3}
   m_Name: Cataphract
   m_EditorClassIdentifier: 
-  id: 'Alanthor_Cataphract'
-  displayName: 'Cataphract'
-  unitClass: 'human_cavalry'
+  id: Alanthor_Cataphract
+  displayName: Cataphract
+  unitClass: human_cavalry
   hp: 230
   speed: 5.6
   trainingTime: 28
   damage: 22
-  damageType: 'melee'
+  damageType: melee
   armorType: cavalry
   defense:
     melee: 4
@@ -30,7 +30,10 @@ MonoBehaviour:
   attackRange: 1.6
   minAttackRange: 0
   lineOfSight: 20
+  aimTime: 0
   radius: 0.6
+  trajectory: 
+  projectileSpeed: 0
   cost:
     Supplies: 140
     Iron: 0
@@ -38,12 +41,20 @@ MonoBehaviour:
   populationCost: 2
   minBuildingLevel: 3
   buildSpeed: 0
+  repairSpeed: 0
   gatheringSpeed: 0
-  carryCapacity: 0
   healsPerSecond: 0
+  healRange: 0
+  siegeRange: 0
+  siegeCooldown: 0
+  aoeRadius: 0
   tags:
   - Cavalry
   - Heavy
   bonusVsTags: []
   torchDamage: 17
+  preferTargets: []
+  abilities: []
+  prefab: {fileID: 7148923107449745804, guid: 26956f70359cc5343b51a68999c1a9c6, type: 3}
   presentationId: 336
+  animatorController: {fileID: 9100000, guid: 4a53bdfdb89022f459865a5d3c149ab8, type: 2}

@@ -109,6 +109,7 @@ namespace TheWaningBorder.Rendering
 
             var newGo = Instantiate(prefab, pos, visualRot);
             newGo.SetActive(true);
+            PresentationSpawnSystem.StripEmptyAnimators(newGo);
             newGo.name = $"Entity_{e.Index}_{prefab.name}";
 
             // The ladder's top level sets the scale and the pivot offset, so a

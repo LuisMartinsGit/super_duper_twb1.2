@@ -1,11 +1,11 @@
 // LegionarySpearmanAuthor.cs
-// Builds the Age 0 Spearman as ONE prefab with two kits (UnitAgeKit), each a
-// rig of its own under the root:
+// Builds the Age 0 Spearman as ONE prefab with two kits (UnitAgeKit) on one
+// skeleton:
 //   Levy       first age (the Militia): the peasant and a plain spear.
 //   Legionary  aged up: a body, helmet and scutum per Garrison level and a
 //              spear per weapon tech, mixed from the three Synty kits by
 //              InfantryKit's recipes.
-// Both rigs are the Roman soldier's skeleton and play the SAME controller
+// The skeleton is the Roman soldier's; both play the SAME controller
 // (Idle / Move / Attack / Death). Cloth takes the player's colour at spawn
 // (UnitPlayerColor). Run it through InfantryKit.AuthorAll, which also writes the
 // palette both infantry units share.
@@ -113,6 +113,7 @@ namespace TheWaningBorder.EditorTools
                     float k = UnitHeight / levyHeight * WorldScale;
                     go.transform.localScale = Vector3.one * k;
                     log.AppendLine($"spearman body {levyHeight:0.000} m -> root scale {k:0.000}");
+                    InfantryKit.Grow(go);
                 }
                 var saved = PrefabUtility.SaveAsPrefabAsset(go, PrefabPath);
                 var so = AssetDatabase.LoadMainAssetAtPath(SoPath);
@@ -241,56 +242,63 @@ namespace TheWaningBorder.EditorTools
                 }
             var root = new GameObject("Spearman");
 
+            // One skeleton for both ages (InfantryKit: a second rig, hidden, still
+            // had every bone moved with the unit).
+            var rig = Skeleton("Body", root.transform, legionController);
+            var head = Bone(rig, "Head", log);
+            var hand = Bone(rig, "Hand_R", log);
+            var elbow = Bone(rig, "Elbow_L", log);
+            GameObject Group(string name, Transform parent)
+            {
+                var g = new GameObject(name);
+                g.transform.SetParent(parent, false);
+                return g;
+            }
+
             // ── First age: the Militia, a peasant in a straw hat ──
-            var levy = Skeleton("Levy", root.transform, levyController);
-            InfantryKit.Body(levy, "Levy_Body", InfantryKit.Role.Matte, InfantryKit.LevyBody(), log);
-            InfantryKit.Piece("Levy_Hat", Bone(levy, "Head", log), Vector3.zero, Vector3.zero, InfantryKit.Role.Matte, InfantryKit.LevyHat(), log);
-            var levyHand = Bone(levy, "Hand_R", log);
+            var levy = InfantryKit.Body(rig, "Levy_Body", InfantryKit.Role.Matte, InfantryKit.LevyBody(), log);
+            InfantryKit.Weld(levy, rig, InfantryKit.Piece("Levy_Hat", head, Vector3.zero, Vector3.zero, InfantryKit.Role.Matte, InfantryKit.LevyHat(), log));
+            var levyHand = Group("Levy_Spears", hand);
             var levyWeapons = new GameObject[2];
             for (int i = 0; i < 2; i++)
             {
-                levyWeapons[i] = InfantryKit.Piece("Spear_" + InfantryKit.TierNames[i], levyHand, SpearPos, SpearEuler, InfantryKit.Role.Matte, InfantryKit.Spear(i), log);
+                levyWeapons[i] = InfantryKit.Piece("Spear_" + InfantryKit.TierNames[i], levyHand.transform, SpearPos, SpearEuler, InfantryKit.Role.Matte, InfantryKit.Spear(i), log);
                 HoldAtMiddle(levyWeapons[i]);
                 levyWeapons[i].SetActive(i == 0);
             }
 
-            // ── Aged up: one fused body, helmet and scutum per Garrison
-            // level, one spear per weapon tech (InfantryKit's recipes).
-            var legion = Skeleton("Legionary", root.transform, legionController);
-            var head = Bone(legion, "Head", log);
-            var hand = Bone(legion, "Hand_R", log);
-            var elbow = Bone(legion, "Elbow_L", log);
+            // ── Aged up: one body per Garrison level, its helmet and scutum
+            // melted in, and one spear per weapon tech (InfantryKit's recipes).
+            var legion = Group("Legionary", rig.transform);
             Vector3 shieldEuler = Quaternion.LookRotation(ShieldFace, ShieldUp).eulerAngles;
             var bodies = new GameObject[3];
-            var helmets = new GameObject[3];
-            var scuta = new GameObject[3];
             for (int l = 0; l < 3; l++)
             {
                 var gold = InfantryKit.GoldOf(l + 1);
-                bodies[l] = InfantryKit.Body(legion, "Spearman_Body_L" + (l + 1), gold, InfantryKit.SpearmanBody(l + 1), log);
-                helmets[l] = InfantryKit.Piece("Spearman_Helmet_L" + (l + 1), head, Vector3.zero, Vector3.zero, gold, InfantryKit.SpearmanHelmet(l + 1), log);
+                bodies[l] = InfantryKit.Body(rig, "Spearman_Body_L" + (l + 1), gold, InfantryKit.SpearmanBody(l + 1), log);
                 // The scutum at every level: a round shield made him read as
                 // the Swordsman (developer, 2026-11-13).
-                scuta[l] = InfantryKit.Piece("Spearman_Shield_L" + (l + 1), elbow, ShieldPos, shieldEuler, gold, InfantryKit.SpearmanShield(l + 1), log);
+                InfantryKit.Weld(bodies[l], rig,
+                    InfantryKit.Piece("Spearman_Helmet_L" + (l + 1), head, Vector3.zero, Vector3.zero, gold, InfantryKit.SpearmanHelmet(l + 1), log),
+                    InfantryKit.Piece("Spearman_Shield_L" + (l + 1), elbow, ShieldPos, shieldEuler, gold, InfantryKit.SpearmanShield(l + 1), log));
+                bodies[l].transform.SetParent(legion.transform, false);
                 bodies[l].SetActive(l == 0);
-                helmets[l].SetActive(l == 0);
-                scuta[l].SetActive(l == 0);
             }
+            var spears = Group("Spears", hand);
             var weapons = new GameObject[5];
             for (int i = 0; i < weapons.Length; i++)
             {
-                weapons[i] = InfantryKit.Piece("Spear_" + InfantryKit.TierNames[i], hand, SpearPos, SpearEuler, InfantryKit.GoldOfTier(i), InfantryKit.Spear(i), log);
+                weapons[i] = InfantryKit.Piece("Spear_" + InfantryKit.TierNames[i], spears.transform, SpearPos, SpearEuler, InfantryKit.GoldOfTier(i), InfantryKit.Spear(i), log);
                 HoldAtMiddle(weapons[i]);
                 weapons[i].SetActive(i == 0);
             }
+            InfantryKit.Finish(rig);
 
             var kit = root.AddComponent<UnitAgeKit>();
-            kit.firstAge = new[] { levy };
-            kit.aged = new[] { legion };
+            kit.firstAge = new[] { levy, levyHand };
+            kit.aged = new[] { legion, spears };
             kit.levelLadderId = "Barracks";
             kit.bodies = bodies;
-            kit.helmets = helmets;
-            kit.shields = scuta;
             kit.weapons = weapons;
             kit.firstAgeWeapons = levyWeapons;
             kit.weaponTechs = new[] { "StoneWeapons", "IronWeapons", "VeilstoneWeapons", "ShardInfusedWeapons" };
@@ -298,6 +306,7 @@ namespace TheWaningBorder.EditorTools
             // The cloth cells take the player's colour at spawn.
             root.AddComponent<UnitPlayerColor>();
             legion.SetActive(false);
+            spears.SetActive(false);
             return root;
         }
 

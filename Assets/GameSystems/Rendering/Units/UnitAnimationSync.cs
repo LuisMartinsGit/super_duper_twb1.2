@@ -249,6 +249,8 @@ namespace TheWaningBorder.Rendering
                 string cn = clip.name;
                 if (cn.IndexOf("Run", System.StringComparison.OrdinalIgnoreCase) < 0
                     && cn.IndexOf("Walk", System.StringComparison.OrdinalIgnoreCase) < 0
+                    && cn.IndexOf("Gallop", System.StringComparison.OrdinalIgnoreCase) < 0
+                    && cn.IndexOf("Canter", System.StringComparison.OrdinalIgnoreCase) < 0
                     && cn.IndexOf("Move", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
                 var avg = clip.averageSpeed;
                 float ground = new Vector2(avg.x, avg.z).magnitude;

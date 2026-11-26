@@ -184,11 +184,12 @@ struct TWBTile
     half f;
 };
 
-TWBTile TWBTileSetup(float2 uv)
+// Gradients given: safe to call inside a branch (no ddx there).
+TWBTile TWBTileSetupGrad(float2 uv, float2 dx, float2 dy)
 {
     TWBTile t;
     t.uv = uv; t.uvA = uv; t.uvB = uv; t.f = 0;
-    t.dx = ddx(uv); t.dy = ddy(uv);
+    t.dx = dx; t.dy = dy;
     if (_TWBAntiTile > 0.0)
     {
         float2 q = uv * _TWBAntiTileCells;
@@ -202,6 +203,8 @@ TWBTile TWBTileSetup(float2 uv)
     return t;
 }
 
+TWBTile TWBTileSetup(float2 uv) { return TWBTileSetupGrad(uv, ddx(uv), ddy(uv)); }
+
 half4 TWBTileColor(TEXTURE2D_PARAM(tex, smp), TWBTile t)
 {
     half4 a = SAMPLE_TEXTURE2D_GRAD(tex, smp, t.uvA, t.dx, t.dy);
@@ -213,8 +216,11 @@ half4 TWBTileColor(TEXTURE2D_PARAM(tex, smp), TWBTile t)
 
 half4 TWBTileNormal(TEXTURE2D_PARAM(tex, smp), TWBTile t)
 {
+    // smoothstep(0.2, 0.8, f) is exactly 0 below 0.2 and 1 above 0.8: there
+    // only one of the two reads is used, so only that one is made (2026-11-26).
+    if (_TWBAntiTile <= 0.0 || t.f <= 0.2) return SAMPLE_TEXTURE2D_GRAD(tex, smp, t.uvA, t.dx, t.dy);
+    if (t.f >= 0.8) return SAMPLE_TEXTURE2D_GRAD(tex, smp, t.uvB, t.dx, t.dy);
     half4 a = SAMPLE_TEXTURE2D_GRAD(tex, smp, t.uvA, t.dx, t.dy);
-    if (_TWBAntiTile <= 0.0) return a;
     half4 b = SAMPLE_TEXTURE2D_GRAD(tex, smp, t.uvB, t.dx, t.dy);
     return lerp(a, b, smoothstep(0.2, 0.8, t.f));
 }
@@ -230,7 +236,9 @@ float4 _TWBTerrainSize;      // xy: the terrain's size on X and Z, metres
 
 struct TWBLayer
 {
-    TWBTile top, sideX, sideZ;
+    TWBTile top;
+    float2 uvX, uvZ;   // the side projections' coordinates; set up only where a face is steep
+    float4 dX, dZ;     // their screen gradients (xy = ddx, zw = ddy), taken outside any branch
     half side;   // 0 = mapped from above, 1 = from the side
     half faceX;  // share of the X-facing projection in the side part
 };
@@ -240,8 +248,13 @@ TWBLayer TWBLayerSetup(float2 uv, float2 tiling, float3 positionWS, half3 normal
     TWBLayer l;
     l.top = TWBTileSetup(uv);
     float2 perMetre = tiling / max(_TWBTerrainSize.xy, 1.0);
-    l.sideX = TWBTileSetup(float2(positionWS.z * perMetre.y, positionWS.y * perMetre.y));
-    l.sideZ = TWBTileSetup(float2(positionWS.x * perMetre.x, positionWS.y * perMetre.x));
+    // Only the coordinates here: the noise for the side views is worked out in
+    // TWBLayerColor, and only on a steep face (2026-11-26; it used to be done
+    // for all three views of every layer on every pixel).
+    l.uvX = float2(positionWS.z * perMetre.y, positionWS.y * perMetre.y);
+    l.uvZ = float2(positionWS.x * perMetre.x, positionWS.y * perMetre.x);
+    l.dX = float4(ddx(l.uvX), ddy(l.uvX));
+    l.dZ = float4(ddx(l.uvZ), ddy(l.uvZ));
     l.side = _TWBCliffProjection > 0.0 ? smoothstep(0.78, 0.58, normalWS.y) : 0.0;
     half2 a = abs(normalWS.xz);
     half fx = a.x / max(a.x + a.y, 1e-4);
@@ -255,8 +268,8 @@ half4 TWBLayerColor(TEXTURE2D_PARAM(tex, smp), TWBLayer l)
     if (l.side < 1.0) c += (1.0 - l.side) * TWBTileColor(TEXTURE2D_ARGS(tex, smp), l.top);
     if (l.side > 0.0)
     {
-        if (l.faceX > 0.0) c += l.side * l.faceX * TWBTileColor(TEXTURE2D_ARGS(tex, smp), l.sideX);
-        if (l.faceX < 1.0) c += l.side * (1.0 - l.faceX) * TWBTileColor(TEXTURE2D_ARGS(tex, smp), l.sideZ);
+        if (l.faceX > 0.0) c += l.side * l.faceX * TWBTileColor(TEXTURE2D_ARGS(tex, smp), TWBTileSetupGrad(l.uvX, l.dX.xy, l.dX.zw));
+        if (l.faceX < 1.0) c += l.side * (1.0 - l.faceX) * TWBTileColor(TEXTURE2D_ARGS(tex, smp), TWBTileSetupGrad(l.uvZ, l.dZ.xy, l.dZ.zw));
     }
     return c;
 }
@@ -281,10 +294,11 @@ void NormalMapMix(TWBLayer t0, TWBLayer t1, TWBLayer t2, TWBLayer t3, inout half
 {
     #if defined(_NORMALMAP)
         half3 nrm = half(0.0);
-        nrm += splatControl.r * TWBLayerNormal(TEXTURE2D_ARGS(_Normal0, sampler_Normal0), t0, _NormalScale0);
-        nrm += splatControl.g * TWBLayerNormal(TEXTURE2D_ARGS(_Normal1, sampler_Normal0), t1, _NormalScale1);
-        nrm += splatControl.b * TWBLayerNormal(TEXTURE2D_ARGS(_Normal2, sampler_Normal0), t2, _NormalScale2);
-        nrm += splatControl.a * TWBLayerNormal(TEXTURE2D_ARGS(_Normal3, sampler_Normal0), t3, _NormalScale3);
+        // A layer with no weight here adds nothing: it is not read (2026-11-26).
+        UNITY_BRANCH if (splatControl.r > 0.0h) nrm += splatControl.r * TWBLayerNormal(TEXTURE2D_ARGS(_Normal0, sampler_Normal0), t0, _NormalScale0);
+        UNITY_BRANCH if (splatControl.g > 0.0h) nrm += splatControl.g * TWBLayerNormal(TEXTURE2D_ARGS(_Normal1, sampler_Normal0), t1, _NormalScale1);
+        UNITY_BRANCH if (splatControl.b > 0.0h) nrm += splatControl.b * TWBLayerNormal(TEXTURE2D_ARGS(_Normal2, sampler_Normal0), t2, _NormalScale2);
+        UNITY_BRANCH if (splatControl.a > 0.0h) nrm += splatControl.a * TWBLayerNormal(TEXTURE2D_ARGS(_Normal3, sampler_Normal0), t3, _NormalScale3);
 
         // avoid risk of NaN when normalizing.
         #if !HALF_IS_FLOAT
@@ -301,14 +315,23 @@ void SplatmapMix(float3 positionWS, half3 geoNormalWS, float4 uvMainAndLM, float
 {
     half4 diffAlbedo[4];
 
+#ifdef TERRAIN_SPLAT_ADDPASS
+    // The second pass draws layers 5-8 over the first: where none of them has
+    // any weight the pixel is discarded below anyway, so before any reading.
+    clip(dot(splatControl, 1.0h) <= 0.005h ? -1.0h : 1.0h);
+#endif
+
     TWBLayer t0 = TWBLayerSetup(uvSplat01.xy, _Splat0_ST.xy, positionWS, geoNormalWS);
     TWBLayer t1 = TWBLayerSetup(uvSplat01.zw, _Splat1_ST.xy, positionWS, geoNormalWS);
     TWBLayer t2 = TWBLayerSetup(uvSplat23.xy, _Splat2_ST.xy, positionWS, geoNormalWS);
     TWBLayer t3 = TWBLayerSetup(uvSplat23.zw, _Splat3_ST.xy, positionWS, geoNormalWS);
-    diffAlbedo[0] = TWBLayerColor(TEXTURE2D_ARGS(_Splat0, sampler_Splat0), t0);
-    diffAlbedo[1] = TWBLayerColor(TEXTURE2D_ARGS(_Splat1, sampler_Splat0), t1);
-    diffAlbedo[2] = TWBLayerColor(TEXTURE2D_ARGS(_Splat2, sampler_Splat0), t2);
-    diffAlbedo[3] = TWBLayerColor(TEXTURE2D_ARGS(_Splat3, sampler_Splat0), t3);
+    // A layer with no weight here is not read (2026-11-26). Its alpha only
+    // ever meets that zero weight (smoothness, density blend), so 0 is exact.
+    diffAlbedo[0] = 0; diffAlbedo[1] = 0; diffAlbedo[2] = 0; diffAlbedo[3] = 0;
+    UNITY_BRANCH if (splatControl.r > 0.0h) diffAlbedo[0] = TWBLayerColor(TEXTURE2D_ARGS(_Splat0, sampler_Splat0), t0);
+    UNITY_BRANCH if (splatControl.g > 0.0h) diffAlbedo[1] = TWBLayerColor(TEXTURE2D_ARGS(_Splat1, sampler_Splat0), t1);
+    UNITY_BRANCH if (splatControl.b > 0.0h) diffAlbedo[2] = TWBLayerColor(TEXTURE2D_ARGS(_Splat2, sampler_Splat0), t2);
+    UNITY_BRANCH if (splatControl.a > 0.0h) diffAlbedo[3] = TWBLayerColor(TEXTURE2D_ARGS(_Splat3, sampler_Splat0), t3);
 
     // This might be a bit of a gamble -- the assumption here is that if the diffuseMap has no
     // alpha channel, then diffAlbedo[n].a = 1.0 (and _DiffuseHasAlphaN = 0.0)

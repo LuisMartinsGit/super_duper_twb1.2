@@ -50,6 +50,9 @@ namespace TheWaningBorder.Systems.Economy
             ComponentType.ReadOnly<FactionTag>(),
             ComponentType.ReadOnly<LocalTransform>(),
             ComponentType.ReadOnly<Health>(),
+            // Only heroes take the pickup (2026-11-26): asked of the query, not
+            // of each of ~1,200 units with a HasComponent on every tick.
+            ComponentType.ReadOnly<TheWaningBorder.Abilities.UniqueUnitTag>(),
         };
         static CachedEntityQuery QC_UnitTagFactionTagLocalTransformHealth;
 
@@ -295,7 +298,6 @@ namespace TheWaningBorder.Systems.Economy
                 {
                     if (unitHealths[i].Value <= 0) continue;
                     if (unitFactions[i].Value == Faction.Border) continue;
-                    if (!em.HasComponent<TheWaningBorder.Abilities.UniqueUnitTag>(unitEnts[i])) continue;
 
                     var uPos = unitTransforms[i].Position;
                     if (math.distance(new float2(uPos.x, uPos.z), pickupXZ) > ShardrootPickupRadius)

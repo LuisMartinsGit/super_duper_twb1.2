@@ -52,14 +52,24 @@ namespace TheWaningBorder.EditorTools
             foreach (var p in new[] { "Age0/Buildings/Fortress/Units/Worker/Worker", "Age0/Buildings/Fortress/Units/Scout/Scout", "Age0/Buildings/TempleOfRidan/Units/Litharch/Litharch" })
                 all.Insert(0, (p, true, 1, 0));
             normal += 3;
+            bool cavalry = File.Exists("Temp/cavalry-only");
+            if (cavalry)
+            {
+                all.Clear();
+                string O = "Civs/Alanthor/Buildings/RoyalStable/Units/Outrider/Outrider", C = "Civs/Alanthor/Buildings/RoyalStable/Units/Cataphract/Cataphract";
+                all.Add((O, true, 1, 0)); all.Add((O, true, 2, 2)); all.Add((O, true, 3, 3));
+                all.Add((C, true, 1, 1)); all.Add((C, true, 1, 3));
+                normal = all.Count;
+                all.Add(("Civs/Alanthor/Units/KingLexor/KingLexor", true, 1, 3));
+            }
             line = all.ToArray();
             Vector3 mid = Vector3.zero;
             for (int i = 0; i < line.Length; i++)
             {
                 var go = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/GameData/TechTree/" + line[i].prefab + ".prefab"), stage.transform);
-                Vector3 p = at + right * ((i % 8 - 3.5f) * 1.5f) - fwd * (i / 8 * 2.6f);
+                Vector3 p = cavalry ? at + right * ((i - 2.5f) * 2.1f) : at + right * ((i % 8 - 3.5f) * 1.5f) - fwd * (i / 8 * 2.6f);
                 if (terrain != null) p.y = terrain.SampleHeight(p) + terrain.transform.position.y;
-                go.transform.SetPositionAndRotation(p, Quaternion.LookRotation(-fwd));
+                go.transform.SetPositionAndRotation(p, Quaternion.LookRotation(cavalry ? Quaternion.Euler(0f, 42f, 0f) * -fwd : -fwd));
                 go.transform.localScale *= UnitWorldScale.Value * (i >= normal ? UnitWorldScale.EliteValue : 1f);
                 go.GetComponent<UnitAgeKit>().Apply(line[i].aged, line[i].level, line[i].weapon, 0, instant: true, quiver: line[i].weapon);
                 go.GetComponent<UnitPlayerColor>().Apply(FactionColors.Get(Faction.Blue));
@@ -88,7 +98,7 @@ namespace TheWaningBorder.EditorTools
             tex.Apply();
             RenderTexture.active = prev;
             Directory.CreateDirectory("Temp/infantry");
-            File.WriteAllBytes("Temp/infantry/match.png", tex.EncodeToPNG());
+            File.WriteAllBytes(cavalry ? "Temp/cavalry/match.png" : "Temp/infantry/match.png", tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
             Object.DestroyImmediate(camGo);
         }
@@ -96,7 +106,7 @@ namespace TheWaningBorder.EditorTools
         static readonly string[] SpawnIds =
         {
             "Worker", "Scout", "Litharch", "Spearman", "Alanthor_Archer", "Alanthor_Crossbowman", "Alanthor_Longbowman", "Sect_ScarGuard", "Sect_Surgeon", "Sect_Sallyguard", "Sect_Warden",
-            "Sect_Collector", "Sect_Guildmaster", "Sect_Artificer", "Sect_ArchivistOfHours", "KingLexor", "Ledger",
+            "Sect_Collector", "Sect_Guildmaster", "Sect_Artificer", "Sect_ArchivistOfHours", "Alanthor_Outrider", "Alanthor_Cataphract", "King Lexor", "Ledger",
         };
 
         /// <summary>Spawns one real unit of each kind by the Blue capital; run again to log
@@ -130,5 +140,29 @@ namespace TheWaningBorder.EditorTools
             _spawned.Clear();
         }
         static readonly System.Collections.Generic.List<(string id, Unity.Entities.Entity e)> _spawned = new();
+
+        /// <summary>Line-up only: sets every mount galloping, then (run again) striking, then dying;
+        /// each run first logs how far the horse has drifted from its root.</summary>
+        [MenuItem("Waning Border/Debug/Infantry Probe: Cavalry Motion")]
+        public static void CavalryMotion()
+        {
+            var stage = GameObject.Find("InfantryLineUp");
+            if (stage == null) return;
+            var sb = new System.Text.StringBuilder("step " + _step + "\n");
+            foreach (var mr in stage.GetComponentsInChildren<MountedRider>())
+            {
+                Transform rm = null, hips = null;
+                foreach (var t in mr.GetComponentsInChildren<Transform>()) { if (t.name == "Root_Motion") rm = t; if (t.name == "Hips") hips = t; }
+                var d = mr.transform.InverseTransformPoint(rm.position);
+                sb.AppendLine($"{mr.name}: Root_Motion local {d.ToString("0.00")} hips {mr.transform.InverseTransformPoint(hips.position).ToString("0.00")} horse up {mr.horse.transform.up.ToString("0.00")} rider attack {mr.rider.GetBool("IsAttacking")} state move {mr.horse.GetCurrentAnimatorStateInfo(0).IsName("Move")}");
+                if (_step == 0) mr.horse.SetBool("IsMoving", true);
+                if (_step == 1) { mr.horse.SetBool("IsMoving", false); mr.horse.SetBool("IsAttacking", true); }
+                if (_step == 2) mr.horse.SetTrigger("IsDead");
+            }
+            File.AppendAllText("Temp/cavalry/motion.txt", sb.ToString());
+            LegionaryShot.Shoot(LegionaryShot.BoundsOf(stage), Camera.main.transform.eulerAngles.y, 24f, 2200, 800, $"Temp/cavalry/motion{_step}.png");
+            _step = (_step + 1) % 4;
+        }
+        static int _step;
     }
 }

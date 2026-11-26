@@ -1,5 +1,11 @@
 # Visual effect assignments
 
+> **Normal attacks show no effect (2026-11-25, developer: "remove any visual effects on
+> normal unit attacks").** No melee flash, no bolt or arrow hit, no arrow trail or glowing
+> tip: the hit prefabs on `UnitCombatVfx.asset` are empty and every arrow is drawn plain.
+> Charge hits, abilities, siege stones and buff loops are unchanged. Supersedes the hit and
+> arrow rows below.
+
 Every action, event and state that needs (or already has) a visual effect.
 Fill the **Resource** column with the pack and prefab to use (e.g.
 `Lana / Regeneration_health`, `Hovl / Smoke loop`, `keep`, `none`) — that

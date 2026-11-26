@@ -257,13 +257,12 @@ namespace TheWaningBorder.EditorTools
                     c.scalePerMetre = 0.5f; c.hitHeightFraction = 0.55f; c.hitCooldownSeconds = 0.35f;
                     c.maxHitsPerFrame = 12; c.buffPollSeconds = 0.25f; c.buffThreshold = 0.02f; c.fadeSeconds = 1f;
                 });
-            combat.hitPrefab = P(T + "Age0/Units/Vfx/Unit_Hit.prefab");
+            // Normal attacks show no effect (2026-11-25): hitPrefab stays empty.
             combat.chargeHitPrefab = P(T + "Age0/Units/Vfx/Unit_ChargeHit.prefab");
             combat.speedUpPrefab = P(T + "Age0/Units/Vfx/Unit_SpeedUp.prefab");
             combat.slowDownPrefab = P(T + "Age0/Units/Vfx/Unit_SlowDown.prefab");
             combat.attackUpPrefab = P(T + "Age0/Units/Vfx/Unit_AttackUp.prefab");
             combat.frenziedPrefab = P(T + "Sects/Antiquity/Abilities/FriendlyFire/FriendlyFire_Aura.prefab");
-            combat.arrowVeilstoneHitPrefab = P(T + "Civs/Alanthor/Buildings/ArcheryRange/Vfx/ArrowHit_Veilstone.prefab");
             EditorUtility.SetDirty(combat);
 
             // Arrow tiers: one block per tier, each tuned on its own (the Arrow

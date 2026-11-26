@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23352ae9ff3fa6e44b1684ed6de44e41, type: 3}
   m_Name: UnitCombatVfx
   m_EditorClassIdentifier: 
-  hitPrefab: {fileID: 2944396702758532163, guid: f623ff3d4ada3c0428fed81190c7d8f3, type: 3}
+  hitPrefab: {fileID: 0}
   chargeHitPrefab: {fileID: 1758473627833946668, guid: baed46c4a81cda947afc0c280eec0a31, type: 3}
-  arrowVeilstoneHitPrefab: {fileID: 5724093481334579524, guid: 488cb057c622f9140a080ccf20ebd527, type: 3}
-  arrowShardHitPrefab: {fileID: 934617562227915448, guid: 909c9d5c374d6434e80eb3d63e6a05be, type: 3}
+  arrowVeilstoneHitPrefab: {fileID: 0}
+  arrowShardHitPrefab: {fileID: 0}
   speedUpPrefab: {fileID: 3871730096559169797, guid: 8f52337c441cac54c9841230ebfce63d, type: 3}
   slowDownPrefab: {fileID: 6690736211316310120, guid: 13bad7ef4039fb541b047cadaa155b42, type: 3}
   attackUpPrefab: {fileID: 7042460137364555477, guid: 9c5255fe92a3b05408397f04563af965, type: 3}

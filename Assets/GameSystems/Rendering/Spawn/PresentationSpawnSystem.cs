@@ -119,6 +119,18 @@ public partial class PresentationSpawnSystem : MonoBehaviour
     /// pass 1 removes the pack's namespaced scripts, pass 2 the controller
     /// core they depend on.
     /// </summary>
+    /// <summary>
+    /// A building assembled from kit models carries an EMPTY Animator on every
+    /// model root (the FBX importer adds one; nothing plays on it). Each is still
+    /// updated every frame, on screen or not: 1,164 of them in a late 8-player
+    /// match (2026-11-26). An Animator with no controller does nothing, so it goes.
+    /// </summary>
+    public static void StripEmptyAnimators(GameObject go)
+    {
+        foreach (var a in go.GetComponentsInChildren<Animator>(true))
+            if (a.runtimeAnimatorController == null) Destroy(a);
+    }
+
     private static void StripThirdPartyControllers(GameObject go)
     {
         var behaviours = go.GetComponentsInChildren<MonoBehaviour>(true);
@@ -693,9 +705,6 @@ public partial class PresentationSpawnSystem : MonoBehaviour
                 // (SwordsmanSyntyAuthor, 2026-11-13).
                 // 202 Archer: no procedural case - its SO prefab is the Synty
                 // kit (ArcheryKit).
-                case 349: authored = TheWaningBorder.Rendering.OutriderVisual.Build(entity.Index + 349); break;
-                case 336: authored = TheWaningBorder.Rendering.CataphractVisual.Build(entity.Index + 336); break;
-                case 251: authored = TheWaningBorder.Rendering.KingLexorVisual.Build(entity.Index + 251); break;
                 case 346: authored = TheWaningBorder.Rendering.NoblemanVisual.Build(entity.Index + 346); break;
                 case 347: authored = TheWaningBorder.Rendering.BatteringRamVisual.Build(entity.Index + 347); break;
                 case 348: authored = TheWaningBorder.Rendering.TrebuchetVisual.Build(entity.Index + 348); break;

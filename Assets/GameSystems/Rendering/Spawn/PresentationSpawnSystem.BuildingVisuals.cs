@@ -145,6 +145,7 @@ public partial class PresentationSpawnSystem : MonoBehaviour
         var go = Instantiate(src, pos, Quaternion.identity);
         go.SetActive(true);
         StripThirdPartyControllers(go);
+        StripEmptyAnimators(go);
         go.name = $"Entity_{entity.Index}_{src.name}";
         // The ladder's top level sets the scale and the pivot offset
         // (FootprintFit.cs); anything that is not a building keeps its

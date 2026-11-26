@@ -108,9 +108,8 @@ namespace TheWaningBorder.Rendering
             }
             if (want == 1)
             {
-                var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
-                if (world != null && world.IsCreated && !string.IsNullOrEmpty(levelLadderId))
-                    level = Mathf.Max(1, FactionBuildingLevels.Get(world.EntityManager, _faction, levelLadderId));
+                if (!string.IsNullOrEmpty(levelLadderId))
+                    level = Mathf.Max(1, LevelOf(_faction, levelLadderId));
             }
             Apply(want == 1, level, weapon, tech, instant, quiver);
         }
@@ -132,6 +131,13 @@ namespace TheWaningBorder.Rendering
                 bool wave = !instant && from != null && to != null && from != to;
                 SetAll(agedKit ? aged : firstAge, true);
                 if (!wave) SetAll(agedKit ? firstAge : aged, false);
+                else
+                {
+                    // The wave takes the first object of the old set; its other
+                    // pieces (the spear in the hand) go at once.
+                    var old = agedKit ? firstAge : aged;
+                    for (int i = 1; i < old.Length; i++) if (old[i] != null) old[i].SetActive(false);
+                }
                 _shown = kit;
                 // The gear rides on the kit it belongs to: set it before the
                 // kit appears, so the wave reveals the right pieces.
@@ -185,6 +191,25 @@ namespace TheWaningBorder.Rendering
             if (to != null) to.SetActive(true);
             if (wave) BuildingDissolveTransition.Begin(from, to, DissolveSeconds, EdgeColor(), destroyOldOnComplete: false);
             shown = want;
+        }
+
+        // ONE LOOKUP PER FACTION, NOT PER UNIT (2026-11-26). The level read
+        // copies data out of the ECS world, which waits for running jobs; 700
+        // soldiers asking twice a second cost ~6 ms a frame in a late match.
+        // Every unit of a faction gets the same answer, so it is asked once a
+        // quarter second per faction and ladder and shared.
+        const float CacheSeconds = 0.25f;
+        static readonly System.Collections.Generic.Dictionary<(Faction, string), (float until, int level)> _levels = new();
+
+        static int LevelOf(Faction faction, string ladder)
+        {
+            float now = Time.unscaledTime;
+            if (_levels.TryGetValue((faction, ladder), out var c) && now < c.until && now >= c.until - CacheSeconds * 2f) return c.level;
+            int level = 1;
+            var world = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (world != null && world.IsCreated) level = FactionBuildingLevels.Get(world.EntityManager, faction, ladder);
+            _levels[(faction, ladder)] = (now + CacheSeconds, level);
+            return level;
         }
 
         Color EdgeColor() => FactionColors.Get(_faction);

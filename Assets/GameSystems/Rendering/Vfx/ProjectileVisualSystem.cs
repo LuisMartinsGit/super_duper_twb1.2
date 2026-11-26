@@ -351,19 +351,9 @@ namespace TheWaningBorder.Rendering
                 // separate rule would be inventing one the design does not have.
                 if (isPlainArrow)
                 {
-                    bool hasProj = _em.HasComponent<Projectile>(entity);
-                    var projData = hasProj ? _em.GetComponentData<Projectile>(entity) : default;
-                    var shooter = hasProj ? projData.Faction : Faction.Blue;
-                    var tier = ArrowTrailTiers.Of(shooter);
-                    // Ballista bolts (siege damage on the arrow template) keep
-                    // the original trail ladder; arrows get the arrow look —
-                    // white / blue trail, or a projectile effect for a head.
-                    if (hasProj && projData.DmgType == DamageType.Siege)
-                    {
-                        if (spawnTrail != null) ArrowTrailTiers.Apply(spawnTrail, tier);
-                        ArrowTrailTiers.ApplyArrow(go, null, ArrowTrailTier.None);   // plain head back on a recycled arrow
-                    }
-                    else ArrowTrailTiers.ApplyArrow(go, spawnTrail, tier);
+                    // A plain arrow whatever the tier: no trail and no effect for a
+                    // head (developer, 2026-11-25: no effects on normal attacks).
+                    ArrowTrailTiers.ApplyArrow(go, spawnTrail, ArrowTrailTier.None);
                     // Dressed for this flight; now hide the trail + tip for the
                     // spawn frame so the jump back to the bow draws nothing.
                     ArrowTrailTiers.HideForOneFrame(go, spawnTrail);

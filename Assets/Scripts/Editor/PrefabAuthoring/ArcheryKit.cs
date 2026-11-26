@@ -248,11 +248,16 @@ namespace TheWaningBorder.EditorTools
             var head = L.Bone(rig, "Head", log);
             var hand = L.Bone(rig, "Hand_R", log);
             var kit = Kit(root, rig);
-            kit.bodies = OnePerLevel(3, l => Body(rig, "Archer_Body_L" + l, GoldOf(l), ArcherBody(l), log));
-            kit.helmets = OnePerLevel(3, l => Piece("Archer_Head_L" + l, head, Vector3.zero, Vector3.zero, GoldOf(l), ArcherHead(l), log));
+            kit.bodies = OnePerLevel(3, l =>
+            {
+                var b = Body(rig, "Archer_Body_L" + l, GoldOf(l), ArcherBody(l), log);
+                Weld(b, rig, Piece("Archer_Head_L" + l, head, Vector3.zero, Vector3.zero, GoldOf(l), ArcherHead(l), log));
+                return b;
+            });
             kit.weapons = OnePerLevel(3, t => Piece("Bow_T" + (t - 1), hand, BowAt, BowTurn, GoldOf(t), Bow(t - 1), log));
             kit.weaponTechs = new[] { "RecurveBows", "CompoundBows" };
             kit.quivers = Quivers(root, rig, false, false, log);
+            Finish(rig);
             return root;
         }
 
@@ -266,15 +271,14 @@ namespace TheWaningBorder.EditorTools
             // Trained from level 2 on: levels 1 and 2 share the look.
             var b2 = Body(rig, "Crossbow_Body_L2", Role.Brass, CrossbowBody(2), log);
             var b3 = Body(rig, "Crossbow_Body_L3", Role.Gold, CrossbowBody(3), log);
-            var h2 = Piece("Crossbow_Head_L2", head, Vector3.zero, Vector3.zero, Role.Brass, CrossbowHead(2), log);
-            var h3 = Piece("Crossbow_Head_L3", head, Vector3.zero, Vector3.zero, Role.Gold, CrossbowHead(3), log);
+            Weld(b2, rig, Piece("Crossbow_Head_L2", head, Vector3.zero, Vector3.zero, Role.Brass, CrossbowHead(2), log));
+            Weld(b3, rig, Piece("Crossbow_Head_L3", head, Vector3.zero, Vector3.zero, Role.Gold, CrossbowHead(3), log));
             b3.SetActive(false);
-            h3.SetActive(false);
             kit.bodies = new[] { b2, b2, b3 };
-            kit.helmets = new[] { h2, h2, h3 };
             kit.weapons = OnePerLevel(4, t => Piece("Crossbow_A" + (t - 1), hand, CrossAt, CrossTurn, GoldOfTier(t - 1), Crossbow(t - 1), log));
             kit.weaponTechs = ArrowTechs;
             kit.quivers = Quivers(root, rig, true, true, log);
+            Finish(rig);
             return root;
         }
 
@@ -284,9 +288,10 @@ namespace TheWaningBorder.EditorTools
             var rig = L.Skeleton("Body", root.transform, c);
             var kit = Kit(root, rig);
             kit.bodies = new[] { Body(rig, "Yumi_Body", Role.Gold, YumiBody(), log) };
-            kit.helmets = new[] { Piece("Yumi_Head", L.Bone(rig, "Head", log), Vector3.zero, Vector3.zero, Role.Gold, YumiHead(), log) };
+            Weld(kit.bodies[0], rig, Piece("Yumi_Head", L.Bone(rig, "Head", log), Vector3.zero, Vector3.zero, Role.Gold, YumiHead(), log));
             kit.weapons = new[] { Piece("Yumi", L.Bone(rig, "Hand_L", log), YumiAt, YumiTurn, Role.Gold, Yumi(), log) };
             kit.quivers = Quivers(root, rig, true, false, log);
+            Finish(rig);
             return root;
         }
 
@@ -297,6 +302,7 @@ namespace TheWaningBorder.EditorTools
                 float body = L.BodyHeight(go);
                 float want = L.UnitHeight;
                 go.transform.localScale = Vector3.one * (want / body);
+                Grow(go);
                 log.AppendLine($"{unit}: body {body:0.000} -> root scale {want / body:0.000}");
                 var saved = PrefabUtility.SaveAsPrefabAsset(go, dir + unit + ".prefab");
                 var so = AssetDatabase.LoadMainAssetAtPath(dir + unit + ".asset");
@@ -364,7 +370,7 @@ namespace TheWaningBorder.EditorTools
                         var kit = go.GetComponent<UnitAgeKit>();
                         kit.Apply(true, states[i].level, states[i].weapon, 0, instant: true, quiver: states[i].quiver);
                         go.GetComponent<UnitPlayerColor>().Apply(new Color(0.12f, 0.35f, 0.85f));
-                        var shown = kit.aged[0];
+                        var shown = Rig(kit);
                         clip.SampleAnimation(shown, clip.length * i / (states.Length - 1f) * 0.98f);
                         shown.transform.localPosition = Vector3.zero;
                         shown.transform.localRotation = Quaternion.identity;

@@ -1411,8 +1411,11 @@ unique; levels and weapon tiers must show; the gold shines as on buildings.
   `eliteScale` larger (`UnitWorldScale.asset`; every hero and every sect unit,
   any culture, the Ledger included). Only their weapon changes, with the
   Garrison's weapon techs (ranged ones: the arrow techs).
-- King Lexor's rider is a kit figure; his horse is still the code-built one (no
-  pack has a horse).
+- **Mounted units** (`CavalryKit.cs`): kit riders on the LP Horse pack's horse
+  (not in git; re-import it like the Synty kits). The Outrider's armour follows
+  the Royal Stable's level; lances follow the lance techs and the horse's barding
+  the barding techs (Outrider and Cataphract). King Lexor rides a white horse in
+  gold barding, his sword following the Garrison's weapon techs.
 - Veilstone and shard weapons are emissive (palette roles `Veil`, `Shard`).
 - Code: `ArcheryKit.cs`, `EliteKit.cs` beside `InfantryKit.cs`; any *Author ...*
   menu item writes all of them, because they share one palette.

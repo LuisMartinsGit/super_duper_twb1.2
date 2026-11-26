@@ -38,6 +38,9 @@ namespace TheWaningBorder.Core.Diagnostics
         private static int _cursor;
         private static bool _installed;
 
+        /// <summary>One phase of the previous complete frame, in ms (the order below; 7 = Tail).</summary>
+        public static double LastMs(int phase) => _lastMs[phase];
+
         /// <summary>The previous COMPLETE frame's phase durations, in ms:
         /// Init, EarlyUpdate, FixedUpdate, PreUpdate, Update, PreLateUpdate,
         /// PostLateUpdate (includes render submission), and Tail (from the end

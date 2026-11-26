@@ -122,8 +122,12 @@ namespace TheWaningBorder.EditorTools
                 extraScriptingDefines = new[] { "TWB_EDITION_" + edition },
                 // -twbDevelopment: a profiling player (ENABLE_PROFILER on, so
                 // EcsSystemProfiler can time every system). Never shipped.
-                options = DevelopmentOnce || Array.IndexOf(Environment.GetCommandLineArgs(), "-twbDevelopment") >= 0
-                    ? BuildOptions.Development : BuildOptions.None,
+                options = (DevelopmentOnce || Array.IndexOf(Environment.GetCommandLineArgs(), "-twbDevelopment") >= 0
+                    ? BuildOptions.Development : BuildOptions.None)
+                    // -twbDeepProfile: every C# method gets a profiler marker (run the player
+                    // with -deepprofiling), so a slow script can be named. Slow; never shipped.
+                    | (Array.IndexOf(Environment.GetCommandLineArgs(), "-twbDeepProfile") >= 0
+                    ? BuildOptions.Development | BuildOptions.EnableDeepProfilingSupport : BuildOptions.None),
             };
 
             // The edition rides in the version string ("0.0.41B"), so the

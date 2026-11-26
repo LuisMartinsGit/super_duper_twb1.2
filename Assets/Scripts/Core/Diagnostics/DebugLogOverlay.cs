@@ -15,8 +15,11 @@
 //
 // Behaviour:
 //   * F1 toggles. Shift+F1 clears.
-//   * Auto-opens the first time an Error/Exception/Assert arrives, so a hang
-//     shows its cause without the player knowing any hotkey.
+//   * Auto-opens the first time an Error/Exception/Assert arrives WHILE A
+//     MATCH IS LOADING, so a hang shows its cause without the player knowing
+//     any hotkey. Once the match runs it stays shut and the hint counts the
+//     errors (2026-11-26): open, its IMGUI layout of 400 rows cost ~8 ms a
+//     frame, and one harmless error late in a match used to open it for good.
 //   * Keeps the last MaxEntries messages in a ring; errors keep their stack.
 //   * "Copy all" puts the buffer on the system clipboard for pasting into a
 //     bug report.
@@ -120,7 +123,7 @@ namespace TheWaningBorder.Core.Diagnostics
                     if (e.Type == LogType.Warning) _warningCount++;
                     else if (IsProblem(e.Type)) _errorCount++;
 
-                    if (IsProblem(e.Type) && !_autoShown)
+                    if (IsProblem(e.Type) && !_autoShown && TheWaningBorder.Core.PresentationState.LoadingOverlayVisible)
                     {
                         _autoShown = true;
                         _visible = true;

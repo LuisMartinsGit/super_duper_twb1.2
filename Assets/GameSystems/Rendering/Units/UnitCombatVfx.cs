@@ -1,10 +1,11 @@
 // UnitCombatVfx.cs
 // Combat effects on units (docs/Design/Vfx_Assignments.md §1):
-//   * hits — melee: Hovl Holy hit, or Hovl Stones hit when the attacker was
-//     charging; ballista bolts and special projectiles: Holy hit; ARROWS by
-//     the shooter's arrow-tip tier — none below Veilstone, Lana Hit_dark_magic
-//     on Veilstone, Lana Hit_electric on Shard; drained from CombatVfxSignals,
-//     at most one per unit per hitCooldownSeconds and maxHitsPerFrame overall;
+//   * hits: NORMAL ATTACKS SHOW NOTHING (developer, 2026-11-25: "remove any
+//     visual effects on normal unit attacks") - hitPrefab and the two arrow hit
+//     prefabs are empty on the asset. A CHARGING attacker's hit still shows
+//     (Hovl Stones hit: an ability, not a normal attack). Drained from
+//     CombatVfxSignals, at most one per unit per hitCooldownSeconds and
+//     maxHitsPerFrame overall;
 //   * buff states, looping while they last —
 //       speed up   SpellBuff.SpeedMultiplier above 1   (Lana Fog_speedFast)
 //       slowed     SpellDebuff.SpeedReduction above 0  (Lana Fog_speedSlow)
